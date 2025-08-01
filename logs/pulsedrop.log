@@ -1,0 +1,1076 @@
+2025-08-01 04:13:50 - INFO - [INFO] Settings loaded successfully
+2025-08-01 04:13:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:13:50 - INFO - [INFO] Auto-scan started
+2025-08-01 04:13:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:13:51 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:13:52 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:13:56 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:13:57 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:13:57 - INFO - [INFO] Scan complete. Found 28 device(s)
+2025-08-01 04:13:57 - INFO - [INFO] Updated device list: 28 devices
+2025-08-01 04:13:57 - INFO - [NETWORK] Scan found 28 devices in 6.90s
+2025-08-01 04:13:57 - INFO - [PERFORMANCE] Device scan took 6.898s
+2025-08-01 04:14:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:14:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:14:21 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:14:26 - INFO - [INFO] Scan complete. Found 28 device(s)
+2025-08-01 04:14:26 - INFO - [INFO] Updated device list: 28 devices
+2025-08-01 04:14:26 - INFO - [NETWORK] Scan found 28 devices in 6.28s
+2025-08-01 04:14:26 - INFO - [PERFORMANCE] Device scan took 6.279s
+2025-08-01 04:14:26 - INFO - [INFO] Updated device list: 28 devices
+2025-08-01 04:14:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:14:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:14:51 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:14:56 - INFO - [INFO] Scan complete. Found 29 device(s)
+2025-08-01 04:14:56 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:14:56 - INFO - [NETWORK] Scan found 29 devices in 6.26s
+2025-08-01 04:14:56 - INFO - [PERFORMANCE] Device scan took 6.257s
+2025-08-01 04:14:56 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:15:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:15:20 - INFO - [INFO] Using cached device list (29 devices)
+2025-08-01 04:15:20 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:15:20 - INFO - [NETWORK] Scan found 29 devices in 0.00s
+2025-08-01 04:15:20 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:15:20 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:15:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:15:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:15:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:15:51 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:15:51 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:15:51 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:15:51 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:15:51 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:15:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:15:56 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:15:56 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:15:56 - INFO - [NETWORK] Scan found 32 devices in 5.87s
+2025-08-01 04:15:56 - INFO - [PERFORMANCE] Device scan took 5.873s
+2025-08-01 04:15:56 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:16:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:16:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:16:20 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:16:25 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:16:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:16:25 - INFO - [NETWORK] Scan found 31 devices in 5.81s
+2025-08-01 04:16:25 - INFO - [PERFORMANCE] Device scan took 5.806s
+2025-08-01 04:16:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:16:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:16:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:16:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:16:55 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:16:55 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:16:55 - INFO - [NETWORK] Scan found 31 devices in 5.78s
+2025-08-01 04:16:55 - INFO - [PERFORMANCE] Device scan took 5.776s
+2025-08-01 04:16:55 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:17:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:17:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:17:21 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:17:26 - INFO - [INFO] Scan complete. Found 30 device(s)
+2025-08-01 04:17:26 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:17:26 - INFO - [NETWORK] Scan found 30 devices in 5.97s
+2025-08-01 04:17:26 - INFO - [PERFORMANCE] Device scan took 5.967s
+2025-08-01 04:17:26 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:17:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:17:50 - INFO - [INFO] Using cached device list (30 devices)
+2025-08-01 04:17:50 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:17:50 - INFO - [NETWORK] Scan found 30 devices in 0.00s
+2025-08-01 04:17:50 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:17:50 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:18:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:18:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:18:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:18:25 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:18:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:18:25 - INFO - [NETWORK] Scan found 31 devices in 5.83s
+2025-08-01 04:18:25 - INFO - [PERFORMANCE] Device scan took 5.831s
+2025-08-01 04:18:26 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:18:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:18:50 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:18:50 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:18:50 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:18:50 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:18:50 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:18:57 - INFO - [INFO] Starting device scan...
+2025-08-01 04:18:57 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:18:57 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:19:02 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:19:02 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:19:02 - INFO - [NETWORK] Scan found 31 devices in 5.98s
+2025-08-01 04:19:02 - INFO - [PERFORMANCE] Device scan took 5.976s
+2025-08-01 04:19:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:19:20 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:19:20 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:19:20 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:19:20 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:19:20 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:19:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:19:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:19:50 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:19:55 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:19:55 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:19:55 - INFO - [NETWORK] Scan found 32 devices in 5.83s
+2025-08-01 04:19:55 - INFO - [PERFORMANCE] Device scan took 5.827s
+2025-08-01 04:19:55 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:20:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:20:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:20:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:20:25 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:20:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:20:25 - INFO - [NETWORK] Scan found 31 devices in 5.81s
+2025-08-01 04:20:25 - INFO - [PERFORMANCE] Device scan took 5.814s
+2025-08-01 04:20:26 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:20:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:20:50 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:20:50 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:20:50 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:20:50 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:20:50 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:21:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:21:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:21:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:21:25 - INFO - [INFO] Scan complete. Found 30 device(s)
+2025-08-01 04:21:25 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:21:25 - INFO - [NETWORK] Scan found 30 devices in 5.85s
+2025-08-01 04:21:25 - INFO - [PERFORMANCE] Device scan took 5.855s
+2025-08-01 04:21:26 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:21:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:21:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:21:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:21:55 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:21:55 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:21:55 - INFO - [NETWORK] Scan found 31 devices in 5.84s
+2025-08-01 04:21:55 - INFO - [PERFORMANCE] Device scan took 5.840s
+2025-08-01 04:21:56 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:22:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:22:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:22:20 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:22:25 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:22:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:22:25 - INFO - [NETWORK] Scan found 31 devices in 5.80s
+2025-08-01 04:22:25 - INFO - [PERFORMANCE] Device scan took 5.803s
+2025-08-01 04:22:25 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:22:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:22:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:22:50 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:22:51 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:22:51 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:22:51 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:22:51 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:22:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:22:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:22:56 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:22:56 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:22:56 - INFO - [NETWORK] Scan found 32 devices in 5.87s
+2025-08-01 04:22:56 - INFO - [PERFORMANCE] Device scan took 5.867s
+2025-08-01 04:22:56 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:23:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:23:20 - INFO - [INFO] Using cached device list (32 devices)
+2025-08-01 04:23:20 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:23:20 - INFO - [NETWORK] Scan found 32 devices in 0.00s
+2025-08-01 04:23:20 - INFO - [PERFORMANCE] Device scan took 0.002s
+2025-08-01 04:23:20 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:23:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:23:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:23:50 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:23:51 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:23:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:23:56 - INFO - [INFO] Scan complete. Found 30 device(s)
+2025-08-01 04:23:56 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:23:56 - INFO - [NETWORK] Scan found 30 devices in 5.86s
+2025-08-01 04:23:56 - INFO - [PERFORMANCE] Device scan took 5.860s
+2025-08-01 04:23:56 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:24:02 - INFO - [INFO] Starting device scan...
+2025-08-01 04:24:02 - INFO - [INFO] Using cached device list (30 devices)
+2025-08-01 04:24:02 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:24:02 - INFO - [NETWORK] Scan found 30 devices in 0.00s
+2025-08-01 04:24:02 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:24:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:24:20 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:24:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:24:21 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:24:25 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:24:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:24:26 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:24:26 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:24:26 - INFO - [NETWORK] Scan found 32 devices in 5.91s
+2025-08-01 04:24:26 - INFO - [PERFORMANCE] Device scan took 5.913s
+2025-08-01 04:24:26 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:24:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:24:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:24:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:24:55 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:24:55 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:24:55 - INFO - [NETWORK] Scan found 31 devices in 5.84s
+2025-08-01 04:24:55 - INFO - [PERFORMANCE] Device scan took 5.835s
+2025-08-01 04:24:56 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:25:20 - INFO - [INFO] Starting device scan...
+2025-08-01 04:25:20 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:25:20 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:25:20 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:25:20 - INFO - [PERFORMANCE] Device scan took 0.002s
+2025-08-01 04:25:20 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:25:50 - INFO - [INFO] Starting device scan...
+2025-08-01 04:25:50 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:25:50 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:25:55 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:25:55 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:25:55 - INFO - [NETWORK] Scan found 32 devices in 5.84s
+2025-08-01 04:25:55 - INFO - [PERFORMANCE] Device scan took 5.843s
+2025-08-01 04:25:56 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:25:56 - INFO - [INFO] Starting application shutdown...
+2025-08-01 04:25:56 - INFO - [INFO] Stopped update timer
+2025-08-01 04:25:56 - INFO - [INFO] Stopped device list updates
+2025-08-01 04:25:56 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 04:25:56 - INFO - [INFO] Stopped graph updates
+2025-08-01 04:25:59 - INFO - [INFO] Controller shutdown completed
+2025-08-01 04:25:59 - INFO - [INFO] Application shutdown complete
+2025-08-01 04:25:59 - INFO - [INFO] Starting application shutdown...
+2025-08-01 04:25:59 - INFO - [INFO] Stopped update timer
+2025-08-01 04:25:59 - INFO - [INFO] Stopped device list updates
+2025-08-01 04:25:59 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 04:25:59 - INFO - [INFO] Stopped graph updates
+2025-08-01 04:26:01 - INFO - [INFO] Auto-scan stopped
+2025-08-01 04:26:01 - ERROR - [ERROR] Error disabling smart mode: 'bool' object is not callable
+2025-08-01 04:26:01 - INFO - [INFO] Controller shutdown complete
+2025-08-01 04:26:02 - INFO - [INFO] Controller shutdown completed
+2025-08-01 04:26:02 - INFO - [INFO] Application shutdown complete
+2025-08-01 04:38:57 - INFO - [INFO] Settings loaded successfully
+2025-08-01 04:38:57 - INFO - [INFO] Starting device scan...
+2025-08-01 04:38:57 - INFO - [INFO] Auto-scan started
+2025-08-01 04:38:57 - INFO - [INFO] Hacker theme applied successfully
+2025-08-01 04:38:57 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:38:58 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:39:03 - INFO - [INFO] Scan complete. Found 29 device(s)
+2025-08-01 04:39:03 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:39:03 - INFO - [NETWORK] Scan found 29 devices in 6.38s
+2025-08-01 04:39:03 - INFO - [PERFORMANCE] Device scan took 6.380s
+2025-08-01 04:39:24 - INFO - [INFO] Starting device scan...
+2025-08-01 04:39:24 - INFO - [INFO] Using cached device list (29 devices)
+2025-08-01 04:39:24 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:39:24 - INFO - [NETWORK] Scan found 29 devices in 0.00s
+2025-08-01 04:39:24 - INFO - [PERFORMANCE] Device scan took 0.002s
+2025-08-01 04:39:24 - INFO - [INFO] Updated device list: 29 devices
+2025-08-01 04:39:27 - INFO - [INFO] Starting device scan...
+2025-08-01 04:39:27 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:39:27 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:39:32 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:39:32 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:39:32 - INFO - [NETWORK] Scan found 31 devices in 5.83s
+2025-08-01 04:39:32 - INFO - [PERFORMANCE] Device scan took 5.829s
+2025-08-01 04:39:33 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:39:57 - INFO - [INFO] Starting device scan...
+2025-08-01 04:39:57 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:39:57 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:39:57 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:39:57 - INFO - [PERFORMANCE] Device scan took 0.002s
+2025-08-01 04:39:57 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:40:11 - INFO - [INFO] Selected device: 192.168.1.106 (Unknown)
+2025-08-01 04:40:11 - INFO - [INFO] Selected device: 192.168.1.106
+2025-08-01 04:40:11 - INFO - [INFO] Selected device: 192.168.1.106 (Unknown)
+2025-08-01 04:40:11 - INFO - [INFO] Selected device: 192.168.1.106
+2025-08-01 04:40:16 - INFO - [INFO] Selected device: 192.168.1.114 (Unknown)
+2025-08-01 04:40:16 - INFO - [INFO] Selected device: 192.168.1.114
+2025-08-01 04:40:16 - INFO - [INFO] Selected device: 192.168.1.114 (Unknown)
+2025-08-01 04:40:16 - INFO - [INFO] Selected device: 192.168.1.114
+2025-08-01 04:40:19 - INFO - [INFO] Starting device scan...
+2025-08-01 04:40:19 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:40:20 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:40:25 - INFO - [INFO] Scan complete. Found 30 device(s)
+2025-08-01 04:40:25 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:25 - INFO - [NETWORK] Scan found 30 devices in 5.85s
+2025-08-01 04:40:25 - INFO - [PERFORMANCE] Device scan took 5.847s
+2025-08-01 04:40:25 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:25 - INFO - [INFO] Starting device scan...
+2025-08-01 04:40:25 - INFO - [INFO] Using cached device list (30 devices)
+2025-08-01 04:40:25 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:25 - INFO - [NETWORK] Scan found 30 devices in 0.00s
+2025-08-01 04:40:25 - INFO - [PERFORMANCE] Device scan took 0.003s
+2025-08-01 04:40:25 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:27 - INFO - [INFO] Starting device scan...
+2025-08-01 04:40:27 - INFO - [INFO] Using cached device list (30 devices)
+2025-08-01 04:40:27 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:27 - INFO - [NETWORK] Scan found 30 devices in 0.01s
+2025-08-01 04:40:27 - INFO - [PERFORMANCE] Device scan took 0.007s
+2025-08-01 04:40:27 - INFO - [INFO] Updated device list: 30 devices
+2025-08-01 04:40:57 - INFO - [INFO] Starting device scan...
+2025-08-01 04:40:57 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:40:57 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:41:02 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:41:02 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:41:02 - INFO - [NETWORK] Scan found 31 devices in 5.80s
+2025-08-01 04:41:02 - INFO - [PERFORMANCE] Device scan took 5.803s
+2025-08-01 04:41:02 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:41:03 - INFO - [INFO] Starting application shutdown...
+2025-08-01 04:41:03 - INFO - [INFO] Stopped update timer
+2025-08-01 04:41:03 - INFO - [INFO] Stopped device list updates
+2025-08-01 04:41:03 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 04:41:03 - INFO - [INFO] Stopped graph updates
+2025-08-01 04:46:51 - INFO - [INFO] Settings loaded successfully
+2025-08-01 04:46:51 - INFO - [INFO] Starting device scan...
+2025-08-01 04:46:51 - INFO - [INFO] Auto-scan started
+2025-08-01 04:46:51 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:46:51 - INFO - [INFO] Hacker theme applied successfully
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:46:52 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.205 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:46:57 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:46:58 - INFO - [INFO] Scan complete. Found 32 device(s)
+2025-08-01 04:46:58 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:46:58 - INFO - [NETWORK] Scan found 32 devices in 6.18s
+2025-08-01 04:46:58 - INFO - [PERFORMANCE] Device scan took 6.179s
+2025-08-01 04:47:15 - INFO - [INFO] Starting device scan...
+2025-08-01 04:47:15 - INFO - [INFO] Using cached device list (32 devices)
+2025-08-01 04:47:15 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:47:15 - INFO - [NETWORK] Scan found 32 devices in 0.00s
+2025-08-01 04:47:15 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 04:47:15 - INFO - [INFO] Updated device list: 32 devices
+2025-08-01 04:47:22 - INFO - [INFO] Starting device scan...
+2025-08-01 04:47:22 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 04:47:23 - INFO - [INFO] Found device: 192.168.1.114 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.146 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.118 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 04:47:28 - INFO - [INFO] Scan complete. Found 31 device(s)
+2025-08-01 04:47:28 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:47:28 - INFO - [NETWORK] Scan found 31 devices in 5.95s
+2025-08-01 04:47:28 - INFO - [PERFORMANCE] Device scan took 5.949s
+2025-08-01 04:47:28 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:47:30 - INFO - [INFO] Search filter applied: 31 devices match criteria
+2025-08-01 04:47:30 - INFO - [INFO] Search field changed to: Hostname
+2025-08-01 04:47:38 - INFO - [INFO] Search filter applied: 31 devices match criteria
+2025-08-01 04:47:38 - INFO - [INFO] Search field changed to: All Fields
+2025-08-01 04:47:41 - INFO - [INFO] Search filter applied: 15 devices match criteria
+2025-08-01 04:47:42 - INFO - [INFO] Search filter applied: 1 devices match criteria
+2025-08-01 04:47:49 - INFO - [INFO] Search filter applied: 0 devices match criteria
+2025-08-01 04:47:51 - INFO - [INFO] Search filter applied: 1 devices match criteria
+2025-08-01 04:47:52 - INFO - [INFO] Starting device scan...
+2025-08-01 04:47:52 - INFO - [INFO] Using cached device list (31 devices)
+2025-08-01 04:47:52 - INFO - [INFO] Updated device list: 31 devices
+2025-08-01 04:47:52 - INFO - [NETWORK] Scan found 31 devices in 0.00s
+2025-08-01 04:47:52 - INFO - [PERFORMANCE] Device scan took 0.004s
+2025-08-01 04:47:52 - INFO - [INFO] Search filter applied: 1 devices match criteria
+2025-08-01 04:48:00 - INFO - [INFO] Search filter applied: 15 devices match criteria
+2025-08-01 04:48:00 - INFO - [INFO] Search filter applied: 31 devices match criteria
+2025-08-01 04:48:07 - INFO - [INFO] Starting application shutdown...
+2025-08-01 04:48:07 - INFO - [INFO] Stopped update timer
+2025-08-01 04:48:08 - INFO - [INFO] Stopped device list updates
+2025-08-01 04:48:08 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 04:48:08 - INFO - [INFO] Stopped graph updates
+2025-08-01 04:48:11 - INFO - [INFO] Controller shutdown completed
+2025-08-01 04:48:11 - INFO - [INFO] Application shutdown complete

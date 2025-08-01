@@ -1,0 +1,7 @@
+{
+  "smart_mode": true,
+  "auto_scan": true,
+  "scan_interval": 300,
+  "max_devices": 100,
+  "log_level": "INFO"
+}
