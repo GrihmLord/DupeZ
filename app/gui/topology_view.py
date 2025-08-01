@@ -4,10 +4,10 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGraphicsView,
                               QGraphicsScene, QGraphicsItem, QGraphicsEllipseItem,
                               QGraphicsTextItem, QGraphicsLineItem, QGraphicsRectItem,
                               QPushButton, QLabel, QComboBox, QSlider, QGroupBox,
-                              QFormLayout, QSpinBox, QCheckBox, QMenu, QAction,
+                              QFormLayout, QSpinBox, QCheckBox, QMenu,
                               QToolTip, QMessageBox, QFileDialog)
+from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath, QRadialGradient, QAction
 from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath, QRadialGradient
 from typing import Dict, List, Optional, Tuple, Any
 import math
 import json
