@@ -8,6 +8,8 @@ from app.firewall import blocker
 from app.logs.logger import log_info, log_error, log_performance, log_network_scan, log_device_action
 from app.core.state import AppState, Device, AppSettings
 from app.core.smart_mode import smart_mode, enable_smart_mode, disable_smart_mode, get_smart_mode_status
+from app.core.traffic_analyzer import AdvancedTrafficAnalyzer
+from app.plugins.plugin_manager import PluginManager
 
 class AppController:
     def __init__(self):
@@ -16,8 +18,15 @@ class AppController:
         self.stop_scanning = False
         self.auto_scan_enabled = True
         
+        # Initialize advanced features
+        self.traffic_analyzer = None
+        self.plugin_manager = None
+        
         # Initialize smart mode
         self.state.add_observer(self._on_state_change)
+        
+        # Initialize advanced features
+        self._init_advanced_features()
         
         # Start auto-scan if enabled
         if self.state.settings.auto_scan:
@@ -279,6 +288,73 @@ class AppController:
             except Exception as e:
                 log_error(f"Error unblocking devices: {e}")
             
+            # Shutdown advanced features
+            try:
+                if self.traffic_analyzer:
+                    self.traffic_analyzer.stop_analysis()
+                
+                if self.plugin_manager:
+                    self.plugin_manager.cleanup()
+            except Exception as e:
+                log_error(f"Error shutting down advanced features: {e}")
+            
             log_info("Controller shutdown complete")
         except Exception as e:
             log_error(f"Error during shutdown: {e}")
+    
+    def _init_advanced_features(self):
+        """Initialize advanced features"""
+        try:
+            # Initialize traffic analyzer
+            self.traffic_analyzer = AdvancedTrafficAnalyzer()
+            self.traffic_analyzer.start_analysis()
+            log_info("Advanced traffic analyzer initialized")
+            
+            # Initialize plugin manager
+            self.plugin_manager = PluginManager()
+            log_info("Plugin manager initialized")
+            
+        except Exception as e:
+            log_error(f"Failed to initialize advanced features: {e}")
+    
+    def get_traffic_analysis(self) -> Dict:
+        """Get traffic analysis data"""
+        if self.traffic_analyzer:
+            return self.traffic_analyzer.get_network_overview()
+        return {}
+    
+    def get_plugin_info(self) -> List:
+        """Get plugin information"""
+        if self.plugin_manager:
+            return self.plugin_manager.get_plugin_info()
+        return []
+    
+    def enable_plugin(self, plugin_name: str) -> bool:
+        """Enable a plugin"""
+        if self.plugin_manager:
+            return self.plugin_manager.enable_plugin(plugin_name)
+        return False
+    
+    def disable_plugin(self, plugin_name: str) -> bool:
+        """Disable a plugin"""
+        if self.plugin_manager:
+            return self.plugin_manager.disable_plugin(plugin_name)
+        return False
+    
+    def create_plugin_template(self, plugin_name: str, category: str = "General") -> str:
+        """Create a new plugin template"""
+        if self.plugin_manager:
+            return self.plugin_manager.create_plugin_template(plugin_name, category)
+        return ""
+    
+    def export_traffic_report(self, filename: str = None) -> str:
+        """Export traffic analysis report"""
+        if self.traffic_analyzer:
+            return self.traffic_analyzer.export_traffic_report(filename)
+        return ""
+    
+    def get_traffic_recommendations(self) -> List[str]:
+        """Get traffic analysis recommendations"""
+        if self.traffic_analyzer:
+            return self.traffic_analyzer.get_recommendations()
+        return []

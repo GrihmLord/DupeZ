@@ -24,6 +24,22 @@ A powerful network lag control and device management tool designed for advanced 
 - **Event-driven Architecture**: Real-time updates and notifications
 - **Hotkey Support**: Quick access to all lagswitch functions
 
+### 🔍 Advanced Analysis Features
+- **Real-time Traffic Analysis**: Deep packet inspection and bandwidth monitoring
+- **Network Topology Visualization**: Interactive network map with device relationships
+- **Anomaly Detection**: Automatic detection of suspicious network activity
+- **Traffic Pattern Analysis**: Identify burst, steady, and periodic traffic patterns
+- **Risk Scoring**: Intelligent risk assessment for network devices
+- **Comprehensive Reporting**: Export detailed traffic and security reports
+
+### 🔌 Plugin System
+- **Custom Rules Engine**: Create custom blocking and monitoring rules
+- **Plugin Manager**: Easy plugin installation, enabling, and management
+- **Gaming Control Plugin**: Advanced gaming device management with time-based restrictions
+- **Extensible Architecture**: Build your own plugins for specialized functionality
+- **Rule Conditions**: Time-based, device-type, traffic threshold, and IP range conditions
+- **Automated Actions**: Block, unblock, alert, and log based on custom rules
+
 ## 📋 Requirements
 
 - Windows 10/11
@@ -32,21 +48,36 @@ A powerful network lag control and device management tool designed for advanced 
 
 ## 🛠️ Installation
 
-### 1. Clone the Repository
+### Option 1: Run from Source
+
+#### 1. Clone the Repository
 ```bash
 git clone https://github.com/yourusername/PulseDropPro.git
 cd PulseDropPro
 ```
 
-### 2. Install Dependencies
+#### 2. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Run the Application
+#### 3. Run the Application
 ```bash
 python run.py
 ```
+
+### Option 2: Use the Executable (Recommended)
+
+#### 1. Build the Executable
+```bash
+python -m PyInstaller PulseDropPro.spec
+```
+
+#### 2. Run the Executable
+- Double-click `dist\PulseDropPro.exe`
+- Or use the batch file: `run_pulsedrop.bat`
+
+**Note**: The executable requires Administrator privileges for firewall control.
 
 ## 🎮 Usage
 
@@ -64,6 +95,10 @@ python run.py
 - `Ctrl+B`: Mass block all devices
 - `Ctrl+U`: Mass unblock all devices
 - `Ctrl+E`: Export device data
+- `Ctrl+F`: Search devices
+- `Ctrl+T`: Traffic analysis
+- `Ctrl+N`: Network topology
+- `Ctrl+P`: Plugin manager
 - `Ctrl+Shift+T`: Toggle sidebar
 - `Ctrl+G`: Toggle graph
 - `Ctrl+C`: Clear data
@@ -204,13 +239,16 @@ For issues and questions:
 
 ## 🎯 Roadmap
 
-- [ ] Settings dialog implementation
-- [ ] Advanced traffic analysis
-- [ ] Network topology visualization
-- [ ] Plugin system for custom rules
+- [x] Settings dialog implementation
+- [x] Advanced traffic analysis
+- [x] Network topology visualization
+- [x] Plugin system for custom rules
+- [x] Advanced reporting features
 - [ ] Mobile companion app
 - [ ] Cloud synchronization
-- [ ] Advanced reporting features
+- [ ] Machine learning-based threat detection
+- [ ] Advanced firewall rules engine
+- [ ] Network performance optimization
 
 ---
 

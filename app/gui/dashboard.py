@@ -1,6 +1,6 @@
 # app/gui/dashboard.py
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QMainWindow, QStatusBar, QDialog, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QMainWindow, QStatusBar, QDialog, QMessageBox, QTabWidget, QSplitter
 from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import Qt, QTimer
 
@@ -8,6 +8,7 @@ from app.gui.sidebar import Sidebar
 from app.gui.device_list import DeviceList
 from app.gui.graph import PacketGraph
 from app.gui.settings_dialog import SettingsDialog
+from app.gui.topology_view import NetworkTopologyView
 from app.logs.logger import log_info, log_error
 import threading
 
@@ -48,23 +49,26 @@ class PulseDropDashboard(QMainWindow):
         self.sidebar.setFixedWidth(300)
         layout.addWidget(self.sidebar)
         
-        # Content area
-        content_layout = QVBoxLayout()
-        content_widget = QWidget()
-        content_widget.setObjectName("content_area")
+        # Content area with tabs
+        self.content_tabs = QTabWidget()
+        self.content_tabs.setObjectName("content_tabs")
         
-        # Device list with enhanced styling
+        # Device list tab
         self.device_list = DeviceList(controller=self.controller)
         self.device_list.setObjectName("device_panel")
-        content_layout.addWidget(self.device_list)
+        self.content_tabs.addTab(self.device_list, "🎯 Device List")
         
-        # Graph with enhanced styling
+        # Network topology tab
+        self.topology_view = NetworkTopologyView()
+        self.topology_view.setObjectName("topology_panel")
+        self.content_tabs.addTab(self.topology_view, "🗺️ Network Topology")
+        
+        # Graph tab
         self.graph = PacketGraph(controller=self.controller)
         self.graph.setObjectName("graph_panel")
-        content_layout.addWidget(self.graph)
+        self.content_tabs.addTab(self.graph, "📊 Traffic Graph")
         
-        content_widget.setLayout(content_layout)
-        layout.addWidget(content_widget)
+        layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)
     
     def apply_hacker_theme(self):
@@ -172,6 +176,29 @@ class PulseDropDashboard(QMainWindow):
         port_scan_action = QAction('&Port Scan', self)
         port_scan_action.triggered.connect(self.port_scan)
         network_menu.addAction(port_scan_action)
+        
+        tools_menu.addSeparator()
+        
+        # Advanced analysis submenu
+        analysis_menu = tools_menu.addMenu('&Advanced Analysis')
+        
+        # Traffic analysis action
+        traffic_analysis_action = QAction('&Traffic Analysis', self)
+        traffic_analysis_action.setShortcut('Ctrl+T')
+        traffic_analysis_action.triggered.connect(self.show_traffic_analysis)
+        analysis_menu.addAction(traffic_analysis_action)
+        
+        # Network topology action
+        topology_action = QAction('&Network Topology', self)
+        topology_action.setShortcut('Ctrl+N')
+        topology_action.triggered.connect(self.show_network_topology)
+        analysis_menu.addAction(topology_action)
+        
+        # Plugin manager action
+        plugin_action = QAction('&Plugin Manager', self)
+        plugin_action.setShortcut('Ctrl+P')
+        plugin_action.triggered.connect(self.show_plugin_manager)
+        analysis_menu.addAction(plugin_action)
         
         # Settings action
         settings_action = QAction('&Settings', self)
@@ -652,7 +679,7 @@ class PulseDropDashboard(QMainWindow):
         try:
             from PyQt6.QtWidgets import QMessageBox
             hotkeys_text = """
-            <h3>PulseDrop Pro - Hotkeys</h3>
+            <h3>PulseDrop Pro - Advanced LagSwitch Tool - Hotkeys</h3>
             <p><b>File Operations:</b></p>
             <ul>
                 <li>Ctrl+S - Scan Network</li>
@@ -667,6 +694,12 @@ class PulseDropDashboard(QMainWindow):
                 <li>Ctrl+F - Search Devices</li>
                 <li>Ctrl+, - Settings</li>
             </ul>
+            <p><b>Advanced Analysis:</b></p>
+            <ul>
+                <li>Ctrl+T - Traffic Analysis</li>
+                <li>Ctrl+N - Network Topology</li>
+                <li>Ctrl+P - Plugin Manager</li>
+            </ul>
             <p><b>View:</b></p>
             <ul>
                 <li>Ctrl+Shift+T - Toggle Sidebar</li>
@@ -680,3 +713,123 @@ class PulseDropDashboard(QMainWindow):
             QMessageBox.information(self, "Hotkeys", hotkeys_text)
         except Exception as e:
             log_error(f"Show hotkeys failed: {e}")
+    
+    def show_traffic_analysis(self):
+        """Show advanced traffic analysis"""
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            
+            # Check if traffic analyzer is available
+            if hasattr(self.controller, 'traffic_analyzer'):
+                # Switch to traffic analysis view
+                self.content_tabs.setCurrentIndex(2)  # Assuming traffic analysis is tab 2
+                self.status_bar.showMessage("Traffic analysis view activated", 2000)
+                log_info("Traffic analysis view opened")
+            else:
+                QMessageBox.information(
+                    self, "Traffic Analysis", 
+                    "Advanced traffic analysis is being initialized. Please wait a moment and try again."
+                )
+        except Exception as e:
+            log_error(f"Show traffic analysis failed: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open traffic analysis: {e}")
+    
+    def show_network_topology(self):
+        """Show network topology view"""
+        try:
+            # Switch to topology view
+            self.content_tabs.setCurrentIndex(1)  # Topology tab
+            self.status_bar.showMessage("Network topology view activated", 2000)
+            log_info("Network topology view opened")
+        except Exception as e:
+            log_error(f"Show network topology failed: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open network topology: {e}")
+    
+    def show_plugin_manager(self):
+        """Show plugin manager dialog"""
+        try:
+            from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QPushButton, QLabel, QTextEdit, QTabWidget, QWidget, QFormLayout, QLineEdit, QComboBox
+            
+            dialog = QDialog(self)
+            dialog.setWindowTitle("🔌 Plugin Manager")
+            dialog.setModal(True)
+            dialog.resize(600, 400)
+            
+            layout = QVBoxLayout()
+            
+            # Create tabs
+            tab_widget = QTabWidget()
+            
+            # Installed plugins tab
+            installed_tab = QWidget()
+            installed_layout = QVBoxLayout()
+            
+            # Plugin list
+            plugin_list = QListWidget()
+            plugin_list.addItem("gaming_control - Gaming device control and management")
+            plugin_list.addItem("No other plugins installed")
+            installed_layout.addWidget(QLabel("Installed Plugins:"))
+            installed_layout.addWidget(plugin_list)
+            
+            # Plugin controls
+            plugin_controls = QHBoxLayout()
+            enable_btn = QPushButton("Enable Plugin")
+            disable_btn = QPushButton("Disable Plugin")
+            reload_btn = QPushButton("Reload Plugin")
+            plugin_controls.addWidget(enable_btn)
+            plugin_controls.addWidget(disable_btn)
+            plugin_controls.addWidget(reload_btn)
+            installed_layout.addLayout(plugin_controls)
+            
+            installed_tab.setLayout(installed_layout)
+            tab_widget.addTab(installed_tab, "Installed")
+            
+            # Create plugin tab
+            create_tab = QWidget()
+            create_layout = QFormLayout()
+            
+            plugin_name = QLineEdit()
+            plugin_category = QComboBox()
+            plugin_category.addItems(["General", "Gaming", "Security", "Monitoring", "Custom"])
+            plugin_description = QTextEdit()
+            plugin_description.setMaximumHeight(100)
+            
+            create_layout.addRow("Plugin Name:", plugin_name)
+            create_layout.addRow("Category:", plugin_category)
+            create_layout.addRow("Description:", plugin_description)
+            
+            create_btn = QPushButton("Create Plugin Template")
+            create_layout.addRow(create_btn)
+            
+            create_tab.setLayout(create_layout)
+            tab_widget.addTab(create_tab, "Create New")
+            
+            layout.addWidget(tab_widget)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            close_btn = QPushButton("Close")
+            close_btn.clicked.connect(dialog.accept)
+            button_layout.addWidget(close_btn)
+            
+            layout.addLayout(button_layout)
+            dialog.setLayout(layout)
+            
+            # Show dialog
+            dialog.exec()
+            log_info("Plugin manager dialog opened")
+            
+        except Exception as e:
+            log_error(f"Show plugin manager failed: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open plugin manager: {e}")
+    
+    def update_topology_view(self):
+        """Update the network topology view with current devices"""
+        try:
+            if hasattr(self, 'topology_view') and self.controller:
+                devices = self.controller.get_devices()
+                if devices:
+                    self.topology_view.update_topology(devices)
+                    log_info(f"Topology view updated with {len(devices)} devices")
+        except Exception as e:
+            log_error(f"Update topology view failed: {e}")
