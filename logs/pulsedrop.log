@@ -1499,3 +1499,1455 @@
 2025-08-01 05:45:54 - INFO - [INFO] Updated device list: 3 devices
 2025-08-01 05:45:54 - INFO - [NETWORK] Scan found 3 devices in 1.16s
 2025-08-01 05:45:54 - INFO - [PERFORMANCE] Device scan took 1.156s
+2025-08-01 05:46:24 - INFO - [INFO] Starting device scan...
+2025-08-01 05:46:24 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:46:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:46:24 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:46:24 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 05:46:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:46:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:46:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:46:54 - INFO - [INFO] Starting device scan...
+2025-08-01 05:46:54 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 05:46:54 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 05:46:54 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 05:46:54 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 05:46:54 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 05:46:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:46:54 - INFO - [NETWORK] Scan found 3 devices in 0.80s
+2025-08-01 05:46:54 - INFO - [PERFORMANCE] Device scan took 0.799s
+2025-08-01 05:46:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:46:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:24 - INFO - [INFO] Starting device scan...
+2025-08-01 05:47:24 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:47:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:47:24 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:47:24 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 05:47:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.22.112
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:47:54 - INFO - [INFO] Starting device scan...
+2025-08-01 05:47:54 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 05:47:54 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 05:47:54 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 05:47:54 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 05:47:54 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 05:47:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:47:54 - INFO - [NETWORK] Scan found 3 devices in 0.70s
+2025-08-01 05:47:54 - INFO - [PERFORMANCE] Device scan took 0.700s
+2025-08-01 05:47:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:47:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:24 - INFO - [INFO] Starting device scan...
+2025-08-01 05:48:24 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:48:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:24 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:48:24 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 05:48:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:26 - INFO - [INFO] Starting device scan...
+2025-08-01 05:48:26 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:48:26 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:26 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:48:26 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 05:48:26 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:30 - INFO - [INFO] Starting device scan...
+2025-08-01 05:48:30 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:48:30 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:30 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:48:30 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 05:48:30 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 48.211.71.194
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:43 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:48 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:53 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:48:54 - INFO - [INFO] Starting device scan...
+2025-08-01 05:48:54 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:48:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:54 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:48:54 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 05:48:54 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 172.67.180.146
+2025-08-01 05:48:58 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.236.97.84
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:03 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:08 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:13 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:18 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:21 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:21 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:21 - INFO - [INFO] Settings saved successfully
+2025-08-01 05:49:21 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:21 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:21 - INFO - [INFO] Setting updated: smart_mode = True
+2025-08-01 05:49:21 - ERROR - [ERROR] Error toggling smart mode: 'bool' object is not callable
+2025-08-01 05:49:22 - INFO - [INFO] Starting device scan...
+2025-08-01 05:49:22 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 05:49:22 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 05:49:23 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 05:49:23 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 05:49:23 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 05:49:23 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:49:23 - INFO - [NETWORK] Scan found 3 devices in 0.72s
+2025-08-01 05:49:23 - INFO - [PERFORMANCE] Device scan took 0.716s
+2025-08-01 05:49:23 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:23 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:24 - INFO - [INFO] Starting device scan...
+2025-08-01 05:49:24 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 05:49:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:49:24 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 05:49:24 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 05:49:24 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 05:49:24 - INFO - [INFO] Mass unblocked 0 devices
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:28 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:31 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:31 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:31 - INFO - [INFO] Settings saved successfully
+2025-08-01 05:49:31 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:31 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:31 - INFO - [INFO] Setting updated: smart_mode = True
+2025-08-01 05:49:32 - ERROR - [ERROR] Error toggling smart mode: 'bool' object is not callable
+2025-08-01 05:49:32 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:32 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:32 - INFO - [INFO] Settings saved successfully
+2025-08-01 05:49:32 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 05:49:32 - INFO - [INFO] Smart mode enabled
+2025-08-01 05:49:32 - INFO - [INFO] Setting updated: smart_mode = True
+2025-08-01 05:49:33 - ERROR - [ERROR] Error toggling smart mode: 'bool' object is not callable
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 109.61.92.57
+2025-08-01 05:49:33 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 212.102.56.179
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.211.244.90
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 127.0.0.1
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 140.82.114.25
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.153.197.208
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.153
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 162.254.194.57
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.83.224.245
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.215.113.201
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.46
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.198.231.46
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.23.91.225
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.18.125
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.188.197
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.235.94.252
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 54.235.148.115
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.219
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.194
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 74.125.138.188
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for ::1
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.3.23.87
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.208.203.88
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 3.212.37.92
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 45.33.91.156
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 142.250.9.188
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.73.202.131
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 99.83.165.34
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 52.22.134.4
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 35.186.224.24
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.225.166.238
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.154.127.247
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 192.168.1.151
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 174.129.92.195
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 104.18.19.125
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 34.239.31.115
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 109.61.92.57
+2025-08-01 05:49:38 - WARNING - [WARNING] Anomaly detected: Burst traffic pattern detected for 212.102.56.179
+2025-08-01 05:49:39 - INFO - [INFO] Starting application shutdown...
+2025-08-01 05:49:39 - INFO - [INFO] Stopped update timer
+2025-08-01 05:49:39 - INFO - [INFO] Stopped device list updates
+2025-08-01 05:49:39 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 05:49:39 - INFO - [INFO] Stopped graph updates
+2025-08-01 05:49:42 - INFO - [INFO] Controller shutdown completed
+2025-08-01 05:49:42 - INFO - [INFO] Application shutdown complete
+2025-08-01 06:01:18 - INFO - [INFO] Settings loaded successfully
+2025-08-01 06:01:18 - ERROR - [ERROR] Packet capture error: 'AdvancedTrafficAnalyzer' object has no attribute 'packet_capture_enabled'
+2025-08-01 06:01:18 - INFO - [INFO] Starting psutil-based network monitoring
+2025-08-01 06:01:18 - INFO - [INFO] Advanced traffic analyzer started with packet capture
+2025-08-01 06:01:18 - INFO - [INFO] Traffic analysis started
+2025-08-01 06:01:18 - INFO - [INFO] Advanced traffic analyzer initialized
+2025-08-01 06:01:18 - INFO - [INFO] Gaming Control Plugin loaded!
+2025-08-01 06:01:18 - INFO - [INFO] Added rule: Work Hours Gaming Block from gaming_control
+2025-08-01 06:01:18 - INFO - [INFO] Added rule: School Hours Gaming Block from gaming_control
+2025-08-01 06:01:18 - INFO - [INFO] Added rule: Gaming Bandwidth Monitor from gaming_control
+2025-08-01 06:01:18 - INFO - [INFO] Added rule: Night Gaming Restrictions from gaming_control
+2025-08-01 06:01:18 - INFO - [INFO] Plugin loaded: gaming_control
+2025-08-01 06:01:18 - WARNING - [WARNING] No plugin class found in app\plugins\plugin_manager.py
+2025-08-01 06:01:18 - INFO - [INFO] Loaded 1 plugins
+2025-08-01 06:01:18 - INFO - [INFO] Plugin manager initialized
+2025-08-01 06:01:18 - INFO - [INFO] Starting full device scan...
+2025-08-01 06:01:18 - INFO - [INFO] Auto-scan started
+2025-08-01 06:01:18 - INFO - [INFO] Hacker theme applied successfully
+2025-08-01 06:01:18 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 06:01:18 - INFO - [INFO] Lagswitch controls created and added to sidebar
+2025-08-01 06:01:19 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 06:01:19 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 06:01:19 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 06:01:19 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 06:01:19 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:19 - INFO - [NETWORK] Scan found 3 devices in 0.93s
+2025-08-01 06:01:19 - INFO - [PERFORMANCE] Device scan took 0.934s
+2025-08-01 06:01:19 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:43 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 06:01:43 - INFO - [INFO] Smart mode enabled
+2025-08-01 06:01:43 - INFO - [INFO] Settings saved successfully
+2025-08-01 06:01:43 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 06:01:43 - INFO - [INFO] Smart mode enabled
+2025-08-01 06:01:43 - INFO - [INFO] Setting updated: smart_mode = True
+2025-08-01 06:01:44 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:01:44 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 06:01:44 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:44 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 06:01:44 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 06:01:44 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:47 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:01:47 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 06:01:47 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:47 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 06:01:47 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 06:01:47 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:49 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:01:49 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 06:01:50 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 06:01:50 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 06:01:50 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 06:01:50 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 06:01:50 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:50 - INFO - [NETWORK] Scan found 3 devices in 0.63s
+2025-08-01 06:01:50 - INFO - [PERFORMANCE] Device scan took 0.629s
+2025-08-01 06:01:50 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:52 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:01:52 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 06:01:52 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:01:52 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 06:01:52 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 06:01:52 - INFO - [INFO] Quick scan requested
+2025-08-01 06:01:52 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:03 - INFO - [INFO] Search filter applied: 0 devices match criteria
+2025-08-01 06:02:06 - INFO - [INFO] Search dialog opened
+2025-08-01 06:02:06 - INFO - [INFO] Search requested from sidebar
+2025-08-01 06:02:13 - INFO - [INFO] Search filter applied: 3 devices match criteria
+2025-08-01 06:02:13 - INFO - [INFO] Search filter applied: 3 devices match criteria
+2025-08-01 06:02:13 - INFO - [INFO] Search cleared
+2025-08-01 06:02:19 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:02:19 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 06:02:19 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:19 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 06:02:19 - INFO - [PERFORMANCE] Device scan took 0.000s
+2025-08-01 06:02:19 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:38 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:02:38 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 06:02:39 - INFO - [INFO] Found device: 192.168.1.209 (Unknown)
+2025-08-01 06:02:39 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 06:02:39 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 06:02:39 - INFO - [INFO] Scan complete. Found 3 device(s)
+2025-08-01 06:02:39 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:39 - INFO - [NETWORK] Scan found 3 devices in 0.62s
+2025-08-01 06:02:39 - INFO - [PERFORMANCE] Device scan took 0.620s
+2025-08-01 06:02:39 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:49 - INFO - [INFO] Starting quick device scan...
+2025-08-01 06:02:49 - INFO - [INFO] Using cached device list (3 devices)
+2025-08-01 06:02:49 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:49 - INFO - [NETWORK] Scan found 3 devices in 0.00s
+2025-08-01 06:02:49 - INFO - [PERFORMANCE] Device scan took 0.001s
+2025-08-01 06:02:49 - INFO - [INFO] Updated device list: 3 devices
+2025-08-01 06:02:51 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 06:02:51 - INFO - [INFO] Smart mode enabled
+2025-08-01 06:02:51 - INFO - [INFO] Settings saved successfully
+2025-08-01 06:02:51 - INFO - [INFO] Smart mode monitoring started
+2025-08-01 06:02:51 - INFO - [INFO] Smart mode enabled
+2025-08-01 06:02:51 - INFO - [INFO] Setting updated: smart_mode = True
+2025-08-01 06:02:58 - INFO - [INFO] Starting application shutdown...
+2025-08-01 06:02:58 - INFO - [INFO] Stopped update timer
+2025-08-01 06:02:58 - INFO - [INFO] Stopped device list updates
+2025-08-01 06:02:58 - INFO - [INFO] Stopped sidebar updates
+2025-08-01 06:02:58 - INFO - [INFO] Stopped graph updates
+2025-08-01 06:03:01 - INFO - [INFO] Controller shutdown completed
+2025-08-01 06:03:01 - INFO - [INFO] Application shutdown complete

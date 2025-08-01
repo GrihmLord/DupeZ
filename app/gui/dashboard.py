@@ -43,10 +43,11 @@ class PulseDropDashboard(QMainWindow):
         # Main layout
         layout = QHBoxLayout()
         
-        # Sidebar
+        # Sidebar with responsive width
         self.sidebar = Sidebar(controller=self.controller)
         self.sidebar.setObjectName("sidebar")
-        self.sidebar.setFixedWidth(300)
+        self.sidebar.setMinimumWidth(280)  # Minimum width instead of fixed
+        self.sidebar.setMaximumWidth(400)  # Maximum width for larger screens
         layout.addWidget(self.sidebar)
         
         # Content area with tabs

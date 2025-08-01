@@ -35,8 +35,8 @@ class Sidebar(QWidget):
     def init_ui(self):
         """Initialize the user interface with lagswitch styling"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(15)
+        layout.setContentsMargins(8, 8, 8, 8)  # Reduced margins for more space
+        layout.setSpacing(8)  # Reduced spacing for more compact layout
         
         # Title with hacker styling
         title_label = QLabel("⚡ PULSEDROP PRO ⚡")
@@ -44,11 +44,11 @@ class Sidebar(QWidget):
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("""
             QLabel {
-                font-size: 16pt;
+                font-size: 14pt;
                 font-weight: bold;
                 color: #00ffff;
                 border: 2px solid #00ffff;
-                padding: 8px;
+                padding: 6px;
                 background-color: #1a1a1a;
             }
         """)
@@ -101,98 +101,72 @@ class Sidebar(QWidget):
         
         # Controls Group
         controls_group = QGroupBox("🎛️ LAGSWITCH CONTROLS")
+        controls_group.setVisible(True)  # Ensure visibility
         controls_layout = QVBoxLayout()
         
-        # Enhanced control buttons with terminal styling
+        # Enhanced control buttons with terminal styling - more compact
         self.smart_mode_btn = QPushButton("🧠 SMART MODE")
         self.smart_mode_btn.setObjectName("smart_mode_btn")
         self.smart_mode_btn.setCheckable(True)
+        self.smart_mode_btn.setMaximumHeight(35)  # Compact height
         self.smart_mode_btn.clicked.connect(self.toggle_smart_mode)
         controls_layout.addWidget(self.smart_mode_btn)
         
         # Scan button
         self.scan_btn = QPushButton("🔍 SCAN NETWORK")
         self.scan_btn.setObjectName("scan_btn")
+        self.scan_btn.setMaximumHeight(35)  # Compact height
         self.scan_btn.clicked.connect(self.request_scan)
         controls_layout.addWidget(self.scan_btn)
         
         # Quick scan button
         self.quick_scan_btn = QPushButton("⚡ QUICK SCAN")
         self.quick_scan_btn.setObjectName("scan_btn")
+        self.quick_scan_btn.setMaximumHeight(35)  # Compact height
         self.quick_scan_btn.clicked.connect(self.request_quick_scan)
         controls_layout.addWidget(self.quick_scan_btn)
         
         # Mass block button
         self.mass_block_btn = QPushButton("🚫 MASS BLOCK")
         self.mass_block_btn.setObjectName("block_btn")
+        self.mass_block_btn.setMaximumHeight(35)  # Compact height
         self.mass_block_btn.clicked.connect(self.request_mass_block)
         controls_layout.addWidget(self.mass_block_btn)
         
         # Mass unblock button
         self.mass_unblock_btn = QPushButton("✅ MASS UNBLOCK")
         self.mass_unblock_btn.setObjectName("refresh_btn")
+        self.mass_unblock_btn.setMaximumHeight(35)  # Compact height
         self.mass_unblock_btn.clicked.connect(self.request_mass_unblock)
         controls_layout.addWidget(self.mass_unblock_btn)
         
         # Search devices button
         self.search_btn = QPushButton("🔍 SEARCH DEVICES")
         self.search_btn.setObjectName("scan_btn")
+        self.search_btn.setMaximumHeight(35)  # Compact height
         self.search_btn.clicked.connect(self.request_search)
         controls_layout.addWidget(self.search_btn)
         
         # Clear data button
         self.clear_btn = QPushButton("🗑️ CLEAR DATA")
         self.clear_btn.setObjectName("block_btn")
+        self.clear_btn.setMaximumHeight(35)  # Compact height
         self.clear_btn.clicked.connect(self.clear_data)
         controls_layout.addWidget(self.clear_btn)
         
         # Settings button
         self.settings_btn = QPushButton("⚙️ SETTINGS")
         self.settings_btn.setObjectName("refresh_btn")
+        self.settings_btn.setMaximumHeight(35)  # Compact height
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         controls_layout.addWidget(self.settings_btn)
         
         controls_group.setLayout(controls_layout)
         layout.addWidget(controls_group)
         
-        # Enhanced Network Info Group
-        network_group = QGroupBox("🌐 Network Information")
-        network_layout = QVBoxLayout()
-        
-        # Local IP
-        self.local_ip_label = QLabel("Local IP: Unknown")
-        self.local_ip_label.setObjectName("network_info")
-        network_layout.addWidget(self.local_ip_label)
-        
-        # Network range
-        self.network_range_label = QLabel("Network: Unknown")
-        self.network_range_label.setObjectName("network_info")
-        network_layout.addWidget(self.network_range_label)
-        
-        # Gateway
-        self.gateway_label = QLabel("Gateway: Unknown")
-        self.gateway_label.setObjectName("network_info")
-        network_layout.addWidget(self.gateway_label)
-        
-        # Connection status
-        self.connection_status = QLabel("Status: Connected")
-        self.connection_status.setObjectName("network_info")
-        network_layout.addWidget(self.connection_status)
-        
-        network_group.setLayout(network_layout)
-        layout.addWidget(network_group)
-        network_layout = QVBoxLayout()
-        
-        self.network_info_label = QLabel("Network: Unknown")
-        self.network_info_label.setObjectName("status")
-        network_layout.addWidget(self.network_info_label)
-        
-        self.local_ip_label = QLabel("Local IP: Unknown")
-        self.local_ip_label.setObjectName("status")
-        network_layout.addWidget(self.local_ip_label)
-        
-        network_group.setLayout(network_layout)
-        layout.addWidget(network_group)
+        # Debug: Log that controls are created
+        from app.logs.logger import log_info
+        log_info("Lagswitch controls created and added to sidebar")
         
         # Progress bar for operations
         self.progress_bar = QProgressBar()

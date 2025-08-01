@@ -2,7 +2,8 @@
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QListWidget, QPushButton, 
                              QLabel, QHBoxLayout, QListWidgetItem, QFrame, 
-                             QProgressBar, QMenu, QMessageBox, QLineEdit, QComboBox)
+                             QProgressBar, QMenu, QMessageBox, QLineEdit, QComboBox,
+                             QSizePolicy)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QAction, QColor
 from typing import List, Dict, Optional
@@ -134,12 +135,14 @@ class DeviceList(QWidget):
         
         layout.addLayout(header_layout)
         
-        # Device list with enhanced header
+        # Device list with enhanced header - more responsive
         self.device_list = QListWidget()
         self.device_list.setAlternatingRowColors(True)
         self.device_list.itemClicked.connect(self.on_device_selected)
         self.device_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.device_list.customContextMenuRequested.connect(self.show_context_menu)
+        self.device_list.setMinimumHeight(400)  # Ensure minimum height for visibility
+        self.device_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # Enhanced header with better spacing and readability
         header_text = "Status  Type  Device  IP Address        |  MAC Address         |  Vendor               |  Hostname         |  Last Seen"

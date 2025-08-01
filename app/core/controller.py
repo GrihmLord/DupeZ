@@ -86,7 +86,7 @@ class AppController:
         start_time = time.time()
         try:
             self.state.set_scan_status(True)
-            log_info("Starting device scan...")
+            log_info(f"Starting {'quick' if quick else 'full'} device scan...")
             
             # Get network info
             network_info = device_scan.get_network_info()
@@ -109,6 +109,14 @@ class AppController:
             return []
         finally:
             self.state.set_scan_status(False)
+    
+    def quick_scan_devices(self) -> List[Dict]:
+        """Perform a quick scan for devices"""
+        return self.scan_devices(quick=True)
+    
+    def full_scan_devices(self) -> List[Dict]:
+        """Perform a full scan for devices"""
+        return self.scan_devices(quick=False)
     
     def select_device(self, ip: str):
         """Select a device by IP address"""
