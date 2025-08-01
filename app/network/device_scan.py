@@ -6,80 +6,184 @@ import socket
 import threading
 import time
 import platform
-from typing import List, Dict, Optional
+import queue
+import weakref
+import sys
+import traceback
+from typing import List, Dict, Optional, Set
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from contextlib import contextmanager
 from app.logs.logger import log_info, log_error
 
-# Cache for device information
+# Global error handler for network scanning
+def handle_network_error(func):
+    """Decorator to handle errors in network scanning functions"""
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            error_msg = f"Network scan error in {func.__name__}: {e}"
+            log_error(error_msg)
+            
+            # Write to network error log
+            try:
+                with open('logs/network_errors.log', 'a', encoding='utf-8') as f:
+                    f.write(f"\n{'='*60}\n")
+                    f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"Function: {func.__name__}\n")
+                    f.write(f"Error: {e}\n")
+                    f.write(f"Traceback:\n{traceback.format_exc()}\n")
+                    f.write(f"{'='*60}\n")
+            except Exception as log_error:
+                pass  # Don't let logging errors cause more issues
+            
+            # Return safe defaults
+            if func.__name__ in ['ping_host_advanced', 'get_mac_address_safe']:
+                return None
+            elif func.__name__ in ['scan_network_range_advanced', 'scan_devices']:
+                return []
+            elif func.__name__ in ['get_network_info']:
+                return {}
+            else:
+                return None
+    return wrapper
+
+# Advanced resource management
+class ResourceManager:
+    """Manages network resources and prevents resource exhaustion"""
+    
+    def __init__(self):
+        self._socket_pool = queue.Queue(maxsize=50)
+        self._active_sockets = weakref.WeakSet()
+        self._lock = threading.RLock()
+        self._max_concurrent = 10
+        self._semaphore = threading.Semaphore(10)
+    
+    @contextmanager
+    def get_socket(self):
+        """Get a socket from pool or create new one"""
+        socket_obj = None
+        try:
+            # Try to get from pool
+            try:
+                socket_obj = self._socket_pool.get_nowait()
+            except queue.Empty:
+                socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            
+            self._active_sockets.add(socket_obj)
+            yield socket_obj
+        except Exception as e:
+            log_error(f"Socket error: {e}")
+            raise
+        finally:
+            if socket_obj:
+                try:
+                    socket_obj.close()
+                except:
+                    pass
+                self._active_sockets.discard(socket_obj)
+
+# Global resource manager
+_resource_manager = ResourceManager()
+
+# Cache for device information with memory management
 _device_cache = {}
 _cache_timestamp = 0
-CACHE_DURATION = 30  # Balanced cache duration for responsiveness
+CACHE_DURATION = 60  # Increased for stability
+_cache_lock = threading.RLock()
+
+# Thread management
+_executor = None
+_max_workers = 5  # Very conservative for stability
+
+def get_executor():
+    """Get thread pool executor with proper management"""
+    global _executor
+    if _executor is None or _executor._shutdown:
+        _executor = ThreadPoolExecutor(max_workers=_max_workers, thread_name_prefix="NetworkScan")
+    return _executor
+
+def cleanup_executor():
+    """Clean up thread pool executor"""
+    global _executor
+    if _executor:
+        _executor.shutdown(wait=False)
+        _executor = None
 
 def get_local_ip() -> str:
-    """Get the local IP address of this machine"""
+    """Get the local IP address of this machine with error handling"""
     try:
-        # Create a socket to get local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-        return local_ip
+        with _resource_manager.get_socket() as s:
+            s.settimeout(2.0)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            return local_ip
     except Exception as e:
         log_error(f"Failed to get local IP: {e}")
         return "192.168.1.1"  # Fallback
 
-def ping_host(ip: str, timeout: float = 0.1) -> bool:  # Slightly longer timeout for better detection
-    """Ping a single host to check if it's alive (optimized)"""
+@handle_network_error
+def ping_host_advanced(ip: str, timeout: float = 0.5) -> bool:
+    """Advanced host detection with resource management"""
     try:
-        # Try multiple common ports for better device detection
-        common_ports = [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995]
+        # Method 1: Essential ports only (most reliable)
+        essential_ports = [80, 443, 22]
         
-        for port in common_ports:
+        for port in essential_ports:
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(timeout)
-                result = sock.connect_ex((ip, port))
-                sock.close()
-                if result == 0:
-                    return True
-            except:
+                with _resource_manager.get_socket() as sock:
+                    sock.settimeout(timeout)
+                    result = sock.connect_ex((ip, port))
+                    if result == 0:
+                        return True
+            except Exception:
                 continue
         
-        # Fallback to ICMP ping for devices that don't respond on common ports
+        # Method 2: ICMP ping with proper timeout
         try:
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ["ping", "-n", "1", "-w", str(int(timeout * 1000)), ip],
-                    capture_output=True, text=True, timeout=timeout + 0.1
+                    ["ping", "-n", "1", "-w", "500", ip],  # 500ms timeout
+                    capture_output=True, text=True, timeout=1.0
                 )
             else:
                 result = subprocess.run(
-                    ["ping", "-c", "1", "-W", str(int(timeout)), ip],
-                    capture_output=True, text=True, timeout=timeout + 0.1
+                    ["ping", "-c", "1", "-W", "1", ip],
+                    capture_output=True, text=True, timeout=1.0
                 )
+            
             return result.returncode == 0
         except Exception:
-            return False
+            pass
+        
+        return False
             
-    except Exception:
+    except Exception as e:
+        log_error(f"Ping host error for {ip}: {e}")
         return False
 
-def get_mac_address(ip: str) -> Optional[str]:
-    """Get MAC address for a given IP using ARP (optimized)"""
+@handle_network_error
+def get_mac_address_safe(ip: str) -> Optional[str]:
+    """Get MAC address with proper error handling"""
     try:
         if platform.system().lower() == "windows":
             result = subprocess.run(
-                ["arp", "-a", ip], capture_output=True, text=True, timeout=1
+                ["arp", "-a", ip], capture_output=True, text=True, timeout=2.0
             )
         else:
             result = subprocess.run(
-                ["arp", "-n", ip], capture_output=True, text=True, timeout=1
+                ["arp", "-n", ip], capture_output=True, text=True, timeout=2.0
             )
+        
+        if result.returncode != 0:
+            return None
         
         # Parse MAC address from ARP output
         mac_pattern = r'([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})'
         match = re.search(mac_pattern, result.stdout)
         return match.group(0) if match else None
-    except Exception:
+    except Exception as e:
+        log_error(f"MAC address error for {ip}: {e}")
         return None
 
 def get_vendor_info(mac: str) -> str:
@@ -419,55 +523,79 @@ def get_vendor_info(mac: str) -> str:
     
     return vendors.get(oui, "Unknown")
 
-def scan_network_range_fast(network: str, start: int = 1, end: int = 254, quick_scan: bool = False) -> List[Dict]:
-    """Ultra-fast network scanning with optimized threading"""
-    devices = []
-    local_ip = get_local_ip()
+@handle_network_error
+def scan_arp_table_safe() -> List[str]:
+    """Scan ARP table with proper error handling"""
     found_ips = []
-    
-    def scan_ip(ip: str):
-        if ping_host(ip, timeout=0.05):  # Ultra-fast timeout for maximum speed
-            found_ips.append(ip)
-    
-    # Use more aggressive scanning to find all devices
-    max_threads = 100  # Increased for comprehensive scanning
-    threads = []
-    
-    # For quick scan, scan the entire range to find all devices
-    if quick_scan:
-        # Scan entire range for maximum device discovery
-        scan_range = list(range(1, 255))  # Scan all IPs
-    else:
-        scan_range = range(start, end + 1)
-    
-    for i in scan_range:
-        ip = f"{network}.{i}"
-        thread = threading.Thread(target=scan_ip, args=(ip,))
-        threads.append(thread)
-        thread.start()
+    try:
+        if platform.system().lower() == "windows":
+            result = subprocess.run(
+                ["arp", "-a"], capture_output=True, text=True, timeout=5.0
+            )
+        else:
+            result = subprocess.run(
+                ["arp", "-n"], capture_output=True, text=True, timeout=5.0
+            )
         
-        # Limit concurrent threads
-        if len(threads) >= max_threads:
-            for t in threads:
-                t.join()
-            threads = []
+        if result.returncode != 0:
+            return found_ips
+        
+        # Parse IP addresses from ARP output
+        ip_pattern = r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'
+        matches = re.findall(ip_pattern, result.stdout)
+        
+        for ip in matches:
+            # Filter out broadcast and multicast addresses
+            if not ip.startswith(('169.254.', '224.', '255.255.255.255')):
+                found_ips.append(ip)
+        
+        log_info(f"ARP scan found {len(found_ips)} additional devices")
+        return found_ips
+    except Exception as e:
+        log_error(f"ARP scan failed: {e}")
+        return []
+
+def scan_ip_batch(ip_list: List[str]) -> List[str]:
+    """Scan a batch of IPs with proper resource management"""
+    found_ips = []
+    executor = get_executor()
     
-    # Wait for remaining threads
-    for thread in threads:
-        thread.join()
+    try:
+        # Submit all IPs to thread pool
+        future_to_ip = {
+            executor.submit(ping_host_advanced, ip, 0.5): ip 
+            for ip in ip_list
+        }
+        
+        # Collect results with timeout
+        for future in as_completed(future_to_ip, timeout=30):
+            ip = future_to_ip[future]
+            try:
+                if future.result():
+                    found_ips.append(ip)
+            except (TimeoutError, Exception) as e:
+                log_error(f"Error scanning {ip}: {e}")
+                continue
+                
+    except Exception as e:
+        log_error(f"Batch scan error: {e}")
     
-    # Now get MAC addresses for found devices (parallel)
-    def get_device_info(ip: str):
-        mac = get_mac_address(ip)
+    return found_ips
+
+def get_device_info_safe(ip: str, local_ip: str) -> Optional[Dict]:
+    """Get device information with proper error handling"""
+    try:
+        mac = get_mac_address_safe(ip)
         vendor = get_vendor_info(mac) if mac else "Unknown"
         
         # Try to get hostname with timeout
+        hostname = "Unknown"
         try:
             hostname = socket.getfqdn(ip)
-            if hostname == ip:  # If hostname is same as IP, try reverse DNS
+            if hostname == ip:
                 hostname = "Unknown"
         except:
-            hostname = "Unknown"
+            pass
         
         # Detect gaming devices by hostname patterns
         if hostname.lower() in ["ps5", "playstation", "playstation5", "sony"]:
@@ -486,49 +614,99 @@ def scan_network_range_fast(network: str, start: int = 1, end: int = 254, quick_
             "traffic": 0,
             "last_seen": time.strftime("%H:%M:%S")
         }
-        devices.append(device)
-        log_info(f"Found device: {ip} ({vendor})")
-    
-    # Get device info in parallel with balanced concurrency
-    info_threads = []
-    for ip in found_ips:
-        thread = threading.Thread(target=get_device_info, args=(ip,))
-        info_threads.append(thread)
-        thread.start()
         
-        if len(info_threads) >= 10:  # Increased from 5 for faster processing
-            for t in info_threads:
-                t.join()
-            info_threads = []
+        log_info(f"Found device: {ip} ({vendor})")
+        return device
+        
+    except Exception as e:
+        log_error(f"Device info error for {ip}: {e}")
+        return None
+
+@handle_network_error
+def scan_network_range_advanced(network: str, start: int = 1, end: int = 254, quick_scan: bool = False) -> List[Dict]:
+    """Advanced network scanning with proper resource management"""
+    devices = []
+    local_ip = get_local_ip()
+    found_ips = []
     
-    for thread in info_threads:
-        thread.join()
+    try:
+        # Determine scan range
+        if quick_scan:
+            scan_range = list(range(1, 255))
+        else:
+            scan_range = list(range(start, end + 1))
+        
+        # Scan in small batches to prevent resource exhaustion
+        batch_size = 10  # Very small batches
+        for i in range(0, len(scan_range), batch_size):
+            batch = scan_range[i:i + batch_size]
+            batch_ips = [f"{network}.{ip_num}" for ip_num in batch]
+            
+            # Scan batch
+            batch_results = scan_ip_batch(batch_ips)
+            found_ips.extend(batch_results)
+            
+            # Small delay between batches
+            time.sleep(0.2)
+        
+        # Add devices found via ARP table
+        try:
+            arp_ips = scan_arp_table_safe()
+            for ip in arp_ips:
+                if ip not in found_ips:
+                    found_ips.append(ip)
+        except Exception as e:
+            log_error(f"ARP scan error: {e}")
+        
+        # Get device information in parallel with limits
+        executor = get_executor()
+        device_futures = []
+        
+        for ip in found_ips:
+            future = executor.submit(get_device_info_safe, ip, local_ip)
+            device_futures.append(future)
+        
+        # Collect device information with timeout
+        for future in as_completed(device_futures, timeout=60):
+            try:
+                device = future.result()
+                if device:
+                    devices.append(device)
+            except (TimeoutError, Exception) as e:
+                log_error(f"Device info collection error: {e}")
+                continue
+        
+        # Sort devices: local device first, then by IP
+        devices.sort(key=lambda x: (not x["local"], socket.inet_aton(x["ip"])))
+        
+    except Exception as e:
+        log_error(f"Advanced network scan error: {e}")
     
     return devices
 
+@handle_network_error
 def scan_devices(quick: bool = True) -> List[Dict]:
-    """Main function to scan for devices on the network (with caching)"""
+    """Main function to scan for devices on the network (with advanced caching)"""
     global _device_cache, _cache_timestamp
     
     try:
-        # Check cache first
-        current_time = time.time()
-        if current_time - _cache_timestamp < CACHE_DURATION and _device_cache:
-            log_info(f"Using cached device list ({len(_device_cache)} devices)")
-            return list(_device_cache.values())
+        # Check cache first with proper locking
+        with _cache_lock:
+            current_time = time.time()
+            if current_time - _cache_timestamp < CACHE_DURATION and _device_cache:
+                log_info(f"Using cached device list ({len(_device_cache)} devices)")
+                return list(_device_cache.values())
         
         local_ip = get_local_ip()
         network = ".".join(local_ip.split(".")[:-1])
         
         log_info(f"Scanning network: {network}.0/24")
-        devices = scan_network_range_fast(network, quick_scan=quick)
+        devices = scan_network_range_advanced(network, quick_scan=quick)
         
-        # Sort devices: local device first, then by IP
-        devices.sort(key=lambda x: (not x["local"], socket.inet_aton(x["ip"])))
-        
-        # Update cache
-        _device_cache = {device["ip"]: device for device in devices}
-        _cache_timestamp = current_time
+        # Update cache with proper locking
+        with _cache_lock:
+            _device_cache = {device["ip"]: device for device in devices}
+            _cache_timestamp = current_time
         
         log_info(f"Scan complete. Found {len(devices)} device(s)")
         return devices
@@ -559,5 +737,14 @@ def get_network_info() -> Dict:
 def clear_cache():
     """Clear the device cache"""
     global _device_cache, _cache_timestamp
-    _device_cache = {}
-    _cache_timestamp = 0
+    with _cache_lock:
+        _device_cache = {}
+        _cache_timestamp = 0
+
+def cleanup_resources():
+    """Clean up all resources"""
+    try:
+        cleanup_executor()
+        log_info("Network scan resources cleaned up")
+    except Exception as e:
+        log_error(f"Error cleaning up resources: {e}")

@@ -393,23 +393,29 @@ class Sidebar(QWidget):
     
     def toggle_smart_mode(self):
         """Toggle smart mode"""
+        log_info("SMART MODE BUTTON CLICKED - Toggling smart mode")
         if self.controller:
             try:
                 self.controller.toggle_smart_mode()
+                log_info("Smart mode toggle sent to controller successfully")
             except Exception as e:
                 log_error(f"Error toggling smart mode: {e}")
         else:
+            log_error("No controller available - emitting signal")
             # Emit signal for backward compatibility
             self.smart_mode_toggled.emit()
     
     def request_scan(self):
         """Request a network scan"""
+        log_info("SCAN BUTTON CLICKED - Starting network scan")
         if self.controller:
             try:
                 self.controller.scan_devices()
+                log_info("Scan request sent to controller successfully")
             except Exception as e:
                 log_error(f"Error requesting scan: {e}")
         else:
+            log_error("No controller available - emitting signal")
             # Emit signal for backward compatibility
             self.scan_requested.emit()
     

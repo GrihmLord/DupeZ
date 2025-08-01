@@ -310,17 +310,26 @@ class DeviceList(QWidget):
         status_icon = "🟢" if not device.blocked else "🔴"
         vendor_icon = self._get_vendor_icon(device.vendor)
         
+        # Check if sensitive info should be hidden
+        hide_sensitive = hasattr(self, 'hide_sensitive_btn') and self.hide_sensitive_btn.isChecked()
+        
         # More detailed device information
         device_text = f"{status_icon} {device.ip}\n"
         device_text += f"   {vendor_icon} {device.vendor}\n"
         
         if device.hostname and device.hostname != "Unknown":
-            device_text += f"   📱 {device.hostname}\n"
+            if hide_sensitive:
+                device_text += f"   📱 ***\n"
+            else:
+                device_text += f"   📱 {device.hostname}\n"
         
         if device.mac and device.mac != "Unknown":
-            # Show only first 8 characters of MAC for privacy
-            mac_display = device.mac[:8] + "..." if len(device.mac) > 8 else device.mac
-            device_text += f"   🔗 {mac_display}\n"
+            if hide_sensitive:
+                device_text += f"   🔗 ***.***.***.***\n"
+            else:
+                # Show only first 8 characters of MAC for privacy
+                mac_display = device.mac[:8] + "..." if len(device.mac) > 8 else device.mac
+                device_text += f"   🔗 {mac_display}\n"
         
         device_text += f"   📊 Traffic: {self._format_traffic(device.traffic)}\n"
         device_text += f"   ⏰ Last seen: {device.last_seen}"
@@ -328,8 +337,21 @@ class DeviceList(QWidget):
         item.setText(device_text)
         item.setData(Qt.ItemDataRole.UserRole, device.ip)
         
+        # Store full device data for security checks
+        full_data = {
+            'ip': device.ip,
+            'mac': device.mac,
+            'hostname': device.hostname,
+            'vendor': device.vendor,
+            'local': device.local,
+            'blocked': device.blocked,
+            'last_seen': device.last_seen,
+            'traffic': device.traffic
+        }
+        item.setData(Qt.ItemDataRole.UserRole + 1, full_data)
+        
         # Set item properties for better styling
-        item.setData(Qt.ItemDataRole.ToolTipRole, self._create_device_tooltip(device))
+        item.setData(Qt.ItemDataRole.ToolTipRole, self._create_device_tooltip(device, hide_sensitive))
         
         # Color coding for different device types
         if device.local:
@@ -372,17 +394,23 @@ class DeviceList(QWidget):
         else:
             return f"{traffic / (1024 * 1024):.1f} MB"
     
-    def _create_device_tooltip(self, device) -> str:
+    def _create_device_tooltip(self, device, hide_sensitive=False) -> str:
         """Create detailed tooltip for device"""
         tooltip = f"<b>Device Information</b><br>"
         tooltip += f"<b>IP Address:</b> {device.ip}<br>"
         tooltip += f"<b>Vendor:</b> {device.vendor}<br>"
         
         if device.hostname and device.hostname != "Unknown":
-            tooltip += f"<b>Hostname:</b> {device.hostname}<br>"
+            if hide_sensitive:
+                tooltip += f"<b>Hostname:</b> ***<br>"
+            else:
+                tooltip += f"<b>Hostname:</b> {device.hostname}<br>"
         
         if device.mac and device.mac != "Unknown":
-            tooltip += f"<b>MAC Address:</b> {device.mac}<br>"
+            if hide_sensitive:
+                tooltip += f"<b>MAC Address:</b> ***.***.***.***<br>"
+            else:
+                tooltip += f"<b>MAC Address:</b> {device.mac}<br>"
         
         tooltip += f"<b>Traffic:</b> {self._format_traffic(device.traffic)}<br>"
         tooltip += f"<b>Last Seen:</b> {device.last_seen}<br>"
@@ -589,6 +617,7 @@ class DeviceList(QWidget):
     def toggle_sensitive_info(self):
         """Toggle hiding of sensitive information"""
         try:
+            log_info(f"HIDE SENSITIVE BUTTON CLICKED - State: {self.hide_sensitive_btn.isChecked()}")
             if self.devices:
                 self.update_device_list(self.devices)
                 log_info("Sensitive information toggled")
