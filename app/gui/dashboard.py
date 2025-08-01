@@ -5,7 +5,7 @@ from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import Qt, QTimer
 
 from app.gui.sidebar import Sidebar
-from app.gui.device_list import DeviceList
+from app.gui.enhanced_device_list import EnhancedDeviceList
 from app.gui.graph import PacketGraph
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.topology_view import NetworkTopologyView
@@ -32,6 +32,11 @@ class PulseDropDashboard(QMainWindow):
         self.setWindowIcon(QIcon("app/assets/icon.ico"))
         self.setGeometry(100, 100, 1400, 800)
         
+        # Force window to be visible and active
+        self.setWindowState(Qt.WindowState.WindowActive)
+        self.raise_()
+        self.activateWindow()
+        
         # Apply hacker theme
         self.apply_hacker_theme()
         
@@ -54,10 +59,10 @@ class PulseDropDashboard(QMainWindow):
         self.content_tabs = QTabWidget()
         self.content_tabs.setObjectName("content_tabs")
         
-        # Device list tab
-        self.device_list = DeviceList(controller=self.controller)
-        self.device_list.setObjectName("device_panel")
-        self.content_tabs.addTab(self.device_list, "🎯 Device List")
+        # Enhanced device list tab (main scanner)
+        self.enhanced_device_list = EnhancedDeviceList(controller=self.controller)
+        self.enhanced_device_list.setObjectName("enhanced_device_panel")
+        self.content_tabs.addTab(self.enhanced_device_list, "🔍 Network Scanner")
         
         # Network topology tab
         self.topology_view = NetworkTopologyView()
@@ -71,6 +76,11 @@ class PulseDropDashboard(QMainWindow):
         
         layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)
+        
+        # Ensure window is shown and visible
+        self.show()
+        self.raise_()
+        self.activateWindow()
     
     def apply_hacker_theme(self):
         """Apply the hacker theme to the application"""
@@ -92,6 +102,31 @@ class PulseDropDashboard(QMainWindow):
                 log_info("Fallback to dark theme applied")
             except Exception as e2:
                 log_error(f"Failed to apply fallback theme: {e2}")
+                # Final fallback - basic styling to ensure visibility
+                self.setStyleSheet("""
+                    QMainWindow {
+                        background-color: #2b2b2b;
+                        color: #ffffff;
+                    }
+                    QWidget {
+                        background-color: #2b2b2b;
+                        color: #ffffff;
+                    }
+                    QTabWidget::pane {
+                        border: 1px solid #555555;
+                        background-color: #2b2b2b;
+                    }
+                    QTabBar::tab {
+                        background-color: #3b3b3b;
+                        color: #ffffff;
+                        padding: 8px 16px;
+                        margin-right: 2px;
+                    }
+                    QTabBar::tab:selected {
+                        background-color: #555555;
+                    }
+                """)
+                log_info("Basic fallback styling applied")
     
     def setup_menu(self):
         """Setup the application menu bar with lagswitch functionality"""
@@ -252,9 +287,11 @@ class PulseDropDashboard(QMainWindow):
     
     def connect_signals(self):
         """Connect signals between components"""
-        # Connect device list signals
-        self.device_list.device_selected.connect(self.on_device_selected)
-        self.device_list.device_blocked.connect(self.on_device_blocked)
+        # Connect enhanced device list signals
+        self.enhanced_device_list.device_selected.connect(self.on_device_selected)
+        self.enhanced_device_list.device_blocked.connect(self.on_device_blocked)
+        self.enhanced_device_list.scan_started.connect(self.on_enhanced_scan_started)
+        self.enhanced_device_list.scan_finished.connect(self.on_enhanced_scan_finished)
         
         # Connect sidebar signals
         self.sidebar.smart_mode_toggled.connect(self.on_smart_mode_toggled)
@@ -268,7 +305,6 @@ class PulseDropDashboard(QMainWindow):
         
         # Set controllers for components
         if self.controller:
-            self.device_list.set_controller(self.controller)
             self.sidebar.set_controller(self.controller)
             self.graph.set_controller(self.controller)
     
@@ -308,6 +344,19 @@ class PulseDropDashboard(QMainWindow):
         """Handle device blocking"""
         status = "blocked" if blocked else "unblocked"
         self.status_bar.showMessage(f"Device {ip} {status}", 3000)
+    
+    def on_enhanced_scan_started(self):
+        """Handle enhanced scan start"""
+        log_info("Enhanced network scan started")
+        self.status_bar.showMessage("Enhanced network scan in progress...")
+    
+    def on_enhanced_scan_finished(self, devices: list):
+        """Handle enhanced scan completion"""
+        log_info(f"Enhanced scan completed with {len(devices)} devices")
+        self.status_bar.showMessage(f"Enhanced scan complete! Found {len(devices)} devices")
+        
+        # Update device count in status bar
+        self.update_status_bar()
     
     def on_smart_mode_toggled(self):
         """Handle smart mode toggle"""
@@ -417,10 +466,10 @@ class PulseDropDashboard(QMainWindow):
                 self.update_timer.stop()
                 log_info("Stopped update timer")
             
-            # Stop device list updates
-            if hasattr(self, 'device_list'):
-                self.device_list.stop_auto_updates()
-                log_info("Stopped device list updates")
+            # Stop enhanced device list updates (if method exists)
+            if hasattr(self, 'enhanced_device_list') and hasattr(self.enhanced_device_list, 'stop_auto_updates'):
+                self.enhanced_device_list.stop_auto_updates()
+                log_info("Stopped enhanced device list updates")
             
             # Stop sidebar updates
             if hasattr(self, 'sidebar'):
@@ -457,7 +506,7 @@ class PulseDropDashboard(QMainWindow):
         
         # Update components
         self.sidebar.set_controller(controller)
-        self.device_list.set_controller(controller)
+        self.enhanced_device_list.set_controller(controller)
         self.graph.controller = controller
     
     def get_controller(self):
@@ -467,9 +516,9 @@ class PulseDropDashboard(QMainWindow):
     def refresh_ui(self):
         """Refresh all UI components"""
         if self.controller:
-            # Update device list
+            # Update enhanced device list
             devices = self.controller.get_devices()
-            self.device_list.update_device_list(devices)
+            self.enhanced_device_list.update_device_list(devices)
             
             # Update network info
             network_info = self.controller.get_network_info()
@@ -654,16 +703,16 @@ class PulseDropDashboard(QMainWindow):
                 
                 if ok:
                     # Perform search
-                    results = self.device_list.search_for_device(search_term.strip(), field)
+                    results = self.enhanced_device_list.search_for_device(search_term.strip(), field)
                     
                     if results:
                         QMessageBox.information(
                             self, "Search Results", 
                             f"Found {len(results)} devices matching '{search_term}' in {field}"
                         )
-                        # Focus on the search input in device list
-                        self.device_list.search_input.setFocus()
-                        self.device_list.search_input.selectAll()
+                        # Focus on the search input in enhanced device list
+                        self.enhanced_device_list.search_input.setFocus()
+                        self.enhanced_device_list.search_input.selectAll()
                     else:
                         QMessageBox.information(
                             self, "Search Results", 
