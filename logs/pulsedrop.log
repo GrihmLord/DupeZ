@@ -1074,3 +1074,55 @@
 2025-08-01 04:48:08 - INFO - [INFO] Stopped graph updates
 2025-08-01 04:48:11 - INFO - [INFO] Controller shutdown completed
 2025-08-01 04:48:11 - INFO - [INFO] Application shutdown complete
+2025-08-01 05:29:54 - INFO - [INFO] Settings loaded successfully
+2025-08-01 05:29:54 - INFO - [INFO] Advanced traffic analyzer started
+2025-08-01 05:29:54 - INFO - [INFO] Traffic analysis started
+2025-08-01 05:29:54 - INFO - [INFO] Advanced traffic analyzer initialized
+2025-08-01 05:29:54 - INFO - [INFO] Gaming Control Plugin loaded!
+2025-08-01 05:29:54 - INFO - [INFO] Added rule: Work Hours Gaming Block from gaming_control
+2025-08-01 05:29:54 - INFO - [INFO] Added rule: School Hours Gaming Block from gaming_control
+2025-08-01 05:29:54 - INFO - [INFO] Added rule: Gaming Bandwidth Monitor from gaming_control
+2025-08-01 05:29:54 - INFO - [INFO] Added rule: Night Gaming Restrictions from gaming_control
+2025-08-01 05:29:54 - INFO - [INFO] Plugin loaded: gaming_control
+2025-08-01 05:29:54 - WARNING - [WARNING] No plugin class found in app\plugins\plugin_manager.py
+2025-08-01 05:29:54 - INFO - [INFO] Loaded 1 plugins
+2025-08-01 05:29:54 - INFO - [INFO] Plugin manager initialized
+2025-08-01 05:29:54 - INFO - [INFO] Starting device scan...
+2025-08-01 05:29:54 - INFO - [INFO] Auto-scan started
+2025-08-01 05:29:54 - INFO - [INFO] Hacker theme applied successfully
+2025-08-01 05:29:54 - INFO - [INFO] Scanning network: 192.168.1.0/24
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.92 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.142 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.93 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.91 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.106 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.95 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.96 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.119 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.88 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.153 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.151 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.87 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.127 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.136 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.201 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.194 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.150 (Unknown)
+2025-08-01 05:29:55 - INFO - [INFO] Found device: 192.168.1.75 (Unknown)
+2025-08-01 05:29:59 - WARNING - [WARNING] Anomaly detected: Multiple suspicious activities detected for 192.168.1.153
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.117 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.116 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.206 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.212 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.240 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.207 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.254 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.230 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.239 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Found device: 192.168.1.219 (Unknown)
+2025-08-01 05:30:00 - INFO - [INFO] Scan complete. Found 28 device(s)
+2025-08-01 05:30:00 - INFO - [INFO] Updated device list: 28 devices
+2025-08-01 05:30:00 - INFO - [NETWORK] Scan found 28 devices in 6.17s
+2025-08-01 05:30:00 - INFO - [PERFORMANCE] Device scan took 6.166s
+2025-08-01 05:30:04 - WARNING - [WARNING] Anomaly detected: Multiple suspicious activities detected for 192.168.1.153
+2025-08-01 05:30:09 - WARNING - [WARNING] Anomaly detected: Multiple suspicious activities detected for 192.168.1.153
