@@ -305,17 +305,27 @@ class AppController:
     def _init_advanced_features(self):
         """Initialize advanced features"""
         try:
-            # Initialize traffic analyzer
-            self.traffic_analyzer = AdvancedTrafficAnalyzer()
-            self.traffic_analyzer.start_analysis()
-            log_info("Advanced traffic analyzer initialized")
+            # Initialize traffic analyzer with error handling
+            try:
+                self.traffic_analyzer = AdvancedTrafficAnalyzer()
+                self.traffic_analyzer.start_analysis()
+                log_info("Advanced traffic analyzer initialized")
+            except Exception as e:
+                log_error(f"Failed to initialize traffic analyzer: {e}")
+                self.traffic_analyzer = None
             
-            # Initialize plugin manager
-            self.plugin_manager = PluginManager()
-            log_info("Plugin manager initialized")
+            # Initialize plugin manager with error handling
+            try:
+                self.plugin_manager = PluginManager()
+                log_info("Plugin manager initialized")
+            except Exception as e:
+                log_error(f"Failed to initialize plugin manager: {e}")
+                self.plugin_manager = None
             
         except Exception as e:
             log_error(f"Failed to initialize advanced features: {e}")
+            self.traffic_analyzer = None
+            self.plugin_manager = None
     
     def get_traffic_analysis(self) -> Dict:
         """Get traffic analysis data"""

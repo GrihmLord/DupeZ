@@ -92,26 +92,98 @@ class AdvancedTrafficAnalyzer:
     def start_packet_capture(self):
         """Start packet capture in background thread"""
         try:
+            # Check if we have admin privileges for packet capture
+            if not self._check_admin_privileges():
+                log_warning("Traffic analyzer started without admin privileges - packet capture disabled")
+                self.packet_capture_enabled = False
+                return
+            
             self.packet_capture_thread = threading.Thread(
                 target=self._packet_capture_loop,
                 daemon=True
             )
             self.packet_capture_thread.start()
-            log_info("Advanced traffic analyzer started")
+            self.packet_capture_enabled = True
+            log_info("Advanced traffic analyzer started with packet capture")
         except Exception as e:
             log_error(f"Failed to start packet capture: {e}")
+            self.packet_capture_enabled = False
+            log_info("Advanced traffic analyzer started without packet capture")
+    
+    def _check_admin_privileges(self) -> bool:
+        """Check if we have admin privileges for packet capture"""
+        try:
+            import ctypes
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
     
     def _packet_capture_loop(self):
         """Main packet capture loop"""
         try:
-            # Use scapy to capture packets
+            if not self.packet_capture_enabled:
+                return
+                
+            # Use scapy to capture packets with timeout and error handling
             sniff(
                 prn=self._process_packet,
                 store=0,
+                timeout=1,
                 stop_filter=lambda _: not self.is_running
             )
         except Exception as e:
             log_error(f"Packet capture error: {e}")
+            self.packet_capture_enabled = False
+            # Fall back to psutil-based monitoring
+            self._start_psutil_monitoring()
+    
+    def _start_psutil_monitoring(self):
+        """Start monitoring using psutil as fallback"""
+        try:
+            log_info("Starting psutil-based network monitoring")
+            self.psutil_thread = threading.Thread(
+                target=self._psutil_monitoring_loop,
+                daemon=True
+            )
+            self.psutil_thread.start()
+        except Exception as e:
+            log_error(f"Failed to start psutil monitoring: {e}")
+    
+    def _psutil_monitoring_loop(self):
+        """Monitor network using psutil"""
+        while self.is_running:
+            try:
+                # Get network connections less frequently to reduce subprocess spam
+                connections = psutil.net_connections()
+                processed_ips = set()  # Track processed IPs to avoid duplicates
+                
+                for conn in connections:
+                    if conn.status == 'ESTABLISHED':
+                        remote_ip = conn.raddr.ip if conn.raddr else None
+                        if remote_ip and remote_ip not in processed_ips:
+                            # Simulate packet processing
+                            self._update_device_stats_simulated(remote_ip, 1024, 'out')
+                            processed_ips.add(remote_ip)
+                
+                time.sleep(self.analysis_interval * 2)  # Reduced frequency
+            except Exception as e:
+                log_error(f"Psutil monitoring error: {e}")
+                time.sleep(10)  # Increased error wait time
+    
+    def _update_device_stats_simulated(self, ip: str, size: int, direction: str):
+        """Update device stats with simulated data"""
+        if ip not in self.device_stats:
+            self.device_stats[ip] = TrafficStats(device_ip=ip)
+        
+        stats = self.device_stats[ip]
+        if direction == 'out':
+            stats.total_bytes_sent += size
+            stats.packets_sent += 1
+        else:
+            stats.total_bytes_received += size
+            stats.packets_received += 1
+        
+        stats.last_seen = datetime.now()
     
     def _process_packet(self, packet):
         """Process individual packets"""

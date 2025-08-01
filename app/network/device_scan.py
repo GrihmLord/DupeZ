@@ -12,7 +12,7 @@ from app.logs.logger import log_info, log_error
 # Cache for device information
 _device_cache = {}
 _cache_timestamp = 0
-CACHE_DURATION = 30  # Reduced cache duration for faster updates
+CACHE_DURATION = 60  # Increased cache duration to reduce subprocess spam
 
 def get_local_ip() -> str:
     """Get the local IP address of this machine"""
@@ -30,19 +30,28 @@ def get_local_ip() -> str:
 def ping_host(ip: str, timeout: float = 0.05) -> bool:  # Ultra-fast timeout
     """Ping a single host to check if it's alive (optimized)"""
     try:
-        if platform.system().lower() == "windows":
-            result = subprocess.run(
-                ["ping", "-n", "1", "-w", str(int(timeout * 1000)), ip],
-                capture_output=True, text=True, timeout=timeout + 0.1
-            )
-        else:
-            result = subprocess.run(
-                ["ping", "-c", "1", "-W", str(int(timeout)), ip],
-                capture_output=True, text=True, timeout=timeout + 0.1
-            )
-        return result.returncode == 0
+        # Use socket-based ping instead of subprocess for better performance
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((ip, 80))  # Try common port 80
+        sock.close()
+        return result == 0
     except Exception:
-        return False
+        try:
+            # Fallback to ICMP ping only if socket fails
+            if platform.system().lower() == "windows":
+                result = subprocess.run(
+                    ["ping", "-n", "1", "-w", str(int(timeout * 1000)), ip],
+                    capture_output=True, text=True, timeout=timeout + 0.1
+                )
+            else:
+                result = subprocess.run(
+                    ["ping", "-c", "1", "-W", str(int(timeout)), ip],
+                    capture_output=True, text=True, timeout=timeout + 0.1
+                )
+            return result.returncode == 0
+        except Exception:
+            return False
 
 def get_mac_address(ip: str) -> Optional[str]:
     """Get MAC address for a given IP using ARP (optimized)"""
@@ -410,14 +419,14 @@ def scan_network_range_fast(network: str, start: int = 1, end: int = 254, quick_
         if ping_host(ip, timeout=0.05):  # Ultra-fast timeout for maximum speed
             found_ips.append(ip)
     
-    # Use maximum concurrent threads for fastest scanning
-    max_threads = 100  # Increased from 50
+    # Use reduced concurrent threads to prevent subprocess spam
+    max_threads = 20  # Reduced from 100 to prevent subprocess spam
     threads = []
     
-    # For quick scan, scan more comprehensive ranges to catch gaming devices
+    # For quick scan, scan more focused ranges to catch gaming devices
     if quick_scan:
-        # Include more ranges to catch gaming devices like PS5, Xbox, etc.
-        scan_range = list(range(1, 101)) + list(range(100, 201)) + list(range(200, 255))
+        # Focus on common ranges to reduce subprocess creation
+        scan_range = list(range(1, 51)) + list(range(100, 151)) + list(range(200, 255))
     else:
         scan_range = range(start, end + 1)
     
@@ -470,14 +479,14 @@ def scan_network_range_fast(network: str, start: int = 1, end: int = 254, quick_
         devices.append(device)
         log_info(f"Found device: {ip} ({vendor})")
     
-    # Get device info in parallel with increased concurrency
+    # Get device info in parallel with reduced concurrency to prevent subprocess spam
     info_threads = []
     for ip in found_ips:
         thread = threading.Thread(target=get_device_info, args=(ip,))
         info_threads.append(thread)
         thread.start()
         
-        if len(info_threads) >= 20:  # Increased from 10
+        if len(info_threads) >= 5:  # Reduced from 20 to prevent subprocess spam
             for t in info_threads:
                 t.join()
             info_threads = []
