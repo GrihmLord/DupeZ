@@ -6,17 +6,23 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGraphicsView,
                               QPushButton, QLabel, QComboBox, QSlider, QGroupBox,
                               QFormLayout, QSpinBox, QCheckBox, QMenu,
                               QToolTip, QMessageBox, QFileDialog)
-from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath, QRadialGradient, QAction
+from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath, QRadialGradient, QAction, QPixmap
 from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QPropertyAnimation, QEasingCurve
 from typing import Dict, List, Optional, Tuple, Any
 import math
 import json
+import time
 from datetime import datetime
 from app.logs.logger import log_info, log_error
 from app.core.state import Device
 
 class NetworkNode(QGraphicsEllipseItem):
     """Network device node in the topology view"""
+    
+    # Signals
+    device_selected = pyqtSignal(str)  # Emit device IP when selected
+    device_blocked = pyqtSignal(str)   # Emit device IP when blocked
+    device_unblocked = pyqtSignal(str) # Emit device IP when unblocked
     
     def __init__(self, device: Device, x: float, y: float, radius: float = 30):
         super().__init__(x - radius, y - radius, radius * 2, radius * 2)
@@ -45,7 +51,7 @@ class NetworkNode(QGraphicsEllipseItem):
         self.text_item.setPos(-radius + 5, -radius + 5)
         
         # Add hostname if available
-        if device.hostname and device.hostname != "Unknown":
+        if hasattr(device, 'hostname') and device.hostname and device.hostname != "Unknown":
             self.hostname_item = QGraphicsTextItem(self)
             self.hostname_item.setPlainText(device.hostname)
             self.hostname_item.setDefaultTextColor(QColor(200, 200, 200))
@@ -55,20 +61,16 @@ class NetworkNode(QGraphicsEllipseItem):
     def update_appearance(self):
         """Update node appearance based on device state"""
         # Determine base color based on device type
-        if self.device.is_gaming_device:
+        if hasattr(self.device, 'is_gaming_device') and self.device.is_gaming_device:
             base_color = QColor(255, 165, 0)  # Orange for gaming
-        elif self.device.is_router:
+        elif hasattr(self.device, 'is_router') and self.device.is_router:
             base_color = QColor(0, 255, 255)  # Cyan for router
-        elif self.device.is_mobile:
+        elif hasattr(self.device, 'is_mobile') and self.device.is_mobile:
             base_color = QColor(255, 192, 203)  # Pink for mobile
         else:
             base_color = QColor(100, 150, 255)  # Blue for regular devices
         
-        # Adjust color based on risk score
-        if self.risk_score > 70:
-            base_color = QColor(255, 0, 0)  # Red for high risk
-        elif self.risk_score > 40:
-            base_color = QColor(255, 255, 0)  # Yellow for medium risk
+        # Color based on device type only (risk score removed)
         
         # Create gradient
         self.gradient.setColorAt(0, base_color.lighter(150))
@@ -115,14 +117,18 @@ class NetworkNode(QGraphicsEllipseItem):
         self.update_appearance()
         
         # Show tooltip with device info
+        hostname = getattr(self.device, 'hostname', 'Unknown')
+        mac = getattr(self.device, 'mac', 'Unknown')
+        vendor = getattr(self.device, 'vendor', 'Unknown')
+        blocked = getattr(self.device, 'blocked', False)
+        
         tooltip_text = f"""
 Device: {self.device.ip}
-Hostname: {self.device.hostname or 'Unknown'}
-MAC: {self.device.mac or 'Unknown'}
-Vendor: {self.device.vendor or 'Unknown'}
+Hostname: {hostname}
+MAC: {mac}
+Vendor: {vendor}
 Traffic: {self.traffic_flow:.1f} KB/s
-Risk Score: {self.risk_score:.1f}
-Status: {'Blocked' if self.device.is_blocked else 'Active'}
+Status: {'Blocked' if blocked else 'Active'}
         """.strip()
         
         QToolTip.showText(event.screenPos(), tooltip_text)
@@ -135,81 +141,116 @@ Status: {'Blocked' if self.device.is_blocked else 'Active'}
         super().hoverLeaveEvent(event)
     
     def mousePressEvent(self, event):
-        """Handle mouse press event"""
+        """Handle mouse press events"""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.is_selected = True
-            self.update_appearance()
+            self.device_selected.emit(self.device.ip)
         super().mousePressEvent(event)
     
     def contextMenuEvent(self, event):
-        """Handle right-click context menu"""
-        menu = QMenu()
-        
-        # Device actions
-        block_action = QAction("🚫 Block Device", menu)
-        block_action.triggered.connect(lambda: self._block_device())
-        menu.addAction(block_action)
-        
-        unblock_action = QAction("✅ Unblock Device", menu)
-        unblock_action.triggered.connect(lambda: self._unblock_device())
-        menu.addAction(unblock_action)
-        
-        menu.addSeparator()
-        
-        # Traffic analysis
-        analyze_action = QAction("📊 Analyze Traffic", menu)
-        analyze_action.triggered.connect(lambda: self._analyze_traffic())
-        menu.addAction(analyze_action)
-        
-        # Device details
-        details_action = QAction("ℹ️ Device Details", menu)
-        details_action.triggered.connect(lambda: self._show_details())
-        menu.addAction(details_action)
-        
-        menu.exec(event.screenPos())
+        """Show context menu for device actions"""
+        try:
+            menu = QMenu()
+            
+            # Device info
+            info_action = QAction(f"📱 {self.device.ip}", menu)
+            info_action.setEnabled(False)
+            menu.addAction(info_action)
+            
+            if hasattr(self.device, 'hostname') and self.device.hostname and self.device.hostname != "Unknown":
+                hostname_action = QAction(f"🏷️ {self.device.hostname}", menu)
+                hostname_action.setEnabled(False)
+                menu.addAction(hostname_action)
+            
+            menu.addSeparator()
+            
+            # Block/Unblock action
+            if hasattr(self.device, 'blocked') and self.device.blocked:
+                unblock_action = QAction("🔓 Unblock Device", menu)
+                unblock_action.triggered.connect(self._unblock_device)
+                menu.addAction(unblock_action)
+            else:
+                block_action = QAction("🔒 Block Device", menu)
+                block_action.triggered.connect(self._block_device)
+                menu.addAction(block_action)
+            
+            # Traffic analysis
+            analyze_action = QAction("📊 Analyze Traffic", menu)
+            analyze_action.triggered.connect(self._analyze_traffic)
+            menu.addAction(analyze_action)
+            
+            # Device details
+            details_action = QAction("ℹ️ Device Details", menu)
+            details_action.triggered.connect(self._show_details)
+            menu.addAction(details_action)
+            
+            # Show menu
+            menu.exec(event.screenPos())
+            
+        except Exception as e:
+            log_error(f"Error showing device context menu: {e}")
     
     def _block_device(self):
-        """Block the device"""
-        # This will be connected to the controller
-        pass
+        """Block this device"""
+        try:
+            self.device_blocked.emit(self.device.ip)
+            log_info(f"🔒 Blocking device: {self.device.ip}")
+        except Exception as e:
+            log_error(f"Error blocking device {self.device.ip}: {e}")
     
     def _unblock_device(self):
-        """Unblock the device"""
-        # This will be connected to the controller
-        pass
+        """Unblock this device"""
+        try:
+            self.device_unblocked.emit(self.device.ip)
+            log_info(f"🔓 Unblocking device: {self.device.ip}")
+        except Exception as e:
+            log_error(f"Error unblocking device {self.device.ip}: {e}")
     
     def _analyze_traffic(self):
-        """Show traffic analysis for the device"""
-        # This will be connected to the traffic analyzer
-        pass
+        """Analyze traffic for this device"""
+        try:
+            log_info(f"📊 Analyzing traffic for device: {self.device.ip}")
+            # This would trigger traffic analysis for the device
+        except Exception as e:
+            log_error(f"Error analyzing traffic for device {self.device.ip}: {e}")
     
     def _show_details(self):
-        """Show detailed device information"""
-        details = f"""
+        """Show device details"""
+        try:
+            hostname = getattr(self.device, 'hostname', 'Unknown')
+            mac = getattr(self.device, 'mac', 'Unknown')
+            status = getattr(self.device, 'status', 'Unknown')
+            blocked = getattr(self.device, 'blocked', False)
+            
+            details = f"""
 Device Details:
-IP Address: {self.device.ip}
-Hostname: {self.device.hostname or 'Unknown'}
-MAC Address: {self.device.mac or 'Unknown'}
-Vendor: {self.device.vendor or 'Unknown'}
-Device Type: {self._get_device_type()}
-Traffic Flow: {self.traffic_flow:.1f} KB/s
-Risk Score: {self.risk_score:.1f}
-Status: {'Blocked' if self.device.is_blocked else 'Active'}
-Last Seen: {self.device.last_seen}
-        """.strip()
-        
-        QMessageBox.information(None, f"Device Details - {self.device.ip}", details)
+IP: {self.device.ip}
+MAC: {mac}
+Hostname: {hostname}
+Status: {status}
+Traffic: {self.traffic_flow:.2f} KB/s
+Blocked: {blocked}
+            """
+            log_info(f"ℹ️ Device details for {self.device.ip}: {details}")
+        except Exception as e:
+            log_error(f"Error showing details for device {self.device.ip}: {e}")
     
     def _get_device_type(self) -> str:
-        """Get human-readable device type"""
-        if self.device.is_gaming_device:
-            return "Gaming Console"
-        elif self.device.is_router:
-            return "Router/Gateway"
-        elif self.device.is_mobile:
-            return "Mobile Device"
-        else:
-            return "Computer/Device"
+        """Get device type string"""
+        try:
+            # Check if device has the expected attributes, with fallbacks
+            if hasattr(self.device, 'is_gaming_device') and self.device.is_gaming_device:
+                return "Gaming"
+            elif hasattr(self.device, 'is_router') and self.device.is_router:
+                return "Router"
+            elif hasattr(self.device, 'is_mobile') and self.device.is_mobile:
+                return "Mobile"
+            elif hasattr(self.device, 'device_type') and self.device.device_type:
+                return self.device.device_type
+            else:
+                return "Device"
+        except Exception as e:
+            log_error(f"Error getting device type for {self.device.ip}: {e}")
+            return "Unknown"
 
 class NetworkConnection(QGraphicsLineItem):
     """Connection line between network devices"""
@@ -280,9 +321,10 @@ class NetworkTopologyView(QWidget):
     device_blocked = pyqtSignal(str)   # Emit device IP when blocked
     device_unblocked = pyqtSignal(str) # Emit device IP when unblocked
     
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
-        self.devices: Dict[str, NetworkNode] = {}
+        self.controller = controller
+        self.nodes: Dict[str, NetworkNode] = {}
         self.connections: List[NetworkConnection] = []
         self.layout_mode = "circular"  # circular, grid, force_directed
         self.auto_layout = True
@@ -386,7 +428,12 @@ class NetworkTopologyView(QWidget):
         """Setup timer for animations"""
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self.update_animations)
-        self.animation_timer.start(100)  # 10 FPS
+        # self.animation_timer.start(100)  # DISABLED - causes performance issues
+        
+        # Setup auto-update timer for topology (disabled to prevent loops)
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.auto_update_topology)
+        # self.update_timer.start(5000)  # DISABLED - causes loops with dashboard timer
     
     def update_animations(self):
         """Update animations"""
@@ -403,117 +450,212 @@ class NetworkTopologyView(QWidget):
                 color.setAlpha(alpha)
                 connection.setPen(QPen(color, current_pen.width()))
     
-    def update_topology(self, devices: List[Device], traffic_data: Dict[str, float] = None):
-        """Update the network topology with new device data"""
-        try:
-            # Clear existing topology
-            self.clear_topology()
+    def auto_update_topology(self):
+        """Automatically update topology with current devices"""
+        # Loop prevention - don't auto-update if already updating
+        if hasattr(self, '_auto_updating') and self._auto_updating:
+            return
             
-            # Add devices
+        try:
+            self._auto_updating = True
+            if self.controller:
+                devices = self.controller.get_devices()
+                if devices:
+                    self.update_topology(devices)
+        except Exception as e:
+            log_error(f"Auto topology update failed: {e}")
+        finally:
+            self._auto_updating = False
+    
+    def update_topology(self, devices: List[Device], traffic_data: Dict[str, float] = None):
+        """Update the topology with new device data"""
+        # Loop prevention - don't update if already updating
+        if hasattr(self, '_updating') and self._updating:
+            log_info("Topology update skipped - already in progress")
+            return
+            
+        try:
+            self._updating = True
+            log_info(f"📊 Updating topology with {len(devices) if devices else 0} devices")
+            
+            # Clear existing topology
+            self.scene.clear()
+            self.nodes.clear()
+            self.connections.clear()
+            
+            if not devices:
+                # Show placeholder when no devices
+                log_info("📊 No devices found, showing placeholder")
+                self._show_placeholder()
+                return
+            
+            # Add devices to topology
             for device in devices:
                 self.add_device(device)
             
-            # Create connections (simplified - connect to router)
+            # Create connections between devices
             self.create_connections()
             
             # Apply layout
-            if self.auto_layout:
-                self.apply_layout()
+            self.apply_layout()
             
-            # Update traffic data
+            # Update traffic data if provided
             if traffic_data:
                 self.update_traffic_data(traffic_data)
             
             # Fit view to show all devices
             self.fit_view()
             
-            log_info(f"Topology updated with {len(devices)} devices")
+            log_info(f"📊 Topology updated with {len(devices)} devices")
             
         except Exception as e:
             log_error(f"Error updating topology: {e}")
+            self._show_placeholder()
+        finally:
+            # Always reset the flag
+            self._updating = False
+    
+    def _show_placeholder(self):
+        """Show placeholder when no devices are available"""
+        try:
+            # Get the view size for proper centering
+            view_rect = self.view.viewport().rect()
+            center_x = view_rect.width() / 2
+            center_y = view_rect.height() / 2
+            
+            # Create placeholder text
+            placeholder = QGraphicsTextItem("📊 Network Topology")
+            placeholder.setDefaultTextColor(QColor(100, 100, 100))
+            placeholder.setFont(QFont("Arial", 18, QFont.Weight.Bold))
+            
+            # Center the placeholder
+            text_rect = placeholder.boundingRect()
+            placeholder.setPos(center_x - text_rect.width() / 2, center_y - text_rect.height() / 2 - 30)
+            
+            self.scene.addItem(placeholder)
+            
+            # Add subtitle
+            subtitle = QGraphicsTextItem("No devices found. Run a network scan to discover devices.")
+            subtitle.setDefaultTextColor(QColor(150, 150, 150))
+            subtitle.setFont(QFont("Arial", 12))
+            
+            subtitle_rect = subtitle.boundingRect()
+            subtitle.setPos(center_x - subtitle_rect.width() / 2, center_y + 20)
+            
+            self.scene.addItem(subtitle)
+            
+            # Add instruction text
+            instruction = QGraphicsTextItem("Click 'Scan Network' in the Network Scanner tab to discover devices")
+            instruction.setDefaultTextColor(QColor(120, 120, 120))
+            instruction.setFont(QFont("Arial", 10))
+            
+            instruction_rect = instruction.boundingRect()
+            instruction.setPos(center_x - instruction_rect.width() / 2, center_y + 60)
+            
+            self.scene.addItem(instruction)
+            
+            log_info("📊 Topology placeholder displayed")
+            
+        except Exception as e:
+            log_error(f"Error showing topology placeholder: {e}")
     
     def add_device(self, device: Device):
         """Add a device to the topology"""
-        if device.ip in self.devices:
-            return
-        
-        # Create node at random position (will be adjusted by layout)
-        x = (hash(device.ip) % 200) - 100
-        y = (hash(device.ip) % 200) - 100
-        
-        node = NetworkNode(device, x, y)
-        self.devices[device.ip] = node
-        self.scene.addItem(node)
+        try:
+            # Calculate position (simple grid layout for now)
+            x = (len(self.nodes) % 5) * 150
+            y = (len(self.nodes) // 5) * 150
+            
+            # Create network node
+            node = NetworkNode(device, x, y)
+            self.nodes[device.ip] = node
+            self.scene.addItem(node)
+            
+            # Connect signals
+            node.device_selected.connect(self.device_selected.emit)
+            node.device_blocked.connect(self.device_blocked.emit)
+            node.device_unblocked.connect(self.device_unblocked.emit)
+            
+        except Exception as e:
+            log_error(f"Error adding device {device.ip} to topology: {e}")
     
     def create_connections(self):
         """Create connections between devices"""
-        # Simple star topology - connect all devices to the first one (assumed router)
-        if not self.devices:
-            return
-        
-        # Find router (usually the first device or one with specific IP)
-        router_ip = None
-        for ip, node in self.devices.items():
-            if node.device.is_router or ip.endswith('.1'):
-                router_ip = ip
-                break
-        
-        if not router_ip:
-            router_ip = list(self.devices.keys())[0]
-        
-        # Create connections to router
-        for ip, node in self.devices.items():
-            if ip != router_ip:
-                connection = NetworkConnection(self.devices[router_ip], node)
-                self.connections.append(connection)
-                self.scene.addItem(connection)
+        try:
+            device_ips = list(self.nodes.keys())
+            
+            # Create connections to gateway/router (first device)
+            if len(device_ips) > 1:
+                gateway_ip = device_ips[0]  # Assume first device is gateway
+                
+                for device_ip in device_ips[1:]:
+                    if device_ip in self.nodes and gateway_ip in self.nodes:
+                        source_node = self.nodes[gateway_ip]
+                        target_node = self.nodes[device_ip]
+                        
+                        connection = NetworkConnection(source_node, target_node)
+                        self.connections.append(connection)
+                        self.scene.addItem(connection)
+            
+            log_info(f"📊 Created {len(self.connections)} connections in topology")
+            
+        except Exception as e:
+            log_error(f"Error creating topology connections: {e}")
     
     def apply_layout(self):
-        """Apply the selected layout algorithm"""
-        if self.layout_mode == "circular":
+        """Apply layout algorithm to arrange devices"""
+        try:
+            if not self.nodes:
+                return
+            
+            # Use circular layout for better visualization
             self.apply_circular_layout()
-        elif self.layout_mode == "grid":
-            self.apply_grid_layout()
-        elif self.layout_mode == "force_directed":
-            self.apply_force_directed_layout()
+            
+        except Exception as e:
+            log_error(f"Error applying topology layout: {e}")
     
     def apply_circular_layout(self):
-        """Apply circular layout"""
-        if not self.devices:
-            return
-        
-        center_x, center_y = 0, 0
-        radius = 200
-        angle_step = 2 * math.pi / len(self.devices)
-        
-        for i, (ip, node) in enumerate(self.devices.items()):
-            angle = i * angle_step
-            x = center_x + radius * math.cos(angle)
-            y = center_y + radius * math.sin(angle)
+        """Apply circular layout to arrange devices in a circle"""
+        try:
+            if not self.nodes:
+                return
             
-            if self.animation_enabled:
-                self.animate_node_movement(node, x, y)
-            else:
-                node.setPos(x, y)
+            # Calculate center and radius
+            center_x = 0
+            center_y = 0
+            radius = 200
             
-            # Update connections
-            for connection in node.connections:
-                connection.update_position()
+            # Position devices in a circle
+            device_ips = list(self.nodes.keys())
+            angle_step = 2 * math.pi / len(device_ips)
+            
+            for i, device_ip in enumerate(device_ips):
+                if device_ip in self.nodes:
+                    angle = i * angle_step
+                    x = center_x + radius * math.cos(angle)
+                    y = center_y + radius * math.sin(angle)
+                    
+                    # Animate node movement
+                    node = self.nodes[device_ip]
+                    self.animate_node_movement(node, x, y)
+            
+        except Exception as e:
+            log_error(f"Error applying circular layout: {e}")
     
     def apply_grid_layout(self):
         """Apply grid layout"""
-        if not self.devices:
+        if not self.nodes:
             return
         
-        cols = int(math.ceil(math.sqrt(len(self.devices))))
+        cols = int(math.ceil(math.sqrt(len(self.nodes))))
         spacing = 150
         
-        for i, (ip, node) in enumerate(self.devices.items()):
+        for i, (ip, node) in enumerate(self.nodes.items()):
             row = i // cols
             col = i % cols
             
             x = (col - cols // 2) * spacing
-            y = (row - len(self.devices) // cols // 2) * spacing
+            y = (row - len(self.nodes) // cols // 2) * spacing
             
             if self.animation_enabled:
                 self.animate_node_movement(node, x, y)
@@ -540,21 +682,25 @@ class NetworkTopologyView(QWidget):
         animation.start()
     
     def update_traffic_data(self, traffic_data: Dict[str, float]):
-        """Update traffic data for devices and connections"""
-        for ip, flow in traffic_data.items():
-            if ip in self.devices:
-                node = self.devices[ip]
-                node.traffic_flow = flow
-                node.update_appearance()
+        """Update traffic data for devices"""
+        try:
+            for device_ip, traffic_flow in traffic_data.items():
+                if device_ip in self.nodes:
+                    node = self.nodes[device_ip]
+                    node.traffic_flow = traffic_flow
+                    node.update_appearance()
+            
+            # Update connections with traffic flow
+            for connection in self.connections:
+                connection.update_appearance()
                 
-                # Update connections
-                for connection in node.connections:
-                    connection.set_traffic_flow(flow)
+        except Exception as e:
+            log_error(f"Error updating topology traffic data: {e}")
     
     def clear_topology(self):
         """Clear the topology view"""
         self.scene.clear()
-        self.devices.clear()
+        self.nodes.clear()
         self.connections.clear()
     
     def change_layout(self, layout_name: str):
@@ -572,7 +718,7 @@ class NetworkTopologyView(QWidget):
     def toggle_traffic_display(self, enabled: bool):
         """Toggle traffic display"""
         self.show_traffic = enabled
-        for node in self.devices.values():
+        for node in self.nodes.values():
             node.update_appearance()
     
     def toggle_connections_display(self, enabled: bool):
@@ -590,9 +736,14 @@ class NetworkTopologyView(QWidget):
             self.animation_timer.stop()
     
     def refresh_topology(self):
-        """Refresh the topology view"""
-        self.apply_layout()
-        self.fit_view()
+        """Refresh the topology display"""
+        try:
+            # Trigger a repaint
+            self.view.viewport().update()
+            log_info("📊 Topology refreshed")
+            
+        except Exception as e:
+            log_error(f"Error refreshing topology: {e}")
     
     def export_topology(self):
         """Export topology to image"""
@@ -623,8 +774,15 @@ class NetworkTopologyView(QWidget):
     
     def fit_view(self):
         """Fit the view to show all devices"""
-        if self.devices:
-            self.view.fitInView(self.scene.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        try:
+            if self.nodes:
+                # Calculate bounding rectangle
+                rect = self.scene.itemsBoundingRect()
+                self.view.fitInView(rect, Qt.AspectRatioMode.KeepAspectRatio)
+                self.view.centerOn(0, 0)
+            
+        except Exception as e:
+            log_error(f"Error fitting topology view: {e}")
     
     def resizeEvent(self, event):
         """Handle resize events"""
@@ -633,19 +791,33 @@ class NetworkTopologyView(QWidget):
     
     def get_selected_devices(self) -> List[str]:
         """Get list of selected device IPs"""
-        return [ip for ip, node in self.devices.items() if node.is_selected]
+        try:
+            selected = []
+            for node in self.nodes.values():
+                if node.is_selected:
+                    selected.append(node.device.ip)
+            return selected
+            
+        except Exception as e:
+            log_error(f"Error getting selected devices: {e}")
+            return []
     
     def select_device(self, ip: str):
-        """Select a specific device"""
-        if ip in self.devices:
-            # Clear other selections
-            for node in self.devices.values():
-                node.is_selected = False
+        """Select a device by IP"""
+        try:
+            if ip in self.nodes:
+                # Deselect all other nodes
+                for node in self.nodes.values():
+                    node.is_selected = False
+                    node.update_appearance()
+                
+                # Select the specified node
+                node = self.nodes[ip]
+                node.is_selected = True
                 node.update_appearance()
-            
-            # Select the specified device
-            self.devices[ip].is_selected = True
-            self.devices[ip].update_appearance()
-            
-            # Center view on selected device
-            self.view.centerOn(self.devices[ip]) 
+                
+                # Center view on selected node
+                self.view.centerOn(node)
+                
+        except Exception as e:
+            log_error(f"Error selecting device {ip}: {e}") 

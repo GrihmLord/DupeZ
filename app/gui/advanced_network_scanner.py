@@ -353,8 +353,7 @@ class AdvancedNetworkScanner(QWidget):
         """Setup device table with Angry IP Scanner columns"""
         headers = [
             "IP Address", "MAC Address", "Hostname", "Vendor", 
-            "Device Type", "Response Time", "Open Ports", "Risk Score", 
-            "Status", "Traffic Control"
+            "Device Type", "Open Ports", "Status", "Traffic Control"
         ]
         self.device_table.setColumnCount(len(headers))
         self.device_table.setHorizontalHeaderLabels(headers)
@@ -595,9 +594,7 @@ class AdvancedNetworkScanner(QWidget):
                 QTableWidgetItem(device.get('hostname', '')),
                 QTableWidgetItem(device.get('vendor', '')),
                 QTableWidgetItem(device.get('device_type', '')),
-                QTableWidgetItem(f"{device.get('response_time', 0):.1f}ms"),
                 QTableWidgetItem(', '.join(map(str, device.get('open_ports', [])))),
-                QTableWidgetItem(str(device.get('risk_score', 0))),
                 QTableWidgetItem(device.get('status', 'Online')),
                 QTableWidgetItem("None")
             ]
@@ -676,9 +673,9 @@ class AdvancedNetworkScanner(QWidget):
             # Simple export to text file
             filename = f"devices_export_{int(time.time())}.txt"
             with open(filename, 'w') as f:
-                f.write("IP Address\tMAC Address\tHostname\tVendor\tDevice Type\tResponse Time\tOpen Ports\tRisk Score\tStatus\n")
+                f.write("IP Address\tMAC Address\tHostname\tVendor\tDevice Type\tOpen Ports\tStatus\n")
                 for device in self.devices:
-                    f.write(f"{device.get('ip', '')}\t{device.get('mac', '')}\t{device.get('hostname', '')}\t{device.get('vendor', '')}\t{device.get('device_type', '')}\t{device.get('response_time', 0):.1f}ms\t{', '.join(map(str, device.get('open_ports', [])))}\t{device.get('risk_score', 0)}\t{device.get('status', 'Online')}\n")
+                    f.write(f"{device.get('ip', '')}\t{device.get('mac', '')}\t{device.get('hostname', '')}\t{device.get('vendor', '')}\t{device.get('device_type', '')}\t{', '.join(map(str, device.get('open_ports', [])))}\t{device.get('status', 'Online')}\n")
                     
             self.update_status(f"Devices exported to {filename}")
             

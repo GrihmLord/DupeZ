@@ -538,6 +538,58 @@ QWidget#graph_panel {
     border: 2px solid #00ff00;
 }
 
+/* Enhanced Graph Components */
+QWidget#graph_widget {
+    background-color: #0a0a0a;
+    border: 2px solid #00ff00;
+    border-radius: 0px;
+    padding: 8px;
+}
+
+QFrame#stats_frame {
+    background-color: #1a1a1a;
+    border: 1px solid #00ff00;
+    border-radius: 0px;
+    padding: 8px;
+}
+
+QFrame#legend_frame {
+    background-color: #1a1a1a;
+    border: 1px solid #00ff00;
+    border-radius: 0px;
+    padding: 8px;
+}
+
+QLabel#graph_title {
+    color: #000000;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 4px 8px;
+    background-color: #00ff00;
+    border-radius: 0px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+QLabel#stat_label {
+    color: #00ff00;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 6px;
+    background-color: #1a1a1a;
+    border-radius: 0px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+QLabel#status_label {
+    color: #000000;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 8px;
+    background-color: #00ff00;
+    border-radius: 0px;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
 /* Status Indicators */
 QLabel#status_online {
     color: #00ff00;

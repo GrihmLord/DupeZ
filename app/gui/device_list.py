@@ -123,10 +123,27 @@ class DeviceList(QWidget):
         self.select_all_btn.clicked.connect(self.select_all_devices)
         header_layout.addWidget(self.select_all_btn)
         
+        # Block selected button - now a toggle button
         self.block_selected_btn = QPushButton("🚫 BLOCK SELECTED")
         self.block_selected_btn.setObjectName("block_btn")
-        self.block_selected_btn.clicked.connect(self.block_selected_devices)
+        self.block_selected_btn.setCheckable(True)  # Make it a toggle button
+        self.block_selected_btn.clicked.connect(self.toggle_selected_devices_blocking)
         header_layout.addWidget(self.block_selected_btn)
+        
+        # Unblock selected button - separate toggle button
+        self.unblock_selected_btn = QPushButton("✅ UNBLOCK SELECTED")
+        self.unblock_selected_btn.setObjectName("refresh_btn")
+        self.unblock_selected_btn.setCheckable(True)  # Make it a toggle button
+        self.unblock_selected_btn.clicked.connect(self.toggle_selected_devices_unblocking)
+        header_layout.addWidget(self.unblock_selected_btn)
+        
+        # System status button
+        self.system_status_btn = QPushButton("📊 SYSTEM STATUS")
+        self.system_status_btn.setObjectName("scan_btn")
+        self.system_status_btn.clicked.connect(self.show_system_status)
+        header_layout.addWidget(self.system_status_btn)
+        
+
         
         self.status_label = QLabel("READY")
         self.status_label.setObjectName("status_label")
@@ -138,6 +155,13 @@ class DeviceList(QWidget):
         # Device list with enhanced header - more responsive
         self.device_list = QListWidget()
         self.device_list.setAlternatingRowColors(True)
+        
+        # Set monospace font for proper column alignment
+        font = QFont("Consolas", 9)  # Use Consolas or another monospace font
+        self.device_list.setFont(font)
+        
+        # Connect signals
+        self.device_list.itemSelectionChanged.connect(self.on_selection_changed)
         self.device_list.itemClicked.connect(self.on_device_selected)
         self.device_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.device_list.customContextMenuRequested.connect(self.show_context_menu)
@@ -145,7 +169,7 @@ class DeviceList(QWidget):
         self.device_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # Enhanced header with better spacing and readability
-        header_text = "Status  Type  Device  IP Address        |  MAC Address         |  Vendor               |  Hostname         |  Last Seen"
+        header_text = "Status | Type      | IP Address        | MAC Address           | Vendor                 | Hostname                      | Last Seen"
         header_item = QListWidgetItem(header_text)
         header_item.setBackground(QColor(240, 240, 240))  # Light gray background
         header_item.setFlags(header_item.flags() & ~Qt.ItemFlag.ItemIsSelectable)  # Make header non-selectable
@@ -302,66 +326,44 @@ class DeviceList(QWidget):
             self.status_label.setText("Error loading devices")
     
     def create_device_item(self, device) -> QListWidgetItem:
-        """Create a detailed device list item with enhanced information"""
-        # Create main item
-        item = QListWidgetItem()
-        
-        # Enhanced device information display
-        status_icon = "🟢" if not device.blocked else "🔴"
-        vendor_icon = self._get_vendor_icon(device.vendor)
-        
-        # Check if sensitive info should be hidden
-        hide_sensitive = hasattr(self, 'hide_sensitive_btn') and self.hide_sensitive_btn.isChecked()
-        
-        # More detailed device information
-        device_text = f"{status_icon} {device.ip}\n"
-        device_text += f"   {vendor_icon} {device.vendor}\n"
-        
-        if device.hostname and device.hostname != "Unknown":
-            if hide_sensitive:
-                device_text += f"   📱 ***\n"
+        """Create a list item for a device with enhanced display"""
+        try:
+            # Create status icon based on blocking state
+            status_icon = "🚫" if device.blocked else "✅"
+            
+            # Create vendor icon
+            vendor_icon = self._get_vendor_icon(device.vendor)
+            
+            # Format all device information
+            device_type, mac_display, vendor_display, hostname_display = self._format_device_display_info(device)
+            
+            # Create formatted display text with proper column alignment
+            display_text = f"{status_icon} | {device_type:<10} | {device.ip:<18} | {mac_display:<22} | {vendor_display:<24} | {hostname_display:<28} | {device.last_seen}"
+            
+            # Create the item
+            item = QListWidgetItem(display_text)
+            item.setData(Qt.ItemDataRole.UserRole, device.ip)
+            
+            # Set background color based on blocking status
+            if device.blocked:
+                item.setBackground(QColor(255, 0, 0, 50))  # Light red for blocked
+                item.setForeground(QColor(255, 0, 0))  # Red text
             else:
-                device_text += f"   📱 {device.hostname}\n"
-        
-        if device.mac and device.mac != "Unknown":
-            if hide_sensitive:
-                device_text += f"   🔗 ***.***.***.***\n"
-            else:
-                # Show only first 8 characters of MAC for privacy
-                mac_display = device.mac[:8] + "..." if len(device.mac) > 8 else device.mac
-                device_text += f"   🔗 {mac_display}\n"
-        
-        device_text += f"   📊 Traffic: {self._format_traffic(device.traffic)}\n"
-        device_text += f"   ⏰ Last seen: {device.last_seen}"
-        
-        item.setText(device_text)
-        item.setData(Qt.ItemDataRole.UserRole, device.ip)
-        
-        # Store full device data for security checks
-        full_data = {
-            'ip': device.ip,
-            'mac': device.mac,
-            'hostname': device.hostname,
-            'vendor': device.vendor,
-            'local': device.local,
-            'blocked': device.blocked,
-            'last_seen': device.last_seen,
-            'traffic': device.traffic
-        }
-        item.setData(Qt.ItemDataRole.UserRole + 1, full_data)
-        
-        # Set item properties for better styling
-        item.setData(Qt.ItemDataRole.ToolTipRole, self._create_device_tooltip(device, hide_sensitive))
-        
-        # Color coding for different device types
-        if device.local:
-            item.setBackground(QColor(240, 248, 255))  # Light blue for local device
-        elif "PlayStation" in device.vendor or "Xbox" in device.vendor or "Nintendo" in device.vendor:
-            item.setBackground(QColor(255, 248, 220))  # Light yellow for gaming devices
-        elif device.blocked:
-            item.setBackground(QColor(255, 240, 240))  # Light red for blocked devices
-        
-        return item
+                item.setBackground(QColor(0, 255, 0, 30))  # Light green for active
+                item.setForeground(QColor(0, 255, 0))  # Green text
+            
+            # Set tooltip
+            item.setToolTip(self._create_device_tooltip(device))
+            
+            return item
+            
+        except Exception as e:
+            log_error(f"Error creating device item: {e}")
+            # Fallback item
+            item = QListWidgetItem(f"❓ {device.ip if device else 'Unknown'}")
+            if device:
+                item.setData(Qt.ItemDataRole.UserRole, device.ip)
+            return item
     
     def _get_vendor_icon(self, vendor: str) -> str:
         """Get appropriate icon for vendor"""
@@ -394,6 +396,37 @@ class DeviceList(QWidget):
         else:
             return f"{traffic / (1024 * 1024):.1f} MB"
     
+    def _format_mac_address(self, mac: str) -> str:
+        """Format MAC address for display"""
+        if mac and mac != "Unknown" and mac != "00:00:00:00:00:00":
+            # Ensure MAC is in proper format (XX:XX:XX:XX:XX:XX)
+            mac_parts = mac.replace('-', ':').split(':')
+            if len(mac_parts) == 6:
+                return f"{mac_parts[0].upper()}:{mac_parts[1].upper()}:{mac_parts[2].upper()}:{mac_parts[3].upper()}:{mac_parts[4].upper()}:{mac_parts[5].upper()}"
+            else:
+                return mac.upper()
+        else:
+            return "Unknown"
+    
+    def _format_device_display_info(self, device) -> tuple:
+        """Format all device information for display"""
+        # Get device type
+        device_type = device.device_type if device.device_type and device.device_type != "Unknown" else "Unknown"
+        
+        # Format MAC address
+        mac_display = self._format_mac_address(device.mac)
+        
+        # Format vendor
+        vendor_display = device.vendor if device.vendor and device.vendor != "Unknown" else "Unknown"
+        
+        # Format hostname with proper spacing and truncation if too long
+        if device.hostname and device.hostname != "Unknown":
+            hostname_display = device.hostname[:25] + "..." if len(device.hostname) > 25 else device.hostname
+        else:
+            hostname_display = "Unknown"
+        
+        return device_type, mac_display, vendor_display, hostname_display
+    
     def _create_device_tooltip(self, device, hide_sensitive=False) -> str:
         """Create detailed tooltip for device"""
         tooltip = f"<b>Device Information</b><br>"
@@ -410,7 +443,8 @@ class DeviceList(QWidget):
             if hide_sensitive:
                 tooltip += f"<b>MAC Address:</b> ***.***.***.***<br>"
             else:
-                tooltip += f"<b>MAC Address:</b> {device.mac}<br>"
+                formatted_mac = self._format_mac_address(device.mac)
+                tooltip += f"<b>MAC Address:</b> {formatted_mac}<br>"
         
         tooltip += f"<b>Traffic:</b> {self._format_traffic(device.traffic)}<br>"
         tooltip += f"<b>Last Seen:</b> {device.last_seen}<br>"
@@ -419,16 +453,80 @@ class DeviceList(QWidget):
         
         return tooltip
     
+    def on_selection_changed(self):
+        """Handle device selection changes"""
+        try:
+            # Update both button states when selection changes
+            self.update_block_selected_button_state()
+            self.update_unblock_selected_button_state()
+        except Exception as e:
+            log_error(f"Error handling selection change: {e}")
+    
     def on_device_selected(self, item):
         """Handle device selection"""
-        ip = item.data(Qt.ItemDataRole.UserRole)
-        if ip:
-            self.selected_device = ip
-            self.block_btn.setEnabled(True)
-            self.device_selected.emit(ip)
-            
-            if self.controller:
-                self.controller.select_device(ip)
+        try:
+            device_ip = item.data(Qt.ItemDataRole.UserRole)
+            if device_ip:
+                self.selected_device = device_ip
+                
+                # Emit signal for device selection
+                self.device_selected.emit(device_ip)
+                
+                # Highlight the selected device
+                self.highlight_device(device_ip)
+                
+                # Update block button state and text based on device status
+                device = self.get_device_by_ip(device_ip)
+                if device:
+                    self.block_btn.setEnabled(True)
+                    
+                    if device.blocked:
+                        self.block_btn.setText("🔓 Unblock Selected")
+                        self.block_btn.setStyleSheet("""
+                            QPushButton {
+                                background-color: #4CAF50;
+                                color: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 6px;
+                                font-weight: bold;
+                                font-size: 12px;
+                            }
+                            QPushButton:hover {
+                                background-color: #388E3C;
+                            }
+                            QPushButton:pressed {
+                                background-color: #2E7D32;
+                            }
+                        """)
+                        status = "🚫 BLOCKED"
+                    else:
+                        self.block_btn.setText("🚫 Block Selected")
+                        self.block_btn.setStyleSheet("""
+                            QPushButton {
+                                background-color: #F44336;
+                                color: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 6px;
+                                font-weight: bold;
+                                font-size: 12px;
+                            }
+                            QPushButton:hover {
+                                background-color: #D32F2F;
+                            }
+                            QPushButton:pressed {
+                                background-color: #B71C1C;
+                            }
+                        """)
+                        status = "✅ ACTIVE"
+                    
+                    self.status_label.setText(f"Selected: {device_ip} ({device.vendor}) - {status}")
+                else:
+                    self.block_btn.setEnabled(False)
+                    
+        except Exception as e:
+            log_error(f"Error handling device selection: {e}")
     
     def highlight_device(self, ip: str):
         """Highlight a specific device in the list"""
@@ -451,23 +549,73 @@ class DeviceList(QWidget):
             self.progress_bar.setVisible(False)
     
     def update_device_blocking_status(self, data: Dict):
-        """Update device blocking status in the UI"""
-        ip = data.get("ip")
-        blocked = data.get("blocked")
-        
-        for i in range(self.device_list.count()):
-            item = self.device_list.item(i)
-            if item.data(Qt.ItemDataRole.UserRole) == ip:
-                # Update the item display
-                text = item.text()
-                if blocked:
-                    text = text.replace("🟢", "🔴")
-                    item.setBackground(QColor(255, 220, 220))  # Very light red
-                else:
-                    text = text.replace("🔴", "🟢")
-                    item.setBackground(QColor(0, 0, 0, 0))  # Transparent
-                item.setText(text)
-                break
+        """Update device blocking status display"""
+        try:
+            if not data:
+                return
+            
+            ip = data.get("ip")
+            blocked = data.get("blocked", False)
+            success = data.get("success", False)
+            
+            if ip:
+                # Find and update the device item
+                for i in range(self.device_list.count()):
+                    item = self.device_list.item(i)
+                    device_ip = item.data(Qt.ItemDataRole.UserRole)
+                    if device_ip == ip:
+                        # Update the device object
+                        device = self.get_device_by_ip(ip)
+                        if device:
+                            device.blocked = blocked
+                        
+                        # Update the item display
+                        self.update_device_item_display(item, device)
+                        
+                        # Update status message
+                        if success:
+                            status = "🚫 BLOCKED" if blocked else "✅ UNBLOCKED"
+                            self.status_label.setText(f"Device {ip} {status}")
+                        else:
+                            self.status_label.setText(f"❌ Failed to {'block' if blocked else 'unblock'} {ip}")
+                        
+                        # Update block selected button state
+                        self.update_block_selected_button_state()
+                        break
+                        
+        except Exception as e:
+            log_error(f"Error updating device blocking status: {e}")
+    
+    def update_device_item_display(self, item, device):
+        """Update the display of a device item based on its current state"""
+        try:
+            if not device:
+                return
+            
+            # Create status icon based on blocking state
+            status_icon = "🚫" if device.blocked else "✅"
+            
+            # Format all device information
+            device_type, mac_display, vendor_display, hostname_display = self._format_device_display_info(device)
+            
+            # Create formatted display text with proper column alignment
+            display_text = f"{status_icon} | {device_type:<10} | {device.ip:<18} | {mac_display:<22} | {vendor_display:<24} | {hostname_display:<28} | {device.last_seen}"
+            
+            item.setText(display_text)
+            
+            # Set background color based on blocking status
+            if device.blocked:
+                item.setBackground(QColor(255, 0, 0, 50))  # Light red for blocked
+                item.setForeground(QColor(255, 0, 0))  # Red text
+            else:
+                item.setBackground(QColor(0, 255, 0, 30))  # Light green for active
+                item.setForeground(QColor(0, 255, 0))  # Green text
+            
+            # Set tooltip
+            item.setToolTip(self._create_device_tooltip(device))
+            
+        except Exception as e:
+            log_error(f"Error updating device item display: {e}")
     
     def refresh_devices(self):
         """Manually refresh the device list"""
@@ -492,9 +640,62 @@ class DeviceList(QWidget):
             return
         
         try:
+            # Get current device state
+            device = self.get_device_by_ip(self.selected_device)
+            if not device:
+                QMessageBox.warning(self, "Warning", "Device not found")
+                return
+            
+            # Toggle the blocking
             blocked = self.controller.toggle_lag(self.selected_device)
-            status = "blocked" if blocked else "unblocked"
+            
+            # Update button text and style based on new state
+            if blocked:
+                self.block_btn.setText("🔓 Unblock Selected")
+                self.block_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4CAF50;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #388E3C;
+                    }
+                    QPushButton:pressed {
+                        background-color: #2E7D32;
+                    }
+                """)
+                status = "blocked"
+            else:
+                self.block_btn.setText("🚫 Block Selected")
+                self.block_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #F44336;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #D32F2F;
+                    }
+                    QPushButton:pressed {
+                        background-color: #B71C1C;
+                    }
+                """)
+                status = "unblocked"
+            
             log_info(f"Device {self.selected_device} {status}")
+            
+            # Update device list to reflect changes
+            self.update_device_list(self.controller.get_devices())
+            
         except Exception as e:
             log_error(f"Error toggling device blocking: {e}")
             QMessageBox.critical(self, "Error", f"Failed to toggle blocking: {e}")
@@ -686,8 +887,8 @@ Last Seen: {full_data.get('last_seen', 'Unknown')}
         except Exception as e:
             log_error(f"Error selecting all devices: {e}")
     
-    def block_selected_devices(self):
-        """Block all selected devices"""
+    def toggle_selected_devices_blocking(self):
+        """Toggle blocking for all selected devices - ACTUALLY BLOCK THEM"""
         try:
             selected_items = self.device_list.selectedItems()
             if not selected_items:
@@ -695,22 +896,152 @@ Last Seen: {full_data.get('last_seen', 'Unknown')}
                 return
             
             blocked_count = 0
+            
             for item in selected_items:
                 device_ip = item.data(Qt.ItemDataRole.UserRole)
                 if device_ip and self.controller:
                     device = self.get_device_by_ip(device_ip)
-                    if device and not device.local and not device.blocked:
-                        self.controller.toggle_lag(device_ip)
-                        blocked_count += 1
+                    if device and not device.local:
+                        # Actually block the device using the firewall
+                        if self.controller.toggle_lag(device_ip):
+                            blocked_count += 1
+                            # Update the device status
+                            device.blocked = True
+                            # Update the item display
+                            self.update_device_item_display(item, device)
             
+            # Update button states
+            self.update_block_selected_button_state()
+            self.update_unblock_selected_button_state()
+            
+            # Update status message
             if blocked_count > 0:
-                self.status_label.setText(f"BLOCKED {blocked_count} DEVICES")
-                log_info(f"Blocked {blocked_count} selected devices")
+                self.status_label.setText(f"🚫 BLOCKED {blocked_count} DEVICES")
+                log_info(f"Actually blocked {blocked_count} selected devices")
             else:
                 self.status_label.setText("NO DEVICES BLOCKED")
+                
         except Exception as e:
             log_error(f"Error blocking selected devices: {e}")
             QMessageBox.critical(self, "Error", f"Failed to block devices: {e}")
+    
+    def toggle_selected_devices_unblocking(self):
+        """Toggle unblocking for all selected devices - ACTUALLY UNBLOCK THEM"""
+        try:
+            selected_items = self.device_list.selectedItems()
+            if not selected_items:
+                QMessageBox.warning(self, "Warning", "No devices selected")
+                return
+            
+            unblocked_count = 0
+            
+            for item in selected_items:
+                device_ip = item.data(Qt.ItemDataRole.UserRole)
+                if device_ip and self.controller:
+                    device = self.get_device_by_ip(device_ip)
+                    if device and not device.local and device.blocked:
+                        # Actually unblock the device using the firewall
+                        if self.controller.toggle_lag(device_ip):
+                            unblocked_count += 1
+                            # Update the device status
+                            device.blocked = False
+                            # Update the item display
+                            self.update_device_item_display(item, device)
+            
+            # Update button states
+            self.update_block_selected_button_state()
+            self.update_unblock_selected_button_state()
+            
+            # Update status message
+            if unblocked_count > 0:
+                self.status_label.setText(f"✅ UNBLOCKED {unblocked_count} DEVICES")
+                log_info(f"Actually unblocked {unblocked_count} selected devices")
+            else:
+                self.status_label.setText("NO DEVICES UNBLOCKED")
+                
+        except Exception as e:
+            log_error(f"Error unblocking selected devices: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to unblock devices: {e}")
+    
+    def update_block_selected_button_state(self):
+        """Update the block selected button state based on selected devices"""
+        try:
+            selected_items = self.device_list.selectedItems()
+            if not selected_items:
+                self.block_selected_btn.setChecked(False)
+                self.block_selected_btn.setText("🚫 BLOCK SELECTED")
+                return
+            
+            blocked_count = 0
+            total_count = 0
+            
+            for item in selected_items:
+                device_ip = item.data(Qt.ItemDataRole.UserRole)
+                if device_ip:
+                    device = self.get_device_by_ip(device_ip)
+                    if device and not device.local:
+                        total_count += 1
+                        if device.blocked:
+                            blocked_count += 1
+            
+            if total_count == 0:
+                self.block_selected_btn.setChecked(False)
+                self.block_selected_btn.setText("🚫 BLOCK SELECTED")
+            elif blocked_count == total_count:
+                # All selected devices are blocked
+                self.block_selected_btn.setChecked(True)
+                self.block_selected_btn.setText("✅ UNBLOCK SELECTED")
+            elif blocked_count == 0:
+                # No selected devices are blocked
+                self.block_selected_btn.setChecked(False)
+                self.block_selected_btn.setText("🚫 BLOCK SELECTED")
+            else:
+                # Mixed state - show as partially checked
+                self.block_selected_btn.setChecked(False)
+                self.block_selected_btn.setText(f"🔄 BLOCK SELECTED ({blocked_count}/{total_count})")
+                
+        except Exception as e:
+            log_error(f"Error updating block selected button state: {e}")
+    
+    def update_unblock_selected_button_state(self):
+        """Update the unblock selected button state based on selected devices"""
+        try:
+            selected_items = self.device_list.selectedItems()
+            if not selected_items:
+                self.unblock_selected_btn.setChecked(False)
+                self.unblock_selected_btn.setText("✅ UNBLOCK SELECTED")
+                return
+            
+            blocked_count = 0
+            total_count = 0
+            
+            for item in selected_items:
+                device_ip = item.data(Qt.ItemDataRole.UserRole)
+                if device_ip:
+                    device = self.get_device_by_ip(device_ip)
+                    if device and not device.local:
+                        total_count += 1
+                        if device.blocked:
+                            blocked_count += 1
+            
+            if total_count == 0:
+                self.unblock_selected_btn.setChecked(False)
+                self.unblock_selected_btn.setText("✅ UNBLOCK SELECTED")
+            elif blocked_count == total_count:
+                # All selected devices are blocked - can unblock all
+                self.unblock_selected_btn.setChecked(False)
+                self.unblock_selected_btn.setText("✅ UNBLOCK ALL SELECTED")
+            elif blocked_count == 0:
+                # No selected devices are blocked
+                self.unblock_selected_btn.setChecked(False)
+                self.unblock_selected_btn.setText("✅ UNBLOCK SELECTED")
+            else:
+                # Mixed state - some blocked, some not
+                self.unblock_selected_btn.setChecked(False)
+                self.unblock_selected_btn.setText(f"🔄 UNBLOCK SELECTED ({blocked_count}/{total_count})")
+                
+        except Exception as e:
+            log_error(f"Error updating unblock selected button state: {e}")
     
     def get_selected_devices(self):
         """Get list of selected device IPs"""
@@ -976,3 +1307,5 @@ Last Seen: {full_data.get('last_seen', 'Unknown')}
         except Exception as e:
             log_error(f"Error exporting search results: {e}")
             QMessageBox.critical(self, "Error", f"Failed to export search results: {e}")
+
+

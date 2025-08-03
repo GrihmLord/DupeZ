@@ -25,6 +25,41 @@ class AppSettings:
     scan_interval: int = 60  # seconds (faster updates)
     max_devices: int = 100
     log_level: str = "INFO"
+    
+    # Network settings
+    ping_timeout: int = 2
+    max_threads: int = 20
+    quick_scan: bool = True
+    auto_block: bool = False
+    high_traffic_threshold: int = 1000
+    connection_limit: int = 100
+    suspicious_activity_threshold: int = 20
+    block_duration: int = 30
+    
+    # UI settings
+    theme: str = "dark"
+    auto_refresh: bool = True
+    refresh_interval: int = 120
+    show_device_icons: bool = True
+    show_status_indicators: bool = True
+    compact_view: bool = False
+    show_notifications: bool = True
+    sound_alerts: bool = False
+    
+    # Advanced settings
+    cache_duration: int = 60
+    memory_limit: int = 200
+    require_admin: bool = True
+    encrypt_logs: bool = False
+    debug_mode: bool = False
+    verbose_logging: bool = False
+    
+    # Security settings
+    whitelist: list = None
+    
+    def __post_init__(self):
+        if self.whitelist is None:
+            self.whitelist = []
 
 class AppState:
     def __init__(self, config_file: str = "app/config/settings.json"):

@@ -13,6 +13,7 @@ import gc
 import psutil
 import threading
 import time
+import tempfile
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from PyQt6.QtCore import QTimer, QThread, QObject, pyqtSignal
 
@@ -22,15 +23,68 @@ from logging.handlers import RotatingFileHandler
 # Create logs directory if it doesn't exist
 os.makedirs('logs', exist_ok=True)
 
-# Configure logging with rotation to prevent log file bloat
+# Configure logging with rotation to prevent log file bloat and reduce console spam
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.WARNING,  # Reduced from INFO to WARNING to reduce spam
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         RotatingFileHandler('logs/pulsedrop.log', maxBytes=1024*1024, backupCount=5),
-        logging.StreamHandler()
+        # Only log warnings and errors to console, not info messages
+        logging.StreamHandler(sys.stdout)
     ]
 )
+
+# Set specific logger levels to reduce spam
+logging.getLogger('app.network').setLevel(logging.WARNING)
+logging.getLogger('app.firewall').setLevel(logging.WARNING)
+logging.getLogger('app.core').setLevel(logging.WARNING)
+logging.getLogger('root').setLevel(logging.WARNING)
+
+logger = logging.getLogger(__name__)
+
+class SingleInstance:
+    """Ensure only one instance of the application is running"""
+    
+    def __init__(self, lockfile_name="pulsedrop.lock"):
+        self.lockfile = os.path.join(tempfile.gettempdir(), lockfile_name)
+        self.fd = None
+        
+    def __enter__(self):
+        try:
+            # Check if lock file exists and if the process is still running
+            if os.path.exists(self.lockfile):
+                try:
+                    with open(self.lockfile, 'r') as f:
+                        pid = int(f.read().strip())
+                    # Check if process is still running
+                    if psutil.pid_exists(pid):
+                        raise RuntimeError("Another instance of PulseDropPro is already running!")
+                    else:
+                        # Process is dead, remove stale lock file
+                        os.unlink(self.lockfile)
+                except (ValueError, IOError):
+                    # Invalid lock file, remove it
+                    os.unlink(self.lockfile)
+            
+            # Create lock file
+            self.fd = open(self.lockfile, 'w')
+            self.fd.write(str(os.getpid()))
+            self.fd.flush()
+            return self
+            
+        except (IOError, OSError) as e:
+            if self.fd:
+                self.fd.close()
+            raise RuntimeError("Another instance of PulseDropPro is already running!")
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.fd:
+            try:
+                self.fd.close()
+                if os.path.exists(self.lockfile):
+                    os.unlink(self.lockfile)
+            except:
+                pass
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +271,17 @@ def initialize_application():
         app.setApplicationName("PulseDropPro")
         app.setApplicationVersion("1.0.0")
         
+        # Initialize theme manager early and apply default theme
+        try:
+            from app.themes.theme_manager import theme_manager
+            success = theme_manager.apply_theme("dark")
+            if success:
+                logger.info("Theme manager initialized and dark theme applied successfully")
+            else:
+                logger.error("Failed to apply dark theme")
+        except Exception as e:
+            logger.error(f"Failed to initialize theme manager: {e}")
+        
         # Set up memory monitoring
         memory_monitor = MemoryMonitor()
         
@@ -277,7 +342,12 @@ def initialize_application():
 def main():
     """Main application entry point with advanced error handling"""
     try:
-        return initialize_application()
+        # Ensure only one instance is running
+        with SingleInstance():
+            return initialize_application()
+    except RuntimeError as e:
+        print(f"Error: {e}")
+        return 1
     except Exception as e:
         logger.error(f"Critical error in main: {e}")
         print(f"Critical error: {e}")

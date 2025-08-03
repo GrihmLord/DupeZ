@@ -9,6 +9,8 @@ from app.gui.enhanced_device_list import EnhancedDeviceList
 from app.gui.graph import PacketGraph
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.topology_view import NetworkTopologyView
+from app.gui.network_manipulator_gui import NetworkManipulatorGUI
+
 from app.logs.logger import log_info, log_error
 import threading
 
@@ -27,37 +29,57 @@ class PulseDropDashboard(QMainWindow):
         self.start_updates()
     
     def setup_ui(self):
-        """Setup the main user interface with hacker theme"""
+        """Setup the main user interface with responsive design"""
         self.setWindowTitle("PulseDrop Pro - Advanced LagSwitch Tool")
         self.setWindowIcon(QIcon("app/assets/icon.ico"))
-        self.setGeometry(100, 100, 1400, 800)
+        
+        # Make window responsive to screen size
+        screen = self.screen()
+        screen_geometry = screen.availableGeometry()
+        
+        # Calculate responsive window size (80% of screen size)
+        window_width = int(screen_geometry.width() * 0.8)
+        window_height = int(screen_geometry.height() * 0.8)
+        window_x = (screen_geometry.width() - window_width) // 2
+        window_y = (screen_geometry.height() - window_height) // 2
+        
+        self.setGeometry(window_x, window_y, window_width, window_height)
+        
+        # Set minimum size to prevent window from becoming too small
+        self.setMinimumSize(1200, 700)
         
         # Force window to be visible and active
         self.setWindowState(Qt.WindowState.WindowActive)
         self.raise_()
         self.activateWindow()
         
-        # Apply hacker theme
-        self.apply_hacker_theme()
+        # Apply default theme (dark)
+        self.apply_default_theme()
         
         # Central widget
         central_widget = QWidget()
         central_widget.setObjectName("main_container")
         self.setCentralWidget(central_widget)
         
-        # Main layout
+        # Main layout with proper spacing
         layout = QHBoxLayout()
+        layout.setSpacing(8)  # Add spacing between elements
+        layout.setContentsMargins(8, 8, 8, 8)  # Add margins
         
         # Sidebar with responsive width
         self.sidebar = Sidebar(controller=self.controller)
         self.sidebar.setObjectName("sidebar")
-        self.sidebar.setMinimumWidth(280)  # Minimum width instead of fixed
-        self.sidebar.setMaximumWidth(400)  # Maximum width for larger screens
+        
+        # Calculate responsive sidebar width (20-25% of window width)
+        sidebar_width = max(250, min(350, int(window_width * 0.22)))
+        self.sidebar.setMinimumWidth(sidebar_width)
+        self.sidebar.setMaximumWidth(sidebar_width)
         layout.addWidget(self.sidebar)
         
         # Content area with tabs
         self.content_tabs = QTabWidget()
         self.content_tabs.setObjectName("content_tabs")
+        self.content_tabs.setTabPosition(QTabWidget.TabPosition.North)
         
         # Enhanced device list tab (main scanner)
         self.enhanced_device_list = EnhancedDeviceList(controller=self.controller)
@@ -65,7 +87,7 @@ class PulseDropDashboard(QMainWindow):
         self.content_tabs.addTab(self.enhanced_device_list, "🔍 Network Scanner")
         
         # Network topology tab
-        self.topology_view = NetworkTopologyView()
+        self.topology_view = NetworkTopologyView(controller=self.controller)
         self.topology_view.setObjectName("topology_panel")
         self.content_tabs.addTab(self.topology_view, "🗺️ Network Topology")
         
@@ -73,6 +95,11 @@ class PulseDropDashboard(QMainWindow):
         self.graph = PacketGraph(controller=self.controller)
         self.graph.setObjectName("graph_panel")
         self.content_tabs.addTab(self.graph, "📊 Traffic Graph")
+        
+        # Network Manipulator tab
+        self.network_manipulator = NetworkManipulatorGUI(controller=self.controller)
+        self.network_manipulator.setObjectName("network_manipulator_panel")
+        self.content_tabs.addTab(self.network_manipulator, "🌐 Network Manipulator")
         
         layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)
@@ -82,51 +109,56 @@ class PulseDropDashboard(QMainWindow):
         self.raise_()
         self.activateWindow()
     
-    def apply_hacker_theme(self):
-        """Apply the hacker theme to the application"""
+    def apply_default_theme(self):
+        """Apply the default theme to the application"""
         try:
-            # Load and apply the hacker theme
-            theme_file = "app/themes/hacker.qss"
+            # Import and use theme manager
+            from app.themes.theme_manager import theme_manager
+            success = theme_manager.apply_theme("dark")
+            if success:
+                log_info("Default theme applied successfully")
+            else:
+                log_error("Failed to apply default theme")
+                self.apply_fallback_theme()
+        except Exception as e:
+            log_error(f"Failed to apply default theme: {e}")
+            self.apply_fallback_theme()
+    
+    def apply_fallback_theme(self):
+        """Apply a fallback dark theme"""
+        try:
+            theme_file = "app/themes/dark.qss"
             with open(theme_file, 'r') as f:
                 style = f.read()
             self.setStyleSheet(style)
-            log_info("Hacker theme applied successfully")
-        except Exception as e:
-            log_error(f"Failed to apply hacker theme: {e}")
-            # Fallback to dark theme
-            try:
-                theme_file = "app/themes/dark.qss"
-                with open(theme_file, 'r') as f:
-                    style = f.read()
-                self.setStyleSheet(style)
-                log_info("Fallback to dark theme applied")
-            except Exception as e2:
-                log_error(f"Failed to apply fallback theme: {e2}")
-                # Final fallback - basic styling to ensure visibility
-                self.setStyleSheet("""
-                    QMainWindow {
-                        background-color: #2b2b2b;
-                        color: #ffffff;
-                    }
-                    QWidget {
-                        background-color: #2b2b2b;
-                        color: #ffffff;
-                    }
-                    QTabWidget::pane {
-                        border: 1px solid #555555;
-                        background-color: #2b2b2b;
-                    }
-                    QTabBar::tab {
-                        background-color: #3b3b3b;
-                        color: #ffffff;
-                        padding: 8px 16px;
-                        margin-right: 2px;
-                    }
-                    QTabBar::tab:selected {
-                        background-color: #555555;
-                    }
-                """)
-                log_info("Basic fallback styling applied")
+            log_info("Fallback to dark theme applied")
+        except Exception as e2:
+            log_error(f"Failed to apply fallback theme: {e2}")
+            # Final fallback - basic styling to ensure visibility
+            self.setStyleSheet("""
+                QMainWindow {
+                    background-color: #2b2b2b;
+                    color: #ffffff;
+                }
+                QWidget {
+                    background-color: #2b2b2b;
+                    color: #ffffff;
+                }
+                QTabWidget::pane {
+                    border: 1px solid #555555;
+                    background-color: #2b2b2b;
+                }
+                QTabBar::tab {
+                    background-color: #3b3b3b;
+                    color: #ffffff;
+                    padding: 8px 16px;
+                    margin-right: 2px;
+                }
+                QTabBar::tab:selected {
+                    background-color: #555555;
+                }
+            """)
+            log_info("Basic fallback styling applied")
     
     def setup_menu(self):
         """Setup the application menu bar with lagswitch functionality"""
@@ -286,33 +318,76 @@ class PulseDropDashboard(QMainWindow):
         self.status_bar.addPermanentWidget(self.blocking_status_label)
     
     def connect_signals(self):
-        """Connect signals between components"""
-        # Connect enhanced device list signals
-        self.enhanced_device_list.device_selected.connect(self.on_device_selected)
-        self.enhanced_device_list.device_blocked.connect(self.on_device_blocked)
-        self.enhanced_device_list.scan_started.connect(self.on_enhanced_scan_started)
-        self.enhanced_device_list.scan_finished.connect(self.on_enhanced_scan_finished)
-        
-        # Connect sidebar signals
-        self.sidebar.smart_mode_toggled.connect(self.on_smart_mode_toggled)
-        self.sidebar.settings_requested.connect(self.open_settings)
-        self.sidebar.scan_requested.connect(self.scan_network)
-        self.sidebar.clear_data_requested.connect(self.clear_data)
-        self.sidebar.search_requested.connect(self.search_devices)
-        
-        # Connect graph signals
-        self.graph.graph_clicked.connect(self.on_graph_clicked)
-        
-        # Set controllers for components
-        if self.controller:
-            self.sidebar.set_controller(self.controller)
-            self.graph.set_controller(self.controller)
+        """Connect all signals and slots"""
+        try:
+            # Connect sidebar signals
+            if hasattr(self, 'sidebar'):
+                self.sidebar.scan_requested.connect(self.scan_network)
+                self.sidebar.clear_data_requested.connect(self.clear_data)
+                self.sidebar.smart_mode_toggled.connect(self.on_smart_mode_toggled)
+                self.sidebar.settings_requested.connect(self.open_settings)
+                self.sidebar.search_requested.connect(self.search_devices)
+                self.sidebar.quick_scan_requested.connect(self.quick_scan_network)
+                self.sidebar.mass_block_requested.connect(self.mass_block_devices)
+                self.sidebar.mass_unblock_requested.connect(self.mass_unblock_devices)
+            
+            # Connect enhanced device list signals
+            if hasattr(self, 'enhanced_device_list'):
+                self.enhanced_device_list.scan_started.connect(self.on_enhanced_scan_started)
+                self.enhanced_device_list.scan_finished.connect(self.on_enhanced_scan_finished)
+                self.enhanced_device_list.device_selected.connect(self.on_device_selected)
+                self.enhanced_device_list.device_blocked.connect(self.on_device_blocked)
+            
+            # Connect graph signals
+            if hasattr(self, 'graph'):
+                self.graph.graph_clicked.connect(self.on_graph_clicked)
+            
+            # Connect network manipulator signals
+            if hasattr(self, 'network_manipulator'):
+                self.network_manipulator.rule_created.connect(self.on_network_rule_created)
+                self.network_manipulator.rule_removed.connect(self.on_network_rule_removed)
+                self.network_manipulator.manipulation_started.connect(self.on_manipulation_started)
+                self.network_manipulator.manipulation_stopped.connect(self.on_manipulation_stopped)
+            
+
+            
+            # Connect tab change signals
+            if hasattr(self, 'content_tabs'):
+                self.content_tabs.currentChanged.connect(self.on_tab_changed)
+            
+            log_info("All dashboard signals connected successfully")
+            
+        except Exception as e:
+            log_error(f"Error connecting dashboard signals: {e}")
+    
+    def on_tab_changed(self, index: int):
+        """Handle tab changes"""
+        try:
+            if index == 1:  # Topology tab
+                log_info("Topology tab selected, updating topology view")
+                self.update_topology_view()
+            elif index == 2:  # Graph tab
+                log_info("Graph tab selected")
+                if hasattr(self, 'graph'):
+                    self.graph.start_updates()
+            elif index == 0:  # Scanner tab
+                log_info("Scanner tab selected")
+        except Exception as e:
+            log_error(f"Error handling tab change: {e}")
     
     def start_updates(self):
         """Start periodic UI updates"""
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_status_bar)
         self.update_timer.start(2000)  # Update every 2 seconds (much faster updates)
+        
+        # Start topology view updates (reduced frequency to prevent loops)
+        self.topology_timer = QTimer()
+        self.topology_timer.timeout.connect(self.update_topology_view)
+        self.topology_timer.start(10000)  # Update topology every 10 seconds (reduced frequency)
+        
+        # Add loop prevention flag
+        self._topology_updating = False
     
     def update_status_bar(self):
         """Update the status bar with current information"""
@@ -357,6 +432,9 @@ class PulseDropDashboard(QMainWindow):
         
         # Update device count in status bar
         self.update_status_bar()
+        
+        # Update topology view
+        self.update_topology_view()
     
     def on_smart_mode_toggled(self):
         """Handle smart mode toggle"""
@@ -367,12 +445,36 @@ class PulseDropDashboard(QMainWindow):
         """Handle graph interaction"""
         self.status_bar.showMessage("Graph interaction detected", 2000)
     
+    def on_network_rule_created(self, rule_id: str, rule_type: str):
+        """Handle network rule creation"""
+        log_info(f"Network rule created: {rule_id} ({rule_type})")
+        self.status_bar.showMessage(f"Network rule created: {rule_type}", 3000)
+    
+    def on_network_rule_removed(self, rule_id: str):
+        """Handle network rule removal"""
+        log_info(f"Network rule removed: {rule_id}")
+        self.status_bar.showMessage("Network rule removed", 3000)
+    
+    def on_manipulation_started(self, ip: str, action: str):
+        """Handle network manipulation start"""
+        log_info(f"Network manipulation started: {action} on {ip}")
+        self.status_bar.showMessage(f"Started {action} on {ip}", 3000)
+    
+    def on_manipulation_stopped(self, ip: str, action: str):
+        """Handle network manipulation stop"""
+        log_info(f"Network manipulation stopped: {action} on {ip}")
+        self.status_bar.showMessage(f"Stopped {action} on {ip}", 3000)
+    
+
+    
     def scan_network(self):
         """Scan the network for devices"""
         if self.controller:
             try:
                 self.controller.scan_devices()
                 self.status_bar.showMessage("Network scan started", 3000)
+                # Update topology view after scan
+                self.update_topology_view()
             except Exception as e:
                 self.status_bar.showMessage(f"Scan failed: {e}", 5000)
     
@@ -398,6 +500,9 @@ class PulseDropDashboard(QMainWindow):
         """Open settings dialog"""
         try:
             if self.controller:
+                # Reload settings from file to ensure we have the latest
+                self.controller.state.load_settings()
+                
                 current_settings = self.controller.state.settings
                 dialog = SettingsDialog(current_settings, self)
                 dialog.settings_changed.connect(self.on_settings_changed)
@@ -406,6 +511,13 @@ class PulseDropDashboard(QMainWindow):
                     # Settings were saved
                     new_settings = dialog.get_new_settings()
                     self.controller.update_settings(new_settings)
+                    
+                    # Force reload settings to ensure consistency
+                    self.controller.state.load_settings()
+                    
+                    # Update UI immediately
+                    self._update_ui_from_settings()
+                    
                     log_info("Settings updated successfully")
             else:
                 QMessageBox.warning(self, "Warning", "Controller not available")
@@ -416,12 +528,64 @@ class PulseDropDashboard(QMainWindow):
     def on_settings_changed(self, additional_settings: dict):
         """Handle settings changes"""
         try:
+            # Handle theme changes
+            if "theme" in additional_settings:
+                theme_name = additional_settings["theme"]
+                self.apply_theme(theme_name)
+                log_info(f"Theme changed to: {theme_name}")
+            
             if self.controller:
                 # Apply additional settings to controller
                 self.controller.apply_additional_settings(additional_settings)
                 log_info("Additional settings applied")
+                
+                # Reload settings from file to ensure consistency
+                self.controller.state.load_settings()
+                
+                # Update UI based on new settings
+                self._update_ui_from_settings()
+                
         except Exception as e:
             log_error(f"Error applying additional settings: {e}")
+    
+    def _update_ui_from_settings(self):
+        """Update UI elements based on current settings"""
+        try:
+            if not self.controller:
+                return
+                
+            settings = self.controller.state.settings
+            
+            # Update auto-refresh settings
+            if hasattr(self, 'update_timer') and self.update_timer:
+                if settings.auto_refresh:
+                    self.update_timer.start(settings.refresh_interval * 1000)
+                else:
+                    self.update_timer.stop()
+            
+            # Update display settings
+            if hasattr(self, 'enhanced_device_list'):
+                # Update device list display settings
+                pass  # Add specific UI updates here
+            
+            log_info("UI updated from settings")
+            
+        except Exception as e:
+            log_error(f"Error updating UI from settings: {e}")
+    
+    def apply_theme(self, theme_name: str):
+        """Apply a theme to the application"""
+        try:
+            from app.themes.theme_manager import theme_manager
+            success = theme_manager.apply_theme(theme_name)
+            if success:
+                log_info(f"Theme applied successfully: {theme_name}")
+            else:
+                log_error(f"Failed to apply theme: {theme_name}")
+                self.apply_fallback_theme()
+        except Exception as e:
+            log_error(f"Error applying theme {theme_name}: {e}")
+            self.apply_fallback_theme()
     
     def show_about(self):
         """Show about dialog"""
@@ -481,6 +645,11 @@ class PulseDropDashboard(QMainWindow):
                 self.graph.stop_updates()
                 log_info("Stopped graph updates")
             
+            # Stop network manipulator
+            if hasattr(self, 'network_manipulator'):
+                self.network_manipulator.cleanup()
+                log_info("Stopped network manipulator")
+            
             # Perform controller shutdown with timeout
             if self.controller:
                 try:
@@ -503,6 +672,13 @@ class PulseDropDashboard(QMainWindow):
     def set_controller(self, controller):
         """Set the controller for all components"""
         self.controller = controller
+        
+        if controller:
+            # Reload settings to ensure we have the latest
+            controller.state.load_settings()
+            
+            # Apply settings to UI
+            self._update_ui_from_settings()
         
         # Update components
         self.sidebar.set_controller(controller)
@@ -875,11 +1051,38 @@ class PulseDropDashboard(QMainWindow):
     
     def update_topology_view(self):
         """Update the network topology view with current devices"""
+        # Loop prevention - don't update if already updating
+        if hasattr(self, '_topology_updating') and self._topology_updating:
+            log_info("Topology update skipped - already in progress")
+            return
+            
         try:
+            self._topology_updating = True
+            
             if hasattr(self, 'topology_view') and self.controller:
                 devices = self.controller.get_devices()
+                log_info(f"Updating topology view with {len(devices) if devices else 0} devices")
+                
                 if devices:
                     self.topology_view.update_topology(devices)
                     log_info(f"Topology view updated with {len(devices)} devices")
+                else:
+                    # No devices found - show placeholder
+                    self.topology_view.update_topology([])
+                    log_info("Topology view updated with empty device list (showing placeholder)")
+                    
+                # Force the topology view to refresh (but not recursively)
+                if hasattr(self.topology_view, 'refresh_topology'):
+                    self.topology_view.refresh_topology()
+                
         except Exception as e:
             log_error(f"Update topology view failed: {e}")
+            # Try to show placeholder even if there's an error
+            try:
+                if hasattr(self, 'topology_view'):
+                    self.topology_view.update_topology([])
+            except Exception as inner_e:
+                log_error(f"Failed to show topology placeholder: {inner_e}")
+        finally:
+            # Always reset the flag
+            self._topology_updating = False

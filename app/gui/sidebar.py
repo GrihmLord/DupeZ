@@ -126,12 +126,29 @@ class Sidebar(QWidget):
         self.quick_scan_btn.clicked.connect(self.request_quick_scan)
         controls_layout.addWidget(self.quick_scan_btn)
         
-        # Mass block button
+        # Mass block button with warning
         self.mass_block_btn = QPushButton("🚫 MASS BLOCK")
         self.mass_block_btn.setObjectName("block_btn")
         self.mass_block_btn.setMaximumHeight(35)  # Compact height
         self.mass_block_btn.clicked.connect(self.request_mass_block)
         controls_layout.addWidget(self.mass_block_btn)
+        
+        # Warning label for permanent blocking
+        self.block_warning_label = QLabel("⚠️ WARNING: Permanent blocking may require manual restoration")
+        self.block_warning_label.setStyleSheet("""
+            QLabel {
+                color: #ff4444;
+                font-size: 9px;
+                font-weight: bold;
+                background-color: #1a1a1a;
+                border: 1px solid #ff4444;
+                padding: 2px;
+                border-radius: 3px;
+            }
+        """)
+        self.block_warning_label.setWordWrap(True)
+        self.block_warning_label.setMaximumHeight(40)
+        controls_layout.addWidget(self.block_warning_label)
         
         # Mass unblock button
         self.mass_unblock_btn = QPushButton("✅ MASS UNBLOCK")
@@ -139,6 +156,23 @@ class Sidebar(QWidget):
         self.mass_unblock_btn.setMaximumHeight(35)  # Compact height
         self.mass_unblock_btn.clicked.connect(self.request_mass_unblock)
         controls_layout.addWidget(self.mass_unblock_btn)
+        
+        # PS5 restoration button
+        self.ps5_restore_btn = QPushButton("🎮 RESTORE PS5")
+        self.ps5_restore_btn.setObjectName("block_btn")
+        self.ps5_restore_btn.setMaximumHeight(35)  # Compact height
+        self.ps5_restore_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff4444;
+                color: #ffffff;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #cc3333;
+            }
+        """)
+        self.ps5_restore_btn.clicked.connect(self.restore_ps5_internet)
+        controls_layout.addWidget(self.ps5_restore_btn)
         
         # Search devices button
         self.search_btn = QPushButton("🔍 SEARCH DEVICES")
@@ -194,7 +228,14 @@ class Sidebar(QWidget):
             elif event == "scan_status_changed":
                 QTimer.singleShot(0, lambda: self.update_scan_status(data))
             elif event == "blocking_toggled":
-                QTimer.singleShot(0, lambda: self.update_blocking_status(data))
+                # Handle new blocking data structure
+                if isinstance(data, dict):
+                    # New format with detailed blocking info
+                    blocked = data.get("blocked", False)
+                    QTimer.singleShot(0, lambda: self.update_blocking_status(blocked))
+                else:
+                    # Legacy format - boolean only
+                    QTimer.singleShot(0, lambda: self.update_blocking_status(data))
             elif event == "network_updated":
                 QTimer.singleShot(0, lambda: self.update_network_info(data))
             elif event == "setting_updated":
@@ -212,7 +253,14 @@ class Sidebar(QWidget):
             info_text = f"🌐 <b>Network Information</b><br>"
             
             if 'interface' in network_info:
-                info_text += f"📡 Interface: {network_info['interface']}<br>"
+                interface_name = network_info['interface']
+                # Add Ethernet support indicator
+                if 'ethernet' in interface_name.lower() or 'eth' in interface_name.lower():
+                    info_text += f"🔌 Interface: {interface_name} (Ethernet)<br>"
+                elif 'wifi' in interface_name.lower() or 'wlan' in interface_name.lower():
+                    info_text += f"📶 Interface: {interface_name} (WiFi)<br>"
+                else:
+                    info_text += f"📡 Interface: {interface_name}<br>"
             
             if 'ip' in network_info:
                 info_text += f"📍 IP Address: {network_info['ip']}<br>"
@@ -245,6 +293,9 @@ class Sidebar(QWidget):
                 else:
                     quality = "🔴 Poor"
                 info_text += f"📊 Quality: {quality} ({latency}ms)<br>"
+            
+            # Add multi-interface support indicator
+            info_text += f"🔌 <b>Multi-Interface Support:</b> Ethernet + WiFi<br>"
             
             self.network_info_label.setText(info_text)
             
@@ -347,43 +398,80 @@ class Sidebar(QWidget):
             log_error(f"Error updating scan status: {e}")
     
     def update_blocking_status(self, blocking: bool):
-        """Update blocking status with enhanced display"""
+        """Update blocking status display with enhanced information"""
         try:
             self.blocking_active = blocking
             
-            if blocking:
-                self.blocking_btn.setText("🔒 Blocking: ACTIVE")
-                self.blocking_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #f44336;
-                        color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #da190b;
-                    }
-                """)
-            else:
-                self.blocking_btn.setText("🔓 Blocking: INACTIVE")
-                self.blocking_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #4CAF50;
-                        color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                    }
-                    QPushButton:hover {
-                        background-color: #45a049;
-                    }
-                """)
+            if self.controller:
+                # Get current blocking statistics
+                devices = self.controller.get_devices()
+                blocked_devices = [d for d in devices if d.blocked]
+                total_devices = len(devices)
+                blocked_count = len(blocked_devices)
                 
+                if blocked_count == 0:
+                    self.blocking_status.setText("🔒 BLOCKING: NONE")
+                    self.blocking_status.setStyleSheet("""
+                        QLabel {
+                            color: #4caf50;
+                            font-weight: bold;
+                            padding: 4px;
+                            background-color: #1b5e20;
+                            border-radius: 4px;
+                        }
+                    """)
+                else:
+                    block_percentage = (blocked_count / total_devices * 100) if total_devices > 0 else 0
+                    self.blocking_status.setText(f"🚫 BLOCKING: {blocked_count}/{total_devices} ({block_percentage:.1f}%)")
+                    
+                    # Color code based on blocking intensity
+                    if block_percentage < 25:
+                        color = "#ff9800"  # Orange for light blocking
+                        bg_color = "#e65100"
+                    elif block_percentage < 50:
+                        color = "#ff5722"  # Deep orange for moderate blocking
+                        bg_color = "#bf360c"
+                    else:
+                        color = "#f44336"  # Red for heavy blocking
+                        bg_color = "#b71c1c"
+                    
+                    self.blocking_status.setStyleSheet(f"""
+                        QLabel {{
+                            color: {color};
+                            font-weight: bold;
+                            padding: 4px;
+                            background-color: {bg_color};
+                            border-radius: 4px;
+                        }}
+                    """)
+            else:
+                # Fallback when no controller
+                if blocking:
+                    self.blocking_status.setText("🚫 BLOCKING: ACTIVE")
+                    self.blocking_status.setStyleSheet("""
+                        QLabel {
+                            color: #f44336;
+                            font-weight: bold;
+                            padding: 4px;
+                            background-color: #b71c1c;
+                            border-radius: 4px;
+                        }
+                    """)
+                else:
+                    self.blocking_status.setText("🔒 BLOCKING: NONE")
+                    self.blocking_status.setStyleSheet("""
+                        QLabel {
+                            color: #4caf50;
+                            font-weight: bold;
+                            padding: 4px;
+                            background-color: #1b5e20;
+                            border-radius: 4px;
+                        }
+                    """)
+                    
         except Exception as e:
             log_error(f"Error updating blocking status: {e}")
+            self.blocking_status.setText("�� BLOCKING: ERROR")
     
     def update_setting_status(self, data: Dict):
         """Update setting status displays"""
@@ -438,21 +526,83 @@ class Sidebar(QWidget):
         self.update_timer.start(5000)  # Update every 5 seconds (much faster updates)
     
     def update_status(self):
-        """Update status information"""
+        """Update status information with REAL system data"""
         if self.controller:
-            # Update network info if not already set
-            network_info = self.controller.get_network_info()
-            if network_info:
-                self.update_network_info(network_info)
-            
-            # Update device count
-            devices = self.controller.get_devices()
-            self.update_device_count(len(devices))
-            
-            # Update smart mode status
-            smart_status = self.controller.get_smart_mode_status()
-            if smart_status:
-                self.update_smart_mode_status(smart_status.get("enabled", False))
+            try:
+                # Update network info with real data
+                network_info = self.controller.get_network_info()
+                if network_info:
+                    self.update_network_info(network_info)
+                
+                # Update device count with real devices
+                devices = self.controller.get_devices()
+                self.update_device_count(len(devices))
+                
+                # Update smart mode status with real status
+                try:
+                    smart_status = self.controller.get_smart_mode_status()
+                    if smart_status and isinstance(smart_status, dict):
+                        enabled = smart_status.get("enabled", False)
+                        self.update_smart_mode_status(enabled)
+                        if enabled:
+                            self.smart_mode_status.setText("🧠 SMART MODE: ON")
+                            self.smart_mode_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                        else:
+                            self.smart_mode_status.setText("🧠 SMART MODE: OFF")
+                            self.smart_mode_status.setStyleSheet("color: #ff0000; font-weight: bold;")
+                    else:
+                        self.smart_mode_status.setText("🧠 SMART MODE: ERROR")
+                        self.smart_mode_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                except Exception as e:
+                    log_error(f"Smart mode status error: {e}")
+                    self.smart_mode_status.setText("🧠 SMART MODE: ERROR")
+                    self.smart_mode_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                
+                # Update blocking status with real blocked devices
+                try:
+                    blocked_devices = self.controller.get_blocked_devices()
+                    if blocked_devices and len(blocked_devices) > 0:
+                        self.update_blocking_status(True)
+                        self.blocking_status.setText(f"🔒 BLOCKING: {len(blocked_devices)} DEVICES")
+                        self.blocking_status.setStyleSheet("color: #ff0000; font-weight: bold;")
+                    else:
+                        self.update_blocking_status(False)
+                        self.blocking_status.setText("🔒 BLOCKING: NONE")
+                        self.blocking_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                except Exception as e:
+                    log_error(f"Blocking status error: {e}")
+                    self.blocking_status.setText("🔒 BLOCKING: ERROR")
+                    self.blocking_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                
+                # Update traffic status with real traffic data
+                try:
+                    traffic_data = self.controller.get_traffic_analysis()
+                    if traffic_data and 'current_bandwidth' in traffic_data:
+                        bandwidth = traffic_data['current_bandwidth']
+                        self.traffic_label.setText(f"📊 TRAFFIC: {bandwidth:.1f} KB/s")
+                    else:
+                        self.traffic_label.setText("📊 TRAFFIC: 0 KB/s")
+                except Exception as e:
+                    log_error(f"Traffic status error: {e}")
+                    self.traffic_label.setText("📊 TRAFFIC: ERROR")
+                
+                # Update scan status
+                try:
+                    if self.controller.is_scanning():
+                        self.update_scan_status(True)
+                        self.scan_status.setText("🔍 SCAN: IN PROGRESS")
+                        self.scan_status.setStyleSheet("color: #ffff00; font-weight: bold;")
+                    else:
+                        self.update_scan_status(False)
+                        self.scan_status.setText("🔍 SCAN: READY")
+                        self.scan_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                except Exception as e:
+                    log_error(f"Scan status error: {e}")
+                    self.scan_status.setText("🔍 SCAN: ERROR")
+                    self.scan_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                    
+            except Exception as e:
+                log_error(f"Error updating status: {e}")
     
     def get_smart_mode_status(self) -> bool:
         """Get current smart mode status"""
@@ -545,3 +695,70 @@ class Sidebar(QWidget):
             log_info("Search requested from sidebar")
         except Exception as e:
             log_error(f"Error requesting search: {e}")
+    
+    def restore_ps5_internet(self):
+        """Restore PS5 internet access"""
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            
+            # Show confirmation dialog
+            reply = QMessageBox.question(
+                None, "PS5 Internet Restoration",
+                "This will restore your PS5's internet access by clearing all PulseDrop blocks.\n\n"
+                "Do you want to continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                log_info("PS5 internet restoration requested")
+                
+                # Run the restoration script
+                import subprocess
+                import sys
+                
+                try:
+                    # Run the restoration script
+                    result = subprocess.run(
+                        [sys.executable, "restore_ps5_internet.py"],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    
+                    if result.returncode == 0:
+                        QMessageBox.information(
+                            None, "PS5 Restoration Complete",
+                            "✅ PS5 internet access has been restored!\n\n"
+                            "Your PS5 should now have internet access.\n"
+                            "If it still doesn't work, try restarting your PS5."
+                        )
+                        log_info("PS5 internet restoration completed successfully")
+                    else:
+                        QMessageBox.warning(
+                            None, "PS5 Restoration Warning",
+                            "⚠️ PS5 restoration completed with warnings.\n\n"
+                            "Some steps may have failed. Check the console output for details.\n"
+                            "You may need to run the script as administrator."
+                        )
+                        log_error(f"PS5 restoration failed: {result.stderr}")
+                        
+                except subprocess.TimeoutExpired:
+                    QMessageBox.warning(
+                        None, "PS5 Restoration Timeout",
+                        "⏰ PS5 restoration timed out.\n\n"
+                        "The process took too long to complete.\n"
+                        "Try running the script manually as administrator."
+                    )
+                    log_error("PS5 restoration timed out")
+                    
+                except Exception as e:
+                    QMessageBox.critical(
+                        None, "PS5 Restoration Error",
+                        f"💥 PS5 restoration failed: {e}\n\n"
+                        "Try running the script manually as administrator."
+                    )
+                    log_error(f"PS5 restoration error: {e}")
+                    
+        except Exception as e:
+            log_error(f"Error in PS5 restoration: {e}")
+            QMessageBox.critical(None, "Error", f"Failed to restore PS5 internet: {e}")

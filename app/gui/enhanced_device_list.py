@@ -31,15 +31,21 @@ class EnhancedDeviceList(QWidget):
         self.setup_ui()
         self.connect_signals()
         
+        # Connect resize event for responsive design
+        self.resizeEvent = self.on_resize
+        
     def setup_ui(self):
-        """Setup the enhanced device list UI"""
+        """Setup the enhanced device list UI with responsive design"""
         layout = QVBoxLayout()
+        layout.setSpacing(10)  # Add spacing between elements
+        layout.setContentsMargins(10, 10, 10, 10)  # Add margins
         self.setLayout(layout)
         
-        # Title
+        # Title with responsive font
         title = QLabel("🔍 Enhanced Network Scanner")
-        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title.setStyleSheet("padding: 10px; margin-bottom: 10px;")
         layout.addWidget(title)
         
         # Control panel
@@ -49,96 +55,323 @@ class EnhancedDeviceList(QWidget):
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
+        self.progress_bar.setStyleSheet("""
+            QProgressBar {
+                border: 2px solid #404040;
+                border-radius: 5px;
+                text-align: center;
+                font-weight: bold;
+                height: 20px;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 3px;
+            }
+        """)
         layout.addWidget(self.progress_bar)
         
-        # Device table
+        # Device table with responsive sizing
         self.device_table = QTableWidget()
         self.setup_device_table()
-        layout.addWidget(self.device_table)
+        layout.addWidget(self.device_table, 1)  # Give table more space
+        
+        # Status indicators in a horizontal layout
+        status_layout = QHBoxLayout()
         
         # Status bar
         self.status_label = QLabel("Ready to scan network")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
-        layout.addWidget(self.status_label)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.status_label.setStyleSheet("""
+            color: #4CAF50; 
+            font-weight: bold; 
+            padding: 5px;
+            background-color: rgba(76, 175, 80, 0.1);
+            border-radius: 3px;
+        """)
+        status_layout.addWidget(self.status_label)
         
         # Blocking status indicator
         self.blocking_status = QLabel("🔒 Blocking: Inactive")
-        self.blocking_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.blocking_status.setStyleSheet("color: #FF9800; font-weight: bold;")
+        self.blocking_status.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.blocking_status.setStyleSheet("""
+            color: #FF9800; 
+            font-weight: bold; 
+            padding: 5px;
+            background-color: rgba(255, 152, 0, 0.1);
+            border-radius: 3px;
+        """)
         self.blocking_status.setToolTip("Shows current blocking status. Double-click IP addresses to toggle blocking.")
-        layout.addWidget(self.blocking_status)
+        status_layout.addWidget(self.blocking_status)
         
-        # Apply styling
+        layout.addLayout(status_layout)
+        
+        # Apply responsive styling
         self.apply_styling()
     
+    def on_resize(self, event):
+        """Handle resize events for responsive design"""
+        super().resizeEvent(event)
+        
+        # Update table column widths when window is resized
+        if hasattr(self, 'device_table') and self.device_table:
+            total_width = self.device_table.width()
+            if total_width > 0:
+                # Recalculate responsive column widths
+                column_widths = {
+                    0: int(total_width * 0.12),  # IP Address
+                    1: int(total_width * 0.15),  # MAC Address
+                    2: int(total_width * 0.20),  # Hostname (stretch)
+                    3: int(total_width * 0.15),  # Vendor
+                    4: int(total_width * 0.12),  # Device Type
+                    5: int(total_width * 0.10),  # Interface
+                    6: int(total_width * 0.08),  # Open Ports
+                    7: int(total_width * 0.08)   # Status
+                }
+                
+                # Apply new column widths
+                header = self.device_table.horizontalHeader()
+                for col, width in column_widths.items():
+                    if col != 2:  # Don't resize stretch column
+                        self.device_table.setColumnWidth(col, width)
+    
     def create_control_panel(self) -> QWidget:
-        """Create the control panel with scan options"""
+        """Create the control panel with responsive scan options"""
         panel = QWidget()
-        layout = QHBoxLayout()
+        panel.setStyleSheet("""
+            QWidget {
+                background-color: #2d2d2d;
+                border: 2px solid #404040;
+                border-radius: 8px;
+                padding: 10px;
+                margin: 5px;
+            }
+        """)
+        
+        # Use QGridLayout for better organization
+        layout = QGridLayout()
+        layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
         panel.setLayout(layout)
         
-        # Scan button
+        # Row 1: Main scan controls
         self.scan_button = QPushButton("🔍 Start Enhanced Scan")
-        self.scan_button.setFont(QFont("Arial", 12))
+        self.scan_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.scan_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: 2px solid #45a049;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+                border-color: #3d8b40;
+            }
+            QPushButton:pressed {
+                background-color: #3d8b40;
+            }
+        """)
         self.scan_button.clicked.connect(self.start_scan)
-        layout.addWidget(self.scan_button)
+        layout.addWidget(self.scan_button, 0, 0, 1, 2)
         
-        # Stop button
         self.stop_button = QPushButton("⏹️ Stop Scan")
-        self.stop_button.setFont(QFont("Arial", 12))
+        self.stop_button.setFont(QFont("Arial", 11, QFont.Weight.Bold))
+        self.stop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: 2px solid #d32f2f;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+                border-color: #c62828;
+            }
+            QPushButton:pressed {
+                background-color: #c62828;
+            }
+        """)
         self.stop_button.clicked.connect(self.stop_scan)
         self.stop_button.setEnabled(False)
-        layout.addWidget(self.stop_button)
+        layout.addWidget(self.stop_button, 0, 2, 1, 2)
         
-        # Thread count
+        # Row 2: Scan settings
         thread_label = QLabel("Threads:")
-        layout.addWidget(thread_label)
+        thread_label.setStyleSheet("color: #ffffff; font-weight: bold;")
+        layout.addWidget(thread_label, 1, 0)
         
         self.thread_spinbox = QSpinBox()
         self.thread_spinbox.setRange(10, 100)
         self.thread_spinbox.setValue(50)
         self.thread_spinbox.setToolTip("Number of concurrent scan threads")
-        layout.addWidget(self.thread_spinbox)
+        self.thread_spinbox.setStyleSheet("""
+            QSpinBox {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 2px solid #404040;
+                border-radius: 4px;
+                padding: 5px;
+                min-height: 25px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #505050;
+                border: 1px solid #404040;
+                border-radius: 2px;
+            }
+        """)
+        layout.addWidget(self.thread_spinbox, 1, 1)
         
-        # Timeout setting
         timeout_label = QLabel("Timeout (ms):")
-        layout.addWidget(timeout_label)
+        timeout_label.setStyleSheet("color: #ffffff; font-weight: bold;")
+        layout.addWidget(timeout_label, 1, 2)
         
         self.timeout_spinbox = QSpinBox()
         self.timeout_spinbox.setRange(500, 5000)
         self.timeout_spinbox.setValue(1000)
         self.timeout_spinbox.setSuffix(" ms")
         self.timeout_spinbox.setToolTip("Scan timeout per IP")
-        layout.addWidget(self.timeout_spinbox)
+        self.timeout_spinbox.setStyleSheet("""
+            QSpinBox {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 2px solid #404040;
+                border-radius: 4px;
+                padding: 5px;
+                min-height: 25px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #505050;
+                border: 1px solid #404040;
+                border-radius: 2px;
+            }
+        """)
+        layout.addWidget(self.timeout_spinbox, 1, 3)
         
-        # Advanced options
+        # Row 3: Options and actions
         self.advanced_checkbox = QCheckBox("Advanced Scan")
         self.advanced_checkbox.setToolTip("Use advanced scanning methods")
         self.advanced_checkbox.setChecked(True)
-        layout.addWidget(self.advanced_checkbox)
+        self.advanced_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #ffffff;
+                font-weight: bold;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #404040;
+                border-radius: 3px;
+                background-color: #3d3d3d;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #4CAF50;
+                border-color: #4CAF50;
+            }
+        """)
+        layout.addWidget(self.advanced_checkbox, 2, 0)
         
-        # Clear button
         self.clear_button = QPushButton("🗑️ Clear")
-        self.clear_button.setFont(QFont("Arial", 12))
+        self.clear_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.clear_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff9800;
+                color: white;
+                border: 2px solid #f57c00;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-weight: bold;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #f57c00;
+                border-color: #ef6c00;
+            }
+        """)
         self.clear_button.clicked.connect(self.clear_devices)
-        layout.addWidget(self.clear_button)
+        layout.addWidget(self.clear_button, 2, 1)
         
-        # Block button
         self.block_button = QPushButton("🚫 Block Selected")
-        self.block_button.setFont(QFont("Arial", 12))
+        self.block_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.block_button.setStyleSheet("""
+            QPushButton {
+                background-color: #e91e63;
+                color: white;
+                border: 2px solid #c2185b;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-weight: bold;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #c2185b;
+                border-color: #ad1457;
+            }
+        """)
         self.block_button.clicked.connect(self.block_selected)
-        layout.addWidget(self.block_button)
+        layout.addWidget(self.block_button, 2, 2)
+        
+        # Global blocking controls
+        layout.addWidget(QLabel("|"))
+        
+        # Global block/unblock all button
+        self.global_block_button = QPushButton("🔒 Block All")
+        self.global_block_button.setFont(QFont("Arial", 12))
+        self.global_block_button.clicked.connect(self.block_all_devices)
+        layout.addWidget(self.global_block_button)
+        
+        self.global_unblock_button = QPushButton("🔓 Unblock All")
+        self.global_unblock_button.setFont(QFont("Arial", 12))
+        self.global_unblock_button.clicked.connect(self.unblock_all_devices)
+        layout.addWidget(self.global_unblock_button)
+        
+        # Clear all blocks button
+        self.clear_blocks_button = QPushButton("🧹 Clear All Blocks")
+        self.clear_blocks_button.setFont(QFont("Arial", 12))
+        self.clear_blocks_button.clicked.connect(self.clear_all_blocks)
+        layout.addWidget(self.clear_blocks_button)
+        
+        # Internet drop toggle
+        layout.addWidget(QLabel("|"))
+        
+        self.internet_drop_button = QPushButton("🌐 Drop Internet")
+        self.internet_drop_button.setFont(QFont("Arial", 12))
+        self.internet_drop_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff4444;
+                color: white;
+                border: 2px solid #cc0000;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #ff6666;
+                border-color: #ff0000;
+            }
+            QPushButton:pressed {
+                background-color: #cc0000;
+                border-color: #990000;
+            }
+        """)
+        self.internet_drop_button.clicked.connect(self.toggle_internet_drop)
+        layout.addWidget(self.internet_drop_button)
         
         layout.addStretch()
         return panel
     
     def setup_device_table(self):
-        """Setup the device table with columns"""
+        """Setup the device table with responsive columns"""
         # Set up table headers
         headers = [
             "IP Address", "MAC Address", "Hostname", "Vendor", 
-            "Device Type", "Response Time", "Open Ports", "Risk Score", "Status"
+            "Device Type", "Interface", "Open Ports", "Status"
         ]
         self.device_table.setColumnCount(len(headers))
         self.device_table.setHorizontalHeaderLabels(headers)
@@ -147,18 +380,80 @@ class EnhancedDeviceList(QWidget):
         self.device_table.setAlternatingRowColors(True)
         self.device_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.device_table.setSortingEnabled(True)
+        self.device_table.setWordWrap(True)  # Enable word wrapping
+        self.device_table.setShowGrid(True)
+        self.device_table.setGridStyle(Qt.PenStyle.SolidLine)
         
-        # Set column widths
+        # Set responsive column widths
         header = self.device_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # IP
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)  # MAC
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)           # Hostname
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)  # Vendor
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)  # Device Type
-        header.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)  # Response Time
-        header.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)  # Open Ports
-        header.setSectionResizeMode(7, QHeaderView.ResizeMode.ResizeToContents)  # Risk Score
-        header.setSectionResizeMode(8, QHeaderView.ResizeMode.ResizeToContents)  # Status
+        header.setStretchLastSection(False)
+        
+        # Calculate responsive column widths
+        total_width = self.device_table.width() if self.device_table.width() > 0 else 1200
+        column_widths = {
+            0: int(total_width * 0.12),  # IP Address
+            1: int(total_width * 0.15),  # MAC Address
+            2: int(total_width * 0.20),  # Hostname (stretch)
+            3: int(total_width * 0.15),  # Vendor
+            4: int(total_width * 0.12),  # Device Type
+            5: int(total_width * 0.10),  # Interface
+            6: int(total_width * 0.08),  # Open Ports
+            7: int(total_width * 0.08)   # Status
+        }
+        
+        # Apply column widths
+        for col, width in column_widths.items():
+            self.device_table.setColumnWidth(col, width)
+            if col == 2:  # Hostname column stretches
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+            else:
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
+        
+        # Set table styling
+        self.device_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2d2d2d;
+                color: #ffffff;
+                gridline-color: #404040;
+                border: 2px solid #404040;
+                border-radius: 6px;
+                font-size: 10pt;
+                selection-background-color: #4CAF50;
+                selection-color: #ffffff;
+            }
+            QTableWidget::item {
+                padding: 6px;
+                border-bottom: 1px solid #404040;
+            }
+            QTableWidget::item:selected {
+                background-color: #4CAF50;
+                color: #ffffff;
+            }
+            QHeaderView::section {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                padding: 8px;
+                border: 1px solid #404040;
+                font-weight: bold;
+                font-size: 11pt;
+            }
+            QHeaderView::section:hover {
+                background-color: #505050;
+            }
+            QScrollBar:vertical {
+                background-color: #2d2d2d;
+                width: 12px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background-color: #404040;
+                border-radius: 6px;
+                min-height: 20px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background-color: #505050;
+            }
+        """)
         
         # Connect selection signal
         self.device_table.itemSelectionChanged.connect(self.on_device_selected)
@@ -221,6 +516,10 @@ class EnhancedDeviceList(QWidget):
             row = self.device_table.rowCount()
             self.device_table.insertRow(row)
             
+            # Get interface information
+            interface_info = device.get('interface', {})
+            interface_display = f"{interface_info.get('name', 'Unknown')} ({interface_info.get('type', 'Unknown')})"
+            
             # Create table items
             items = [
                 QTableWidgetItem(device.get('ip', '')),
@@ -228,9 +527,8 @@ class EnhancedDeviceList(QWidget):
                 QTableWidgetItem(device.get('hostname', '')),
                 QTableWidgetItem(device.get('vendor', '')),
                 QTableWidgetItem(device.get('device_type', '')),
-                QTableWidgetItem(f"{device.get('response_time', 0):.1f}ms"),
+                QTableWidgetItem(interface_display),
                 QTableWidgetItem(', '.join(map(str, device.get('open_ports', [])))),
-                QTableWidgetItem(str(device.get('risk_score', 0))),
                 QTableWidgetItem(device.get('status', 'Online'))
             ]
             
@@ -251,7 +549,7 @@ class EnhancedDeviceList(QWidget):
             
             # Update status column color based on blocked status
             is_blocked = device.get('blocked', False)
-            status_item = self.device_table.item(row, 8)
+            status_item = self.device_table.item(row, 7) # Changed from 8 to 7
             if is_blocked:
                 status_item.setBackground(QColor(255, 100, 100))  # Red for blocked
                 status_item.setForeground(QColor(255, 255, 255))  # White text
@@ -266,10 +564,9 @@ class EnhancedDeviceList(QWidget):
             log_error(f"Error adding device to table: {e}")
     
     def color_code_device(self, row: int, device: Dict):
-        """Color code device based on type and risk"""
+        """Color code device based on type"""
         try:
             device_type = device.get('device_type', '').lower()
-            risk_score = device.get('risk_score', 0)
             is_local = device.get('local', False)
             
             # Set background color based on device type
@@ -283,12 +580,6 @@ class EnhancedDeviceList(QWidget):
                 color = QColor(255, 255, 200)  # Light yellow for computer
             else:
                 color = QColor(240, 240, 240)  # Light gray for unknown
-            
-            # Adjust color based on risk score
-            if risk_score > 70:
-                color = color.darker(120)  # Darker for high risk
-            elif risk_score > 40:
-                color = color.darker(110)  # Slightly darker for medium risk
             
             # Special color for local device
             if is_local:
@@ -393,7 +684,7 @@ class EnhancedDeviceList(QWidget):
                     status_item.setBackground(QColor(100, 255, 100))  # Green for online
                     status_item.setForeground(QColor(0, 0, 0))  # Black text
                 
-                self.device_table.setItem(row, 8, status_item)
+                self.device_table.setItem(row, 7, status_item) # Changed from 8 to 7
                 
                 # Actually block/unblock the device
                 self.actually_block_device(ip, new_blocked)
@@ -480,7 +771,7 @@ class EnhancedDeviceList(QWidget):
                     status_item.setBackground(QColor(100, 255, 100))  # Green for online
                     status_item.setForeground(QColor(0, 0, 0))  # Black text
                 
-                self.device_table.setItem(row, 8, status_item)
+                self.device_table.setItem(row, 7, status_item) # Changed from 8 to 7
                 
                 # Actually block/unblock the device
                 self.actually_block_device(ip, new_blocked)
@@ -496,22 +787,51 @@ class EnhancedDeviceList(QWidget):
             log_error(f"Error toggling device blocking: {e}")
     
     def actually_block_device(self, ip: str, block: bool):
-        """Actually block/unblock a device using firewall rules"""
+        """Actually block/unblock a device using REAL network disruption"""
         try:
+            log_info(f"🔍 Starting blocking process for {ip} (block={block})")
+            
             if self.controller:
-                # Use the controller's blocking mechanism
-                self.controller.block_device(ip, block)
+                log_info(f"✅ Controller found, using toggle_lag method")
+                # Use the controller's REAL blocking mechanism
+                # toggle_lag returns the new blocked state
+                new_blocked_state = self.controller.toggle_lag(ip)
+                log_info(f"📊 toggle_lag returned: {new_blocked_state}")
+                
+                if block:
+                    # We want to block the device
+                    if new_blocked_state:
+                        log_info(f"✅ Device {ip} blocked using REAL network disruption")
+                        self.update_status(f"Successfully blocked {ip}")
+                    else:
+                        log_error(f"❌ Failed to block device {ip}")
+                        self.update_status(f"Failed to block {ip}")
+                else:
+                    # We want to unblock the device
+                    if not new_blocked_state:
+                        log_info(f"✅ Device {ip} unblocked successfully")
+                        self.update_status(f"Successfully unblocked {ip}")
+                    else:
+                        log_error(f"❌ Failed to unblock device {ip}")
+                        self.update_status(f"Failed to unblock {ip}")
+                
+                # Update the device's blocked status in our local list
+                for device in self.devices:
+                    if device.get('ip') == ip:
+                        device['blocked'] = new_blocked_state
+                        log_info(f"📝 Updated device {ip} blocked status to {new_blocked_state}")
+                        break
+                
             else:
                 # Fallback to direct firewall blocking
+                log_error("❌ No controller available, using fallback blocking")
                 self.aggressive_block_device(ip, block)
                 
-            log_info(f"Device {ip} {'blocked' if block else 'unblocked'} successfully")
-            
             # Update blocking status indicator
             self.update_blocking_status()
             
         except Exception as e:
-            log_error(f"Error blocking device {ip}: {e}")
+            log_error(f"❌ Error blocking device {ip}: {e}")
             self.update_status(f"Error blocking {ip}: {e}")
     
     def update_blocking_status(self):
@@ -803,7 +1123,7 @@ class EnhancedDeviceList(QWidget):
                     # Update table
                     status_item = QTableWidgetItem('Blocked')
                     status_item.setBackground(QColor(255, 100, 100))
-                    self.device_table.setItem(row, 8, status_item)
+                    self.device_table.setItem(row, 7, status_item) # Changed from 8 to 7
                     
                     # Emit signal
                     self.device_blocked.emit(ip, True)
@@ -812,6 +1132,215 @@ class EnhancedDeviceList(QWidget):
             
         except Exception as e:
             log_error(f"Error blocking devices: {e}")
+    
+    def block_all_devices(self):
+        """Block all devices in the list"""
+        try:
+            if not self.devices:
+                self.update_status("No devices to block")
+                return
+            
+            # Import PS5 blocker
+            from app.firewall.ps5_blocker import ps5_blocker
+            
+            blocked_count = 0
+            ps5_ips = []
+            
+            for i, device in enumerate(self.devices):
+                ip = device.get('ip', '')
+                if ip and not device.get('blocked', False):
+                    # Check if it's a PS5
+                    if self._is_ps5_device(device):
+                        ps5_ips.append(ip)
+                    
+                    # Block this device
+                    self.actually_block_device(ip, True)
+                    device['blocked'] = True
+                    device['status'] = 'Blocked'
+                    
+                    # Update table display
+                    status_item = QTableWidgetItem('Blocked')
+                    status_item.setBackground(QColor(255, 100, 100))  # Red
+                    status_item.setForeground(QColor(255, 255, 255))  # White text
+                    self.device_table.setItem(i, 7, status_item)
+                    
+                    blocked_count += 1
+            
+            # Block PS5s specifically
+            if ps5_ips:
+                ps5_blocker.block_all_ps5s(ps5_ips)
+                self.update_status(f"Blocked {blocked_count} devices (including {len(ps5_ips)} PS5s)")
+            else:
+                self.update_status(f"Blocked {blocked_count} devices")
+            
+            self.update_blocking_status()
+            
+        except Exception as e:
+            log_error(f"Error blocking all devices: {e}")
+            self.update_status(f"Error blocking all devices: {e}")
+    
+    def _is_ps5_device(self, device: dict) -> bool:
+        """Check if device is a PS5"""
+        try:
+            # Check vendor name
+            vendor = device.get('vendor', '').lower()
+            if 'sony' in vendor or 'playstation' in vendor or 'ps5' in vendor:
+                return True
+            
+            # Check hostname
+            hostname = device.get('hostname', '').lower()
+            if 'ps5' in hostname or 'playstation' in hostname:
+                return True
+            
+            # Check MAC address (Sony's OUI)
+            mac = device.get('mac', '').lower()
+            if mac.startswith(('00:50:c2', '00:1f:a7', '00:19:c5')):
+                return True
+            
+            return False
+        except:
+            return False
+    
+    def toggle_internet_drop(self):
+        """Toggle internet drop functionality"""
+        try:
+            from app.firewall.internet_dropper import internet_dropper
+            
+            if internet_dropper.is_internet_dropped():
+                # Restore internet
+                success = internet_dropper.restore_internet()
+                if success:
+                    self.internet_drop_button.setText("🌐 Drop Internet")
+                    self.internet_drop_button.setStyleSheet("""
+                        QPushButton {
+                            background-color: #ff4444;
+                            color: white;
+                            border: 2px solid #cc0000;
+                            border-radius: 6px;
+                            padding: 8px 16px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            background-color: #ff6666;
+                            border-color: #ff0000;
+                        }
+                        QPushButton:pressed {
+                            background-color: #cc0000;
+                            border-color: #990000;
+                        }
+                    """)
+                    self.update_status("✅ Internet restored successfully")
+                else:
+                    self.update_status("❌ Failed to restore internet")
+            else:
+                # Drop internet
+                success = internet_dropper.drop_internet()
+                if success:
+                    self.internet_drop_button.setText("🌐 Restore Internet")
+                    self.internet_drop_button.setStyleSheet("""
+                        QPushButton {
+                            background-color: #44ff44;
+                            color: white;
+                            border: 2px solid #00cc00;
+                            border-radius: 6px;
+                            padding: 8px 16px;
+                            font-weight: bold;
+                        }
+                        QPushButton:hover {
+                            background-color: #66ff66;
+                            border-color: #00ff00;
+                        }
+                        QPushButton:pressed {
+                            background-color: #00cc00;
+                            border-color: #009900;
+                        }
+                    """)
+                    self.update_status("🛑 Internet dropped successfully")
+                else:
+                    self.update_status("❌ Failed to drop internet")
+                    
+        except Exception as e:
+            log_error(f"Error toggling internet drop: {e}")
+            self.update_status(f"Error toggling internet drop: {e}")
+    
+    def unblock_all_devices(self):
+        """Unblock all devices in the list"""
+        try:
+            if not self.devices:
+                self.update_status("No devices to unblock")
+                return
+            
+            # Import PS5 blocker
+            from app.firewall.ps5_blocker import ps5_blocker
+            
+            unblocked_count = 0
+            ps5_ips = []
+            
+            for i, device in enumerate(self.devices):
+                ip = device.get('ip', '')
+                if ip and device.get('blocked', False):
+                    # Check if it's a PS5
+                    if self._is_ps5_device(device):
+                        ps5_ips.append(ip)
+                    
+                    # Unblock this device
+                    self.actually_block_device(ip, False)
+                    device['blocked'] = False
+                    device['status'] = 'Online'
+                    
+                    # Update table display
+                    status_item = QTableWidgetItem('Online')
+                    status_item.setBackground(QColor(100, 255, 100))  # Green
+                    status_item.setForeground(QColor(0, 0, 0))  # Black text
+                    self.device_table.setItem(i, 7, status_item)
+                    
+                    unblocked_count += 1
+            
+            # Unblock PS5s specifically
+            if ps5_ips:
+                ps5_blocker.unblock_all_ps5s(ps5_ips)
+                self.update_status(f"Unblocked {unblocked_count} devices (including {len(ps5_ips)} PS5s)")
+            else:
+                self.update_status(f"Unblocked {unblocked_count} devices")
+            
+            self.update_blocking_status()
+            
+        except Exception as e:
+            log_error(f"Error unblocking all devices: {e}")
+            self.update_status(f"Error unblocking all devices: {e}")
+    
+    def clear_all_blocks(self):
+        """Clear all blocks and restore network"""
+        try:
+            from app.firewall.blocker import clear_all_blocks
+            from app.firewall.ps5_blocker import ps5_blocker
+            
+            # Clear all blocks using the blocker module
+            success = clear_all_blocks()
+            
+            # Clear PS5 blocks specifically
+            ps5_success = ps5_blocker.clear_all_ps5_blocks()
+            
+            if success and ps5_success:
+                # Update all devices to unblocked status
+                for i, device in enumerate(self.devices):
+                    device['blocked'] = False
+                    device['status'] = 'Online'
+                    
+                    # Update table display
+                    status_item = QTableWidgetItem('Online')
+                    status_item.setBackground(QColor(100, 255, 100))  # Green
+                    status_item.setForeground(QColor(0, 0, 0))  # Black text
+                    self.device_table.setItem(i, 7, status_item)
+                
+                self.update_status("All blocks cleared successfully (including PS5s)")
+                self.update_blocking_status()
+            else:
+                self.update_status("Failed to clear all blocks")
+                
+        except Exception as e:
+            log_error(f"Error clearing all blocks: {e}")
+            self.update_status(f"Error clearing blocks: {e}")
     
     def get_selected_devices(self) -> List[Dict]:
         """Get list of selected devices"""

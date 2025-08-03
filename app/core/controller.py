@@ -2,6 +2,8 @@
 
 import threading
 import time
+import psutil
+import subprocess
 from typing import List, Dict, Optional
 from app.network import device_scan
 from app.firewall import blocker
@@ -82,44 +84,122 @@ class AppController:
                     self.stop_auto_scan()
     
     def scan_devices(self, quick: bool = True) -> List[Dict]:
-        """Scan for devices on the network with performance monitoring"""
+        """Scan for REAL devices on the network - no mock data"""
         start_time = time.time()
         try:
             self.state.set_scan_status(True)
-            log_info(f"Starting {'quick' if quick else 'full'} device scan...")
+            log_info(f"🔍 Starting REAL device scan ({'quick' if quick else 'full'})...")
             
             # Get network info
             network_info = device_scan.get_network_info()
             self.state.update_network_info(network_info)
             
-            # Scan for devices (quick scan by default)
-            devices = device_scan.scan_devices(quick=quick)
+            # Use enhanced scanner for real device detection
+            from app.network.enhanced_scanner import EnhancedNetworkScanner
+            scanner = EnhancedNetworkScanner()
             
-            # Update state with new devices
-            self.state.update_devices(devices)
+            # Connect signals for proper communication
+            scanner.scan_complete.connect(self._on_scan_complete)
+            scanner.scan_error.connect(self._on_scan_error)
+            scanner.status_update.connect(self._on_scan_status)
             
-            scan_duration = time.time() - start_time
-            log_network_scan(len(devices), scan_duration)
-            log_performance("Device scan", scan_duration)
+            # Start scanning
+            scanner.start()
             
-            return devices
+            # Wait for scan to complete (with timeout)
+            if not scanner.wait(10000):  # 10 second timeout
+                scanner.stop_scan()
+                log_warning("Scan timeout - stopping scanner")
+            
+            # Get real devices from scanner
+            devices = scanner.devices if hasattr(scanner, 'devices') else []
+            
+            # Filter out any mock/fake devices
+            real_devices = []
+            for device in devices:
+                # Only include devices that actually responded to our scans
+                if device.get('ip') and device.get('ip') != '127.0.0.1':
+                    # Verify device is actually reachable
+                    if self._verify_device_exists(device.get('ip')):
+                        real_devices.append(device)
+                        log_info(f"✅ Found real device: {device.get('ip')} - {device.get('hostname', 'Unknown')}")
+                    else:
+                        log_info(f"❌ Device {device.get('ip')} not reachable - excluding")
+            
+            # Update state with only real devices
+            self.state.update_devices(real_devices)
+            
+            # Update smart mode with new devices
+            self._update_smart_mode_devices()
+            
+            duration = time.time() - start_time
+            log_network_scan(len(real_devices), duration)
+            log_performance("Real device scan", duration)
+            
+            self.state.set_scan_status(False)
+            return real_devices
             
         except Exception as e:
-            log_error(f"Device scan failed: {e}")
-            return []
-        finally:
+            log_error(f"Real device scan failed: {e}")
             self.state.set_scan_status(False)
+            return []
+    
+    def _on_scan_complete(self, devices: list):
+        """Handle scan completion"""
+        try:
+            log_info(f"Scan completed with {len(devices)} devices")
+        except Exception as e:
+            log_error(f"Error handling scan completion: {e}")
+    
+    def _on_scan_error(self, error_msg: str):
+        """Handle scan error"""
+        try:
+            log_error(f"Scan error: {error_msg}")
+        except Exception as e:
+            log_error(f"Error handling scan error: {e}")
+    
+    def _on_scan_status(self, status_msg: str):
+        """Handle scan status update"""
+        try:
+            log_info(f"Scan status: {status_msg}")
+        except Exception as e:
+            log_error(f"Error handling scan status: {e}")
+    
+    def _verify_device_exists(self, ip: str) -> bool:
+        """Verify that a device actually exists on the network"""
+        try:
+            # Quick TCP connection test
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            
+            # Try common ports
+            common_ports = [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995, 8080]
+            for port in common_ports:
+                try:
+                    result = sock.connect_ex((ip, port))
+                    sock.close()
+                    if result == 0:
+                        return True
+                except:
+                    continue
+            
+            sock.close()
+            return False
+            
+        except Exception as e:
+            log_error(f"Device verification failed for {ip}: {e}")
+            return False
     
     def quick_scan_devices(self) -> List[Dict]:
-        """Perform a quick scan for devices"""
+        """Quick scan for devices"""
         return self.scan_devices(quick=True)
     
     def full_scan_devices(self) -> List[Dict]:
-        """Perform a full scan for devices"""
+        """Full scan for devices"""
         return self.scan_devices(quick=False)
     
     def select_device(self, ip: str):
-        """Select a device by IP address"""
+        """Select a device"""
         self.state.select_device(ip)
     
     def get_selected_device(self) -> Optional[Device]:
@@ -127,27 +207,65 @@ class AppController:
         return self.state.get_selected_device()
     
     def toggle_lag(self, ip: str = None) -> bool:
-        """Toggle lag for a device with performance monitoring"""
+        """Toggle lag for a device - PERSISTENT until manually toggled"""
         start_time = time.time()
         try:
             if ip:
                 device = self.state.get_device_by_ip(ip)
                 if device:
-                    device.blocked = not device.blocked
-                    success = self._apply_blocking(ip) if device.blocked else self._remove_blocking(ip)
+                    # Check current blocked status
+                    current_blocked = device.blocked
+                    success = False
+                    
+                    # Apply the opposite of current status - PERSISTENT
+                    if current_blocked:
+                        # Device is currently blocked, so unblock it
+                        success = self._remove_blocking(ip)
+                        if success:
+                            device.blocked = False
+                            log_info(f"Successfully unblocked device: {ip} - PERSISTENT")
+                        else:
+                            log_error(f"Failed to unblock device: {ip}")
+                    else:
+                        # Device is not blocked, so block it
+                        success = self._apply_blocking(ip)
+                        if success:
+                            device.blocked = True
+                            log_info(f"Successfully blocked device: {ip} - PERSISTENT")
+                        else:
+                            log_error(f"Failed to block device: {ip}")
+                    
+                    # Emit state change event for UI updates
+                    if success:
+                        self._on_blocking_toggled({
+                            "ip": ip,
+                            "blocked": device.blocked,
+                            "success": success,
+                            "persistent": True
+                        })
                     
                     duration = time.time() - start_time
                     log_device_action("Toggle lag", ip, success)
                     log_performance("Toggle lag", duration)
                     
-                    return success
+                    return device.blocked  # Return the new blocked state
+                else:
+                    # Device not found in state, try to block it anyway
+                    log_info(f"Device {ip} not found in state, attempting to block directly")
+                    success = self._apply_blocking(ip)
+                    if success:
+                        log_info(f"Successfully blocked device: {ip} (not in state)")
+                        return True
+                    else:
+                        log_error(f"Failed to block device: {ip} (not in state)")
+                        return False
             return False
         except Exception as e:
             log_error(f"Toggle lag failed: {e}")
             return False
     
     def _apply_blocking(self, ip: str):
-        """Apply blocking with performance monitoring"""
+        """Apply enterprise-level blocking with performance monitoring"""
         start_time = time.time()
         try:
             success = blocker.block_device(ip)
@@ -159,7 +277,7 @@ class AppController:
             return False
     
     def _remove_blocking(self, ip: str):
-        """Remove blocking with performance monitoring"""
+        """Remove enterprise-level blocking with performance monitoring"""
         start_time = time.time()
         try:
             success = blocker.unblock_device(ip)
@@ -170,176 +288,378 @@ class AppController:
             log_error(f"Remove blocking failed: {e}")
             return False
     
-    def toggle_smart_mode(self):
-        """Toggle smart mode"""
-        current_status = smart_mode.is_enabled()
-        if current_status:
-            disable_smart_mode()
-            self.state.update_setting("smart_mode", False)
-        else:
-            enable_smart_mode()
-            self.state.update_setting("smart_mode", True)
-        
-        return not current_status
+    def toggle_smart_mode(self) -> bool:
+        """Toggle smart mode with enterprise-level functionality"""
+        try:
+            if not hasattr(self, 'smart_mode'):
+                from app.core.smart_mode import SmartModeEngine
+                self.smart_mode = SmartModeEngine()
+            
+            if self.smart_mode.enabled:
+                # Disable smart mode
+                self.smart_mode.enabled = False
+                self.smart_mode.stop_monitoring()
+                log_info("Smart mode disabled")
+            else:
+                # Enable smart mode
+                self.smart_mode.enabled = True
+                self.smart_mode.start_monitoring()
+                log_info("Smart mode enabled")
+            
+            # Save setting
+            self.state.settings.smart_mode = self.smart_mode.enabled
+            self.state.save_settings()
+            
+            # Emit state change
+            self.state.notify_observers("smart_mode_toggled", {
+                "enabled": self.smart_mode.enabled,
+                "status": self.smart_mode.get_smart_mode_status()
+            })
+            
+            return self.smart_mode.enabled
+            
+        except Exception as e:
+            log_error(f"Toggle smart mode failed: {e}")
+            return False
     
     def get_smart_mode_status(self) -> Dict:
-        """Get smart mode status and statistics"""
-        return get_smart_mode_status()
+        """Get smart mode status with enterprise-level details"""
+        try:
+            if hasattr(self, 'smart_mode'):
+                return {
+                    "enabled": self.smart_mode.enabled,
+                    "status": self.smart_mode.get_smart_mode_status(),
+                    "devices_monitored": len(self.smart_mode.monitored_devices) if hasattr(self.smart_mode, 'monitored_devices') else 0,
+                    "rules_active": len(self.smart_mode.active_rules) if hasattr(self.smart_mode, 'active_rules') else 0
+                }
+            else:
+                return {
+                    "enabled": False,
+                    "status": "Not initialized",
+                    "devices_monitored": 0,
+                    "rules_active": 0
+                }
+        except Exception as e:
+            log_error(f"Get smart mode status failed: {e}")
+            return {"enabled": False, "status": "Error"}
     
     def open_settings(self):
-        """Open application settings dialog"""
-        log_info("Settings dialog requested")
-        return True
+        """Open settings dialog"""
+        # This would open a settings dialog
+        pass
     
     def update_settings(self, new_settings: AppSettings):
         """Update application settings"""
         try:
-            self.state.update_settings(new_settings)
+            # Update the settings
+            self.state.settings = new_settings
+            self.state.save_settings()
+            
+            # Apply the new settings immediately
+            self._apply_settings_changes(new_settings)
+            
             log_info("Settings updated successfully")
         except Exception as e:
             log_error(f"Error updating settings: {e}")
     
-    def apply_additional_settings(self, additional_settings: dict):
-        """Apply additional settings to the application"""
+    def _apply_settings_changes(self, settings: AppSettings):
+        """Apply settings changes to the running application"""
         try:
-            # Apply additional settings to state
-            for key, value in additional_settings.items():
-                self.state.update_setting(key, value)
-            log_info("Additional settings applied")
+            # Apply auto-scan changes
+            if settings.auto_scan != self.auto_scan_enabled:
+                if settings.auto_scan:
+                    self.start_auto_scan()
+                else:
+                    self.stop_auto_scan()
+            
+            # Apply smart mode changes
+            if hasattr(self, 'state') and hasattr(self.state, 'settings'):
+                if settings.smart_mode != self.state.settings.smart_mode:
+                    if settings.smart_mode:
+                        from app.core.smart_mode import enable_smart_mode
+                        enable_smart_mode()
+                    else:
+                        from app.core.smart_mode import disable_smart_mode
+                        disable_smart_mode()
+            
+            # Apply scan interval changes
+            if hasattr(self, 'scan_thread') and self.scan_thread and self.scan_thread.is_alive():
+                # The scan interval will be applied on the next scan cycle
+                pass
+            
+            log_info("Settings changes applied successfully")
+            
         except Exception as e:
-            log_error(f"Error applying additional settings: {e}")
+            log_error(f"Error applying settings changes: {e}")
+    
+    def apply_additional_settings(self, additional_settings: dict):
+        """Apply additional settings"""
+        for key, value in additional_settings.items():
+            if hasattr(self.state.settings, key):
+                setattr(self.state.settings, key, value)
+        self.state.save_settings()
+        log_info("Additional settings applied")
     
     def start_auto_scan(self):
-        """Start automatic device scanning"""
-        if self.scan_thread and self.scan_thread.is_alive():
-            return
-        
+        """Start automatic scanning"""
         self.auto_scan_enabled = True
-        self.scan_thread = threading.Thread(target=self._auto_scan_loop, daemon=True)
-        self.scan_thread.start()
+        if not self.scan_thread or not self.scan_thread.is_alive():
+            self.scan_thread = threading.Thread(target=self._auto_scan_loop, daemon=True)
+            self.scan_thread.start()
         log_info("Auto-scan started")
     
     def stop_auto_scan(self):
-        """Stop automatic device scanning"""
+        """Stop automatic scanning"""
         self.auto_scan_enabled = False
         self.stop_scanning = True
-        if self.scan_thread:
-            self.scan_thread.join(timeout=5)
         log_info("Auto-scan stopped")
     
     def _auto_scan_loop(self):
         """Auto-scan loop"""
-        scan_count = 0
         while self.auto_scan_enabled and not self.stop_scanning:
             try:
-                # Use quick scan most of the time, full scan every 3rd time (reduced from 5th)
-                quick_scan = (scan_count % 3) != 0
-                self.scan_devices(quick=quick_scan)
-                scan_count += 1
-                time.sleep(self.state.settings.scan_interval)
+                self.quick_scan_devices()
+                time.sleep(30)  # Scan every 30 seconds
             except Exception as e:
                 log_error(f"Auto-scan error: {e}")
-                time.sleep(30)  # Reduced wait time on error (from 60)
+                time.sleep(60)  # Wait longer on error
     
     def get_network_info(self) -> Dict:
-        """Get current network information"""
-        return self.state.network_info
+        """Get enterprise-level network information"""
+        try:
+            # Get real network information using psutil
+            network_info = {}
+            
+            # Get network interfaces
+            interfaces = psutil.net_if_addrs()
+            active_interfaces = []
+            
+            for interface_name, interface_addresses in interfaces.items():
+                for addr in interface_addresses:
+                    if addr.family == 2:  # AF_INET
+                        active_interfaces.append({
+                            "name": interface_name,
+                            "ip": addr.address,
+                            "netmask": addr.netmask
+                        })
+            
+            network_info["interfaces"] = active_interfaces
+            
+            # Get network statistics
+            net_io = psutil.net_io_counters()
+            network_info["bytes_sent"] = net_io.bytes_sent
+            network_info["bytes_recv"] = net_io.bytes_recv
+            network_info["packets_sent"] = net_io.packets_sent
+            network_info["packets_recv"] = net_io.packets_recv
+            
+            # Get current bandwidth
+            network_info["current_bandwidth"] = self._calculate_current_bandwidth()
+            
+            return network_info
+            
+        except Exception as e:
+            log_error(f"Get network info failed: {e}")
+            return {}
+    
+    def _calculate_current_bandwidth(self) -> float:
+        """Calculate current bandwidth usage"""
+        try:
+            # Get network I/O counters
+            net_io = psutil.net_io_counters()
+            
+            # Calculate total bytes
+            total_bytes = net_io.bytes_sent + net_io.bytes_recv
+            
+            # Convert to KB/s (rough approximation)
+            return total_bytes / 1024.0
+            
+        except Exception as e:
+            log_error(f"Calculate bandwidth failed: {e}")
+            return 0.0
     
     def get_devices(self) -> List[Device]:
-        """Get current device list"""
+        """Get all devices"""
         return self.state.devices
     
     def get_blocked_devices(self) -> List[Device]:
-        """Get list of blocked devices"""
-        return self.state.get_blocked_devices()
+        """Get enterprise-level blocked devices information"""
+        try:
+            # Get devices that are marked as blocked in state
+            blocked_devices = [device for device in self.state.devices if device.blocked]
+            
+            # Also check the network disruptor for real blocked devices
+            from app.firewall.network_disruptor import network_disruptor
+            disrupted_ips = network_disruptor.get_disrupted_devices()
+            
+            # Update device states based on network disruptor
+            for device in self.state.devices:
+                if device.ip in disrupted_ips:
+                    device.blocked = True
+                    if device not in blocked_devices:
+                        blocked_devices.append(device)
+                elif device.ip not in disrupted_ips and device.blocked:
+                    # Device is marked as blocked but not actually disrupted
+                    device.blocked = False
+                    if device in blocked_devices:
+                        blocked_devices.remove(device)
+            
+            return blocked_devices
+            
+        except Exception as e:
+            log_error(f"Get blocked devices failed: {e}")
+            return []
     
     def update_setting(self, key: str, value: any):
-        """Update an application setting"""
-        self.state.update_setting(key, value)
+        """Update a specific setting"""
+        if hasattr(self.state.settings, key):
+            setattr(self.state.settings, key, value)
+            self.state.save_settings()
     
     def get_settings(self):
-        """Get current application settings"""
+        """Get current settings"""
         return self.state.settings
     
     def is_scanning(self) -> bool:
-        """Check if a scan is in progress"""
+        """Check if scanning is in progress"""
         return self.state.scan_in_progress
     
     def is_blocking(self) -> bool:
-        """Check if any device is currently blocked"""
-        return self.state.blocking
+        """Check if any blocking is active"""
+        return len(self.get_blocked_devices()) > 0
     
     def get_device_by_ip(self, ip: str) -> Optional[Device]:
         """Get device by IP address"""
         return self.state.get_device_by_ip(ip)
     
     def clear_devices(self):
-        """Clear the device list"""
-        self.state.clear_devices()
+        """Clear all devices"""
+        self.state.devices = []
+        self.state.notify_observers("devices_updated", [])
     
     def shutdown(self):
-        """Cleanup on application shutdown"""
+        """Shutdown the controller and clean up resources"""
         try:
-            # Stop auto-scan first
+            log_info("Starting application shutdown...")
+            
+            # Stop auto-scan
             self.stop_auto_scan()
             
-            # Disable smart mode
-            try:
-                disable_smart_mode()
-            except Exception as e:
-                log_error(f"Error disabling smart mode: {e}")
+            # Stop smart mode properly
+            if hasattr(self, 'smart_mode') and self.smart_mode:
+                try:
+                    if hasattr(self.smart_mode, 'stop_monitoring') and callable(self.smart_mode.stop_monitoring):
+                        self.smart_mode.stop_monitoring()
+                    else:
+                        self.smart_mode.disable()
+                except Exception as e:
+                    log_error(f"Smart mode shutdown error: {e}")
             
-            # Unblock any blocked devices
-            try:
-                for device in self.get_blocked_devices():
-                    self._remove_blocking(device.ip)
-            except Exception as e:
-                log_error(f"Error unblocking devices: {e}")
+            # Stop traffic analyzer
+            if hasattr(self, 'traffic_analyzer') and self.traffic_analyzer:
+                try:
+                    self.traffic_analyzer.stop()
+                except Exception as e:
+                    log_error(f"Traffic analyzer shutdown error: {e}")
             
-            # Shutdown advanced features
-            try:
-                if self.traffic_analyzer:
-                    self.traffic_analyzer.stop_analysis()
-                
-                if self.plugin_manager:
-                    self.plugin_manager.cleanup()
-            except Exception as e:
-                log_error(f"Error shutting down advanced features: {e}")
+            # Stop plugin manager
+            if hasattr(self, 'plugin_manager') and self.plugin_manager:
+                try:
+                    self.plugin_manager.shutdown()
+                except Exception as e:
+                    log_error(f"Plugin manager shutdown error: {e}")
             
-            log_info("Controller shutdown complete")
+            # Stop network disruptor
+            if hasattr(self, 'network_disruptor') and self.network_disruptor:
+                try:
+                    self.network_disruptor.stop()
+                except Exception as e:
+                    log_error(f"Network disruptor shutdown error: {e}")
+            
+            log_info("Controller shutdown completed")
+            
         except Exception as e:
-            log_error(f"Error during shutdown: {e}")
+            log_error(f"Controller shutdown error: {e}")
     
     def _init_advanced_features(self):
-        """Initialize advanced features"""
+        """Initialize enterprise-level advanced features"""
         try:
-            # Initialize traffic analyzer with error handling
-            try:
-                self.traffic_analyzer = AdvancedTrafficAnalyzer()
-                self.traffic_analyzer.start_analysis()
-                log_info("Advanced traffic analyzer initialized")
-            except Exception as e:
-                log_error(f"Failed to initialize traffic analyzer: {e}")
-                self.traffic_analyzer = None
+            log_info("🔧 Starting advanced features initialization...")
             
-            # Initialize plugin manager with error handling
-            try:
-                self.plugin_manager = PluginManager()
-                log_info("Plugin manager initialized")
-            except Exception as e:
-                log_error(f"Failed to initialize plugin manager: {e}")
-                self.plugin_manager = None
+            # Initialize traffic analyzer
+            log_info("📊 Initializing traffic analyzer...")
+            self.traffic_analyzer = AdvancedTrafficAnalyzer()
+            self.traffic_analyzer.start()
+            log_info("✅ Traffic analyzer initialized")
+            
+            # Initialize plugin manager
+            log_info("🔌 Initializing plugin manager...")
+            self.plugin_manager = PluginManager()
+            self.plugin_manager.load_all_plugins()
+            log_info("✅ Plugin manager initialized")
+            
+            # Initialize network disruptor
+            log_info("🌐 Initializing network disruptor...")
+            from app.firewall.network_disruptor import network_disruptor
+            self.network_disruptor = network_disruptor
+            log_info(f"📡 Network disruptor imported: {self.network_disruptor}")
+            
+            if self.network_disruptor.initialize():
+                self.network_disruptor.start()
+                log_info("✅ Enterprise Network Disruptor initialized and started")
+            else:
+                log_error("❌ Failed to initialize Enterprise Network Disruptor")
+            
+            log_info("✅ Advanced features initialized successfully")
             
         except Exception as e:
-            log_error(f"Failed to initialize advanced features: {e}")
-            self.traffic_analyzer = None
-            self.plugin_manager = None
+            log_error(f"❌ Advanced features initialization failed: {e}")
+            import traceback
+            log_error(f"❌ Traceback: {traceback.format_exc()}")
     
     def get_traffic_analysis(self) -> Dict:
-        """Get traffic analysis data"""
-        if self.traffic_analyzer:
-            return self.traffic_analyzer.get_network_overview()
-        return {}
+        """Get enterprise-level traffic analysis"""
+        try:
+            if self.traffic_analyzer:
+                return self.traffic_analyzer.get_analysis()
+            else:
+                # Fallback to basic traffic analysis
+                return self._get_basic_traffic_analysis()
+        except Exception as e:
+            log_error(f"Get traffic analysis failed: {e}")
+            return {}
+    
+    def _get_basic_traffic_analysis(self) -> Dict:
+        """Get basic traffic analysis using psutil"""
+        try:
+            # Get network I/O counters
+            net_io = psutil.net_io_counters()
+            
+            # Get per-interface statistics
+            net_io_per_nic = psutil.net_io_counters(pernic=True)
+            
+            # Calculate bandwidth
+            current_bandwidth = (net_io.bytes_sent + net_io.bytes_recv) / 1024.0  # KB/s
+            
+            return {
+                "current_bandwidth": current_bandwidth,
+                "bytes_sent": net_io.bytes_sent,
+                "bytes_recv": net_io.bytes_recv,
+                "packets_sent": net_io.packets_sent,
+                "packets_recv": net_io.packets_recv,
+                "interfaces": net_io_per_nic,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            log_error(f"Basic traffic analysis failed: {e}")
+            return {
+                "current_bandwidth": 0.0,
+                "bytes_sent": 0,
+                "bytes_recv": 0,
+                "packets_sent": 0,
+                "packets_recv": 0,
+                "interfaces": {},
+                "timestamp": time.time()
+            }
     
     def get_plugin_info(self) -> List:
         """Get plugin information"""
@@ -360,19 +680,19 @@ class AppController:
         return False
     
     def create_plugin_template(self, plugin_name: str, category: str = "General") -> str:
-        """Create a new plugin template"""
+        """Create a plugin template"""
         if self.plugin_manager:
-            return self.plugin_manager.create_plugin_template(plugin_name, category)
+            return self.plugin_manager.create_template(plugin_name, category)
         return ""
     
     def export_traffic_report(self, filename: str = None) -> str:
         """Export traffic analysis report"""
         if self.traffic_analyzer:
-            return self.traffic_analyzer.export_traffic_report(filename)
+            return self.traffic_analyzer.export_report(filename)
         return ""
     
     def get_traffic_recommendations(self) -> List[str]:
-        """Get traffic analysis recommendations"""
+        """Get traffic optimization recommendations"""
         if self.traffic_analyzer:
             return self.traffic_analyzer.get_recommendations()
         return []
