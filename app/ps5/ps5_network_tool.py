@@ -196,10 +196,10 @@ class PS5NetworkTool:
                             for part in parts:
                                 if ':' in part or '-' in part:
                                     return part.replace('-', ':')
-            return "Unknown"
+            return None
         except Exception as e:
             log_error(f"Error getting MAC for {ip}: {e}")
-            return "Unknown"
+            return None
     
     def _get_hostname(self, ip: str) -> str:
         """Get hostname for IP"""
@@ -211,10 +211,10 @@ class PS5NetworkTool:
                 for line in lines:
                     if 'Name:' in line:
                         return line.split('Name:')[1].strip()
-            return "Unknown"
+            return None
         except Exception as e:
             log_error(f"Error getting hostname for {ip}: {e}")
-            return "Unknown"
+            return None
     
     def _determine_ps5_type(self, ip: str) -> str:
         """Determine PS5 device type"""
@@ -237,7 +237,7 @@ class PS5NetworkTool:
                 
         except Exception as e:
             log_error(f"Error determining PS5 type for {ip}: {e}")
-            return "PS5 (Unknown)"
+            return None
     
     def _check_ps5_services(self, ip: str) -> List[str]:
         """Check which PS5 services are active"""

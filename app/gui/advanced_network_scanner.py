@@ -36,6 +36,55 @@ class AdvancedNetworkScanner(QWidget):
         self.traffic_profiles = self.load_traffic_profiles()
         self.setup_ui()
         self.connect_signals()
+    
+    def _get_network_ranges(self) -> List[str]:
+        """Dynamically detect available network ranges"""
+        try:
+            import socket
+            import ipaddress
+            
+            ranges = []
+            
+            # Get local IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+            
+            # Generate network ranges based on local IP
+            if local_ip:
+                # Common private network ranges
+                network_base = '.'.join(local_ip.split('.')[:-1])
+                ranges.append(f"{network_base}.1")
+                
+                # Add other common ranges if different from current
+                common_ranges = ["192.168.1.1", "10.0.0.1", "172.16.0.1"]
+                for range_ip in common_ranges:
+                    if range_ip not in ranges:
+                        ranges.append(range_ip)
+            
+            return ranges if ranges else ["192.168.1.1"]  # Fallback
+        except Exception as e:
+            log_error(f"Failed to detect network ranges: {e}")
+            return ["192.168.1.1"]  # Fallback
+    
+    def _get_end_ranges(self, start_ranges: List[str]) -> List[str]:
+        """Generate corresponding end IPs for start ranges"""
+        try:
+            end_ranges = []
+            for start_ip in start_ranges:
+                # Replace last octet with 254 for end IP
+                parts = start_ip.split('.')
+                if len(parts) == 4:
+                    parts[3] = "254"
+                    end_ip = '.'.join(parts)
+                    end_ranges.append(end_ip)
+                else:
+                    end_ranges.append("192.168.1.254")  # Fallback
+            
+            return end_ranges if end_ranges else ["192.168.1.254"]  # Fallback
+        except Exception as e:
+            log_error(f"Failed to generate end ranges: {e}")
+            return ["192.168.1.254"]  # Fallback
         
     def setup_ui(self):
         """Setup the advanced scanner UI with Angry IP Scanner + Clumsy 3.0 features"""
@@ -89,13 +138,17 @@ class AdvancedNetworkScanner(QWidget):
         ip_layout.addWidget(QLabel("From:"))
         self.ip_from = QComboBox()
         self.ip_from.setEditable(True)
-        self.ip_from.addItems(["192.168.1.1", "10.0.0.1", "172.16.0.1"])
+        # Dynamically populate with detected network ranges
+        network_ranges = self._get_network_ranges()
+        self.ip_from.addItems(network_ranges)
         ip_layout.addWidget(self.ip_from)
         
         ip_layout.addWidget(QLabel("To:"))
         self.ip_to = QComboBox()
         self.ip_to.setEditable(True)
-        self.ip_to.addItems(["192.168.1.254", "10.0.0.254", "172.16.0.254"])
+        # Dynamically populate with corresponding end IPs
+        end_ranges = self._get_end_ranges(network_ranges)
+        self.ip_to.addItems(end_ranges)
         ip_layout.addWidget(self.ip_to)
         range_layout.addLayout(ip_layout)
         

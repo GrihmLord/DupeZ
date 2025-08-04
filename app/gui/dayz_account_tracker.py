@@ -5,16 +5,21 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QComboBox, QTextEdit, QGroupBox,
                              QTabWidget, QSplitter, QFrame, QHeaderView,
                              QMessageBox, QInputDialog, QColorDialog,
-                             QCheckBox, QSpinBox, QFormLayout)
+                             QCheckBox, QSpinBox, QFormLayout, QDialog)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QIcon
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+except ImportError:
+    # Fallback if WebEngine is not available
+    QWebEngineView = None
 import json
 import os
 from typing import Dict, List, Optional
 from datetime import datetime
 
 from app.logs.logger import log_info, log_error
+from app.core.data_persistence import account_manager
 
 class DayZAccountTracker(QWidget):
     """Comprehensive DayZ account tracker with iZurvive map integration"""
@@ -25,8 +30,39 @@ class DayZAccountTracker(QWidget):
         self.accounts = []
         self.current_account = None
         self.map_view = None
-        self.setup_ui()
-        self.load_accounts()
+        
+        try:
+            self.setup_ui()
+            self.load_accounts()
+        except Exception as e:
+            log_error(f"Failed to initialize DayZ Account Tracker: {e}")
+            # Create a minimal fallback UI
+            self._create_fallback_ui()
+    
+    def _create_fallback_ui(self):
+        """Create a minimal fallback UI if initialization fails"""
+        try:
+            layout = QVBoxLayout()
+            
+            # Error message
+            error_label = QLabel("⚠️ Account Tracker Error\n\nFailed to initialize account tracker.\nPlease restart the application.")
+            error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            error_label.setStyleSheet("""
+                QLabel {
+                    color: #ff6b6b;
+                    background-color: #2b2b2b;
+                    border: 1px solid #ff6b6b;
+                    border-radius: 4px;
+                    padding: 20px;
+                    font-size: 12px;
+                }
+            """)
+            layout.addWidget(error_label)
+            
+            self.setLayout(layout)
+            
+        except Exception as e:
+            log_error(f"Failed to create fallback UI: {e}")
         
     def setup_ui(self):
         """Setup the account tracker UI"""
@@ -301,18 +337,34 @@ class DayZAccountTracker(QWidget):
         layout.addLayout(map_controls)
         
         # Map view
-        self.map_view = QWebEngineView()
-        self.map_view.setStyleSheet("""
-            QWebEngineView {
-                border: 1px solid #555555;
-                border-radius: 4px;
-                background-color: #2b2b2b;
-            }
-        """)
-        layout.addWidget(self.map_view)
-        
-        # Load iZurvive map
-        self.load_izurvive_map()
+        if QWebEngineView is not None:
+            self.map_view = QWebEngineView()
+            self.map_view.setStyleSheet("""
+                QWebEngineView {
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    background-color: #2b2b2b;
+                }
+            """)
+            layout.addWidget(self.map_view)
+            
+            # Load iZurvive map
+            self.load_izurvive_map()
+        else:
+            # Fallback: show a message that WebEngine is not available
+            fallback_label = QLabel("🗺️ iZurvive Map\n\nWebEngine not available.\nMap functionality requires PyQt6-WebEngine.")
+            fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fallback_label.setStyleSheet("""
+                QLabel {
+                    color: #ffffff;
+                    background-color: #2b2b2b;
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    padding: 20px;
+                    font-size: 12px;
+                }
+            """)
+            layout.addWidget(fallback_label)
         
         panel.setLayout(layout)
         return panel
@@ -388,10 +440,14 @@ class DayZAccountTracker(QWidget):
     def load_izurvive_map(self):
         """Load the iZurvive map"""
         try:
-            # Load iZurvive map URL
-            map_url = "https://www.izurvive.com/"
-            self.map_view.setUrl(map_url)
-            log_info("[SUCCESS] iZurvive map loaded")
+            if self.map_view is not None:
+                # Load iZurvive map URL
+                from PyQt6.QtCore import QUrl
+                map_url = QUrl("https://www.izurvive.com/")
+                self.map_view.setUrl(map_url)
+                log_info("[SUCCESS] iZurvive map loaded")
+            else:
+                log_info("[INFO] WebEngine not available, map functionality disabled")
         except Exception as e:
             log_error(f"Failed to load iZurvive map: {e}")
             
@@ -409,8 +465,8 @@ class DayZAccountTracker(QWidget):
                 # Add to table
                 self.add_account_to_table(account_data)
                 
-                # Save accounts
-                self.save_accounts()
+                # Save accounts using persistence manager
+                account_manager.add_account(account_data)
                 
                 log_info(f"[SUCCESS] Added account: {account_data['account']}")
                 
@@ -441,8 +497,8 @@ class DayZAccountTracker(QWidget):
                 # Update table
                 self.update_account_in_table(account_data)
                 
-                # Save accounts
-                self.save_accounts()
+                # Save accounts using persistence manager
+                account_manager.update_account(self.current_account['account'], account_data)
                 
                 log_info(f"[SUCCESS] Updated account: {account_data['account']}")
                 
@@ -474,8 +530,8 @@ class DayZAccountTracker(QWidget):
                 self.current_account = None
                 self.update_account_details()
                 
-                # Save accounts
-                self.save_accounts()
+                # Save accounts using persistence manager
+                account_manager.remove_account(self.current_account['account'])
                 
                 log_info(f"[SUCCESS] Deleted account: {self.current_account['account']}")
                 
@@ -486,8 +542,9 @@ class DayZAccountTracker(QWidget):
         """Show account input dialog"""
         try:
             # Create dialog
-            dialog = QWidget()
+            dialog = QDialog(self)
             dialog.setWindowTitle("Account Details")
+            dialog.setModal(True)
             dialog.setStyleSheet("""
                 QWidget {
                     background-color: #2b2b2b;
@@ -591,7 +648,7 @@ class DayZAccountTracker(QWidget):
             dialog.setLayout(layout)
             
             # Show dialog
-            if dialog.exec() == QWidget.DialogCode.Accepted:
+            if dialog.exec() == QDialog.DialogCode.Accepted:
                 return {
                     'account': account_input.text(),
                     'email': email_input.text(),
@@ -614,81 +671,94 @@ class DayZAccountTracker(QWidget):
             row = self.account_table.rowCount()
             self.account_table.insertRow(row)
             
-            # Set items with color coding
-            self.account_table.setItem(row, 0, QTableWidgetItem(account_data['account']))
-            self.account_table.setItem(row, 1, QTableWidgetItem(account_data['email']))
-            self.account_table.setItem(row, 2, QTableWidgetItem(account_data['location']))
+            # Set items with color coding - with safe access
+            self.account_table.setItem(row, 0, QTableWidgetItem(str(account_data.get('account', ''))))
+            self.account_table.setItem(row, 1, QTableWidgetItem(str(account_data.get('email', ''))))
+            self.account_table.setItem(row, 2, QTableWidgetItem(str(account_data.get('location', ''))))
             
             # Status with color coding
-            status_item = QTableWidgetItem(account_data['status'])
-            if account_data['status'] == 'Ready':
+            status = str(account_data.get('status', ''))
+            status_item = QTableWidgetItem(status)
+            if status == 'Ready':
                 status_item.setForeground(QColor('#4CAF50'))  # Green
-            elif account_data['status'] == 'Blood Infection':
+            elif status == 'Blood Infection':
                 status_item.setForeground(QColor('#f44336'))  # Red
-            elif account_data['status'] == 'Storage':
+            elif status == 'Storage':
                 status_item.setForeground(QColor('#FF9800'))  # Orange
             self.account_table.setItem(row, 3, status_item)
             
             # Station with color coding
-            station_item = QTableWidgetItem(account_data['station'])
-            if 'Kit' in account_data['station']:
+            station = str(account_data.get('station', ''))
+            station_item = QTableWidgetItem(station)
+            if 'Kit' in station:
                 station_item.setForeground(QColor('#9C27B0'))  # Purple
-            elif account_data['station'] == 'Geared':
+            elif station == 'Geared':
                 station_item.setForeground(QColor('#FF9800'))  # Orange
-            elif 'PvP' in account_data['station'] or 'Raid' in account_data['station']:
+            elif 'PvP' in station or 'Raid' in station:
                 station_item.setForeground(QColor('#f44336'))  # Red
             self.account_table.setItem(row, 4, station_item)
             
-            self.account_table.setItem(row, 5, QTableWidgetItem(account_data['gear']))
+            self.account_table.setItem(row, 5, QTableWidgetItem(str(account_data.get('gear', ''))))
             
             # Holding with color coding
-            holding_item = QTableWidgetItem(account_data['holding'])
-            if 'IED' in account_data['holding'] or 'Explosive' in account_data['holding']:
+            holding = str(account_data.get('holding', ''))
+            holding_item = QTableWidgetItem(holding)
+            if 'IED' in holding or 'Explosive' in holding:
                 holding_item.setForeground(QColor('#f44336'))  # Red
-            elif 'POX' in account_data['holding'] or 'GL' in account_data['holding']:
+            elif 'POX' in holding or 'GL' in holding:
                 holding_item.setForeground(QColor('#9C27B0'))  # Purple
             self.account_table.setItem(row, 6, holding_item)
             
         except Exception as e:
             log_error(f"Failed to add account to table: {e}")
+            # Try to remove the row if it was partially created
+            try:
+                if self.account_table.rowCount() > 0:
+                    self.account_table.removeRow(self.account_table.rowCount() - 1)
+            except:
+                pass
             
     def update_account_in_table(self, account_data: Dict):
         """Update account in the table"""
         try:
             # Find the row with this account
             for row in range(self.account_table.rowCount()):
-                if self.account_table.item(row, 0).text() == account_data['account']:
-                    # Update items
-                    self.account_table.setItem(row, 1, QTableWidgetItem(account_data['email']))
-                    self.account_table.setItem(row, 2, QTableWidgetItem(account_data['location']))
+                item = self.account_table.item(row, 0)
+                if item and item.text() == str(account_data.get('account', '')):
+                    # Update items with safe access
+                    self.account_table.setItem(row, 1, QTableWidgetItem(str(account_data.get('email', ''))))
+                    self.account_table.setItem(row, 2, QTableWidgetItem(str(account_data.get('location', ''))))
                     
                     # Status with color coding
-                    status_item = QTableWidgetItem(account_data['status'])
-                    if account_data['status'] == 'Ready':
+                    status = str(account_data.get('status', ''))
+                    status_item = QTableWidgetItem(status)
+                    if status == 'Ready':
                         status_item.setForeground(QColor('#4CAF50'))
-                    elif account_data['status'] == 'Blood Infection':
+                    elif status == 'Blood Infection':
                         status_item.setForeground(QColor('#f44336'))
-                    elif account_data['status'] == 'Storage':
+                    elif status == 'Storage':
                         status_item.setForeground(QColor('#FF9800'))
                     self.account_table.setItem(row, 3, status_item)
                     
                     # Station with color coding
-                    station_item = QTableWidgetItem(account_data['station'])
-                    if 'Kit' in account_data['station']:
+                    station = str(account_data.get('station', ''))
+                    station_item = QTableWidgetItem(station)
+                    if 'Kit' in station:
                         station_item.setForeground(QColor('#9C27B0'))
-                    elif account_data['station'] == 'Geared':
+                    elif station == 'Geared':
                         station_item.setForeground(QColor('#FF9800'))
-                    elif 'PvP' in account_data['station'] or 'Raid' in account_data['station']:
+                    elif 'PvP' in station or 'Raid' in station:
                         station_item.setForeground(QColor('#f44336'))
                     self.account_table.setItem(row, 4, station_item)
                     
-                    self.account_table.setItem(row, 5, QTableWidgetItem(account_data['gear']))
+                    self.account_table.setItem(row, 5, QTableWidgetItem(str(account_data.get('gear', ''))))
                     
                     # Holding with color coding
-                    holding_item = QTableWidgetItem(account_data['holding'])
-                    if 'IED' in account_data['holding'] or 'Explosive' in account_data['holding']:
+                    holding = str(account_data.get('holding', ''))
+                    holding_item = QTableWidgetItem(holding)
+                    if 'IED' in holding or 'Explosive' in holding:
                         holding_item.setForeground(QColor('#f44336'))
-                    elif 'POX' in account_data['holding'] or 'GL' in account_data['holding']:
+                    elif 'POX' in holding or 'GL' in holding:
                         holding_item.setForeground(QColor('#9C27B0'))
                     self.account_table.setItem(row, 6, holding_item)
                     break
@@ -713,9 +783,17 @@ class DayZAccountTracker(QWidget):
         """Handle account selection"""
         try:
             current_row = self.account_table.currentRow()
-            if current_row >= 0 and current_row < len(self.accounts):
-                self.current_account = self.accounts[current_row]
-                self.update_account_details()
+            if current_row >= 0 and current_row < self.account_table.rowCount():
+                # Get the account ID from the table item
+                account_id_item = self.account_table.item(current_row, 0)  # Account column
+                if account_id_item:
+                    account_name = account_id_item.text()
+                    # Find the account in the accounts list
+                    for account in self.accounts:
+                        if str(account.get('account', '')) == account_name:
+                            self.current_account = account
+                            self.update_account_details()
+                            break
                 
         except Exception as e:
             log_error(f"Failed to handle account selection: {e}")
@@ -724,13 +802,13 @@ class DayZAccountTracker(QWidget):
         """Update the account details panel"""
         try:
             if self.current_account:
-                self.account_name_label.setText(self.current_account['account'])
-                self.account_email_label.setText(self.current_account['email'])
-                self.account_location_label.setText(self.current_account['location'])
-                self.account_status_label.setText(self.current_account['status'])
-                self.account_station_label.setText(self.current_account['station'])
-                self.account_gear_label.setText(self.current_account['gear'])
-                self.account_holding_label.setText(self.current_account['holding'])
+                self.account_name_label.setText(str(self.current_account.get('account', '')))
+                self.account_email_label.setText(str(self.current_account.get('email', '')))
+                self.account_location_label.setText(str(self.current_account.get('location', '')))
+                self.account_status_label.setText(str(self.current_account.get('status', '')))
+                self.account_station_label.setText(str(self.current_account.get('station', '')))
+                self.account_gear_label.setText(str(self.current_account.get('gear', '')))
+                self.account_holding_label.setText(str(self.current_account.get('holding', '')))
             else:
                 self.account_name_label.setText("No account selected")
                 self.account_email_label.setText("")
@@ -774,29 +852,47 @@ class DayZAccountTracker(QWidget):
     def load_accounts(self):
         """Load accounts from file"""
         try:
-            accounts_file = "dayz_accounts.json"
-            if os.path.exists(accounts_file):
-                with open(accounts_file, 'r') as f:
-                    self.accounts = json.load(f)
-                    
-                # Add accounts to table
-                for account in self.accounts:
+            self.accounts = account_manager.accounts
+            
+            # Add accounts to table with validation
+            for account in self.accounts:
+                # Validate account data before adding to table
+                if self._validate_account_data(account):
                     self.add_account_to_table(account)
+                else:
+                    log_error(f"Skipping invalid account data: {account}")
                     
-                log_info(f"[SUCCESS] Loaded {len(self.accounts)} accounts")
-            else:
-                log_info("[INFO] No accounts file found, starting fresh")
+            log_info(f"[SUCCESS] Loaded {len(self.accounts)} accounts")
                 
         except Exception as e:
             log_error(f"Failed to load accounts: {e}")
+    
+    def _validate_account_data(self, account: Dict) -> bool:
+        """Validate account data before adding to table"""
+        try:
+            required_fields = ['account', 'email', 'location', 'status', 'station', 'gear', 'holding']
+            
+            # Check if all required fields exist
+            for field in required_fields:
+                if field not in account:
+                    log_error(f"Missing required field '{field}' in account data")
+                    return False
+                
+                # Ensure all fields are strings
+                if not isinstance(account[field], str):
+                    account[field] = str(account[field])
+            
+            return True
+            
+        except Exception as e:
+            log_error(f"Account validation error: {e}")
+            return False
             
     def save_accounts(self):
         """Save accounts to file"""
         try:
-            accounts_file = "dayz_accounts.json"
-            with open(accounts_file, 'w') as f:
-                json.dump(self.accounts, f, indent=2)
-                
+            account_manager.accounts = self.accounts
+            account_manager.save_changes(self.accounts, force=True)
             log_info(f"[SUCCESS] Saved {len(self.accounts)} accounts")
             
         except Exception as e:

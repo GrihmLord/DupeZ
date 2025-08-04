@@ -21,6 +21,7 @@ import os
 import time
 from datetime import datetime
 from app.logs.logger import log_info, log_error
+from app.core.data_persistence import marker_manager
 
 class DayZMapGUI(QWidget):
     """Interactive DayZ map with iZurvive integration"""
@@ -74,21 +75,37 @@ class DayZMapGUI(QWidget):
         map_selection_layout.addStretch()
         map_layout.addLayout(map_selection_layout)
         
-        # Web view for map (placeholder - would need QWebEngineView)
-        self.map_placeholder = QLabel("🗺️ Interactive DayZ Map\n\nThis would display the iZurvive map\nwith GPS coordinates and markers")
-        self.map_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.map_placeholder.setStyleSheet("""
-            QLabel {
-                background-color: #1a1a1a;
-                border: 2px solid #555555;
-                border-radius: 5px;
-                padding: 50px;
-                color: #888888;
-                font-size: 14px;
-            }
-        """)
-        self.map_placeholder.setMinimumHeight(400)
-        map_layout.addWidget(self.map_placeholder)
+        # Web view for map
+        if QWebEngineView is not None:
+            self.map_view = QWebEngineView()
+            self.map_view.setStyleSheet("""
+                QWebEngineView {
+                    border: 1px solid #555555;
+                    border-radius: 4px;
+                    background-color: #2b2b2b;
+                }
+            """)
+            self.map_view.setMinimumHeight(400)
+            map_layout.addWidget(self.map_view)
+            
+            # Load iZurvive map
+            self.load_izurvive_map()
+        else:
+            # Fallback: show a message that WebEngine is not available
+            self.map_placeholder = QLabel("🗺️ Interactive DayZ Map\n\nWebEngine not available.\nMap functionality requires PyQt6-WebEngine.")
+            self.map_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.map_placeholder.setStyleSheet("""
+                QLabel {
+                    background-color: #1a1a1a;
+                    border: 2px solid #555555;
+                    border-radius: 5px;
+                    padding: 50px;
+                    color: #888888;
+                    font-size: 14px;
+                }
+            """)
+            self.map_placeholder.setMinimumHeight(400)
+            map_layout.addWidget(self.map_placeholder)
         
         map_group.setLayout(map_layout)
         splitter.addWidget(map_group)
@@ -247,14 +264,28 @@ class DayZMapGUI(QWidget):
         except Exception as e:
             log_error(f"Failed to load map data: {e}")
     
+    def load_izurvive_map(self):
+        """Load the iZurvive map"""
+        try:
+            if hasattr(self, 'map_view') and self.map_view is not None:
+                # Load iZurvive map URL
+                map_url = QUrl("https://www.izurvive.com/")
+                self.map_view.setUrl(map_url)
+                log_info("[SUCCESS] iZurvive map loaded in DayZ Map GUI")
+            else:
+                log_info("[INFO] WebEngine not available, map functionality disabled")
+        except Exception as e:
+            log_error(f"Failed to load iZurvive map: {e}")
+    
     def change_map(self, map_name: str):
         """Change the current map"""
         try:
             self.current_map = map_name
             log_info(f"Changed map to: {map_name}")
             
-            # Update map display
-            self.map_placeholder.setText(f"🗺️ {map_name} Map\n\nLoading map data...\nGPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}")
+            # Update map display if using placeholder
+            if hasattr(self, 'map_placeholder'):
+                self.map_placeholder.setText(f"🗺️ {map_name} Map\n\nLoading map data...\nGPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}")
             
             # Load map-specific data
             self.load_map_specific_data(map_name)
@@ -272,8 +303,9 @@ class DayZMapGUI(QWidget):
                 self.gps_coordinates = {"x": x, "y": y}
                 self.gps_coordinates_updated.emit(x, y)
                 
-                # Update map display
-                self.map_placeholder.setText(f"🗺️ {self.current_map} Map\n\nGPS Coordinates: {x}/{y}\nMarkers: {len(self.markers)}")
+                # Update map display if using placeholder
+                if hasattr(self, 'map_placeholder'):
+                    self.map_placeholder.setText(f"🗺️ {self.current_map} Map\n\nGPS Coordinates: {x}/{y}\nMarkers: {len(self.markers)}")
                 
                 log_info(f"GPS coordinates updated: {x}/{y}")
                 
@@ -306,6 +338,9 @@ class DayZMapGUI(QWidget):
             
             self.markers.append(marker)
             self.marker_added.emit(name, marker["coordinates"], marker_type)
+            
+            # Save using persistence manager
+            marker_manager.add_marker(marker)
             
             # Clear inputs
             self.marker_name_input.clear()
@@ -340,6 +375,9 @@ class DayZMapGUI(QWidget):
             
             self.loot_locations.append(loot_location)
             self.loot_found.emit(item, location, loot_location["coordinates"])
+            
+            # Save using persistence manager
+            marker_manager.add_loot_location(loot_location)
             
             # Clear inputs
             self.loot_item_input.clear()
@@ -390,7 +428,7 @@ class DayZMapGUI(QWidget):
                 self.loot_table.setItem(row, 2, QTableWidgetItem(loot["coordinates"]))
                 
                 # Actions button
-                actions_btn = QPushButton("🗑️")
+                actions_btn = QPushButton("Delete")
                 actions_btn.clicked.connect(lambda checked, row=row: self.remove_loot(row))
                 self.loot_table.setCellWidget(row, 3, actions_btn)
                 
@@ -547,15 +585,19 @@ class DayZMapGUI(QWidget):
     def refresh_map(self):
         """Refresh the map display"""
         try:
-            # Update map display with current data
-            self.map_placeholder.setText(
-                f"🗺️ {self.current_map} Map\n\n"
-                f"GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}\n"
-                f"Markers: {len(self.markers)}\n"
-                f"Loot Locations: {len(self.loot_locations)}"
-            )
-            
-            log_info(f"Refreshed {self.current_map} map")
+            if hasattr(self, 'map_view') and self.map_view is not None:
+                # Reload the iZurvive map
+                self.load_izurvive_map()
+                log_info(f"Refreshed {self.current_map} map")
+            elif hasattr(self, 'map_placeholder'):
+                # Update map display with current data (fallback)
+                self.map_placeholder.setText(
+                    f"🗺️ {self.current_map} Map\n\n"
+                    f"GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}\n"
+                    f"Markers: {len(self.markers)}\n"
+                    f"Loot Locations: {len(self.loot_locations)}"
+                )
+                log_info(f"Refreshed {self.current_map} map (placeholder)")
             
         except Exception as e:
             log_error(f"Failed to refresh map: {e}")
@@ -563,12 +605,9 @@ class DayZMapGUI(QWidget):
     def load_markers(self):
         """Load saved markers"""
         try:
-            config_file = "app/config/dayz_markers.json"
-            if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    data = json.load(f)
-                    self.markers = data.get("markers", [])
-                    self.gps_coordinates = data.get("gps_coordinates", {"x": "000", "y": "000"})
+            marker_data = marker_manager.markers
+            self.markers = marker_data.get("markers", [])
+            self.gps_coordinates = marker_data.get("gps_coordinates", {"x": "000", "y": "000"})
                     
         except Exception as e:
             log_error(f"Failed to load markers: {e}")
@@ -576,11 +615,8 @@ class DayZMapGUI(QWidget):
     def load_loot_locations(self):
         """Load saved loot locations"""
         try:
-            config_file = "app/config/dayz_loot.json"
-            if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    data = json.load(f)
-                    self.loot_locations = data.get("loot_locations", [])
+            marker_data = marker_manager.markers
+            self.loot_locations = marker_data.get("loot_locations", [])
                     
         except Exception as e:
             log_error(f"Failed to load loot locations: {e}")
@@ -649,22 +685,13 @@ class DayZMapGUI(QWidget):
     def cleanup(self):
         """Cleanup resources"""
         try:
-            # Save markers
-            config_file = "app/config/dayz_markers.json"
-            os.makedirs(os.path.dirname(config_file), exist_ok=True)
-            with open(config_file, 'w') as f:
-                json.dump({
-                    "markers": self.markers,
-                    "gps_coordinates": self.gps_coordinates
-                }, f, indent=2)
-            
-            # Save loot locations
-            loot_file = "app/config/dayz_loot.json"
-            os.makedirs(os.path.dirname(loot_file), exist_ok=True)
-            with open(loot_file, 'w') as f:
-                json.dump({
-                    "loot_locations": self.loot_locations
-                }, f, indent=2)
+            # Save markers using persistence manager
+            marker_manager.markers = {
+                "markers": self.markers,
+                "loot_locations": self.loot_locations,
+                "gps_coordinates": self.gps_coordinates
+            }
+            marker_manager.save_changes(marker_manager.markers, force=True)
             
             log_info("DayZ map data saved")
             

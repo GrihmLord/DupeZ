@@ -155,6 +155,19 @@ class EnhancedNetworkScanner(QObject):
                 pass
             return []
     
+    def _get_local_ip(self) -> Optional[str]:
+        """Get the local IP address dynamically"""
+        try:
+            import socket
+            # Create a socket to get local IP
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                return local_ip
+        except Exception as e:
+            log_error("Failed to get local IP", exception=e)
+            return None
+    
     def _generate_ip_list(self, network_range: str) -> List[str]:
         """Generate list of IP addresses to scan"""
         try:
@@ -162,8 +175,17 @@ class EnhancedNetworkScanner(QObject):
             return [str(ip) for ip in network.hosts()]
         except Exception as e:
             log_error("Failed to generate IP list", exception=e, network_range=network_range)
-            # Fallback to common ranges
-            return [f"192.168.1.{i}" for i in range(1, 255)]
+            # Fallback to dynamic network detection
+            try:
+                local_ip = self._get_local_ip()
+                if local_ip:
+                    network_base = '.'.join(local_ip.split('.')[:-1])
+                    return [f"{network_base}.{i}" for i in range(1, 255)]
+                else:
+                    return []
+            except Exception as fallback_error:
+                log_error("Failed to generate fallback IP list", exception=fallback_error)
+                return []
     
     def _scan_ips(self, ip_addresses: List[str], quick_scan: bool) -> List[Dict]:
         """Scan IP addresses using thread pool"""

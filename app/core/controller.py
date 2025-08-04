@@ -12,6 +12,7 @@ from app.core.state import AppState, Device, AppSettings
 from app.core.smart_mode import smart_mode, enable_smart_mode, disable_smart_mode, get_smart_mode_status
 from app.core.traffic_analyzer import AdvancedTrafficAnalyzer
 from app.plugins.plugin_manager import PluginManager
+from app.core.data_persistence import persistence_manager, settings_manager, device_manager, account_manager, marker_manager, save_all_data
 
 class AppController:
     def __init__(self):
@@ -602,6 +603,10 @@ class AppController:
                     self.network_disruptor.stop()
                 except Exception as e:
                     log_error(f"Network disruptor shutdown error: {e}")
+            
+            # Save all pending data before shutdown
+            log_info("Saving all pending data...")
+            save_all_data()
             
             log_info("Controller shutdown completed")
             

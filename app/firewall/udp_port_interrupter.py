@@ -146,7 +146,16 @@ class UDPPortInterrupter:
             else:
                 targets = [server.ip for server in self.servers if server.ip != "0.0.0.0"]
                 if not targets:
-                    targets = ["127.0.0.1"]  # Default to localhost
+                    # Try to get local IP dynamically instead of hardcoded localhost
+                    try:
+                        import socket
+                        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                            s.connect(("8.8.8.8", 80))
+                            local_ip = s.getsockname()[0]
+                            targets = [local_ip]
+                    except Exception as e:
+                        log_error(f"Failed to get local IP: {e}")
+                        targets = []  # Empty list instead of hardcoded localhost
             
             log_info(f"🎮 Starting UDP interruption with {effective_drop_rate}% drop rate")
             log_info(f"🎮 Targets: {targets}")

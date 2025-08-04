@@ -250,7 +250,16 @@ class DayZUDPGUI(QWidget):
                 servers = self.udp_interrupter.get_servers()
                 target_ips = [server.ip for server in servers if server.ip != "0.0.0.0"]
                 if not target_ips:
-                    target_ips = ["127.0.0.1"]  # Default to localhost
+                    # Try to get local IP dynamically instead of hardcoded localhost
+                    try:
+                        import socket
+                        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                            s.connect(("8.8.8.8", 80))
+                            local_ip = s.getsockname()[0]
+                            target_ips = [local_ip]
+                    except Exception as e:
+                        log_error(f"Failed to get local IP: {e}")
+                        target_ips = []  # Empty list instead of hardcoded localhost
             else:
                 # Use specific server
                 target_ips = [current_server]

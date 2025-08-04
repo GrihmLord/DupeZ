@@ -166,7 +166,7 @@ class AdvancedTrafficAnalyzer:
                         "severity": "medium"
                     }
                     self.anomalies.append(anomaly)
-                    log_info(f"🚨 High packet rate detected: {traffic_data['packets_recv']} (will suppress for 60s)")
+                    log_info(f"[ALERT] High packet rate detected: {traffic_data['packets_recv']} (will suppress for 60s)")
                     self._last_packet_rate_warning = current_time
             
             # Keep only recent anomalies

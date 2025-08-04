@@ -309,6 +309,15 @@ def initialize_application():
         # Set up cleanup on exit
         app.aboutToQuit.connect(cleanup_resources)
         
+        # Set up auto-save timer
+        from app.core.data_persistence import save_all_data
+        from PyQt6.QtCore import QTimer
+        
+        auto_save_timer = QTimer()
+        auto_save_timer.timeout.connect(save_all_data)
+        auto_save_timer.start(30000)  # Save every 30 seconds
+        logger.info("Auto-save timer initialized")
+        
         # Set up memory warning handler
         memory_monitor.memory_warning.connect(lambda: logger.warning("Memory warning triggered"))
         

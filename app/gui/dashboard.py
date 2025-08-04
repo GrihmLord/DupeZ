@@ -11,6 +11,9 @@ from app.gui.settings_dialog import SettingsDialog
 from app.gui.topology_view import NetworkTopologyView
 from app.gui.network_manipulator_gui import NetworkManipulatorGUI
 from app.gui.dayz_udp_gui import DayZUDPGUI
+from app.gui.dayz_firewall_gui import DayZFirewallGUI
+from app.gui.dayz_map_gui import DayZMapGUI
+from app.gui.dayz_account_tracker import DayZAccountTracker
 
 from app.logs.logger import log_info, log_error
 import threading
@@ -105,6 +108,21 @@ class DupeZDashboard(QMainWindow):
         self.dayz_udp_gui = DayZUDPGUI()
         self.dayz_udp_gui.setObjectName("dayz_udp_panel")
         self.content_tabs.addTab(self.dayz_udp_gui, "🎮 DayZ UDP Control")
+        
+        # DayZ Firewall Controller tab (DayZPCFW Integration)
+        self.dayz_firewall_gui = DayZFirewallGUI()
+        self.dayz_firewall_gui.setObjectName("dayz_firewall_panel")
+        self.content_tabs.addTab(self.dayz_firewall_gui, "🛡️ DayZ Firewall (DayZPCFW)")
+        
+        # DayZ Interactive Map tab (iZurvive Integration)
+        self.dayz_map_gui = DayZMapGUI()
+        self.dayz_map_gui.setObjectName("dayz_map_panel")
+        self.content_tabs.addTab(self.dayz_map_gui, "🗺️ DayZ Map (iZurvive)")
+        
+        # DayZ Account Tracker tab
+        self.dayz_account_tracker = DayZAccountTracker(controller=self.controller)
+        self.dayz_account_tracker.setObjectName("dayz_account_tracker_panel")
+        self.content_tabs.addTab(self.dayz_account_tracker, "👤 DayZ Account Tracker")
         
         layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)

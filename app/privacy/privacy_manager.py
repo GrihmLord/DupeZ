@@ -208,10 +208,11 @@ class PrivacyManager:
     def _generate_decoy_traffic(self):
         """Generate decoy network traffic"""
         try:
-            # Generate random pings to common IPs
+            # Generate random pings to common public IPs (DNS servers, etc.)
             decoy_ips = [
-                "8.8.8.8", "1.1.1.1", "208.67.222.222",
-                "192.168.1.1", "10.0.0.1"
+                "8.8.8.8", "1.1.1.1", "208.67.222.222",  # Public DNS servers
+                "9.9.9.9", "149.112.112.112",  # Quad9 DNS
+                "208.67.220.220", "208.67.222.222"  # OpenDNS
             ]
             
             for ip in random.sample(decoy_ips, 2):

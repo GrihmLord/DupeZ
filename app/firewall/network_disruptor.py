@@ -134,7 +134,45 @@ class NetworkDisruptor:
             except:
                 pass
             
-            # Method 2: Use common gateway addresses
+            # Method 2: Use dynamic gateway detection
+            try:
+                # Get default gateway using route command
+                if platform.system() == "Windows":
+                    result = subprocess.run(
+                        ["route", "print", "0.0.0.0"], 
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if '0.0.0.0' in line and '0.0.0.0' not in line.split()[1]:
+                                parts = line.split()
+                                if len(parts) >= 4:
+                                    gateway = parts[3]
+                                    if self._is_valid_ip(gateway):
+                                        log_info(f"Found gateway via route: {gateway}")
+                                        return gateway
+                else:
+                    # Linux/Mac route detection
+                    result = subprocess.run(
+                        ["ip", "route", "show", "default"], 
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if 'default via' in line:
+                                parts = line.split()
+                                gateway_index = parts.index('via') + 1
+                                if gateway_index < len(parts):
+                                    gateway = parts[gateway_index]
+                                    if self._is_valid_ip(gateway):
+                                        log_info(f"Found gateway via ip route: {gateway}")
+                                        return gateway
+            except Exception as e:
+                log_error(f"Failed to detect gateway dynamically: {e}")
+            
+            # Method 3: Try common gateway addresses as last resort
             common_gateways = ["192.168.1.1", "192.168.0.1", "10.0.0.1", "10.0.1.1"]
             for gateway in common_gateways:
                 try:
@@ -148,12 +186,22 @@ class NetworkDisruptor:
                 except:
                     continue
             
-            # Fallback to default
-            return "192.168.1.1"
+            # Final fallback - return None instead of hardcoded IP
+            log_error("Could not detect gateway IP")
+            return None
             
         except Exception as e:
             log_error(f"Error getting gateway IP: {e}")
-            return "192.168.1.1"
+            return None
+    
+    def _is_valid_ip(self, ip: str) -> bool:
+        """Validate IP address format"""
+        try:
+            import ipaddress
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
     
     def _get_mac_address(self, ip: str) -> str:
         """Get MAC address for an IP with enterprise-level detection"""
@@ -169,13 +217,57 @@ class NetworkDisruptor:
             except:
                 pass
             
-            # For now, return a placeholder MAC since we can't easily get it without subprocess
-            # In a real implementation, you'd need to parse the ARP table
-            return "ff:ff:ff:ff:ff:ff"  # Broadcast MAC as fallback
+            # Try to get MAC from ARP table
+            try:
+                if platform.system() == "Windows":
+                    result = subprocess.run(
+                        ["arp", "-a"], 
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if ip in line:
+                                parts = line.split()
+                                for part in parts:
+                                    if ':' in part or '-' in part:
+                                        mac = part.replace('-', ':')
+                                        if self._is_valid_mac(mac):
+                                            return mac
+                else:
+                    # Linux/Mac ARP table
+                    result = subprocess.run(
+                        ["arp", "-n"], 
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if ip in line:
+                                parts = line.split()
+                                if len(parts) >= 3:
+                                    mac = parts[2]
+                                    if self._is_valid_mac(mac):
+                                        return mac
+            except Exception as e:
+                log_error(f"Failed to get MAC from ARP table: {e}")
+            
+            # Return None instead of hardcoded MAC
+            return None
             
         except Exception as e:
             log_error(f"Error getting MAC for {ip}: {e}")
-            return "ff:ff:ff:ff:ff:ff"
+            return None
+    
+    def _is_valid_mac(self, mac: str) -> bool:
+        """Validate MAC address format"""
+        try:
+            import re
+            # Check for valid MAC format (xx:xx:xx:xx:xx:xx or xx-xx-xx-xx-xx-xx)
+            mac_pattern = re.compile(r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$')
+            return bool(mac_pattern.match(mac))
+        except Exception:
+            return False
     
     def _get_interface_name(self) -> str:
         """Get network interface name with enterprise-level detection"""

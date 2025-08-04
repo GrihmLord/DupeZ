@@ -480,7 +480,7 @@ class NetworkTopologyView(QWidget):
             
         try:
             self._updating = True
-            log_info(f"📊 Updating topology with {len(devices) if devices else 0} devices")
+            log_info(f"[TOPOLOGY] Updating topology with {len(devices) if devices else 0} devices")
             
             # Clear existing topology
             self.scene.clear()
@@ -489,7 +489,7 @@ class NetworkTopologyView(QWidget):
             
             if not devices:
                 # Show placeholder when no devices
-                log_info("📊 No devices found, showing placeholder")
+                log_info("[TOPOLOGY] No devices found, showing placeholder")
                 self._show_placeholder()
                 return
             
@@ -558,7 +558,7 @@ class NetworkTopologyView(QWidget):
             
             self.scene.addItem(instruction)
             
-            log_info("📊 Topology placeholder displayed")
+            log_info("[TOPOLOGY] Topology placeholder displayed")
             
         except Exception as e:
             log_error(f"Error showing topology placeholder: {e}")
@@ -601,7 +601,7 @@ class NetworkTopologyView(QWidget):
                         self.connections.append(connection)
                         self.scene.addItem(connection)
             
-            log_info(f"📊 Created {len(self.connections)} connections in topology")
+            log_info(f"[TOPOLOGY] Created {len(self.connections)} connections in topology")
             
         except Exception as e:
             log_error(f"Error creating topology connections: {e}")

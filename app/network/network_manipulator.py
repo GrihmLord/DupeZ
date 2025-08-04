@@ -563,14 +563,37 @@ class NetworkManipulator:
                 cmd = ["netsh", "interface", "show", "interface"]
                 result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
                 # Parse output to find default interface
-                return "Ethernet"  # Default fallback
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'Enabled' in line and ('Ethernet' in line or 'Wi-Fi' in line):
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            return parts[3]
+                return None  # No fallback, return None
             else:
                 cmd = ["ip", "route", "show", "default"]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 # Parse output to find interface
-                return "eth0"  # Default fallback
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'default via' in line:
+                        parts = line.split()
+                        if 'dev' in parts:
+                            dev_index = parts.index('dev') + 1
+                            if dev_index < len(parts):
+                                return parts[dev_index]
+                return None  # No fallback, return None
         except:
             return None
+    
+    def _is_valid_ip(self, ip: str) -> bool:
+        """Validate IP address format"""
+        try:
+            import ipaddress
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError:
+            return False
     
     def _get_dns_servers(self) -> List[str]:
         """Get DNS servers"""
@@ -579,14 +602,29 @@ class NetworkManipulator:
                 cmd = ["ipconfig", "/all"]
                 result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
                 # Parse output for DNS servers
-                return ["8.8.8.8", "8.8.4.4"]  # Default fallback
+                dns_servers = []
+                lines = result.stdout.split('\n')
+                for line in lines:
+                    if 'DNS Servers' in line or 'DNS servers' in line:
+                        parts = line.split()
+                        for part in parts:
+                            if self._is_valid_ip(part):
+                                dns_servers.append(part)
+                return dns_servers if dns_servers else []
             else:
                 with open("/etc/resolv.conf", "r") as f:
                     content = f.read()
                     # Parse for nameserver entries
-                    return ["8.8.8.8", "8.8.4.4"]  # Default fallback
+                    dns_servers = []
+                    lines = content.split('\n')
+                    for line in lines:
+                        if line.startswith('nameserver'):
+                            parts = line.split()
+                            if len(parts) >= 2 and self._is_valid_ip(parts[1]):
+                                dns_servers.append(parts[1])
+                    return dns_servers
         except:
-            return ["8.8.8.8", "8.8.4.4"]
+            return []
     
     def _get_routing_table(self) -> List[Dict[str, str]]:
         """Get routing table"""

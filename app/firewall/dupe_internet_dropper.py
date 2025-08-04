@@ -378,83 +378,177 @@ class DupeInternetDropper:
             log_info("🎮 Sending enhanced ICMP disconnect packets for DayZ duping")
             
             for ps5_ip in self.ps5_ips:
-                # Send multiple types of ICMP packets to create connection issues
+                # Send ICMP unreachable packets
                 self._send_icmp_unreachable(ps5_ip)
+                time.sleep(0.1)
+                
+                # Send ICMP time exceeded packets
                 self._send_icmp_time_exceeded(ps5_ip)
+                time.sleep(0.1)
+                
+                # Send ICMP redirect packets
                 self._send_icmp_redirect(ps5_ip)
-                # Add TCP RST packets for more effective disruption
+                time.sleep(0.1)
+                
+                # Send TCP RST packets (without external tools)
                 self._send_tcp_rst_packets(ps5_ip)
-                # Add UDP flood for network disruption
+                time.sleep(0.1)
+                
+                # Send UDP flood packets (without external tools)
                 self._send_udp_flood_packets(ps5_ip)
+                time.sleep(0.1)
                 
             log_info(f"✅ Enhanced ICMP disconnect packets sent to {len(self.ps5_ips)} PS5 devices")
             
         except Exception as e:
-            log_error(f"Failed to send enhanced disconnect packets: {e}")
+            log_error(f"Failed to send disconnect packets: {e}")
     
     def _send_icmp_unreachable(self, target_ip: str):
-        """Send enhanced ICMP unreachable packets"""
+        """Send ICMP unreachable packet without external tools"""
         try:
-            # Send multiple unreachable packets with different sizes
-            for size in [1, 32, 64, 128]:
-                subprocess.run([
-                    "ping", "-n", "1", "-w", "100", "-l", str(size), target_ip
-                ], capture_output=True, timeout=1)
-            # Add broadcast ping to disrupt network
-            subprocess.run([
-                "ping", "-n", "1", "-w", "100", "-l", "1", "255.255.255.255"
-            ], capture_output=True, timeout=1)
+            # Create ICMP unreachable packet using raw sockets
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            
+            # Create ICMP unreachable packet
+            icmp_type = 3  # Destination Unreachable
+            icmp_code = 1  # Host Unreachable
+            icmp_checksum = 0
+            icmp_identifier = 0
+            icmp_sequence = 0
+            
+            # Build ICMP header
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Calculate checksum
+            icmp_checksum = self._calculate_icmp_checksum(icmp_header)
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Send packet
+            sock.sendto(icmp_header, (target_ip, 0))
+            sock.close()
             
         except Exception as e:
             log_error(f"Failed to send ICMP unreachable to {target_ip}: {e}")
     
     def _send_icmp_time_exceeded(self, target_ip: str):
-        """Send enhanced ICMP time exceeded packets"""
+        """Send ICMP time exceeded packet without external tools"""
         try:
-            # Send multiple time exceeded packets with very short timeouts
-            for timeout in [10, 20, 50]:
-                subprocess.run([
-                    "ping", "-n", "1", "-w", str(timeout), "-l", "1", target_ip
-                ], capture_output=True, timeout=1)
+            # Create ICMP time exceeded packet using raw sockets
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            
+            # Create ICMP time exceeded packet
+            icmp_type = 11  # Time Exceeded
+            icmp_code = 0   # TTL expired
+            icmp_checksum = 0
+            icmp_identifier = 0
+            icmp_sequence = 0
+            
+            # Build ICMP header
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Calculate checksum
+            icmp_checksum = self._calculate_icmp_checksum(icmp_header)
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Send packet
+            sock.sendto(icmp_header, (target_ip, 0))
+            sock.close()
             
         except Exception as e:
             log_error(f"Failed to send ICMP time exceeded to {target_ip}: {e}")
     
     def _send_icmp_redirect(self, target_ip: str):
-        """Send enhanced ICMP redirect packets"""
+        """Send ICMP redirect packet without external tools"""
         try:
-            # Send redirect packets with different TTL values
-            for ttl in [1, 2, 3]:
-                subprocess.run([
-                    "ping", "-n", "1", "-i", str(ttl), "-l", "1", target_ip
-                ], capture_output=True, timeout=1)
+            # Create ICMP redirect packet using raw sockets
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_ICMP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            
+            # Create ICMP redirect packet
+            icmp_type = 5   # Redirect
+            icmp_code = 0   # Redirect for Network
+            icmp_checksum = 0
+            icmp_identifier = 0
+            icmp_sequence = 0
+            
+            # Build ICMP header
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Calculate checksum
+            icmp_checksum = self._calculate_icmp_checksum(icmp_header)
+            icmp_header = struct.pack('!BBHHH', icmp_type, icmp_code, icmp_checksum, icmp_identifier, icmp_sequence)
+            
+            # Send packet
+            sock.sendto(icmp_header, (target_ip, 0))
+            sock.close()
             
         except Exception as e:
             log_error(f"Failed to send ICMP redirect to {target_ip}: {e}")
     
     def _send_tcp_rst_packets(self, target_ip: str):
-        """Send TCP RST packets to disrupt connections"""
+        """Send TCP RST packets without external tools"""
         try:
-            # Common DayZ ports to target
-            dayz_ports = [2302, 2303, 2304, 2305, 27015, 27016, 27017, 27018]
-            for port in dayz_ports:
-                # Use telnet to send RST packets
-                subprocess.run([
-                    "telnet", target_ip, str(port)
-                ], capture_output=True, timeout=1)
+            # Create TCP RST packet using raw sockets
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+            sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            
+            # Common PS5 ports
+            ps5_ports = [3074, 3075, 3076, 3077, 3078, 3079, 3080, 80, 443]
+            
+            for port in ps5_ports:
+                try:
+                    # Create TCP RST packet
+                    tcp_header = struct.pack('!HHLLBBHHH',
+                        12345,  # Source port
+                        port,   # Destination port
+                        0,      # Sequence number
+                        0,      # Acknowledgement number
+                        5 << 4, # Data offset and flags
+                        4,      # RST flag
+                        0,      # Window size
+                        0,      # Checksum
+                        0       # Urgent pointer
+                    )
+                    
+                    # Send packet
+                    sock.sendto(tcp_header, (target_ip, port))
+                    time.sleep(0.01)
+                    
+                except Exception as e:
+                    # Ignore individual port errors
+                    pass
+            
+            sock.close()
+            
         except Exception as e:
             log_error(f"Failed to send TCP RST packets to {target_ip}: {e}")
     
     def _send_udp_flood_packets(self, target_ip: str):
-        """Send UDP flood packets to disrupt network"""
+        """Send UDP flood packets without external tools"""
         try:
-            # Send UDP packets to common game ports
-            game_ports = [2302, 2303, 2304, 2305, 27015, 27016, 27017, 27018, 7777, 7778]
-            for port in game_ports:
-                # Use netcat to send UDP packets
-                subprocess.run([
-                    "echo", "disrupt", "|", "nc", "-u", "-w", "1", target_ip, str(port)
-                ], capture_output=True, timeout=1)
+            # Create UDP flood packet using raw sockets
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            
+            # Common PS5 ports
+            ps5_ports = [3074, 3075, 3076, 3077, 3078, 3079, 3080, 53, 67, 68]
+            
+            # Create fake UDP payload
+            payload = b'DISCONNECT_PACKET' * 10
+            
+            for port in ps5_ports:
+                try:
+                    # Send UDP packet
+                    sock.sendto(payload, (target_ip, port))
+                    time.sleep(0.01)
+                    
+                except Exception as e:
+                    # Ignore individual port errors
+                    pass
+            
+            sock.close()
+            
         except Exception as e:
             log_error(f"Failed to send UDP flood packets to {target_ip}: {e}")
     
@@ -526,29 +620,21 @@ class DupeInternetDropper:
             log_error(f"Failed to start DNS spoofing: {e}")
     
     def _spoof_dns_response(self, target_ip: str, domain: str):
-        """Enhanced DNS spoofing for a specific domain"""
+        """Enhanced DNS spoofing for a specific domain without external tools"""
         try:
             log_info(f"🎮 Enhanced DNS spoofing for {domain} -> {target_ip}")
             
-            # Add fake DNS entry to hosts file
+            # Add fake DNS entry to hosts file (with better error handling)
             hosts_entry = f"127.0.0.1 {domain}"
             try:
                 with open("C:\\Windows\\System32\\drivers\\etc\\hosts", "a") as hosts_file:
                     hosts_file.write(f"\n{hosts_entry}")
-            except:
-                pass  # Ignore if we can't write to hosts file
+            except PermissionError:
+                log_error("Could not modify hosts file: Permission denied - run as Administrator")
+            except Exception as e:
+                log_error(f"Could not modify hosts file: {e}")
             
-            # Use nslookup to query the target with fake responses
-            subprocess.run([
-                "nslookup", domain, target_ip
-            ], capture_output=True, timeout=2)
-            
-            # Also try to flush DNS cache on the target
-            subprocess.run([
-                "ipconfig", "/flushdns"
-            ], capture_output=True, timeout=2)
-            
-            # Send fake DNS response packets
+            # Send fake DNS response packets (without external tools)
             self._send_fake_dns_packet(target_ip, domain)
             
         except Exception as e:
