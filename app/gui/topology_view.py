@@ -510,7 +510,7 @@ class NetworkTopologyView(QWidget):
             # Fit view to show all devices
             self.fit_view()
             
-            log_info(f"📊 Topology updated with {len(devices)} devices")
+            log_info(f"[STATS] Topology updated with {len(devices)} devices")
             
         except Exception as e:
             log_error(f"Error updating topology: {e}")
@@ -750,7 +750,7 @@ class NetworkTopologyView(QWidget):
         try:
             # Trigger a repaint
             self.view.viewport().update()
-            log_info("📊 Topology refreshed")
+            log_info("[STATS] Topology refreshed")
             
         except Exception as e:
             log_error(f"Error refreshing topology: {e}")

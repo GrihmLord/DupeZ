@@ -1026,7 +1026,7 @@ class NetworkDisruptor:
         self.is_running = False
         self.stop_event.set()
         self.clear_all_disruptions()
-        log_info("🛑 Enterprise Network Disruptor stopped")
+        log_info("[STOP] Enterprise Network Disruptor stopped")
 
 # Global enterprise instance
 network_disruptor = NetworkDisruptor() 

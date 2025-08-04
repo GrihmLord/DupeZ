@@ -50,7 +50,7 @@ class AdvancedTrafficAnalyzer:
         self.monitor_thread = threading.Thread(target=self._monitor_traffic, daemon=True)
         self.monitor_thread.start()
         
-        log_info("📊 Enterprise Traffic Analyzer started")
+        log_info("[STATS] Enterprise Traffic Analyzer started")
     
     def stop(self):
         """Stop enterprise-level traffic analysis"""
@@ -60,7 +60,7 @@ class AdvancedTrafficAnalyzer:
         if self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=5)
         
-        log_info("📊 Enterprise Traffic Analyzer stopped")
+        log_info("[STATS] Enterprise Traffic Analyzer stopped")
     
     def _monitor_traffic(self):
         """Enterprise-level traffic monitoring loop"""

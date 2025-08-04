@@ -129,13 +129,13 @@ class PacketGraph(QWidget):
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_graph)
         self.update_timer.start(self.update_interval)
-        log_info("📊 Enterprise traffic graph updates started")
+        log_info("[STATS] Enterprise traffic graph updates started")
     
     def stop_updates(self):
         """Stop real-time graph updates"""
         if hasattr(self, 'update_timer'):
             self.update_timer.stop()
-        log_info("📊 Enterprise traffic graph updates stopped")
+        log_info("[STATS] Enterprise traffic graph updates stopped")
     
     def update_graph(self):
         """Update the graph with REAL network data"""
