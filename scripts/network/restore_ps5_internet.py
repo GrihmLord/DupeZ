@@ -46,11 +46,14 @@ class PS5RestorationEngine:
         
         try:
             # Step 1: Detect PS5 devices
+            print("🔍 Detecting PS5 devices...")
             self._detect_ps5_devices()
             
             # Step 2: Run all restoration methods
             for i, method in enumerate(self.restoration_methods, 1):
                 try:
+                    method_name = method.__name__.replace('_', ' ').title()
+                    print(f"🔄 [{i}/{total_methods}] Running: {method_name}")
                     log_info(f"Running restoration method {i}/{total_methods}: {method.__name__}")
                     
                     if target_mac and 'mac' in method.__name__.lower():
@@ -65,6 +68,7 @@ class PS5RestorationEngine:
                             'status': 'SUCCESS',
                             'timestamp': time.time()
                         })
+                        print(f"✅ [{i}/{total_methods}] {method_name} completed successfully")
                         log_info(f"Method {method.__name__} completed successfully")
                     else:
                         self.restoration_log.append({
@@ -72,6 +76,7 @@ class PS5RestorationEngine:
                             'status': 'FAILED',
                             'timestamp': time.time()
                         })
+                        print(f"❌ [{i}/{total_methods}] {method_name} failed")
                         log_error(f"Method {method.__name__} failed")
                         
                 except Exception as e:
@@ -82,6 +87,7 @@ class PS5RestorationEngine:
                         'error': str(e),
                         'timestamp': time.time()
                     })
+                    print(f"⚠️ [{i}/{total_methods}] {method_name} failed with error")
             
             # Step 3: Final connectivity test
             connectivity_result = self._test_ps5_connectivity()
@@ -279,11 +285,11 @@ class PS5RestorationEngine:
         try:
             log_info("Resetting network adapters")
             
-            # Reset Winsock
-            winsock_result = self._run_command(['netsh', 'winsock', 'reset'])
+            # Reset Winsock (can take longer)
+            winsock_result = self._run_command(['netsh', 'winsock', 'reset'], timeout=120)
             
-            # Reset IP configuration
-            ip_result = self._run_command(['netsh', 'int', 'ip', 'reset'])
+            # Reset IP configuration (can take longer)
+            ip_result = self._run_command(['netsh', 'int', 'ip', 'reset'], timeout=120)
             
             if winsock_result is not None and ip_result is not None:
                 log_info("Network adapters reset successfully")
@@ -306,15 +312,20 @@ class PS5RestorationEngine:
             
             for service in services:
                 try:
-                    # Stop service
-                    stop_result = self._run_command(['net', 'stop', service])
-                    time.sleep(1)
+                    log_info(f"Restarting service: {service}")
                     
-                    # Start service
-                    start_result = self._run_command(['net', 'start', service])
+                    # Stop service (can take time)
+                    stop_result = self._run_command(['net', 'stop', service], timeout=90)
+                    time.sleep(2)  # Give more time between stop and start
+                    
+                    # Start service (can take time)
+                    start_result = self._run_command(['net', 'start', service], timeout=90)
                     
                     if stop_result is not None and start_result is not None:
                         success_count += 1
+                        log_info(f"Service {service} restarted successfully")
+                    else:
+                        log_error(f"Failed to restart service {service}")
                         
                 except Exception as e:
                     log_error(f"Failed to restart service {service}", exception=e)
@@ -409,18 +420,29 @@ class PS5RestorationEngine:
             log_error("PS5 connectivity test failed", exception=e)
             return {}
     
-    def _run_command(self, command: List[str]) -> Optional[str]:
+    def _run_command(self, command: List[str], timeout: int = 60) -> Optional[str]:
         """Run a command and return output"""
         try:
+            log_info(f"Running command: {' '.join(command)} (timeout: {timeout}s)")
             result = subprocess.run(
                 command, 
                 capture_output=True, 
                 text=True, 
-                timeout=30
+                timeout=timeout
             )
-            return result.stdout if result.returncode == 0 else None
+            if result.returncode == 0:
+                log_info(f"Command completed successfully: {' '.join(command)}")
+                return result.stdout
+            else:
+                log_error(f"Command failed with return code {result.returncode}: {' '.join(command)}")
+                if result.stderr:
+                    log_error(f"Error output: {result.stderr}")
+                return None
+        except subprocess.TimeoutExpired:
+            log_error(f"Command timed out after {timeout}s: {' '.join(command)}")
+            return None
         except Exception as e:
-            log_error(f"Command failed: {' '.join(command)}", exception=e)
+            log_error(f"Command failed with exception: {' '.join(command)}", exception=e)
             return None
 
 def main():

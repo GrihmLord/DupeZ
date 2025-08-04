@@ -185,6 +185,9 @@ class DayZAccountTracker(QWidget):
         self.delete_account_btn.clicked.connect(self.delete_account)
         controls_layout.addWidget(self.delete_account_btn)
         
+        # Add debug info
+        log_info("Delete account button connected successfully")
+        
         controls_group.setLayout(controls_layout)
         layout.addWidget(controls_group)
         
@@ -508,32 +511,41 @@ class DayZAccountTracker(QWidget):
     def delete_account(self):
         """Delete selected account"""
         try:
+            log_info("Delete account button clicked")
+            log_info(f"Current account: {self.current_account}")
+            
             if not self.current_account:
                 QMessageBox.warning(self, "No Selection", "Please select an account to delete.")
+                log_info("No account selected for deletion")
                 return
+                
+            # Store account info before deletion
+            account_to_delete = self.current_account.copy()
+            account_name = account_to_delete['account']
+            account_id = account_to_delete['id']
                 
             # Confirm deletion
             reply = QMessageBox.question(
                 self, "Confirm Delete", 
-                f"Are you sure you want to delete account '{self.current_account['account']}'?",
+                f"Are you sure you want to delete account '{account_name}'?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             
             if reply == QMessageBox.StandardButton.Yes:
                 # Remove from list
-                self.accounts = [acc for acc in self.accounts if acc['id'] != self.current_account['id']]
+                self.accounts = [acc for acc in self.accounts if acc['id'] != account_id]
                 
-                # Remove from table
-                self.remove_account_from_table(self.current_account['id'])
+                # Refresh the entire table to ensure it matches the accounts list
+                self.refresh_account_table()
                 
                 # Clear current account
                 self.current_account = None
                 self.update_account_details()
                 
                 # Save accounts using persistence manager
-                account_manager.remove_account(self.current_account['account'])
+                account_manager.remove_account(account_name)
                 
-                log_info(f"[SUCCESS] Deleted account: {self.current_account['account']}")
+                log_info(f"[SUCCESS] Deleted account: {account_name}")
                 
         except Exception as e:
             log_error(f"Failed to delete account: {e}")
@@ -769,22 +781,56 @@ class DayZAccountTracker(QWidget):
     def remove_account_from_table(self, account_id: int):
         """Remove account from the table"""
         try:
+            # Find the row with this account by comparing account names
             for row in range(self.account_table.rowCount()):
-                # Find the row with this account ID
-                # This is a simplified version - in practice you'd need to store account IDs in the table
-                if row < len(self.accounts) and self.accounts[row]['id'] == account_id:
-                    self.account_table.removeRow(row)
-                    break
+                item = self.account_table.item(row, 0)  # Account name column
+                if item:
+                    # Find the account in the accounts list by ID
+                    for account in self.accounts:
+                        if account.get('id') == account_id and str(account.get('account', '')) == item.text():
+                            self.account_table.removeRow(row)
+                            log_info(f"Removed account row: {item.text()}")
+                            return
+                            
+            # If not found by ID, try to find by account name (fallback)
+            for row in range(self.account_table.rowCount()):
+                item = self.account_table.item(row, 0)
+                if item:
+                    # Find the account in the accounts list by name
+                    for account in self.accounts:
+                        if str(account.get('account', '')) == item.text():
+                            if account.get('id') == account_id:
+                                self.account_table.removeRow(row)
+                                log_info(f"Removed account row (fallback): {item.text()}")
+                                return
+                                
+            log_error(f"Account with ID {account_id} not found in table")
                     
         except Exception as e:
             log_error(f"Failed to remove account from table: {e}")
+            
+    def refresh_account_table(self):
+        """Refresh the entire account table to match the accounts list"""
+        try:
+            # Clear the table
+            self.account_table.setRowCount(0)
+            
+            # Re-add all accounts from the list
+            for account in self.accounts:
+                if self._validate_account_data(account):
+                    self.add_account_to_table(account)
+                    
+            log_info(f"Refreshed account table with {len(self.accounts)} accounts")
+                    
+        except Exception as e:
+            log_error(f"Failed to refresh account table: {e}")
             
     def on_account_selected(self):
         """Handle account selection"""
         try:
             current_row = self.account_table.currentRow()
             if current_row >= 0 and current_row < self.account_table.rowCount():
-                # Get the account ID from the table item
+                # Get the account name from the table item
                 account_id_item = self.account_table.item(current_row, 0)  # Account column
                 if account_id_item:
                     account_name = account_id_item.text()
@@ -793,10 +839,26 @@ class DayZAccountTracker(QWidget):
                         if str(account.get('account', '')) == account_name:
                             self.current_account = account
                             self.update_account_details()
+                            log_info(f"Selected account: {account_name}")
                             break
+                    else:
+                        # Account not found in list
+                        log_error(f"Account '{account_name}' not found in accounts list")
+                        self.current_account = None
+                        self.update_account_details()
+                else:
+                    log_error("No account item found in selected row")
+                    self.current_account = None
+                    self.update_account_details()
+            else:
+                # No row selected
+                self.current_account = None
+                self.update_account_details()
                 
         except Exception as e:
             log_error(f"Failed to handle account selection: {e}")
+            self.current_account = None
+            self.update_account_details()
             
     def update_account_details(self):
         """Update the account details panel"""
@@ -854,13 +916,8 @@ class DayZAccountTracker(QWidget):
         try:
             self.accounts = account_manager.accounts
             
-            # Add accounts to table with validation
-            for account in self.accounts:
-                # Validate account data before adding to table
-                if self._validate_account_data(account):
-                    self.add_account_to_table(account)
-                else:
-                    log_error(f"Skipping invalid account data: {account}")
+            # Refresh the table with all accounts
+            self.refresh_account_table()
                     
             log_info(f"[SUCCESS] Loaded {len(self.accounts)} accounts")
                 

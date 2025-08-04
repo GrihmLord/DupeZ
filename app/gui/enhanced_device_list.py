@@ -70,10 +70,20 @@ class EnhancedDeviceList(QWidget):
         """)
         layout.addWidget(self.progress_bar)
         
-        # Device table with responsive sizing
-        self.device_table = QTableWidget()
-        self.setup_device_table()
-        layout.addWidget(self.device_table, 1)  # Give table more space
+        # Main content splitter for resizable scan results
+        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left panel - Device table
+        left_panel = self.create_scan_panel()
+        main_splitter.addWidget(left_panel)
+        
+        # Right panel - Additional scan details
+        right_panel = self.create_details_panel()
+        main_splitter.addWidget(right_panel)
+        
+        # Set splitter proportions (70% scan results, 30% details)
+        main_splitter.setSizes([700, 300])
+        layout.addWidget(main_splitter, 1)  # Give splitter more space
         
         # Status indicators in a horizontal layout
         status_layout = QHBoxLayout()
@@ -89,6 +99,30 @@ class EnhancedDeviceList(QWidget):
             border-radius: 3px;
         """)
         status_layout.addWidget(self.status_label)
+        
+        # Administrator status indicator
+        try:
+            from app.firewall.blocker import is_admin
+            admin_status = "🛡️ Admin" if is_admin() else "⚠️ User"
+            self.admin_status = QLabel(admin_status)
+            self.admin_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.admin_status.setStyleSheet("""
+                color: #4CAF50; 
+                font-weight: bold; 
+                padding: 5px;
+                background-color: rgba(76, 175, 80, 0.1);
+                border-radius: 3px;
+            """ if is_admin() else """
+                color: #FF9800; 
+                font-weight: bold; 
+                padding: 5px;
+                background-color: rgba(255, 152, 0, 0.1);
+                border-radius: 3px;
+            """)
+            self.admin_status.setToolTip("Shows Administrator privileges. Some features require Admin rights.")
+            status_layout.addWidget(self.admin_status)
+        except Exception as e:
+            log_error(f"Failed to create admin status indicator: {e}")
         
         # Blocking status indicator
         self.blocking_status = QLabel("🔒 Blocking: Inactive")
@@ -107,6 +141,154 @@ class EnhancedDeviceList(QWidget):
         
         # Apply responsive styling
         self.apply_styling()
+    
+    def create_scan_panel(self) -> QWidget:
+        """Create the main scan results panel"""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Device table with responsive sizing
+        self.device_table = QTableWidget()
+        self.setup_device_table()
+        layout.addWidget(self.device_table)
+        
+        panel.setLayout(layout)
+        return panel
+    
+    def create_details_panel(self) -> QWidget:
+        """Create the details panel for additional scan information"""
+        panel = QWidget()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(10, 0, 0, 0)
+        
+        # Details header
+        details_header = QLabel("📊 Scan Details")
+        details_header.setFont(QFont("Arial", 12, QFont.Weight.Bold))
+        details_header.setStyleSheet("""
+            color: #ffffff;
+            padding: 8px;
+            background-color: #34495e;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        """)
+        layout.addWidget(details_header)
+        
+        # Scan statistics
+        stats_group = QGroupBox("📈 Statistics")
+        stats_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 11px;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                background-color: #2b2b2b;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 3px 0 3px;
+                color: #ffffff;
+            }
+        """)
+        
+        stats_layout = QVBoxLayout()
+        
+        # Device count
+        self.device_count_label = QLabel("Devices Found: 0")
+        self.device_count_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 4px;")
+        stats_layout.addWidget(self.device_count_label)
+        
+        # PS5 devices count
+        self.ps5_count_label = QLabel("PS5 Devices: 0")
+        self.ps5_count_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 4px;")
+        stats_layout.addWidget(self.ps5_count_label)
+        
+        # Blocked devices count
+        self.blocked_count_label = QLabel("Blocked Devices: 0")
+        self.blocked_count_label.setStyleSheet("color: #f44336; font-weight: bold; padding: 4px;")
+        stats_layout.addWidget(self.blocked_count_label)
+        
+        # Scan duration
+        self.scan_duration_label = QLabel("Last Scan: Never")
+        self.scan_duration_label.setStyleSheet("color: #2196F3; font-weight: bold; padding: 4px;")
+        stats_layout.addWidget(self.scan_duration_label)
+        
+        stats_group.setLayout(stats_layout)
+        layout.addWidget(stats_group)
+        
+        # Quick actions
+        actions_group = QGroupBox("⚡ Quick Actions")
+        actions_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 11px;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                background-color: #2b2b2b;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 3px 0 3px;
+                color: #ffffff;
+            }
+        """)
+        
+        actions_layout = QVBoxLayout()
+        
+        # Export results button
+        self.export_btn = QPushButton("📤 Export Results")
+        self.export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                border: none;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #7B1FA2;
+            }
+        """)
+        self.export_btn.clicked.connect(self.export_results)
+        actions_layout.addWidget(self.export_btn)
+        
+        # Clear results button
+        self.clear_details_btn = QPushButton("🗑️ Clear Results")
+        self.clear_details_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+        """)
+        self.clear_details_btn.clicked.connect(self.clear_devices)
+        actions_layout.addWidget(self.clear_details_btn)
+        
+        actions_group.setLayout(actions_layout)
+        layout.addWidget(actions_group)
+        
+        # Add stretch to push everything to the top
+        layout.addStretch()
+        
+        panel.setLayout(layout)
+        return panel
     
     def on_resize(self, event):
         """Handle resize events for responsive design"""
@@ -367,14 +549,14 @@ class EnhancedDeviceList(QWidget):
             }
         """)
         self.internet_drop_button.clicked.connect(self.toggle_internet_drop)
-        layout.addWidget(self.internet_drop_button, 2, 0, 1, 2)
+        layout.addWidget(self.internet_drop_button, 3, 0, 1, 2)
         
         # Row 4: Search functionality
         layout.addWidget(QLabel("|"))
         
         search_label = QLabel("🔍 Search:")
         search_label.setStyleSheet("color: #ffffff; font-weight: bold;")
-        layout.addWidget(search_label, 3, 0)
+        layout.addWidget(search_label, 4, 0)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search devices by IP, hostname, vendor, or MAC...")
@@ -393,7 +575,7 @@ class EnhancedDeviceList(QWidget):
             }
         """)
         self.search_input.textChanged.connect(self.filter_devices_by_search)
-        layout.addWidget(self.search_input, 3, 1, 1, 3)
+        layout.addWidget(self.search_input, 4, 1, 1, 3)
         
         # Row 5: Disconnect Methods Frame
         disconnect_methods_frame = QFrame()
@@ -480,7 +662,7 @@ class EnhancedDeviceList(QWidget):
         disconnect_methods_layout.addWidget(self.arp_poison_cb, 2, 1)
         disconnect_methods_layout.addWidget(self.udp_interrupt_cb, 2, 2)
         
-        layout.addWidget(disconnect_methods_frame, 4, 0, 1, 4)
+        layout.addWidget(disconnect_methods_frame, 5, 0, 1, 4)
         
         return panel
     
@@ -600,6 +782,10 @@ class EnhancedDeviceList(QWidget):
             self.device_table.setRowCount(0)
             self.devices = []
             
+            # Record scan start time
+            import time
+            self.scan_start_time = time.time()
+            
             # Update scanner settings
             self.scanner.max_threads = self.thread_spinbox.value()
             self.scanner.timeout = self.timeout_spinbox.value() / 1000.0
@@ -635,6 +821,12 @@ class EnhancedDeviceList(QWidget):
         try:
             log_info(f"Scan completed with {len(devices)} devices")
             
+            # Calculate scan duration
+            if hasattr(self, 'scan_start_time'):
+                import time
+                scan_duration = time.time() - self.scan_start_time
+                log_info(f"Scan duration: {scan_duration:.2f} seconds")
+            
             # Clear existing devices
             self.device_table.setRowCount(0)
             self.devices = []
@@ -653,6 +845,9 @@ class EnhancedDeviceList(QWidget):
             # Update scan button state
             self.scan_button.setEnabled(True)
             self.stop_button.setEnabled(False)
+            
+            # Update statistics
+            self.update_statistics()
             
             # Emit scan finished signal
             self.scan_finished.emit(devices)
@@ -896,7 +1091,14 @@ class EnhancedDeviceList(QWidget):
     def actually_block_device(self, ip: str, block: bool):
         """Actually block/unblock a device using REAL network disruption"""
         try:
+            from app.firewall.blocker import is_admin
+            
             log_info(f"🔍 Starting blocking process for {ip} (block={block})")
+            
+            # Check if running as Administrator
+            if not is_admin():
+                self.update_status("⚠️ WARNING: Not running as Administrator. Blocking may not work properly.")
+                log_info("Blocking feature used without Administrator privileges")
             
             if self.controller:
                 log_info(f"✅ Controller found, using toggle_lag method")
@@ -912,7 +1114,7 @@ class EnhancedDeviceList(QWidget):
                         self.update_status(f"Successfully blocked {ip}")
                     else:
                         log_error(f"❌ Failed to block device {ip}")
-                        self.update_status(f"Failed to block {ip}")
+                        self.update_status(f"Failed to block {ip} - Try running as Administrator")
                 else:
                     # We want to unblock the device
                     if not new_blocked_state:
@@ -920,7 +1122,7 @@ class EnhancedDeviceList(QWidget):
                         self.update_status(f"Successfully unblocked {ip}")
                     else:
                         log_error(f"❌ Failed to unblock device {ip}")
-                        self.update_status(f"Failed to unblock {ip}")
+                        self.update_status(f"Failed to unblock {ip} - Try running as Administrator")
                 
                 # Update the device's blocked status in our local list
                 for device in self.devices:
@@ -1202,9 +1404,79 @@ class EnhancedDeviceList(QWidget):
             self.device_table.setRowCount(0)
             self.devices = []
             self.update_status("Device list cleared")
+            self.update_statistics()
             
         except Exception as e:
             log_error(f"Error clearing devices: {e}")
+    
+    def export_results(self):
+        """Export scan results to a file"""
+        try:
+            if not self.devices:
+                self.update_status("No devices to export")
+                return
+            
+            # Create export filename with timestamp
+            import datetime
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"network_scan_results_{timestamp}.csv"
+            
+            # Export to CSV
+            with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+                import csv
+                writer = csv.writer(csvfile)
+                
+                # Write header
+                writer.writerow([
+                    'IP Address', 'MAC Address', 'Hostname', 'Vendor', 
+                    'Device Type', 'Interface', 'Open Ports', 'Status'
+                ])
+                
+                # Write device data
+                for device in self.devices:
+                    writer.writerow([
+                        device.get('ip', ''),
+                        device.get('mac', ''),
+                        device.get('hostname', ''),
+                        device.get('vendor', ''),
+                        device.get('device_type', ''),
+                        device.get('interface', ''),
+                        device.get('open_ports', ''),
+                        device.get('status', '')
+                    ])
+            
+            self.update_status(f"Results exported to {filename}")
+            log_info(f"Scan results exported to {filename}")
+            
+        except Exception as e:
+            log_error(f"Failed to export results: {e}")
+            self.update_status("Export failed")
+    
+    def update_statistics(self):
+        """Update the statistics display"""
+        try:
+            # Count devices
+            total_devices = len(self.devices)
+            self.device_count_label.setText(f"Devices Found: {total_devices}")
+            
+            # Count PS5 devices
+            ps5_devices = sum(1 for device in self.devices if self._is_ps5_device(device))
+            self.ps5_count_label.setText(f"PS5 Devices: {ps5_devices}")
+            
+            # Count blocked devices
+            blocked_devices = sum(1 for device in self.devices if device.get('blocked', False))
+            self.blocked_count_label.setText(f"Blocked Devices: {blocked_devices}")
+            
+            # Update scan duration if available
+            if hasattr(self, 'scan_start_time'):
+                import time
+                duration = time.time() - self.scan_start_time
+                self.scan_duration_label.setText(f"Last Scan: {duration:.1f}s")
+            else:
+                self.scan_duration_label.setText("Last Scan: Never")
+                
+        except Exception as e:
+            log_error(f"Failed to update statistics: {e}")
     
     def block_selected(self):
         """Block selected devices"""
@@ -1345,6 +1617,12 @@ class EnhancedDeviceList(QWidget):
         """Toggle internet drop/dupe functionality with selected methods"""
         try:
             from app.firewall.dupe_internet_dropper import dupe_internet_dropper
+            from app.firewall.blocker import is_admin
+            
+            # Check if running as Administrator
+            if not is_admin():
+                self.update_status("⚠️ WARNING: Not running as Administrator. Some features may not work properly.")
+                log_info("Disconnect feature used without Administrator privileges")
             
             # Get selected methods
             selected_methods = self.get_selected_disconnect_methods()
@@ -1362,6 +1640,7 @@ class EnhancedDeviceList(QWidget):
             
             if not dupe_internet_dropper.is_dupe_active():
                 # Start dupe with selected methods and devices
+                self.update_status("🔄 Starting disconnect mode...")
                 success = dupe_internet_dropper.start_dupe_with_devices(selected_devices, selected_methods)
                 if success:
                     self.internet_drop_button.setText("🔌 Reconnect")
@@ -1394,10 +1673,11 @@ class EnhancedDeviceList(QWidget):
                     self.update_status(f"🔌 Disconnect active on {device_count} device(s) - Using: {methods_text}")
                     log_info(f"DayZ disconnect mode activated on {device_count} devices with methods: {selected_methods}")
                 else:
-                    self.update_status("❌ Failed to start disconnect mode")
+                    self.update_status("❌ Failed to start disconnect mode - Try running as Administrator")
                     log_error("Failed to start DayZ disconnect mode")
             else:
                 # Stop dupe
+                self.update_status("🔄 Stopping disconnect mode...")
                 success = dupe_internet_dropper.stop_dupe()
                 if success:
                     self.internet_drop_button.setText("🔌 Disconnect")

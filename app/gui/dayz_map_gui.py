@@ -14,7 +14,11 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QUrl
 from PyQt6.QtGui import QFont, QColor, QPalette, QPixmap, QIcon
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+try:
+    from PyQt6.QtWebEngineWidgets import QWebEngineView
+except ImportError:
+    # Fallback if WebEngine is not available
+    QWebEngineView = None
 from typing import List, Dict, Optional, Tuple
 import json
 import os

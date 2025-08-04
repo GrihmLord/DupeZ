@@ -266,6 +266,10 @@ def initialize_application():
         from app.gui.dashboard import DupeZDashboard
         from app.core.controller import AppController
         
+        # Set Qt attribute for WebEngine before creating QApplication
+        from PyQt6.QtCore import Qt
+        QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
+        
         # Create QApplication
         app = QApplication(sys.argv)
         app.setApplicationName("DupeZ")
