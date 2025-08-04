@@ -18,12 +18,12 @@ def run_command(cmd, capture_output=True):
         return False, "", str(e)
 
 def clear_firewall_rules():
-    """Clear all PS5 and PulseDrop firewall rules"""
+    """Clear all PS5 and DupeZ firewall rules"""
     print("🔥 Clearing Windows Firewall rules...")
     
     rules_to_delete = [
         "*PS5*",
-        "*PulseDrop*",
+        "*DupeZ*",
         "*Internet_Block*",
         "*DNS_Block*",
         "*Port_Block*"

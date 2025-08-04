@@ -1,0 +1,11 @@
+{
+    "PS5": {
+      "keybind": "p",
+      "auto_block": true
+    },
+    "XBOX": {
+      "keybind": "x",
+      "auto_block": false
+    }
+  }
+  

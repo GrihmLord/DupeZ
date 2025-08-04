@@ -21,7 +21,7 @@ def test_gui_components():
         # Test core imports
         from app.core.controller import AppController
         from app.core.state import AppState
-        from app.gui.dashboard import PulseDropDashboard
+        from app.gui.dashboard import DupeZDashboard
         from app.gui.sidebar import Sidebar
         from app.gui.enhanced_device_list import EnhancedDeviceList
         from app.gui.settings_dialog import SettingsDialog
@@ -116,7 +116,7 @@ def test_theme_system():
 
 def main():
     """Main test function"""
-    print("🧪 PulseDrop Pro GUI Test")
+    print("🧪 DupeZ GUI Test")
     print("=" * 50)
     
     # Test 1: GUI Components

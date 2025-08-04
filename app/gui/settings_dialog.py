@@ -12,7 +12,7 @@ from app.logs.logger import log_info, log_error
 from app.core.state import AppSettings
 
 class SettingsDialog(QDialog):
-    """Comprehensive settings dialog for PulseDrop Pro"""
+    """Comprehensive settings dialog for DupeZ"""
     
     # Signals
     settings_changed = pyqtSignal(dict)  # Emit new settings
@@ -22,7 +22,7 @@ class SettingsDialog(QDialog):
         self.current_settings = current_settings
         self.new_settings = current_settings
         
-        self.setWindowTitle("⚙️ PulseDrop Pro Settings")
+        self.setWindowTitle("⚙️ DupeZ Settings")
         self.setModal(True)
         self.resize(600, 500)
         
@@ -528,6 +528,10 @@ class SettingsDialog(QDialog):
             }
             self.settings_changed.emit(additional_settings)
             
+            # Actually save the settings to file
+            if hasattr(self, 'controller') and self.controller:
+                self.controller.update_settings(new_settings)
+            
             log_info("Settings saved successfully")
             QMessageBox.information(self, "Success", "Settings saved successfully!")
             self.accept()
@@ -609,7 +613,7 @@ class SettingsDialog(QDialog):
         
         # Testing description
         testing_desc = QLabel("""
-        Run comprehensive tests to verify all PulseDrop Pro features are working correctly.
+        Run comprehensive tests to verify all DupeZ features are working correctly.
         Tests include network scanning, device health protection, privacy features, and blocking systems.
         """)
         testing_desc.setWordWrap(True)
@@ -738,6 +742,12 @@ class SettingsDialog(QDialog):
         """Apply a theme"""
         try:
             from app.themes.theme_manager import theme_manager
+            
+            # Prevent recursion by checking if theme is already applied
+            if theme_manager.get_current_theme() == theme_name:
+                log_info(f"Theme {theme_name} is already applied")
+                return
+            
             success = theme_manager.apply_theme(theme_name)
             if success:
                 self.update_theme_info()

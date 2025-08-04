@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Test Suite for PulseDrop Pro
+Comprehensive Test Suite for DupeZ
 Consolidates all testing functionality into one organized test sequence
 """
 
@@ -37,7 +37,7 @@ class TestResult:
     details: Optional[Dict] = None
 
 class ComprehensiveTester:
-    """Comprehensive test suite for PulseDrop Pro"""
+    """Comprehensive test suite for DupeZ"""
     
     def __init__(self):
         self.results: List[TestResult] = []
@@ -276,7 +276,7 @@ class ComprehensiveTester:
     
     def run_comprehensive_test(self) -> Dict:
         """Run the complete comprehensive test suite"""
-        print("🚀 COMPREHENSIVE PULSEDROP PRO TEST SUITE")
+        print("🚀 COMPREHENSIVE DupeZ TEST SUITE")
         print("=" * 50)
         
         # Define test sequence
@@ -341,7 +341,7 @@ class ComprehensiveTester:
 
 def main():
     """Main test execution"""
-    print("🎯 PulseDrop Pro - Comprehensive Test Suite")
+    print("🎯 DupeZ - Comprehensive Test Suite")
     print("Cleaning up testing and creating one comprehensive test sequence...")
     
     # Create and run comprehensive tester

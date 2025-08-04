@@ -1,4 +1,4 @@
-# ⚡ PulseDrop Pro ⚡
+# ⚡ DupeZ ⚡
 
 **Advanced LagSwitch Tool - Hacker Edition**
 
@@ -52,8 +52,8 @@ A powerful network lag control and device management tool designed for advanced 
 
 #### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/PulseDropPro.git
-cd PulseDropPro
+git clone https://github.com/yourusername/DupeZ.git
+cd DupeZ
 ```
 
 #### 2. Install Dependencies
@@ -70,12 +70,12 @@ python run.py
 
 #### 1. Build the Executable
 ```bash
-python -m PyInstaller PulseDropPro.spec
+python -m PyInstaller DupeZ.spec
 ```
 
 #### 2. Run the Executable
-- Double-click `dist\PulseDropPro.exe`
-- Or use the batch file: `run_pulsedrop.bat`
+- Double-click `dist\DupeZ.exe`
+- Or use the batch file: `run_dupez.bat`
 
 **Note**: The executable requires Administrator privileges for firewall control.
 
@@ -122,7 +122,7 @@ Smart mode automatically detects and blocks devices based on:
 - **FirewallBlocker**: Windows Firewall and WinDivert integration
 
 ### GUI Components
-- **PulseDropDashboard**: Main application window with menu and status bar
+- **DupeZDashboard**: Main application window with menu and status bar
 - **DeviceList**: Enhanced device list with context menus and real-time updates
 - **PacketGraph**: Real-time traffic visualization with custom drawing
 - **Sidebar**: Status indicators and control panel
@@ -193,7 +193,7 @@ Some features require Administrator privileges:
 
 ### Project Structure
 ```
-PulseDropPro/
+DupeZ/
 ├── app/
 │   ├── core/           # Core application logic
 │   ├── gui/            # User interface components
@@ -215,7 +215,7 @@ python -m pytest tests/
 
 ### Building
 ```bash
-pyinstaller PulseDropPro.spec
+pyinstaller DupeZ.spec
 ```
 
 ## 📄 License
@@ -252,4 +252,4 @@ For issues and questions:
 
 ---
 
-**PulseDrop Pro** - Take control of your network lag! 🎮
+**DupeZ** - Take control of your network lag! 🎮

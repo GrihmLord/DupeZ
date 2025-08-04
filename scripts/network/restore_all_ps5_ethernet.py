@@ -40,7 +40,7 @@ def clear_all_firewall_rules():
     
     # Delete all possible firewall rules
     firewall_patterns = [
-        "*PulseDrop*", "*Enterprise*", "*NetCut*", "*Block*", 
+        "*DupeZ*", "*Enterprise*", "*NetCut*", "*Block*", 
         "*PS5*", "*PlayStation*", "*Sony*", "*Gaming*"
     ]
     
@@ -145,7 +145,7 @@ def main():
     print("🎮 COMPREHENSIVE PS5 ETHERNET RESTORATION")
     print("=" * 60)
     print("This script will restore internet access to ALL PS5s connected via Ethernet")
-    print("by clearing all PulseDrop-related blocks and optimizing network settings.")
+    print("by clearing all DupeZ-related blocks and optimizing network settings.")
     print()
     print("WARNING: This script should be run as administrator for best results")
     print("   Right-click and select 'Run as administrator'")
@@ -168,7 +168,7 @@ def main():
     
     print("\n🎉 RESTORATION COMPLETE")
     print("=" * 60)
-    print("✅ All PulseDrop blocks have been cleared")
+    print("✅ All DupeZ blocks have been cleared")
     print("✅ Ethernet adapters have been reset")
     print("✅ DNS and network caches have been flushed")
     print("✅ Optimal Ethernet settings have been applied")

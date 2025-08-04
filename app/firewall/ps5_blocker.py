@@ -24,7 +24,7 @@ class PS5Blocker:
         try:
             with self.lock:
                 # Add to Windows Firewall
-                rule_name = f"PulseDrop_PS5_Block_{ip_address}"
+                rule_name = f"DupeZ_PS5_Block_{ip_address}"
                 
                 # Create inbound rule
                 cmd_inbound = [
@@ -69,7 +69,7 @@ class PS5Blocker:
         try:
             with self.lock:
                 # Remove from Windows Firewall
-                rule_name = f"PulseDrop_PS5_Block_{ip_address}"
+                rule_name = f"DupeZ_PS5_Block_{ip_address}"
                 
                 # Remove inbound rule
                 cmd_inbound = [
@@ -122,7 +122,7 @@ class PS5Blocker:
                 # Remove all PulseDrop PS5 firewall rules
                 cmd = [
                     "netsh", "advfirewall", "firewall", "delete", "rule",
-                    "name=PulseDrop_PS5_Block_*"
+                    "name=DupeZ_PS5_Block_*"
                 ]
                 subprocess.run(cmd, capture_output=True)
                 

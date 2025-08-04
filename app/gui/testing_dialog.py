@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Testing Dialog for PulseDrop Pro
+Testing Dialog for DupeZ
 Popup GUI for testing with debugging capabilities
 """
 
@@ -229,7 +229,7 @@ class TestingDialog(QDialog):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("🧪 PulseDrop Pro Testing")
+        self.setWindowTitle("🧪 DupeZ Testing")
         self.setModal(True)
         self.resize(700, 500)
         
@@ -245,7 +245,7 @@ class TestingDialog(QDialog):
         layout = QVBoxLayout()
         
         # Title
-        title_label = QLabel("🧪 PULSEDROP PRO TESTING SUITE")
+        title_label = QLabel("🧪 DupeZ TESTING SUITE")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("""
             QLabel {
@@ -547,7 +547,7 @@ class TestingDialog(QDialog):
                 return
             
             # Create export content
-            export_content = "PULSEDROP PRO TEST RESULTS\n"
+            export_content = "DupeZ TEST RESULTS\n"
             export_content += "=" * 40 + "\n"
             export_content += f"Generated: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
             

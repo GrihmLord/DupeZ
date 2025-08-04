@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Privacy Integration for PulseDrop Pro
+Privacy Integration for DupeZ
 Integrates privacy protection into existing modules
 """
 

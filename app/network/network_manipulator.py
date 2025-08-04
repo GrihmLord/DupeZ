@@ -289,7 +289,7 @@ class NetworkManipulator:
     def _block_with_windows_firewall(self, ip: str) -> bool:
         """Block IP using Windows Firewall"""
         try:
-            rule_name = f"PulseDrop_Block_{ip.replace('.', '_')}"
+            rule_name = f"DupeZ_Block_{ip.replace('.', '_')}"
             cmd = [
                 "netsh", "advfirewall", "firewall", "add", "rule",
                 f"name={rule_name}",
@@ -346,7 +346,7 @@ class NetworkManipulator:
         """Throttle using Windows QoS"""
         try:
             # Windows QoS policy creation
-            policy_name = f"PulseDrop_Throttle_{ip.replace('.', '_')}"
+            policy_name = f"DupeZ_Throttle_{ip.replace('.', '_')}"
             cmd = [
                 "netsh", "qos", "add", "policy", f"name={policy_name}",
                 "rate={bandwidth_mbps}Mbps"
@@ -416,7 +416,7 @@ class NetworkManipulator:
         """Redirect traffic using Windows NAT"""
         try:
             # Windows NAT rules
-            rule_name = f"PulseDrop_Redirect_{source_ip.replace('.', '_')}"
+            rule_name = f"DupeZ_Redirect_{source_ip.replace('.', '_')}"
             cmd = [
                 "netsh", "interface", "portproxy", "add", "v4tov4",
                 f"listenport={port or 80}", f"listenaddress={source_ip}",
@@ -497,7 +497,7 @@ class NetworkManipulator:
         """Remove throttling for an IP"""
         try:
             if self.platform == "windows" and self.is_admin:
-                policy_name = f"PulseDrop_Throttle_{ip.replace('.', '_')}"
+                policy_name = f"DupeZ_Throttle_{ip.replace('.', '_')}"
                 cmd = ["netsh", "qos", "delete", "policy", f"name={policy_name}"]
                 subprocess.run(cmd, capture_output=True, text=True, shell=True)
             elif self.platform == "linux" and self.is_admin:

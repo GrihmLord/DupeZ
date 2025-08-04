@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Privacy GUI Component for PulseDrop Pro
+Privacy GUI Component for DupeZ
 Provides user interface for privacy settings and controls
 """
 

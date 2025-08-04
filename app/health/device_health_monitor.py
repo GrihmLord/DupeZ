@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Device Health Monitor for PulseDrop Pro
+Device Health Monitor for DupeZ
 Monitors and protects device health during network interactions
 """
 

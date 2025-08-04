@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Device Health GUI for PulseDrop Pro
+Device Health GUI for DupeZ
 Provides interface for monitoring and protecting device health
 """
 

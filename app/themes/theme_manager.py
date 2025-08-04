@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Theme Manager for PulseDrop Pro
+Theme Manager for DupeZ
 Handles light, dark, and rainbow themes with dynamic color generation
 """
 

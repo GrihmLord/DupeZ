@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Privacy Features Test for PulseDrop Pro
+Privacy Features Test for DupeZ
 Tests all privacy protection features
 """
 
@@ -162,12 +162,12 @@ def test_privacy_logging():
     print("🧪 Testing Privacy Logging...")
     
     try:
-        from app.logs.logger import log_info, log_error, log_device_action
+        from app.logs.logger import log_info, log_error, log_blocking_event
         
         # Test privacy-aware logging
         log_info("Test privacy info message")
         log_error("Test privacy error message")
-        log_device_action("block", "192.168.1.100", True)
+        log_blocking_event("block", "192.168.1.100", True)
         
         print(f"  ✅ Privacy-aware logging functions called")
         

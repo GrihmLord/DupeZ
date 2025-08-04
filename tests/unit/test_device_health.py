@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Device Health Protection Test for PulseDrop Pro
+Device Health Protection Test for DupeZ
 Tests all device health monitoring and protection features
 """
 

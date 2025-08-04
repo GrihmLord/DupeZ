@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PulseDropPro Launcher
+DupeZ Launcher
 Run this script from the project root directory to start the application.
 """
 
@@ -28,7 +28,7 @@ logging.basicConfig(
     level=logging.WARNING,  # Reduced from INFO to WARNING to reduce spam
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        RotatingFileHandler('logs/pulsedrop.log', maxBytes=1024*1024, backupCount=5),
+        RotatingFileHandler('logs/dupez.log', maxBytes=1024*1024, backupCount=5),
         # Only log warnings and errors to console, not info messages
         logging.StreamHandler(sys.stdout)
     ]
@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 class SingleInstance:
     """Ensure only one instance of the application is running"""
     
-    def __init__(self, lockfile_name="pulsedrop.lock"):
+    def __init__(self, lockfile_name="dupez.lock"):
         self.lockfile = os.path.join(tempfile.gettempdir(), lockfile_name)
         self.fd = None
         
@@ -58,7 +58,7 @@ class SingleInstance:
                         pid = int(f.read().strip())
                     # Check if process is still running
                     if psutil.pid_exists(pid):
-                        raise RuntimeError("Another instance of PulseDropPro is already running!")
+                        raise RuntimeError("Another instance of DupeZ is already running!")
                     else:
                         # Process is dead, remove stale lock file
                         os.unlink(self.lockfile)
@@ -75,7 +75,7 @@ class SingleInstance:
         except (IOError, OSError) as e:
             if self.fd:
                 self.fd.close()
-            raise RuntimeError("Another instance of PulseDropPro is already running!")
+            raise RuntimeError("Another instance of DupeZ is already running!")
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.fd:
@@ -250,7 +250,7 @@ def cleanup_resources():
 def initialize_application():
     """Initialize application with proper error handling"""
     try:
-        logger.info("Initializing PulseDropPro...")
+        logger.info("Initializing DupeZ...")
         
         # Set up signal handlers
         signal.signal(signal.SIGINT, signal_handler)
@@ -263,12 +263,12 @@ def initialize_application():
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         
         # Import required modules
-        from app.gui.dashboard import PulseDropDashboard
+        from app.gui.dashboard import DupeZDashboard
         from app.core.controller import AppController
         
         # Create QApplication
         app = QApplication(sys.argv)
-        app.setApplicationName("PulseDropPro")
+        app.setApplicationName("DupeZ")
         app.setApplicationVersion("1.0.0")
         
         # Initialize theme manager early and apply default theme
@@ -299,7 +299,7 @@ def initialize_application():
         
         # Create dashboard with controller
         try:
-            window = PulseDropDashboard(controller=controller)
+            window = DupeZDashboard(controller=controller)
             window.show()
             logger.info("Dashboard created and shown successfully")
         except Exception as e:

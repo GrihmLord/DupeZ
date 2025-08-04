@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Privacy Manager for PulseDrop Pro
+Privacy Manager for DupeZ
 Protects user privacy while maintaining tool functionality
 """
 
@@ -37,7 +37,7 @@ class PrivacySettings:
     privacy_level: str = "high"  # low, medium, high, maximum
 
 class PrivacyManager:
-    """Comprehensive privacy protection for PulseDrop Pro"""
+    """Comprehensive privacy protection for DupeZ"""
     
     def __init__(self):
         self.settings = PrivacySettings()

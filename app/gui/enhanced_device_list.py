@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QProgressBar, QTextEdit, QSplitter, QFrame,
                              QHeaderView, QTableWidget, QTableWidgetItem,
                              QComboBox, QSpinBox, QCheckBox, QGroupBox,
-                             QMenu)
+                             QMenu, QGridLayout, QLineEdit)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QIcon, QAction
 import time
@@ -340,30 +340,148 @@ class EnhancedDeviceList(QWidget):
         # Internet drop toggle
         layout.addWidget(QLabel("|"))
         
-        self.internet_drop_button = QPushButton("🌐 Drop Internet")
-        self.internet_drop_button.setFont(QFont("Arial", 12))
+        # Row 3: Internet drop button
+        self.internet_drop_button = QPushButton("🔌 Disconnect")
         self.internet_drop_button.setStyleSheet("""
             QPushButton {
-                background-color: #ff4444;
+                background-color: #d32f2f;
                 color: white;
-                border: 2px solid #cc0000;
-                border-radius: 6px;
+                border: 2px solid #b71c1c;
+                border-radius: 4px;
                 padding: 8px 16px;
                 font-weight: bold;
+                font-size: 12px;
+                min-height: 30px;
             }
             QPushButton:hover {
-                background-color: #ff6666;
-                border-color: #ff0000;
+                background-color: #f44336;
+                border-color: #d32f2f;
             }
             QPushButton:pressed {
-                background-color: #cc0000;
-                border-color: #990000;
+                background-color: #b71c1c;
+            }
+            QPushButton:disabled {
+                background-color: #666666;
+                border-color: #444444;
+                color: #cccccc;
             }
         """)
         self.internet_drop_button.clicked.connect(self.toggle_internet_drop)
-        layout.addWidget(self.internet_drop_button)
+        layout.addWidget(self.internet_drop_button, 2, 0, 1, 2)
         
-        layout.addStretch()
+        # Row 4: Search functionality
+        layout.addWidget(QLabel("|"))
+        
+        search_label = QLabel("🔍 Search:")
+        search_label.setStyleSheet("color: #ffffff; font-weight: bold;")
+        layout.addWidget(search_label, 3, 0)
+        
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search devices by IP, hostname, vendor, or MAC...")
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #3d3d3d;
+                color: #ffffff;
+                border: 2px solid #404040;
+                border-radius: 4px;
+                padding: 5px;
+                min-height: 25px;
+                font-size: 10px;
+            }
+            QLineEdit:focus {
+                border-color: #4CAF50;
+            }
+        """)
+        self.search_input.textChanged.connect(self.filter_devices_by_search)
+        layout.addWidget(self.search_input, 3, 1, 1, 3)
+        
+        # Row 5: Disconnect Methods Frame
+        disconnect_methods_frame = QFrame()
+        disconnect_methods_frame.setFrameStyle(QFrame.Shape.StyledPanel)
+        disconnect_methods_frame.setStyleSheet("""
+            QFrame {
+                background-color: #2a2a2a;
+                border: 1px solid #404040;
+                border-radius: 5px;
+                margin: 5px;
+            }
+        """)
+        
+        # Use QGridLayout for better organization of checkboxes
+        disconnect_methods_layout = QGridLayout(disconnect_methods_frame)
+        disconnect_methods_layout.setContentsMargins(15, 10, 15, 10)
+        disconnect_methods_layout.setSpacing(8)
+        
+        # Disconnect Methods Label
+        methods_label = QLabel("🔌 Disconnect Methods:")
+        methods_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 5px;
+            }
+        """)
+        disconnect_methods_layout.addWidget(methods_label, 0, 0, 1, 3)
+        
+        # Disconnect Method Checkboxes - arranged in 2 rows for better visibility
+        self.icmp_spoof_cb = QCheckBox("ICMP Spoof")
+        self.dns_spoof_cb = QCheckBox("DNS Spoof") 
+        self.ps5_packets_cb = QCheckBox("PS5 Packets")
+        self.response_spoof_cb = QCheckBox("Response Spoof")
+        self.arp_poison_cb = QCheckBox("ARP Poison")
+        self.udp_interrupt_cb = QCheckBox("UDP Interrupt")
+        
+        # Style checkboxes with better spacing and visibility
+        checkbox_style = """
+            QCheckBox {
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: bold;
+                spacing: 8px;
+                padding: 3px;
+                min-width: 120px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+            }
+            QCheckBox::indicator:unchecked {
+                border: 2px solid #666666;
+                background-color: #333333;
+                border-radius: 3px;
+            }
+            QCheckBox::indicator:checked {
+                border: 2px solid #00ff00;
+                background-color: #00ff00;
+                border-radius: 3px;
+            }
+            QCheckBox:hover {
+                color: #4CAF50;
+            }
+        """
+        self.icmp_spoof_cb.setStyleSheet(checkbox_style)
+        self.dns_spoof_cb.setStyleSheet(checkbox_style)
+        self.ps5_packets_cb.setStyleSheet(checkbox_style)
+        self.response_spoof_cb.setStyleSheet(checkbox_style)
+        self.arp_poison_cb.setStyleSheet(checkbox_style)
+        self.udp_interrupt_cb.setStyleSheet(checkbox_style)
+        
+        # Set default selections for effective DayZ duping
+        self.arp_poison_cb.setChecked(True)  # Most effective for duping
+        self.icmp_spoof_cb.setChecked(True)  # ICMP spoofing
+        self.ps5_packets_cb.setChecked(True)  # PS5 specific packets
+        
+        # Arrange checkboxes in 2 rows for better visibility
+        disconnect_methods_layout.addWidget(self.icmp_spoof_cb, 1, 0)
+        disconnect_methods_layout.addWidget(self.dns_spoof_cb, 1, 1)
+        disconnect_methods_layout.addWidget(self.ps5_packets_cb, 1, 2)
+        disconnect_methods_layout.addWidget(self.response_spoof_cb, 2, 0)
+        disconnect_methods_layout.addWidget(self.arp_poison_cb, 2, 1)
+        disconnect_methods_layout.addWidget(self.udp_interrupt_cb, 2, 2)
+        
+        layout.addWidget(disconnect_methods_frame, 4, 0, 1, 4)
+        
         return panel
     
     def setup_device_table(self):
@@ -379,6 +497,7 @@ class EnhancedDeviceList(QWidget):
         # Set up table properties
         self.device_table.setAlternatingRowColors(True)
         self.device_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.device_table.setSelectionMode(QTableWidget.SelectionMode.MultiSelection)  # Allow multiple selection
         self.device_table.setSortingEnabled(True)
         self.device_table.setWordWrap(True)  # Enable word wrapping
         self.device_table.setShowGrid(True)
@@ -467,7 +586,8 @@ class EnhancedDeviceList(QWidget):
     
     def connect_signals(self):
         """Connect scanner signals to UI updates"""
-        self.scanner.device_found.connect(self.add_device_to_table)
+        # Don't connect device_found to avoid conflicts with scan_complete
+        # self.scanner.device_found.connect(self.add_device_to_table)
         self.scanner.scan_progress.connect(self.update_progress)
         self.scanner.scan_complete.connect(self.on_scan_complete)
         self.scanner.scan_error.connect(self.on_scan_error)
@@ -510,55 +630,61 @@ class EnhancedDeviceList(QWidget):
         except Exception as e:
             log_error(f"Error stopping scan: {e}")
     
-    def add_device_to_table(self, device: Dict):
-        """Add a device to the table"""
+    def on_scan_complete(self, devices: List[Dict]):
+        """Handle scan completion - OPTIMIZED FOR SPEED"""
         try:
+            log_info(f"Scan completed with {len(devices)} devices")
+            
+            # Clear existing devices
+            self.device_table.setRowCount(0)
+            self.devices = []
+            
+            # Add all devices to the table immediately
+            for device in devices:
+                self.add_device_to_table(device)
+                self.devices.append(device)
+            
+            # Update status
+            self.update_status(f"✅ Scan completed: {len(devices)} devices found")
+            
+            # Update progress bar
+            self.progress_bar.setVisible(False)
+            
+            # Update scan button state
+            self.scan_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            
+            # Emit scan finished signal
+            self.scan_finished.emit(devices)
+            
+            log_info(f"Device list updated with {len(devices)} devices")
+            
+        except Exception as e:
+            log_error(f"Error handling scan completion: {e}")
+            self.update_status(f"❌ Error completing scan: {e}")
+    
+    def add_device_to_table(self, device: Dict):
+        """Add device to table - OPTIMIZED FOR SPEED"""
+        try:
+            # Get current row count
             row = self.device_table.rowCount()
             self.device_table.insertRow(row)
             
-            # Get interface information
-            interface_info = device.get('interface', {})
-            interface_display = f"{interface_info.get('name', 'Unknown')} ({interface_info.get('type', 'Unknown')})"
+            # Add device data to table
+            self.device_table.setItem(row, 0, QTableWidgetItem(device.get('ip', 'Unknown')))
+            self.device_table.setItem(row, 1, QTableWidgetItem(device.get('mac', 'Unknown')))
+            self.device_table.setItem(row, 2, QTableWidgetItem(device.get('hostname', 'Unknown')))
+            self.device_table.setItem(row, 3, QTableWidgetItem(device.get('vendor', 'Unknown')))
+            self.device_table.setItem(row, 4, QTableWidgetItem(device.get('device_type', 'Unknown')))
+            self.device_table.setItem(row, 5, QTableWidgetItem('Online'))
+            self.device_table.setItem(row, 6, QTableWidgetItem('No'))
+            self.device_table.setItem(row, 7, QTableWidgetItem('Online'))
             
-            # Create table items
-            items = [
-                QTableWidgetItem(device.get('ip', '')),
-                QTableWidgetItem(device.get('mac', '')),
-                QTableWidgetItem(device.get('hostname', '')),
-                QTableWidgetItem(device.get('vendor', '')),
-                QTableWidgetItem(device.get('device_type', '')),
-                QTableWidgetItem(interface_display),
-                QTableWidgetItem(', '.join(map(str, device.get('open_ports', [])))),
-                QTableWidgetItem(device.get('status', 'Online'))
-            ]
-            
-            # Set items in table
-            for col, item in enumerate(items):
-                self.device_table.setItem(row, col, item)
-                
-                # Make IP column clickable and show it's interactive
-                if col == 0:  # IP Address column
-                    item.setToolTip("Double-click to toggle blocking")
-                    # Add a subtle visual indicator that it's clickable
-                    font = item.font()
-                    font.setBold(True)
-                    item.setFont(font)
-            
-            # Color code based on device type and risk
+            # Color code the device
             self.color_code_device(row, device)
             
-            # Update status column color based on blocked status
-            is_blocked = device.get('blocked', False)
-            status_item = self.device_table.item(row, 7) # Changed from 8 to 7
-            if is_blocked:
-                status_item.setBackground(QColor(255, 100, 100))  # Red for blocked
-                status_item.setForeground(QColor(255, 255, 255))  # White text
-            else:
-                status_item.setBackground(QColor(100, 255, 100))  # Green for online
-                status_item.setForeground(QColor(0, 0, 0))  # Black text
-            
-            # Store device data
-            self.devices.append(device)
+            # Update status immediately
+            self.update_status(f"Found device: {device.get('ip', 'Unknown')}")
             
         except Exception as e:
             log_error(f"Error adding device to table: {e}")
@@ -602,25 +728,6 @@ class EnhancedDeviceList(QWidget):
                 self.progress_bar.setValue(progress)
         except Exception as e:
             log_error(f"Error updating progress: {e}")
-    
-    def on_scan_complete(self, devices: List[Dict]):
-        """Handle scan completion"""
-        try:
-            # Update UI state
-            self.scan_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-            self.progress_bar.setVisible(False)
-            
-            # Update status
-            self.update_status(f"Scan complete! Found {len(devices)} devices")
-            
-            # Emit signal
-            self.scan_finished.emit(devices)
-            
-            log_info(f"Enhanced scan completed with {len(devices)} devices")
-            
-        except Exception as e:
-            log_error(f"Error handling scan completion: {e}")
     
     def on_scan_error(self, error_msg: str):
         """Handle scan errors"""
@@ -859,7 +966,7 @@ class EnhancedDeviceList(QWidget):
             if platform.system().lower() == "windows":
                 if block:
                     # Add firewall rule to block IP
-                    rule_name = f"PulseDrop_Block_{ip.replace('.', '_')}"
+                    rule_name = f"DupeZ_Block_{ip.replace('.', '_')}"
                     cmd = [
                         "netsh", "advfirewall", "firewall", "add", "rule",
                         f"name={rule_name}",
@@ -870,7 +977,7 @@ class EnhancedDeviceList(QWidget):
                     ]
                 else:
                     # Remove firewall rule
-                    rule_name = f"PulseDrop_Block_{ip.replace('.', '_')}"
+                    rule_name = f"DupeZ_Block_{ip.replace('.', '_')}"
                     cmd = [
                         "netsh", "advfirewall", "firewall", "delete", "rule",
                         f"name={rule_name}"
@@ -1201,67 +1308,132 @@ class EnhancedDeviceList(QWidget):
         except:
             return False
     
-    def toggle_internet_drop(self):
-        """Toggle internet drop functionality"""
-        try:
-            from app.firewall.internet_dropper import internet_dropper
+    def get_methods_description(self, methods: List[str]) -> str:
+        """Get user-friendly description of selected methods"""
+        method_descriptions = {
+            "icmp_spoof": "ICMP Spoof",
+            "dns_spoof": "DNS Spoof", 
+            "ps5_packets": "PS5 Packets",
+            "response_spoof": "Response Spoof",
+            "arp_poison": "ARP Poison",
+            "udp_interrupt": "UDP Interrupt"
+        }
+        
+        descriptions = [method_descriptions.get(method, method.replace("_", " ").title()) for method in methods]
+        return ", ".join(descriptions)
+    
+    def get_selected_disconnect_methods(self) -> List[str]:
+        """Get the selected disconnect methods for DayZ duping"""
+        selected_methods = []
+        
+        if self.icmp_spoof_cb.isChecked():
+            selected_methods.append("icmp_spoof")
+        if self.dns_spoof_cb.isChecked():
+            selected_methods.append("dns_spoof")
+        if self.ps5_packets_cb.isChecked():
+            selected_methods.append("ps5_packets")
+        if self.response_spoof_cb.isChecked():
+            selected_methods.append("response_spoof")
+        if self.arp_poison_cb.isChecked():
+            selected_methods.append("arp_poison")
+        if self.udp_interrupt_cb.isChecked():
+            selected_methods.append("udp_interrupt")
             
-            if internet_dropper.is_internet_dropped():
-                # Restore internet
-                success = internet_dropper.restore_internet()
+        return selected_methods
+    
+    def toggle_internet_drop(self):
+        """Toggle internet drop/dupe functionality with selected methods"""
+        try:
+            from app.firewall.dupe_internet_dropper import dupe_internet_dropper
+            
+            # Get selected methods
+            selected_methods = self.get_selected_disconnect_methods()
+            
+            if not selected_methods:
+                self.update_status("❌ Please select at least one disconnect method")
+                return
+            
+            # Get selected devices from the table
+            selected_devices = self.get_selected_devices()
+            
+            if not selected_devices:
+                self.update_status("❌ Please select at least one device to disconnect")
+                return
+            
+            if not dupe_internet_dropper.is_dupe_active():
+                # Start dupe with selected methods and devices
+                success = dupe_internet_dropper.start_dupe_with_devices(selected_devices, selected_methods)
                 if success:
-                    self.internet_drop_button.setText("🌐 Drop Internet")
+                    self.internet_drop_button.setText("🔌 Reconnect")
                     self.internet_drop_button.setStyleSheet("""
                         QPushButton {
-                            background-color: #ff4444;
+                            background-color: #4caf50;
                             color: white;
-                            border: 2px solid #cc0000;
-                            border-radius: 6px;
+                            border: 2px solid #388e3c;
+                            border-radius: 4px;
                             padding: 8px 16px;
                             font-weight: bold;
+                            font-size: 12px;
+                            min-height: 30px;
                         }
                         QPushButton:hover {
-                            background-color: #ff6666;
-                            border-color: #ff0000;
+                            background-color: #66bb6a;
+                            border-color: #4caf50;
                         }
                         QPushButton:pressed {
-                            background-color: #cc0000;
-                            border-color: #990000;
+                            background-color: #388e3c;
+                        }
+                        QPushButton:disabled {
+                            background-color: #666666;
+                            border-color: #444444;
+                            color: #cccccc;
                         }
                     """)
-                    self.update_status("✅ Internet restored successfully")
+                    methods_text = self.get_methods_description(selected_methods)
+                    device_count = len(selected_devices)
+                    self.update_status(f"🔌 Disconnect active on {device_count} device(s) - Using: {methods_text}")
+                    log_info(f"DayZ disconnect mode activated on {device_count} devices with methods: {selected_methods}")
                 else:
-                    self.update_status("❌ Failed to restore internet")
+                    self.update_status("❌ Failed to start disconnect mode")
+                    log_error("Failed to start DayZ disconnect mode")
             else:
-                # Drop internet
-                success = internet_dropper.drop_internet()
+                # Stop dupe
+                success = dupe_internet_dropper.stop_dupe()
                 if success:
-                    self.internet_drop_button.setText("🌐 Restore Internet")
+                    self.internet_drop_button.setText("🔌 Disconnect")
                     self.internet_drop_button.setStyleSheet("""
                         QPushButton {
-                            background-color: #44ff44;
+                            background-color: #d32f2f;
                             color: white;
-                            border: 2px solid #00cc00;
-                            border-radius: 6px;
+                            border: 2px solid #b71c1c;
+                            border-radius: 4px;
                             padding: 8px 16px;
                             font-weight: bold;
+                            font-size: 12px;
+                            min-height: 30px;
                         }
                         QPushButton:hover {
-                            background-color: #66ff66;
-                            border-color: #00ff00;
+                            background-color: #f44336;
+                            border-color: #d32f2f;
                         }
                         QPushButton:pressed {
-                            background-color: #00cc00;
-                            border-color: #009900;
+                            background-color: #b71c1c;
+                        }
+                        QPushButton:disabled {
+                            background-color: #666666;
+                            border-color: #444444;
+                            color: #cccccc;
                         }
                     """)
-                    self.update_status("🛑 Internet dropped successfully")
+                    self.update_status("✅ Disconnect mode stopped - normal connection restored")
+                    log_info("DayZ disconnect mode deactivated")
                 else:
-                    self.update_status("❌ Failed to drop internet")
+                    self.update_status("❌ Failed to stop disconnect mode")
+                    log_error("Failed to stop DayZ disconnect mode")
                     
         except Exception as e:
-            log_error(f"Error toggling internet drop: {e}")
-            self.update_status(f"Error toggling internet drop: {e}")
+            log_error(f"Error toggling disconnect mode: {e}")
+            self.update_status(f"❌ Error: {e}")
     
     def unblock_all_devices(self):
         """Unblock all devices in the list"""
@@ -1343,23 +1515,29 @@ class EnhancedDeviceList(QWidget):
             self.update_status(f"Error clearing blocks: {e}")
     
     def get_selected_devices(self) -> List[Dict]:
-        """Get list of selected devices"""
+        """Get selected devices from the table"""
+        selected_devices = []
+        
         try:
-            selected_devices = []
+            # Get selected rows
             selected_rows = set()
-            
             for item in self.device_table.selectedItems():
                 selected_rows.add(item.row())
             
+            # Get device data for selected rows
             for row in selected_rows:
                 if row < len(self.devices):
-                    selected_devices.append(self.devices[row])
+                    device = self.devices[row].copy()
+                    selected_devices.append(device)
             
-            return selected_devices
-            
+            # If no devices selected, use all devices
+            if not selected_devices and self.devices:
+                selected_devices = self.devices.copy()
+                
         except Exception as e:
             log_error(f"Error getting selected devices: {e}")
-            return []
+            
+        return selected_devices
     
     def get_device_count(self) -> int:
         """Get total number of devices"""
@@ -1448,6 +1626,116 @@ class EnhancedDeviceList(QWidget):
                 border-color: #4CAF50;
             }
         """)
+    
+    def search_for_device(self, search_term: str, search_field: str = "All Fields") -> List[Dict]:
+        """Search for devices by various criteria"""
+        try:
+            if not self.devices:
+                log_info("No devices to search")
+                return []
+            
+            search_term = search_term.lower().strip()
+            results = []
+            
+            for device in self.devices:
+                match_found = False
+                
+                if search_field == "All Fields":
+                    # Search in all fields
+                    for field in ['ip', 'hostname', 'vendor', 'mac', 'device_type']:
+                        if search_term in str(device.get(field, '')).lower():
+                            match_found = True
+                            break
+                else:
+                    # Search in specific field
+                    field_map = {
+                        "IP Address": "ip",
+                        "Hostname": "hostname", 
+                        "Vendor": "vendor",
+                        "MAC Address": "mac"
+                    }
+                    
+                    field_name = field_map.get(search_field, "ip")
+                    if search_term in str(device.get(field_name, '')).lower():
+                        match_found = True
+                
+                if match_found:
+                    results.append(device)
+            
+            log_info(f"Search for '{search_term}' in '{search_field}' found {len(results)} devices")
+            return results
+            
+        except Exception as e:
+            log_error(f"Error searching for devices: {e}")
+            return []
+    
+    def filter_devices_by_search(self, search_term: str):
+        """Filter the device table by search term"""
+        try:
+            if not search_term.strip():
+                # Show all devices if search is empty
+                for row in range(self.device_table.rowCount()):
+                    self.device_table.setRowHidden(row, False)
+                return
+            
+            search_term = search_term.lower().strip()
+            
+            for row in range(self.device_table.rowCount()):
+                if row >= len(self.devices):
+                    continue
+                    
+                device = self.devices[row]
+                match_found = False
+                
+                # Search in all device fields
+                for field in ['ip', 'hostname', 'vendor', 'mac', 'device_type']:
+                    if search_term in str(device.get(field, '')).lower():
+                        match_found = True
+                        break
+                
+                # Show/hide row based on match
+                self.device_table.setRowHidden(row, not match_found)
+            
+            log_info(f"Filtered devices by search term: '{search_term}'")
+            
+        except Exception as e:
+            log_error(f"Error filtering devices: {e}")
+    
+    def add_search_input(self):
+        """Add search input field to the control panel"""
+        try:
+            # Create search input
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("🔍 Search devices...")
+            self.search_input.setStyleSheet("""
+                QLineEdit {
+                    background-color: #3d3d3d;
+                    color: #ffffff;
+                    border: 2px solid #404040;
+                    border-radius: 4px;
+                    padding: 5px;
+                    min-height: 25px;
+                    font-size: 10px;
+                }
+                QLineEdit:focus {
+                    border-color: #4CAF50;
+                }
+            """)
+            
+            # Connect search input to filter function
+            self.search_input.textChanged.connect(self.filter_devices_by_search)
+            
+            # Add search input to control panel
+            search_layout = QHBoxLayout()
+            search_layout.addWidget(QLabel("Search:"))
+            search_layout.addWidget(self.search_input)
+            
+            # Add to the control panel layout
+            if hasattr(self, 'control_panel'):
+                self.control_panel.layout().addLayout(search_layout)
+            
+        except Exception as e:
+            log_error(f"Error adding search input: {e}")
     
     def cleanup(self):
         """Clean up resources"""

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-PulseDropPro Project Setup Tool
-Sets up the development environment and project structure
+DupeZ Project Setup Tool
+Creates the basic project structure and files
 """
 
 import os
@@ -61,7 +61,7 @@ def move_scattered_files():
         
         # Development tools
         ('cleanup_lock.py', 'scripts/maintenance/'),
-        ('cleanup_pulsedrop_lock.py', 'scripts/maintenance/'),
+        ('cleanup_dupez_lock.py', 'scripts/maintenance/'),
     ]
     
     for source, destination in file_moves:
@@ -96,7 +96,7 @@ def create_init_files():
         init_file = os.path.join(directory, '__init__.py')
         if not os.path.exists(init_file):
             with open(init_file, 'w') as f:
-                f.write('"""PulseDropPro {} module"""\n'.format(directory.replace('/', '.')))
+                f.write('"""DupeZ {} module"""\n'.format(directory.replace('/', '.')))
             print(f"✓ Created {init_file}")
 
 def install_dependencies():
@@ -210,10 +210,10 @@ def create_development_scripts():
     """Create development and testing scripts"""
     
     # Create test runner script
-    test_runner = """#!/usr/bin/env python3
-\"\"\"
-Quick test runner for PulseDropPro
-\"\"\"
+    test_runner = '''#!/usr/bin/env python3
+"""
+Quick test runner for DupeZ
+"""
 
 import sys
 import os
@@ -223,24 +223,24 @@ from run_all_tests import main
 
 if __name__ == '__main__':
     main()
-"""
+'''
     
     with open('run_tests.py', 'w') as f:
         f.write(test_runner)
     print("✓ Created run_tests.py")
     
     # Create development setup script
-    dev_setup = """#!/usr/bin/env python3
-\"\"\"
+    dev_setup = '''#!/usr/bin/env python3
+"""
 Development environment setup
-\"\"\"
+"""
 
 import subprocess
 import sys
 
 def setup_dev_environment():
-    \"\"\"Set up development environment\"\"\"
-    print("Setting up PulseDropPro development environment...")
+    """Set up development environment"""
+    print("Setting up DupeZ development environment...")
     
     # Install development dependencies
     subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements-test.txt'])
@@ -252,7 +252,7 @@ def setup_dev_environment():
 
 if __name__ == '__main__':
     setup_dev_environment()
-"""
+'''
     
     with open('setup_dev.py', 'w') as f:
         f.write(dev_setup)
@@ -260,7 +260,7 @@ if __name__ == '__main__':
 
 def main():
     """Main setup function"""
-    print("PulseDropPro Project Setup")
+    print("DupeZ Project Setup")
     print("="*40)
     
     # Create directory structure

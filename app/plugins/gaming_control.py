@@ -4,7 +4,7 @@
 Plugin: gaming_control
 Category: Gaming
 Description: Advanced gaming device control and management
-Author: PulseDrop Team
+Author: DupeZ Team
 Version: 1.0.0
 """
 

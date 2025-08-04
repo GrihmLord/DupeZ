@@ -10,11 +10,12 @@ from app.gui.graph import PacketGraph
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.topology_view import NetworkTopologyView
 from app.gui.network_manipulator_gui import NetworkManipulatorGUI
+from app.gui.dayz_udp_gui import DayZUDPGUI
 
 from app.logs.logger import log_info, log_error
 import threading
 
-class PulseDropDashboard(QMainWindow):
+class DupeZDashboard(QMainWindow):
     """Main application dashboard with enhanced functionality"""
     
     def __init__(self, controller=None):
@@ -30,7 +31,7 @@ class PulseDropDashboard(QMainWindow):
     
     def setup_ui(self):
         """Setup the main user interface with responsive design"""
-        self.setWindowTitle("PulseDrop Pro - Advanced LagSwitch Tool")
+        self.setWindowTitle("DupeZ - Advanced LagSwitch Tool")
         self.setWindowIcon(QIcon("app/assets/icon.ico"))
         
         # Make window responsive to screen size
@@ -98,8 +99,12 @@ class PulseDropDashboard(QMainWindow):
         
         # Network Manipulator tab
         self.network_manipulator = NetworkManipulatorGUI(controller=self.controller)
-        self.network_manipulator.setObjectName("network_manipulator_panel")
-        self.content_tabs.addTab(self.network_manipulator, "🌐 Network Manipulator")
+        self.content_tabs.addTab(self.network_manipulator, "🎛️ Network Manipulator")
+        
+        # DayZ UDP Interruption tab
+        self.dayz_udp_gui = DayZUDPGUI()
+        self.dayz_udp_gui.setObjectName("dayz_udp_panel")
+        self.content_tabs.addTab(self.dayz_udp_gui, "🎮 DayZ UDP Control")
         
         layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)
@@ -430,6 +435,10 @@ class PulseDropDashboard(QMainWindow):
         log_info(f"Enhanced scan completed with {len(devices)} devices")
         self.status_bar.showMessage(f"Enhanced scan complete! Found {len(devices)} devices")
         
+        # Notify controller of scan completion
+        if self.controller:
+            self.controller._on_scan_complete(devices)
+        
         # Update device count in status bar
         self.update_status_bar()
         
@@ -505,6 +514,7 @@ class PulseDropDashboard(QMainWindow):
                 
                 current_settings = self.controller.state.settings
                 dialog = SettingsDialog(current_settings, self)
+                dialog.controller = self.controller  # Pass controller to dialog
                 dialog.settings_changed.connect(self.on_settings_changed)
                 
                 if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -592,7 +602,7 @@ class PulseDropDashboard(QMainWindow):
         from PyQt6.QtWidgets import QMessageBox
         
         about_text = """
-        <h3>⚡ PULSEDROP PRO ⚡</h3>
+        <h3>⚡ DUPEZ ⚡</h3>
         <p><b>Advanced LagSwitch Tool</b></p>
         <p>Version: 2.0.0 - Hacker Edition</p>
         <p>A powerful network lag control and device management tool.</p>
@@ -618,7 +628,7 @@ class PulseDropDashboard(QMainWindow):
         <p><i>Advanced network control for power users</i></p>
         """
         
-        QMessageBox.about(self, "About PulseDrop Pro", about_text)
+        QMessageBox.about(self, "About DUPEZ", about_text)
     
     def closeEvent(self, event):
         """Handle application close event with improved performance"""
@@ -735,12 +745,12 @@ class PulseDropDashboard(QMainWindow):
         try:
             from PyQt6.QtWidgets import QFileDialog
             filename, _ = QFileDialog.getSaveFileName(
-                self, "Export Data", "pulsedrop_data.txt", "Text Files (*.txt)"
+                self, "Export Data", "dupez_data.txt", "Text Files (*.txt)"
             )
             if filename and self.controller:
                 devices = self.controller.get_devices()
                 with open(filename, 'w') as f:
-                    f.write("PulseDrop Pro - Device Export\n")
+                    f.write("DUPEZ - Device Export\n")
                     f.write("=" * 40 + "\n\n")
                     for device in devices:
                         f.write(f"IP: {device.ip}\n")
@@ -905,7 +915,7 @@ class PulseDropDashboard(QMainWindow):
         try:
             from PyQt6.QtWidgets import QMessageBox
             hotkeys_text = """
-            <h3>PulseDrop Pro - Advanced LagSwitch Tool - Hotkeys</h3>
+            <h3>DUPEZ - Advanced LagSwitch Tool - Hotkeys</h3>
             <p><b>File Operations:</b></p>
             <ul>
                 <li>Ctrl+S - Scan Network</li>

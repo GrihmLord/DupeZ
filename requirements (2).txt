@@ -1,0 +1,6 @@
+PyQt6>=6.4.0
+pywin32>=305
+psutil>=5.9.0
+keyboard>=0.13.5
+scapy>=2.5.0
+pyinstaller>=5.13.0

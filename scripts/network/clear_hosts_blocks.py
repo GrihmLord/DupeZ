@@ -45,7 +45,7 @@ def clear_hosts_file():
             f.write(clean_content)
         
         print("✅ Hosts file cleared successfully")
-        print("✅ All PulseDrop blocks removed from hosts file")
+        print("✅ All DupeZ blocks removed from hosts file")
         
     except PermissionError:
         print("❌ Permission denied - run as administrator")

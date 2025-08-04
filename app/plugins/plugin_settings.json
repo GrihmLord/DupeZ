@@ -2,5 +2,9 @@
   "gaming_control": {
     "enabled": true,
     "settings": {}
+  },
+  "gaming_control (2)": {
+    "enabled": true,
+    "settings": {}
   }
 }

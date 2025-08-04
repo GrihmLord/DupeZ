@@ -16,9 +16,9 @@ class Sidebar(QWidget):
     scan_requested = pyqtSignal()
     clear_data_requested = pyqtSignal()
     quick_scan_requested = pyqtSignal()
+    search_requested = pyqtSignal()
     mass_block_requested = pyqtSignal()
     mass_unblock_requested = pyqtSignal()
-    search_requested = pyqtSignal()
     
     def __init__(self, controller=None):
         super().__init__()
@@ -39,7 +39,7 @@ class Sidebar(QWidget):
         layout.setSpacing(8)  # Reduced spacing for more compact layout
         
         # Title with hacker styling
-        title_label = QLabel("⚡ PULSEDROP PRO ⚡")
+        title_label = QLabel("⚡ DUPEZ ⚡")
         title_label.setObjectName("title_label")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet("""
@@ -126,37 +126,6 @@ class Sidebar(QWidget):
         self.quick_scan_btn.clicked.connect(self.request_quick_scan)
         controls_layout.addWidget(self.quick_scan_btn)
         
-        # Mass block button with warning
-        self.mass_block_btn = QPushButton("🚫 MASS BLOCK")
-        self.mass_block_btn.setObjectName("block_btn")
-        self.mass_block_btn.setMaximumHeight(35)  # Compact height
-        self.mass_block_btn.clicked.connect(self.request_mass_block)
-        controls_layout.addWidget(self.mass_block_btn)
-        
-        # Warning label for permanent blocking
-        self.block_warning_label = QLabel("⚠️ WARNING: Permanent blocking may require manual restoration")
-        self.block_warning_label.setStyleSheet("""
-            QLabel {
-                color: #ff4444;
-                font-size: 9px;
-                font-weight: bold;
-                background-color: #1a1a1a;
-                border: 1px solid #ff4444;
-                padding: 2px;
-                border-radius: 3px;
-            }
-        """)
-        self.block_warning_label.setWordWrap(True)
-        self.block_warning_label.setMaximumHeight(40)
-        controls_layout.addWidget(self.block_warning_label)
-        
-        # Mass unblock button
-        self.mass_unblock_btn = QPushButton("✅ MASS UNBLOCK")
-        self.mass_unblock_btn.setObjectName("refresh_btn")
-        self.mass_unblock_btn.setMaximumHeight(35)  # Compact height
-        self.mass_unblock_btn.clicked.connect(self.request_mass_unblock)
-        controls_layout.addWidget(self.mass_unblock_btn)
-        
         # PS5 restoration button
         self.ps5_restore_btn = QPushButton("🎮 RESTORE PS5")
         self.ps5_restore_btn.setObjectName("block_btn")
@@ -173,13 +142,6 @@ class Sidebar(QWidget):
         """)
         self.ps5_restore_btn.clicked.connect(self.restore_ps5_internet)
         controls_layout.addWidget(self.ps5_restore_btn)
-        
-        # Search devices button
-        self.search_btn = QPushButton("🔍 SEARCH DEVICES")
-        self.search_btn.setObjectName("scan_btn")
-        self.search_btn.setMaximumHeight(35)  # Compact height
-        self.search_btn.clicked.connect(self.request_search)
-        controls_layout.addWidget(self.search_btn)
         
         # Clear data button
         self.clear_btn = QPushButton("🗑️ CLEAR DATA")
@@ -312,10 +274,6 @@ class Sidebar(QWidget):
                 self.device_count_label.setText("📱 <b>Devices:</b> 1 device")
             else:
                 self.device_count_label.setText(f"📱 <b>Devices:</b> {count} devices")
-            
-            # Update scan button text
-            if hasattr(self, 'scan_btn'):
-                self.scan_btn.setText(f"🔍 Scan ({count})")
                 
         except Exception as e:
             log_error(f"Error updating device count: {e}")
@@ -654,48 +612,6 @@ class Sidebar(QWidget):
             # Emit signal for backward compatibility
             self.quick_scan_requested.emit()
     
-    def request_mass_block(self):
-        """Request mass block of all non-local devices"""
-        if self.controller:
-            try:
-                devices = self.controller.get_devices()
-                blocked_count = 0
-                for device in devices:
-                    if not device.local and not device.blocked:
-                        self.controller.toggle_lag(device.ip)
-                        blocked_count += 1
-                log_info(f"Mass blocked {blocked_count} devices")
-            except Exception as e:
-                log_error(f"Error requesting mass block: {e}")
-        else:
-            # Emit signal for backward compatibility
-            self.mass_block_requested.emit()
-    
-    def request_mass_unblock(self):
-        """Request mass unblock of all devices"""
-        if self.controller:
-            try:
-                devices = self.controller.get_devices()
-                unblocked_count = 0
-                for device in devices:
-                    if device.blocked:
-                        self.controller.toggle_lag(device.ip)
-                        unblocked_count += 1
-                log_info(f"Mass unblocked {unblocked_count} devices")
-            except Exception as e:
-                log_error(f"Error requesting mass unblock: {e}")
-        else:
-            # Emit signal for backward compatibility
-            self.mass_unblock_requested.emit()
-    
-    def request_search(self):
-        """Request search operation"""
-        try:
-            self.search_requested.emit()
-            log_info("Search requested from sidebar")
-        except Exception as e:
-            log_error(f"Error requesting search: {e}")
-    
     def restore_ps5_internet(self):
         """Restore PS5 internet access"""
         try:
@@ -719,7 +635,7 @@ class Sidebar(QWidget):
                 try:
                     # Run the restoration script
                     result = subprocess.run(
-                        [sys.executable, "restore_ps5_internet.py"],
+                        [sys.executable, "scripts/network/restore_ps5_internet.py"],
                         capture_output=True,
                         text=True,
                         timeout=60

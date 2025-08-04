@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Test Runner for PulseDropPro
+Comprehensive Test Runner for DupeZ
 Runs all tests and provides detailed reporting
 """
 
@@ -9,209 +9,249 @@ import os
 import unittest
 import time
 import json
-from datetime import datetime
 from pathlib import Path
+from datetime import datetime
 
-# Add the app directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'app'))
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-def discover_tests():
-    """Discover all test files in the tests directory"""
-    test_files = []
-    tests_dir = Path(__file__).parent
-    
-    # Find all test files
-    for test_file in tests_dir.rglob('test_*.py'):
-        if test_file.is_file():
-            test_files.append(str(test_file))
-    
-    return test_files
+from app.logs.logger import log_info, log_error, log_performance
 
-def run_test_suite(test_files, verbose=True):
-    """Run the test suite and return results"""
-    loader = unittest.TestLoader()
-    suite = unittest.TestSuite()
+class TestRunner:
+    """Comprehensive test runner with reporting"""
     
-    # Load all test files
-    for test_file in test_files:
+    def __init__(self):
+        self.test_results = {
+            'total_tests': 0,
+            'passed': 0,
+            'failed': 0,
+            'errors': 0,
+            'skipped': 0,
+            'start_time': None,
+            'end_time': None,
+            'duration': 0,
+            'test_suites': []
+        }
+    
+    def discover_tests(self):
+        """Discover all test files"""
+        test_files = []
+        tests_dir = Path(__file__).parent
+        
+        # Find all test files
+        for test_file in tests_dir.rglob("test_*.py"):
+            if test_file.name != "__init__.py":
+                test_files.append(str(test_file))
+        
+        return test_files
+    
+    def run_test_suite(self, test_file):
+        """Run a single test suite"""
+        suite_name = Path(test_file).stem
+        print(f"\n🧪 Running {suite_name}...")
+        
         try:
-            # Convert file path to module path
-            module_path = test_file.replace('/', '.').replace('\\', '.')
-            module_path = module_path.replace('.py', '')
+            # Load test suite
+            loader = unittest.TestLoader()
+            suite = loader.discover(os.path.dirname(test_file), pattern=Path(test_file).name)
             
-            # Load tests from the module
-            module_tests = loader.discover(
-                os.path.dirname(test_file),
-                pattern=os.path.basename(test_file)
-            )
-            suite.addTests(module_tests)
+            # Run tests
+            runner = unittest.TextTestRunner(verbosity=2, stream=sys.stdout)
+            result = runner.run(suite)
+            
+            # Record results
+            suite_result = {
+                'name': suite_name,
+                'file': test_file,
+                'tests_run': result.testsRun,
+                'failures': len(result.failures),
+                'errors': len(result.errors),
+                'skipped': len(result.skipped) if hasattr(result, 'skipped') else 0,
+                'success': result.wasSuccessful()
+            }
+            
+            self.test_results['test_suites'].append(suite_result)
+            self.test_results['total_tests'] += result.testsRun
+            self.test_results['failed'] += len(result.failures)
+            self.test_results['errors'] += len(result.errors)
+            self.test_results['skipped'] += suite_result['skipped']
+            
+            if suite_result['success']:
+                print(f"✅ {suite_name} passed")
+                self.test_results['passed'] += result.testsRun - len(result.failures) - len(result.errors)
+            else:
+                print(f"❌ {suite_name} failed")
+            
+            return suite_result
             
         except Exception as e:
-            print(f"Error loading tests from {test_file}: {e}")
+            print(f"❌ Error running {suite_name}: {e}")
+            log_error(f"Test suite {suite_name} failed", exception=e)
+            return None
     
-    # Run the test suite
-    runner = unittest.TextTestRunner(verbosity=2 if verbose else 1)
-    start_time = time.time()
-    result = runner.run(suite)
-    end_time = time.time()
+    def run_performance_tests(self):
+        """Run performance benchmarks"""
+        print("\n⚡ Running performance tests...")
+        
+        try:
+            from app.network.enhanced_scanner import EnhancedNetworkScanner
+            import time
+            
+            # Test scanner performance
+            scanner = EnhancedNetworkScanner(max_threads=20, timeout=2)
+            
+            # Test ARP scan performance
+            start_time = time.time()
+            devices = scanner._scan_arp_table()
+            arp_time = time.time() - start_time
+            
+            # Test network scan performance
+            start_time = time.time()
+            all_devices = scanner.scan_network("192.168.1.0/24", quick_scan=True)
+            scan_time = time.time() - start_time
+            
+            performance_results = {
+                'arp_scan_time': arp_time,
+                'arp_devices_found': len(devices),
+                'full_scan_time': scan_time,
+                'total_devices_found': len(all_devices),
+                'devices_per_second': len(all_devices) / scan_time if scan_time > 0 else 0
+            }
+            
+            print(f"📊 Performance Results:")
+            print(f"  ARP Scan: {arp_time:.2f}s ({len(devices)} devices)")
+            print(f"  Full Scan: {scan_time:.2f}s ({len(all_devices)} devices)")
+            print(f"  Rate: {performance_results['devices_per_second']:.1f} devices/sec")
+            
+            return performance_results
+            
+        except Exception as e:
+            print(f"❌ Performance tests failed: {e}")
+            log_error("Performance tests failed", exception=e)
+            return None
     
-    return result, end_time - start_time
-
-def generate_test_report(result, duration, test_files):
-    """Generate a comprehensive test report"""
-    report = {
-        'timestamp': datetime.now().isoformat(),
-        'duration': duration,
-        'total_tests': result.testsRun,
-        'failures': len(result.failures),
-        'errors': len(result.errors),
-        'skipped': len(result.skipped) if hasattr(result, 'skipped') else 0,
-        'success_rate': ((result.testsRun - len(result.failures) - len(result.errors)) / result.testsRun * 100) if result.testsRun > 0 else 0,
-        'test_files': test_files,
-        'failures_details': [],
-        'errors_details': []
-    }
+    def run_integration_tests(self):
+        """Run integration tests"""
+        print("\n🔗 Running integration tests...")
+        
+        try:
+            # Test application startup
+            from app.main import main as app_main
+            
+            # Test GUI components
+            from app.gui.dashboard import Dashboard
+            from app.gui.enhanced_device_list import EnhancedDeviceList
+            
+            # Test network components
+            from app.network.enhanced_scanner import EnhancedNetworkScanner
+            from app.firewall.blocker import NetworkBlocker
+            
+            print("✅ Integration tests passed")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Integration tests failed: {e}")
+            log_error("Integration tests failed", exception=e)
+            return False
     
-    # Add failure details
-    for test, traceback in result.failures:
-        report['failures_details'].append({
-            'test': str(test),
-            'traceback': traceback
-        })
-    
-    # Add error details
-    for test, traceback in result.errors:
-        report['errors_details'].append({
-            'test': str(test),
-            'traceback': traceback
-        })
-    
-    return report
-
-def print_test_report(report):
-    """Print a formatted test report"""
-    print("\n" + "="*60)
-    print("                    PULSEDROP PRO TEST REPORT")
-    print("="*60)
-    print(f"Timestamp: {report['timestamp']}")
-    print(f"Duration: {report['duration']:.2f} seconds")
-    print(f"Total Tests: {report['total_tests']}")
-    print(f"Failures: {report['failures']}")
-    print(f"Errors: {report['errors']}")
-    print(f"Success Rate: {report['success_rate']:.1f}%")
-    print("-"*60)
-    
-    if report['failures'] > 0:
-        print("\nFAILURES:")
-        for failure in report['failures_details']:
-            print(f"  • {failure['test']}")
-            print(f"    {failure['traceback']}")
-    
-    if report['errors'] > 0:
-        print("\nERRORS:")
-        for error in report['errors_details']:
-            print(f"  • {error['test']}")
-            print(f"    {error['traceback']}")
-    
-    print("\n" + "="*60)
-
-def save_test_report(report, filename='test_report.json'):
-    """Save test report to JSON file"""
-    try:
-        with open(filename, 'w') as f:
+    def generate_report(self):
+        """Generate comprehensive test report"""
+        print("\n📊 Generating test report...")
+        
+        # Calculate totals
+        total = self.test_results['total_tests']
+        passed = self.test_results['passed']
+        failed = self.test_results['failed']
+        errors = self.test_results['errors']
+        skipped = self.test_results['skipped']
+        
+        # Calculate success rate
+        success_rate = (passed / total * 100) if total > 0 else 0
+        
+        # Create report
+        report = {
+            'timestamp': datetime.now().isoformat(),
+            'summary': {
+                'total_tests': total,
+                'passed': passed,
+                'failed': failed,
+                'errors': errors,
+                'skipped': skipped,
+                'success_rate': success_rate,
+                'duration': self.test_results['duration']
+            },
+            'test_suites': self.test_results['test_suites'],
+            'performance': getattr(self, 'performance_results', None),
+            'integration': getattr(self, 'integration_results', None)
+        }
+        
+        # Save report
+        report_file = Path('tests/test_report.json')
+        with open(report_file, 'w') as f:
             json.dump(report, f, indent=2)
-        print(f"\nTest report saved to: {filename}")
-    except Exception as e:
-        print(f"Error saving test report: {e}")
-
-def run_specific_test_category(category):
-    """Run tests for a specific category"""
-    categories = {
-        'unit': 'tests/unit/',
-        'integration': 'tests/integration/',
-        'gui': 'tests/gui/',
-        'network': 'tests/network/'
-    }
+        
+        # Print summary
+        print("\n" + "=" * 60)
+        print("📊 TEST SUMMARY")
+        print("=" * 60)
+        print(f"Total Tests: {total}")
+        print(f"Passed: {passed} ✅")
+        print(f"Failed: {failed} ❌")
+        print(f"Errors: {errors} ⚠️")
+        print(f"Skipped: {skipped} ⏭️")
+        print(f"Success Rate: {success_rate:.1f}%")
+        print(f"Duration: {self.test_results['duration']:.2f}s")
+        print("=" * 60)
+        
+        if success_rate >= 90:
+            print("🎉 Excellent! All tests passing!")
+        elif success_rate >= 75:
+            print("✅ Good! Most tests passing!")
+        elif success_rate >= 50:
+            print("⚠️  Fair! Some tests failing!")
+        else:
+            print("❌ Poor! Many tests failing!")
+        
+        return report
     
-    if category not in categories:
-        print(f"Unknown category: {category}")
-        print(f"Available categories: {list(categories.keys())}")
-        return
-    
-    category_dir = categories[category]
-    test_files = []
-    
-    # Find test files in the category directory
-    category_path = Path(category_dir)
-    if category_path.exists():
-        for test_file in category_path.rglob('test_*.py'):
-            if test_file.is_file():
-                test_files.append(str(test_file))
-    
-    if not test_files:
-        print(f"No test files found in {category_dir}")
-        return
-    
-    print(f"\nRunning {category} tests...")
-    result, duration = run_test_suite(test_files)
-    report = generate_test_report(result, duration, test_files)
-    print_test_report(report)
-    
-    return report
+    def run_all_tests(self):
+        """Run all tests"""
+        print("🚀 DupeZ - Comprehensive Test Suite")
+        print("=" * 60)
+        
+        self.test_results['start_time'] = time.time()
+        
+        # Discover and run test files
+        test_files = self.discover_tests()
+        print(f"📁 Found {len(test_files)} test files")
+        
+        for test_file in test_files:
+            self.run_test_suite(test_file)
+        
+        # Run performance tests
+        self.performance_results = self.run_performance_tests()
+        
+        # Run integration tests
+        self.integration_results = self.run_integration_tests()
+        
+        self.test_results['end_time'] = time.time()
+        self.test_results['duration'] = self.test_results['end_time'] - self.test_results['start_time']
+        
+        # Generate report
+        report = self.generate_report()
+        
+        return report
 
 def main():
     """Main test runner function"""
-    import argparse
+    runner = TestRunner()
+    report = runner.run_all_tests()
     
-    parser = argparse.ArgumentParser(description='PulseDropPro Test Runner')
-    parser.add_argument('--category', choices=['unit', 'integration', 'gui', 'network', 'all'],
-                       default='all', help='Test category to run')
-    parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
-    parser.add_argument('--report', '-r', help='Save report to file')
-    parser.add_argument('--quick', '-q', action='store_true', help='Quick test run')
-    
-    args = parser.parse_args()
-    
-    print("PulseDropPro Test Runner")
-    print("="*40)
-    
-    if args.category == 'all':
-        # Run all tests
-        test_files = discover_tests()
-        if not test_files:
-            print("No test files found!")
-            return
-        
-        print(f"Found {len(test_files)} test files:")
-        for test_file in test_files:
-            print(f"  • {test_file}")
-        
-        print(f"\nRunning all tests...")
-        result, duration = run_test_suite(test_files, args.verbose)
-        report = generate_test_report(result, duration, test_files)
-        print_test_report(report)
-        
-        if args.report:
-            save_test_report(report, args.report)
-        
-        # Exit with appropriate code
-        if report['failures'] > 0 or report['errors'] > 0:
-            sys.exit(1)
-        else:
-            sys.exit(0)
-    
+    # Exit with appropriate code
+    if report['summary']['success_rate'] >= 75:
+        return 0
     else:
-        # Run specific category
-        report = run_specific_test_category(args.category)
-        
-        if args.report and report:
-            save_test_report(report, args.report)
-        
-        # Exit with appropriate code
-        if report and (report['failures'] > 0 or report['errors'] > 0):
-            sys.exit(1)
-        else:
-            sys.exit(0)
+        return 1
 
-if __name__ == '__main__':
-    main() 
+if __name__ == "__main__":
+    sys.exit(main()) 

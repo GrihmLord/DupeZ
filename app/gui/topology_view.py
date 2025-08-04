@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGraphicsView,
                               QFormLayout, QSpinBox, QCheckBox, QMenu,
                               QToolTip, QMessageBox, QFileDialog)
 from PyQt6.QtGui import QPen, QBrush, QColor, QFont, QPainter, QPainterPath, QRadialGradient, QAction, QPixmap
-from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QPropertyAnimation, QEasingCurve, QObject
 from typing import Dict, List, Optional, Tuple, Any
 import math
 import json
@@ -16,7 +16,7 @@ from datetime import datetime
 from app.logs.logger import log_info, log_error
 from app.core.state import Device
 
-class NetworkNode(QGraphicsEllipseItem):
+class NetworkNode(QGraphicsEllipseItem, QObject):
     """Network device node in the topology view"""
     
     # Signals
@@ -25,7 +25,8 @@ class NetworkNode(QGraphicsEllipseItem):
     device_unblocked = pyqtSignal(str) # Emit device IP when unblocked
     
     def __init__(self, device: Device, x: float, y: float, radius: float = 30):
-        super().__init__(x - radius, y - radius, radius * 2, radius * 2)
+        QGraphicsEllipseItem.__init__(self, x - radius, y - radius, radius * 2, radius * 2)
+        QObject.__init__(self)
         self.device = device
         self.radius = radius
         self.is_selected = False
@@ -252,20 +253,23 @@ Blocked: {blocked}
             log_error(f"Error getting device type for {self.device.ip}: {e}")
             return "Unknown"
 
-class NetworkConnection(QGraphicsLineItem):
-    """Connection line between network devices"""
+class NetworkConnection(QGraphicsLineItem, QObject):
+    """Connection between network nodes"""
     
     def __init__(self, source_node: NetworkNode, target_node: NetworkNode):
-        super().__init__()
+        QGraphicsLineItem.__init__(self)
+        QObject.__init__(self)
         self.source_node = source_node
         self.target_node = target_node
         self.traffic_flow = 0.0
-        self.connection_type = "normal"  # normal, blocked, suspicious
+        self.connection_type = "ethernet"  # ethernet, wifi, etc.
         
         # Add connection to nodes
         source_node.connections.append(self)
         target_node.connections.append(self)
         
+        # Set up appearance
+        self.setPen(QPen(QColor(100, 100, 100), 2))
         self.update_position()
         self.update_appearance()
     
@@ -674,12 +678,18 @@ class NetworkTopologyView(QWidget):
     
     def animate_node_movement(self, node: NetworkNode, target_x: float, target_y: float):
         """Animate node movement to target position"""
-        animation = QPropertyAnimation(node, b"pos")
-        animation.setDuration(500)
-        animation.setStartValue(node.pos())
-        animation.setEndValue(QPointF(target_x, target_y))
-        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        animation.start()
+        try:
+            # Create animation for smooth movement
+            animation = QPropertyAnimation(node, b"pos")
+            animation.setDuration(500)
+            animation.setStartValue(node.pos())
+            animation.setEndValue(QPointF(target_x, target_y))
+            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+            animation.start()
+        except Exception as e:
+            log_error(f"Error animating node movement: {e}")
+            # Fallback: move node directly without animation
+            node.setPos(target_x, target_y)
     
     def update_traffic_data(self, traffic_data: Dict[str, float]):
         """Update traffic data for devices"""

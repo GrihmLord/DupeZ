@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-GUI Automation Tests for PulseDropPro
-Comprehensive testing of all GUI components and user interactions
+GUI Automation Tests for DupeZ
 """
 
 import sys
@@ -16,7 +15,7 @@ from PyQt6.QtTest import QTest
 # Add the app directory to the path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'app'))
 
-from gui.dashboard import PulseDropDashboard
+from gui.dashboard import DupeZDashboard
 from gui.enhanced_device_list import EnhancedDeviceList
 from gui.settings_dialog import SettingsDialog
 from gui.sidebar import Sidebar
@@ -54,7 +53,7 @@ class TestGUIAutomation(unittest.TestCase):
     
     def test_dashboard_initialization(self):
         """Test dashboard initialization and basic UI elements"""
-        self.dashboard = PulseDropDashboard()
+        self.dashboard = DupeZDashboard()
         self.dashboard.set_controller(self.mock_controller)
         
         # Test that main window loads
@@ -114,7 +113,7 @@ class TestGUIAutomation(unittest.TestCase):
     
     def test_sidebar_navigation(self):
         """Test sidebar navigation functionality"""
-        self.dashboard = PulseDropDashboard()
+        self.dashboard = DupeZDashboard()
         self.dashboard.set_controller(self.mock_controller)
         
         # Test that sidebar has navigation buttons
@@ -198,7 +197,7 @@ class TestGUIAutomation(unittest.TestCase):
     
     def test_theme_switching(self):
         """Test theme switching functionality"""
-        self.dashboard = PulseDropDashboard()
+        self.dashboard = DupeZDashboard()
         self.dashboard.set_controller(self.mock_controller)
         
         # Test theme switching
@@ -272,7 +271,7 @@ class TestGUIAutomation(unittest.TestCase):
     
     def test_accessibility(self):
         """Test accessibility features"""
-        self.dashboard = PulseDropDashboard()
+        self.dashboard = DupeZDashboard()
         self.dashboard.set_controller(self.mock_controller)
         
         # Test keyboard navigation
@@ -287,7 +286,7 @@ class TestGUIAutomation(unittest.TestCase):
         """Test memory management and cleanup"""
         # Create and destroy multiple instances
         for i in range(10):
-            dashboard = PulseDropDashboard()
+            dashboard = DupeZDashboard()
             dashboard.set_controller(self.mock_controller)
             dashboard.close()
             dashboard.deleteLater()
@@ -312,7 +311,7 @@ class TestGUIIntegration(unittest.TestCase):
         controller = AppController()
         
         # Create dashboard with real controller
-        dashboard = PulseDropDashboard()
+        dashboard = DupeZDashboard()
         dashboard.set_controller(controller)
         
         # Test that controller and GUI are properly connected

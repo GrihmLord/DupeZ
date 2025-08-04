@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Run Script for PulseDrop Pro
+Comprehensive Run Script for DupeZ
 Consolidates all testing, cleanup, and execution into one organized sequence
 """
 
@@ -38,7 +38,7 @@ class RunStep:
     details: Optional[Dict] = None
 
 class ComprehensiveRunner:
-    """Comprehensive run script for PulseDrop Pro"""
+    """Comprehensive run script for DupeZ"""
     
     def __init__(self):
         self.steps: List[RunStep] = []
@@ -121,8 +121,8 @@ class ComprehensiveRunner:
         """Remove Windows Firewall rules for PS5"""
         try:
             rules_to_remove = [
-                "PulseDropEnterprise_Block_In_192.168.137.165",
-                "PulseDropEnterprise_Block_Out_192.168.137.165", 
+                "DupeZEnterprise_Block_In_192.168.137.165",
+                "DupeZEnterprise_Block_Out_192.168.137.165", 
                 "PulseDrop_Block_192_168_137_165"
             ]
             
@@ -361,7 +361,7 @@ class ComprehensiveRunner:
     def build_application(self) -> bool:
         """Build the application executable"""
         try:
-            print("🔨 Building PulseDrop Pro executable...")
+            print("🔨 Building DupeZ executable...")
             
             # Check if PyInstaller is available
             try:
@@ -374,7 +374,7 @@ class ComprehensiveRunner:
             result = subprocess.run([
                 sys.executable, "-m", "PyInstaller", 
                 "--onefile", "--windowed", "--uac-admin",
-                "--name=PulseDropPro", "run.py"
+                "--name=DupeZ", "run.py"
             ], capture_output=True, text=True, timeout=300)
             
             if result.returncode == 0:
@@ -391,10 +391,10 @@ class ComprehensiveRunner:
     def run_application(self) -> bool:
         """Run the main application"""
         try:
-            print("🚀 Starting PulseDrop Pro...")
+            print("🚀 Starting DupeZ...")
             
             # Check if executable exists
-            exe_path = os.path.join("dist", "PulseDropPro.exe")
+            exe_path = os.path.join("dist", "DupeZ.exe")
             if os.path.exists(exe_path):
                 print("✅ Found executable, running...")
                 subprocess.Popen([exe_path])
@@ -410,7 +410,7 @@ class ComprehensiveRunner:
     
     def run_comprehensive_sequence(self) -> Dict:
         """Run the complete comprehensive sequence"""
-        print("🚀 COMPREHENSIVE PULSEDROP PRO RUN SEQUENCE")
+        print("🚀 COMPREHENSIVE DupeZ RUN SEQUENCE")
         print("=" * 60)
         
         # Define run sequence (FAST VERSION)
@@ -482,7 +482,7 @@ def signal_handler(signum, frame):
 
 def main():
     """Main run execution"""
-    print("🎯 PulseDrop Pro - Comprehensive Run Sequence")
+    print("🎯 DupeZ - Comprehensive Run Sequence")
     print("Cleaning up run sequences and creating one comprehensive run...")
     
     # Set up signal handlers
@@ -495,7 +495,7 @@ def main():
     
     # Final status
     if summary["failed_steps"] == 0:
-        print("\n🎉 ALL STEPS COMPLETED! PulseDrop Pro is ready!")
+        print("\n🎉 ALL STEPS COMPLETED! DupeZ is ready!")
         return True
     else:
         print(f"\n⚠️ {summary['failed_steps']} step(s) failed. Please review failed steps above.")

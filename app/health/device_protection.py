@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Device Protection for PulseDrop Pro
+Device Protection for DupeZ
 Ensures devices aren't damaged during network interactions
 """
 

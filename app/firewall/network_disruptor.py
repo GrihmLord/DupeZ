@@ -476,19 +476,19 @@ class NetworkDisruptor:
                 # Enterprise Windows Firewall rules
                 rules = [
                     ["netsh", "advfirewall", "firewall", "add", "rule", 
-                     "name=PulseDropEnterprise_Block_Out_" + target_ip,
+                     "name=DupeZEnterprise_Block_Out_" + target_ip,
                      "dir=out", "action=block", f"remoteip={target_ip}"],
                     ["netsh", "advfirewall", "firewall", "add", "rule", 
-                     "name=PulseDropEnterprise_Block_In_" + target_ip,
+                     "name=DupeZEnterprise_Block_In_" + target_ip,
                      "dir=in", "action=block", f"remoteip={target_ip}"],
                     ["netsh", "advfirewall", "firewall", "add", "rule", 
-                     "name=PulseDropEnterprise_Block_ICMP_" + target_ip,
+                     "name=DupeZEnterprise_Block_ICMP_" + target_ip,
                      "protocol=icmpv4", "action=block", f"remoteip={target_ip}"],
                     ["netsh", "advfirewall", "firewall", "add", "rule", 
-                     "name=PulseDropEnterprise_Block_TCP_" + target_ip,
+                     "name=DupeZEnterprise_Block_TCP_" + target_ip,
                      "protocol=tcp", "action=block", f"remoteip={target_ip}"],
                     ["netsh", "advfirewall", "firewall", "add", "rule", 
-                     "name=PulseDropEnterprise_Block_UDP_" + target_ip,
+                     "name=DupeZEnterprise_Block_UDP_" + target_ip,
                      "protocol=udp", "action=block", f"remoteip={target_ip}"]
                 ]
                 
@@ -538,7 +538,7 @@ class NetworkDisruptor:
                 # Method 1: Modify hosts file to redirect to localhost
                 try:
                     hosts_file = r"C:\Windows\System32\drivers\etc\hosts"
-                    hosts_entry = f"\n{target_ip} 127.0.0.1 # PulseDropEnterprise Block\n"
+                    hosts_entry = f"\n{target_ip} 127.0.0.1 # DupeZEnterprise Block\n"
                     
                     with open(hosts_file, 'a') as f:
                         f.write(hosts_entry)
@@ -874,11 +874,11 @@ class NetworkDisruptor:
             if platform.system() == "Windows":
                 # Remove enterprise Windows Firewall rules
                 rule_names = [
-                    f"PulseDropEnterprise_Block_Out_{target_ip}",
-                    f"PulseDropEnterprise_Block_In_{target_ip}",
-                    f"PulseDropEnterprise_Block_ICMP_{target_ip}",
-                    f"PulseDropEnterprise_Block_TCP_{target_ip}",
-                    f"PulseDropEnterprise_Block_UDP_{target_ip}"
+                    f"DupeZEnterprise_Block_Out_{target_ip}",
+                    f"DupeZEnterprise_Block_In_{target_ip}",
+                    f"DupeZEnterprise_Block_ICMP_{target_ip}",
+                    f"DupeZEnterprise_Block_TCP_{target_ip}",
+                    f"DupeZEnterprise_Block_UDP_{target_ip}"
                 ]
                 
                 for rule_name in rule_names:
@@ -932,7 +932,7 @@ class NetworkDisruptor:
                         lines = f.readlines()
                     
                     # Filter out the entry for this IP
-                    filtered_lines = [line for line in lines if target_ip not in line or "PulseDropEnterprise Block" not in line]
+                    filtered_lines = [line for line in lines if target_ip not in line or "DupeZEnterprise Block" not in line]
                     
                     with open(hosts_file, 'w') as f:
                         f.writelines(filtered_lines)

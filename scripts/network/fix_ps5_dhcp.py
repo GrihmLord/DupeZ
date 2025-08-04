@@ -25,9 +25,9 @@ def clear_all_network_blocks():
     print("🧹 Clearing all network blocks...")
     
     try:
-        # Clear PulseDrop blocks
+        # Clear DupeZ blocks
         clear_all_blocks()
-        print("  ✅ PulseDrop blocks cleared")
+        print("  ✅ DupeZ blocks cleared")
         
         # Clear NetCut blocks
         netcut_blocker.clear_all_disruptions()
@@ -46,11 +46,11 @@ def clear_all_network_blocks():
         return False
 
 def remove_firewall_rules():
-    """Remove all PulseDrop firewall rules"""
+    """Remove all DupeZ firewall rules"""
     print("🔥 Removing firewall rules...")
     
     try:
-        # Get all PulseDrop rules
+        # Get all DupeZ rules
         result = subprocess.run([
             "netsh", "advfirewall", "firewall", "show", "rule", "name=all"
         ], capture_output=True, text=True, timeout=10)
@@ -60,11 +60,11 @@ def remove_firewall_rules():
             pulse_drop_rules = []
             
             for line in lines:
-                if "PulseDrop" in line and "Rule Name:" in line:
+                if "DupeZ" in line and "Rule Name:" in line:
                     rule_name = line.split("Rule Name:")[1].strip()
                     pulse_drop_rules.append(rule_name)
             
-            # Remove all PulseDrop rules
+            # Remove all DupeZ rules
             for rule in pulse_drop_rules:
                 try:
                     subprocess.run([

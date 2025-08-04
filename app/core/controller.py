@@ -7,7 +7,7 @@ import subprocess
 from typing import List, Dict, Optional
 from app.network import device_scan
 from app.firewall import blocker
-from app.logs.logger import log_info, log_error, log_performance, log_network_scan, log_device_action
+from app.logs.logger import log_info, log_error, log_performance, log_network_scan, log_blocking_event
 from app.core.state import AppState, Device, AppSettings
 from app.core.smart_mode import smart_mode, enable_smart_mode, disable_smart_mode, get_smart_mode_status
 from app.core.traffic_analyzer import AdvancedTrafficAnalyzer
@@ -148,6 +148,34 @@ class AppController:
         """Handle scan completion"""
         try:
             log_info(f"Scan completed with {len(devices)} devices")
+            
+            # Convert device dictionaries to Device objects and update state
+            from app.core.state import Device
+            device_objects = []
+            
+            for device_dict in devices:
+                try:
+                    device = Device(
+                        ip=device_dict.get('ip', ''),
+                        mac=device_dict.get('mac', ''),
+                        hostname=device_dict.get('hostname', ''),
+                        vendor=device_dict.get('vendor', ''),
+                        local=device_dict.get('local', False),
+                        traffic=device_dict.get('traffic', 0),
+                        last_seen=device_dict.get('last_seen', ''),
+                        blocked=device_dict.get('blocked', False)
+                    )
+                    device_objects.append(device)
+                except Exception as e:
+                    log_error(f"Error converting device {device_dict.get('ip', 'Unknown')}: {e}")
+                    continue
+            
+            # Update state with new devices
+            self.state.devices = device_objects
+            self.state.notify_observers("devices_updated", device_objects)
+            
+            log_info(f"Updated state with {len(device_objects)} devices")
+            
         except Exception as e:
             log_error(f"Error handling scan completion: {e}")
     
@@ -245,7 +273,7 @@ class AppController:
                         })
                     
                     duration = time.time() - start_time
-                    log_device_action("Toggle lag", ip, success)
+                    log_blocking_event("Toggle lag", ip, success)
                     log_performance("Toggle lag", duration)
                     
                     return device.blocked  # Return the new blocked state

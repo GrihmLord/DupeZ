@@ -137,7 +137,7 @@ class InternetDropper:
             # Create firewall rule to block all outbound traffic
             cmd = [
                 "netsh", "advfirewall", "firewall", "add", "rule",
-                "name=PulseDrop_Internet_Block_Outbound",
+                "name=DupeZ_Internet_Block_Outbound",
                 "dir=out",
                 "action=block",
                 "enable=yes"
@@ -161,7 +161,7 @@ class InternetDropper:
             for dns in dns_servers:
                 cmd = [
                     "netsh", "advfirewall", "firewall", "add", "rule",
-                    f"name=PulseDrop_DNS_Block_{dns}",
+                    f"name=DupeZ_DNS_Block_{dns}",
                     "dir=out",
                     "action=block",
                     f"remoteip={dns}",
@@ -182,7 +182,7 @@ class InternetDropper:
             for port in ports:
                 cmd = [
                     "netsh", "advfirewall", "firewall", "add", "rule",
-                    f"name=PulseDrop_Port_Block_{port}",
+                    f"name=DupeZ_Port_Block_{port}",
                     "dir=out",
                     "action=block",
                     f"remoteport={port}",
@@ -239,19 +239,19 @@ class InternetDropper:
             # Remove all PulseDrop internet blocking rules
             cmd = [
                 "netsh", "advfirewall", "firewall", "delete", "rule",
-                "name=PulseDrop_Internet_Block_*"
+                "name=DupeZ_Internet_Block_*"
             ]
             subprocess.run(cmd, capture_output=True)
             
             cmd = [
                 "netsh", "advfirewall", "firewall", "delete", "rule",
-                "name=PulseDrop_DNS_Block_*"
+                "name=DupeZ_DNS_Block_*"
             ]
             subprocess.run(cmd, capture_output=True)
             
             cmd = [
                 "netsh", "advfirewall", "firewall", "delete", "rule",
-                "name=PulseDrop_Port_Block_*"
+                "name=DupeZ_Port_Block_*"
             ]
             subprocess.run(cmd, capture_output=True)
             

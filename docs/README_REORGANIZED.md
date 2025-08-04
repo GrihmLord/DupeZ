@@ -1,4 +1,4 @@
-# PulseDropPro - Network Management & Security Tool
+# DupeZ - Network Management & Security Tool
 
 A comprehensive network management and security application with advanced device scanning, blocking capabilities, and PS5-specific network control features.
 
@@ -28,7 +28,7 @@ A comprehensive network management and security application with advanced device
 ## 📁 Project Structure
 
 ```
-PulseDropPro/
+DupeZ/
 ├── app/                          # Main application
 │   ├── core/                     # Core application logic
 │   ├── gui/                      # GUI components
@@ -54,212 +54,139 @@ PulseDropPro/
 │   ├── network/                  # Network functionality tests
 │   └── fixtures/                 # Test data and fixtures
 ├── docs/                         # Documentation
-│   ├── user_guides/              # User documentation
-│   ├── developer/                # Developer documentation
-│   └── api/                      # API documentation
-├── tools/                        # Development and deployment tools
-├── dist/                         # Distribution files
+│   ├── api/                      # API documentation
+│   ├── developer/                # Developer guides
+│   └── user_guides/              # User guides
+├── tools/                        # Development tools
 ├── build/                        # Build artifacts
-└── logs/                         # Application logs
+├── dist/                         # Distribution files
+├── requirements.txt              # Python dependencies
+├── run.py                       # Application launcher
+└── README.md                    # Project documentation
 ```
 
 ## 🛠️ Installation
 
 ### Prerequisites
-- Python 3.8 or higher
-- Windows 10/11 (for full functionality)
-- Administrator privileges (for network operations)
+- Windows 10/11
+- Python 3.8+
+- Administrator privileges (for firewall control)
 
-### Quick Setup
+### Quick Start
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd PulseDropPro
-
-# Install dependencies
+git clone https://github.com/yourusername/DupeZ.git
+cd DupeZ
 pip install -r requirements.txt
-
-# Run the application
 python run.py
 ```
 
-### Development Setup
+### Building Executable
 ```bash
-# Install development dependencies
-pip install -r requirements-test.txt
-
-# Set up development environment
-python tools/project_setup.py
-
-# Run tests
-python run_tests.py
+python -m PyInstaller DupeZ.spec
 ```
 
-## 🧪 Testing
+## 🎮 Usage
 
-### Test Categories
-- **Unit Tests**: Core functionality testing
-- **Integration Tests**: Component interaction testing
-- **GUI Tests**: User interface automation testing
-- **Network Tests**: Network functionality testing
+### Basic Operation
+1. **Launch Application**: Run `python run.py` from project root
+2. **Scan Network**: Click "Scan Network" or wait for auto-scan
+3. **Select Device**: Click on a device in the list to select it
+4. **Toggle Blocking**: Use "Block Selected" button or right-click menu
+5. **Smart Mode**: Enable intelligent automatic blocking based on traffic patterns
 
-### Running Tests
-```bash
-# Run all tests
-python run_tests.py
-
-# Run specific test categories
-python run_tests.py --category unit
-python run_tests.py --category gui
-python run_tests.py --category network
-
-# Run with verbose output
-python run_tests.py --verbose
-
-# Generate test report
-python run_tests.py --report test_results.json
-```
-
-### Test Coverage
-- Core application logic: 95%+
-- GUI components: 90%+
-- Network functionality: 85%+
-- Firewall operations: 80%+
+### Advanced Features
+- **Network Topology**: Visual network map with device relationships
+- **Traffic Analysis**: Real-time bandwidth monitoring and analysis
+- **Plugin System**: Extensible architecture for custom functionality
+- **Settings Management**: Persistent configuration and theme support
 
 ## 🔧 Configuration
 
-### Application Settings
-The application uses a comprehensive settings system stored in `app/config/settings.json`:
-
+### Settings File
+Configuration is stored in `app/config/settings.json`:
 ```json
 {
-  "smart_mode": true,
+  "smart_mode": false,
   "auto_scan": true,
   "scan_interval": 300,
-  "theme": "dark",
-  "auto_refresh": true,
-  "max_threads": 20,
-  "ping_timeout": 2,
-  "require_admin": true
+  "max_devices": 100,
+  "log_level": "INFO",
+  "theme": "dark"
 }
 ```
 
-### Network Configuration
-- **Scan Methods**: ping, ARP, TCP connect, mDNS
-- **Blocking Methods**: Firewall rules, hosts file, route table
-- **PS5 Detection**: MAC address, hostname, vendor identification
-
-## 🎮 PS5 Network Control
-
-### Features
-- **Automatic PS5 Detection**: Identifies PS5 devices using multiple methods
-- **Selective Blocking**: Block/unblock specific PS5 devices
-- **Internet Drop**: Complete internet connectivity control
-- **Ethernet Support**: Full Ethernet connection management
-- **Restoration Tools**: Comprehensive PS5 network restoration
-
-### Usage
-1. **Scan Network**: Click "Scan Network" to discover devices
-2. **Identify PS5**: PS5 devices are automatically highlighted
-3. **Block PS5**: Use "Block Selected" to block specific PS5 devices
-4. **Drop Internet**: Use "🌐 Drop Internet" to toggle internet connectivity
-5. **Restore Connection**: Use restoration scripts in `scripts/network/`
-
-### Restoration Scripts
-- `restore_ethernet_connectivity.bat`: Restore PS5 Ethernet connectivity
-- `unblock_mac_b40ad8b9bdb0.bat`: Unblock specific MAC address
-- `fix_ps5_network_admin.bat`: Comprehensive PS5 network fix
-
-## 🎨 GUI Features
-
 ### Themes
-- **Light Theme**: Clean, bright interface
-- **Dark Theme**: Modern dark mode
-- **Hacker Theme**: Cyberpunk-inspired design
-- **Rainbow Theme**: Dynamic color-changing interface
-
-### Responsive Design
-- **Adaptive Layout**: Automatically adjusts to window size
-- **Dynamic Columns**: Table columns resize with window
-- **Modern Styling**: Contemporary UI with smooth animations
-- **Accessibility**: Keyboard navigation and screen reader support
-
-## 🔒 Security Features
-
-### Privacy Protection
-- **Data Encryption**: Sensitive data encryption
-- **Log Management**: Comprehensive logging with privacy controls
-- **Session Security**: Secure session management
-- **Access Control**: Role-based access control
-
-### Network Security
-- **Firewall Integration**: Windows Firewall rule management
-- **Traffic Analysis**: Real-time network traffic monitoring
-- **Threat Detection**: Automatic suspicious activity detection
-- **Blocking Methods**: Multiple network blocking techniques
-
-## 📊 Monitoring & Analytics
-
-### Device Health
-- **Health Monitoring**: Real-time device health tracking
-- **Performance Metrics**: Network performance analysis
-- **Traffic Patterns**: Network traffic pattern analysis
-- **Alert System**: Automated alerting for issues
-
-### Network Analytics
-- **Traffic Analysis**: Comprehensive network traffic analysis
-- **Bandwidth Monitoring**: Real-time bandwidth usage tracking
-- **Device Statistics**: Detailed device statistics and metrics
-- **Historical Data**: Network activity historical data
-
-## 🚀 Development
-
-### Code Quality
-- **Type Hints**: Comprehensive type annotations
-- **Error Handling**: Robust error handling throughout
-- **Logging**: Comprehensive logging system
-- **Documentation**: Extensive code documentation
-
-### Development Tools
-- **Test Suite**: Comprehensive automated testing
-- **Code Linting**: Automated code quality checks
-- **Build System**: Automated build and packaging
-- **CI/CD**: Continuous integration and deployment
-
-### Contributing
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
-
-## 📝 Documentation
-
-### User Guides
-- **Getting Started**: Quick start guide
-- **PS5 Network Control**: PS5-specific features guide
-- **Network Management**: Network management guide
-- **Security Features**: Security features guide
-
-### Developer Documentation
-- **API Reference**: Complete API documentation
-- **Architecture**: System architecture overview
-- **Development Guide**: Development setup and guidelines
-- **Testing Guide**: Testing framework and guidelines
+The application supports multiple themes:
+- `app/themes/dark.qss`: Dark theme (default)
+- `app/themes/light.qss`: Light theme
+- `app/themes/hacker.qss`: Hacker theme
+- `app/themes/rainbow.qss`: Rainbow theme
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
-1. **Permission Errors**: Run as Administrator
-2. **Network Issues**: Check firewall settings
-3. **PS5 Connection**: Use restoration scripts
-4. **GUI Issues**: Check theme settings
 
-### Support
-- **Documentation**: Check the docs/ directory
-- **Issues**: Report issues on GitHub
-- **Community**: Join the community forum
+**"No module named 'app'" Error**
+- Run the application from the project root directory
+- Use `python run.py` instead of `python app/main.py`
+
+**Permission Denied Errors**
+- Run the application as Administrator
+- Ensure Windows Firewall is enabled
+
+**Device Scanning Issues**
+- Check your network connection
+- Ensure no antivirus is blocking the application
+- Try running as Administrator
+
+### Logs
+Application logs are written to:
+- `logs/dupez.log`: Main application log
+- `logs/errors.log`: Error-specific log
+- `logs/performance.log`: Performance metrics
+
+## 🔒 Security
+
+### Firewall Integration
+The application uses Windows Firewall rules for device blocking:
+- Creates temporary firewall rules for target devices
+- Automatically removes rules when unblocking
+- Falls back to WinDivert for advanced packet filtering
+
+### Administrator Requirements
+Some features require Administrator privileges:
+- Firewall rule creation/removal
+- Global hotkey registration
+- Network interface monitoring
+
+## 🧪 Development
+
+### Project Structure
+```
+DupeZ/
+├── app/
+│   ├── core/           # Core application logic
+│   ├── gui/            # User interface components
+│   ├── network/        # Network scanning and discovery
+│   ├── firewall/       # Firewall and packet filtering
+│   ├── logs/           # Logging system
+│   ├── utils/          # Utility functions
+│   ├── themes/         # UI themes
+│   └── config/         # Configuration files
+├── tests/              # Unit tests
+├── requirements.txt    # Python dependencies
+└── run.py             # Application launcher
+```
+
+### Running Tests
+```bash
+python -m pytest tests/
+```
+
+### Building
+```bash
+pyinstaller DupeZ.spec
+```
 
 ## 📄 License
 
@@ -267,15 +194,19 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our contributing guidelines in the docs/developer/ directory.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📞 Support
 
-For support and questions:
-- **Email**: support@pulsedroppro.com
+For issues and questions:
+- **Email**: support@dupez.com
 - **GitHub**: Create an issue on GitHub
 - **Documentation**: Check the docs/ directory
 
 ---
 
-**PulseDropPro** - Advanced Network Management & Security Tool 
+**DupeZ** - Advanced Network Management & Security Tool 
