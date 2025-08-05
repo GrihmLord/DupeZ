@@ -25,8 +25,9 @@ class NetworkNode(QGraphicsEllipseItem, QObject):
     device_unblocked = pyqtSignal(str) # Emit device IP when unblocked
     
     def __init__(self, device: Device, x: float, y: float, radius: float = 30):
-        QGraphicsEllipseItem.__init__(self, x - radius, y - radius, radius * 2, radius * 2)
+        # Initialize QObject first, then QGraphicsEllipseItem
         QObject.__init__(self)
+        QGraphicsEllipseItem.__init__(self, x - radius, y - radius, radius * 2, radius * 2)
         self.device = device
         self.radius = radius
         self.is_selected = False
@@ -257,8 +258,9 @@ class NetworkConnection(QGraphicsLineItem, QObject):
     """Connection between network nodes"""
     
     def __init__(self, source_node: NetworkNode, target_node: NetworkNode):
-        QGraphicsLineItem.__init__(self)
+        # Initialize QObject first, then QGraphicsLineItem
         QObject.__init__(self)
+        QGraphicsLineItem.__init__(self)
         self.source_node = source_node
         self.target_node = target_node
         self.traffic_flow = 0.0
@@ -576,12 +578,17 @@ class NetworkTopologyView(QWidget):
             self.scene.addItem(node)
             
             # Connect signals
-            node.device_selected.connect(self.device_selected.emit)
-            node.device_blocked.connect(self.device_blocked.emit)
-            node.device_unblocked.connect(self.device_unblocked.emit)
+            try:
+                node.device_selected.connect(self.device_selected.emit)
+                node.device_blocked.connect(self.device_blocked.emit)
+                node.device_unblocked.connect(self.device_unblocked.emit)
+            except Exception as signal_error:
+                log_error(f"Error connecting signals for device {device.ip}: {signal_error}")
             
         except Exception as e:
-            log_error(f"Error adding device {device.ip} to topology: {e}")
+            log_error(f"Error adding device {device.ip} to topology: {e}", 
+                     exception=e, category="topology", severity="medium",
+                     context={"device_ip": device.ip, "device_type": getattr(device, 'device_type', 'unknown')})
     
     def create_connections(self):
         """Create connections between devices"""
@@ -604,7 +611,9 @@ class NetworkTopologyView(QWidget):
             log_info(f"[TOPOLOGY] Created {len(self.connections)} connections in topology")
             
         except Exception as e:
-            log_error(f"Error creating topology connections: {e}")
+            log_error(f"Error creating topology connections: {e}", 
+                     exception=e, category="topology", severity="medium",
+                     context={"connection_count": len(self.connections)})
     
     def apply_layout(self):
         """Apply layout algorithm to arrange devices"""
@@ -616,7 +625,9 @@ class NetworkTopologyView(QWidget):
             self.apply_circular_layout()
             
         except Exception as e:
-            log_error(f"Error applying topology layout: {e}")
+            log_error(f"Error applying topology layout: {e}", 
+                     exception=e, category="topology", severity="medium",
+                     context={"layout_mode": self.layout_mode, "node_count": len(self.nodes)})
     
     def apply_circular_layout(self):
         """Apply circular layout to arrange devices in a circle"""
@@ -644,7 +655,9 @@ class NetworkTopologyView(QWidget):
                     self.animate_node_movement(node, x, y)
             
         except Exception as e:
-            log_error(f"Error applying circular layout: {e}")
+            log_error(f"Error applying circular layout: {e}", 
+                     exception=e, category="topology", severity="medium",
+                     context={"node_count": len(self.nodes), "layout_type": "circular"})
     
     def apply_grid_layout(self):
         """Apply grid layout"""
@@ -687,7 +700,9 @@ class NetworkTopologyView(QWidget):
             animation.setEasingCurve(QEasingCurve.Type.OutCubic)
             animation.start()
         except Exception as e:
-            log_error(f"Error animating node movement: {e}")
+            log_error(f"Error animating node movement: {e}", 
+                     exception=e, category="topology", severity="medium",
+                     context={"target_x": target_x, "target_y": target_y, "node_ip": getattr(node.device, 'ip', 'unknown')})
             # Fallback: move node directly without animation
             node.setPos(target_x, target_y)
     

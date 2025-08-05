@@ -12,7 +12,7 @@ import time
 from typing import List, Dict, Optional
 
 from app.network.enhanced_scanner import get_enhanced_scanner, cleanup_enhanced_scanner
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_error, log_warning
 
 class EnhancedDeviceList(QWidget):
     """Enhanced device list with Angry IP Scanner-like features"""
@@ -34,6 +34,11 @@ class EnhancedDeviceList(QWidget):
         # Connect resize event for responsive design
         self.resizeEvent = self.on_resize
         
+        # Setup UDP status timer
+        self.udp_status_timer = QTimer()
+        self.udp_status_timer.timeout.connect(self.check_udp_tool_status)
+        self.udp_status_timer.start(2000)  # Check every 2 seconds
+    
     def setup_ui(self):
         """Setup the enhanced device list UI with responsive design"""
         layout = QVBoxLayout()
@@ -95,34 +100,10 @@ class EnhancedDeviceList(QWidget):
             color: #4CAF50; 
             font-weight: bold; 
             padding: 5px;
-            background-color: rgba(76, 175, 80, 0.1);
+            background-color: #1e1e1e;
             border-radius: 3px;
         """)
         status_layout.addWidget(self.status_label)
-        
-        # Administrator status indicator
-        try:
-            from app.firewall.blocker import is_admin
-            admin_status = "🛡️ Admin" if is_admin() else "⚠️ User"
-            self.admin_status = QLabel(admin_status)
-            self.admin_status.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.admin_status.setStyleSheet("""
-                color: #4CAF50; 
-                font-weight: bold; 
-                padding: 5px;
-                background-color: rgba(76, 175, 80, 0.1);
-                border-radius: 3px;
-            """ if is_admin() else """
-                color: #FF9800; 
-                font-weight: bold; 
-                padding: 5px;
-                background-color: rgba(255, 152, 0, 0.1);
-                border-radius: 3px;
-            """)
-            self.admin_status.setToolTip("Shows Administrator privileges. Some features require Admin rights.")
-            status_layout.addWidget(self.admin_status)
-        except Exception as e:
-            log_error(f"Failed to create admin status indicator: {e}")
         
         # Blocking status indicator
         self.blocking_status = QLabel("🔒 Blocking: Inactive")
@@ -131,16 +112,30 @@ class EnhancedDeviceList(QWidget):
             color: #FF9800; 
             font-weight: bold; 
             padding: 5px;
-            background-color: rgba(255, 152, 0, 0.1);
+            background-color: #1e1e1e;
             border-radius: 3px;
         """)
-        self.blocking_status.setToolTip("Shows current blocking status. Double-click IP addresses to toggle blocking.")
         status_layout.addWidget(self.blocking_status)
         
         layout.addLayout(status_layout)
         
-        # Apply responsive styling
+        # Apply styling
         self.apply_styling()
+        
+        # Add search functionality
+        self.add_search_input()
+        
+        # Initialize admin status indicator
+        try:
+            from app.firewall.blocker import is_admin
+            if is_admin():
+                admin_label = QLabel("👑 Running as Administrator")
+                admin_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                layout.addWidget(admin_label)
+        except Exception as e:
+            log_error(f"Failed to create admin status indicator: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"component": "admin_status_indicator"})
     
     def create_scan_panel(self) -> QWidget:
         """Create the main scan results panel"""
@@ -803,7 +798,9 @@ class EnhancedDeviceList(QWidget):
             log_info("Enhanced network scan started")
             
         except Exception as e:
-            log_error(f"Error starting scan: {e}")
+            log_error(f"Error starting scan: {e}", 
+                      exception=e, category="network_scan", severity="medium",
+                      context={"scanner_type": "enhanced", "devices_count": len(self.devices)})
             self.update_status(f"Error starting scan: {e}")
     
     def stop_scan(self):
@@ -814,7 +811,9 @@ class EnhancedDeviceList(QWidget):
             self.on_scan_complete(self.devices)
             
         except Exception as e:
-            log_error(f"Error stopping scan: {e}")
+            log_error(f"Error stopping scan: {e}", 
+                      exception=e, category="network_scan", severity="medium",
+                      context={"scanner_type": "enhanced", "devices_count": len(self.devices)})
     
     def on_scan_complete(self, devices: List[Dict]):
         """Handle scan completion - OPTIMIZED FOR SPEED"""
@@ -855,7 +854,9 @@ class EnhancedDeviceList(QWidget):
             log_info(f"Device list updated with {len(devices)} devices")
             
         except Exception as e:
-            log_error(f"Error handling scan completion: {e}")
+            log_error(f"Error handling scan completion: {e}", 
+                      exception=e, category="network_scan", severity="high",
+                      context={"devices_count": len(devices), "scanner_type": "enhanced"})
             self.update_status(f"❌ Error completing scan: {e}")
     
     def add_device_to_table(self, device: Dict):
@@ -882,7 +883,9 @@ class EnhancedDeviceList(QWidget):
             self.update_status(f"Found device: {device.get('ip', 'Unknown')}")
             
         except Exception as e:
-            log_error(f"Error adding device to table: {e}")
+            log_error(f"Error adding device to table: {e}", 
+                      exception=e, category="gui", severity="medium",
+                      context={"device_ip": device.get('ip', 'Unknown'), "device_type": device.get('device_type', 'Unknown')})
     
     def color_code_device(self, row: int, device: Dict):
         """Color code device based on type"""
@@ -913,7 +916,9 @@ class EnhancedDeviceList(QWidget):
                     item.setBackground(color)
                     
         except Exception as e:
-            log_error(f"Error color coding device: {e}")
+            log_error(f"Error color coding device: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"device_ip": device.get('ip', 'Unknown'), "device_type": device.get('device_type', 'Unknown'), "row": row})
     
     def update_progress(self, current: int, total: int):
         """Update progress bar"""
@@ -922,7 +927,9 @@ class EnhancedDeviceList(QWidget):
                 progress = int((current / total) * 100)
                 self.progress_bar.setValue(progress)
         except Exception as e:
-            log_error(f"Error updating progress: {e}")
+            log_error(f"Error updating progress: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"current": current, "total": total})
     
     def on_scan_error(self, error_msg: str):
         """Handle scan errors"""
@@ -931,7 +938,9 @@ class EnhancedDeviceList(QWidget):
             self.on_scan_complete(self.devices)
             
         except Exception as e:
-            log_error(f"Error handling scan error: {e}")
+            log_error(f"Error handling scan error: {e}", 
+                      exception=e, category="network_scan", severity="medium",
+                      context={"error_msg": error_msg})
     
     def update_status(self, message: str):
         """Update status label"""
@@ -949,7 +958,9 @@ class EnhancedDeviceList(QWidget):
                 self.status_label.setStyleSheet("color: #2196F3; font-weight: bold;")
                 
         except Exception as e:
-            log_error(f"Error updating status: {e}")
+            log_error(f"Error updating status: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"status_message": message})
     
     def on_device_selected(self):
         """Handle device selection"""
@@ -960,7 +971,9 @@ class EnhancedDeviceList(QWidget):
                 self.device_selected.emit(selected_device)
                 
         except Exception as e:
-            log_error(f"Error handling device selection: {e}")
+            log_error(f"Error handling device selection: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"selected_row": self.device_table.currentRow()})
     
     def on_cell_double_clicked(self, row: int, column: int):
         """Handle double-click on table cell to toggle blocking"""
@@ -1047,7 +1060,9 @@ class EnhancedDeviceList(QWidget):
             menu.exec(self.device_table.mapToGlobal(position))
             
         except Exception as e:
-            log_error(f"Error showing context menu: {e}")
+            log_error(f"Error showing context menu: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"row": row, "column": column, "device_ip": device_ip})
     
     def toggle_device_blocking(self, row: int):
         """Toggle blocking for a specific device row"""
@@ -1086,7 +1101,9 @@ class EnhancedDeviceList(QWidget):
                 self.device_blocked.emit(ip, new_blocked)
                 
         except Exception as e:
-            log_error(f"Error toggling device blocking: {e}")
+            log_error(f"Error toggling device blocking: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"device_ip": ip, "block_action": block})
     
     def actually_block_device(self, ip: str, block: bool):
         """Actually block/unblock a device using REAL network disruption"""
@@ -1113,7 +1130,9 @@ class EnhancedDeviceList(QWidget):
                         log_info(f"✅ Device {ip} blocked using REAL network disruption")
                         self.update_status(f"Successfully blocked {ip}")
                     else:
-                        log_error(f"❌ Failed to block device {ip}")
+                        log_error(f"❌ Failed to block device {ip}", 
+                                  category="firewall", severity="high",
+                                  context={"device_ip": ip, "block_action": True, "controller_method": "toggle_lag"})
                         self.update_status(f"Failed to block {ip} - Try running as Administrator")
                 else:
                     # We want to unblock the device
@@ -1121,7 +1140,9 @@ class EnhancedDeviceList(QWidget):
                         log_info(f"✅ Device {ip} unblocked successfully")
                         self.update_status(f"Successfully unblocked {ip}")
                     else:
-                        log_error(f"❌ Failed to unblock device {ip}")
+                        log_error(f"❌ Failed to unblock device {ip}", 
+                                  category="firewall", severity="high",
+                                  context={"device_ip": ip, "block_action": False, "controller_method": "toggle_lag"})
                         self.update_status(f"Failed to unblock {ip} - Try running as Administrator")
                 
                 # Update the device's blocked status in our local list
@@ -1133,14 +1154,18 @@ class EnhancedDeviceList(QWidget):
                 
             else:
                 # Fallback to direct firewall blocking
-                log_error("❌ No controller available, using fallback blocking")
+                log_error("❌ No controller available, using fallback blocking", 
+                          category="firewall", severity="medium",
+                          context={"device_ip": ip, "fallback_method": "aggressive_block_device"})
                 self.aggressive_block_device(ip, block)
                 
             # Update blocking status indicator
             self.update_blocking_status()
             
         except Exception as e:
-            log_error(f"❌ Error blocking device {ip}: {e}")
+            log_error(f"❌ Error blocking device {ip}: {e}", 
+                      exception=e, category="firewall", severity="high",
+                      context={"device_ip": ip, "block_action": block, "controller_available": self.controller is not None})
             self.update_status(f"Error blocking {ip}: {e}")
     
     def update_blocking_status(self):
@@ -1157,7 +1182,9 @@ class EnhancedDeviceList(QWidget):
                 self.blocking_status.setStyleSheet("color: #FF9800; font-weight: bold;")
                 
         except Exception as e:
-            log_error(f"Error updating blocking status: {e}")
+            log_error(f"Error updating blocking status: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"blocked_count": blocked_count, "total_devices": total_devices})
     
     def block_with_firewall(self, ip: str, block: bool):
         """Block device using Windows Firewall rules"""
@@ -1189,7 +1216,9 @@ class EnhancedDeviceList(QWidget):
                 result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
                 
                 if result.returncode != 0:
-                    log_error(f"Firewall command failed: {result.stderr}")
+                    log_error(f"Firewall command failed: {result.stderr}", 
+                              category="firewall", severity="high",
+                              context={"device_ip": ip, "command": cmd, "return_code": result.returncode})
                     raise Exception(f"Firewall command failed: {result.stderr}")
                 
                 log_info(f"Firewall rule {'added' if block else 'removed'} for {ip}")
@@ -1210,13 +1239,17 @@ class EnhancedDeviceList(QWidget):
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 
                 if result.returncode != 0:
-                    log_error(f"iptables command failed: {result.stderr}")
+                    log_error(f"iptables command failed: {result.stderr}", 
+                              category="firewall", severity="high",
+                              context={"device_ip": ip, "command": cmd, "return_code": result.returncode})
                     raise Exception(f"iptables command failed: {result.stderr}")
                 
                 log_info(f"iptables rule {'added' if block else 'removed'} for {ip}")
                 
         except Exception as e:
-            log_error(f"Error with firewall blocking: {e}")
+            log_error(f"Error with firewall blocking: {e}", 
+                      exception=e, category="firewall", severity="high",
+                      context={"device_ip": ip, "block_action": block})
             raise
     
     def block_with_route(self, ip: str, block: bool):
@@ -1247,7 +1280,9 @@ class EnhancedDeviceList(QWidget):
                 log_info(f"Route {'added' if block else 'removed'} for {ip}")
                 
         except Exception as e:
-            log_error(f"Error with route blocking: {e}")
+            log_error(f"Error with route blocking: {e}", 
+                      exception=e, category="firewall", severity="high",
+                      context={"device_ip": ip, "block_action": block})
             # Don't raise exception for route blocking as it's secondary
     
     def aggressive_block_device(self, ip: str, block: bool):
@@ -1269,7 +1304,9 @@ class EnhancedDeviceList(QWidget):
             log_info(f"Aggressive blocking {'enabled' if block else 'disabled'} for {ip}")
             
         except Exception as e:
-            log_error(f"Error with aggressive blocking: {e}")
+            log_error(f"Error with aggressive blocking: {e}", 
+                      exception=e, category="firewall", severity="high",
+                      context={"device_ip": ip, "block_action": block, "method": "aggressive"})
             raise
     
     def is_local_network(self, ip: str) -> bool:
@@ -1314,12 +1351,16 @@ class EnhancedDeviceList(QWidget):
                 result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
                 
                 if result.returncode != 0:
-                    log_error(f"ARP command failed: {result.stderr}")
+                    log_error(f"ARP command failed: {result.stderr}", 
+                              category="firewall", severity="medium",
+                              context={"device_ip": ip, "command": cmd, "return_code": result.returncode})
                 
                 log_info(f"ARP entry {'added' if block else 'removed'} for {ip}")
                 
         except Exception as e:
-            log_error(f"Error with ARP blocking: {e}")
+            log_error(f"Error with ARP blocking: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"device_ip": ip, "block_action": block})
     
     def block_with_dns(self, ip: str, block: bool):
         """Block device using DNS manipulation"""
@@ -1333,7 +1374,9 @@ class EnhancedDeviceList(QWidget):
                 log_info(f"DNS blocking {'requested' if block else 'removed'} for {ip}")
                 
         except Exception as e:
-            log_error(f"Error with DNS blocking: {e}")
+            log_error(f"Error with DNS blocking: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"device_ip": ip, "block_action": block})
     
     def ping_device(self, ip: str):
         """Ping a device to check connectivity"""
@@ -1354,7 +1397,9 @@ class EnhancedDeviceList(QWidget):
                 self.update_status(f"Ping to {ip}: Failed")
                 
         except Exception as e:
-            log_error(f"Error pinging {ip}: {e}")
+            log_error(f"Error pinging {ip}: {e}", 
+                      exception=e, category="network_scan", severity="low",
+                      context={"device_ip": ip, "action": "ping"})
             self.update_status(f"Error pinging {ip}: {e}")
     
     def port_scan_device(self, ip: str):
@@ -1384,7 +1429,9 @@ class EnhancedDeviceList(QWidget):
                 self.update_status(f"Port scan {ip}: No common ports open")
                 
         except Exception as e:
-            log_error(f"Error port scanning {ip}: {e}")
+            log_error(f"Error port scanning {ip}: {e}", 
+                      exception=e, category="network_scan", severity="low",
+                      context={"device_ip": ip, "action": "port_scan"})
             self.update_status(f"Error port scanning {ip}: {e}")
     
     def copy_ip_to_clipboard(self, ip: str):
@@ -1395,7 +1442,9 @@ class EnhancedDeviceList(QWidget):
             clipboard.setText(ip)
             self.update_status(f"IP address {ip} copied to clipboard")
         except Exception as e:
-            log_error(f"Error copying IP to clipboard: {e}")
+            log_error(f"Error copying IP to clipboard: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"device_ip": ip, "action": "copy_to_clipboard"})
             self.update_status(f"Error copying IP to clipboard: {e}")
     
     def clear_devices(self):
@@ -1407,7 +1456,9 @@ class EnhancedDeviceList(QWidget):
             self.update_statistics()
             
         except Exception as e:
-            log_error(f"Error clearing devices: {e}")
+            log_error(f"Error clearing devices: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"devices_count": len(self.devices)})
     
     def export_results(self):
         """Export scan results to a file"""
@@ -1449,7 +1500,9 @@ class EnhancedDeviceList(QWidget):
             log_info(f"Scan results exported to {filename}")
             
         except Exception as e:
-            log_error(f"Failed to export results: {e}")
+            log_error(f"Failed to export results: {e}", 
+                      exception=e, category="data_persistence", severity="medium",
+                      context={"devices_count": len(self.devices), "export_format": "csv"})
             self.update_status("Export failed")
     
     def update_statistics(self):
@@ -1476,7 +1529,9 @@ class EnhancedDeviceList(QWidget):
                 self.scan_duration_label.setText("Last Scan: Never")
                 
         except Exception as e:
-            log_error(f"Failed to update statistics: {e}")
+            log_error(f"Failed to update statistics: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"devices_count": len(self.devices)})
     
     def block_selected(self):
         """Block selected devices"""
@@ -1510,7 +1565,9 @@ class EnhancedDeviceList(QWidget):
             self.update_status(f"Blocked {len(selected_rows)} selected device(s)")
             
         except Exception as e:
-            log_error(f"Error blocking devices: {e}")
+            log_error(f"Error blocking devices: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"selected_devices_count": len(selected_devices)})
     
     def block_all_devices(self):
         """Block all devices in the list"""
@@ -1555,7 +1612,9 @@ class EnhancedDeviceList(QWidget):
             self.update_blocking_status()
             
         except Exception as e:
-            log_error(f"Error blocking all devices: {e}")
+            log_error(f"Error blocking all devices: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"total_devices_count": len(self.devices)})
             self.update_status(f"Error blocking all devices: {e}")
     
     def _is_ps5_device(self, device: dict) -> bool:
@@ -1613,11 +1672,53 @@ class EnhancedDeviceList(QWidget):
             
         return selected_methods
     
+    def get_udp_status(self) -> Dict:
+        """Get UDP tool status for integration"""
+        try:
+            from app.firewall.udp_port_interrupter import udp_port_interrupter
+            return udp_port_interrupter.get_status()
+        except Exception as e:
+            log_error(f"Error getting UDP status: {e}", 
+                      exception=e, category="udp_flood", severity="low",
+                      context={"component": "udp_status_check"})
+            return {"is_running": False}
+    
+    def update_udp_status_display(self):
+        """Update the status display to show UDP tool status"""
+        try:
+            udp_status = self.get_udp_status()
+            if udp_status.get("is_running", False):
+                self.update_status("🎮 UDP Tool: ACTIVE - Working with disconnect mode")
+            else:
+                self.update_status("🎮 UDP Tool: INACTIVE")
+        except Exception as e:
+            log_error(f"Error updating UDP status display: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"udp_status": udp_status})
+    
+    def check_udp_tool_status(self):
+        """Check if UDP tool is active and update button text"""
+        try:
+            udp_status = self.get_udp_status()
+            if udp_status.get("is_running", False):
+                # Update button to show UDP is active
+                if hasattr(self, 'internet_drop_button'):
+                    self.internet_drop_button.setText("🔌 Reconnect (UDP Active)")
+            else:
+                # Update button to normal state
+                if hasattr(self, 'internet_drop_button'):
+                    self.internet_drop_button.setText("🔌 Disconnect")
+        except Exception as e:
+            log_error(f"Error checking UDP tool status: {e}", 
+                      exception=e, category="udp_flood", severity="low",
+                      context={"component": "udp_tool_status_check"})
+    
     def toggle_internet_drop(self):
         """Toggle internet drop/dupe functionality with selected methods"""
         try:
             from app.firewall.dupe_internet_dropper import dupe_internet_dropper
             from app.firewall.blocker import is_admin
+            from app.firewall.udp_port_interrupter import udp_port_interrupter
             
             # Check if running as Administrator
             if not is_admin():
@@ -1643,6 +1744,18 @@ class EnhancedDeviceList(QWidget):
                 self.update_status("🔄 Starting disconnect mode...")
                 success = dupe_internet_dropper.start_dupe_with_devices(selected_devices, selected_methods)
                 if success:
+                    # If UDP interrupt is selected, also activate UDP tool
+                    if "udp_interrupt" in selected_methods:
+                        udp_success = udp_port_interrupter.start_udp_interruption(
+                            target_ips=[device.get('ip') for device in selected_devices if device.get('ip')],
+                            drop_rate=90,  # 90% drop rate for lagging without disconnection
+                            duration=0  # No timer, manual stop
+                        )
+                        if udp_success:
+                            log_info("✅ UDP interruption activated alongside disconnect mode")
+                        else:
+                            log_warning("⚠️ UDP interruption failed to start")
+                    
                     self.internet_drop_button.setText("🔌 Reconnect")
                     self.internet_drop_button.setStyleSheet("""
                         QPushButton {
@@ -1672,13 +1785,30 @@ class EnhancedDeviceList(QWidget):
                     device_count = len(selected_devices)
                     self.update_status(f"🔌 Disconnect active on {device_count} device(s) - Using: {methods_text}")
                     log_info(f"DayZ disconnect mode activated on {device_count} devices with methods: {selected_methods}")
+                    
+                    # Update UDP status display
+                    self.update_udp_status_display()
+                    
+                    # Update button text to show UDP status
+                    self.check_udp_tool_status()
                 else:
                     self.update_status("❌ Failed to start disconnect mode - Try running as Administrator")
-                    log_error("Failed to start DayZ disconnect mode")
+                    log_error("Failed to start DayZ disconnect mode", 
+                      category="firewall", severity="high",
+                      context={"disconnect_mode": "dayz", "action": "start"})
             else:
                 # Stop dupe
                 self.update_status("🔄 Stopping disconnect mode...")
                 success = dupe_internet_dropper.stop_dupe()
+                
+                # Also stop UDP interruption if it was active
+                if udp_port_interrupter.is_running:
+                    udp_stop_success = udp_port_interrupter.stop_udp_interruption()
+                    if udp_stop_success:
+                        log_info("✅ UDP interruption stopped")
+                    else:
+                        log_warning("⚠️ UDP interruption failed to stop")
+                
                 if success:
                     self.internet_drop_button.setText("🔌 Disconnect")
                     self.internet_drop_button.setStyleSheet("""
@@ -1707,12 +1837,22 @@ class EnhancedDeviceList(QWidget):
                     """)
                     self.update_status("✅ Disconnect mode stopped - normal connection restored")
                     log_info("DayZ disconnect mode deactivated")
+                    
+                    # Update UDP status display
+                    self.update_udp_status_display()
+                    
+                    # Update button text to show UDP status
+                    self.check_udp_tool_status()
                 else:
                     self.update_status("❌ Failed to stop disconnect mode")
-                    log_error("Failed to stop DayZ disconnect mode")
+                    log_error("Failed to stop DayZ disconnect mode", 
+                      category="firewall", severity="high",
+                      context={"disconnect_mode": "dayz", "action": "stop"})
                     
         except Exception as e:
-            log_error(f"Error toggling disconnect mode: {e}")
+            log_error(f"Error toggling disconnect mode: {e}", 
+                      exception=e, category="firewall", severity="high",
+                      context={"disconnect_mode": "dayz", "current_state": self.disconnect_active})
             self.update_status(f"❌ Error: {e}")
     
     def unblock_all_devices(self):
@@ -1758,7 +1898,9 @@ class EnhancedDeviceList(QWidget):
             self.update_blocking_status()
             
         except Exception as e:
-            log_error(f"Error unblocking all devices: {e}")
+            log_error(f"Error unblocking all devices: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"total_devices_count": len(self.devices)})
             self.update_status(f"Error unblocking all devices: {e}")
     
     def clear_all_blocks(self):
@@ -1791,7 +1933,9 @@ class EnhancedDeviceList(QWidget):
                 self.update_status("Failed to clear all blocks")
                 
         except Exception as e:
-            log_error(f"Error clearing all blocks: {e}")
+            log_error(f"Error clearing all blocks: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"total_devices_count": len(self.devices)})
             self.update_status(f"Error clearing blocks: {e}")
     
     def get_selected_devices(self) -> List[Dict]:
@@ -1815,7 +1959,9 @@ class EnhancedDeviceList(QWidget):
                 selected_devices = self.devices.copy()
                 
         except Exception as e:
-            log_error(f"Error getting selected devices: {e}")
+            log_error(f"Error getting selected devices: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"total_devices_count": len(self.devices)})
             
         return selected_devices
     
@@ -1946,7 +2092,9 @@ class EnhancedDeviceList(QWidget):
             return results
             
         except Exception as e:
-            log_error(f"Error searching for devices: {e}")
+            log_error(f"Error searching for devices: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"search_term": search_term, "search_field": search_field})
             return []
     
     def filter_devices_by_search(self, search_term: str):
@@ -1979,7 +2127,9 @@ class EnhancedDeviceList(QWidget):
             log_info(f"Filtered devices by search term: '{search_term}'")
             
         except Exception as e:
-            log_error(f"Error filtering devices: {e}")
+            log_error(f"Error filtering devices: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"search_term": search_term, "devices_count": len(self.devices)})
     
     def add_search_input(self):
         """Add search input field to the control panel"""
@@ -2015,11 +2165,15 @@ class EnhancedDeviceList(QWidget):
                 self.control_panel.layout().addLayout(search_layout)
             
         except Exception as e:
-            log_error(f"Error adding search input: {e}")
+            log_error(f"Error adding search input: {e}", 
+                      exception=e, category="gui", severity="low",
+                      context={"component": "search_input"})
     
     def cleanup(self):
         """Clean up resources"""
         try:
             cleanup_enhanced_scanner()
         except Exception as e:
-            log_error(f"Error during cleanup: {e}") 
+            log_error(f"Error during cleanup: {e}", 
+                      exception=e, category="system", severity="medium",
+                      context={"component": "enhanced_device_list", "devices_count": len(self.devices)}) 

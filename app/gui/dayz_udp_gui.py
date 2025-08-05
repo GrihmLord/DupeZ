@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QFont, QColor
 from typing import List, Dict, Optional
-from app.firewall.udp_port_interrupter import UDPPortInterrupter, DayZServer
+from app.firewall.udp_port_interrupter import udp_port_interrupter, DayZServer
 from app.logs.logger import log_info, log_error
 
 class DayZUDPGUI(QWidget):
@@ -28,7 +28,7 @@ class DayZUDPGUI(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.udp_interrupter = UDPPortInterrupter()
+        self.udp_interrupter = udp_port_interrupter
         self.setup_ui()
         self.connect_signals()
         self.refresh_servers()
@@ -236,35 +236,30 @@ class DayZUDPGUI(QWidget):
         self.status_timer.start(1000)  # Update every second
         
     def start_udp_interruption(self):
-        """Start UDP interruption"""
+        """Start UDP interruption with current settings"""
         try:
+            # Get target server
+            server_data = self.server_combo.currentData()
+            target_ips = []
+            
+            if server_data == "all":
+                # Target all servers
+                servers = self.udp_interrupter.get_servers()
+                for server in servers:
+                    target_ips.append(server.ip)
+            else:
+                # Target specific server
+                target_ips = [server_data]
+            
+            if not target_ips:
+                QMessageBox.warning(self, "No Targets", "Please add servers or select 'ALL Servers'")
+                return
+            
+            # Get settings
             drop_rate = self.drop_rate_spinbox.value()
             timer_duration = self.timer_spinbox.value()
             
-            # Get target servers
-            current_server = self.server_combo.currentData()
-            target_ips = []
-            
-            if current_server == "all":
-                # Use all configured servers
-                servers = self.udp_interrupter.get_servers()
-                target_ips = [server.ip for server in servers if server.ip != "0.0.0.0"]
-                if not target_ips:
-                    # Try to get local IP dynamically instead of hardcoded localhost
-                    try:
-                        import socket
-                        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                            s.connect(("8.8.8.8", 80))
-                            local_ip = s.getsockname()[0]
-                            target_ips = [local_ip]
-                    except Exception as e:
-                        log_error(f"Failed to get local IP: {e}")
-                        target_ips = []  # Empty list instead of hardcoded localhost
-            else:
-                # Use specific server
-                target_ips = [current_server]
-            
-            # Start interruption
+            # Start UDP interruption
             success = self.udp_interrupter.start_udp_interruption(
                 target_ips=target_ips,
                 drop_rate=drop_rate,
@@ -272,17 +267,15 @@ class DayZUDPGUI(QWidget):
             )
             
             if success:
-                self.status_label.setText("Status: UDP Interruption Active")
-                self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
-                self.start_button.setEnabled(False)
-                self.stop_button.setEnabled(True)
-                self.udp_interruption_started.emit()
-                log_info(f"UDP interruption started with {drop_rate}% drop rate")
+                self.update_status()
+                self.udp_interruption_started.emit()  # Emit signal
+                log_info(f"✅ UDP interruption started on {len(target_ips)} targets")
             else:
-                QMessageBox.warning(self, "Error", "Failed to start UDP interruption")
+                QMessageBox.critical(self, "Error", "Failed to start UDP interruption")
+                log_error("Failed to start UDP interruption")
                 
         except Exception as e:
-            log_error(f"Failed to start UDP interruption: {e}")
+            log_error(f"Error starting UDP interruption: {e}")
             QMessageBox.critical(self, "Error", f"Failed to start UDP interruption: {e}")
     
     def stop_udp_interruption(self):
@@ -291,17 +284,15 @@ class DayZUDPGUI(QWidget):
             success = self.udp_interrupter.stop_udp_interruption()
             
             if success:
-                self.status_label.setText("Status: Ready")
-                self.status_label.setStyleSheet("color: #4caf50; font-weight: bold;")
-                self.start_button.setEnabled(True)
-                self.stop_button.setEnabled(False)
-                self.udp_interruption_stopped.emit()
-                log_info("UDP interruption stopped")
+                self.update_status()
+                self.udp_interruption_stopped.emit()  # Emit signal
+                log_info("✅ UDP interruption stopped")
             else:
-                QMessageBox.warning(self, "Error", "Failed to stop UDP interruption")
+                QMessageBox.critical(self, "Error", "Failed to stop UDP interruption")
+                log_error("Failed to stop UDP interruption")
                 
         except Exception as e:
-            log_error(f"Failed to stop UDP interruption: {e}")
+            log_error(f"Error stopping UDP interruption: {e}")
             QMessageBox.critical(self, "Error", f"Failed to stop UDP interruption: {e}")
     
     def add_server_dialog(self):
@@ -473,8 +464,15 @@ class DayZUDPGUI(QWidget):
             status = self.udp_interrupter.get_status()
             
             if status["is_running"]:
-                self.status_label.setText("Status: UDP Interruption Active")
-                self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+                # Check if this is part of disconnect mode
+                from app.firewall.dupe_internet_dropper import dupe_internet_dropper
+                if dupe_internet_dropper.is_dupe_active():
+                    self.status_label.setText("Status: UDP Interruption Active (Disconnect Mode)")
+                    self.status_label.setStyleSheet("color: #ff9800; font-weight: bold;")  # Orange for combined mode
+                else:
+                    self.status_label.setText("Status: UDP Interruption Active")
+                    self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+                
                 self.start_button.setEnabled(False)
                 self.stop_button.setEnabled(True)
                 

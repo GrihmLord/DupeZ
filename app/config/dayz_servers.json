@@ -6,28 +6,28 @@
   "servers": [
     {
       "name": "DayZ Official Server",
-      "ip": "0.0.0.0",
+      "ip": "192.168.1.1",
       "port": 2302,
       "drop_rate": 90,
       "local": true
     },
     {
       "name": "DayZ Community Server",
-      "ip": "0.0.0.0",
+      "ip": "192.168.1.100",
       "port": 2303,
       "drop_rate": 90,
       "local": true
     },
     {
       "name": "DayZ Experimental",
-      "ip": "0.0.0.0",
+      "ip": "192.168.1.101",
       "port": 2304,
       "drop_rate": 90,
       "local": true
     },
     {
       "name": "DayZ Modded Server",
-      "ip": "0.0.0.0",
+      "ip": "192.168.1.102",
       "port": 2305,
       "drop_rate": 90,
       "local": true

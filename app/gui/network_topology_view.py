@@ -5,12 +5,12 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGraphicsView,
                               QGraphicsTextItem, QGraphicsLineItem, QGraphicsRectItem,
                               QPushButton, QLabel, QComboBox, QSlider, QCheckBox,
                               QGroupBox, QFormLayout, QSpinBox, QTabWidget,
-                              QScrollArea, QFrame, QSizePolicy, QMenu, QAction,
+                              QScrollArea, QFrame, QSizePolicy, QMenu,
                               QInputDialog, QMessageBox, QColorDialog, QFontDialog)
-from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QThread, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, pyqtSignal, QThread, pyqtSlot, QObject
 from PyQt6.QtGui import (QPen, QBrush, QColor, QFont, QPainter, QPainterPath,
                          QLinearGradient, QRadialGradient, QPixmap, QIcon,
-                         QDragEnterEvent, QDropEvent, QMouseEvent, QWheelEvent)
+                         QDragEnterEvent, QDropEvent, QMouseEvent, QWheelEvent, QAction)
 import math
 import random
 from typing import Dict, List, Optional, Tuple, Any
@@ -22,7 +22,7 @@ from app.logs.logger import log_info, log_error, log_warning
 from app.core.advanced_traffic_analyzer import advanced_traffic_analyzer
 
 @dataclass
-class NetworkNode:
+class NetworkNode(QObject):
     """Represents a network device node"""
     device_id: str
     ip_address: str
@@ -38,6 +38,7 @@ class NetworkNode:
     last_seen: datetime = None
     
     def __post_init__(self):
+        QObject.__init__(self)
         if self.connections is None:
             self.connections = []
         if self.last_seen is None:

@@ -12,7 +12,7 @@ import socket
 import struct
 from typing import List, Dict, Optional
 from app.logs.logger import log_info, log_error
-from app.firewall.udp_port_interrupter import UDPPortInterrupter
+from app.firewall.udp_port_interrupter import udp_port_interrupter
 
 class DupeInternetDropper:
     """Creates visual disconnect indicators on PS5s without affecting network"""
@@ -24,8 +24,8 @@ class DupeInternetDropper:
         self.spoof_thread = None
         self.active_methods = []  # Track which methods are currently active
         
-        # Initialize UDP port interrupter for Laganator integration
-        self.udp_interrupter = UDPPortInterrupter()
+        # Use global UDP port interrupter instance
+        self.udp_interrupter = udp_port_interrupter
         
     def start_dupe_with_devices(self, devices: List[Dict], methods: List[str]) -> bool:
         """Start the dupe with specific devices and methods"""

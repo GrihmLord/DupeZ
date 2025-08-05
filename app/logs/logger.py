@@ -215,8 +215,27 @@ def log_info(message: str, **kwargs):
     logger.info(message, **kwargs)
 
 def log_error(message: str, exception: Optional[Exception] = None, **kwargs):
-    """Log error message"""
-    logger.error(message, exception, **kwargs)
+    """Log error message with comprehensive tracking"""
+    try:
+        # Import error tracker
+        from app.logs.error_tracker import track_error, ErrorCategory, ErrorSeverity
+        
+        # Determine category from kwargs or message
+        category = kwargs.get('category')
+        severity = kwargs.get('severity', ErrorSeverity.MEDIUM)
+        context = kwargs.get('context', {})
+        user_action = kwargs.get('user_action')
+        
+        # Track error with comprehensive details
+        track_error(message, exception, category, severity, context, user_action)
+        
+        # Also log to regular logger
+        logger.error(message, exception, **kwargs)
+        
+    except Exception as e:
+        print(f"Error in error logging: {e}")
+        # Fallback to basic logging
+        logger.error(message, exception, **kwargs)
 
 def log_warning(message: str, **kwargs):
     """Log warning message"""
