@@ -138,7 +138,7 @@ def test_connectivity():
     """Test connectivity to potential PS5 devices"""
     print("🔍 Testing PS5 connectivity...")
     
-    # Common PS5 IP addresses found in your network
+    # Common PS5 IP addresses for testing
     test_ips = [
         "192.168.1.93",
         "192.168.1.96", 

@@ -9,11 +9,11 @@ from app.gui.enhanced_device_list import EnhancedDeviceList
 from app.gui.graph import PacketGraph
 from app.gui.settings_dialog import SettingsDialog
 from app.gui.topology_view import NetworkTopologyView
-from app.gui.network_manipulator_gui import NetworkManipulatorGUI
+from app.gui.unified_network_control import UnifiedNetworkControl
 from app.gui.dayz_udp_gui import DayZUDPGUI
-from app.gui.dayz_firewall_gui import DayZFirewallGUI
 from app.gui.dayz_map_gui import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
+# Performance monitor removed as requested by user
 
 from app.logs.logger import log_info, log_error
 import threading
@@ -100,19 +100,15 @@ class DupeZDashboard(QMainWindow):
         self.graph.setObjectName("graph_panel")
         self.content_tabs.addTab(self.graph, "📊 Traffic Graph")
         
-        # Network Manipulator tab
-        self.network_manipulator = NetworkManipulatorGUI(controller=self.controller)
-        self.content_tabs.addTab(self.network_manipulator, "🎛️ Network Manipulator")
+        # Unified Network Control tab (combines DayZ Firewall and Network Manipulator)
+        self.unified_network_control = UnifiedNetworkControl()
+        self.unified_network_control.setObjectName("unified_network_control_panel")
+        self.content_tabs.addTab(self.unified_network_control, "🌐 Unified Network Control")
         
         # DayZ UDP Interruption tab
         self.dayz_udp_gui = DayZUDPGUI()
         self.dayz_udp_gui.setObjectName("dayz_udp_panel")
         self.content_tabs.addTab(self.dayz_udp_gui, "🎮 DayZ UDP Control")
-        
-        # DayZ Firewall Controller tab (DayZPCFW Integration)
-        self.dayz_firewall_gui = DayZFirewallGUI()
-        self.dayz_firewall_gui.setObjectName("dayz_firewall_panel")
-        self.content_tabs.addTab(self.dayz_firewall_gui, "🛡️ DayZ Firewall (DayZPCFW)")
         
         # DayZ Interactive Map tab (iZurvive Integration)
         self.dayz_map_gui = DayZMapGUI()
@@ -123,6 +119,8 @@ class DupeZDashboard(QMainWindow):
         self.dayz_account_tracker = DayZAccountTracker(controller=self.controller)
         self.dayz_account_tracker.setObjectName("dayz_account_tracker_panel")
         self.content_tabs.addTab(self.dayz_account_tracker, "👤 DayZ Account Tracker")
+        
+        # Performance Monitor tab removed as requested by user
         
         layout.addWidget(self.content_tabs)
         central_widget.setLayout(layout)
@@ -366,11 +364,11 @@ class DupeZDashboard(QMainWindow):
                 self.graph.graph_clicked.connect(self.on_graph_clicked)
             
             # Connect network manipulator signals
-            if hasattr(self, 'network_manipulator'):
-                self.network_manipulator.rule_created.connect(self.on_network_rule_created)
-                self.network_manipulator.rule_removed.connect(self.on_network_rule_removed)
-                self.network_manipulator.manipulation_started.connect(self.on_manipulation_started)
-                self.network_manipulator.manipulation_stopped.connect(self.on_manipulation_stopped)
+            if hasattr(self, 'unified_network_control'):
+                self.unified_network_control.rule_created.connect(self.on_network_rule_created)
+                self.unified_network_control.rule_removed.connect(self.on_network_rule_removed)
+                self.unified_network_control.manipulation_started.connect(self.on_manipulation_started)
+                self.unified_network_control.manipulation_stopped.connect(self.on_manipulation_stopped)
             
 
             
@@ -407,7 +405,7 @@ class DupeZDashboard(QMainWindow):
         # Start topology view updates (reduced frequency to prevent loops)
         self.topology_timer = QTimer()
         self.topology_timer.timeout.connect(self.update_topology_view)
-        self.topology_timer.start(10000)  # Update topology every 10 seconds (reduced frequency)
+        self.topology_timer.start(30000)  # Update topology every 30 seconds (reduced frequency for performance)
         
         # Add loop prevention flag
         self._topology_updating = False
@@ -658,10 +656,25 @@ class DupeZDashboard(QMainWindow):
                 self.update_timer.stop()
                 log_info("Stopped update timer")
             
-            # Stop enhanced device list updates (if method exists)
-            if hasattr(self, 'enhanced_device_list') and hasattr(self.enhanced_device_list, 'stop_auto_updates'):
-                self.enhanced_device_list.stop_auto_updates()
-                log_info("Stopped enhanced device list updates")
+            # Stop topology timer
+            if hasattr(self, 'topology_timer'):
+                self.topology_timer.stop()
+                log_info("Stopped topology timer")
+            
+            # Stop enhanced device list updates and cleanup temporary blocks
+            if hasattr(self, 'enhanced_device_list'):
+                if hasattr(self.enhanced_device_list, 'stop_auto_updates'):
+                    self.enhanced_device_list.stop_auto_updates()
+                    log_info("Stopped enhanced device list updates")
+                
+                # CRITICAL: Cleanup temporary blocks before exit
+                if hasattr(self.enhanced_device_list, 'cleanup'):
+                    try:
+                        log_info("Cleaning up enhanced device list and removing temporary blocks...")
+                        self.enhanced_device_list.cleanup()
+                        log_info("Enhanced device list cleanup completed")
+                    except Exception as e:
+                        log_error(f"Error during enhanced device list cleanup: {e}")
             
             # Stop sidebar updates
             if hasattr(self, 'sidebar'):
@@ -674,9 +687,11 @@ class DupeZDashboard(QMainWindow):
                 log_info("Stopped graph updates")
             
             # Stop network manipulator
-            if hasattr(self, 'network_manipulator'):
-                self.network_manipulator.cleanup()
+            if hasattr(self, 'unified_network_control'):
+                self.unified_network_control.cleanup()
                 log_info("Stopped network manipulator")
+            
+            # Performance monitor cleanup removed as requested by user
             
             # Perform controller shutdown with timeout
             if self.controller:
@@ -781,6 +796,45 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Export failed: {e}")
             self.status_bar.showMessage("Export failed", 3000)
+    
+    def export_csv_data(self):
+        """Export device data to CSV file"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            import csv
+            from datetime import datetime
+            
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export CSV Data", "dupez_devices.csv", "CSV Files (*.csv)"
+            )
+            if filename and self.controller:
+                devices = self.controller.get_devices()
+                with open(filename, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    # Write header
+                    writer.writerow([
+                        'IP Address', 'MAC Address', 'Vendor', 'Hostname', 
+                        'Blocked', 'Local', 'Last Seen', 'Device Type'
+                    ])
+                    
+                    # Write device data
+                    for device in devices:
+                        writer.writerow([
+                            device.ip,
+                            device.mac,
+                            device.vendor or 'Unknown',
+                            device.hostname or 'Unknown',
+                            'Yes' if device.blocked else 'No',
+                            'Yes' if device.local else 'No',
+                            getattr(device, 'last_seen', 'Unknown'),
+                            getattr(device, 'device_type', 'Unknown')
+                        ])
+                
+                self.status_bar.showMessage(f"CSV data exported to {filename}", 3000)
+                log_info(f"CSV export completed: {filename}")
+        except Exception as e:
+            log_error(f"CSV export failed: {e}")
+            self.status_bar.showMessage("CSV export failed", 3000)
     
     def mass_block_devices(self):
         """Block all non-local devices"""
@@ -1081,7 +1135,6 @@ class DupeZDashboard(QMainWindow):
         """Update the network topology view with current devices"""
         # Loop prevention - don't update if already updating
         if hasattr(self, '_topology_updating') and self._topology_updating:
-            log_info("Topology update skipped - already in progress")
             return
             
         try:
@@ -1089,15 +1142,12 @@ class DupeZDashboard(QMainWindow):
             
             if hasattr(self, 'topology_view') and self.controller:
                 devices = self.controller.get_devices()
-                log_info(f"Updating topology view with {len(devices) if devices else 0} devices")
                 
                 if devices:
                     self.topology_view.update_topology(devices)
-                    log_info(f"Topology view updated with {len(devices)} devices")
                 else:
                     # No devices found - show placeholder
                     self.topology_view.update_topology([])
-                    log_info("Topology view updated with empty device list (showing placeholder)")
                     
                 # Force the topology view to refresh (but not recursively)
                 if hasattr(self.topology_view, 'refresh_topology'):

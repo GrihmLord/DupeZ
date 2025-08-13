@@ -26,7 +26,7 @@ class NetworkManipulationTester:
     def __init__(self):
         self.test_results = {}
         self.test_device_ip = "192.168.1.100"  # Test device IP
-        self.ps5_test_ip = "192.168.137.224"   # Known PS5 IP
+        self.ps5_test_ip = "192.168.137.224"   # Test PS5 IP
         
     def run_all_tests(self) -> Dict[str, bool]:
         """Run all network manipulation tests"""

@@ -402,16 +402,43 @@ class PS5NetworkTool:
         return [device for device in self.ps5_devices.values() if device.is_online]
     
     def block_ps5_device(self, ip: str) -> bool:
-        """Block a specific PS5 device"""
+        """Block a specific PS5 device using Clumsy network disruptor"""
         try:
             log_info(f"🎮 Blocking PS5 device: {ip}")
             
-            # Use NetCut-style blocking for PS5
-            from app.firewall.netcut_blocker import netcut_blocker
-            success = netcut_blocker.block_device(ip)
+            # Use Clumsy network disruptor for PS5
+            from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+            from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
+            
+            # Initialize Clumsy if not running
+            if not clumsy_network_disruptor.is_running:
+                if not clumsy_network_disruptor.initialize():
+                    log_error("Failed to initialize Clumsy network disruptor")
+                    return False
+                clumsy_network_disruptor.start_clumsy()
+            
+            # Initialize enterprise disruptor as backup
+            if not enterprise_network_disruptor.is_running:
+                if not enterprise_network_disruptor.initialize():
+                    log_error("Failed to initialize enterprise network disruptor")
+                else:
+                    enterprise_network_disruptor.start_enterprise()
+            
+            # PS5-specific Clumsy methods
+            clumsy_methods = ["drop", "lag", "throttle", "duplicate", "corrupt", "rst"]
+            
+            # Try Clumsy first (primary method)
+            success = clumsy_network_disruptor.disconnect_device_clumsy(ip, clumsy_methods)
+            if success:
+                log_info(f"✅ PS5 device {ip} blocked successfully with Clumsy")
+                return True
+            
+            # Fallback to enterprise disruptor
+            enterprise_methods = ["arp_spoof", "icmp_flood", "syn_flood", "udp_flood", "packet_drop"]
+            success = enterprise_network_disruptor.disconnect_device_enterprise(ip, enterprise_methods)
             
             if success:
-                log_info(f"✅ PS5 device {ip} blocked successfully")
+                log_info(f"✅ PS5 device {ip} blocked successfully with enterprise disruptor")
                 return True
             else:
                 log_error(f"❌ Failed to block PS5 device {ip}")
@@ -422,16 +449,25 @@ class PS5NetworkTool:
             return False
     
     def unblock_ps5_device(self, ip: str) -> bool:
-        """Unblock a specific PS5 device"""
+        """Unblock a specific PS5 device using Clumsy network disruptor"""
         try:
             log_info(f"🎮 Unblocking PS5 device: {ip}")
             
-            # Use NetCut-style unblocking for PS5
-            from app.firewall.netcut_blocker import netcut_blocker
-            success = netcut_blocker.unblock_device(ip)
+            # Use Clumsy network disruptor for PS5
+            from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+            from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
+            
+            # Try Clumsy reconnection first
+            success = clumsy_network_disruptor.reconnect_device_clumsy(ip)
+            if success:
+                log_info(f"✅ PS5 device {ip} unblocked successfully with Clumsy")
+                return True
+            
+            # Fallback to enterprise disruptor
+            success = enterprise_network_disruptor.reconnect_device_enterprise(ip)
             
             if success:
-                log_info(f"✅ PS5 device {ip} unblocked successfully")
+                log_info(f"✅ PS5 device {ip} unblocked successfully with enterprise disruptor")
                 return True
             else:
                 log_error(f"❌ Failed to unblock PS5 device {ip}")

@@ -236,7 +236,7 @@ class AppController:
         return self.state.get_selected_device()
     
     def toggle_lag(self, ip: str = None) -> bool:
-        """Toggle lag for a device - PERSISTENT until manually toggled"""
+        """Toggle lag for a device - TEMPORARY until manually toggled - OPTIMIZED"""
         start_time = time.time()
         try:
             if ip:
@@ -246,13 +246,16 @@ class AppController:
                     current_blocked = device.blocked
                     success = False
                     
-                    # Apply the opposite of current status - PERSISTENT
+                    # Apply the opposite of current status - TEMPORARY, not permanent
                     if current_blocked:
                         # Device is currently blocked, so unblock it
                         success = self._remove_blocking(ip)
                         if success:
                             device.blocked = False
-                            log_info(f"Successfully unblocked device: {ip} - PERSISTENT")
+                            # Performance optimization: Reduce logging
+                            if hasattr(self, '_last_log_time') and time.time() - getattr(self, '_last_log_time', 0) > 1.0:
+                                log_info(f"Successfully unblocked device: {ip} - TEMPORARY")
+                                self._last_log_time = time.time()
                         else:
                             log_error(f"Failed to unblock device: {ip}")
                     else:
@@ -260,7 +263,10 @@ class AppController:
                         success = self._apply_blocking(ip)
                         if success:
                             device.blocked = True
-                            log_info(f"Successfully blocked device: {ip} - PERSISTENT")
+                            # Performance optimization: Reduce logging
+                            if hasattr(self, '_last_log_time') and time.time() - getattr(self, '_last_log_time', 0) > 1.0:
+                                log_info(f"Successfully blocked device: {ip} - TEMPORARY")
+                                self._last_log_time = time.time()
                         else:
                             log_error(f"Failed to block device: {ip}")
                     
@@ -270,20 +276,25 @@ class AppController:
                             "ip": ip,
                             "blocked": device.blocked,
                             "success": success,
-                            "persistent": True
+                            "persistent": False  # Changed from True to False - TEMPORARY
                         })
                     
                     duration = time.time() - start_time
-                    log_blocking_event("Toggle lag", ip, success)
-                    log_performance("Toggle lag", duration)
+                    # Performance optimization: Only log performance for slow operations
+                    if duration > 0.1:  # Only log if operation takes more than 100ms
+                        log_performance("Toggle lag", duration)
                     
                     return device.blocked  # Return the new blocked state
                 else:
                     # Device not found in state, try to block it anyway
-                    log_info(f"Device {ip} not found in state, attempting to block directly")
+                    if hasattr(self, '_last_log_time') and time.time() - getattr(self, '_last_log_time', 0) > 1.0:
+                        log_info(f"Device {ip} not found in state, attempting to block directly")
+                        self._last_log_time = time.time()
                     success = self._apply_blocking(ip)
                     if success:
-                        log_info(f"Successfully blocked device: {ip} (not in state)")
+                        if hasattr(self, '_last_log_time') and time.time() - getattr(self, '_last_log_time', 0) > 1.0:
+                            log_info(f"Successfully blocked device: {ip} (not in state)")
+                            self._last_log_time = time.time()
                         return True
                     else:
                         log_error(f"Failed to block device: {ip} (not in state)")

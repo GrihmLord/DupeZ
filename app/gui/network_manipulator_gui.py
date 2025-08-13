@@ -109,6 +109,16 @@ class NetworkManipulatorGUI(QWidget):
         self.block_all_button.clicked.connect(self.block_all_ips)
         button_layout.addWidget(self.block_all_button)
         
+        # Test individual methods button
+        self.test_methods_button = QPushButton("🧪 Test Methods")
+        self.test_methods_button.clicked.connect(self.test_disconnect_methods)
+        button_layout.addWidget(self.test_methods_button)
+        
+        # Test UDP interruption button
+        self.test_udp_button = QPushButton("🌊 Test UDP")
+        self.test_udp_button.clicked.connect(self.test_udp_interruption)
+        button_layout.addWidget(self.test_udp_button)
+        
         # Add to layout
         layout.addWidget(ip_group)
         layout.addWidget(options_group)
@@ -482,68 +492,113 @@ class NetworkManipulatorGUI(QWidget):
         self.refresh_network_info()
     
     def block_selected_ip(self):
-        """Block the selected IP address using the main blocking system"""
+        """Block the selected IP address using Clumsy network disruptor"""
         try:
             ip = self.block_ip_input.text().strip()
             if not ip:
                 QMessageBox.warning(self, "Warning", "Please enter an IP address")
                 return
             
-            # Use the main blocking system
-            from app.firewall.blocker import block_device
-            success = block_device(ip)
+            # Use Clumsy network disruptor
+            from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+            from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
             
+            # Initialize Clumsy if not running
+            if not clumsy_network_disruptor.is_running:
+                if not clumsy_network_disruptor.initialize():
+                    QMessageBox.critical(self, "Error", "Failed to initialize Clumsy network disruptor")
+                    return
+                clumsy_network_disruptor.start_clumsy()
+            
+            # Initialize enterprise disruptor as backup
+            if not enterprise_network_disruptor.is_running:
+                if not enterprise_network_disruptor.initialize():
+                    QMessageBox.critical(self, "Error", "Failed to initialize enterprise network disruptor")
+                else:
+                    enterprise_network_disruptor.start_enterprise()
+            
+            # Use Clumsy methods
+            clumsy_methods = ["drop", "lag", "throttle", "duplicate", "corrupt", "rst"]
+            
+            # Try Clumsy first (primary method)
+            success = clumsy_network_disruptor.disconnect_device_clumsy(ip, clumsy_methods)
             if success:
-                self.status_label.setText(f"Successfully blocked IP: {ip}")
+                self.status_label.setText(f"Successfully blocked IP: {ip} using Clumsy")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
                 self.block_ip_input.clear()
-                self.rule_created.emit(f"block_{ip}", "block")
+                self.rule_created.emit(f"block_{ip}", "clumsy_block")
                 # Add to history
-                self.add_history_entry(ip, "Block", "Firewall blocking", "Success")
+                self.add_history_entry(ip, "Clumsy Block", "Clumsy network disruptor", "Success")
             else:
-                self.status_label.setText(f"Failed to block IP: {ip}")
-                self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
-                # Add to history
-                self.add_history_entry(ip, "Block", "Firewall blocking", "Failed")
+                # Fallback to enterprise disruptor
+                enterprise_methods = ["arp_spoof", "icmp_flood", "syn_flood", "udp_flood", "packet_drop"]
+                success = enterprise_network_disruptor.disconnect_device_enterprise(ip, enterprise_methods)
+                
+                if success:
+                    self.status_label.setText(f"Successfully blocked IP: {ip} using enterprise disruptor")
+                    self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                    self.block_ip_input.clear()
+                    self.rule_created.emit(f"block_{ip}", "enterprise_block")
+                    # Add to history
+                    self.add_history_entry(ip, "Enterprise Block", "Enterprise network disruptor", "Success")
+                else:
+                    self.status_label.setText(f"Failed to block IP: {ip}")
+                    self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+                    # Add to history
+                    self.add_history_entry(ip, "Block Failed", "Clumsy + Enterprise disruptors", "Failed")
                 
         except Exception as e:
-            log_error(f"Error blocking IP: {e}")
+            log_error(f"Error blocking IP: {e}", exception=e, category="FIREWALL", severity="HIGH", 
+                     context={"ip": ip, "method": "clumsy_block"})
             QMessageBox.critical(self, "Error", f"Failed to block IP: {e}")
             # Add to history
-            self.add_history_entry(ip, "Block", "Firewall blocking", "Error")
+            self.add_history_entry(ip, "Clumsy Block", "Clumsy network disruptor", "Error")
     
     def unblock_selected_ip(self):
-        """Unblock the selected IP address using the main blocking system"""
+        """Unblock the selected IP address using Clumsy network disruptor"""
         try:
             ip = self.block_ip_input.text().strip()
             if not ip:
                 QMessageBox.warning(self, "Warning", "Please enter an IP address")
                 return
             
-            # Use the main blocking system
-            from app.firewall.blocker import unblock_device
-            success = unblock_device(ip)
+            # Use Clumsy network disruptor
+            from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+            from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
             
+            # Try Clumsy reconnection first
+            success = clumsy_network_disruptor.reconnect_device_clumsy(ip)
             if success:
-                self.status_label.setText(f"Successfully unblocked IP: {ip}")
+                self.status_label.setText(f"Successfully unblocked IP: {ip} using Clumsy")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
                 self.block_ip_input.clear()
                 # Add to history
-                self.add_history_entry(ip, "Unblock", "Firewall unblocking", "Success")
+                self.add_history_entry(ip, "Clumsy Unblock", "Clumsy network disruptor", "Success")
             else:
-                self.status_label.setText(f"Failed to unblock IP: {ip}")
-                self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
-                # Add to history
-                self.add_history_entry(ip, "Unblock", "Firewall unblocking", "Failed")
+                # Fallback to enterprise disruptor
+                success = enterprise_network_disruptor.reconnect_device_enterprise(ip)
+                
+                if success:
+                    self.status_label.setText(f"Successfully unblocked IP: {ip} using enterprise disruptor")
+                    self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                    self.block_ip_input.clear()
+                    # Add to history
+                    self.add_history_entry(ip, "Enterprise Unblock", "Enterprise network disruptor", "Success")
+                else:
+                    self.status_label.setText(f"Failed to unblock IP: {ip}")
+                    self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+                    # Add to history
+                    self.add_history_entry(ip, "Unblock Failed", "Clumsy + Enterprise disruptors", "Failed")
                 
         except Exception as e:
-            log_error(f"Error unblocking IP: {e}")
+            log_error(f"Error unblocking IP: {e}", exception=e, category="FIREWALL", severity="HIGH", 
+                     context={"ip": ip, "method": "clumsy_unblock"})
             QMessageBox.critical(self, "Error", f"Failed to unblock IP: {e}")
             # Add to history
-            self.add_history_entry(ip, "Unblock", "Firewall unblocking", "Error")
+            self.add_history_entry(ip, "Clumsy Unblock", "Clumsy network disruptor", "Error")
     
     def block_all_ips(self):
-        """Block all IPs from the device list using the main blocking system"""
+        """Block all IPs from the device list using Clumsy network disruptor"""
         try:
             if not self.controller:
                 QMessageBox.warning(self, "Warning", "Controller not available")
@@ -555,23 +610,175 @@ class NetworkManipulatorGUI(QWidget):
                 return
             
             reply = QMessageBox.question(self, "Confirm", 
-                                       f"Block all {len(devices)} devices?",
+                                       f"Block all {len(devices)} devices using Clumsy network disruptor?",
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             
             if reply == QMessageBox.StandardButton.Yes:
-                blocked_count = 0
-                # Use the main blocking system
-                from app.firewall.blocker import block_device
-                for device in devices:
-                    if block_device(device.ip):
-                        blocked_count += 1
+                # Use Clumsy network disruptor
+                from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+                from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
                 
-                self.status_label.setText(f"Blocked {blocked_count}/{len(devices)} devices")
+                # Initialize Clumsy if not running
+                if not clumsy_network_disruptor.is_running:
+                    if not clumsy_network_disruptor.initialize():
+                        QMessageBox.critical(self, "Error", "Failed to initialize Clumsy network disruptor")
+                        return
+                    clumsy_network_disruptor.start_clumsy()
+                
+                # Initialize enterprise disruptor as backup
+                if not enterprise_network_disruptor.is_running:
+                    if not enterprise_network_disruptor.initialize():
+                        QMessageBox.critical(self, "Error", "Failed to initialize enterprise network disruptor")
+                    else:
+                        enterprise_network_disruptor.start_enterprise()
+                
+                # Use Clumsy methods
+                clumsy_methods = ["drop", "lag", "throttle", "duplicate", "corrupt", "rst"]
+                enterprise_methods = ["arp_spoof", "icmp_flood", "syn_flood", "udp_flood", "packet_drop"]
+                
+                blocked_count = 0
+                for device in devices:
+                    # Try Clumsy first
+                    success = clumsy_network_disruptor.disconnect_device_clumsy(device.ip, clumsy_methods)
+                    if success:
+                        blocked_count += 1
+                    else:
+                        # Fallback to enterprise disruptor
+                        success = enterprise_network_disruptor.disconnect_device_enterprise(device.ip, enterprise_methods)
+                        if success:
+                            blocked_count += 1
+                
+                self.status_label.setText(f"Blocked {blocked_count}/{len(devices)} devices using Clumsy + Enterprise disruptors")
                 self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
                 
         except Exception as e:
-            log_error(f"Error blocking all IPs: {e}")
+            log_error(f"Error blocking all IPs: {e}", exception=e, category="FIREWALL", severity="HIGH", 
+                     context={"method": "clumsy_block_all", "device_count": len(devices) if devices else 0})
             QMessageBox.critical(self, "Error", f"Failed to block all IPs: {e}")
+    
+    def test_disconnect_methods(self):
+        """Test individual disconnect methods to see which ones are working"""
+        try:
+            ip = self.block_ip_input.text().strip()
+            if not ip:
+                QMessageBox.warning(self, "Warning", "Please enter an IP address to test")
+                return
+            
+            # Use Clumsy network disruptor
+            from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+            from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
+            
+            # Initialize Clumsy if not running
+            if not clumsy_network_disruptor.is_running:
+                if not clumsy_network_disruptor.initialize():
+                    QMessageBox.critical(self, "Error", "Failed to initialize Clumsy network disruptor")
+                    return
+                clumsy_network_disruptor.start_clumsy()
+            
+            # Initialize enterprise disruptor as backup
+            if not enterprise_network_disruptor.is_running:
+                if not enterprise_network_disruptor.initialize():
+                    QMessageBox.critical(self, "Error", "Failed to initialize enterprise network disruptor")
+                else:
+                    enterprise_network_disruptor.start_enterprise()
+            
+            # Test Clumsy methods
+            clumsy_methods = ["drop", "lag", "throttle", "duplicate", "corrupt", "rst"]
+            enterprise_methods = ["arp_spoof", "icmp_flood", "syn_flood", "udp_flood", "packet_drop"]
+            
+            results = []
+            
+            # Test Clumsy methods
+            for method in clumsy_methods:
+                try:
+                    success = clumsy_network_disruptor.disconnect_device_clumsy(ip, [method])
+                    status = "✅ Working" if success else "❌ Failed"
+                    results.append(f"Clumsy {method}: {status}")
+                    
+                    # Clean up after each test
+                    clumsy_network_disruptor.reconnect_device_clumsy(ip)
+                    
+                except Exception as e:
+                    results.append(f"Clumsy {method}: ❌ Error - {str(e)}")
+            
+            # Test Enterprise methods
+            for method in enterprise_methods:
+                try:
+                    success = enterprise_network_disruptor.disconnect_device_enterprise(ip, [method])
+                    status = "✅ Working" if success else "❌ Failed"
+                    results.append(f"Enterprise {method}: {status}")
+                    
+                    # Clean up after each test
+                    enterprise_network_disruptor.reconnect_device_enterprise(ip)
+                    
+                except Exception as e:
+                    results.append(f"Enterprise {method}: ❌ Error - {str(e)}")
+            
+            # Test UDP interruption separately
+            try:
+                from app.firewall.udp_port_interrupter import udp_port_interrupter
+                udp_success = udp_port_interrupter.start_udp_interruption([ip], drop_rate=50, duration=5)
+                udp_status = "✅ Working" if udp_success else "❌ Failed"
+                results.append(f"udp_interrupt: {udp_status}")
+                
+                # Stop UDP interruption after test
+                udp_port_interrupter.stop_udp_interruption()
+                
+            except Exception as e:
+                results.append(f"udp_interrupt: ❌ Error - {str(e)}")
+            
+            # Show results
+            result_text = f"Test Results for {ip}:\n\n" + "\n".join(results)
+            QMessageBox.information(self, "Method Test Results", result_text)
+            
+            # Update status
+            working_count = sum(1 for r in results if "✅ Working" in r)
+            self.status_label.setText(f"Tested {len(methods) + 1} methods: {working_count} working")
+            self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+            
+        except Exception as e:
+            log_error(f"Error testing disconnect methods: {e}", exception=e, category="FIREWALL", severity="MEDIUM", 
+                     context={"ip": ip, "method": "test_methods"})
+            QMessageBox.critical(self, "Error", f"Failed to test methods: {e}")
+    
+    def test_udp_interruption(self):
+        """Test UDP interruption specifically"""
+        try:
+            ip = self.block_ip_input.text().strip()
+            if not ip:
+                QMessageBox.warning(self, "Warning", "Please enter an IP address to test UDP interruption")
+                return
+            
+            from app.firewall.udp_port_interrupter import udp_port_interrupter
+            
+            # Test UDP interruption
+            success = udp_port_interrupter.start_udp_interruption([ip], drop_rate=50, duration=10)
+            
+            if success:
+                QMessageBox.information(self, "UDP Test", 
+                    f"UDP interruption started successfully for {ip}\n"
+                    "Testing for 10 seconds...\n"
+                    "Check if you notice any network disruption.")
+                
+                # Stop after 10 seconds
+                import threading
+                def stop_after_delay():
+                    import time
+                    time.sleep(10)
+                    udp_port_interrupter.stop_udp_interruption()
+                    self.status_label.setText("UDP interruption test completed")
+                
+                threading.Thread(target=stop_after_delay, daemon=True).start()
+                
+            else:
+                QMessageBox.critical(self, "UDP Test Failed", 
+                    f"Failed to start UDP interruption for {ip}\n"
+                    "Check the logs for more details.")
+                
+        except Exception as e:
+            log_error(f"Error testing UDP interruption: {e}", exception=e, category="FIREWALL", severity="MEDIUM", 
+                     context={"ip": ip, "method": "test_udp"})
+            QMessageBox.critical(self, "Error", f"Failed to test UDP interruption: {e}")
     
     def apply_throttling(self):
         """Apply traffic throttling to the selected IP"""

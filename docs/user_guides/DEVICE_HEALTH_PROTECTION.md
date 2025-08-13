@@ -161,13 +161,13 @@ Disconnected: 0
 ### **Device Health Table**
 | IP Address | Health Score | Status | Latency | Packet Loss | Errors | Actions |
 |------------|--------------|--------|---------|-------------|--------|---------|
-| 192.168.1.100 | 95.2% | Healthy | 2.1ms | 0.0% | 0 | Check/Details |
-| 192.168.1.101 | 65.8% | Degraded | 45.2ms | 2.1% | 3 | Check/Details |
-| 192.168.1.102 | 35.4% | Poor | 120.5ms | 8.7% | 7 | Check/Details |
+| 10.0.0.100 | 95.2% | Healthy | 2.1ms | 0.0% | 0 | Check/Details |
+| 10.0.0.101 | 65.8% | Degraded | 45.2ms | 2.1% | 3 | Check/Details |
+| 10.0.0.102 | 35.4% | Poor | 120.5ms | 8.7% | 7 | Check/Details |
 
 ### **Device Details**
 ```
-📋 DEVICE DETAILS: 192.168.1.100
+📋 DEVICE DETAILS: 10.0.0.100
 ===============================
 
 HEALTH STATUS:

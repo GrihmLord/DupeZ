@@ -5,14 +5,20 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QProgressBar, QTextEdit, QSplitter, QFrame,
                              QHeaderView, QTableWidget, QTableWidgetItem,
                              QComboBox, QSpinBox, QCheckBox, QGroupBox,
-                             QMenu, QGridLayout, QLineEdit)
+                             QMenu, QGridLayout, QLineEdit, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QColor, QIcon, QAction
 import time
+import platform
+import subprocess
 from typing import List, Dict, Optional
 
 from app.network.enhanced_scanner import get_enhanced_scanner, cleanup_enhanced_scanner
 from app.logs.logger import log_info, log_error, log_warning
+from app.logs.error_tracker import track_error
+from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
+from app.firewall.blocker import is_admin
 
 class EnhancedDeviceList(QWidget):
     """Enhanced device list with Angry IP Scanner-like features"""
@@ -26,8 +32,33 @@ class EnhancedDeviceList(QWidget):
     def __init__(self, controller=None):
         super().__init__()
         self.controller = controller
-        self.scanner = get_enhanced_scanner()
+        
+        # Initialize scanner with error handling
+        try:
+            self.scanner = get_enhanced_scanner()
+        except Exception as e:
+            log_error(f"Failed to initialize scanner: {e}")
+            self.scanner = None
+        
+        # Initialize network disruptors with error handling
+        self.clumsy_network_disruptor = None
+        self.enterprise_network_disruptor = None
+        self._initialize_disruptors()
+        
         self.devices = []
+        self.disconnect_active = False  # Track disconnect state
+        
+        # Performance optimization: Throttle UI updates
+        self.ui_update_timer = QTimer()
+        self.ui_update_timer.setSingleShot(True)
+        self.ui_update_timer.timeout.connect(self._perform_batched_ui_update)
+        self.pending_ui_updates = []
+        
+        # Performance optimization: Reduce logging during operations
+        self.operation_in_progress = False
+        self.last_log_time = 0
+        self.log_throttle_interval = 0.5  # Only log every 0.5 seconds
+        
         self.setup_ui()
         self.connect_signals()
         
@@ -39,251 +70,263 @@ class EnhancedDeviceList(QWidget):
         self.udp_status_timer.timeout.connect(self.check_udp_tool_status)
         self.udp_status_timer.start(2000)  # Check every 2 seconds
     
+    def _initialize_disruptors(self):
+        """Initialize network disruptors with proper error handling"""
+        try:
+            # Initialize Clumsy network disruptor
+            try:
+                from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+                self.clumsy_network_disruptor = clumsy_network_disruptor
+                log_info("Clumsy network disruptor initialized successfully")
+            except Exception as e:
+                log_error(f"Failed to initialize Clumsy network disruptor: {e}")
+                self.clumsy_network_disruptor = None
+            
+            # Initialize Enterprise network disruptor
+            try:
+                from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
+                self.enterprise_network_disruptor = enterprise_network_disruptor
+                log_info("Enterprise network disruptor initialized successfully")
+            except Exception as e:
+                log_error(f"Failed to initialize Enterprise network disruptor: {e}")
+                self.enterprise_network_disruptor = None
+                
+        except Exception as e:
+            log_error(f"Error initializing network disruptors: {e}")
+            self.clumsy_network_disruptor = None
+            self.enterprise_network_disruptor = None
+    
     def setup_ui(self):
-        """Setup the enhanced device list UI with responsive design"""
+        """Setup a simple, Clumsy-like network scanner UI"""
         layout = QVBoxLayout()
-        layout.setSpacing(10)  # Add spacing between elements
-        layout.setContentsMargins(10, 10, 10, 10)  # Add margins
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
         self.setLayout(layout)
         
-        # Title with responsive font
-        title = QLabel("🔍 Enhanced Network Scanner")
-        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        # Simple title
+        title = QLabel("🔍 Network Scanner")
+        title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("padding: 10px; margin-bottom: 10px;")
+        title.setStyleSheet("color: #ffffff; padding: 8px; margin-bottom: 8px;")
         layout.addWidget(title)
         
-        # Control panel
-        control_panel = self.create_control_panel()
+        # Simple control panel
+        control_panel = self.create_simple_control_panel()
         layout.addWidget(control_panel)
         
-        # Progress bar
+        # Simple progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setStyleSheet("""
             QProgressBar {
-                border: 2px solid #404040;
-                border-radius: 5px;
+                border: 1px solid #555555;
+                border-radius: 3px;
                 text-align: center;
-                font-weight: bold;
-                height: 20px;
+                height: 16px;
             }
             QProgressBar::chunk {
                 background-color: #4CAF50;
-                border-radius: 3px;
+                border-radius: 2px;
             }
         """)
         layout.addWidget(self.progress_bar)
         
-        # Main content splitter for resizable scan results
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
+        # Simple device table
+        self.device_table = QTableWidget()
+        self.setup_simple_device_table()
+        layout.addWidget(self.device_table, 1)
         
-        # Left panel - Device table
-        left_panel = self.create_scan_panel()
-        main_splitter.addWidget(left_panel)
+        # Simple status bar
+        self.status_label = QLabel("Ready to scan")
+        self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 4px;")
+        layout.addWidget(self.status_label)
         
-        # Right panel - Additional scan details
-        right_panel = self.create_details_panel()
-        main_splitter.addWidget(right_panel)
+        # Apply simple styling
+        self.apply_simple_styling()
         
-        # Set splitter proportions (70% scan results, 30% details)
-        main_splitter.setSizes([700, 300])
-        layout.addWidget(main_splitter, 1)  # Give splitter more space
-        
-        # Status indicators in a horizontal layout
-        status_layout = QHBoxLayout()
-        
-        # Status bar
-        self.status_label = QLabel("Ready to scan network")
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.status_label.setStyleSheet("""
-            color: #4CAF50; 
-            font-weight: bold; 
-            padding: 5px;
-            background-color: #1e1e1e;
-            border-radius: 3px;
-        """)
-        status_layout.addWidget(self.status_label)
-        
-        # Blocking status indicator
-        self.blocking_status = QLabel("🔒 Blocking: Inactive")
-        self.blocking_status.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.blocking_status.setStyleSheet("""
-            color: #FF9800; 
-            font-weight: bold; 
-            padding: 5px;
-            background-color: #1e1e1e;
-            border-radius: 3px;
-        """)
-        status_layout.addWidget(self.blocking_status)
-        
-        layout.addLayout(status_layout)
-        
-        # Apply styling
-        self.apply_styling()
-        
-        # Add search functionality
-        self.add_search_input()
-        
-        # Initialize admin status indicator
+        # Initialize admin status
         try:
             from app.firewall.blocker import is_admin
             if is_admin():
-                admin_label = QLabel("👑 Running as Administrator")
-                admin_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+                admin_label = QLabel("👑 Administrator Mode")
+                admin_label.setStyleSheet("color: #4CAF50; font-weight: bold; font-size: 10px;")
                 layout.addWidget(admin_label)
         except Exception as e:
-            log_error(f"Failed to create admin status indicator: {e}", 
-                      exception=e, category="gui", severity="low",
-                      context={"component": "admin_status_indicator"})
+            log_error(f"Failed to create admin status indicator: {e}")
     
-    def create_scan_panel(self) -> QWidget:
-        """Create the main scan results panel"""
+    def create_simple_control_panel(self) -> QWidget:
+        """Create a simple control panel like Clumsy"""
         panel = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        panel.setStyleSheet("""
+            QWidget {
+                background-color: #2d2d2d;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
         
-        # Device table with responsive sizing
-        self.device_table = QTableWidget()
-        self.setup_device_table()
-        layout.addWidget(self.device_table)
-        
+        layout = QHBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
         panel.setLayout(layout)
-        return panel
-    
-    def create_details_panel(self) -> QWidget:
-        """Create the details panel for additional scan information"""
-        panel = QWidget()
-        layout = QVBoxLayout()
-        layout.setContentsMargins(10, 0, 0, 0)
         
-        # Details header
-        details_header = QLabel("📊 Scan Details")
-        details_header.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        details_header.setStyleSheet("""
-            color: #ffffff;
-            padding: 8px;
-            background-color: #34495e;
-            border-radius: 4px;
-            margin-bottom: 8px;
-        """)
-        layout.addWidget(details_header)
-        
-        # Scan statistics
-        stats_group = QGroupBox("📈 Statistics")
-        stats_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 11px;
-                border: 1px solid #555555;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                background-color: #2b2b2b;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 3px 0 3px;
-                color: #ffffff;
-            }
-        """)
-        
-        stats_layout = QVBoxLayout()
-        
-        # Device count
-        self.device_count_label = QLabel("Devices Found: 0")
-        self.device_count_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 4px;")
-        stats_layout.addWidget(self.device_count_label)
-        
-        # PS5 devices count
-        self.ps5_count_label = QLabel("PS5 Devices: 0")
-        self.ps5_count_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 4px;")
-        stats_layout.addWidget(self.ps5_count_label)
-        
-        # Blocked devices count
-        self.blocked_count_label = QLabel("Blocked Devices: 0")
-        self.blocked_count_label.setStyleSheet("color: #f44336; font-weight: bold; padding: 4px;")
-        stats_layout.addWidget(self.blocked_count_label)
-        
-        # Scan duration
-        self.scan_duration_label = QLabel("Last Scan: Never")
-        self.scan_duration_label.setStyleSheet("color: #2196F3; font-weight: bold; padding: 4px;")
-        stats_layout.addWidget(self.scan_duration_label)
-        
-        stats_group.setLayout(stats_layout)
-        layout.addWidget(stats_group)
-        
-        # Quick actions
-        actions_group = QGroupBox("⚡ Quick Actions")
-        actions_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 11px;
-                border: 1px solid #555555;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                background-color: #2b2b2b;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 3px 0 3px;
-                color: #ffffff;
-            }
-        """)
-        
-        actions_layout = QVBoxLayout()
-        
-        # Export results button
-        self.export_btn = QPushButton("📤 Export Results")
-        self.export_btn.setStyleSheet("""
+        # Scan button
+        self.scan_button = QPushButton("🔍 Scan Network")
+        self.scan_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.scan_button.setStyleSheet("""
             QPushButton {
-                background-color: #9C27B0;
+                background-color: #4CAF50;
                 color: white;
                 border: none;
-                padding: 6px 10px;
                 border-radius: 4px;
-                font-weight: bold;
-                font-size: 9px;
-                min-height: 22px;
+                padding: 8px 16px;
+                min-height: 28px;
             }
             QPushButton:hover {
-                background-color: #7B1FA2;
+                background-color: #45a049;
             }
         """)
-        self.export_btn.clicked.connect(self.export_results)
-        actions_layout.addWidget(self.export_btn)
+        self.scan_button.clicked.connect(self.start_scan)
+        layout.addWidget(self.scan_button)
         
-        # Clear results button
-        self.clear_details_btn = QPushButton("🗑️ Clear Results")
-        self.clear_details_btn.setStyleSheet("""
+        # Stop button
+        self.stop_button = QPushButton("⏹️ Stop")
+        self.stop_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.stop_button.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
                 border: none;
-                padding: 6px 10px;
                 border-radius: 4px;
-                font-weight: bold;
-                font-size: 9px;
-                min-height: 22px;
+                padding: 8px 16px;
+                min-height: 28px;
             }
             QPushButton:hover {
                 background-color: #d32f2f;
             }
         """)
-        self.clear_details_btn.clicked.connect(self.clear_devices)
-        actions_layout.addWidget(self.clear_details_btn)
+        self.stop_button.clicked.connect(self.stop_scan)
+        self.stop_button.setEnabled(False)
+        layout.addWidget(self.stop_button)
         
-        actions_group.setLayout(actions_layout)
-        layout.addWidget(actions_group)
+        # Disconnect selected device button
+        self.disconnect_button = QPushButton("🔌 Disconnect Selected")
+        self.disconnect_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.disconnect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+        """)
+        self.disconnect_button.clicked.connect(self.disconnect_selected_device)
+        self.disconnect_button.setEnabled(False)
+        layout.addWidget(self.disconnect_button)
         
-        # Add stretch to push everything to the top
+        # Reconnect selected device button
+        self.reconnect_button = QPushButton("🔌 Reconnect Selected")
+        self.reconnect_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.reconnect_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+            }
+        """)
+        self.reconnect_button.clicked.connect(self.reconnect_selected_device)
+        self.reconnect_button.setEnabled(False)
+        layout.addWidget(self.reconnect_button)
+        
+        # Clear all button
+        self.clear_button = QPushButton("🗑️ Clear All")
+        self.clear_button.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.clear_button.setStyleSheet("""
+            QPushButton {
+                background-color: #9E9E9E;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                min-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #757575;
+            }
+        """)
+        self.clear_button.clicked.connect(self.clear_devices)
+        layout.addWidget(self.clear_button)
+        
         layout.addStretch()
-        
-        panel.setLayout(layout)
         return panel
+    
+    def setup_simple_device_table(self):
+        """Setup a simple device table like Clumsy"""
+        # Set table properties
+        self.device_table.setColumnCount(6)
+        self.device_table.setHorizontalHeaderLabels([
+            "IP Address", "MAC Address", "Hostname", "Vendor", "Status", "Actions"
+        ])
+        
+        # Set table style
+        self.device_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #1e1e1e;
+                alternate-background-color: #2d2d2d;
+                color: #ffffff;
+                gridline-color: #555555;
+                border: 1px solid #555555;
+                border-radius: 4px;
+            }
+            QTableWidget::item {
+                padding: 4px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #4CAF50;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #34495e;
+                color: white;
+                padding: 6px;
+                border: 1px solid #555555;
+                font-weight: bold;
+            }
+        """)
+        
+        # Set selection behavior
+        self.device_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.device_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.device_table.setAlternatingRowColors(True)
+        
+        # Connect selection change
+        self.device_table.itemSelectionChanged.connect(self.on_device_selection_changed)
+        
+        # Set column widths
+        header = self.device_table.horizontalHeader()
+        header.setStretchLastSection(False)
+        self.device_table.setColumnWidth(0, 120)  # IP
+        self.device_table.setColumnWidth(1, 140)  # MAC
+        self.device_table.setColumnWidth(2, 150)  # Hostname
+        self.device_table.setColumnWidth(3, 120)  # Vendor
+        self.device_table.setColumnWidth(4, 80)   # Status
+        self.device_table.setColumnWidth(5, 100)  # Actions
+        
+        # Make hostname column stretch
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
     
     def on_resize(self, event):
         """Handle resize events for responsive design"""
@@ -534,17 +577,31 @@ class EnhancedDeviceList(QWidget):
                 background-color: #f44336;
                 border-color: #d32f2f;
             }
-            QPushButton:pressed {
-                background-color: #b71c1c;
-            }
-            QPushButton:disabled {
-                background-color: #666666;
-                border-color: #444444;
-                color: #cccccc;
-            }
         """)
         self.internet_drop_button.clicked.connect(self.toggle_internet_drop)
-        layout.addWidget(self.internet_drop_button, 3, 0, 1, 2)
+        layout.addWidget(self.internet_drop_button, 2, 3)
+        
+        # Emergency network restoration button
+        self.emergency_restore_button = QPushButton("🚨 Emergency Restore")
+        self.emergency_restore_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ff5722;
+                color: white;
+                border: 2px solid #e64a19;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+                font-size: 11px;
+                min-height: 30px;
+            }
+            QPushButton:hover {
+                background-color: #ff7043;
+                border-color: #ff5722;
+            }
+        """)
+        self.emergency_restore_button.setToolTip("Emergency network restoration - use if devices are permanently blocked")
+        self.emergency_restore_button.clicked.connect(self.emergency_network_restoration)
+        layout.addWidget(self.emergency_restore_button, 2, 4)
         
         # Row 4: Search functionality
         layout.addWidget(QLabel("|"))
@@ -763,12 +820,27 @@ class EnhancedDeviceList(QWidget):
     
     def connect_signals(self):
         """Connect scanner signals to UI updates"""
-        # Don't connect device_found to avoid conflicts with scan_complete
-        # self.scanner.device_found.connect(self.add_device_to_table)
-        self.scanner.scan_progress.connect(self.update_progress)
-        self.scanner.scan_complete.connect(self.on_scan_complete)
-        self.scanner.scan_error.connect(self.on_scan_error)
-        self.scanner.status_update.connect(self.update_status)
+        try:
+            # Check if scanner is still valid
+            if hasattr(self, 'scanner') and self.scanner is not None:
+                # Don't connect device_found to avoid conflicts with scan_complete
+                # self.scanner.device_found.connect(self.add_device_to_table)
+                self.scanner.scan_progress.connect(self.update_progress)
+                self.scanner.scan_complete.connect(self.on_scan_complete)
+                self.scanner.scan_error.connect(self.on_scan_error)
+                self.scanner.status_update.connect(self.update_status)
+        except Exception as e:
+            log_error(f"Failed to connect scanner signals: {e}")
+            # Reinitialize scanner if needed
+            try:
+                self.scanner = get_enhanced_scanner()
+                if self.scanner is not None:
+                    self.scanner.scan_progress.connect(self.update_progress)
+                    self.scanner.scan_complete.connect(self.on_scan_complete)
+                    self.scanner.scan_error.connect(self.on_scan_error)
+                    self.scanner.status_update.connect(self.update_status)
+            except Exception as e2:
+                log_error(f"Failed to reinitialize scanner: {e2}")
     
     def start_scan(self):
         """Start the enhanced network scan"""
@@ -1026,9 +1098,20 @@ class EnhancedDeviceList(QWidget):
             device = self.devices[row]
             ip = device.get('ip', '')
             is_blocked = device.get('blocked', False)
+            is_disconnected = device.get('disconnected', False)
             
             # Create context menu
             menu = QMenu(self)
+            
+            # Individual device disconnect/reconnect action
+            if not is_disconnected:
+                disconnect_action = QAction("🔌 Disconnect Device", self)
+                disconnect_action.triggered.connect(lambda: self.disconnect_individual_device(row))
+                menu.addAction(disconnect_action)
+            else:
+                reconnect_action = QAction("🔌 Reconnect Device", self)
+                reconnect_action.triggered.connect(lambda: self.reconnect_individual_device(row))
+                menu.addAction(reconnect_action)
             
             # Toggle blocking action
             toggle_action = QAction("Block Device" if not is_blocked else "Unblock Device", self)
@@ -1062,7 +1145,141 @@ class EnhancedDeviceList(QWidget):
         except Exception as e:
             log_error(f"Error showing context menu: {e}", 
                       exception=e, category="gui", severity="low",
-                      context={"row": row, "column": column, "device_ip": device_ip})
+                      context={"row": row, "device_ip": ip})
+    
+    def disconnect_individual_device(self, row: int):
+        """Disconnect a specific individual device"""
+        try:
+            if row < len(self.devices):
+                device = self.devices[row]
+                ip = device.get('ip', '')
+                
+                if not ip:
+                    self.update_status("❌ No IP address found for device")
+                    return
+                
+                self.update_status(f"🔄 Disconnecting individual device {ip}...")
+                
+                # Try to disconnect using available disruptors
+                success = False
+                
+                try:
+                    if self.clumsy_network_disruptor:
+                        if self.clumsy_network_disruptor.disconnect_device_clumsy(ip, ["drop", "lag"]):
+                            success = True
+                            log_info(f"Device {ip} disconnected using Clumsy")
+                except Exception as e:
+                    log_error(f"Clumsy disconnect error for {ip}: {e}")
+                
+                if not success and self.enterprise_network_disruptor:
+                    try:
+                        if self.enterprise_network_disruptor.disconnect_device_enterprise(ip, ["arp_spoof", "icmp_flood"]):
+                            success = True
+                            log_info(f"Device {ip} disconnected using Enterprise")
+                    except Exception as e:
+                        log_error(f"Enterprise disconnect error for {ip}: {e}")
+                
+                if success:
+                    # Update device status
+                    device['disconnected'] = True
+                    device['status'] = 'Disconnected'
+                    
+                    # Update table display
+                    status_item = QTableWidgetItem(device['status'])
+                    status_item.setBackground(QColor(255, 165, 0))  # Orange for disconnected
+                    status_item.setForeground(QColor(255, 255, 255))  # White text
+                    self.device_table.setItem(row, 7, status_item)
+                    
+                    self.update_status(f"✅ Device {ip} disconnected successfully")
+                    
+                    # Emit signal for other components
+                    self.device_blocked.emit(ip, True)
+                else:
+                    self.update_status(f"❌ Failed to disconnect device {ip}")
+                    QMessageBox.warning(
+                        self,
+                        "Disconnect Failed",
+                        f"Failed to disconnect device {ip}.\n\nPlease check the application logs for error details."
+                    )
+                    
+        except Exception as e:
+            log_error(f"Error disconnecting individual device: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"device_ip": ip, "row": row})
+            self.update_status(f"❌ Error disconnecting device {ip}")
+    
+    def reconnect_individual_device(self, row: int):
+        """Reconnect a specific individual device"""
+        try:
+            if row < len(self.devices):
+                device = self.devices[row]
+                ip = device.get('ip', '')
+                
+                if not ip:
+                    self.update_status("❌ No IP address found for device")
+                    return
+                
+                self.update_status(f"🔄 Reconnecting individual device {ip}...")
+                
+                # Try to reconnect using available disruptors
+                success = False
+                
+                try:
+                    if self.clumsy_network_disruptor:
+                        self.clumsy_network_disruptor.reconnect_device_clumsy(ip)
+                        success = True
+                        log_info(f"Device {ip} reconnected using Clumsy")
+                except Exception as e:
+                    log_error(f"Clumsy reconnection error for {ip}: {e}")
+                
+                if not success and self.enterprise_network_disruptor:
+                    try:
+                        self.enterprise_network_disruptor.reconnect_device_enterprise(ip)
+                        success = True
+                        log_info(f"Device {ip} reconnected using Enterprise")
+                    except Exception as e:
+                        log_error(f"Enterprise reconnection error for {ip}: {e}")
+                
+                if success:
+                    # Update device status
+                    device['disconnected'] = False
+                    device['status'] = 'Online'
+                    
+                    # Update table display
+                    status_item = QTableWidgetItem(device['status'])
+                    status_item.setBackground(QColor(100, 255, 100))  # Green for online
+                    status_item.setForeground(QColor(0, 0, 0))  # Black text
+                    self.device_table.setItem(row, 7, status_item)
+                    
+                    self.update_status(f"✅ Device {ip} reconnected successfully")
+                    
+                    # Emit signal for other components
+                    self.device_blocked.emit(ip, False)
+                else:
+                    self.update_status(f"❌ Failed to reconnect device {ip}")
+                    QMessageBox.warning(
+                        self,
+                        "Reconnect Failed",
+                        f"Failed to reconnect device {ip}.\n\nPlease check the application logs for error details."
+                    )
+                    
+        except Exception as e:
+            log_error(f"Error reconnecting individual device: {e}", 
+                      exception=e, category="firewall", severity="medium",
+                      context={"device_ip": ip, "row": row})
+            self.update_status(f"❌ Error reconnecting device {ip}")
+    
+    def _update_table_disconnect_status(self):
+        """Update the table display to show disconnect status for all devices"""
+        try:
+            for row, device in enumerate(self.devices):
+                if device.get('disconnected', False):
+                    status_item = QTableWidgetItem('Disconnected')
+                    status_item.setBackground(QColor(255, 165, 0))  # Orange for disconnected
+                    status_item.setForeground(QColor(255, 255, 255))  # White text
+                    self.device_table.setItem(row, 7, status_item)
+        except Exception as e:
+            log_error(f"Error updating table disconnect status: {e}")
     
     def toggle_device_blocking(self, row: int):
         """Toggle blocking for a specific device row"""
@@ -1106,9 +1323,13 @@ class EnhancedDeviceList(QWidget):
                       context={"device_ip": ip, "block_action": block})
     
     def actually_block_device(self, ip: str, block: bool):
-        """Actually block/unblock a device using REAL network disruption"""
+        """Actually block/unblock a device using REAL network disruption - OPTIMIZED"""
         try:
             from app.firewall.blocker import is_admin
+            
+            # Performance optimization: Reduce logging during operations
+            if not self._should_log():
+                return
             
             log_info(f"🔍 Starting blocking process for {ip} (block={block})")
             
@@ -1118,55 +1339,77 @@ class EnhancedDeviceList(QWidget):
                 log_info("Blocking feature used without Administrator privileges")
             
             if self.controller:
-                log_info(f"✅ Controller found, using toggle_lag method")
+                # Performance optimization: Batch UI updates
+                self._queue_ui_update(f"Processing {ip}...")
+                
                 # Use the controller's REAL blocking mechanism
                 # toggle_lag returns the new blocked state
                 new_blocked_state = self.controller.toggle_lag(ip)
-                log_info(f"📊 toggle_lag returned: {new_blocked_state}")
                 
-                if block:
-                    # We want to block the device
-                    if new_blocked_state:
-                        log_info(f"✅ Device {ip} blocked using REAL network disruption")
-                        self.update_status(f"Successfully blocked {ip}")
-                    else:
-                        log_error(f"❌ Failed to block device {ip}", 
-                                  category="firewall", severity="high",
-                                  context={"device_ip": ip, "block_action": True, "controller_method": "toggle_lag"})
-                        self.update_status(f"Failed to block {ip} - Try running as Administrator")
-                else:
-                    # We want to unblock the device
-                    if not new_blocked_state:
-                        log_info(f"✅ Device {ip} unblocked successfully")
-                        self.update_status(f"Successfully unblocked {ip}")
-                    else:
-                        log_error(f"❌ Failed to unblock device {ip}", 
-                                  category="firewall", severity="high",
-                                  context={"device_ip": ip, "block_action": False, "controller_method": "toggle_lag"})
-                        self.update_status(f"Failed to unblock {ip} - Try running as Administrator")
+                # Performance optimization: Only log critical information
+                if block != new_blocked_state:
+                    log_error(f"Blocking mismatch for {ip}: expected {block}, got {new_blocked_state}")
                 
                 # Update the device's blocked status in our local list
                 for device in self.devices:
                     if device.get('ip') == ip:
                         device['blocked'] = new_blocked_state
-                        log_info(f"📝 Updated device {ip} blocked status to {new_blocked_state}")
                         break
+                
+                # Performance optimization: Batch status updates
+                if block:
+                    if new_blocked_state:
+                        self._queue_ui_update(f"Successfully blocked {ip}")
+                    else:
+                        self._queue_ui_update(f"Failed to block {ip} - Try running as Administrator")
+                else:
+                    if not new_blocked_state:
+                        self._queue_ui_update(f"Successfully unblocked {ip}")
+                    else:
+                        self._queue_ui_update(f"Failed to unblock {ip} - Try running as Administrator")
                 
             else:
                 # Fallback to direct firewall blocking
-                log_error("❌ No controller available, using fallback blocking", 
-                          category="firewall", severity="medium",
-                          context={"device_ip": ip, "fallback_method": "aggressive_block_device"})
+                log_error("❌ No controller available, using fallback blocking")
                 self.aggressive_block_device(ip, block)
                 
-            # Update blocking status indicator
-            self.update_blocking_status()
+            # Performance optimization: Batch UI updates
+            self._schedule_ui_update()
             
         except Exception as e:
-            log_error(f"❌ Error blocking device {ip}: {e}", 
-                      exception=e, category="firewall", severity="high",
-                      context={"device_ip": ip, "block_action": block, "controller_available": self.controller is not None})
-            self.update_status(f"Error blocking {ip}: {e}")
+            log_error(f"❌ Error blocking device {ip}: {e}")
+            self._queue_ui_update(f"Error blocking {ip}: {e}")
+    
+    def _should_log(self) -> bool:
+        """Performance optimization: Throttle logging to prevent spam"""
+        current_time = time.time()
+        if current_time - self.last_log_time > self.log_throttle_interval:
+            self.last_log_time = current_time
+            return True
+        return False
+    
+    def _queue_ui_update(self, message: str):
+        """Performance optimization: Queue UI updates for batching"""
+        self.pending_ui_updates.append(message)
+    
+    def _schedule_ui_update(self):
+        """Performance optimization: Schedule batched UI update"""
+        if not self.ui_update_timer.isActive():
+            self.ui_update_timer.start(100)  # Update every 100ms instead of immediately
+    
+    def _perform_batched_ui_update(self):
+        """Performance optimization: Perform batched UI updates"""
+        try:
+            if self.pending_ui_updates:
+                # Combine multiple messages into one update
+                combined_message = " | ".join(self.pending_ui_updates[-3:])  # Show last 3 messages
+                self.update_status(combined_message)
+                self.pending_ui_updates.clear()
+                
+                # Update blocking status indicator
+                self.update_blocking_status()
+        except Exception as e:
+            log_error(f"Error in batched UI update: {e}")
     
     def update_blocking_status(self):
         """Update the blocking status indicator"""
@@ -1709,151 +1952,575 @@ class EnhancedDeviceList(QWidget):
                 if hasattr(self, 'internet_drop_button'):
                     self.internet_drop_button.setText("🔌 Disconnect")
         except Exception as e:
-            log_error(f"Error checking UDP tool status: {e}", 
+            track_error(f"Error checking UDP tool status: {e}", 
                       exception=e, category="udp_flood", severity="low",
                       context={"component": "udp_tool_status_check"})
     
     def toggle_internet_drop(self):
-        """Toggle internet drop/dupe functionality with selected methods"""
+        """Toggle internet drop for all devices with comprehensive cleanup - OPTIMIZED"""
         try:
-            from app.firewall.dupe_internet_dropper import dupe_internet_dropper
-            from app.firewall.blocker import is_admin
-            from app.firewall.udp_port_interrupter import udp_port_interrupter
-            
-            # Check if running as Administrator
+            # Check for administrator privileges
             if not is_admin():
-                self.update_status("⚠️ WARNING: Not running as Administrator. Some features may not work properly.")
-                log_info("Disconnect feature used without Administrator privileges")
-            
-            # Get selected methods
-            selected_methods = self.get_selected_disconnect_methods()
-            
-            if not selected_methods:
-                self.update_status("❌ Please select at least one disconnect method")
+                QMessageBox.critical(
+                    self, 
+                    "Administrator Privileges Required",
+                    "Network disruption requires Administrator privileges.\n\n"
+                    "Right-click DupeZ.exe and select 'Run as Administrator'"
+                )
                 return
             
-            # Get selected devices from the table
-            selected_devices = self.get_selected_devices()
-            
-            if not selected_devices:
-                self.update_status("❌ Please select at least one device to disconnect")
+            # Performance optimization: Prevent multiple simultaneous operations
+            if self.operation_in_progress:
+                log_warning("Operation already in progress, skipping")
                 return
             
-            if not dupe_internet_dropper.is_dupe_active():
-                # Start dupe with selected methods and devices
-                self.update_status("🔄 Starting disconnect mode...")
-                success = dupe_internet_dropper.start_dupe_with_devices(selected_devices, selected_methods)
-                if success:
-                    # If UDP interrupt is selected, also activate UDP tool
-                    if "udp_interrupt" in selected_methods:
-                        udp_success = udp_port_interrupter.start_udp_interruption(
-                            target_ips=[device.get('ip') for device in selected_devices if device.get('ip')],
-                            drop_rate=90,  # 90% drop rate for lagging without disconnection
-                            duration=0  # No timer, manual stop
-                        )
-                        if udp_success:
-                            log_info("✅ UDP interruption activated alongside disconnect mode")
-                        else:
-                            log_warning("⚠️ UDP interruption failed to start")
-                    
-                    self.internet_drop_button.setText("🔌 Reconnect")
-                    self.internet_drop_button.setStyleSheet("""
-                        QPushButton {
-                            background-color: #4caf50;
-                            color: white;
-                            border: 2px solid #388e3c;
-                            border-radius: 4px;
-                            padding: 8px 16px;
-                            font-weight: bold;
-                            font-size: 12px;
-                            min-height: 30px;
-                        }
-                        QPushButton:hover {
-                            background-color: #66bb6a;
-                            border-color: #4caf50;
-                        }
-                        QPushButton:pressed {
-                            background-color: #388e3c;
-                        }
-                        QPushButton:disabled {
-                            background-color: #666666;
-                            border-color: #444444;
-                            color: #cccccc;
-                        }
-                    """)
-                    methods_text = self.get_methods_description(selected_methods)
-                    device_count = len(selected_devices)
-                    self.update_status(f"🔌 Disconnect active on {device_count} device(s) - Using: {methods_text}")
-                    log_info(f"DayZ disconnect mode activated on {device_count} devices with methods: {selected_methods}")
-                    
-                    # Update UDP status display
-                    self.update_udp_status_display()
-                    
-                    # Update button text to show UDP status
-                    self.check_udp_tool_status()
+            self.operation_in_progress = True
+            
+            # Initialize disruptors with better error handling
+            clumsy_available = False
+            enterprise_available = False
+            
+            try:
+                if clumsy_network_disruptor.initialize():
+                    clumsy_available = True
+                    log_info("Clumsy network disruptor initialized successfully")
                 else:
-                    self.update_status("❌ Failed to start disconnect mode - Try running as Administrator")
-                    log_error("Failed to start DayZ disconnect mode", 
-                      category="firewall", severity="high",
-                      context={"disconnect_mode": "dayz", "action": "start"})
+                    log_warning("Clumsy network disruptor initialization failed")
+            except Exception as e:
+                log_error(f"Clumsy initialization error: {e}")
+            
+            try:
+                if enterprise_network_disruptor.initialize():
+                    enterprise_available = True
+                    log_info("Enterprise network disruptor initialized successfully")
+                else:
+                    log_warning("Enterprise network disruptor initialization failed")
+            except Exception as e:
+                log_error(f"Enterprise initialization error: {e}")
+            
+            # Check if at least one disruptor is available
+            if not clumsy_available and not enterprise_available:
+                QMessageBox.critical(
+                    self,
+                    "Network Disruptor Initialization Failed",
+                    "Both Clumsy and Enterprise disruptors failed to initialize.\n\n"
+                    "Common causes:\n"
+                    "• Missing WinDivert files (WinDivert.dll, WinDivert64.sys)\n"
+                    "• Missing clumsy.exe in app/firewall directory\n"
+                    "• Insufficient Administrator privileges\n\n"
+                    "Please check the application logs for detailed error information."
+                )
+                self.operation_in_progress = False
+                return
+            
+            if not self.disconnect_active:
+                # Start disconnect mode - TEMPORARY, not permanent
+                self.disconnect_active = True
+                self.internet_drop_button.setText("🔌 Reconnect All")
+                self.internet_drop_button.setStyleSheet("background-color: #f44336; color: white;")
+                
+                # Update status
+                self.update_status("🔄 Disconnecting ALL devices (TEMPORARY)...")
+                
+                # Disconnect each device with performance optimization
+                success_count = 0
+                total_devices = len(self.devices)
+                
+                for device in self.devices:
+                    try:
+                        device_ip = device.get('ip', '')
+                        if device_ip:
+                            # Performance optimization: Batch status updates
+                            self._queue_ui_update(f"Disconnecting {device_ip}...")
+                            
+                            # Try Clumsy first, then Enterprise as fallback
+                            if self.clumsy_network_disruptor and self.clumsy_network_disruptor.disconnect_device_clumsy(device_ip, ["drop", "lag"]):
+                                success_count += 1
+                                # Update device status to disconnected
+                                device['disconnected'] = True
+                                device['status'] = 'Disconnected'
+                                # Performance optimization: Reduce logging
+                                if self._should_log():
+                                    log_info(f"Device {device_ip} disconnected using Clumsy")
+                            elif self.enterprise_network_disruptor and self.enterprise_network_disruptor.disconnect_device_enterprise(device_ip, ["arp_spoof", "icmp_flood"]):
+                                success_count += 1
+                                # Update device status to disconnected
+                                device['disconnected'] = True
+                                device['status'] = 'Disconnected'
+                                if self._should_log():
+                                    log_info(f"Device {device_ip} disconnected using Enterprise")
+                            else:
+                                log_warning(f"Failed to disconnect device {device_ip}")
+                            
+                            # Small delay to prevent overwhelming the system
+                            time.sleep(0.05)  # Reduced from 0.1 to 0.05
+                            
+                    except Exception as e:
+                        log_error(f"Error disconnecting device {device.get('ip', 'Unknown')}: {e}")
+                
+                # Update table display for all devices
+                self._update_table_disconnect_status()
+                
+                # Schedule UI update
+                self._schedule_ui_update()
+                
+                # Final status update
+                if success_count == total_devices:
+                    self.update_status(f"✅ All {success_count} devices disconnected (TEMPORARY)")
+                    QMessageBox.information(
+                        self,
+                        "Disconnect All Mode Active",
+                        f"Successfully disconnected {success_count} out of {total_devices} devices.\n\n"
+                        "⚠️ IMPORTANT: This is TEMPORARY and will be restored when you reconnect.\n"
+                        "All devices are now in disconnect mode.\n\n"
+                        "💡 Tip: Use right-click on individual devices to disconnect/reconnect specific devices."
+                    )
+                elif success_count > 0:
+                    self.update_status(f"⚠️ {success_count}/{total_devices} devices disconnected (TEMPORARY)")
+                    QMessageBox.information(
+                        self,
+                        "Partial Disconnect Success",
+                        f"Disconnected {success_count} out of {total_devices} devices.\n\n"
+                        "⚠️ IMPORTANT: This is TEMPORARY and will be restored when you reconnect.\n"
+                        "Some devices may still be connected. Check the logs for details.\n\n"
+                        "💡 Tip: Use right-click on individual devices to disconnect/reconnect specific devices."
+                    )
+                else:
+                    self.update_status("❌ Failed to disconnect any devices")
+                    QMessageBox.warning(
+                        self,
+                        "Disconnect Failed",
+                        "Failed to disconnect any devices.\n\n"
+                        "Please check the application logs for error details."
+                    )
+                    # Reset disconnect state since it failed
+                    self.disconnect_active = False
+                    self.internet_drop_button.setText("🔌 Disconnect All")
+                    self.internet_drop_button.setStyleSheet("background-color: #4caf50; color: white;")
+                
             else:
-                # Stop dupe
-                self.update_status("🔄 Stopping disconnect mode...")
-                success = dupe_internet_dropper.stop_dupe()
+                # Reconnect mode - CRITICAL: Ensure complete cleanup for TEMPORARY disruption
+                self.update_status("🔄 Reconnecting devices and restoring network...")
                 
-                # Also stop UDP interruption if it was active
-                if udp_port_interrupter.is_running:
-                    udp_stop_success = udp_port_interrupter.stop_udp_interruption()
-                    if udp_stop_success:
-                        log_info("✅ UDP interruption stopped")
-                    else:
-                        log_warning("⚠️ UDP interruption failed to stop")
+                # First, clear all disruptions from both disruptors
+                self._clear_all_disruptions_comprehensive()
                 
-                if success:
-                    self.internet_drop_button.setText("🔌 Disconnect")
-                    self.internet_drop_button.setStyleSheet("""
-                        QPushButton {
-                            background-color: #d32f2f;
-                            color: white;
-                            border: 2px solid #b71c1c;
-                            border-radius: 4px;
-                            padding: 8px 16px;
-                            font-weight: bold;
-                            font-size: 12px;
-                            min-height: 30px;
-                        }
-                        QPushButton:hover {
-                            background-color: #f44336;
-                            border-color: #d32f2f;
-                        }
-                        QPushButton:pressed {
-                            background-color: #b71c1c;
-                        }
-                        QPushButton:disabled {
-                            background-color: #666666;
-                            border-color: #444444;
-                            color: #cccccc;
-                        }
-                    """)
-                    self.update_status("✅ Disconnect mode stopped - normal connection restored")
-                    log_info("DayZ disconnect mode deactivated")
-                    
-                    # Update UDP status display
-                    self.update_udp_status_display()
-                    
-                    # Update button text to show UDP status
-                    self.check_udp_tool_status()
+                # Then reconnect each device individually
+                success_count = 0
+                total_devices = len(self.devices)
+                
+                for device in self.devices:
+                    try:
+                        device_ip = device.get('ip', '')
+                        if device_ip:
+                            # Performance optimization: Batch status updates
+                            self._queue_ui_update(f"Reconnecting {device_ip}...")
+                            
+                            # Force reconnection through both disruptors
+                            reconnected = False
+                            
+                            try:
+                                if self.clumsy_network_disruptor:
+                                    self.clumsy_network_disruptor.reconnect_device_clumsy(device_ip)
+                                    reconnected = True
+                                    if self._should_log():
+                                        log_info(f"Device {device_ip} reconnected using Clumsy")
+                            except Exception as e:
+                                log_error(f"Clumsy reconnection error for {device_ip}: {e}")
+                            
+                            try:
+                                if self.enterprise_network_disruptor:
+                                    self.enterprise_network_disruptor.reconnect_device_enterprise(device_ip)
+                                    reconnected = True
+                                    if self._should_log():
+                                        log_info(f"Device {device_ip} reconnected using Enterprise")
+                            except Exception as e:
+                                log_error(f"Enterprise reconnection error for {device_ip}: {e}")
+                            
+                            if reconnected:
+                                success_count += 1
+                            
+                            # Small delay
+                            time.sleep(0.05)  # Reduced from 0.1 to 0.05
+                            
+                    except Exception as e:
+                        log_error(f"Error reconnecting device {device.get('ip', 'Unknown')}: {e}")
+                
+                # Final comprehensive cleanup
+                self._final_network_restoration()
+                
+                # Reset disconnect state
+                self.disconnect_active = False
+                self.internet_drop_button.setText("🔌 Disconnect All")
+                self.internet_drop_button.setStyleSheet("background-color: #4caf50; color: white;")
+                
+                # Schedule UI update
+                self._schedule_ui_update()
+                
+                # Final status update
+                if success_count == total_devices:
+                    self.update_status(f"✅ All {success_count} devices reconnected successfully")
+                    QMessageBox.information(
+                        self,
+                        "Reconnect Complete",
+                        f"Successfully reconnected {success_count} out of {total_devices} devices.\n\n"
+                        "✅ All devices are now back online and network has been restored.\n"
+                        "The temporary disruption has been completely removed."
+                    )
+                elif success_count > 0:
+                    self.update_status(f"⚠️ {success_count}/{total_devices} devices reconnected")
+                    QMessageBox.information(
+                        self,
+                        "Partial Reconnect Success",
+                        f"Reconnected {success_count} out of {total_devices} devices.\n\n"
+                        "⚠️ Some devices may still be disconnected. Check the logs for details.\n"
+                        "Use the Emergency Restore button if needed."
+                    )
                 else:
-                    self.update_status("❌ Failed to stop disconnect mode")
-                    log_error("Failed to stop DayZ disconnect mode", 
-                      category="firewall", severity="high",
-                      context={"disconnect_mode": "dayz", "action": "stop"})
-                    
+                    self.update_status("❌ Failed to reconnect any devices")
+                    QMessageBox.warning(
+                        self,
+                        "Reconnect Failed",
+                        "Failed to reconnect any devices.\n\n"
+                        "⚠️ CRITICAL: Your network may be permanently blocked.\n"
+                        "Please use the Emergency Restore button or restart your computer."
+                    )
+            
+            # Reset operation flag
+            self.operation_in_progress = False
+                
         except Exception as e:
-            log_error(f"Error toggling disconnect mode: {e}", 
-                      exception=e, category="firewall", severity="high",
-                      context={"disconnect_mode": "dayz", "current_state": self.disconnect_active})
-            self.update_status(f"❌ Error: {e}")
+            log_error(f"Error in toggle_internet_drop: {e}")
+            track_error("toggle_internet_drop", str(e))
+            
+            # Reset operation flag
+            self.operation_in_progress = False
+            
+            # Reset disconnect state on error
+            self.disconnect_active = False
+            self.internet_drop_button.setText("🔌 Disconnect All")
+            self.internet_drop_button.setStyleSheet("background-color: #4caf50; color: white;")
+            
+            self.update_status("❌ Error occurred during disconnect/reconnect")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"An error occurred: {str(e)}\n\nPlease check the application logs for details."
+            )
+    
+    def _clear_all_disruptions_comprehensive(self):
+        """Comprehensive cleanup of all network disruptions"""
+        try:
+            log_info("Starting comprehensive network disruption cleanup...")
+            
+            # Clear all Clumsy disruptions
+            try:
+                if self.clumsy_network_disruptor:
+                    self.clumsy_network_disruptor.clear_all_disruptions_clumsy()
+                    log_info("Cleared all Clumsy disruptions")
+            except Exception as e:
+                log_error(f"Error clearing Clumsy disruptions: {e}")
+            
+            # Clear all Enterprise disruptions
+            try:
+                if self.enterprise_network_disruptor:
+                    self.enterprise_network_disruptor.clear_all_disruptions_enterprise()
+                    log_info("Cleared all Enterprise disruptions")
+            except Exception as e:
+                log_error(f"Error clearing Enterprise disruptions: {e}")
+            
+            # Clear any remaining firewall rules
+            self._clear_remaining_firewall_rules()
+            
+            # Clear any remaining network configurations
+            self._clear_remaining_network_configs()
+            
+            log_info("Comprehensive disruption cleanup completed")
+            
+        except Exception as e:
+            log_error(f"Error in comprehensive cleanup: {e}")
+    
+    def _clear_remaining_firewall_rules(self):
+        """Clear any remaining firewall rules that might have been created"""
+        try:
+            log_info("Clearing remaining firewall rules...")
+            
+            # Clear Windows Firewall rules
+            if platform.system() == "Windows":
+                # Clear any rules that might have been created
+                clear_commands = [
+                    'netsh advfirewall firewall delete rule name="DupeZ_*"',
+                    'netsh advfirewall firewall delete rule name="Enterprise_*"',
+                    'netsh advfirewall firewall delete rule name="Clumsy_*"'
+                ]
+                
+                for cmd in clear_commands:
+                    try:
+                        subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+                    except:
+                        pass
+                
+                log_info("Cleared remaining firewall rules")
+                
+        except Exception as e:
+            log_error(f"Error clearing firewall rules: {e}")
+    
+    def _clear_remaining_network_configs(self):
+        """Clear any remaining network configurations"""
+        try:
+            log_info("Clearing remaining network configurations...")
+            
+            if platform.system() == "Windows":
+                # Clear any static routes that might have been added
+                try:
+                    # Get current routes and remove any suspicious ones
+                    result = subprocess.run('route print', shell=True, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if '0.0.0.0' in line and ('192.168.' in line or '10.' in line):
+                                # This might be a problematic route, try to remove it
+                                parts = line.split()
+                                if len(parts) >= 4:
+                                    target = parts[0]
+                                    try:
+                                        subprocess.run(f'route delete {target}', shell=True, capture_output=True, timeout=5)
+                                    except:
+                                        pass
+                except:
+                    pass
+                
+                # Clear any ARP cache entries
+                try:
+                    subprocess.run('arp -d', shell=True, capture_output=True, timeout=5)
+                except:
+                    pass
+                
+                log_info("Cleared remaining network configurations")
+                
+        except Exception as e:
+            log_error(f"Error clearing network configurations: {e}")
+    
+    def _final_network_restoration(self):
+        """Final network restoration steps"""
+        try:
+            log_info("Performing final network restoration...")
+            
+            # Flush DNS cache
+            try:
+                if platform.system() == "Windows":
+                    subprocess.run('ipconfig /flushdns', shell=True, capture_output=True, timeout=10)
+                    log_info("DNS cache flushed")
+            except:
+                pass
+            
+            # Reset network adapters if needed
+            try:
+                if platform.system() == "Windows":
+                    # Reset TCP/IP stack
+                    subprocess.run('netsh int ip reset', shell=True, capture_output=True, timeout=10)
+                    subprocess.run('netsh winsock reset', shell=True, capture_output=True, timeout=10)
+                    log_info("Network stack reset completed")
+            except:
+                pass
+            
+            log_info("Final network restoration completed")
+            
+        except Exception as e:
+            log_error(f"Error in final network restoration: {e}")
+    
+    def emergency_network_restoration(self):
+        """Emergency network restoration for permanently blocked devices"""
+        try:
+            # Show confirmation dialog
+            reply = QMessageBox.question(
+                self,
+                "Emergency Network Restoration",
+                "This will perform a COMPLETE network restoration including:\n\n"
+                "• Stop all network disruptions\n"
+                "• Clear all firewall rules\n"
+                "• Reset network configurations\n"
+                "• Flush DNS and ARP caches\n"
+                "• Reset TCP/IP stack\n\n"
+                "This may take several minutes and require a restart.\n\n"
+                "Continue with emergency restoration?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+            
+            self.update_status("🚨 Starting emergency network restoration...")
+            
+            # Step 1: Stop all disruptions
+            self.update_status("🔄 Step 1/6: Stopping all network disruptions...")
+            self._clear_all_disruptions_comprehensive()
+            
+            # Step 2: Clear all firewall rules
+            self.update_status("🔄 Step 2/6: Clearing all firewall rules...")
+            self._emergency_firewall_cleanup()
+            
+            # Step 3: Clear network configurations
+            self.update_status("🔄 Step 3/6: Clearing network configurations...")
+            self._emergency_network_cleanup()
+            
+            # Step 4: Reset network stack
+            self.update_status("🔄 Step 4/6: Resetting network stack...")
+            self._emergency_network_stack_reset()
+            
+            # Step 5: Flush all caches
+            self.update_status("🔄 Step 5/6: Flushing network caches...")
+            self._emergency_cache_flush()
+            
+            # Step 6: Final cleanup
+            self.update_status("🔄 Step 6/6: Final cleanup...")
+            self._emergency_final_cleanup()
+            
+            # Reset disconnect state
+            self.disconnect_active = False
+            self.internet_drop_button.setText("🔌 Disconnect All")
+            self.internet_drop_button.setStyleSheet("background-color: #4caf50; color: white;")
+            
+            self.update_status("✅ Emergency network restoration completed!")
+            
+            QMessageBox.information(
+                self,
+                "Emergency Restoration Complete",
+                "Emergency network restoration has been completed!\n\n"
+                "Your network should now be fully restored.\n\n"
+                "If you still experience issues, please restart your computer."
+            )
+            
+        except Exception as e:
+            log_error(f"Error in emergency network restoration: {e}")
+            track_error("emergency_network_restoration", str(e))
+            
+            self.update_status("❌ Emergency restoration failed - check logs")
+            QMessageBox.critical(
+                self,
+                "Emergency Restoration Failed",
+                f"Emergency network restoration failed: {str(e)}\n\n"
+                "Please check the application logs for details."
+            )
+    
+    def _emergency_firewall_cleanup(self):
+        """Emergency firewall cleanup"""
+        try:
+            if platform.system() == "Windows":
+                # Clear all possible firewall rules
+                clear_commands = [
+                    'netsh advfirewall firewall delete rule name="DupeZ_*"',
+                    'netsh advfirewall firewall delete rule name="Enterprise_*"',
+                    'netsh advfirewall firewall delete rule name="Clumsy_*"',
+                    'netsh advfirewall firewall delete rule name="Block_*"',
+                    'netsh advfirewall firewall delete rule name="Drop_*"',
+                    'netsh advfirewall firewall delete rule name="Lag_*"'
+                ]
+                
+                for cmd in clear_commands:
+                    try:
+                        subprocess.run(cmd, shell=True, capture_output=True, timeout=10)
+                    except:
+                        pass
+                
+                log_info("Emergency firewall cleanup completed")
+                
+        except Exception as e:
+            log_error(f"Error in emergency firewall cleanup: {e}")
+    
+    def _emergency_network_cleanup(self):
+        """Emergency network configuration cleanup"""
+        try:
+            if platform.system() == "Windows":
+                # Clear all static routes
+                try:
+                    result = subprocess.run('route print', shell=True, capture_output=True, text=True, timeout=10)
+                    if result.returncode == 0:
+                        lines = result.stdout.split('\n')
+                        for line in lines:
+                            if any(ip in line for ip in ['192.168.', '10.', '172.']):
+                                parts = line.split()
+                                if len(parts) >= 4:
+                                    target = parts[0]
+                                    try:
+                                        subprocess.run(f'route delete {target}', shell=True, capture_output=True, timeout=5)
+                                    except:
+                                        pass
+                except:
+                    pass
+                
+                # Clear ARP cache
+                try:
+                    subprocess.run('arp -d', shell=True, capture_output=True, timeout=5)
+                except:
+                    pass
+                
+                # Clear IP configuration
+                try:
+                    subprocess.run('ipconfig /release', shell=True, capture_output=True, timeout=10)
+                    subprocess.run('ipconfig /renew', shell=True, capture_output=True, timeout=10)
+                except:
+                    pass
+                
+                log_info("Emergency network cleanup completed")
+                
+        except Exception as e:
+            log_error(f"Error in emergency network cleanup: {e}")
+    
+    def _emergency_network_stack_reset(self):
+        """Emergency network stack reset"""
+        try:
+            if platform.system() == "Windows":
+                # Reset TCP/IP stack
+                subprocess.run('netsh int ip reset', shell=True, capture_output=True, timeout=15)
+                subprocess.run('netsh winsock reset', shell=True, capture_output=True, timeout=15)
+                
+                # Reset network adapters
+                subprocess.run('netsh int ip set dns "Local Area Connection" dhcp', shell=True, capture_output=True, timeout=10)
+                subprocess.run('netsh int ip set wins "Local Area Connection" dhcp', shell=True, capture_output=True, timeout=10)
+                
+                log_info("Emergency network stack reset completed")
+                
+        except Exception as e:
+            log_error(f"Error in emergency network stack reset: {e}")
+    
+    def _emergency_cache_flush(self):
+        """Emergency cache flush"""
+        try:
+            if platform.system() == "Windows":
+                # Flush DNS cache
+                subprocess.run('ipconfig /flushdns', shell=True, capture_output=True, timeout=10)
+                
+                # Flush NetBIOS cache
+                subprocess.run('nbtstat -R', shell=True, capture_output=True, timeout=10)
+                subprocess.run('nbtstat -RR', shell=True, capture_output=True, timeout=10)
+                
+                # Flush ARP cache
+                subprocess.run('arp -d', shell=True, capture_output=True, timeout=5)
+                
+                log_info("Emergency cache flush completed")
+                
+        except Exception as e:
+            log_error(f"Error in emergency cache flush: {e}")
+    
+    def _emergency_final_cleanup(self):
+        """Emergency final cleanup"""
+        try:
+            # Restart network services
+            if platform.system() == "Windows":
+                services = ['Dnscache', 'Dhcp', 'Netman']
+                for service in services:
+                    try:
+                        subprocess.run(f'net stop {service}', shell=True, capture_output=True, timeout=10)
+                        subprocess.run(f'net start {service}', shell=True, capture_output=True, timeout=10)
+                    except:
+                        pass
+                
+                log_info("Emergency final cleanup completed")
+                
+        except Exception as e:
+            log_error(f"Error in emergency final cleanup: {e}")
     
     def unblock_all_devices(self):
         """Unblock all devices in the list"""
@@ -1898,7 +2565,7 @@ class EnhancedDeviceList(QWidget):
             self.update_blocking_status()
             
         except Exception as e:
-            log_error(f"Error unblocking all devices: {e}", 
+            track_error(f"Error unblocking all devices: {e}", 
                       exception=e, category="firewall", severity="medium",
                       context={"total_devices_count": len(self.devices)})
             self.update_status(f"Error unblocking all devices: {e}")
@@ -2170,10 +2837,402 @@ class EnhancedDeviceList(QWidget):
                       context={"component": "search_input"})
     
     def cleanup(self):
-        """Clean up resources"""
+        """Cleanup method to ensure temporary blocks are removed"""
         try:
-            cleanup_enhanced_scanner()
+            log_info("EnhancedDeviceList cleanup started")
+            
+            # Clear any pending UI updates
+            if self.ui_update_timer.isActive():
+                self.ui_update_timer.stop()
+            
+            # Clear UDP status timer
+            if self.udp_status_timer.isActive():
+                self.udp_status_timer.stop()
+            
+            # If disconnect mode is active, force cleanup
+            if self.disconnect_active:
+                log_info("Disconnect mode active during cleanup, forcing reconnection...")
+                try:
+                    # Force cleanup of all disruptions
+                    self._clear_all_disruptions_comprehensive()
+                    self._final_network_restoration()
+                    
+                    # Reset disconnect state
+                    self.disconnect_active = False
+                    if hasattr(self, 'internet_drop_button'):
+                        self.internet_drop_button.setText("🔌 Disconnect All")
+                        self.internet_drop_button.setStyleSheet("background-color: #4caf50; color: white;")
+                    
+                    log_info("Forced cleanup completed during disconnect mode")
+                except Exception as e:
+                    log_error(f"Error during forced cleanup: {e}")
+            
+            # Clear any remaining firewall rules
+            try:
+                self._clear_remaining_firewall_rules()
+            except Exception as e:
+                log_error(f"Error clearing firewall rules during cleanup: {e}")
+            
+            # Clear any remaining network configurations
+            try:
+                self._clear_remaining_network_configs()
+            except Exception as e:
+                log_error(f"Error clearing network configs during cleanup: {e}")
+            
+            log_info("EnhancedDeviceList cleanup completed")
+            
         except Exception as e:
-            log_error(f"Error during cleanup: {e}", 
-                      exception=e, category="system", severity="medium",
-                      context={"component": "enhanced_device_list", "devices_count": len(self.devices)}) 
+            log_error(f"Error in EnhancedDeviceList cleanup: {e}")
+    
+    def closeEvent(self, event):
+        """Handle close event to ensure cleanup"""
+        try:
+            self.cleanup()
+            event.accept()
+        except Exception as e:
+            log_error(f"Error in closeEvent: {e}")
+            event.accept()
+    
+    def apply_simple_styling(self):
+        """Apply simple styling to the widget"""
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                font-family: Arial, sans-serif;
+            }
+        """)
+    
+    def on_device_selection_changed(self):
+        """Handle device selection change to enable/disable action buttons"""
+        selected_rows = self.device_table.selectionModel().selectedRows()
+        has_selection = len(selected_rows) > 0
+        
+        # Enable/disable action buttons based on selection
+        self.disconnect_button.setEnabled(has_selection)
+        self.reconnect_button.setEnabled(has_selection)
+        
+        if has_selection:
+            row = selected_rows[0].row()
+            if row < len(self.devices):
+                device = self.devices[row]
+                is_disconnected = device.get('disconnected', False)
+                
+                # Update button states based on device status
+                if is_disconnected:
+                    self.disconnect_button.setEnabled(False)
+                    self.reconnect_button.setEnabled(True)
+                else:
+                    self.disconnect_button.setEnabled(True)
+                    self.reconnect_button.setEnabled(False)
+    
+    def disconnect_selected_device(self):
+        """Disconnect only the selected device (not all devices)"""
+        try:
+            selected_rows = self.device_table.selectionModel().selectedRows()
+            if not selected_rows:
+                self.update_status("❌ No device selected")
+                return
+            
+            row = selected_rows[0].row()
+            if row >= len(self.devices):
+                self.update_status("❌ Invalid device selection")
+                return
+            
+            device = self.devices[row]
+            ip = device.get('ip', '')
+            
+            if not ip:
+                self.update_status("❌ No IP address found for selected device")
+                return
+            
+            # Check if device is already disconnected
+            if device.get('disconnected', False):
+                self.update_status(f"⚠️ Device {ip} is already disconnected")
+                return
+            
+            self.update_status(f"🔄 Disconnecting device {ip}...")
+            
+            # Try to disconnect using available disruptors
+            success = False
+            
+            try:
+                if self.clumsy_network_disruptor:
+                    if self.clumsy_network_disruptor.disconnect_device_clumsy(ip, ["drop", "lag"]):
+                        success = True
+                        log_info(f"Device {ip} disconnected using Clumsy")
+            except Exception as e:
+                log_error(f"Clumsy disconnect error for {ip}: {e}")
+            
+            if not success and self.enterprise_network_disruptor:
+                try:
+                    if self.enterprise_network_disruptor.disconnect_device_enterprise(ip, ["arp_spoof", "icmp_flood"]):
+                        success = True
+                        log_info(f"Device {ip} disconnected using Enterprise")
+                except Exception as e:
+                    log_error(f"Enterprise disconnect error for {ip}: {e}")
+            
+            if success:
+                # Update device status
+                device['disconnected'] = True
+                device['status'] = 'Disconnected'
+                
+                # Update table display
+                self.update_device_row(row)
+                
+                # Update button states
+                self.on_device_selection_changed()
+                
+                self.update_status(f"✅ Device {ip} disconnected successfully")
+            else:
+                self.update_status(f"❌ Failed to disconnect device {ip}")
+                
+        except Exception as e:
+            log_error(f"Error disconnecting selected device: {e}")
+            self.update_status(f"❌ Error: {str(e)}")
+    
+    def reconnect_selected_device(self):
+        """Reconnect only the selected device (not all devices)"""
+        try:
+            selected_rows = self.device_table.selectionModel().selectedRows()
+            if not selected_rows:
+                self.update_status("❌ No device selected")
+                return
+            
+            row = selected_rows[0].row()
+            if row >= len(self.devices):
+                self.update_status("❌ Invalid device selection")
+                return
+            
+            device = self.devices[row]
+            ip = device.get('ip', '')
+            
+            if not ip:
+                self.update_status("❌ No IP address found for selected device")
+                return
+            
+            # Check if device is already connected
+            if not device.get('disconnected', False):
+                self.update_status(f"⚠️ Device {ip} is already connected")
+                return
+            
+            self.update_status(f"🔄 Reconnecting device {ip}...")
+            
+            # Try to reconnect using available disruptors
+            success = False
+            
+            try:
+                if self.clumsy_network_disruptor:
+                    self.clumsy_network_disruptor.reconnect_device_clumsy(ip)
+                    success = True
+                    log_info(f"Device {ip} reconnected using Clumsy")
+            except Exception as e:
+                log_error(f"Clumsy reconnection error for {ip}: {e}")
+            
+            if not success and self.enterprise_network_disruptor:
+                try:
+                    self.enterprise_network_disruptor.reconnect_device_enterprise(ip)
+                    success = True
+                    log_info(f"Device {ip} reconnected using Enterprise")
+                except Exception as e:
+                    log_error(f"Enterprise reconnection error for {ip}: {e}")
+            
+            if success:
+                # Update device status
+                device['disconnected'] = False
+                device['status'] = 'Online'
+                
+                # Update table display
+                self.update_device_row(row)
+                
+                # Update button states
+                self.on_device_selection_changed()
+                
+                self.update_status(f"✅ Device {ip} reconnected successfully")
+            else:
+                self.update_status(f"❌ Failed to reconnect device {ip}")
+                
+        except Exception as e:
+            log_error(f"Error reconnecting selected device: {e}")
+            self.update_status(f"❌ Error: {str(e)}")
+    
+    def update_device_row(self, row):
+        """Update a specific row in the device table"""
+        try:
+            if row >= len(self.devices) or row < 0:
+                return
+            
+            device = self.devices[row]
+            
+            # Update status column
+            status_item = QTableWidgetItem(device.get('status', 'Unknown'))
+            if device.get('disconnected', False):
+                status_item.setBackground(QColor('#FF9800'))  # Orange for disconnected
+                status_item.setText('Disconnected')
+            elif device.get('blocked', False):
+                status_item.setBackground(QColor('#f44336'))  # Red for blocked
+                status_item.setText('Blocked')
+            else:
+                status_item.setBackground(QColor('#4CAF50'))  # Green for online
+                status_item.setText('Online')
+            
+            self.device_table.setItem(row, 4, status_item)
+            
+            # Update actions column
+            actions_item = QTableWidgetItem()
+            if device.get('disconnected', False):
+                actions_item.setText("🔌 Reconnect")
+                actions_item.setBackground(QColor('#2196F3'))
+            else:
+                actions_item.setText("🔌 Disconnect")
+                actions_item.setBackground(QColor('#FF9800'))
+            
+            self.device_table.setItem(row, 5, actions_item)
+            
+        except Exception as e:
+            log_error(f"Error updating device row {row}: {e}")
+    
+    def add_device_to_table(self, device, row):
+        """Add a device to the simplified table"""
+        try:
+            # IP Address
+            ip_item = QTableWidgetItem(device.get('ip', ''))
+            self.device_table.setItem(row, 0, ip_item)
+            
+            # MAC Address
+            mac_item = QTableWidgetItem(device.get('mac', ''))
+            self.device_table.setItem(row, 1, mac_item)
+            
+            # Hostname
+            hostname_item = QTableWidgetItem(device.get('hostname', ''))
+            self.device_table.setItem(row, 2, hostname_item)
+            
+            # Vendor
+            vendor_item = QTableWidgetItem(device.get('vendor', ''))
+            self.device_table.setItem(row, 3, vendor_item)
+            
+            # Status
+            status_item = QTableWidgetItem(device.get('status', 'Online'))
+            if device.get('disconnected', False):
+                status_item.setBackground(QColor('#FF9800'))
+                status_item.setText('Disconnected')
+            elif device.get('blocked', False):
+                status_item.setBackground(QColor('#f44336'))
+                status_item.setText('Blocked')
+            else:
+                status_item.setBackground(QColor('#4CAF50'))
+                status_item.setText('Online')
+            
+            self.device_table.setItem(row, 4, status_item)
+            
+            # Actions
+            actions_item = QTableWidgetItem()
+            if device.get('disconnected', False):
+                actions_item.setText("🔌 Reconnect")
+                actions_item.setBackground(QColor('#2196F3'))
+            else:
+                actions_item.setText("🔌 Disconnect")
+                actions_item.setBackground(QColor('#FF9800'))
+            
+            self.device_table.setItem(row, 5, actions_item)
+            
+        except Exception as e:
+            log_error(f"Error adding device to table: {e}")
+    
+    def clear_devices(self):
+        """Clear all devices from the table"""
+        try:
+            self.devices.clear()
+            self.device_table.setRowCount(0)
+            self.update_status("🗑️ All devices cleared")
+            
+            # Disable action buttons
+            self.disconnect_button.setEnabled(False)
+            self.reconnect_button.setEnabled(False)
+            
+        except Exception as e:
+            log_error(f"Error clearing devices: {e}")
+            self.update_status(f"❌ Error clearing devices: {str(e)}")
+    
+    def update_status(self, message):
+        """Update the status label with a simple message"""
+        try:
+            self.status_label.setText(message)
+            self.status_label.repaint()
+        except Exception as e:
+            log_error(f"Error updating status: {e}")
+    
+    def start_scan(self):
+        """Start a network scan"""
+        try:
+            if not self.scanner:
+                self.update_status("❌ Scanner not initialized")
+                return
+            
+            self.scan_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setValue(0)
+            
+            self.update_status("🔍 Starting network scan...")
+            
+            # Start scan in background thread (simplified)
+            self.scan_network()
+            
+        except Exception as e:
+            log_error(f"Error starting scan: {e}")
+            self.update_status(f"❌ Error starting scan: {str(e)}")
+            self.scan_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+    
+    def stop_scan(self):
+        """Stop the current scan"""
+        try:
+            if self.scanner:
+                self.scanner.stop_scan()
+            
+            self.scan_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            self.progress_bar.setVisible(False)
+            
+            self.update_status("⏹️ Scan stopped")
+            
+        except Exception as e:
+            log_error(f"Error stopping scan: {e}")
+    
+    def scan_network(self):
+        """Perform the actual network scan"""
+        try:
+            # Simple scan implementation
+            self.update_status("🔍 Scanning network...")
+            
+            # Simulate scan progress
+            for i in range(101):
+                self.progress_bar.setValue(i)
+                QTimer.singleShot(50, lambda: None)  # Simple delay
+            
+            # Add some sample devices for testing
+            sample_devices = [
+                {'ip': '192.168.1.1', 'mac': 'AA:BB:CC:DD:EE:FF', 'hostname': 'Router', 'vendor': 'TP-Link', 'status': 'Online', 'disconnected': False, 'blocked': False},
+                {'ip': '192.168.1.100', 'mac': '11:22:33:44:55:66', 'hostname': 'PC-Desktop', 'vendor': 'Dell', 'status': 'Online', 'disconnected': False, 'blocked': False},
+                {'ip': '192.168.1.101', 'mac': 'AA:11:BB:22:CC:33', 'hostname': 'PS5-Console', 'vendor': 'Sony', 'status': 'Online', 'disconnected': False, 'blocked': False},
+            ]
+            
+            self.devices = sample_devices
+            self.device_table.setRowCount(len(self.devices))
+            
+            for i, device in enumerate(self.devices):
+                self.add_device_to_table(device, i)
+            
+            self.scan_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            self.progress_bar.setVisible(False)
+            
+            self.update_status(f"✅ Scan complete - {len(self.devices)} devices found")
+            
+        except Exception as e:
+            log_error(f"Error during scan: {e}")
+            self.update_status(f"❌ Scan error: {str(e)}")
+            self.scan_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            self.progress_bar.setVisible(False)

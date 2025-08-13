@@ -877,3 +877,71 @@ def cleanup_resources():
         log_info("Network scan resources cleaned up")
     except Exception as e:
         log_error(f"Error cleaning up resources: {e}")
+
+# DeviceScanner class for compatibility with tests
+class DeviceScanner:
+    """Device scanner class for compatibility with existing tests"""
+    
+    def __init__(self):
+        self.timeout = 0.5
+        self.max_threads = 10
+    
+    def scan_network(self, network: str, quick_scan: bool = True) -> List[Dict]:
+        """Scan network for devices"""
+        try:
+            # Extract network base from CIDR notation
+            if '/' in network:
+                network = network.split('/')[0]
+            
+            # Use existing scan function
+            return scan_devices(quick=quick_scan)
+        except Exception as e:
+            log_error(f"DeviceScanner scan error: {e}", exception=e)
+            return []
+    
+    def get_device_by_ip(self, ip: str) -> Optional[Dict]:
+        """Get device information by IP"""
+        try:
+            local_ip = get_local_ip()
+            return get_device_info_safe(ip, local_ip)
+        except Exception as e:
+            log_error(f"DeviceScanner get_device_by_ip error: {e}", exception=e)
+            return None
+    
+    def ping_host(self, ip: str) -> bool:
+        """Ping a host"""
+        try:
+            return ping_host_advanced(ip, self.timeout)
+        except Exception as e:
+            log_error(f"DeviceScanner ping error: {e}", exception=e)
+            return False
+    
+    def get_mac_address(self, ip: str) -> Optional[str]:
+        """Get MAC address for an IP"""
+        try:
+            return get_mac_address_safe(ip)
+        except Exception as e:
+            log_error(f"DeviceScanner MAC lookup error: {e}", exception=e)
+            return None
+    
+    def get_vendor_info(self, mac: str) -> str:
+        """Get vendor information from MAC"""
+        try:
+            return get_vendor_info(mac)
+        except Exception as e:
+            log_error(f"DeviceScanner vendor lookup error: {e}", exception=e)
+            return "Unknown"
+    
+    def clear_cache(self):
+        """Clear device cache"""
+        try:
+            clear_cache()
+        except Exception as e:
+            log_error(f"DeviceScanner cache clear error: {e}", exception=e)
+    
+    def cleanup(self):
+        """Cleanup resources"""
+        try:
+            cleanup_resources()
+        except Exception as e:
+            log_error(f"DeviceScanner cleanup error: {e}", exception=e)

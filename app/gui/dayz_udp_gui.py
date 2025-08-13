@@ -16,6 +16,7 @@ from PyQt6.QtGui import QFont, QColor
 from typing import List, Dict, Optional
 from app.firewall.udp_port_interrupter import udp_port_interrupter, DayZServer
 from app.logs.logger import log_info, log_error
+import time
 
 class DayZUDPGUI(QWidget):
     """Advanced GUI for DayZ UDP interruption management"""
@@ -180,10 +181,12 @@ class DayZUDPGUI(QWidget):
         self.add_server_btn = QPushButton("➕ Add Server")
         self.remove_server_btn = QPushButton("➖ Remove Server")
         self.edit_server_btn = QPushButton("✏️ Edit Server")
+        self.auto_scan_btn = QPushButton("🔍 Auto-Scan DayZ Servers")
         
         button_layout.addWidget(self.add_server_btn)
         button_layout.addWidget(self.remove_server_btn)
         button_layout.addWidget(self.edit_server_btn)
+        button_layout.addWidget(self.auto_scan_btn)
         
         layout.addLayout(button_layout)
         
@@ -218,26 +221,94 @@ class DayZUDPGUI(QWidget):
         
     def connect_signals(self):
         """Connect all signals"""
-        self.start_button.clicked.connect(self.start_udp_interruption)
-        self.stop_button.clicked.connect(self.stop_udp_interruption)
-        self.add_server_btn.clicked.connect(self.add_server_dialog)
-        self.remove_server_btn.clicked.connect(self.remove_server)
-        self.edit_server_btn.clicked.connect(self.edit_server)
-        
-        # Update settings when changed
-        self.drop_rate_spinbox.valueChanged.connect(self.update_drop_rate)
-        self.timer_spinbox.valueChanged.connect(self.update_timer)
-        self.local_traffic_cb.toggled.connect(self.update_traffic_settings)
-        self.shared_traffic_cb.toggled.connect(self.update_traffic_settings)
-        
-        # Timer for status updates
-        self.status_timer = QTimer()
-        self.status_timer.timeout.connect(self.update_status)
-        self.status_timer.start(1000)  # Update every second
-        
+        try:
+            # Control signals
+            self.start_button.clicked.connect(self.start_udp_interruption)
+            self.stop_button.clicked.connect(self.stop_udp_interruption)
+            
+            # Server management signals
+            self.add_server_btn.clicked.connect(self.add_server_dialog)
+            self.remove_server_btn.clicked.connect(self.remove_server)
+            self.edit_server_btn.clicked.connect(self.edit_server)
+            self.auto_scan_btn.clicked.connect(self.auto_scan_servers)
+            
+            # Settings signals
+            self.drop_rate_spinbox.valueChanged.connect(self.update_drop_rate)
+            self.timer_spinbox.valueChanged.connect(self.update_timer)
+            self.local_traffic_cb.toggled.connect(self.update_traffic_settings)
+            self.shared_traffic_cb.toggled.connect(self.update_traffic_settings)
+            
+            # Update timer
+            self.update_timer = QTimer()
+            self.update_timer.timeout.connect(self.update_status)
+            self.update_timer.start(1000)  # Update every second
+            
+        except Exception as e:
+            log_error(f"Failed to connect signals: {e}")
+    
+    def auto_scan_servers(self):
+        """Automatically scan for DayZ servers on the network"""
+        try:
+            self.auto_scan_btn.setEnabled(False)
+            self.auto_scan_btn.setText("🔍 Scanning...")
+            
+            # Show progress dialog
+            progress = QMessageBox(self)
+            progress.setIcon(QMessageBox.Icon.Information)
+            progress.setWindowTitle("DayZ Server Scan")
+            progress.setText("Scanning network for DayZ servers...\nThis may take a few minutes.")
+            progress.setStandardButtons(QMessageBox.StandardButton.NoButton)
+            progress.show()
+            
+            # Run scan in background
+            import threading
+            def scan_thread():
+                try:
+                    added_count = self.udp_interrupter.auto_detect_and_add_servers()
+                    
+                    # Update UI on main thread
+                    self.auto_scan_btn.setText(f"🔍 Auto-Scan ({added_count} found)")
+                    self.refresh_servers()
+                    self.refresh_server_combo()
+                    
+                    progress.accept()
+                    
+                    if added_count > 0:
+                        QMessageBox.information(self, "Scan Complete", 
+                                              f"Found and added {added_count} DayZ servers!")
+                    else:
+                        QMessageBox.information(self, "Scan Complete", 
+                                              "No new DayZ servers found on the network.")
+                        
+                except Exception as e:
+                    log_error(f"Auto-scan failed: {e}")
+                    progress.accept()
+                    QMessageBox.critical(self, "Scan Failed", f"Failed to scan for DayZ servers: {e}")
+                finally:
+                    self.auto_scan_btn.setEnabled(True)
+                    self.auto_scan_btn.setText("🔍 Auto-Scan DayZ Servers")
+            
+            scan_thread = threading.Thread(target=scan_thread, daemon=True)
+            scan_thread.start()
+            
+        except Exception as e:
+            log_error(f"Failed to start auto-scan: {e}")
+            self.auto_scan_btn.setEnabled(True)
+            self.auto_scan_btn.setText("🔍 Auto-Scan DayZ Servers")
+            QMessageBox.critical(self, "Error", f"Failed to start auto-scan: {e}")
+    
     def start_udp_interruption(self):
         """Start UDP interruption with current settings"""
         try:
+            # Check admin privileges first
+            if not self.udp_interrupter.is_admin():
+                QMessageBox.critical(
+                    self, "Administrator Required", 
+                    "⚠️ UDP interruption requires Administrator privileges.\n\n"
+                    "Please run the application as Administrator to use this feature."
+                )
+                return
+            
             # Get target server
             server_data = self.server_combo.currentData()
             target_ips = []
@@ -269,7 +340,15 @@ class DayZUDPGUI(QWidget):
             if success:
                 self.update_status()
                 self.udp_interruption_started.emit()  # Emit signal
-                log_info(f"✅ UDP interruption started on {len(target_ips)} targets")
+                log_info(f"[SUCCESS] UDP interruption started on {len(target_ips)} targets")
+                QMessageBox.information(
+                    self, "UDP Interruption Started",
+                    f"✅ UDP interruption started successfully!\n\n"
+                    f"Targets: {len(target_ips)} servers\n"
+                    f"Drop Rate: {drop_rate}%\n"
+                    f"Duration: {timer_duration}s (0 = manual stop)\n\n"
+                    f"Firewall rules have been created to block UDP traffic."
+                )
             else:
                 QMessageBox.critical(self, "Error", "Failed to start UDP interruption")
                 log_error("Failed to start UDP interruption")
@@ -286,9 +365,14 @@ class DayZUDPGUI(QWidget):
             if success:
                 self.update_status()
                 self.udp_interruption_stopped.emit()  # Emit signal
-                log_info("✅ UDP interruption stopped")
+                log_info("[SUCCESS] UDP interruption stopped")
+                QMessageBox.information(
+                    self, "UDP Interruption Stopped",
+                    "✅ UDP interruption stopped successfully!\n\n"
+                    "Firewall rules have been removed."
+                )
             else:
-                QMessageBox.critical(self, "Error", "Failed to stop UDP interruption")
+                QMessageBox.warning(self, "Warning", "Failed to stop UDP interruption")
                 log_error("Failed to stop UDP interruption")
                 
         except Exception as e:
@@ -459,51 +543,54 @@ class DayZUDPGUI(QWidget):
             log_error(f"Failed to update traffic settings: {e}")
     
     def update_status(self):
-        """Update status information"""
+        """Update the status display"""
         try:
             status = self.udp_interrupter.get_status()
             
-            if status["is_running"]:
-                # Check if this is part of disconnect mode
-                from app.firewall.dupe_internet_dropper import dupe_internet_dropper
-                if dupe_internet_dropper.is_dupe_active():
-                    self.status_label.setText("Status: UDP Interruption Active (Disconnect Mode)")
-                    self.status_label.setStyleSheet("color: #ff9800; font-weight: bold;")  # Orange for combined mode
-                else:
-                    self.status_label.setText("Status: UDP Interruption Active")
-                    self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
+            if status.get("is_running", False):
+                self.status_label.setText("Status: ACTIVE")
+                self.status_label.setStyleSheet("color: #ff4444; font-weight: bold;")
                 
-                self.start_button.setEnabled(False)
-                self.stop_button.setEnabled(True)
-                
-                # Update active targets
-                targets = status["active_targets"]
+                targets = status.get("active_targets", [])
                 if targets:
-                    self.active_targets_label.setText(f"Active Targets: {', '.join(targets)}")
+                    self.active_targets_label.setText(f"Active Targets: {len(targets)} servers")
                 else:
                     self.active_targets_label.setText("Active Targets: None")
+                    
+                drop_rate = status.get("drop_rate", 0)
+                self.drop_rate_label.setText(f"Current Drop Rate: {drop_rate}%")
                 
-                # Update timer
-                if status["timer_active"]:
-                    self.timer_label.setText(f"Timer: {status['timer_duration']}s remaining")
+                if status.get("timer_active", False):
+                    remaining = status.get("timer_duration", 0) - int(time.time() % 60)
+                    self.timer_label.setText(f"Timer: {remaining}s remaining")
                     self.timer_progress.setVisible(True)
-                    # Calculate progress (simplified)
-                    self.timer_progress.setValue(50)  # Placeholder
+                    self.timer_progress.setValue(remaining)
                 else:
                     self.timer_label.setText("Timer: Not Active")
                     self.timer_progress.setVisible(False)
                     
+                # Show admin status
+                if status.get("is_admin", False):
+                    self.status_label.setText("Status: ACTIVE (Admin)")
+                else:
+                    self.status_label.setText("Status: ACTIVE (Limited)")
+                    
             else:
                 self.status_label.setText("Status: Ready")
                 self.status_label.setStyleSheet("color: #4caf50; font-weight: bold;")
-                self.start_button.setEnabled(True)
-                self.stop_button.setEnabled(False)
                 self.active_targets_label.setText("Active Targets: None")
                 self.timer_label.setText("Timer: Not Active")
                 self.timer_progress.setVisible(False)
                 
+                # Show admin requirement
+                if not status.get("is_admin", False):
+                    self.status_label.setText("Status: Ready (Admin Required)")
+                    self.status_label.setStyleSheet("color: #ff9800; font-weight: bold;")
+                    
         except Exception as e:
-            log_error(f"Failed to update status: {e}")
+            log_error(f"Error updating status: {e}")
+            self.status_label.setText("Status: Error")
+            self.status_label.setStyleSheet("color: #f44336; font-weight: bold;")
     
     def apply_styling(self):
         """Apply styling to the widget"""

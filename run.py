@@ -25,20 +25,23 @@ os.makedirs('logs', exist_ok=True)
 
 # Configure logging with rotation to prevent log file bloat and reduce console spam
 logging.basicConfig(
-    level=logging.WARNING,  # Reduced from INFO to WARNING to reduce spam
+    level=logging.ERROR,  # Only show errors by default to reduce spam
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         RotatingFileHandler('logs/dupez.log', maxBytes=1024*1024, backupCount=5),
-        # Only log warnings and errors to console, not info messages
+        # Only log errors to console to reduce spam
         logging.StreamHandler(sys.stdout)
     ]
 )
 
-# Set specific logger levels to reduce spam
-logging.getLogger('app.network').setLevel(logging.WARNING)
-logging.getLogger('app.firewall').setLevel(logging.WARNING)
-logging.getLogger('app.core').setLevel(logging.WARNING)
-logging.getLogger('root').setLevel(logging.WARNING)
+# Set specific logger levels to reduce spam and improve stability
+logging.getLogger('app.network').setLevel(logging.ERROR)
+logging.getLogger('app.firewall').setLevel(logging.ERROR)
+logging.getLogger('app.core').setLevel(logging.ERROR)
+logging.getLogger('root').setLevel(logging.ERROR)
+logging.getLogger('PyQt6').setLevel(logging.ERROR)  # Reduce Qt logging
+logging.getLogger('PyQt6.QtCore').setLevel(logging.ERROR)
+logging.getLogger('PyQt6.QtWidgets').setLevel(logging.ERROR)
 
 logger = logging.getLogger(__name__)
 
@@ -124,13 +127,18 @@ class MemoryMonitor(QObject):
             collected = gc.collect()
             logger.info(f"Garbage collection freed {collected} objects")
             
-            # Clear Python cache
+            # Clear Python cache more safely
             import importlib
-            for module in list(sys.modules.keys()):
-                if hasattr(sys.modules[module], '__file__'):
+            for module_name in list(sys.modules.keys()):
+                if module_name.startswith('app.') and module_name != 'app':
                     try:
-                        importlib.reload(sys.modules[module])
-                    except:
+                        module = sys.modules[module_name]
+                        if hasattr(module, '__file__') and module.__file__:
+                            # Only reload if it's a local module
+                            if 'DupeZ' in module.__file__ or 'dupez' in module.__file__.lower():
+                                importlib.reload(module)
+                    except Exception as reload_error:
+                        # Don't log reload errors to avoid spam
                         pass
         except Exception as e:
             logger.error(f"Memory cleanup error: {e}")
@@ -193,6 +201,10 @@ class CrashHandler:
         if issubclass(exc_type, KeyboardInterrupt):
             # Handle Ctrl+C gracefully
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
+            return
+        
+        # Don't log common Qt errors that don't affect functionality
+        if exc_type.__name__ in ['QObject', 'QWidget', 'QTimer']:
             return
         
         # Log the error to file only - no popups

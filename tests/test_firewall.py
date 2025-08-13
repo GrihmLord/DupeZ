@@ -116,7 +116,7 @@ class TestFirewall(unittest.TestCase):
     
     def test_ps5_specific_blocking(self):
         """Test PS5-specific blocking functionality"""
-        ps5_ip = "192.168.1.141"  # Your detected PS5
+        ps5_ip = "192.168.1.141"  # Test PS5 IP
         try:
             # Test PS5 blocking
             result = self.blocker.block_ps5(ps5_ip)

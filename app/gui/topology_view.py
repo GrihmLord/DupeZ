@@ -16,17 +16,10 @@ from datetime import datetime
 from app.logs.logger import log_info, log_error
 from app.core.state import Device
 
-class NetworkNode(QGraphicsEllipseItem, QObject):
+class NetworkNode(QGraphicsEllipseItem):
     """Network device node in the topology view"""
     
-    # Signals
-    device_selected = pyqtSignal(str)  # Emit device IP when selected
-    device_blocked = pyqtSignal(str)   # Emit device IP when blocked
-    device_unblocked = pyqtSignal(str) # Emit device IP when unblocked
-    
     def __init__(self, device: Device, x: float, y: float, radius: float = 30):
-        # Initialize QObject first, then QGraphicsEllipseItem
-        QObject.__init__(self)
         QGraphicsEllipseItem.__init__(self, x - radius, y - radius, radius * 2, radius * 2)
         self.device = device
         self.radius = radius
@@ -145,7 +138,11 @@ Status: {'Blocked' if blocked else 'Active'}
     def mousePressEvent(self, event):
         """Handle mouse press events"""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.device_selected.emit(self.device.ip)
+            # Emit signal through parent widget
+            if hasattr(self, 'scene') and self.scene():
+                view = self.scene().views()[0] if self.scene().views() else None
+                if view and hasattr(view, 'device_selected'):
+                    view.device_selected.emit(self.device.ip)
         super().mousePressEvent(event)
     
     def contextMenuEvent(self, event):
@@ -194,7 +191,11 @@ Status: {'Blocked' if blocked else 'Active'}
     def _block_device(self):
         """Block this device"""
         try:
-            self.device_blocked.emit(self.device.ip)
+            # Emit signal through parent widget
+            if hasattr(self, 'scene') and self.scene():
+                view = self.scene().views()[0] if self.scene().views() else None
+                if view and hasattr(view, 'device_blocked'):
+                    view.device_blocked.emit(self.device.ip)
             log_info(f"🔒 Blocking device: {self.device.ip}")
         except Exception as e:
             log_error(f"Error blocking device {self.device.ip}: {e}")
@@ -202,7 +203,11 @@ Status: {'Blocked' if blocked else 'Active'}
     def _unblock_device(self):
         """Unblock this device"""
         try:
-            self.device_unblocked.emit(self.device.ip)
+            # Emit signal through parent widget
+            if hasattr(self, 'scene') and self.scene():
+                view = self.scene().views()[0] if self.scene().views() else None
+                if view and hasattr(view, 'device_unblocked'):
+                    view.device_unblocked.emit(self.device.ip)
             log_info(f"🔓 Unblocking device: {self.device.ip}")
         except Exception as e:
             log_error(f"Error unblocking device {self.device.ip}: {e}")
@@ -254,12 +259,10 @@ Blocked: {blocked}
             log_error(f"Error getting device type for {self.device.ip}: {e}")
             return "Unknown"
 
-class NetworkConnection(QGraphicsLineItem, QObject):
+class NetworkConnection(QGraphicsLineItem):
     """Connection between network nodes"""
     
     def __init__(self, source_node: NetworkNode, target_node: NetworkNode):
-        # Initialize QObject first, then QGraphicsLineItem
-        QObject.__init__(self)
         QGraphicsLineItem.__init__(self)
         self.source_node = source_node
         self.target_node = target_node
@@ -473,16 +476,14 @@ class NetworkTopologyView(QWidget):
         finally:
             self._auto_updating = False
     
-    def update_topology(self, devices: List[Device], traffic_data: Dict[str, float] = None):
+    def update_topology(self, devices: List[Device], traffic_data: Optional[Dict] = None):
         """Update the topology with new device data"""
         # Loop prevention - don't update if already updating
         if hasattr(self, '_updating') and self._updating:
-            log_info("Topology update skipped - already in progress")
             return
             
         try:
             self._updating = True
-            log_info(f"[TOPOLOGY] Updating topology with {len(devices) if devices else 0} devices")
             
             # Clear existing topology
             self.scene.clear()
@@ -491,7 +492,6 @@ class NetworkTopologyView(QWidget):
             
             if not devices:
                 # Show placeholder when no devices
-                log_info("[TOPOLOGY] No devices found, showing placeholder")
                 self._show_placeholder()
                 return
             
@@ -511,8 +511,6 @@ class NetworkTopologyView(QWidget):
             
             # Fit view to show all devices
             self.fit_view()
-            
-            log_info(f"[STATS] Topology updated with {len(devices)} devices")
             
         except Exception as e:
             log_error(f"Error updating topology: {e}")
@@ -560,8 +558,6 @@ class NetworkTopologyView(QWidget):
             
             self.scene.addItem(instruction)
             
-            log_info("[TOPOLOGY] Topology placeholder displayed")
-            
         except Exception as e:
             log_error(f"Error showing topology placeholder: {e}")
     
@@ -577,13 +573,7 @@ class NetworkTopologyView(QWidget):
             self.nodes[device.ip] = node
             self.scene.addItem(node)
             
-            # Connect signals
-            try:
-                node.device_selected.connect(self.device_selected.emit)
-                node.device_blocked.connect(self.device_blocked.emit)
-                node.device_unblocked.connect(self.device_unblocked.emit)
-            except Exception as signal_error:
-                log_error(f"Error connecting signals for device {device.ip}: {signal_error}")
+            # Note: NetworkNode no longer has signals, events are handled through mouse events
             
         except Exception as e:
             log_error(f"Error adding device {device.ip} to topology: {e}", 
@@ -591,24 +581,24 @@ class NetworkTopologyView(QWidget):
                      context={"device_ip": device.ip, "device_type": getattr(device, 'device_type', 'unknown')})
     
     def create_connections(self):
-        """Create connections between devices"""
+        """Create connections between devices in the topology"""
         try:
+            if not self.nodes:
+                return
+            
+            # Create connections between all devices (simplified)
             device_ips = list(self.nodes.keys())
             
-            # Create connections to gateway/router (first device)
-            if len(device_ips) > 1:
-                gateway_ip = device_ips[0]  # Assume first device is gateway
-                
-                for device_ip in device_ips[1:]:
-                    if device_ip in self.nodes and gateway_ip in self.nodes:
-                        source_node = self.nodes[gateway_ip]
-                        target_node = self.nodes[device_ip]
-                        
-                        connection = NetworkConnection(source_node, target_node)
-                        self.connections.append(connection)
-                        self.scene.addItem(connection)
-            
-            log_info(f"[TOPOLOGY] Created {len(self.connections)} connections in topology")
+            for i, ip1 in enumerate(device_ips):
+                for j, ip2 in enumerate(device_ips[i+1:], i+1):
+                    # Create connection line
+                    connection = NetworkConnection(self.nodes[ip1], self.nodes[ip2])
+                    self.connections.append(connection)
+                    self.scene.addItem(connection)
+                    
+                    # Add to node connections
+                    self.nodes[ip1].connections.append(connection)
+                    self.nodes[ip2].connections.append(connection)
             
         except Exception as e:
             log_error(f"Error creating topology connections: {e}", 
@@ -692,17 +682,18 @@ class NetworkTopologyView(QWidget):
     def animate_node_movement(self, node: NetworkNode, target_x: float, target_y: float):
         """Animate node movement to target position"""
         try:
-            # Create animation for smooth movement
-            animation = QPropertyAnimation(node, b"pos")
-            animation.setDuration(500)
-            animation.setStartValue(node.pos())
-            animation.setEndValue(QPointF(target_x, target_y))
-            animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-            animation.start()
+            # Since NetworkNode is no longer a QObject, we can't use QPropertyAnimation
+            # Instead, move the node directly for now
+            node.setPos(target_x, target_y)
+            
+            # Update connections for this node
+            for connection in node.connections:
+                connection.update_position()
+                
         except Exception as e:
-            log_error(f"Error animating node movement: {e}", 
-                     exception=e, category="topology", severity="medium",
-                     context={"target_x": target_x, "target_y": target_y, "node_ip": getattr(node.device, 'ip', 'unknown')})
+            log_error(f"Error moving node: {e}", 
+                      exception=e, category="topology", severity="medium",
+                      context={"target_x": target_x, "target_y": target_y, "node_ip": getattr(node.device, 'ip', 'unknown')})
             # Fallback: move node directly without animation
             node.setPos(target_x, target_y)
     
@@ -765,7 +756,6 @@ class NetworkTopologyView(QWidget):
         try:
             # Trigger a repaint
             self.view.viewport().update()
-            log_info("[STATS] Topology refreshed")
             
         except Exception as e:
             log_error(f"Error refreshing topology: {e}")

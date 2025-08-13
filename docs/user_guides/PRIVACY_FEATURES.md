@@ -39,7 +39,7 @@ Original: AA:BB:CC:DD:EE:FF
 Anonymized: 96:be:ef:87:21:60
 
 # IP Address Anonymization
-Original: 192.168.1.100
+Original: 10.0.0.100
 Anonymized: 171.204.160.92
 
 # Device Name Anonymization

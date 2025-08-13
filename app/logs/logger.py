@@ -216,26 +216,8 @@ def log_info(message: str, **kwargs):
 
 def log_error(message: str, exception: Optional[Exception] = None, **kwargs):
     """Log error message with comprehensive tracking"""
-    try:
-        # Import error tracker
-        from app.logs.error_tracker import track_error, ErrorCategory, ErrorSeverity
-        
-        # Determine category from kwargs or message
-        category = kwargs.get('category')
-        severity = kwargs.get('severity', ErrorSeverity.MEDIUM)
-        context = kwargs.get('context', {})
-        user_action = kwargs.get('user_action')
-        
-        # Track error with comprehensive details
-        track_error(message, exception, category, severity, context, user_action)
-        
-        # Also log to regular logger
-        logger.error(message, exception, **kwargs)
-        
-    except Exception as e:
-        print(f"Error in error logging: {e}")
-        # Fallback to basic logging
-        logger.error(message, exception, **kwargs)
+    # Log to regular logger
+    logger.error(message, exception, **kwargs)
 
 def log_warning(message: str, **kwargs):
     """Log warning message"""
@@ -268,3 +250,28 @@ def log_blocking_event(action: str, target: str, success: bool, **kwargs):
 def log_settings_event(action: str, setting_name: str, success: bool, **kwargs):
     """Log settings events"""
     logger.settings_event(action, setting_name, success, **kwargs)
+
+def log_startup():
+    """Log application startup"""
+    try:
+        logger.info("🚀 DupeZ Application Starting", 
+                   startup_time=datetime.now().isoformat(),
+                   python_version=sys.version,
+                   platform=sys.platform)
+        log_info("Application startup initiated")
+    except Exception as e:
+        print(f"Startup logging error: {e}")
+
+def log_shutdown():
+    """Log application shutdown"""
+    try:
+        logger.info("🛑 DupeZ Application Shutting Down", 
+                   shutdown_time=datetime.now().isoformat())
+        log_info("Application shutdown initiated")
+        
+        # Log final statistics
+        stats = logger.get_stats()
+        log_info("Final application statistics", **stats)
+        
+    except Exception as e:
+        print(f"Shutdown logging error: {e}")

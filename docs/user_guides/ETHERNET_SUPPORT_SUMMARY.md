@@ -36,10 +36,10 @@ The enhanced scanner successfully detected multiple interfaces on the test syste
 
 ```
 ✅ Found Interfaces:
-- Ethernet: 192.168.137.1 (Ethernet connection)
+- Ethernet: 10.0.0.1 (Ethernet connection)
 - Wi-Fi 2: 169.254.210.255 (WiFi connection)  
 - Wi-Fi 5: 169.254.198.27 (WiFi connection)
-- Wi-Fi: 192.168.1.153 (WiFi connection)
+- Wi-Fi: 10.0.0.153 (WiFi connection)
 - NordLynx: 10.5.0.2 (VPN interface)
 ```
 

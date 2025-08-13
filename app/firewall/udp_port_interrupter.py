@@ -1,515 +1,473 @@
 #!/usr/bin/env python3
 """
-UDP Port Interrupter - Laganator Integration
-Advanced UDP packet manipulation for DayZ duping
-Based on Laganator's UDP port interruption capabilities
+UDP Port Interrupter Module
+Provides UDP port interruption functionality with actual traffic blocking
 """
 
-import json
-import subprocess
+import socket
 import threading
 import time
-import socket
-import struct
-import os
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
-from app.logs.logger import log_info, log_error, log_warning
+import random
+import subprocess
+import ctypes
+from typing import List, Dict, Optional
+from app.logs.logger import log_info, log_error
+from datetime import datetime
 
-@dataclass
 class DayZServer:
     """DayZ server configuration"""
-    name: str
-    ip: str
-    port: int
-    drop_rate: int  # 0-100, percentage of packets to drop
-    local: bool = True  # Whether to affect local traffic
-    
-@dataclass
-class UDPPacket:
-    """UDP packet structure for manipulation"""
-    source_ip: str
-    dest_ip: str
-    source_port: int
-    dest_port: int
-    payload: bytes
-    timestamp: float
+    def __init__(self, name: str, ip: str, port: int, drop_rate: int, local: bool = False):
+        self.name = name
+        self.ip = ip
+        self.port = port
+        self.drop_rate = drop_rate
+        self.local = local
 
 class UDPPortInterrupter:
-    """Advanced UDP port interruption system for DayZ duping"""
+    """UDP port interruption functionality with actual traffic blocking"""
     
-    def __init__(self, config_file: str = "app/config/dayz_servers.json"):
-        self.config_file = config_file
-        self.servers: List[DayZServer] = []
-        self.active_interruptions: Dict[str, threading.Thread] = {}
+    def __init__(self):
         self.is_running = False
-        self.keybind = "F12"  # Default keybind
-        self.timer_duration = 0  # 0 = no timer
-        self.timer_active = False
-        self.drop_rate = 90  # Default drop rate (90% for lagging without disconnection)
+        self.target_ips = []
+        self.drop_rate = 50
+        self.duration = 0  # 0 = manual stop
+        self.stop_event = threading.Event()
+        self.interruption_thread = None
+        self.servers = []  # List of DayZServer objects
         self.local_traffic = True
         self.shared_traffic = True
-        
-        # UDP-specific settings
-        self.dayz_ports = [2302, 2303, 2304, 2305, 27015, 27016, 27017, 27018]
-        self.udp_flood_ports = [7777, 7778, 2302, 2303, 2304, 2305]
-        
-        # Load configuration
-        self.load_config()
-        
-    def load_config(self):
-        """Load server configuration from JSON file"""
-        try:
-            if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as f:
-                    config = json.load(f)
-                    
-                self.keybind = config.get('keybind', 'F12')
-                self.drop_rate = config.get('drop_rate', 90)
-                self.local_traffic = config.get('local', True)
-                self.shared_traffic = config.get('shared', True)
-                
-                # Load servers
-                servers_data = config.get('servers', [])
-                self.servers = []
-                for server_data in servers_data:
-                    server = DayZServer(
-                        name=server_data.get('name', 'Unknown'),
-                        ip=server_data.get('ip', '0.0.0.0'),
-                        port=server_data.get('port', 2302),
-                        drop_rate=server_data.get('drop_rate', 90),
-                        local=server_data.get('local', True)
-                    )
-                    self.servers.append(server)
-                    
-                log_info(f"✅ Loaded {len(self.servers)} DayZ servers from config")
-            else:
-                # Create default configuration
-                self.create_default_config()
-                
-        except Exception as e:
-            log_error(f"Failed to load UDP interrupter config: {e}")
-            self.create_default_config()
+        self.timer_active = False
+        self.timer_duration = 0
+        self.active_targets = []
+        self.blocked_rules = []  # Track firewall rules we create
+        self.requires_admin = True
     
-    def create_default_config(self):
-        """Create default DayZ server configuration"""
+    def is_admin(self) -> bool:
+        """Check if running with administrator privileges"""
         try:
-            default_config = {
-                "keybind": "F12",
-                "drop_rate": 90,
-                "local": True,
-                "shared": True,
-                "servers": [
-                    {
-                        "name": "DayZ Official Server",
-                        "ip": "0.0.0.0",
-                        "port": 2302,
-                        "drop_rate": 90,
-                        "local": True
-                    },
-                    {
-                        "name": "DayZ Community Server",
-                        "ip": "0.0.0.0", 
-                        "port": 2303,
-                        "drop_rate": 90,
-                        "local": True
-                    }
-                ]
-            }
-            
-            # Ensure config directory exists
-            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-            
-            with open(self.config_file, 'w') as f:
-                json.dump(default_config, f, indent=2)
-                
-            log_info("✅ Created default DayZ server configuration")
-            
-        except Exception as e:
-            log_error(f"Failed to create default config: {e}")
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
     
     def start_udp_interruption(self, target_ips: List[str] = None, 
-                              drop_rate: int = None, 
-                              duration: int = 0) -> bool:
-        """Start UDP port interruption for DayZ duping"""
+                              drop_rate: int = 50, duration: int = 0) -> bool:
+        """Start UDP port interruption with actual traffic blocking"""
         try:
-            if self.is_running:
-                log_info("UDP interruption already active")
-                return True
-            
-            # Use provided drop rate or default
-            effective_drop_rate = drop_rate if drop_rate is not None else self.drop_rate
-            
-            # Use provided target IPs or all servers
-            if target_ips:
-                targets = [ip for ip in target_ips if ip != "0.0.0.0" and ip != "127.0.0.1"]
-            else:
-                targets = [server.ip for server in self.servers if server.ip != "0.0.0.0" and server.ip != "127.0.0.1"]
-                
-            # If no valid targets, try to get local network IPs
-            if not targets:
-                try:
-                    import socket
-                    # Get local IP
-                    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                        s.connect(("8.8.8.8", 80))
-                        local_ip = s.getsockname()[0]
-                        targets = [local_ip]
-                        log_info(f"Using local IP as target: {local_ip}")
-                except Exception as e:
-                    log_error(f"Failed to get local IP: {e}", 
-                             exception=e, category="udp_flood", severity="medium",
-                             context={"fallback_targets": ["192.168.1.1", "192.168.0.1", "10.0.0.1"]})
-                    # Try common local network ranges
-                    targets = ["192.168.1.1", "192.168.0.1", "10.0.0.1"]
-                    log_info(f"Using fallback targets: {targets}")
-            
-            # Final validation - ensure we have valid IPs
-            valid_targets = []
-            for target in targets:
-                try:
-                    # Basic IP validation
-                    parts = target.split('.')
-                    if len(parts) == 4 and all(0 <= int(part) <= 255 for part in parts):
-                        if target not in ["0.0.0.0", "127.0.0.1"]:
-                            valid_targets.append(target)
-                except (ValueError, AttributeError):
-                    continue
-            
-            if not valid_targets:
-                log_error("No valid target IPs available for UDP interruption", 
-                         category="udp_flood", severity="high",
-                         context={"original_targets": targets, "valid_targets_count": 0})
+            # Check admin privileges
+            if self.requires_admin and not self.is_admin():
+                log_error("UDP interruption requires administrator privileges")
                 return False
             
-            targets = valid_targets
+            if self.is_running:
+                log_info("UDP interruption already running")
+                return True
             
-            log_info(f"🎮 Starting UDP interruption with {effective_drop_rate}% drop rate")
-            log_info(f"🎮 Targets: {targets}")
-            log_info(f"🎮 Duration: {duration}s" if duration > 0 else "🎮 Duration: Unlimited")
+            if target_ips:
+                self.target_ips = target_ips
+                self.active_targets = target_ips.copy()
+            else:
+                # Default to local network
+                self.target_ips = ["192.168.1.1", "192.168.1.100"]
+                self.active_targets = self.target_ips.copy()
             
-            self.is_running = True
+            self.drop_rate = drop_rate
+            self.duration = duration
             self.timer_duration = duration
-            self.drop_rate = effective_drop_rate
+            self.timer_active = duration > 0
+            self.stop_event.clear()
+            self.is_running = True
             
-            # Start interruption threads for each target
-            for target_ip in targets:
-                if target_ip not in self.active_interruptions:
-                    thread = threading.Thread(
-                        target=self._udp_interruption_worker,
-                        args=(target_ip, effective_drop_rate),
-                        daemon=True
-                    )
-                    self.active_interruptions[target_ip] = thread
-                    thread.start()
+            # Create firewall rules to block traffic
+            self._create_firewall_rules()
             
-            # Start timer if duration specified
-            if duration > 0:
-                self.timer_active = True
-                timer_thread = threading.Thread(
-                    target=self._timer_worker,
-                    args=(duration,),
-                    daemon=True
-                )
-                timer_thread.start()
+            # Start interruption thread
+            self.interruption_thread = threading.Thread(
+                target=self._udp_interruption_loop, daemon=True
+            )
+            self.interruption_thread.start()
             
-            log_info(f"✅ UDP interruption started on {len(targets)} targets")
+            log_info(f"UDP interruption started on {len(self.target_ips)} targets with {drop_rate}% drop rate")
             return True
             
         except Exception as e:
-            log_error(f"Failed to start UDP interruption: {e}")
+            log_error(f"Failed to start UDP interruption: {e}", exception=e)
             return False
     
     def stop_udp_interruption(self) -> bool:
-        """Stop UDP port interruption"""
+        """Stop UDP port interruption and remove firewall rules"""
         try:
             if not self.is_running:
-                log_info("UDP interruption not active")
                 return True
             
-            log_info("🛑 Stopping UDP interruption")
-            
+            self.stop_event.set()
             self.is_running = False
             self.timer_active = False
+            self.active_targets = []
             
-            # Wait for threads to finish
-            for thread in self.active_interruptions.values():
-                if thread.is_alive():
-                    thread.join(timeout=2)
+            # Remove firewall rules
+            self._remove_firewall_rules()
             
-            self.active_interruptions.clear()
+            if self.interruption_thread:
+                self.interruption_thread.join(timeout=5)
             
-            log_info("✅ UDP interruption stopped")
+            log_info("UDP interruption stopped and firewall rules removed")
             return True
             
         except Exception as e:
-            log_error(f"Failed to stop UDP interruption: {e}")
+            log_error(f"Failed to stop UDP interruption: {e}", exception=e)
             return False
     
-    def _udp_interruption_worker(self, target_ip: str, drop_rate: int):
-        """Worker thread for UDP packet interruption"""
+    def _create_firewall_rules(self):
+        """Create Windows Firewall rules to block UDP traffic"""
         try:
-            log_info(f"🎯 Starting UDP interruption worker for {target_ip}")
-            
-            # Create UDP socket for packet manipulation
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            
-            while self.is_running and target_ip in self.active_interruptions:
+            for target_ip in self.target_ips:
+                # Block UDP traffic to target IPs
+                rule_name = f"DupeZ_UDP_Block_{target_ip.replace('.', '_')}"
+                
+                # Create outbound rule
+                cmd_out = [
+                    'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                    f'name="{rule_name}_Out"',
+                    'dir=out',
+                    'action=block',
+                    'protocol=UDP',
+                    f'remoteip={target_ip}',
+                    'enable=yes'
+                ]
+                
+                # Create inbound rule
+                cmd_in = [
+                    'netsh', 'advfirewall', 'firewall', 'add', 'rule',
+                    f'name="{rule_name}_In"',
+                    'dir=in',
+                    'action=block',
+                    'protocol=UDP',
+                    f'remoteip={target_ip}',
+                    'enable=yes'
+                ]
+                
                 try:
-                    # Send UDP flood packets to DayZ ports
-                    self._send_udp_flood_packets(target_ip, sock)
+                    subprocess.run(cmd_out, check=True, capture_output=True)
+                    subprocess.run(cmd_in, check=True, capture_output=True)
+                    self.blocked_rules.append(rule_name)
+                    log_info(f"Created firewall rules for {target_ip}")
+                except subprocess.CalledProcessError as e:
+                    log_error(f"Failed to create firewall rules for {target_ip}: {e}")
                     
-                    # Drop packets based on drop rate
-                    if self._should_drop_packet(drop_rate):
-                        self._drop_udp_packet(target_ip)
+        except Exception as e:
+            log_error(f"Error creating firewall rules: {e}")
+    
+    def _remove_firewall_rules(self):
+        """Remove Windows Firewall rules created by this tool"""
+        try:
+            for rule_name in self.blocked_rules:
+                # Remove outbound rule
+                cmd_out = [
+                    'netsh', 'advfirewall', 'firewall', 'delete', 'rule',
+                    f'name="{rule_name}_Out"'
+                ]
+                
+                # Remove inbound rule
+                cmd_in = [
+                    'netsh', 'advfirewall', 'firewall', 'delete', 'rule',
+                    f'name="{rule_name}_In"'
+                ]
+                
+                try:
+                    subprocess.run(cmd_out, check=True, capture_output=True)
+                    subprocess.run(cmd_in, check=True, capture_output=True)
+                    log_info(f"Removed firewall rules for {rule_name}")
+                except subprocess.CalledProcessError:
+                    # Rule might not exist, ignore
+                    pass
                     
-                    # Send malformed UDP packets
-                    self._send_malformed_udp_packets(target_ip, sock)
-                    
-                    # Manipulate packet timing
-                    self._manipulate_packet_timing(target_ip)
-                    
-                    time.sleep(0.01)  # 10ms intervals for smooth interruption
-                    
-                except Exception as e:
-                    log_error(f"UDP interruption worker error for {target_ip}: {e}")
+            self.blocked_rules.clear()
+            
+        except Exception as e:
+            log_error(f"Error removing firewall rules: {e}")
+    
+    def _udp_interruption_loop(self):
+        """Main UDP interruption loop with packet manipulation"""
+        try:
+            start_time = time.time()
+            
+            while not self.stop_event.is_set():
+                # Check duration
+                if self.duration > 0 and (time.time() - start_time) > self.duration:
+                    self.timer_active = False
                     break
-            
-            sock.close()
-            log_info(f"🛑 UDP interruption worker stopped for {target_ip}")
-            
-        except Exception as e:
-            log_error(f"Failed to start UDP interruption worker: {e}")
-    
-    def _send_udp_flood_packets(self, target_ip: str, sock: socket.socket):
-        """Send UDP flood packets to target IP"""
-        try:
-            # Validate target IP
-            if not target_ip or target_ip in ["0.0.0.0", "127.0.0.1"]:
-                log_warning(f"Invalid target IP for UDP flood: {target_ip}")
-                return
-            
-            # Send to DayZ-specific ports
-            for port in self.dayz_ports:
-                try:
-                    # Create fake UDP packet
-                    fake_data = b"DISRUPT_PACKET_" + str(time.time()).encode()
-                    sock.sendto(fake_data, (target_ip, port))
+                
+                # Send malformed UDP packets to targets
+                for target_ip in self.target_ips:
+                    if self.stop_event.is_set():
+                        break
                     
-                    # Send multiple packets with different sizes
-                    for size in [64, 128, 256, 512]:
-                        fake_data = b"X" * size
-                        sock.sendto(fake_data, (target_ip, port))
+                    # Randomly drop packets based on drop rate
+                    if random.randint(1, 100) <= self.drop_rate:
+                        continue
+                    
+                    try:
+                        # Send malformed UDP packets to disrupt traffic
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        sock.settimeout(0.1)
                         
-                except socket.error as e:
-                    # Log but don't fail for individual port errors
-                    log_warning(f"UDP flood failed for {target_ip}:{port}: {e}")
-                except Exception as e:
-                    log_warning(f"UDP flood error for {target_ip}:{port}: {e}")
-                    
-        except Exception as e:
-            log_error(f"UDP flood error for {target_ip}: {e}")
-    
-    def _drop_udp_packet(self, target_ip: str):
-        """Simulate dropping UDP packets"""
-        try:
-            # Use Windows Firewall to drop packets
-            if self.local_traffic:
-                self._add_firewall_rule(target_ip, "DROP")
+                        # Send to DayZ and gaming ports
+                        for port in [2302, 2303, 2304, 2305, 27015, 27016, 27017, 27018]:
+                            try:
+                                # Send malformed packet
+                                malformed_packet = b"\x00\x00\x00\x00\x00\x00" + b"UDP_DISRUPT"
+                                sock.sendto(malformed_packet, (target_ip, port))
+                            except:
+                                pass
+                        
+                        sock.close()
+                        
+                    except Exception as e:
+                        # Ignore individual packet errors
+                        pass
+                
+                # Small delay between cycles
+                time.sleep(0.01)
                 
         except Exception as e:
-            log_error(f"Failed to drop UDP packet for {target_ip}: {e}")
+            log_error(f"UDP interruption loop error: {e}", exception=e)
+        finally:
+            self.is_running = False
+            self.timer_active = False
     
-    def _send_malformed_udp_packets(self, target_ip: str, sock: socket.socket):
-        """Send malformed UDP packets to confuse the game"""
+    def get_servers(self) -> List[DayZServer]:
+        """Get list of configured DayZ servers"""
+        return self.servers.copy()
+    
+    def add_server(self, name: str, ip: str, port: int, drop_rate: int) -> bool:
+        """Add a new DayZ server"""
         try:
-            for port in self.dayz_ports:
-                # Send packets with invalid checksums
-                malformed_data = self._create_malformed_udp_packet(target_ip, port)
-                sock.sendto(malformed_data, (target_ip, port))
-                
-                # Send packets with wrong port numbers
-                sock.sendto(b"MALFORMED", (target_ip, port + 1000))
-                
-        except Exception as e:
-            log_error(f"Failed to send malformed UDP packets to {target_ip}: {e}")
-    
-    def _create_malformed_udp_packet(self, target_ip: str, port: int) -> bytes:
-        """Create a malformed UDP packet"""
-        try:
-            # Create a UDP packet with invalid checksum
-            source_port = 12345
-            dest_port = port
-            length = 8 + len(b"MALFORMED")
-            checksum = 0xFFFF  # Invalid checksum
-            
-            # UDP header
-            header = struct.pack('!HHHH', source_port, dest_port, length, checksum)
-            return header + b"MALFORMED"
-            
-        except Exception as e:
-            log_error(f"Failed to create malformed UDP packet: {e}")
-            return b"MALFORMED"
-    
-    def _manipulate_packet_timing(self, target_ip: str):
-        """Manipulate packet timing to create lag"""
-        try:
-            # Add random delays to simulate network congestion
-            delay = (self.drop_rate / 100.0) * 0.1  # 0-100ms delay based on drop rate
-            time.sleep(delay)
-            
-        except Exception as e:
-            log_error(f"Failed to manipulate packet timing for {target_ip}: {e}")
-    
-    def _should_drop_packet(self, drop_rate: int) -> bool:
-        """Determine if a packet should be dropped based on drop rate"""
-        import random
-        return random.randint(1, 100) <= drop_rate
-    
-    def _add_firewall_rule(self, target_ip: str, action: str):
-        """Add Windows Firewall rule to drop packets"""
-        try:
-            rule_name = f"DupeZ_UDP_{target_ip.replace('.', '_')}"
-            
-            if action == "DROP":
-                cmd = [
-                    "netsh", "advfirewall", "firewall", "add", "rule",
-                    f"name={rule_name}",
-                    "dir=out",
-                    "action=block",
-                    f"remoteip={target_ip}",
-                    "protocol=UDP"
-                ]
-            else:  # ALLOW
-                cmd = [
-                    "netsh", "advfirewall", "firewall", "add", "rule", 
-                    f"name={rule_name}",
-                    "dir=out",
-                    "action=allow",
-                    f"remoteip={target_ip}",
-                    "protocol=UDP"
-                ]
-            
-            subprocess.run(cmd, capture_output=True, timeout=5)
-            
-        except Exception as e:
-            log_error(f"Failed to add firewall rule for {target_ip}: {e}")
-    
-    def _remove_firewall_rule(self, target_ip: str):
-        """Remove Windows Firewall rule"""
-        try:
-            rule_name = f"DupeZ_UDP_{target_ip.replace('.', '_')}"
-            cmd = [
-                "netsh", "advfirewall", "firewall", "delete", "rule",
-                f"name={rule_name}"
-            ]
-            subprocess.run(cmd, capture_output=True, timeout=5)
-            
-        except Exception as e:
-            log_error(f"Failed to remove firewall rule for {target_ip}: {e}")
-    
-    def _timer_worker(self, duration: int):
-        """Timer worker to automatically stop interruption"""
-        try:
-            log_info(f"⏰ Timer started: {duration} seconds")
-            time.sleep(duration)
-            
-            if self.timer_active:
-                log_info("⏰ Timer expired, stopping UDP interruption")
-                self.stop_udp_interruption()
-                
-        except Exception as e:
-            log_error(f"Timer worker error: {e}")
-    
-    def add_server(self, name: str, ip: str, port: int, drop_rate: int = 90) -> bool:
-        """Add a new DayZ server to the configuration"""
-        try:
-            server = DayZServer(name=name, ip=ip, port=port, drop_rate=drop_rate)
+            server = DayZServer(name, ip, port, drop_rate)
             self.servers.append(server)
-            self.save_config()
-            log_info(f"✅ Added server: {name} ({ip}:{port})")
+            log_info(f"Added DayZ server: {name} ({ip}:{port})")
             return True
-            
         except Exception as e:
             log_error(f"Failed to add server: {e}")
             return False
     
     def remove_server(self, name: str) -> bool:
-        """Remove a DayZ server from the configuration"""
+        """Remove a DayZ server by name"""
         try:
-            self.servers = [s for s in self.servers if s.name != name]
-            self.save_config()
-            log_info(f"✅ Removed server: {name}")
-            return True
-            
+            for i, server in enumerate(self.servers):
+                if server.name == name:
+                    del self.servers[i]
+                    log_info(f"Removed DayZ server: {name}")
+                    return True
+            return False
         except Exception as e:
             log_error(f"Failed to remove server: {e}")
             return False
     
-    def save_config(self):
-        """Save current configuration to file"""
-        try:
-            config = {
-                "keybind": self.keybind,
-                "drop_rate": self.drop_rate,
-                "local": self.local_traffic,
-                "shared": self.shared_traffic,
-                "servers": [
-                    {
-                        "name": server.name,
-                        "ip": server.ip,
-                        "port": server.port,
-                        "drop_rate": server.drop_rate,
-                        "local": server.local
-                    }
-                    for server in self.servers
-                ]
-            }
-            
-            with open(self.config_file, 'w') as f:
-                json.dump(config, f, indent=2)
-                
-            log_info("✅ UDP interrupter configuration saved")
-            
-        except Exception as e:
-            log_error(f"Failed to save UDP interrupter config: {e}")
-    
-    def get_status(self) -> Dict[str, any]:
-        """Get current status of UDP interrupter"""
-        return {
-            "is_running": self.is_running,
-            "active_targets": list(self.active_interruptions.keys()),
-            "drop_rate": self.drop_rate,
-            "timer_active": self.timer_active,
-            "timer_duration": self.timer_duration,
-            "servers_count": len(self.servers),
-            "keybind": self.keybind,
-            "local_traffic": self.local_traffic,
-            "shared_traffic": self.shared_traffic
-        }
-    
-    def get_servers(self) -> List[DayZServer]:
-        """Get list of configured servers"""
-        return self.servers.copy()
-    
     def set_drop_rate(self, drop_rate: int):
-        """Set the drop rate (0-100)"""
-        if 0 <= drop_rate <= 100:
-            self.drop_rate = drop_rate
-            log_info(f"✅ Drop rate set to {drop_rate}%")
-        else:
-            log_error("Drop rate must be between 0 and 100")
-    
-    def set_keybind(self, keybind: str):
-        """Set the keybind for quick activation"""
-        self.keybind = keybind
-        log_info(f"✅ Keybind set to {keybind}")
+        """Set the drop rate percentage"""
+        self.drop_rate = max(0, min(100, drop_rate))
     
     def set_timer_duration(self, duration: int):
-        """Set timer duration in seconds (0 = no timer)"""
+        """Set the timer duration in seconds"""
         self.timer_duration = max(0, duration)
-        log_info(f"✅ Timer duration set to {duration} seconds")
+    
+    def get_status(self) -> Dict:
+        """Get UDP interruption status"""
+        return {
+            "is_running": self.is_running,
+            "target_ips": self.target_ips.copy(),
+            "active_targets": self.active_targets.copy(),
+            "drop_rate": self.drop_rate,
+            "duration": self.duration,
+            "timer_active": self.timer_active,
+            "timer_duration": self.timer_duration,
+            "servers": [{"name": s.name, "ip": s.ip, "port": s.port, "drop_rate": s.drop_rate} for s in self.servers],
+            "admin_required": self.requires_admin,
+            "is_admin": self.is_admin(),
+            "blocked_rules": len(self.blocked_rules)
+        }
 
-# Global instance for shared access
+    def scan_for_dayz_servers(self) -> List['DayZServer']:
+        """Scan for DayZ servers on the local network with enhanced detection"""
+        try:
+            log_info("Starting enhanced DayZ server scan...")
+            
+            # Get local IP and determine network range
+            local_ip = self._get_local_ip()
+            if not local_ip:
+                log_error("Could not determine local IP address")
+                return []
+            
+            # Determine network range based on local IP
+            network_range = self._get_network_range(local_ip)
+            log_info(f"Scanning network range: {network_range}")
+            
+            # Common DayZ server ports
+            dayz_ports = [2302, 2303, 2304, 2305, 27015, 27016, 27017, 27018, 27019, 27020]
+            
+            # Additional ports that might be used
+            additional_ports = [7777, 7778, 7779, 7780, 7781, 7782, 7783, 7784, 7785, 7786]
+            dayz_ports.extend(additional_ports)
+            
+            discovered_servers = []
+            
+            # Scan the network range
+            for i in range(1, 255):  # Skip .0 and .255
+                target_ip = f"{network_range}.{i}"
+                
+                try:
+                    # Quick ping check first
+                    if not self._ping_host(target_ip):
+                        continue
+                    
+                    log_info(f"Host {target_ip} is alive, checking DayZ ports...")
+                    
+                    # Check each DayZ port
+                    for port in dayz_ports:
+                        if self._test_dayz_port(target_ip, port):
+                            # Create server object
+                            server = DayZServer(
+                                ip=target_ip,
+                                port=port,
+                                name=f"DayZ Server {target_ip}:{port}",
+                                status="Online",
+                                last_seen=datetime.now().isoformat()
+                            )
+                            
+                            # Try to get more information about the server
+                            server_info = self._get_server_info(target_ip, port)
+                            if server_info:
+                                server.name = server_info.get('name', server.name)
+                                server.status = server_info.get('status', server.status)
+                            
+                            discovered_servers.append(server)
+                            log_info(f"Found DayZ server: {target_ip}:{port}")
+                            
+                            # Only add one server per IP to avoid duplicates
+                            break
+                    
+                except Exception as e:
+                    log_error(f"Error scanning {target_ip}: {e}")
+                    continue
+            
+            log_info(f"DayZ server scan completed. Found {len(discovered_servers)} servers.")
+            return discovered_servers
+            
+        except Exception as e:
+            log_error(f"Error in DayZ server scan: {e}")
+            return []
+    
+    def _get_network_range(self, local_ip: str) -> str:
+        """Get the network range from local IP"""
+        try:
+            # Extract network portion (e.g., 192.168.1 from 192.168.1.100)
+            parts = local_ip.split('.')
+            if len(parts) == 4:
+                return '.'.join(parts[:3])
+            return "192.168.1"  # Default fallback
+        except Exception as e:
+            log_error(f"Error getting network range: {e}")
+            return "192.168.1"
+    
+    def _get_server_info(self, ip: str, port: int) -> Optional[Dict]:
+        """Try to get additional server information"""
+        try:
+            # Try to connect and get basic info
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            
+            result = sock.connect_ex((ip, port))
+            if result == 0:
+                # Connection successful, try to get some data
+                try:
+                    sock.send(b"\x00")  # Send null byte
+                    data = sock.recv(1024)
+                    if data:
+                        # Try to extract readable text
+                        text = data.decode('utf-8', errors='ignore')
+                        if text.strip():
+                            return {
+                                'name': f"DayZ Server ({text[:50].strip()})",
+                                'status': 'Online'
+                            }
+                except:
+                    pass
+                finally:
+                    sock.close()
+            
+            return None
+            
+        except Exception as e:
+            log_error(f"Error getting server info for {ip}:{port}: {e}")
+            return None
+    
+    def auto_detect_and_add_servers(self) -> int:
+        """Auto-detect and add DayZ servers to the list"""
+        try:
+            log_info("Starting auto-detection of DayZ servers...")
+            
+            # Scan for servers
+            discovered_servers = self.scan_for_dayz_servers()
+            
+            if not discovered_servers:
+                log_info("No DayZ servers discovered during auto-scan")
+                return 0
+            
+            # Add discovered servers to the list
+            added_count = 0
+            for server in discovered_servers:
+                # Check if server already exists
+                if not any(s.ip == server.ip and s.port == server.port for s in self.servers):
+                    self.servers.append(server)
+                    added_count += 1
+                    log_info(f"Added new server: {server.ip}:{server.port}")
+                else:
+                    log_info(f"Server already exists: {server.ip}:{server.port}")
+            
+            log_info(f"Auto-detection completed. Added {added_count} new servers.")
+            return added_count
+            
+        except Exception as e:
+            log_error(f"Error in auto-detection: {e}")
+            return 0
+    
+    def _get_local_ip(self) -> Optional[str]:
+        """Get local IP address"""
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except:
+            return None
+    
+    def _ping_host(self, ip: str) -> bool:
+        """Quick ping test for host availability"""
+        try:
+            import subprocess
+            result = subprocess.run(["ping", "-n", "1", "-w", "1000", ip], 
+                                  capture_output=True, timeout=2)
+            return result.returncode == 0
+        except:
+            return False
+    
+    def _test_dayz_port(self, ip: str, port: int) -> bool:
+        """Test if a port is open and responding like a DayZ server"""
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(1.0)
+            
+            # Try to connect to the port
+            result = s.connect_ex((ip, port))
+            s.close()
+            
+            return result == 0
+        except:
+            return False
+
+# Global instance
 udp_port_interrupter = UDPPortInterrupter() 

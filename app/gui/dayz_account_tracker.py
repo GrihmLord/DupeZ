@@ -5,31 +5,27 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QComboBox, QTextEdit, QGroupBox,
                              QTabWidget, QSplitter, QFrame, QHeaderView,
                              QMessageBox, QInputDialog, QColorDialog,
-                             QCheckBox, QSpinBox, QFormLayout, QDialog)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+                             QCheckBox, QSpinBox, QFormLayout, QDialog,
+                             QProgressBar, QSlider, QSpinBox, QDateEdit)
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate
 from PyQt6.QtGui import QFont, QColor, QIcon
-try:
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
-except ImportError:
-    # Fallback if WebEngine is not available
-    QWebEngineView = None
 import json
 import os
 from typing import Dict, List, Optional
 from datetime import datetime
 
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_error, log_warning
 from app.core.data_persistence import account_manager
 
 class DayZAccountTracker(QWidget):
-    """Comprehensive DayZ account tracker with iZurvive map integration"""
+    """Comprehensive DayZ account tracker with enhanced features"""
     
     def __init__(self, controller=None):
         super().__init__()
         self.controller = controller
         self.accounts = []
         self.current_account = None
-        self.map_view = None
+        self.selected_accounts = set()  # Track multiple selections
         
         try:
             self.setup_ui()
@@ -83,20 +79,9 @@ class DayZAccountTracker(QWidget):
         """)
         layout.addWidget(header)
         
-        # Main content splitter
-        main_splitter = QSplitter(Qt.Orientation.Horizontal)
-        
-        # Left panel - Account management
-        left_panel = self.create_account_panel()
-        main_splitter.addWidget(left_panel)
-        
-        # Right panel - iZurvive map
-        right_panel = self.create_map_panel()
-        main_splitter.addWidget(right_panel)
-        
-        # Set splitter proportions (60% accounts, 40% map)
-        main_splitter.setSizes([600, 400])
-        layout.addWidget(main_splitter)
+        # Account management panel (full width)
+        account_panel = self.create_account_panel()
+        layout.addWidget(account_panel)
         
     def create_account_panel(self) -> QWidget:
         """Create the account management panel"""
@@ -124,19 +109,20 @@ class DayZAccountTracker(QWidget):
         """)
         
         controls_layout = QHBoxLayout()
+        controls_layout.setSpacing(5)  # Reduce spacing between buttons
         
         # Add account button
-        self.add_account_btn = QPushButton("➕ Add Account")
+        self.add_account_btn = QPushButton("➕ Add")
         self.add_account_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4CAF50;
                 color: white;
                 border: none;
-                padding: 8px 12px;
+                padding: 6px 8px;
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 10px;
-                min-height: 25px;
+                font-size: 9px;
+                min-height: 22px;
             }
             QPushButton:hover {
                 background-color: #45a049;
@@ -146,17 +132,17 @@ class DayZAccountTracker(QWidget):
         controls_layout.addWidget(self.add_account_btn)
         
         # Edit account button
-        self.edit_account_btn = QPushButton("✏️ Edit Account")
+        self.edit_account_btn = QPushButton("✏️ Edit")
         self.edit_account_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2196F3;
                 color: white;
                 border: none;
-                padding: 8px 12px;
+                padding: 6px 8px;
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 10px;
-                min-height: 25px;
+                font-size: 9px;
+                min-height: 22px;
             }
             QPushButton:hover {
                 background-color: #1976D2;
@@ -166,17 +152,17 @@ class DayZAccountTracker(QWidget):
         controls_layout.addWidget(self.edit_account_btn)
         
         # Delete account button
-        self.delete_account_btn = QPushButton("🗑️ Delete Account")
+        self.delete_account_btn = QPushButton("🗑️ Delete")
         self.delete_account_btn.setStyleSheet("""
             QPushButton {
                 background-color: #f44336;
                 color: white;
                 border: none;
-                padding: 8px 12px;
+                padding: 6px 8px;
                 border-radius: 4px;
                 font-weight: bold;
-                font-size: 10px;
-                min-height: 25px;
+                font-size: 9px;
+                min-height: 22px;
             }
             QPushButton:hover {
                 background-color: #da190b;
@@ -185,11 +171,183 @@ class DayZAccountTracker(QWidget):
         self.delete_account_btn.clicked.connect(self.delete_account)
         controls_layout.addWidget(self.delete_account_btn)
         
-        # Add debug info
-        log_info("Delete account button connected successfully")
+        # Bulk operations button
+        self.bulk_ops_btn = QPushButton("⚡ Bulk Ops")
+        self.bulk_ops_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF5722;
+                color: white;
+                border: none;
+                padding: 6px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #E64A19;
+            }
+        """)
+        self.bulk_ops_btn.clicked.connect(self.show_bulk_operations)
+        controls_layout.addWidget(self.bulk_ops_btn)
+        
+        # Upload CSV button
+        self.upload_csv_btn = QPushButton("📁 Upload")
+        self.upload_csv_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: none;
+                padding: 6px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+            }
+        """)
+        self.upload_csv_btn.clicked.connect(self.upload_csv_accounts)
+        controls_layout.addWidget(self.upload_csv_btn)
+        
+        # Export CSV button
+        self.export_csv_btn = QPushButton("💾 Export")
+        self.export_csv_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9C27B0;
+                color: white;
+                border: none;
+                padding: 6px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #7B1FA2;
+            }
+        """)
+        self.export_csv_btn.clicked.connect(self.export_csv_accounts)
+        controls_layout.addWidget(self.export_csv_btn)
+        
+        # Clear Table button
+        self.clear_table_btn = QPushButton("🗑️ Clear All")
+        self.clear_table_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d32f2f;
+                color: white;
+                border: none;
+                padding: 6px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #b71c1c;
+            }
+        """)
+        self.clear_table_btn.clicked.connect(self.clear_account_table)
+        controls_layout.addWidget(self.clear_table_btn)
+        
+        # Refresh button
+        self.refresh_btn = QPushButton("🔄 Refresh")
+        self.refresh_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #00BCD4;
+                color: white;
+                border: none;
+                padding: 6px 8px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 9px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #0097A7;
+            }
+        """)
+        self.refresh_btn.clicked.connect(self.refresh_account_table)
+        controls_layout.addWidget(self.refresh_btn)
+        
+        # Search functionality
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Search accounts...")
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #424242;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-size: 10px;
+                min-height: 22px;
+            }
+            QLineEdit:focus {
+                border-color: #2196F3;
+            }
+        """)
+        self.search_input.textChanged.connect(self.filter_accounts)
+        controls_layout.addWidget(self.search_input)
         
         controls_group.setLayout(controls_layout)
         layout.addWidget(controls_group)
+        
+        # Account statistics panel
+        stats_group = QGroupBox("📊 Account Statistics")
+        stats_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 12px;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                background-color: #2b2b2b;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 3px 0 3px;
+                color: #ffffff;
+            }
+        """)
+        
+        stats_layout = QHBoxLayout()
+        
+        # Total accounts
+        self.total_accounts_label = QLabel("Total: 0")
+        self.total_accounts_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.total_accounts_label)
+        
+        # Ready accounts
+        self.ready_accounts_label = QLabel("Ready: 0")
+        self.ready_accounts_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.ready_accounts_label)
+        
+        # Blood infection accounts
+        self.blood_infection_label = QLabel("Blood Infection: 0")
+        self.blood_infection_label.setStyleSheet("color: #f44336; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.blood_infection_label)
+        
+        # Storage accounts
+        self.storage_label = QLabel("Storage: 0")
+        self.storage_label.setStyleSheet("color: #FF9800; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.storage_label)
+        
+        # Dead accounts
+        self.dead_label = QLabel("Dead: 0")
+        self.dead_label.setStyleSheet("color: #9E9E9E; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.dead_label)
+        
+        # Offline accounts
+        self.offline_label = QLabel("Offline: 0")
+        self.offline_label.setStyleSheet("color: #607D8B; font-weight: bold; padding: 5px;")
+        stats_layout.addWidget(self.offline_label)
+        
+        stats_group.setLayout(stats_layout)
+        layout.addWidget(stats_group)
         
         # Account table
         table_group = QGroupBox("📊 Account Details")
@@ -220,6 +378,19 @@ class DayZAccountTracker(QWidget):
         
         table_group.setLayout(table_layout)
         layout.addWidget(table_group)
+        
+        # Status bar
+        self.status_label = QLabel("Ready to manage DayZ accounts")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("""
+            color: #4CAF50; 
+            font-weight: bold; 
+            padding: 8px;
+            background-color: #1e1e1e;
+            border-radius: 4px;
+            margin: 5px 0;
+        """)
+        layout.addWidget(self.status_label)
         
         # Account details panel
         details_group = QGroupBox("📝 Selected Account Details")
@@ -256,6 +427,10 @@ class DayZAccountTracker(QWidget):
         self.account_location_label.setStyleSheet("color: #888888; font-size: 11px;")
         details_layout.addRow("Location:", self.account_location_label)
         
+        self.account_value_label = QLabel("")
+        self.account_value_label.setStyleSheet("color: #888888; font-size: 11px;")
+        details_layout.addRow("Value:", self.account_value_label)
+        
         self.account_status_label = QLabel("")
         self.account_status_label.setStyleSheet("color: #888888; font-size: 11px;")
         details_layout.addRow("Status:", self.account_status_label)
@@ -273,283 +448,154 @@ class DayZAccountTracker(QWidget):
         details_layout.addRow("Holding:", self.account_holding_label)
         
         details_group.setLayout(details_layout)
+        
+        # Add account details directly to layout (no splitter needed)
         layout.addWidget(details_group)
         
         panel.setLayout(layout)
         return panel
         
-    def create_map_panel(self) -> QWidget:
-        """Create the iZurvive map panel"""
-        panel = QWidget()
-        layout = QVBoxLayout()
-        
-        # Map header
-        map_header = QLabel("🗺️ iZurvive Map")
-        map_header.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        map_header.setStyleSheet("""
-            color: #ffffff;
-            padding: 8px;
-            background-color: #34495e;
-            border-radius: 4px;
-            margin-bottom: 8px;
-        """)
-        layout.addWidget(map_header)
-        
-        # Map controls
-        map_controls = QHBoxLayout()
-        
-        self.refresh_map_btn = QPushButton("🔄 Refresh Map")
-        self.refresh_map_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FF9800;
-                color: white;
-                border: none;
-                padding: 6px 10px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 9px;
-                min-height: 22px;
-            }
-            QPushButton:hover {
-                background-color: #F57C00;
-            }
-        """)
-        self.refresh_map_btn.clicked.connect(self.refresh_map)
-        map_controls.addWidget(self.refresh_map_btn)
-        
-        self.show_all_locations_btn = QPushButton("📍 Show All Locations")
-        self.show_all_locations_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #9C27B0;
-                color: white;
-                border: none;
-                padding: 6px 10px;
-                border-radius: 4px;
-                font-weight: bold;
-                font-size: 9px;
-                min-height: 22px;
-            }
-            QPushButton:hover {
-                background-color: #7B1FA2;
-            }
-        """)
-        self.show_all_locations_btn.clicked.connect(self.show_all_locations)
-        map_controls.addWidget(self.show_all_locations_btn)
-        
-        map_controls.addStretch()
-        layout.addLayout(map_controls)
-        
-        # Map view
-        if QWebEngineView is not None:
-            self.map_view = QWebEngineView()
-            self.map_view.setStyleSheet("""
-                QWebEngineView {
-                    border: 1px solid #555555;
-                    border-radius: 4px;
-                    background-color: #2b2b2b;
-                }
-            """)
-            layout.addWidget(self.map_view)
-            
-            # Load iZurvive map
-            self.load_izurvive_map()
-        else:
-            # Fallback: show a message that WebEngine is not available
-            fallback_label = QLabel("🗺️ iZurvive Map\n\nWebEngine not available.\nMap functionality requires PyQt6-WebEngine.")
-            fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            fallback_label.setStyleSheet("""
-                QLabel {
-                    color: #ffffff;
-                    background-color: #2b2b2b;
-                    border: 1px solid #555555;
-                    border-radius: 4px;
-                    padding: 20px;
-                    font-size: 12px;
-                }
-            """)
-            layout.addWidget(fallback_label)
-        
-        panel.setLayout(layout)
-        return panel
-        
-    def setup_account_table(self):
-        """Setup the account table with columns similar to the spreadsheet"""
-        headers = [
-            "Account", "Email", "Location", "Status", "Station", "Gear", "Holding"
-        ]
-        self.account_table.setColumnCount(len(headers))
-        self.account_table.setHorizontalHeaderLabels(headers)
-        
-        # Set table properties
-        self.account_table.setAlternatingRowColors(True)
-        self.account_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.account_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
-        self.account_table.setSortingEnabled(True)
-        self.account_table.setWordWrap(True)
-        self.account_table.setShowGrid(True)
-        self.account_table.setGridStyle(Qt.PenStyle.SolidLine)
-        
-        # Set responsive column widths
-        header = self.account_table.horizontalHeader()
-        header.setStretchLastSection(False)
-        
-        # Column widths based on content
-        column_widths = {
-            0: 150,  # Account
-            1: 200,  # Email
-            2: 200,  # Location
-            3: 100,  # Status
-            4: 120,  # Station
-            5: 100,  # Gear
-            6: 200   # Holding
-        }
-        
-        for col, width in column_widths.items():
-            self.account_table.setColumnWidth(col, width)
-            if col == 2:  # Location column stretches
-                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
-            else:
-                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Fixed)
-        
-        # Set table styling
-        self.account_table.setStyleSheet("""
-            QTableWidget {
-                background-color: #2d2d2d;
-                color: #ffffff;
-                gridline-color: #404040;
-                border: 1px solid #555555;
-                border-radius: 4px;
-                font-size: 10px;
-                selection-background-color: #4CAF50;
-                selection-color: #ffffff;
-            }
-            QTableWidget::item {
-                padding: 4px;
-                border: none;
-            }
-            QHeaderView::section {
-                background-color: #3a3a3a;
-                color: white;
-                padding: 6px;
-                border: 1px solid #555555;
-                font-weight: bold;
-                font-size: 10px;
-            }
-        """)
-        
-        # Connect selection change
-        self.account_table.itemSelectionChanged.connect(self.on_account_selected)
-        
-    def load_izurvive_map(self):
-        """Load the iZurvive map"""
+    def setup_account_table(self, accounts_to_show=None):
+        """Setup the account table with data"""
         try:
-            if self.map_view is not None:
-                # Load iZurvive map URL
-                from PyQt6.QtCore import QUrl
-                map_url = QUrl("https://www.izurvive.com/")
-                self.map_view.setUrl(map_url)
-                log_info("[SUCCESS] iZurvive map loaded")
-            else:
-                log_info("[INFO] WebEngine not available, map functionality disabled")
-        except Exception as e:
-            log_error(f"Failed to load iZurvive map: {e}")
+            accounts = accounts_to_show if accounts_to_show is not None else self.accounts
             
+            # Set up table structure
+            self.account_table.setColumnCount(8)
+            self.account_table.setHorizontalHeaderLabels([
+                "Account", "Email", "Location", "Value", "Status", "Station", "Gear", "Holding"
+            ])
+            
+            # Set table properties
+            self.account_table.setRowCount(len(accounts))
+            self.account_table.setAlternatingRowColors(True)
+            self.account_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            self.account_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+            self.account_table.setSortingEnabled(True)
+            self.account_table.setWordWrap(True)
+            self.account_table.setShowGrid(True)
+            self.account_table.setGridStyle(Qt.PenStyle.SolidLine)
+            
+            # Populate table
+            for row, account in enumerate(accounts):
+                self.account_table.setItem(row, 0, QTableWidgetItem(account.get('account', '')))
+                self.account_table.setItem(row, 1, QTableWidgetItem(account.get('email', '')))
+                self.account_table.setItem(row, 2, QTableWidgetItem(account.get('location', '')))
+                self.account_table.setItem(row, 3, QTableWidgetItem(account.get('value', '')))
+                self.account_table.setItem(row, 4, QTableWidgetItem(account.get('status', '')))
+                self.account_table.setItem(row, 5, QTableWidgetItem(account.get('station', '')))
+                self.account_table.setItem(row, 6, QTableWidgetItem(account.get('gear', '')))
+                self.account_table.setItem(row, 7, QTableWidgetItem(account.get('holding', '')))
+                
+                # Color code status
+                status_item = self.account_table.item(row, 4)
+                if status_item:
+                    status = status_item.text()
+                    if status == 'Ready':
+                        status_item.setBackground(QColor(76, 175, 80))  # Green
+                    elif status == 'Blood Infection':
+                        status_item.setBackground(QColor(244, 67, 54))  # Red
+                    elif status == 'Storage':
+                        status_item.setBackground(QColor(255, 152, 0))  # Orange
+                    elif status == 'Dead':
+                        status_item.setBackground(QColor(158, 158, 158))  # Gray
+                    elif status == 'Offline':
+                        status_item.setBackground(QColor(96, 125, 139))  # Blue Gray
+            
+            # Connect selection change
+            self.account_table.itemSelectionChanged.connect(self.on_account_selected)
+            
+            # Auto-resize columns
+            self.account_table.resizeColumnsToContents()
+            
+        except Exception as e:
+            log_error(f"Failed to setup account table: {e}")
+    
     def add_account(self):
         """Add a new account"""
         try:
-            # Create account dialog
             account_data = self.show_account_dialog()
             if account_data:
-                # Add to accounts list
-                account_data['id'] = len(self.accounts) + 1
-                account_data['created'] = datetime.now().isoformat()
-                self.accounts.append(account_data)
+                # Add unique ID and use consistent field names
+                account_data['id'] = len(account_manager.accounts) + 1
+                account_data['created_at'] = datetime.now().isoformat()
+                account_data['updated_at'] = datetime.now().isoformat()
                 
-                # Add to table
-                self.add_account_to_table(account_data)
-                
-                # Save accounts using persistence manager
+                # Add to account manager
                 account_manager.add_account(account_data)
                 
-                log_info(f"[SUCCESS] Added account: {account_data['account']}")
+                # Refresh local accounts list and UI
+                self.accounts = account_manager.accounts
+                self.refresh_account_table()
+                
+                self.status_label.setText(f"Added account: {account_data.get('account', '')}")
+                log_info(f"Added new account: {account_data.get('account', '')}")
                 
         except Exception as e:
             log_error(f"Failed to add account: {e}")
-            
+            QMessageBox.critical(self, "Error", f"Failed to add account: {e}")
+    
     def edit_account(self):
-        """Edit selected account"""
+        """Edit the selected account"""
         try:
             if not self.current_account:
-                QMessageBox.warning(self, "No Selection", "Please select an account to edit.")
+                QMessageBox.information(self, "No Selection", "Please select an account to edit.")
                 return
-                
-            # Show edit dialog
+            
             account_data = self.show_account_dialog(self.current_account)
             if account_data:
-                # Update account
-                account_data['id'] = self.current_account['id']
-                account_data['created'] = self.current_account['created']
-                account_data['updated'] = datetime.now().isoformat()
+                # Update the account with consistent field names
+                self.current_account.update(account_data)
+                self.current_account['updated_at'] = datetime.now().isoformat()
                 
-                # Update in list
-                for i, account in enumerate(self.accounts):
-                    if account['id'] == self.current_account['id']:
-                        self.accounts[i] = account_data
-                        break
+                # Update in account manager
+                account_name = self.current_account.get('account', '')
+                account_manager.update_account(account_name, self.current_account)
                 
-                # Update table
-                self.update_account_in_table(account_data)
+                # Refresh local accounts list and UI
+                self.accounts = account_manager.accounts
+                self.refresh_account_table()
                 
-                # Save accounts using persistence manager
-                account_manager.update_account(self.current_account['account'], account_data)
-                
-                log_info(f"[SUCCESS] Updated account: {account_data['account']}")
+                self.status_label.setText(f"Updated account: {self.current_account.get('account', '')}")
+                log_info(f"Updated account: {self.current_account.get('account', '')}")
                 
         except Exception as e:
             log_error(f"Failed to edit account: {e}")
-            
+            QMessageBox.critical(self, "Error", f"Failed to edit account: {e}")
+    
     def delete_account(self):
-        """Delete selected account"""
+        """Delete the selected account"""
         try:
-            log_info("Delete account button clicked")
-            log_info(f"Current account: {self.current_account}")
-            
             if not self.current_account:
-                QMessageBox.warning(self, "No Selection", "Please select an account to delete.")
-                log_info("No account selected for deletion")
+                QMessageBox.information(self, "No Selection", "Please select an account to delete.")
                 return
-                
-            # Store account info before deletion
-            account_to_delete = self.current_account.copy()
-            account_name = account_to_delete['account']
-            account_id = account_to_delete['id']
-                
-            # Confirm deletion
+            
             reply = QMessageBox.question(
-                self, "Confirm Delete", 
-                f"Are you sure you want to delete account '{account_name}'?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                self, 
+                "Delete Account", 
+                f"Are you sure you want to delete account '{self.current_account.get('account', '')}'?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
             )
             
             if reply == QMessageBox.StandardButton.Yes:
-                # Remove from list
-                self.accounts = [acc for acc in self.accounts if acc['id'] != account_id]
+                account_name = self.current_account.get('account', '')
                 
-                # Refresh the entire table to ensure it matches the accounts list
-                self.refresh_account_table()
-                
-                # Clear current account
-                self.current_account = None
-                self.update_account_details()
-                
-                # Save accounts using persistence manager
+                # Remove from account manager
                 account_manager.remove_account(account_name)
                 
-                log_info(f"[SUCCESS] Deleted account: {account_name}")
+                # Refresh local accounts list and UI
+                self.accounts = account_manager.accounts
+                self.refresh_account_table()
+                self.clear_account_details()
+                
+                self.status_label.setText(f"Deleted account: {account_name}")
+                log_info(f"Deleted account: {account_name}")
                 
         except Exception as e:
             log_error(f"Failed to delete account: {e}")
-            
+            QMessageBox.critical(self, "Error", f"Failed to delete account: {e}")
+    
     def show_account_dialog(self, account_data=None) -> Optional[Dict]:
         """Show account input dialog"""
         try:
@@ -610,6 +656,13 @@ class DayZAccountTracker(QWidget):
                 location_input.setText(account_data.get('location', ''))
             layout.addRow("Location:", location_input)
             
+            # Value field
+            value_input = QLineEdit()
+            value_input.setPlaceholderText("e.g., $50, $100, High Value")
+            if account_data:
+                value_input.setText(account_data.get('value', ''))
+            layout.addRow("Value:", value_input)
+            
             # Status dropdown
             status_combo = QComboBox()
             status_options = ["Ready", "Blood Infection", "Storage", "Dead", "Offline"]
@@ -665,6 +718,7 @@ class DayZAccountTracker(QWidget):
                     'account': account_input.text(),
                     'email': email_input.text(),
                     'location': location_input.text(),
+                    'value': value_input.text(),
                     'status': status_combo.currentText(),
                     'station': station_combo.currentText(),
                     'gear': gear_input.text(),
@@ -676,284 +730,386 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Account dialog error: {e}")
             return None
-            
-    def add_account_to_table(self, account_data: Dict):
-        """Add account to the table"""
-        try:
-            row = self.account_table.rowCount()
-            self.account_table.insertRow(row)
-            
-            # Set items with color coding - with safe access
-            self.account_table.setItem(row, 0, QTableWidgetItem(str(account_data.get('account', ''))))
-            self.account_table.setItem(row, 1, QTableWidgetItem(str(account_data.get('email', ''))))
-            self.account_table.setItem(row, 2, QTableWidgetItem(str(account_data.get('location', ''))))
-            
-            # Status with color coding
-            status = str(account_data.get('status', ''))
-            status_item = QTableWidgetItem(status)
-            if status == 'Ready':
-                status_item.setForeground(QColor('#4CAF50'))  # Green
-            elif status == 'Blood Infection':
-                status_item.setForeground(QColor('#f44336'))  # Red
-            elif status == 'Storage':
-                status_item.setForeground(QColor('#FF9800'))  # Orange
-            self.account_table.setItem(row, 3, status_item)
-            
-            # Station with color coding
-            station = str(account_data.get('station', ''))
-            station_item = QTableWidgetItem(station)
-            if 'Kit' in station:
-                station_item.setForeground(QColor('#9C27B0'))  # Purple
-            elif station == 'Geared':
-                station_item.setForeground(QColor('#FF9800'))  # Orange
-            elif 'PvP' in station or 'Raid' in station:
-                station_item.setForeground(QColor('#f44336'))  # Red
-            self.account_table.setItem(row, 4, station_item)
-            
-            self.account_table.setItem(row, 5, QTableWidgetItem(str(account_data.get('gear', ''))))
-            
-            # Holding with color coding
-            holding = str(account_data.get('holding', ''))
-            holding_item = QTableWidgetItem(holding)
-            if 'IED' in holding or 'Explosive' in holding:
-                holding_item.setForeground(QColor('#f44336'))  # Red
-            elif 'POX' in holding or 'GL' in holding:
-                holding_item.setForeground(QColor('#9C27B0'))  # Purple
-            self.account_table.setItem(row, 6, holding_item)
-            
-        except Exception as e:
-            log_error(f"Failed to add account to table: {e}")
-            # Try to remove the row if it was partially created
-            try:
-                if self.account_table.rowCount() > 0:
-                    self.account_table.removeRow(self.account_table.rowCount() - 1)
-            except:
-                pass
-            
-    def update_account_in_table(self, account_data: Dict):
-        """Update account in the table"""
-        try:
-            # Find the row with this account
-            for row in range(self.account_table.rowCount()):
-                item = self.account_table.item(row, 0)
-                if item and item.text() == str(account_data.get('account', '')):
-                    # Update items with safe access
-                    self.account_table.setItem(row, 1, QTableWidgetItem(str(account_data.get('email', ''))))
-                    self.account_table.setItem(row, 2, QTableWidgetItem(str(account_data.get('location', ''))))
-                    
-                    # Status with color coding
-                    status = str(account_data.get('status', ''))
-                    status_item = QTableWidgetItem(status)
-                    if status == 'Ready':
-                        status_item.setForeground(QColor('#4CAF50'))
-                    elif status == 'Blood Infection':
-                        status_item.setForeground(QColor('#f44336'))
-                    elif status == 'Storage':
-                        status_item.setForeground(QColor('#FF9800'))
-                    self.account_table.setItem(row, 3, status_item)
-                    
-                    # Station with color coding
-                    station = str(account_data.get('station', ''))
-                    station_item = QTableWidgetItem(station)
-                    if 'Kit' in station:
-                        station_item.setForeground(QColor('#9C27B0'))
-                    elif station == 'Geared':
-                        station_item.setForeground(QColor('#FF9800'))
-                    elif 'PvP' in station or 'Raid' in station:
-                        station_item.setForeground(QColor('#f44336'))
-                    self.account_table.setItem(row, 4, station_item)
-                    
-                    self.account_table.setItem(row, 5, QTableWidgetItem(str(account_data.get('gear', ''))))
-                    
-                    # Holding with color coding
-                    holding = str(account_data.get('holding', ''))
-                    holding_item = QTableWidgetItem(holding)
-                    if 'IED' in holding or 'Explosive' in holding:
-                        holding_item.setForeground(QColor('#f44336'))
-                    elif 'POX' in holding or 'GL' in holding:
-                        holding_item.setForeground(QColor('#9C27B0'))
-                    self.account_table.setItem(row, 6, holding_item)
-                    break
-                    
-        except Exception as e:
-            log_error(f"Failed to update account in table: {e}")
-            
-    def remove_account_from_table(self, account_id: int):
-        """Remove account from the table"""
-        try:
-            # Find the row with this account by comparing account names
-            for row in range(self.account_table.rowCount()):
-                item = self.account_table.item(row, 0)  # Account name column
-                if item:
-                    # Find the account in the accounts list by ID
-                    for account in self.accounts:
-                        if account.get('id') == account_id and str(account.get('account', '')) == item.text():
-                            self.account_table.removeRow(row)
-                            log_info(f"Removed account row: {item.text()}")
-                            return
-                            
-            # If not found by ID, try to find by account name (fallback)
-            for row in range(self.account_table.rowCount()):
-                item = self.account_table.item(row, 0)
-                if item:
-                    # Find the account in the accounts list by name
-                    for account in self.accounts:
-                        if str(account.get('account', '')) == item.text():
-                            if account.get('id') == account_id:
-                                self.account_table.removeRow(row)
-                                log_info(f"Removed account row (fallback): {item.text()}")
-                                return
-                                
-            log_error(f"Account with ID {account_id} not found in table")
-                    
-        except Exception as e:
-            log_error(f"Failed to remove account from table: {e}")
-            
-    def refresh_account_table(self):
-        """Refresh the entire account table to match the accounts list"""
-        try:
-            # Clear the table
-            self.account_table.setRowCount(0)
-            
-            # Re-add all accounts from the list
-            for account in self.accounts:
-                if self._validate_account_data(account):
-                    self.add_account_to_table(account)
-                    
-            log_info(f"Refreshed account table with {len(self.accounts)} accounts")
-                    
-        except Exception as e:
-            log_error(f"Failed to refresh account table: {e}")
-            
+    
     def on_account_selected(self):
-        """Handle account selection"""
+        """Handle account selection change"""
         try:
             current_row = self.account_table.currentRow()
-            if current_row >= 0 and current_row < self.account_table.rowCount():
-                # Get the account name from the table item
-                account_id_item = self.account_table.item(current_row, 0)  # Account column
-                if account_id_item:
-                    account_name = account_id_item.text()
-                    # Find the account in the accounts list
-                    for account in self.accounts:
-                        if str(account.get('account', '')) == account_name:
-                            self.current_account = account
-                            self.update_account_details()
-                            log_info(f"Selected account: {account_name}")
-                            break
-                    else:
-                        # Account not found in list
-                        log_error(f"Account '{account_name}' not found in accounts list")
-                        self.current_account = None
+            if current_row >= 0:
+                # Get account data from the selected row
+                account_name = self.account_table.item(current_row, 0).text()
+                
+                # Find the account in our data
+                for account in self.accounts:
+                    if account.get('account') == account_name:
+                        self.current_account = account
                         self.update_account_details()
-                else:
-                    log_error("No account item found in selected row")
-                    self.current_account = None
-                    self.update_account_details()
+                        break
             else:
-                # No row selected
                 self.current_account = None
-                self.update_account_details()
+                self.clear_account_details()
                 
         except Exception as e:
             log_error(f"Failed to handle account selection: {e}")
-            self.current_account = None
-            self.update_account_details()
-            
+    
     def update_account_details(self):
-        """Update the account details panel"""
+        """Update the account details display"""
         try:
             if self.current_account:
-                self.account_name_label.setText(str(self.current_account.get('account', '')))
-                self.account_email_label.setText(str(self.current_account.get('email', '')))
-                self.account_location_label.setText(str(self.current_account.get('location', '')))
-                self.account_status_label.setText(str(self.current_account.get('status', '')))
-                self.account_station_label.setText(str(self.current_account.get('station', '')))
-                self.account_gear_label.setText(str(self.current_account.get('gear', '')))
-                self.account_holding_label.setText(str(self.current_account.get('holding', '')))
+                self.account_name_label.setText(self.current_account.get('account', ''))
+                self.account_email_label.setText(self.current_account.get('email', ''))
+                self.account_location_label.setText(self.current_account.get('location', ''))
+                self.account_value_label.setText(self.current_account.get('value', ''))
+                self.account_status_label.setText(self.current_account.get('status', ''))
+                self.account_station_label.setText(self.current_account.get('station', ''))
+                self.account_gear_label.setText(self.current_account.get('gear', ''))
+                self.account_holding_label.setText(self.current_account.get('holding', ''))
+                
+                # Update status label
+                self.status_label.setText(f"Selected: {self.current_account.get('account', '')}")
             else:
-                self.account_name_label.setText("No account selected")
-                self.account_email_label.setText("")
-                self.account_location_label.setText("")
-                self.account_status_label.setText("")
-                self.account_station_label.setText("")
-                self.account_gear_label.setText("")
-                self.account_holding_label.setText("")
+                self.clear_account_details()
                 
         except Exception as e:
             log_error(f"Failed to update account details: {e}")
-            
-    def refresh_map(self):
-        """Refresh the iZurvive map"""
+    
+    def clear_account_details(self):
+        """Clear the account details display"""
         try:
-            self.load_izurvive_map()
-            log_info("[SUCCESS] Map refreshed")
-        except Exception as e:
-            log_error(f"Failed to refresh map: {e}")
+            self.account_name_label.setText("No account selected")
+            self.account_email_label.setText("")
+            self.account_location_label.setText("")
+            self.account_value_label.setText("")
+            self.account_status_label.setText("")
+            self.account_station_label.setText("")
+            self.account_gear_label.setText("")
+            self.account_holding_label.setText("")
             
-    def show_all_locations(self):
-        """Show all account locations on the map"""
-        try:
-            if not self.accounts:
-                QMessageBox.information(self, "No Accounts", "No accounts to show on map.")
-                return
-                
-            # This would integrate with iZurvive API to show markers
-            # For now, just show a message
-            locations = [acc['location'] for acc in self.accounts if acc['location']]
-            if locations:
-                QMessageBox.information(self, "Account Locations", 
-                                      f"Found {len(locations)} account locations:\n" + 
-                                      "\n".join(locations))
-            else:
-                QMessageBox.information(self, "No Locations", "No locations found in accounts.")
-                
-        except Exception as e:
-            log_error(f"Failed to show locations: {e}")
+            self.status_label.setText("Ready to manage DayZ accounts")
             
+        except Exception as e:
+            log_error(f"Failed to clear account details: {e}")
+    
     def load_accounts(self):
-        """Load accounts from file"""
+        """Load accounts from storage"""
         try:
             self.accounts = account_manager.accounts
-            
-            # Refresh the table with all accounts
             self.refresh_account_table()
-                    
-            log_info(f"[SUCCESS] Loaded {len(self.accounts)} accounts")
-                
+            self.update_statistics()
+            log_info(f"Loaded {len(self.accounts)} accounts")
         except Exception as e:
             log_error(f"Failed to load accounts: {e}")
+            self.accounts = []
     
-    def _validate_account_data(self, account: Dict) -> bool:
-        """Validate account data before adding to table"""
+    def save_accounts(self):
+        """Save accounts to storage"""
         try:
-            required_fields = ['account', 'email', 'location', 'status', 'station', 'gear', 'holding']
+            # Update the account manager's accounts list
+            account_manager.accounts = self.accounts.copy()
+            # Save changes using the account manager
+            account_manager.save_changes(account_manager.accounts)
+            log_info(f"Saved {len(self.accounts)} accounts")
+        except Exception as e:
+            log_error(f"Failed to save accounts: {e}")
+    
+    def refresh_account_table(self):
+        """Refresh the account table display"""
+        try:
+            self.setup_account_table()
+            self.update_statistics()
+        except Exception as e:
+            log_error(f"Failed to refresh account table: {e}")
+    
+    def clear_account_table(self):
+        """Clear all accounts from the table"""
+        try:
+            reply = QMessageBox.question(
+                self, 
+                "Clear All Accounts", 
+                "Are you sure you want to clear all accounts? This action cannot be undone.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
             
-            # Check if all required fields exist
-            for field in required_fields:
-                if field not in account:
-                    log_error(f"Missing required field '{field}' in account data")
-                    return False
+            if reply == QMessageBox.StandardButton.Yes:
+                # Clear from account manager
+                account_manager.accounts.clear()
+                account_manager.save_changes(account_manager.accounts)
                 
-                # Ensure all fields are strings
-                if not isinstance(account[field], str):
-                    account[field] = str(account[field])
+                # Refresh local accounts list and UI
+                self.accounts = account_manager.accounts
+                self.refresh_account_table()
+                self.status_label.setText("All accounts cleared")
+                log_info("All accounts cleared")
+        except Exception as e:
+            log_error(f"Failed to clear accounts: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to clear accounts: {e}")
+    
+    def filter_accounts(self, search_text: str):
+        """Filter accounts based on search text"""
+        try:
+            if not search_text:
+                self.refresh_account_table()
+                return
             
+            # Filter accounts
+            filtered_accounts = []
+            search_lower = search_text.lower()
+            
+            for account in self.accounts:
+                # Search in multiple fields
+                if (search_lower in account.get('account', '').lower() or
+                    search_lower in account.get('email', '').lower() or
+                    search_lower in account.get('location', '').lower() or
+                    search_lower in account.get('status', '').lower() or
+                    search_lower in account.get('station', '').lower() or
+                    search_lower in account.get('gear', '').lower() or
+                    search_lower in account.get('holding', '').lower()):
+                    filtered_accounts.append(account)
+            
+            # Update table with filtered results
+            self.setup_account_table(filtered_accounts)
+            
+        except Exception as e:
+            log_error(f"Failed to filter accounts: {e}")
+    
+    def update_statistics(self):
+        """Update the account statistics display"""
+        try:
+            total = len(self.accounts)
+            ready = len([a for a in self.accounts if a.get('status') == 'Ready'])
+            blood_infection = len([a for a in self.accounts if a.get('status') == 'Blood Infection'])
+            storage = len([a for a in self.accounts if a.get('status') == 'Storage'])
+            dead = len([a for a in self.accounts if a.get('status') == 'Dead'])
+            offline = len([a for a in self.accounts if a.get('status') == 'Offline'])
+            
+            self.total_accounts_label.setText(f"Total: {total}")
+            self.ready_accounts_label.setText(f"Ready: {ready}")
+            self.blood_infection_label.setText(f"Blood Infection: {blood_infection}")
+            self.storage_label.setText(f"Storage: {storage}")
+            self.dead_label.setText(f"Dead: {dead}")
+            self.offline_label.setText(f"Offline: {offline}")
+            
+        except Exception as e:
+            log_error(f"Failed to update statistics: {e}")
+    
+    def upload_csv_accounts(self):
+        """Upload accounts from CSV file"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            import csv
+            
+            file_path, _ = QFileDialog.getOpenFileName(
+                self, 
+                "Select CSV File", 
+                "", 
+                "CSV Files (*.csv);;All Files (*)"
+            )
+            
+            if file_path:
+                self.upload_csv_accounts(file_path)
+                
+        except Exception as e:
+            log_error(f"Failed to upload CSV accounts: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to upload CSV accounts: {e}")
+    
+    def _validate_account_data(self, data: Dict[str, str]) -> bool:
+        """Enhanced validation for account data"""
+        try:
+            # Check if account field has meaningful content
+            account = data.get('account', '').strip()
+            if not account or len(account) < 2:
+                log_warning(f"Account validation failed: account field too short or empty: '{account}'")
+                return False
+            
+            # Check if account contains only whitespace or special characters
+            if account.isspace() or not any(c.isalnum() for c in account):
+                log_warning(f"Account validation failed: account field contains no alphanumeric characters: '{account}'")
+                return False
+            
+            # Validate email format if provided
+            email = data.get('email', '').strip()
+            if email and '@' not in email:
+                log_warning(f"Account validation failed: invalid email format: '{email}'")
+                return False
+            
+            # Validate status if provided
+            status = data.get('status', '').strip()
+            valid_statuses = ['Active', 'Inactive', 'Suspended', 'Banned', 'Pending']
+            if status and status not in valid_statuses:
+                log_warning(f"Account validation failed: invalid status: '{status}'")
+                return False
+            
+            log_info(f"Account validation passed for: {account}")
             return True
             
         except Exception as e:
-            log_error(f"Account validation error: {e}")
+            log_error(f"Error in account validation: {e}")
             return False
-            
-    def save_accounts(self):
-        """Save accounts to file"""
+    
+    def _is_duplicate_account(self, account_data: Dict) -> bool:
+        """Check if account is a duplicate using account manager"""
         try:
-            account_manager.accounts = self.accounts
-            account_manager.save_changes(self.accounts, force=True)
-            log_info(f"[SUCCESS] Saved {len(self.accounts)} accounts")
-            
+            for account in account_manager.accounts:
+                if (account.get('account') == account_data.get('account') and
+                    account.get('email') == account_data.get('email')):
+                    return True
+            return False
         except Exception as e:
-            log_error(f"Failed to save accounts: {e}")
-
-# Global instance - removed to prevent QWidget creation during import
-# dayz_account_tracker = DayZAccountTracker() 
+            log_error(f"Failed to check for duplicate account: {e}")
+            return False
+    
+    def export_csv_accounts(self):
+        """Export accounts to CSV file"""
+        try:
+            from PyQt6.QtWidgets import QFileDialog
+            import csv
+            
+            if not self.accounts:
+                QMessageBox.information(self, "No Accounts", "No accounts to export.")
+                return
+            
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, 
+                "Save CSV File", 
+                f"dayz_accounts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv", 
+                "CSV Files (*.csv);;All Files (*)"
+            )
+            
+            if file_path:
+                with open(file_path, 'w', newline='', encoding='utf-8') as file:
+                    fieldnames = ['Account', 'Email', 'Location', 'Value', 'Status', 'Station', 'Gear', 'Holding']
+                    writer = csv.DictWriter(file, fieldnames=fieldnames)
+                    
+                    writer.writeheader()
+                    for account in self.accounts:
+                        writer.writerow({
+                            'Account': account.get('account', ''),
+                            'Email': account.get('email', ''),
+                            'Location': account.get('location', ''),
+                            'Value': account.get('value', ''),
+                            'Status': account.get('status', ''),
+                            'Station': account.get('station', ''),
+                            'Gear': account.get('gear', ''),
+                            'Holding': account.get('holding', '')
+                        })
+                
+                self.status_label.setText(f"Exported {len(self.accounts)} accounts to CSV")
+                QMessageBox.information(
+                    self, 
+                    "Export Complete", 
+                    f"Successfully exported {len(self.accounts)} accounts to CSV file."
+                )
+                log_info(f"Exported {len(self.accounts)} accounts to CSV")
+                
+        except Exception as e:
+            log_error(f"Failed to export CSV accounts: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to export CSV accounts: {e}")
+    
+    def show_bulk_operations(self):
+        """Show bulk operations dialog"""
+        try:
+            if not self.accounts:
+                QMessageBox.information(self, "No Accounts", "No accounts available for bulk operations.")
+                return
+            
+            dialog = QDialog(self)
+            dialog.setWindowTitle("Bulk Operations")
+            dialog.setModal(True)
+            dialog.setStyleSheet("""
+                QWidget {
+                    background-color: #2b2b2b;
+                    color: #ffffff;
+                }
+                QLabel, QComboBox, QPushButton {
+                    font-size: 11px;
+                }
+                QPushButton {
+                    background-color: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    min-height: 25px;
+                }
+                QPushButton:hover {
+                    background-color: #45a049;
+                }
+            """)
+            
+            layout = QVBoxLayout()
+            
+            # Operation type selection
+            operation_label = QLabel("Select Operation:")
+            operation_combo = QComboBox()
+            operation_combo.addItems([
+                "Delete All Accounts",
+                "Change Status for All Accounts",
+                "Export Selected Accounts"
+            ])
+            
+            layout.addWidget(operation_label)
+            layout.addWidget(operation_combo)
+            
+            # Status change options (initially hidden)
+            status_label = QLabel("New Status:")
+            status_combo = QComboBox()
+            status_combo.addItems(["Ready", "Blood Infection", "Storage", "Dead", "Offline"])
+            status_label.hide()
+            status_combo.hide()
+            
+            layout.addWidget(status_label)
+            layout.addWidget(status_combo)
+            
+            # Show/hide status options based on operation
+            def on_operation_changed():
+                if operation_combo.currentText() == "Change Status for All Accounts":
+                    status_label.show()
+                    status_combo.show()
+                else:
+                    status_label.hide()
+                    status_combo.hide()
+            
+            operation_combo.currentTextChanged.connect(on_operation_changed)
+            
+            # Buttons
+            button_layout = QHBoxLayout()
+            apply_btn = QPushButton("Apply Operation")
+            cancel_btn = QPushButton("Cancel")
+            
+            apply_btn.clicked.connect(dialog.accept)
+            cancel_btn.clicked.connect(dialog.reject)
+            
+            button_layout.addWidget(apply_btn)
+            button_layout.addWidget(cancel_btn)
+            layout.addLayout(button_layout)
+            
+            dialog.setLayout(layout)
+            
+            # Show dialog and handle result
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                operation = operation_combo.currentText()
+                
+                if operation == "Delete All Accounts":
+                    self.clear_account_table()
+                elif operation == "Change Status for All Accounts":
+                    new_status = status_combo.currentText()
+                    for account in self.accounts:
+                        account['status'] = new_status
+                        account['modified_date'] = datetime.now().isoformat()
+                    
+                    self.save_accounts()
+                    self.refresh_account_table()
+                    self.status_label.setText(f"Changed status to '{new_status}' for all accounts")
+                    QMessageBox.information(
+                        self, 
+                        "Bulk Operation Complete", 
+                        f"Changed status to '{new_status}' for all accounts."
+                    )
+                elif operation == "Export Selected Accounts":
+                    self.export_csv_accounts()
+                    
+        except Exception as e:
+            log_error(f"Failed to show bulk operations: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to show bulk operations: {e}") 
