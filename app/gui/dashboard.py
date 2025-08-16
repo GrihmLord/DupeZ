@@ -13,6 +13,7 @@ from app.gui.unified_network_control import UnifiedNetworkControl
 from app.gui.dayz_udp_gui import DayZUDPGUI
 from app.gui.dayz_map_gui import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
+from app.gui.dayz_gaming_dashboard import DayZGamingDashboard
 # Performance monitor removed as requested by user
 
 from app.logs.logger import log_info, log_error
@@ -295,6 +296,14 @@ class DupeZDashboard(QMainWindow):
         settings_action.triggered.connect(self.open_settings)
         tools_menu.addAction(settings_action)
         
+        tools_menu.addSeparator()
+        
+        # DayZ Gaming Dashboard action
+        dayz_gaming_action = QAction('🎮 &DayZ Gaming Dashboard', self)
+        dayz_gaming_action.setShortcut('Ctrl+G')
+        dayz_gaming_action.triggered.connect(self.open_dayz_gaming_dashboard)
+        tools_menu.addAction(dayz_gaming_action)
+        
         # View menu
         view_menu = menubar.addMenu('&View')
         
@@ -550,6 +559,64 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Error opening settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to open settings: {e}")
+    
+    def open_dayz_gaming_dashboard(self):
+        """Open DayZ Gaming Dashboard"""
+        try:
+            from app.gui.dayz_gaming_dashboard import DayZGamingDashboard
+            
+            # Create and show the DayZ Gaming Dashboard
+            self.dayz_dashboard = DayZGamingDashboard(self)
+            self.dayz_dashboard.setWindowTitle("🎮 DayZ Gaming Dashboard - DupeZ")
+            
+            # Connect signals
+            self.dayz_dashboard.server_added.connect(self.on_dayz_server_added)
+            self.dayz_dashboard.server_removed.connect(self.on_dayz_server_removed)
+            self.dayz_dashboard.optimization_triggered.connect(self.on_gaming_optimization_triggered)
+            
+            # Show the dashboard
+            self.dayz_dashboard.show()
+            self.dayz_dashboard.raise_()
+            self.dayz_dashboard.activateWindow()
+            
+            log_info("DayZ Gaming Dashboard opened successfully")
+            
+        except Exception as e:
+            log_error(f"Error opening DayZ Gaming Dashboard: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open DayZ Gaming Dashboard: {e}")
+    
+    def on_dayz_server_added(self, server_info: dict):
+        """Handle DayZ server added event"""
+        try:
+            log_info(f"DayZ server added: {server_info.get('ip', 'Unknown')}")
+            # This could integrate with your gaming control plugin
+            if hasattr(self, 'controller') and self.controller:
+                # Add server to gaming control plugin if available
+                pass
+        except Exception as e:
+            log_error(f"Error handling server added: {e}")
+    
+    def on_dayz_server_removed(self, server_ip: str):
+        """Handle DayZ server removed event"""
+        try:
+            log_info(f"DayZ server removed: {server_ip}")
+            # This could integrate with your gaming control plugin
+            if hasattr(self, 'controller') and self.controller:
+                # Remove server from gaming control plugin if available
+                pass
+        except Exception as e:
+            log_error(f"Error handling server removed: {e}")
+    
+    def on_gaming_optimization_triggered(self):
+        """Handle gaming optimization triggered event"""
+        try:
+            log_info("Gaming optimization triggered from dashboard")
+            # This could integrate with your gaming control plugin
+            if hasattr(self, 'controller') and self.controller:
+                # Trigger optimization in gaming control plugin if available
+                pass
+        except Exception as e:
+            log_error(f"Error handling optimization trigger: {e}")
     
     def on_settings_changed(self, additional_settings: dict):
         """Handle settings changes"""

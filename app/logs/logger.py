@@ -13,6 +13,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
 import json
+from app.utils.helpers import safe_console_message
+
+class SafeConsoleHandler(logging.StreamHandler):
+    """Console handler that safely handles Unicode emojis for Windows"""
+    
+    def emit(self, record):
+        try:
+            # Make emojis safe for console output
+            if hasattr(record, 'msg') and isinstance(record.msg, str):
+                record.msg = safe_console_message(record.msg)
+            super().emit(record)
+        except Exception:
+            # Fallback to original message if emoji replacement fails
+            super().emit(record)
 
 class DupeZLogger:
     """Enhanced logger for DupeZ with rotation and multiple handlers"""
@@ -39,7 +53,7 @@ class DupeZLogger:
         """Setup logging handlers with rotation and formatting"""
         try:
             # Console handler with Unicode support
-            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler = SafeConsoleHandler(sys.stdout)
             console_handler.setLevel(logging.INFO)
             console_formatter = logging.Formatter(
                 '%(asctime)s - %(levelname)s - %(name)s - %(message)s',
@@ -50,7 +64,6 @@ class DupeZLogger:
             # Configure stdout for Unicode support
             try:
                 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-                console_handler.setStream(sys.stdout)
             except Exception as e:
                 print(f"Warning: Could not configure Unicode support: {e}")
             

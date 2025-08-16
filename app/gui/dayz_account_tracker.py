@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QDate
 from PyQt6.QtGui import QFont, QColor, QIcon
 import json
 import os
+import csv
 from typing import Dict, List, Optional
 from datetime import datetime
 
@@ -459,6 +460,7 @@ class DayZAccountTracker(QWidget):
         """Setup the account table with data"""
         try:
             accounts = accounts_to_show if accounts_to_show is not None else self.accounts
+            log_info(f"Setting up account table with {len(accounts)} accounts")
             
             # Set up table structure
             self.account_table.setColumnCount(8)
@@ -468,6 +470,7 @@ class DayZAccountTracker(QWidget):
             
             # Set table properties
             self.account_table.setRowCount(len(accounts))
+            log_info(f"Set table row count to {len(accounts)}")
             self.account_table.setAlternatingRowColors(True)
             self.account_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
             self.account_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -477,7 +480,9 @@ class DayZAccountTracker(QWidget):
             self.account_table.setGridStyle(Qt.PenStyle.SolidLine)
             
             # Populate table
+            log_info("Starting table population...")
             for row, account in enumerate(accounts):
+                log_info(f"Populating row {row}: {account.get('account', 'N/A')}")
                 self.account_table.setItem(row, 0, QTableWidgetItem(account.get('account', '')))
                 self.account_table.setItem(row, 1, QTableWidgetItem(account.get('email', '')))
                 self.account_table.setItem(row, 2, QTableWidgetItem(account.get('location', '')))
@@ -735,18 +740,25 @@ class DayZAccountTracker(QWidget):
         """Handle account selection change"""
         try:
             current_row = self.account_table.currentRow()
+            log_info(f"Account selection changed - Row: {current_row}")
+            
             if current_row >= 0:
                 # Get account data from the selected row
                 account_name = self.account_table.item(current_row, 0).text()
+                log_info(f"Selected account name: {account_name}")
                 
                 # Find the account in our data
                 for account in self.accounts:
                     if account.get('account') == account_name:
                         self.current_account = account
+                        log_info(f"Found account in data: {account}")
                         self.update_account_details()
                         break
+                else:
+                    log_warning(f"Account {account_name} not found in accounts data")
             else:
                 self.current_account = None
+                log_info("No row selected, clearing account details")
                 self.clear_account_details()
                 
         except Exception as e:
@@ -756,6 +768,8 @@ class DayZAccountTracker(QWidget):
         """Update the account details display"""
         try:
             if self.current_account:
+                log_info(f"Updating account details for: {self.current_account.get('account', '')}")
+                
                 self.account_name_label.setText(self.current_account.get('account', ''))
                 self.account_email_label.setText(self.current_account.get('email', ''))
                 self.account_location_label.setText(self.current_account.get('location', ''))
@@ -767,7 +781,9 @@ class DayZAccountTracker(QWidget):
                 
                 # Update status label
                 self.status_label.setText(f"Selected: {self.current_account.get('account', '')}")
+                log_info("Account details updated successfully")
             else:
+                log_info("No current account, clearing details")
                 self.clear_account_details()
                 
         except Exception as e:
@@ -815,8 +831,10 @@ class DayZAccountTracker(QWidget):
     def refresh_account_table(self):
         """Refresh the account table display"""
         try:
+            log_info(f"Refreshing account table with {len(self.accounts)} accounts")
             self.setup_account_table()
             self.update_statistics()
+            log_info("Account table refresh completed successfully")
         except Exception as e:
             log_error(f"Failed to refresh account table: {e}")
     
@@ -907,11 +925,128 @@ class DayZAccountTracker(QWidget):
             )
             
             if file_path:
-                self.upload_csv_accounts(file_path)
+                self._process_csv_file(file_path)
                 
         except Exception as e:
             log_error(f"Failed to upload CSV accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to upload CSV accounts: {e}")
+    
+    def _process_csv_file(self, file_path: str):
+        """Process CSV file and import accounts"""
+        try:
+            accounts_imported = 0
+            accounts_skipped = 0
+            
+            with open(file_path, 'r', newline='', encoding='utf-8') as file:
+                reader = csv.DictReader(file)
+                
+                for row_num, row in enumerate(reader, start=2):  # Start at 2 since row 1 is header
+                    try:
+                        # Debug: Log the raw row data
+                        log_info(f"Processing CSV row {row_num}: {dict(row)}")
+                        
+                        # Map CSV columns to account fields
+                        account_data = {
+                            'account': row.get('Account', '').strip(),
+                            'email': row.get('Email', '').strip(),
+                            'location': row.get('Location', '').strip(),
+                            'value': row.get('Value', '').strip(),
+                            'status': row.get('Status', '').strip(),
+                            'station': row.get('Station', '').strip(),
+                            'gear': row.get('Gear', '').strip(),
+                            'holding': row.get('Holding', '').strip(),
+                            'last_seen': datetime.now().isoformat(),
+                            'created_date': datetime.now().isoformat()
+                        }
+                        
+                        # Debug: Log the processed account data
+                        log_info(f"Processed account data: {account_data}")
+                        
+                        # Validate account data
+                        if self._validate_account_data(account_data):
+                            # Check for duplicates
+                            if not self._is_duplicate_account(account_data):
+                                # Add to accounts list
+                                self.accounts.append(account_data)
+                                
+                                # Add to account manager using proper method
+                                try:
+                                    account_manager.add_account(account_data)
+                                    log_info(f"Successfully added account to manager: {account_data['account']}")
+                                except Exception as e:
+                                    log_warning(f"Failed to add account to manager: {e}")
+                                    # Fallback: add directly to account manager's accounts list
+                                    account_manager.accounts.append(account_data)
+                                
+                                accounts_imported += 1
+                                log_info(f"Imported account: {account_data['account']}")
+                            else:
+                                accounts_skipped += 1
+                                log_warning(f"Skipped duplicate account: {account_data['account']}")
+                        else:
+                            accounts_skipped += 1
+                            log_warning(f"Skipped invalid account data at row {row_num}")
+                            
+                    except Exception as e:
+                        accounts_skipped += 1
+                        log_error(f"Error processing row {row_num}: {e}")
+                        continue
+            
+            # Update local accounts list from account manager
+            self.accounts = account_manager.accounts.copy()
+            log_info(f"Updated local accounts list: {len(self.accounts)} accounts")
+            
+            # Debug: Print account details
+            for i, acc in enumerate(self.accounts):
+                log_info(f"Account {i+1}: {acc.get('account', 'N/A')} - {acc.get('status', 'N/A')}")
+            
+            # Force reload accounts from storage to ensure synchronization
+            try:
+                log_info("Forcing reload of accounts from storage...")
+                self.load_accounts()
+                log_info(f"Reloaded accounts: {len(self.accounts)} accounts")
+            except Exception as e:
+                log_warning(f"Failed to reload accounts: {e}")
+            
+            # Update the display
+            log_info("Refreshing account table display...")
+            self.refresh_account_table()
+            log_info("Account table display refreshed")
+            
+            # Debug: Check if table has rows after refresh
+            log_info(f"Table row count after refresh: {self.account_table.rowCount()}")
+            log_info(f"Table column count after refresh: {self.account_table.columnCount()}")
+            
+            # Debug: Check if table is visible and properly initialized
+            log_info(f"Table is visible: {self.account_table.isVisible()}")
+            log_info(f"Table parent is visible: {self.account_table.parent().isVisible() if self.account_table.parent() else 'No parent'}")
+            log_info(f"Table size: {self.account_table.size()}")
+            log_info(f"Table geometry: {self.account_table.geometry()}")
+            
+            # Debug: Check if accounts are actually in the table
+            log_info(f"Table item count check:")
+            for row in range(self.account_table.rowCount()):
+                account_item = self.account_table.item(row, 0)
+                if account_item:
+                    log_info(f"Row {row}: {account_item.text()}")
+                else:
+                    log_info(f"Row {row}: No item")
+            
+            # Show results
+            QMessageBox.information(
+                self, 
+                "CSV Import Complete", 
+                f"Import completed!\n\n"
+                f"✅ Accounts imported: {accounts_imported}\n"
+                f"⚠️ Accounts skipped: {accounts_skipped}\n\n"
+                f"Total accounts: {len(self.accounts)}"
+            )
+            
+            log_info(f"CSV import completed: {accounts_imported} imported, {accounts_skipped} skipped")
+            
+        except Exception as e:
+            log_error(f"Failed to process CSV file: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to process CSV file:\n{e}")
     
     def _validate_account_data(self, data: Dict[str, str]) -> bool:
         """Enhanced validation for account data"""
@@ -933,11 +1068,10 @@ class DayZAccountTracker(QWidget):
                 log_warning(f"Account validation failed: invalid email format: '{email}'")
                 return False
             
-            # Validate status if provided
+            # Validate status if provided (allow any non-empty status)
             status = data.get('status', '').strip()
-            valid_statuses = ['Active', 'Inactive', 'Suspended', 'Banned', 'Pending']
-            if status and status not in valid_statuses:
-                log_warning(f"Account validation failed: invalid status: '{status}'")
+            if status and len(status) < 1:
+                log_warning(f"Account validation failed: status field too short: '{status}'")
                 return False
             
             log_info(f"Account validation passed for: {account}")

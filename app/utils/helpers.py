@@ -7,7 +7,6 @@ import subprocess
 import socket
 import psutil
 from typing import Dict, List, Optional, Tuple
-from app.logs.logger import log_info, log_error
 
 def get_system_info() -> Dict:
     """Get comprehensive system information"""
@@ -40,7 +39,7 @@ def get_system_info() -> Dict:
         
         return info
     except Exception as e:
-        log_error(f"Failed to get system info: {e}")
+        print(f"Failed to get system info: {e}")
         return {}
 
 def get_network_interfaces() -> List[Dict]:
@@ -58,7 +57,7 @@ def get_network_interfaces() -> List[Dict]:
                     })
         return interfaces
     except Exception as e:
-        log_error(f"Failed to get network interfaces: {e}")
+        print(f"Failed to get network interfaces: {e}")
         return []
 
 def is_admin() -> bool:
@@ -114,7 +113,7 @@ def ping_host(host: str, timeout: float = 1.0) -> Tuple[bool, float]:
         else:
             return False, 0.0
     except Exception as e:
-        log_error(f"Ping failed for {host}: {e}")
+        print(f"Ping failed for {host}: {e}")
         return False, 0.0
 
 def get_process_info(pid: int) -> Optional[Dict]:
@@ -133,7 +132,7 @@ def get_process_info(pid: int) -> Optional[Dict]:
     except psutil.NoSuchProcess:
         return None
     except Exception as e:
-        log_error(f"Failed to get process info for PID {pid}: {e}")
+        print(f"Failed to get process info for PID {pid}: {e}")
         return None
 
 def get_network_connections() -> List[Dict]:
@@ -150,7 +149,7 @@ def get_network_connections() -> List[Dict]:
                 })
         return connections
     except Exception as e:
-        log_error(f"Failed to get network connections: {e}")
+        print(f"Failed to get network connections: {e}")
         return []
 
 def validate_ip_address(ip: str) -> bool:
@@ -185,7 +184,7 @@ def ensure_directory(path: str) -> bool:
         os.makedirs(path, exist_ok=True)
         return True
     except Exception as e:
-        log_error(f"Failed to create directory {path}: {e}")
+        print(f"Failed to create directory {path}: {e}")
         return False
 
 def get_application_path() -> str:
@@ -225,3 +224,178 @@ def get_common_ports() -> Dict[str, int]:
         "MongoDB": 27017,
         "Redis": 6379
     }
+
+def safe_console_message(message: str) -> str:
+    """
+    Convert emoji and Unicode characters to console-safe text for Windows
+    This prevents UnicodeEncodeError when logging to console
+    """
+    if platform.system() == "Windows":
+        # Replace common emojis with text equivalents
+        emoji_replacements = {
+            "🧹": "[CLEAN]",
+            "✅": "[SUCCESS]",
+            "🛑": "[STOP]",
+            "🚀": "[START]",
+            "📊": "[STATS]",
+            "🔍": "[SEARCH]",
+            "⚡": "[POWER]",
+            "🐛": "[DEBUG]",
+            "💾": "[SAVE]",
+            "🌐": "[NETWORK]",
+            "🖥️": "[SYSTEM]",
+            "💿": "[DISK]",
+            "📱": "[DEVICE]",
+            "🔒": "[SECURITY]",
+            "⚠️": "[WARNING]",
+            "❌": "[ERROR]",
+            "ℹ️": "[INFO]",
+            "🎯": "[TARGET]",
+            "🔄": "[REFRESH]",
+            "⏱️": "[TIMER]",
+            "🛡️": "[SHIELD]",
+            "🚨": "[ALERT]",
+            "🎮": "[GAMING]",
+            "🔧": "[TOOLS]",
+            "📈": "[CHART]",
+            "🎪": "[CIRCUS]",
+            "🏆": "[TROPHY]",
+            "💡": "[IDEA]",
+            "🔮": "[MAGIC]",
+            "🎭": "[THEATER]",
+            "🎨": "[ART]",
+            "🎵": "[MUSIC]",
+            "🎬": "[MOVIE]",
+            "🎲": "[DICE]",
+            "🎸": "[GUITAR]",
+            "🎹": "[PIANO]",
+            "🎺": "[TRUMPET]",
+            "🎻": "[VIOLIN]",
+            "🥁": "[DRUM]",
+            "🎤": "[MICROPHONE]",
+            "🎧": "[HEADPHONES]",
+            "📺": "[TV]",
+            "📻": "[RADIO]",
+            "📱": "[PHONE]",
+            "💻": "[LAPTOP]",
+            "⌨️": "[KEYBOARD]",
+            "🖱️": "[MOUSE]",
+            "🖨️": "[PRINTER]",
+            "📷": "[CAMERA]",
+            "🎥": "[VIDEO]",
+            "📹": "[CAMCORDER]",
+            "📼": "[TAPE]",
+            "💿": "[CD]",
+            "📀": "[DVD]",
+            "💾": "[FLOPPY]",
+            "🗜️": "[COMPRESS]",
+            "📁": "[FOLDER]",
+            "📂": "[OPEN_FOLDER]",
+            "🗂️": "[CARD_INDEX]",
+            "📅": "[CALENDAR]",
+            "📆": "[TEAR_CALENDAR]",
+            "🗓️": "[SPIRAL_CALENDAR]",
+            "📇": "[CARD_INDEX]",
+            "🗃️": "[CARD_BOX]",
+            "📋": "[CLIPBOARD]",
+            "📌": "[PUSHPIN]",
+            "📍": "[ROUND_PUSHPIN]",
+            "🎯": "[BULLSEYE]",
+            "🎪": "[CIRCUS_TENT]",
+            "🎨": "[ARTIST_PALETTE]",
+            "🎭": "[PERFORMING_ARTS]",
+            "🎬": "[CLAPPER_BOARD]",
+            "🎤": "[MICROPHONE]",
+            "🎧": "[HEADPHONE]",
+            "🎼": "[MUSICAL_SCORE]",
+            "🎹": "[MUSICAL_KEYBOARD]",
+            "🎸": "[GUITAR]",
+            "🎺": "[TRUMPET]",
+            "🎻": "[VIOLIN]",
+            "🥁": "[DRUM]",
+            "🎷": "[SAXOPHONE]",
+            "📺": "[TELEVISION]",
+            "📻": "[RADIO]",
+            "📱": "[MOBILE_PHONE]",
+            "💻": "[LAPTOP_COMPUTER]",
+            "🖥️": "[DESKTOP_COMPUTER]",
+            "⌨️": "[KEYBOARD]",
+            "🖱️": "[COMPUTER_MOUSE]",
+            "🖨️": "[PRINTER]",
+            "📷": "[CAMERA]",
+            "🎥": "[MOVIE_CAMERA]",
+            "📹": "[VIDEOCASSETTE]",
+            "📼": "[VIDEOCASSETTE]",
+            "💿": "[OPTICAL_DISC]",
+            "📀": "[DVD]",
+            "💾": "[FLOPPY_DISK]",
+            "🗜️": "[COMPRESSION]",
+            "📁": "[FILE_FOLDER]",
+            "📂": "[OPEN_FILE_FOLDER]",
+            "🗂️": "[CARD_INDEX_DIVIDERS]",
+            "📅": "[TEAR_OFF_CALENDAR]",
+            "📆": "[SPIRAL_CALENDAR]",
+            "🗓️": "[SPIRAL_CALENDAR]",
+            "📇": "[CARD_INDEX]",
+            "🗃️": "[CARD_FILE_BOX]",
+            "📋": "[CLIPBOARD]",
+            "📌": "[PUSHPIN]",
+            "📍": "[ROUND_PUSHPIN]",
+            # Add more emojis that appear in the logs
+            "🚀": "[ROCKET]",
+            "🎯": "[TARGET]",
+            "⏱️": "[TIMER]",
+            "🚨": "[ALERT]",
+            "🎮": "[GAMING]",
+            "🔧": "[TOOLS]",
+            "📈": "[CHART]",
+            "🎪": "[CIRCUS]",
+            "🏆": "[TROPHY]",
+            "💡": "[IDEA]",
+            "🔮": "[MAGIC]",
+            "🎭": "[THEATER]",
+            "🎨": "[ART]",
+            "🎵": "[MUSIC]",
+            "🎬": "[MOVIE]",
+            "🎲": "[DICE]",
+            "🎸": "[GUITAR]",
+            "🎹": "[PIANO]",
+            "🎺": "[TRUMPET]",
+            "🎻": "[VIOLIN]",
+            "🥁": "[DRUM]",
+            "🎷": "[SAXOPHONE]",
+            "🎤": "[MICROPHONE]",
+            "🎧": "[HEADPHONE]",
+            "📺": "[TELEVISION]",
+            "📻": "[RADIO]",
+            "📱": "[MOBILE_PHONE]",
+            "💻": "[LAPTOP_COMPUTER]",
+            "🖥️": "[DESKTOP_COMPUTER]",
+            "⌨️": "[KEYBOARD]",
+            "🖱️": "[COMPUTER_MOUSE]",
+            "🖨️": "[PRINTER]",
+            "📷": "[CAMERA]",
+            "🎥": "[MOVIE_CAMERA]",
+            "📹": "[VIDEOCASSETTE]",
+            "📼": "[VIDEOCASSETTE]",
+            "💿": "[OPTICAL_DISC]",
+            "📀": "[DVD]",
+            "💾": "[FLOPPY_DISK]",
+            "🗜️": "[COMPRESSION]",
+            "📁": "[FILE_FOLDER]",
+            "📂": "[OPEN_FILE_FOLDER]",
+            "🗂️": "[CARD_INDEX_DIVIDERS]",
+            "📅": "[TEAR_OFF_CALENDAR]",
+            "📆": "[SPIRAL_CALENDAR]",
+            "🗓️": "[SPIRAL_CALENDAR]",
+            "📇": "[CARD_INDEX]",
+            "🗃️": "[CARD_FILE_BOX]",
+            "📋": "[CLIPBOARD]",
+            "📌": "[PUSHPIN]",
+            "📍": "[ROUND_PUSHPIN]"
+        }
+        
+        for emoji, replacement in emoji_replacements.items():
+            message = message.replace(emoji, replacement)
+    
+    return message
