@@ -40,11 +40,13 @@ class DupingNetworkOptimizer(QWidget):
         header.setFont(QFont("Arial", 16, QFont.Weight.Bold))
         header.setStyleSheet("""
             color: #ffffff;
-            padding: 10px;
+            padding: 15px;
             background-color: #2c3e50;
-            border-radius: 6px;
-            margin-bottom: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
         """)
+        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
         
         # Main splitter
@@ -68,10 +70,12 @@ class DupingNetworkOptimizer(QWidget):
         self.status_label.setStyleSheet("""
             color: #4CAF50; 
             font-weight: bold; 
-            padding: 8px;
+            padding: 12px;
             background-color: #1e1e1e;
-            border-radius: 4px;
-            margin: 5px 0;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 14px;
         """)
         layout.addWidget(self.status_label)
         
@@ -87,18 +91,19 @@ class DupingNetworkOptimizer(QWidget):
         account_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #555555;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                background-color: #2b2b2b;
+                font-size: 14px;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background-color: #1e1e1e;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 3px 0 3px;
+                left: 15px;
+                padding: 0 8px 0 8px;
                 color: #ffffff;
+                font-size: 16px;
             }
         """)
         
@@ -119,9 +124,11 @@ class DupingNetworkOptimizer(QWidget):
                 background-color: #2196F3;
                 color: white;
                 border: none;
-                padding: 8px 12px;
-                border-radius: 4px;
+                padding: 12px 20px;
+                border-radius: 6px;
                 font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
             }
             QPushButton:hover {
                 background-color: #1976D2;
@@ -135,9 +142,11 @@ class DupingNetworkOptimizer(QWidget):
                 background-color: #FF9800;
                 color: white;
                 border: none;
-                padding: 8px 12px;
-                border-radius: 4px;
+                padding: 12px 20px;
+                border-radius: 6px;
                 font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
             }
             QPushButton:hover {
                 background-color: #F57C00;
@@ -157,45 +166,125 @@ class DupingNetworkOptimizer(QWidget):
         profile_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #555555;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                background-color: #2b2b2b;
+                font-size: 14px;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background-color: #1e1e1e;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 3px 0 3px;
+                left: 15px;
+                padding: 0 8px 0 8px;
                 color: #ffffff;
+                font-size: 16px;
             }
         """)
         
         profile_layout = QFormLayout()
+        profile_layout.setSpacing(15)
+        profile_layout.setContentsMargins(20, 20, 20, 20)
         
         self.profile_combo = QComboBox()
         self.profile_combo.addItems(["Stealth", "Balanced", "Aggressive", "Custom"])
         self.profile_combo.currentTextChanged.connect(self.on_profile_changed)
-        profile_layout.addRow("Profile:", self.profile_combo)
+        self.profile_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 12px;
+                min-width: 150px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #ffffff;
+            }
+        """)
+        profile_label = QLabel("Profile:")
+        profile_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12px; padding: 5px;")
+        profile_layout.addRow(profile_label, self.profile_combo)
         
         self.latency_target_spin = QSpinBox()
         self.latency_target_spin.setRange(10, 200)
         self.latency_target_spin.setValue(25)
         self.latency_target_spin.setSuffix(" ms")
-        profile_layout.addRow("Target Latency:", self.latency_target_spin)
+        self.latency_target_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 12px;
+                min-width: 120px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #555555;
+                border: none;
+                width: 20px;
+            }
+        """)
+        latency_label = QLabel("Target Latency:")
+        latency_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12px; padding: 5px;")
+        profile_layout.addRow(latency_label, self.latency_target_spin)
         
         self.packet_timing_spin = QSpinBox()
         self.packet_timing_spin.setRange(1, 50)
         self.packet_timing_spin.setValue(5)
         self.packet_timing_spin.setSuffix(" ms")
-        profile_layout.addRow("Packet Timing:", self.packet_timing_spin)
+        self.packet_timing_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 12px;
+                min-width: 120px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #555555;
+                border: none;
+                width: 20px;
+            }
+        """)
+        timing_label = QLabel("Packet Timing:")
+        timing_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12px; padding: 5px;")
+        profile_layout.addRow(timing_label, self.packet_timing_spin)
         
         self.latency_variance_spin = QSpinBox()
         self.latency_variance_spin.setRange(1, 100)
         self.latency_variance_spin.setValue(10)
         self.latency_variance_spin.setSuffix(" ms")
-        profile_layout.addRow("Latency Variance:", self.latency_variance_spin)
+        self.latency_variance_spin.setStyleSheet("""
+            QSpinBox {
+                background-color: #2b2b2b;
+                color: #ffffff;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 8px;
+                font-size: 12px;
+                min-width: 120px;
+            }
+            QSpinBox::up-button, QSpinBox::down-button {
+                background-color: #555555;
+                border: none;
+                width: 20px;
+            }
+        """)
+        variance_label = QLabel("Latency Variance:")
+        variance_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12px; padding: 5px;")
+        profile_layout.addRow(variance_label, self.latency_variance_spin)
         
         profile_group.setLayout(profile_layout)
         layout.addWidget(profile_group)
@@ -205,18 +294,19 @@ class DupingNetworkOptimizer(QWidget):
         controls_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                font-size: 12px;
-                border: 1px solid #555555;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 8px;
-                background-color: #2b2b2b;
+                font-size: 14px;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background-color: #1e1e1e;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 8px;
-                padding: 0 3px 0 3px;
+                left: 15px;
+                padding: 0 8px 0 8px;
                 color: #ffffff;
+                font-size: 16px;
             }
         """)
         
@@ -616,6 +706,38 @@ class DupingNetworkOptimizer(QWidget):
         # Enable sorting
         self.account_table.setSortingEnabled(True)
         
+        # Set table styling
+        self.account_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2b2b2b;
+                alternate-background-color: #3a3a3a;
+                color: #ffffff;
+                gridline-color: #555555;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                font-size: 11px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #2196F3;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                padding: 10px;
+                border: 1px solid #555555;
+                font-weight: bold;
+                font-size: 12px;
+            }
+        """)
+        
+        # Set alternating row colors
+        self.account_table.setAlternatingRowColors(True)
+        
     def setup_performance_table(self):
         """Setup the performance monitoring table"""
         self.performance_table.setColumnCount(5)
@@ -630,6 +752,38 @@ class DupingNetworkOptimizer(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        
+        # Set table styling
+        self.performance_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2b2b2b;
+                alternate-background-color: #3a3a3a;
+                color: #ffffff;
+                gridline-color: #555555;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                font-size: 11px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #2196F3;
+                color: white;
+            }
+            QHeaderView::section {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                padding: 10px;
+                border: 1px solid #555555;
+                font-weight: bold;
+                font-size: 12px;
+            }
+        """)
+        
+        # Set alternating row colors
+        self.performance_table.setAlternatingRowColors(True)
         
     def load_optimization_profiles(self):
         """Load optimization profiles from latency manager"""
