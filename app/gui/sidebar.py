@@ -68,7 +68,7 @@ class Sidebar(QWidget):
         layout.addWidget(network_group)
         
         # Status Group
-        status_group = QGroupBox("📊 SYSTEM STATUS")
+        status_group = QGroupBox("SYSTEM STATUS")
         status_layout = QVBoxLayout()
         
         # Device count with enhanced display
@@ -91,10 +91,7 @@ class Sidebar(QWidget):
         self.scan_status.setObjectName("status_label")
         status_layout.addWidget(self.scan_status)
         
-        # Traffic display
-        self.traffic_label = QLabel("📊 TRAFFIC: 0 KB/s")
-        self.traffic_label.setObjectName("traffic_display")
-        status_layout.addWidget(self.traffic_label)
+        # Traffic display removed for optimization
         
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
@@ -532,17 +529,7 @@ class Sidebar(QWidget):
                     self.blocking_status.setText("🔒 BLOCKING: ERROR")
                     self.blocking_status.setStyleSheet("color: #ff8800; font-weight: bold;")
                 
-                # Update traffic status with real traffic data
-                try:
-                    traffic_data = self.controller.get_traffic_analysis()
-                    if traffic_data and 'current_bandwidth' in traffic_data:
-                        bandwidth = traffic_data['current_bandwidth']
-                        self.traffic_label.setText(f"📊 TRAFFIC: {bandwidth:.1f} KB/s")
-                    else:
-                        self.traffic_label.setText("📊 TRAFFIC: 0 KB/s")
-                except Exception as e:
-                    log_error(f"Traffic status error: {e}")
-                    self.traffic_label.setText("📊 TRAFFIC: ERROR")
+                # Traffic status removed for optimization
                 
                 # Update scan status
                 try:

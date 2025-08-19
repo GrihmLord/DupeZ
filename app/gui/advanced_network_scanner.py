@@ -266,13 +266,11 @@ class AdvancedNetworkScanner(QWidget):
         self.devices_tab = self.create_devices_tab()
         self.results_tabs.addTab(self.devices_tab, "📱 Devices")
         
-        # Traffic control tab (Clumsy 3.0 style)
-        self.traffic_tab = self.create_traffic_tab()
-        self.results_tabs.addTab(self.traffic_tab, "🌊 Traffic Control")
+        # Traffic control tab removed for optimization
         
         # Statistics tab
         self.stats_tab = self.create_stats_tab()
-        self.results_tabs.addTab(self.stats_tab, "📊 Statistics")
+        self.results_tabs.addTab(self.stats_tab, "Statistics")
         
         return panel
         
@@ -297,97 +295,7 @@ class AdvancedNetworkScanner(QWidget):
         
         return tab
         
-    def create_traffic_tab(self) -> QWidget:
-        """Create traffic control tab (Clumsy 3.0 style)"""
-        tab = QWidget()
-        layout = QVBoxLayout()
-        tab.setLayout(layout)
-        
-        # Traffic control group
-        control_group = QGroupBox("🌊 Traffic Control (Clumsy 3.0 Style)")
-        control_layout = QVBoxLayout()
-        control_group.setLayout(control_layout)
-        
-        # Latency control
-        latency_layout = QHBoxLayout()
-        latency_layout.addWidget(QLabel("Latency (ms):"))
-        self.latency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.latency_slider.setRange(0, 1000)
-        self.latency_slider.setValue(0)
-        latency_layout.addWidget(self.latency_slider)
-        self.latency_label = QLabel("0ms")
-        self.latency_slider.valueChanged.connect(lambda v: self.latency_label.setText(f"{v}ms"))
-        latency_layout.addWidget(self.latency_label)
-        control_layout.addLayout(latency_layout)
-        
-        # Jitter control
-        jitter_layout = QHBoxLayout()
-        jitter_layout.addWidget(QLabel("Jitter (ms):"))
-        self.jitter_slider = QSlider(Qt.Orientation.Horizontal)
-        self.jitter_slider.setRange(0, 500)
-        self.jitter_slider.setValue(0)
-        jitter_layout.addWidget(self.jitter_slider)
-        self.jitter_label = QLabel("0ms")
-        self.jitter_slider.valueChanged.connect(lambda v: self.jitter_label.setText(f"{v}ms"))
-        jitter_layout.addWidget(self.jitter_label)
-        control_layout.addLayout(jitter_layout)
-        
-        # Bandwidth control
-        bandwidth_layout = QHBoxLayout()
-        bandwidth_layout.addWidget(QLabel("Bandwidth Limit (Mbps):"))
-        self.bandwidth_slider = QSlider(Qt.Orientation.Horizontal)
-        self.bandwidth_slider.setRange(1, 1000)
-        self.bandwidth_slider.setValue(1000)
-        bandwidth_layout.addWidget(self.bandwidth_slider)
-        self.bandwidth_label = QLabel("1000 Mbps")
-        self.bandwidth_slider.valueChanged.connect(lambda v: self.bandwidth_label.setText(f"{v} Mbps"))
-        bandwidth_layout.addWidget(self.bandwidth_label)
-        control_layout.addLayout(bandwidth_layout)
-        
-        # Packet loss control
-        loss_layout = QHBoxLayout()
-        loss_layout.addWidget(QLabel("Packet Loss (%):"))
-        self.loss_slider = QSlider(Qt.Orientation.Horizontal)
-        self.loss_slider.setRange(0, 50)
-        self.loss_slider.setValue(0)
-        loss_layout.addWidget(self.loss_slider)
-        self.loss_label = QLabel("0%")
-        self.loss_slider.valueChanged.connect(lambda v: self.loss_label.setText(f"{v}%"))
-        loss_layout.addWidget(self.loss_label)
-        control_layout.addLayout(loss_layout)
-        
-        # Traffic control buttons
-        traffic_buttons = QHBoxLayout()
-        self.apply_traffic_button = QPushButton("Apply Traffic Control")
-        self.apply_traffic_button.clicked.connect(self.apply_traffic_control)
-        traffic_buttons.addWidget(self.apply_traffic_button)
-        
-        self.clear_traffic_button = QPushButton("Clear Traffic Control")
-        self.clear_traffic_button.clicked.connect(self.clear_traffic_control)
-        traffic_buttons.addWidget(self.clear_traffic_button)
-        control_layout.addLayout(traffic_buttons)
-        
-        layout.addWidget(control_group)
-        
-        # Traffic profiles
-        profiles_group = QGroupBox("📋 Traffic Profiles")
-        profiles_layout = QVBoxLayout()
-        profiles_group.setLayout(profiles_layout)
-        
-        self.traffic_profile_combo = QComboBox()
-        self.traffic_profile_combo.addItems(list(self.traffic_profiles.keys()))
-        self.traffic_profile_combo.currentTextChanged.connect(self.load_traffic_profile)
-        profiles_layout.addWidget(self.traffic_profile_combo)
-        
-        profile_buttons = QHBoxLayout()
-        profile_buttons.addWidget(QPushButton("Save Profile", clicked=self.save_traffic_profile))
-        profile_buttons.addWidget(QPushButton("Delete Profile", clicked=self.delete_traffic_profile))
-        profiles_layout.addLayout(profile_buttons)
-        
-        layout.addWidget(profiles_group)
-        layout.addStretch()
-        
-        return tab
+    # create_traffic_tab removed for optimization
         
     def create_stats_tab(self) -> QWidget:
         """Create statistics tab"""

@@ -65,10 +65,10 @@ class EnhancedDeviceList(QWidget):
         # Connect resize event for responsive design
         self.resizeEvent = self.on_resize
         
-        # Setup UDP status timer
+        # Setup UDP status timer (less frequent to reduce wakeups)
         self.udp_status_timer = QTimer()
         self.udp_status_timer.timeout.connect(self.check_udp_tool_status)
-        self.udp_status_timer.start(2000)  # Check every 2 seconds
+        self.udp_status_timer.start(5000)  # Check every 5 seconds
     
     def _initialize_disruptors(self):
         """Initialize network disruptors with proper error handling"""
@@ -104,7 +104,7 @@ class EnhancedDeviceList(QWidget):
         self.setLayout(layout)
         
         # Simple title
-        title = QLabel("🔍 Network Scanner")
+        title = QLabel("Network Scanner")
         title.setFont(QFont("Arial", 14, QFont.Weight.Bold))
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("color: #ffffff; padding: 8px; margin-bottom: 8px;")
@@ -427,8 +427,8 @@ class EnhancedDeviceList(QWidget):
         layout.addWidget(thread_label, 1, 0)
         
         self.thread_spinbox = QSpinBox()
-        self.thread_spinbox.setRange(10, 100)
-        self.thread_spinbox.setValue(50)
+        self.thread_spinbox.setRange(5, 64)
+        self.thread_spinbox.setValue(24)
         self.thread_spinbox.setToolTip("Number of concurrent scan threads")
         self.thread_spinbox.setStyleSheet("""
             QSpinBox {
@@ -452,8 +452,8 @@ class EnhancedDeviceList(QWidget):
         layout.addWidget(timeout_label, 1, 2)
         
         self.timeout_spinbox = QSpinBox()
-        self.timeout_spinbox.setRange(500, 5000)
-        self.timeout_spinbox.setValue(1000)
+        self.timeout_spinbox.setRange(800, 8000)
+        self.timeout_spinbox.setValue(1500)
         self.timeout_spinbox.setSuffix(" ms")
         self.timeout_spinbox.setToolTip("Scan timeout per IP")
         self.timeout_spinbox.setStyleSheet("""
@@ -888,48 +888,55 @@ class EnhancedDeviceList(QWidget):
                       context={"scanner_type": "enhanced", "devices_count": len(self.devices)})
     
     def on_scan_complete(self, devices: List[Dict]):
-        """Handle scan completion - OPTIMIZED FOR SPEED"""
+        """Handle scan completion - batched population for performance"""
         try:
             log_info(f"Scan completed with {len(devices)} devices")
-            
+
             # Calculate scan duration
             if hasattr(self, 'scan_start_time'):
-                import time
-                scan_duration = time.time() - self.scan_start_time
+                import time as _t
+                scan_duration = _t.time() - self.scan_start_time
                 log_info(f"Scan duration: {scan_duration:.2f} seconds")
-            
-            # Clear existing devices
+
+            # Batch populate table
+            self.device_table.setSortingEnabled(False)
             self.device_table.setRowCount(0)
-            self.devices = []
-            
-            # Add all devices to the table immediately
-            for device in devices:
-                self.add_device_to_table(device)
-                self.devices.append(device)
-            
-            # Update status
-            self.update_status(f"✅ Scan completed: {len(devices)} devices found")
-            
-            # Update progress bar
+            self.device_table.setRowCount(len(devices))
+            self.devices = devices[:]  # shallow copy
+
+            for row, device in enumerate(devices):
+                self.device_table.setItem(row, 0, QTableWidgetItem(device.get('ip', 'Unknown')))
+                self.device_table.setItem(row, 1, QTableWidgetItem(device.get('mac', 'Unknown')))
+                self.device_table.setItem(row, 2, QTableWidgetItem(device.get('hostname', 'Unknown')))
+                self.device_table.setItem(row, 3, QTableWidgetItem(device.get('vendor', 'Unknown')))
+                self.device_table.setItem(row, 4, QTableWidgetItem(device.get('device_type', 'Unknown')))
+                self.device_table.setItem(row, 5, QTableWidgetItem('Online'))
+                self.device_table.setItem(row, 6, QTableWidgetItem('No'))
+                self.device_table.setItem(row, 7, QTableWidgetItem('Online'))
+
+            self.device_table.setSortingEnabled(True)
+
+            # Update status and UI state
+            self.update_status(f"Scan completed: {len(devices)} devices found")
             self.progress_bar.setVisible(False)
-            
-            # Update scan button state
             self.scan_button.setEnabled(True)
             self.stop_button.setEnabled(False)
-            
+
             # Update statistics
             self.update_statistics()
-            
+
             # Emit scan finished signal
             self.scan_finished.emit(devices)
-            
-            log_info(f"Device list updated with {len(devices)} devices")
-            
+
         except Exception as e:
-            log_error(f"Error handling scan completion: {e}", 
-                      exception=e, category="network_scan", severity="high",
-                      context={"devices_count": len(devices), "scanner_type": "enhanced"})
-            self.update_status(f"❌ Error completing scan: {e}")
+            log_error(
+                f"Error handling scan completion: {e}",
+                exception=e,
+                category="network_scan",
+                severity="high",
+                context={"devices_count": len(devices) if isinstance(devices, list) else 0, "scanner_type": "enhanced"},
+            )
+            self.update_status(f"Error completing scan: {e}")
     
     def add_device_to_table(self, device: Dict):
         """Add device to table - OPTIMIZED FOR SPEED"""
@@ -951,8 +958,7 @@ class EnhancedDeviceList(QWidget):
             # Color code the device
             self.color_code_device(row, device)
             
-            # Update status immediately
-            self.update_status(f"Found device: {device.get('ip', 'Unknown')}")
+            # Avoid per-device status updates to reduce UI churn
             
         except Exception as e:
             log_error(f"Error adding device to table: {e}", 
@@ -1033,6 +1039,27 @@ class EnhancedDeviceList(QWidget):
             log_error(f"Error updating status: {e}", 
                       exception=e, category="gui", severity="low",
                       context={"status_message": message})
+    
+    def clear_cache(self):
+        """Clear the device cache to free memory"""
+        try:
+            # Clear device dictionaries
+            self.devices.clear()
+            
+            # Clear table data
+            self.device_table.setRowCount(0)
+            
+            # Force garbage collection
+            import gc
+            gc.collect()
+            
+            # Refresh the table
+            self.refresh_table()
+            
+            print("Device cache cleared and memory freed")
+            
+        except Exception as e:
+            print(f"Error clearing cache: {e}")
     
     def on_device_selected(self):
         """Handle device selection"""

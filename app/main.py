@@ -26,9 +26,7 @@ def main():
         # Create application with performance optimizations
         app = QApplication(sys.argv)
         
-        # Set application properties for better performance
-        app.setAttribute(app.ApplicationAttribute.AA_UseHighDpiPixmaps, True)
-        app.setAttribute(app.ApplicationAttribute.AA_EnableHighDpiScaling, True)
+        # High DPI attributes are unnecessary or unavailable in this PyQt6 build; skip setting them
         
         # Set application icon
         app.setWindowIcon(QIcon("app/assets/icon.ico"))

@@ -241,7 +241,7 @@ class DayZUDPGUI(QWidget):
             # Update timer
             self.update_timer = QTimer()
             self.update_timer.timeout.connect(self.update_status)
-            self.update_timer.start(1000)  # Update every second
+            self.update_timer.start(2000)  # Update every 2 seconds to reduce memory usage
             
         except Exception as e:
             log_error(f"Failed to connect signals: {e}")

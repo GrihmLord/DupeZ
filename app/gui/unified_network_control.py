@@ -65,14 +65,12 @@ class UnifiedNetworkControl(QWidget):
         # DayZ Firewall tab
         self.tab_widget.addTab(self.create_dayz_firewall_tab(), "🛡️ DayZ Firewall")
         
-        # Network Manipulation tab
-        self.tab_widget.addTab(self.create_network_manipulation_tab(), "🌊 Network Manipulation")
+        # Network Manipulation tab removed for optimization
         
         # Rules management tab
         self.tab_widget.addTab(self.create_rules_tab(), "📋 Rules Management")
         
-        # Status and monitoring tab
-        self.tab_widget.addTab(self.create_status_tab(), "📊 Status & Monitoring")
+        # Status & Monitoring tab removed for optimization
         
         layout.addWidget(self.tab_widget)
         self.setLayout(layout)
@@ -279,7 +277,7 @@ class UnifiedNetworkControl(QWidget):
         layout.addWidget(blocking_group)
         
         # Traffic control section
-        traffic_group = QGroupBox("🌊 Traffic Control")
+        traffic_group = QGroupBox("Traffic Control")
         traffic_layout = QGridLayout()
         
         # Throttling controls
@@ -297,7 +295,7 @@ class UnifiedNetworkControl(QWidget):
         # Throttle buttons
         throttle_btn_layout = QHBoxLayout()
         
-        self.start_throttle_btn = QPushButton("🌊 Start Throttling")
+        self.start_throttle_btn = QPushButton("Start Throttling")
         self.start_throttle_btn.setStyleSheet("background-color: #ff9800; color: white; padding: 8px; font-weight: bold;")
         self.stop_throttle_btn = QPushButton("⏹️ Stop Throttling")
         self.stop_throttle_btn.setStyleSheet("background-color: #9e9e9e; color: white; padding: 8px; font-weight: bold;")
@@ -499,7 +497,7 @@ class UnifiedNetworkControl(QWidget):
             timer_duration = self.dayz_timer_spinbox.value()
             keybind = self.dayz_keybind_combo.currentText()
             
-            if dayz_firewall.start_firewall(timer_duration=timer_duration, keybind=keybind):
+            if dayz_firewall.start_firewall(timer_duration):
                 self.firewall_started.emit()
                 self.main_status_label.setText("DayZ Firewall started successfully")
                 log_info("DayZ Firewall started successfully")

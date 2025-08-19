@@ -52,8 +52,7 @@ class NetworkManipulatorGUI(QWidget):
         
         # Create tabs
         self.tab_widget.addTab(self.create_blocking_tab(), "🛡️ IP Blocking")
-        self.tab_widget.addTab(self.create_throttling_tab(), "🌊 Traffic Control")
-        self.tab_widget.addTab(self.create_redirect_tab(), "🔄 Traffic Redirect")
+        # Traffic Control and Redirect tabs removed for optimization
         self.tab_widget.addTab(self.create_packet_modify_tab(), "📦 Packet Modify")
         self.tab_widget.addTab(self.create_rules_tab(), "📋 Active Rules")
         self.tab_widget.addTab(self.create_history_tab(), "📜 IP History")
@@ -115,7 +114,7 @@ class NetworkManipulatorGUI(QWidget):
         button_layout.addWidget(self.test_methods_button)
         
         # Test UDP interruption button
-        self.test_udp_button = QPushButton("🌊 Test UDP")
+        self.test_udp_button = QPushButton("Test UDP")
         self.test_udp_button.clicked.connect(self.test_udp_interruption)
         button_layout.addWidget(self.test_udp_button)
         
@@ -127,151 +126,9 @@ class NetworkManipulatorGUI(QWidget):
         
         return tab
     
-    def create_throttling_tab(self) -> QWidget:
-        """Create traffic throttling tab"""
-        tab = QWidget()
-        layout = QVBoxLayout()
-        tab.setLayout(layout)
-        
-        # IP input
-        ip_group = QGroupBox("Target IP")
-        ip_layout = QHBoxLayout()
-        ip_group.setLayout(ip_layout)
-        
-        ip_layout.addWidget(QLabel("IP Address:"))
-        self.throttle_ip_input = QLineEdit()
-        self.throttle_ip_input.setPlaceholderText("192.168.1.100")
-        ip_layout.addWidget(self.throttle_ip_input)
-        
-        # Throttling controls
-        controls_group = QGroupBox("Traffic Control Settings")
-        controls_layout = QVBoxLayout()
-        controls_group.setLayout(controls_layout)
-        
-        # Bandwidth control
-        bw_layout = QHBoxLayout()
-        bw_layout.addWidget(QLabel("Bandwidth (Mbps):"))
-        self.bandwidth_slider = QSlider(Qt.Orientation.Horizontal)
-        self.bandwidth_slider.setRange(1, 1000)
-        self.bandwidth_slider.setValue(100)
-        bw_layout.addWidget(self.bandwidth_slider)
-        self.bandwidth_label = QLabel("100 Mbps")
-        self.bandwidth_slider.valueChanged.connect(lambda v: self.bandwidth_label.setText(f"{v} Mbps"))
-        bw_layout.addWidget(self.bandwidth_label)
-        controls_layout.addLayout(bw_layout)
-        
-        # Latency control
-        lat_layout = QHBoxLayout()
-        lat_layout.addWidget(QLabel("Latency (ms):"))
-        self.latency_slider = QSlider(Qt.Orientation.Horizontal)
-        self.latency_slider.setRange(0, 1000)
-        self.latency_slider.setValue(0)
-        lat_layout.addWidget(self.latency_slider)
-        self.latency_label = QLabel("0ms")
-        self.latency_slider.valueChanged.connect(lambda v: self.latency_label.setText(f"{v}ms"))
-        lat_layout.addWidget(self.latency_label)
-        controls_layout.addLayout(lat_layout)
-        
-        # Jitter control
-        jit_layout = QHBoxLayout()
-        jit_layout.addWidget(QLabel("Jitter (ms):"))
-        self.jitter_slider = QSlider(Qt.Orientation.Horizontal)
-        self.jitter_slider.setRange(0, 500)
-        self.jitter_slider.setValue(0)
-        jit_layout.addWidget(self.jitter_slider)
-        self.jitter_label = QLabel("0ms")
-        self.jitter_slider.valueChanged.connect(lambda v: self.jitter_label.setText(f"{v}ms"))
-        jit_layout.addWidget(self.jitter_label)
-        controls_layout.addLayout(jit_layout)
-        
-        # Packet loss control
-        loss_layout = QHBoxLayout()
-        loss_layout.addWidget(QLabel("Packet Loss (%):"))
-        self.loss_slider = QSlider(Qt.Orientation.Horizontal)
-        self.loss_slider.setRange(0, 50)
-        self.loss_slider.setValue(0)
-        loss_layout.addWidget(self.loss_slider)
-        self.loss_label = QLabel("0%")
-        self.loss_slider.valueChanged.connect(lambda v: self.loss_label.setText(f"{v}%"))
-        loss_layout.addWidget(self.loss_label)
-        controls_layout.addLayout(loss_layout)
-        
-        # Throttling buttons
-        button_layout = QHBoxLayout()
-        
-        self.throttle_button = QPushButton("🌊 Apply Throttling")
-        self.throttle_button.clicked.connect(self.apply_throttling)
-        button_layout.addWidget(self.throttle_button)
-        
-        self.clear_throttle_button = QPushButton("🔄 Clear Throttling")
-        self.clear_throttle_button.clicked.connect(self.clear_throttling)
-        button_layout.addWidget(self.clear_throttle_button)
-        
-        # Add to layout
-        layout.addWidget(ip_group)
-        layout.addWidget(controls_group)
-        layout.addLayout(button_layout)
-        layout.addStretch()
-        
-        return tab
+    # create_throttling_tab removed for optimization
     
-    def create_redirect_tab(self) -> QWidget:
-        """Create traffic redirect tab"""
-        tab = QWidget()
-        layout = QVBoxLayout()
-        tab.setLayout(layout)
-        
-        # Source IP
-        source_group = QGroupBox("Source IP")
-        source_layout = QHBoxLayout()
-        source_group.setLayout(source_layout)
-        
-        source_layout.addWidget(QLabel("From IP:"))
-        self.source_ip_input = QLineEdit()
-        self.source_ip_input.setPlaceholderText("192.168.1.100")
-        source_layout.addWidget(self.source_ip_input)
-        
-        source_layout.addWidget(QLabel("Port:"))
-        self.source_port_input = QSpinBox()
-        self.source_port_input.setRange(1, 65535)
-        self.source_port_input.setValue(80)
-        self.source_port_input.setSpecialValueText("Any")
-        source_layout.addWidget(self.source_port_input)
-        
-        # Target IP
-        target_group = QGroupBox("Target IP")
-        target_layout = QHBoxLayout()
-        target_group.setLayout(target_layout)
-        
-        target_layout.addWidget(QLabel("To IP:"))
-        self.target_ip_input = QLineEdit()
-        self.target_ip_input.setPlaceholderText("192.168.1.200")
-        target_layout.addWidget(self.target_ip_input)
-        
-        target_layout.addWidget(QLabel("Port:"))
-        self.target_port_input = QSpinBox()
-        self.target_port_input.setRange(1, 65535)
-        self.target_port_input.setValue(80)
-        target_layout.addWidget(self.target_port_input)
-        
-        # Redirect buttons
-        button_layout = QHBoxLayout()
-        
-        self.redirect_button = QPushButton("🔄 Apply Redirect")
-        self.redirect_button.clicked.connect(self.apply_redirect)
-        button_layout.addWidget(self.redirect_button)
-        
-        self.clear_redirect_button = QPushButton("❌ Clear Redirect")
-        self.clear_redirect_button.clicked.connect(self.clear_redirect)
-        button_layout.addWidget(self.clear_redirect_button)
-        
-        # Add to layout
-        layout.addWidget(source_group)
-        layout.addWidget(target_group)
-        layout.addLayout(button_layout)
-        layout.addStretch()
-        
-        return tab
+    # create_redirect_tab removed for optimization
     
     def create_packet_modify_tab(self) -> QWidget:
         """Create packet modification tab"""
@@ -447,7 +304,7 @@ class NetworkManipulatorGUI(QWidget):
         layout.addWidget(self.history_table)
         
         # History stats
-        stats_group = QGroupBox("📊 History Statistics")
+        stats_group = QGroupBox("History Statistics")
         stats_layout = QHBoxLayout()
         stats_group.setLayout(stats_layout)
         

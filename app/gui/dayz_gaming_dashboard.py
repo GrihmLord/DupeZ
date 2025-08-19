@@ -52,26 +52,26 @@ class DayZGamingDashboard(QWidget):
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
-        # Create tab widget for different sections
-        tab_widget = QTabWidget()
+        # Create tabs
+        self.tabs = QTabWidget()
         
-        # Tab 1: Server Management
+        # Server Management Tab
         server_tab = self.create_server_management_tab()
-        tab_widget.addTab(server_tab, "🌐 Server Management")
+        self.tabs.addTab(server_tab, "🎯 Server Management")
         
-        # Tab 2: Performance Monitoring
-        performance_tab = self.create_performance_monitoring_tab()
-        tab_widget.addTab(performance_tab, "📊 Performance Monitor")
+        # Optimization Tab
+        optimization_tab = self.create_optimization_tab()
+        self.tabs.addTab(optimization_tab, "⚡ Optimization")
         
-        # Tab 3: Network Optimization
-        optimization_tab = self.create_network_optimization_tab()
-        tab_widget.addTab(optimization_tab, "⚡ Network Optimization")
-        
-        # Tab 4: Gaming Rules
+        # Gaming Rules Tab
         rules_tab = self.create_gaming_rules_tab()
-        tab_widget.addTab(rules_tab, "🔒 Gaming Rules")
+        self.tabs.addTab(rules_tab, "📋 Gaming Rules")
         
-        layout.addWidget(tab_widget)
+        # Performance monitoring tab removed for optimization
+        
+        # Network Analysis Tab removed for optimization
+        
+        layout.addWidget(self.tabs)
         
         # Status bar
         status_layout = QHBoxLayout()
@@ -175,95 +175,8 @@ class DayZGamingDashboard(QWidget):
         widget.setLayout(layout)
         return widget
     
-    def create_performance_monitoring_tab(self) -> QWidget:
-        """Create the performance monitoring tab"""
-        widget = QWidget()
-        layout = QVBoxLayout()
-        
-        # Performance Overview
-        overview_group = QGroupBox("📈 Performance Overview")
-        overview_layout = QGridLayout()
-        
-        # Network Performance
-        overview_layout.addWidget(QLabel("Network Performance:"), 0, 0)
-        self.network_performance_label = QLabel("Excellent")
-        self.network_performance_label.setStyleSheet("color: #00ff00; font-weight: bold; font-size: 14px;")
-        overview_layout.addWidget(self.network_performance_label, 0, 1)
-        
-        # Average Latency
-        overview_layout.addWidget(QLabel("Average Latency:"), 1, 0)
-        self.avg_latency_label = QLabel("-- ms")
-        self.avg_latency_label.setStyleSheet("color: #00ccff; font-weight: bold; font-size: 14px;")
-        overview_layout.addWidget(self.avg_latency_label, 1, 1)
-        
-        # Packet Loss
-        overview_layout.addWidget(QLabel("Packet Loss:"), 2, 0)
-        self.packet_loss_label = QLabel("-- %")
-        self.packet_loss_label.setStyleSheet("color: #ffaa00; font-weight: bold; font-size: 14px;")
-        overview_layout.addWidget(self.packet_loss_label, 2, 1)
-        
-        # Bandwidth Usage
-        overview_layout.addWidget(QLabel("Bandwidth Usage:"), 0, 2)
-        self.bandwidth_bar = QProgressBar()
-        self.bandwidth_bar.setRange(0, 100)
-        self.bandwidth_bar.setFormat("Bandwidth: %p%")
-        overview_layout.addWidget(self.bandwidth_bar, 0, 3)
-        
-        # Gaming Devices
-        overview_layout.addWidget(QLabel("Active Gaming Devices:"), 1, 2)
-        self.gaming_devices_label = QLabel("--")
-        self.gaming_devices_label.setStyleSheet("color: #ff00ff; font-weight: bold; font-size: 14px;")
-        overview_layout.addWidget(self.gaming_devices_label, 1, 3)
-        
-        # Last Optimization
-        overview_layout.addWidget(QLabel("Last Optimization:"), 2, 2)
-        self.last_optimization_label = QLabel("Never")
-        self.last_optimization_label.setStyleSheet("color: #888888; font-size: 12px;")
-        overview_layout.addWidget(self.last_optimization_label, 2, 3)
-        
-        overview_group.setLayout(overview_layout)
-        layout.addWidget(overview_group)
-        
-        # Real-time Performance Graph
-        graph_group = QGroupBox("📊 Real-time Performance")
-        graph_layout = QVBoxLayout()
-        
-        # Placeholder for performance graph
-        graph_placeholder = QLabel("Performance Graph Placeholder")
-        graph_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        graph_placeholder.setStyleSheet("color: #888888; font-style: italic; padding: 40px; border: 2px dashed #555555;")
-        graph_layout.addWidget(graph_placeholder)
-        
-        graph_group.setLayout(graph_layout)
-        layout.addWidget(graph_group)
-        
-        # Performance Logs
-        logs_group = QGroupBox("📝 Performance Logs")
-        logs_layout = QVBoxLayout()
-        
-        self.performance_logs = QTextEdit()
-        self.performance_logs.setReadOnly(True)
-        self.performance_logs.setMaximumHeight(150)
-        self.performance_logs.setStyleSheet("""
-            QTextEdit {
-                background-color: #1e1e1e;
-                color: #ffffff;
-                border: 1px solid #555555;
-                border-radius: 3px;
-                font-family: 'Consolas', 'Monaco', monospace;
-                font-size: 10px;
-            }
-        """)
-        logs_layout.addWidget(self.performance_logs)
-        
-        logs_group.setLayout(logs_layout)
-        layout.addWidget(logs_group)
-        
-        widget.setLayout(layout)
-        return widget
-    
-    def create_network_optimization_tab(self) -> QWidget:
-        """Create the network optimization tab"""
+    def create_optimization_tab(self) -> QWidget:
+        """Create the optimization tab"""
         widget = QWidget()
         layout = QVBoxLayout()
         
@@ -418,7 +331,7 @@ class DayZGamingDashboard(QWidget):
         layout.addWidget(rules_group)
         
         # Rule Statistics
-        stats_group = QGroupBox("📊 Rule Statistics")
+        stats_group = QGroupBox("Rule Statistics")
         stats_layout = QGridLayout()
         
         # Total rules
@@ -451,12 +364,11 @@ class DayZGamingDashboard(QWidget):
         widget.setLayout(layout)
         return widget
     
+    # Network analysis tab fully removed for optimization
+    
     def setup_timers(self):
         """Setup timers for data updates"""
-        # Performance update timer
-        self.performance_timer = QTimer()
-        self.performance_timer.timeout.connect(self.update_performance_data)
-        self.performance_timer.start(5000)  # Update every 5 seconds
+        # Performance update timer removed for optimization
         
         # Server status timer
         self.server_timer = QTimer()
@@ -527,7 +439,7 @@ class DayZGamingDashboard(QWidget):
                 'last_optimization': '2025-01-16 15:30:00'
             }
             
-            self.update_performance_display()
+            # Performance display removed
             
         except Exception as e:
             log_error(f"Error loading gaming performance: {e}")
@@ -567,12 +479,6 @@ class DayZGamingDashboard(QWidget):
                     'name': 'DayZ Traffic Priority',
                     'type': 'Optimization',
                     'priority': 'High',
-                    'status': 'Active'
-                },
-                {
-                    'name': 'Gaming Performance Monitor',
-                    'type': 'Monitoring',
-                    'priority': 'Medium',
                     'status': 'Active'
                 },
                 {
@@ -654,34 +560,7 @@ class DayZGamingDashboard(QWidget):
         except Exception as e:
             log_error(f"Error updating server table: {e}")
     
-    def update_performance_display(self):
-        """Update the performance display"""
-        try:
-            # Network performance
-            self.network_performance_label.setText(self.gaming_performance.get('network_performance', '--'))
-            
-            # Average latency
-            avg_latency = self.gaming_performance.get('avg_latency', 0)
-            self.avg_latency_label.setText(f"{avg_latency} ms")
-            
-            # Packet loss
-            packet_loss = self.gaming_performance.get('packet_loss', 0)
-            self.packet_loss_label.setText(f"{packet_loss} %")
-            
-            # Bandwidth usage
-            bandwidth = self.gaming_performance.get('bandwidth_usage', 0)
-            self.bandwidth_bar.setValue(int(bandwidth))
-            
-            # Gaming devices
-            devices = self.gaming_performance.get('gaming_devices', 0)
-            self.gaming_devices_label.setText(str(devices))
-            
-            # Last optimization
-            last_opt = self.gaming_performance.get('last_optimization', 'Never')
-            self.last_optimization_label.setText(str(last_opt))
-            
-        except Exception as e:
-            log_error(f"Error updating performance display: {e}")
+    # update_performance_display removed for optimization
     
     def update_optimization_history_table(self):
         """Update the optimization history table"""
@@ -881,7 +760,6 @@ class DayZGamingDashboard(QWidget):
             
             # Update performance data
             self.gaming_performance['last_optimization'] = optimization_entry['timestamp']
-            self.update_performance_display()
             
             # Emit signal
             self.optimization_triggered.emit()
@@ -911,7 +789,6 @@ class DayZGamingDashboard(QWidget):
             
             # Reset performance data
             self.gaming_performance['last_optimization'] = 'Never'
-            self.update_performance_display()
             
             self.status_label.setText("Optimization reset successfully")
             log_info("Network optimization reset")
@@ -1014,8 +891,7 @@ class DayZGamingDashboard(QWidget):
             variation = random.randint(-5, 5)
             self.gaming_performance['bandwidth_usage'] = max(0, min(100, current_bandwidth + variation))
             
-            # Update display
-            self.update_performance_display()
+            # Performance display removed
             
         except Exception as e:
             log_error(f"Error updating performance data: {e}")

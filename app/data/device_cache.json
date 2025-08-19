@@ -1,0 +1,472 @@
+[
+  {
+    "ip": "192.168.1.75",
+    "hostname": "StreamingStick4K.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.307802",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.88",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.308821",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.92",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.310872",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.85",
+    "hostname": "Samsung.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.307802",
+    "device_type": "Unknown Device",
+    "ports": [
+      8080
+    ],
+    "services": [
+      "HTTP-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.93",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.310872",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.96",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.310872",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.66",
+    "hostname": "iPhone.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.697222",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.91",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.696199",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.87",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.829500",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.106",
+    "hostname": "MyQ-BDE.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.838067",
+    "device_type": "Web Device",
+    "ports": [
+      80,
+      443
+    ],
+    "services": [
+      "HTTP",
+      "HTTPS"
+    ]
+  },
+  {
+    "ip": "192.168.1.95",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.831048",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.114",
+    "hostname": "Downstairs.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.153794",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.151",
+    "hostname": "DIRECTV-D74VB3RV116649.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.329132",
+    "device_type": "Unknown Device",
+    "ports": [
+      8443
+    ],
+    "services": [
+      "HTTPS-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.153",
+    "hostname": "MSI.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.326039",
+    "device_type": "Unknown Device",
+    "ports": [
+      5432
+    ],
+    "services": [
+      "PostgreSQL"
+    ]
+  },
+  {
+    "ip": "192.168.1.136",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.321781",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.152",
+    "hostname": "HP3822E2D5AFBB.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.328098",
+    "device_type": "Web Device",
+    "ports": [
+      80,
+      443,
+      8080
+    ],
+    "services": [
+      "HTTP",
+      "HTTPS",
+      "HTTP-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.141",
+    "hostname": "PS5-B9BDB0.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.322781",
+    "device_type": "Server",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.122",
+    "hostname": "Samsung.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.320782",
+    "device_type": "Unknown Device",
+    "ports": [
+      8080
+    ],
+    "services": [
+      "HTTP-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.194",
+    "hostname": "DIRECTV-D74VB3KK112862.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.396804",
+    "device_type": "Unknown Device",
+    "ports": [
+      8443
+    ],
+    "services": [
+      "HTTPS-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.169",
+    "hostname": "ChimePro-13.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.778604",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.137",
+    "hostname": "RingStickUpCam-2c.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.795555",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.148",
+    "hostname": "iPad.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.737768",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.142",
+    "hostname": "iPhone.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.618733",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.146",
+    "hostname": "iPad.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.619733",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.127",
+    "hostname": "Ring-649a637CBE03.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.796599",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.219",
+    "hostname": "DIRECTV-D74VA3HD111080.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:47.274389",
+    "device_type": "Unknown Device",
+    "ports": [
+      8443
+    ],
+    "services": [
+      "HTTPS-Alt"
+    ]
+  },
+  {
+    "ip": "192.168.1.118",
+    "hostname": "Upstairs.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.821260",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.150",
+    "hostname": "amazon-30fe9e2a0.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.619233",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.254",
+    "hostname": "dsldevice.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:47.295040",
+    "device_type": "Web Device",
+    "ports": [
+      443,
+      80,
+      53
+    ],
+    "services": [
+      "HTTPS",
+      "HTTP",
+      "DNS"
+    ]
+  },
+  {
+    "ip": "192.168.1.230",
+    "hostname": "SonosZP.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:47.295040",
+    "device_type": "Unknown Device",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.212",
+    "hostname": "Rachio-559A32.attlocal.net",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:50.007528",
+    "device_type": "Web Device",
+    "ports": [
+      443
+    ],
+    "services": [
+      "HTTPS"
+    ]
+  },
+  {
+    "ip": "192.168.1.67",
+    "hostname": "",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.697222",
+    "device_type": "unknown",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.68",
+    "hostname": "",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:45.828480",
+    "device_type": "unknown",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.116",
+    "hostname": "",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.319781",
+    "device_type": "unknown",
+    "ports": [],
+    "services": []
+  },
+  {
+    "ip": "192.168.1.117",
+    "hostname": "",
+    "mac": "",
+    "status": "online",
+    "discovery_method": "ping",
+    "response_time": 0.0,
+    "last_seen": "2025-08-17T13:03:46.778604",
+    "device_type": "unknown",
+    "ports": [],
+    "services": []
+  }
+]

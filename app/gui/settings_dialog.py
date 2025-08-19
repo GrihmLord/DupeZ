@@ -417,48 +417,33 @@ class SettingsDialog(QDialog):
         debug_group.setLayout(debug_layout)
         layout.addWidget(debug_group)
         
-        # Performance Monitor
-        monitor_group = QGroupBox("📊 Performance Monitor")
-        monitor_layout = QVBoxLayout()
-        
-        # Add description
-        perf_info = QLabel("Monitor system resources and performance in real-time")
-        perf_info.setWordWrap(True)
-        perf_info.setStyleSheet("color: #888888; font-style: italic; margin-bottom: 10px;")
-        monitor_layout.addWidget(perf_info)
-        
-        # Add feature highlights
-        features_label = QLabel("✨ Features: CPU, Memory, Disk, Network, Process Monitoring")
-        features_label.setStyleSheet("color: #00ccff; font-size: 10px; margin-bottom: 15px;")
-        monitor_layout.addWidget(features_label)
-        
-        self.open_performance_monitor_btn = QPushButton("🔍 Open Performance Monitor")
-        self.open_performance_monitor_btn.clicked.connect(self.open_performance_monitor)
-        self.open_performance_monitor_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #4CAF50, stop:0.5 #2196F3, stop:1 #9C27B0);
-                color: white;
-                border: none;
-                padding: 12px;
-                border-radius: 8px;
-                font-weight: bold;
-                font-size: 12px;
-                text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #45a049, stop:0.5 #1976D2, stop:1 #7B1FA2);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #3d8b40, stop:0.5 #1565C0, stop:1 #6A1B9A);
-            }
-        """)
-        monitor_layout.addWidget(self.open_performance_monitor_btn)
-        
-        monitor_group.setLayout(monitor_layout)
-        layout.addWidget(monitor_group)
+        # Performance monitoring section completely removed for optimization
+        # monitor_group = QGroupBox("📊 Performance Monitoring")
+        # monitor_layout = QVBoxLayout()
+        # 
+        # # Performance monitoring button removed for optimization
+        # # self.open_performance_monitor_btn = QPushButton("🔍 Open Performance Monitor")
+        # # self.open_performance_monitor_btn.clicked.connect(self.open_performance_monitor)
+        # # self.open_performance_monitor_btn.setStyleSheet("""
+        # #     QPushButton {
+        # #         background-color: #2d5a2d;
+        # #         color: white;
+        # #         border: none;
+        # #         padding: 8px 16px;
+        # #         border-radius: 4px;
+        # #         font-weight: bold;
+        # #     }
+        # #     QPushButton:hover {
+        # #         background-color: #3d6a3d;
+        # #     }
+        # #     QPushButton:pressed {
+        # #         background-color: #1d4a1d;
+        # #     }
+        # # """)
+        # # monitor_layout.addWidget(self.open_performance_monitor_btn)
+        # 
+        # monitor_group.setLayout(monitor_layout)
+        # layout.addWidget(monitor_group)
         
         layout.addStretch()
         widget.setLayout(layout)
@@ -853,12 +838,4 @@ class SettingsDialog(QDialog):
         except Exception as e:
             log_error(f"Error updating theme info: {e}")
     
-    def open_performance_monitor(self):
-        """Open the performance monitor popup"""
-        try:
-            from app.gui.performance_monitor_dialog import PerformanceMonitorDialog
-            dialog = PerformanceMonitorDialog(self)
-            dialog.exec()
-        except Exception as e:
-            log_error(f"Error opening performance monitor: {e}")
-            QMessageBox.critical(self, "Error", f"Failed to open performance monitor: {e}") 
+    # open_performance_monitor removed for optimization
