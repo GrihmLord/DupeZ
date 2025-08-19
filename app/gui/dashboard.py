@@ -385,6 +385,11 @@ class DupeZDashboard(QMainWindow):
         self.dayz_account_tracker = DayZAccountTracker()
         self.content_tabs.addTab(self.dayz_account_tracker, "Account Tracker")
         
+        # DupeZ Duping Network Optimizer
+        from app.gui.duping_network_optimizer import DupingNetworkOptimizer
+        self.duping_optimizer = DupingNetworkOptimizer(self.dayz_account_tracker)
+        self.content_tabs.addTab(self.duping_optimizer, "Duping Optimizer")
+        
         # Ensure all tabs are properly configured
         QTimer.singleShot(0, self._sanitize_tab_labels)
         
@@ -585,6 +590,11 @@ class DupeZDashboard(QMainWindow):
         account_action = QAction('Account Tracker', self)
         account_action.triggered.connect(self.open_account_tracker)
         advanced_menu.addAction(account_action)
+        
+        # Duping Network Optimizer
+        optimizer_action = QAction('Duping Network Optimizer', self)
+        optimizer_action.triggered.connect(self.open_duping_optimizer)
+        advanced_menu.addAction(optimizer_action)
         
         # Settings action
         settings_action = QAction('&Settings', self)
@@ -1317,6 +1327,15 @@ class DupeZDashboard(QMainWindow):
             self.dayz_account_tracker.activateWindow()
         except Exception as e:
             log_error(f"Error opening DayZ Account Tracker: {e}")
+    
+    def open_duping_optimizer(self):
+        """Open DupeZ Duping Network Optimizer"""
+        try:
+            self.duping_optimizer.show()
+            self.duping_optimizer.raise_()
+            self.duping_optimizer.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening DupeZ Duping Network Optimizer: {e}")
     
     def on_settings_changed(self, additional_settings: dict):
         """Handle settings changes with performance optimizations"""
