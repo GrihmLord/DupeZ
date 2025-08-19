@@ -1,20 +1,20 @@
 {
     "memory_management": {
         "enabled": true,
-        "cleanup_interval": 60000,
-        "memory_threshold_mb": 500,
-        "aggressive_cleanup_threshold_mb": 800,
-        "max_cache_size": 1000,
+        "cleanup_interval": 20000,
+        "memory_threshold_mb": 400,
+        "aggressive_cleanup_threshold_mb": 600,
+        "max_cache_size": 500,
         "garbage_collection_enabled": true,
-        "monitoring_interval": 30000
+        "monitoring_interval": 15000
     },
     "update_frequencies": {
-        "dashboard_status": 2000,
-        "device_list": 5000,
-        "performance_monitor": 2000,
-        "network_scanner": 5000,
-        "topology_view": 30000,
-        "graph_updates": 5000
+        "dashboard_status": 3000,
+        "device_list": 7000,
+        "performance_monitor": 3000,
+        "network_scanner": 7000,
+        "topology_view": 45000,
+        "graph_updates": 7000
     },
     "cache_limits": {
         "max_devices": 500,

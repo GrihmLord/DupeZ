@@ -25,7 +25,7 @@ class AdvancedTrafficAnalyzer:
         
         # Analysis parameters
         self.history_size = 1000  # Keep last 1000 data points
-        self.analysis_interval = 5  # Analyze every 5 seconds
+        self.analysis_interval = 15  # Analyze every 15 seconds (reduced frequency for stability)
         self.bandwidth_threshold = 1024 * 1024  # 1MB/s threshold
         
         # Performance metrics
@@ -162,8 +162,8 @@ class AdvancedTrafficAnalyzer:
                         "type": "high_packet_rate",
                         "timestamp": traffic_data["timestamp"],
                         "value": traffic_data["packets_recv"],
-                        "threshold": 10000,
-                        "severity": "medium"
+                        "threshold": 100000,  # Increased threshold to reduce false alarms
+                        "severity": "low"
                     }
                     self.anomalies.append(anomaly)
                     log_info(f"[ALERT] High packet rate detected: {traffic_data['packets_recv']} (will suppress for 60s)")

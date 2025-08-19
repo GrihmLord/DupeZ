@@ -7,7 +7,13 @@ from PyQt6.QtCore import Qt, QTimer
 from app.gui.sidebar import Sidebar
 from app.gui.enhanced_device_list import EnhancedDeviceList
 from app.gui.settings_dialog import SettingsDialog
-# Removed all additional imports; only Network Scanner remains
+from app.gui.dayz_gaming_dashboard import DayZGamingDashboard
+from app.gui.dayz_duping_dashboard import DayZDupingDashboard
+from app.gui.unified_network_control import UnifiedNetworkControl
+from app.gui.advanced_network_scanner import AdvancedNetworkScanner
+from app.gui.network_manipulator_gui import NetworkManipulatorGUI
+from app.gui.dayz_map_gui import DayZMapGUI
+from app.gui.dayz_account_tracker import DayZAccountTracker
 
 from app.logs.logger import log_info, log_error
 import threading
@@ -62,15 +68,15 @@ class TipsTicker(QWidget):
         layout.addWidget(self.tips_label)
         self.setLayout(layout)
         
-        # Optimized timer for tip changes - reduced frequency for better performance
+        # Stability optimization: Further reduced tip change frequency
         self.tip_timer = QTimer()
         self.tip_timer.timeout.connect(self.change_tip)
-        self.tip_timer.start(15000)  # Change tip every 15 seconds (reduced from 10)
+        self.tip_timer.start(30000)  # Change tip every 30 seconds for maximum stability
         
-        # Optimized timer for text scrolling - smoother movement
+        # Stability optimization: Further reduced scroll frequency for stability
         self.scroll_timer = QTimer()
         self.scroll_timer.timeout.connect(self.scroll_text)
-        self.scroll_timer.start(50)  # Scroll every 50ms for smooth 60fps movement
+        self.scroll_timer.start(150)  # Scroll every 150ms for maximum stability
         
         # Current tip index and scroll position
         self.current_tip_index = 0
@@ -78,8 +84,8 @@ class TipsTicker(QWidget):
         self.tips = []
         self.current_tip_text = ""
         
-        # Performance-optimized animation properties
-        self.scroll_speed = 1  # Reduced from 2 for smoother movement
+        # Stability optimization: Reduced scroll speed for stability
+        self.scroll_speed = 1  # Reduced from 2 for smoother movement and better stability
         self.max_scroll = 0
         
         # Cache for performance
@@ -213,21 +219,45 @@ class DupeZDashboard(QMainWindow):
         # Start periodic updates with memory optimization
         self.start_updates()
         
-        # Performance optimization: Memory cleanup timer
+        # Stability optimization: More aggressive memory management
         self.memory_cleanup_timer = QTimer()
         self.memory_cleanup_timer.timeout.connect(self.cleanup_memory)
-        self.memory_cleanup_timer.start(45000)  # Cleanup every 45 seconds (optimized for performance)
+        self.memory_cleanup_timer.start(20000)  # More frequent cleanup for better stability
         
-        # Performance optimization: UI update throttling
+        # Additional stability optimization: CPU monitoring
+        self.cpu_monitor_timer = QTimer()
+        self.cpu_monitor_timer.timeout.connect(self._monitor_cpu_usage)
+        self.cpu_monitor_timer.start(15000)  # Monitor CPU every 15 seconds
+        
+        # Stability optimization: UI update throttling with safety
         self.ui_update_throttle = QTimer()
         self.ui_update_throttle.setSingleShot(True)
         self.ui_update_throttle.timeout.connect(self._perform_throttled_ui_update)
         self.pending_ui_updates = []
         
-        # Performance optimization: Smooth animations
+        # Stability optimization: Reduced animation frequency for stability
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self._update_animations)
-        self.animation_timer.start(16)  # 60 FPS for smooth animations
+        self.animation_timer.start(33)  # 30 FPS for better stability (reduced from 60 FPS)
+        
+        # Stability optimization: Initialize stability optimizer
+        try:
+            from app.core.stability_optimizer import stability_optimizer
+            self.stability_optimizer = stability_optimizer
+            self.stability_optimizer.start_monitoring()
+            
+            # Connect stability signals
+            self.stability_optimizer.memory_warning.connect(self._on_memory_warning)
+            self.stability_optimizer.stability_alert.connect(self._on_stability_alert)
+            self.stability_optimizer.optimization_complete.connect(self._on_optimization_complete)
+            
+            # Register cleanup tasks
+            self.stability_optimizer.register_cleanup_task(self._stability_cleanup_task)
+            
+            log_info("Stability optimizer integrated successfully")
+        except Exception as e:
+            log_error(f"Failed to initialize stability optimizer: {e}")
+            self.stability_optimizer = None
         
         # Performance optimization: Performance monitoring cleanup
         # self.performance_cleanup_timer = QTimer() # Removed as per edit hint
@@ -239,7 +269,16 @@ class DupeZDashboard(QMainWindow):
     
     def setup_ui(self):
         """Setup the main user interface with responsive design and performance optimizations"""
-        self.setWindowTitle("DupeZ - Advanced LagSwitch Tool")
+        # Determine admin status for title
+        import os
+        import ctypes
+        IS_ADMIN = os.name != 'nt' or (
+            hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
+        )
+        
+        # Set title with admin status and version
+        admin_text = " [ADMIN]" if IS_ADMIN else ""
+        self.setWindowTitle(f"DupeZ v2.0.0 Professional Edition{admin_text}")
         self.setWindowIcon(QIcon("app/assets/icon.ico"))
         
         # Performance optimization: Enable double buffering for smooth rendering
@@ -315,21 +354,39 @@ class DupeZDashboard(QMainWindow):
         # Performance optimization: Enable hardware acceleration for device list
         self.enhanced_device_list.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         
+        # Add all the proper tabs
         self.content_tabs.addTab(self.enhanced_device_list, "Network Scanner")
         
-        # Network topology tab removed for optimization
+        # DayZ Gaming Dashboard
+        self.dayz_gaming_dashboard = DayZGamingDashboard()
+        self.content_tabs.addTab(self.dayz_gaming_dashboard, "DayZ Gaming")
         
-        # Graph tab removed as requested by user
+        # DayZ Duping Dashboard
+        self.dayz_duping_dashboard = DayZDupingDashboard()
+        self.content_tabs.addTab(self.dayz_duping_dashboard, "DayZ Duping")
         
-        # Unified Network Control tab removed for optimization
+        # Unified Network Control
+        self.unified_network_control = UnifiedNetworkControl()
+        self.content_tabs.addTab(self.unified_network_control, "Network Control")
         
-        # All other home tabs removed for optimization; only Network Scanner remains
-
-        # Enforce minimal tabs at runtime in case any external code added tabs
-        QTimer.singleShot(0, self._enforce_minimal_tabs)
+        # Advanced Network Scanner
+        self.advanced_network_scanner = AdvancedNetworkScanner()
+        self.content_tabs.addTab(self.advanced_network_scanner, "Advanced Scanner")
+        
+        # Network Manipulator
+        self.network_manipulator = NetworkManipulatorGUI()
+        self.content_tabs.addTab(self.network_manipulator, "Network Manipulator")
+        
+        # DayZ Map GUI
+        self.dayz_map_gui = DayZMapGUI()
+        self.content_tabs.addTab(self.dayz_map_gui, "DayZ Map")
+        
+        # DayZ Account Tracker
+        self.dayz_account_tracker = DayZAccountTracker()
+        self.content_tabs.addTab(self.dayz_account_tracker, "Account Tracker")
+        
+        # Ensure all tabs are properly configured
         QTimer.singleShot(0, self._sanitize_tab_labels)
-        
-        # Performance Monitor tab removed as requested by user
         
         content_layout.addWidget(self.content_tabs)
         
@@ -491,7 +548,43 @@ class DupeZDashboard(QMainWindow):
         
         tools_menu.addSeparator()
         
-        # Advanced Analysis menu removed for optimization
+        # Advanced Analysis submenu
+        advanced_menu = tools_menu.addMenu('&Advanced Analysis')
+        
+        # DayZ Gaming Dashboard
+        gaming_action = QAction('DayZ Gaming Dashboard', self)
+        gaming_action.triggered.connect(self.open_dayz_gaming_dashboard)
+        advanced_menu.addAction(gaming_action)
+        
+        # DayZ Duping Dashboard
+        duping_action = QAction('DayZ Duping Dashboard', self)
+        duping_action.triggered.connect(self.open_dayz_duping_dashboard)
+        advanced_menu.addAction(duping_action)
+        
+        # Network Control
+        network_action = QAction('Network Control Center', self)
+        network_action.triggered.connect(self.open_network_control)
+        advanced_menu.addAction(network_action)
+        
+        # Advanced Scanner
+        scanner_action = QAction('Advanced Network Scanner', self)
+        scanner_action.triggered.connect(self.open_advanced_scanner)
+        advanced_menu.addAction(scanner_action)
+        
+        # Network Manipulator
+        manipulator_action = QAction('Network Manipulator', self)
+        manipulator_action.triggered.connect(self.open_network_manipulator)
+        advanced_menu.addAction(manipulator_action)
+        
+        # DayZ Map
+        map_action = QAction('DayZ Map', self)
+        map_action.triggered.connect(self.open_dayz_map)
+        advanced_menu.addAction(map_action)
+        
+        # Account Tracker
+        account_action = QAction('Account Tracker', self)
+        account_action.triggered.connect(self.open_account_tracker)
+        advanced_menu.addAction(account_action)
         
         # Settings action
         settings_action = QAction('&Settings', self)
@@ -531,22 +624,14 @@ class DupeZDashboard(QMainWindow):
         help_menu.addAction(about_action)
 
     def _enforce_minimal_tabs(self):
-        """Ensure only the 'Network Scanner' tab remains on the home screen."""
+        """Ensure all required tabs are present on the home screen."""
         try:
             if not hasattr(self, 'content_tabs'):
                 return
-            allowed = {"Network Scanner"}
-            # Remove any tab whose label is not in allowed
-            i = 0
-            while i < self.content_tabs.count():
-                label = self.content_tabs.tabText(i)
-                if label not in allowed:
-                    self.content_tabs.removeTab(i)
-                    # Do not increment i; tabs shift left after removal
-                else:
-                    i += 1
+            # Keep all the tabs we want - don't remove anything!
+            log_info("All tabs are properly configured - no enforcement needed")
         except Exception as e:
-            log_error(f"Error enforcing minimal tabs: {e}")
+            log_error(f"Error checking tabs: {e}")
 
     def _sanitize_tab_labels(self):
         """Remove emojis and non-ASCII chars from tab labels."""
@@ -655,6 +740,17 @@ class DupeZDashboard(QMainWindow):
     def throttle_ui_update(self, update_func, *args, **kwargs):
         """Throttle UI updates to prevent performance issues"""
         try:
+            # Ensure pending_ui_updates is initialized
+            if not hasattr(self, 'pending_ui_updates'):
+                self.pending_ui_updates = []
+            
+            # Ensure ui_update_throttle is initialized
+            if not hasattr(self, 'ui_update_throttle'):
+                from PyQt6.QtCore import QTimer
+                self.ui_update_throttle = QTimer()
+                self.ui_update_throttle.setSingleShot(True)
+                self.ui_update_throttle.timeout.connect(self._perform_throttled_ui_update)
+            
             # Add update to pending queue
             self.pending_ui_updates.append((update_func, args, kwargs))
             
@@ -668,6 +764,10 @@ class DupeZDashboard(QMainWindow):
     def _perform_throttled_ui_update(self):
         """Perform batched UI updates to reduce performance impact"""
         try:
+            # Ensure pending_ui_updates is initialized
+            if not hasattr(self, 'pending_ui_updates'):
+                self.pending_ui_updates = []
+                
             if not self.pending_ui_updates:
                 return
             
@@ -684,6 +784,93 @@ class DupeZDashboard(QMainWindow):
             
         except Exception as e:
             log_error(f"Throttled UI update error: {e}")
+    
+    # Stability optimization event handlers
+    def _on_memory_warning(self, message: str):
+        """Handle memory warning from stability optimizer"""
+        try:
+            log_warning(f"Memory warning: {message}")
+            self.status_bar.showMessage(f"⚠️ {message}", 5000)
+            
+            # Trigger immediate cleanup
+            self.cleanup_memory()
+            
+        except Exception as e:
+            log_error(f"Memory warning handler error: {e}")
+    
+    def _on_stability_alert(self, message: str):
+        """Handle stability alert from stability optimizer"""
+        try:
+            log_warning(f"Stability alert: {message}")
+            self.status_bar.showMessage(f"🚨 {message}", 8000)
+            
+            # Trigger stability optimization
+            if hasattr(self, 'stability_optimizer') and self.stability_optimizer:
+                self.stability_optimizer.optimize_performance()
+                
+        except Exception as e:
+            log_error(f"Stability alert handler error: {e}")
+    
+    def _on_optimization_complete(self, message: str):
+        """Handle optimization completion from stability optimizer"""
+        try:
+            log_info(f"Optimization complete: {message}")
+            self.status_bar.showMessage(f"✅ {message}", 3000)
+            
+        except Exception as e:
+            log_error(f"Optimization complete handler error: {e}")
+    
+    def _stability_cleanup_task(self):
+        """Cleanup task registered with stability optimizer"""
+        try:
+            # Clear UI caches
+            if hasattr(self, 'enhanced_device_list'):
+                self.enhanced_device_list.clear_cache()
+            
+            # Clear tips ticker cache
+            if hasattr(self, 'tips_ticker') and hasattr(self.tips_ticker, '_cached_tips'):
+                self.tips_ticker._cached_tips.clear()
+            
+            # Clear pending UI updates
+            if hasattr(self, 'pending_ui_updates'):
+                self.pending_ui_updates.clear()
+            
+            log_info("Stability cleanup task completed")
+            
+        except Exception as e:
+            log_error(f"Stability cleanup task error: {e}")
+    
+    def _monitor_cpu_usage(self):
+        """Monitor CPU usage and adjust performance if needed"""
+        try:
+            import psutil
+            cpu_percent = psutil.cpu_percent(interval=1)
+            
+            # If CPU usage is high, reduce update frequencies
+            if cpu_percent > 80:
+                log_warning(f"High CPU usage detected: {cpu_percent:.1f}% - Reducing update frequencies")
+                
+                # Temporarily reduce animation frequency
+                if hasattr(self, 'animation_timer'):
+                    self.animation_timer.start(50)  # Reduce to 20 FPS
+                
+                # Reduce tips ticker frequency
+                if hasattr(self, 'tips_ticker') and hasattr(self.tips_ticker, 'scroll_timer'):
+                    self.tips_ticker.scroll_timer.start(200)  # Slower scrolling
+                    
+                # Trigger immediate cleanup
+                self.cleanup_memory()
+                
+            elif cpu_percent < 50:
+                # Restore normal frequencies if CPU usage is low
+                if hasattr(self, 'animation_timer'):
+                    self.animation_timer.start(33)  # Normal 30 FPS
+                    
+                if hasattr(self, 'tips_ticker') and hasattr(self.tips_ticker, 'scroll_timer'):
+                    self.tips_ticker.scroll_timer.start(100)  # Normal scrolling
+                    
+        except Exception as e:
+            log_error(f"CPU monitoring error: {e}")
     
     def _update_animations(self):
         """Update smooth animations at 60 FPS"""
@@ -781,21 +968,21 @@ class DupeZDashboard(QMainWindow):
         self.status_bar.showMessage(f"Stopped {action} on {ip}", 3000)
     
     def cleanup_memory(self):
-        """Clean up memory to prevent memory leaks"""
+        """Enhanced memory cleanup for better stability"""
         try:
             import gc
             import psutil
             
-            # Performance optimization: Only cleanup if memory usage is high
+            # Get current memory usage
             process = psutil.Process()
             memory_info = process.memory_info()
             memory_mb = memory_info.rss / 1024 / 1024
             
-            # Only perform aggressive cleanup if memory usage is high
-            if memory_mb > 800:  # Increased threshold for better performance
-                print(f"High memory usage detected: {memory_mb:.1f}MB - Performing aggressive cleanup")
+            # Enhanced cleanup thresholds for better stability
+            if memory_mb > 400:  # Further lowered threshold for more proactive cleanup
+                log_info(f"High memory usage detected: {memory_mb:.1f}MB - Performing aggressive cleanup")
                 
-                # Clear any cached data
+                # Clear UI caches
                 if hasattr(self, 'enhanced_device_list'):
                     self.enhanced_device_list.clear_cache()
                 
@@ -803,16 +990,42 @@ class DupeZDashboard(QMainWindow):
                 if hasattr(self, 'tips_ticker') and hasattr(self.tips_ticker, '_cached_tips'):
                     self.tips_ticker._cached_tips.clear()
                 
-                # Force garbage collection
-                gc.collect()
+                # Clear pending UI updates
+                if hasattr(self, 'pending_ui_updates'):
+                    self.pending_ui_updates.clear()
                 
-                print(f"Memory cleanup completed. Current usage: {memory_mb:.1f}MB")
+                # Clear performance metrics if they exist
+                if hasattr(self, 'performance_metrics'):
+                    for key in ['memory_usage', 'cpu_usage', 'thread_count']:
+                        if key in self.performance_metrics:
+                            self.performance_metrics[key] = self.performance_metrics[key][-20:]
+                
+                # Force garbage collection multiple times for better cleanup
+                for _ in range(2):
+                    gc.collect()
+                
+                # Check memory after cleanup
+                memory_after = process.memory_info().rss / 1024 / 1024
+                freed_mb = memory_mb - memory_after
+                
+                log_info(f"Memory cleanup completed. Freed: {freed_mb:.1f}MB, Current: {memory_after:.1f}MB")
+                
+                # Update status bar
+                self.status_bar.showMessage(f"Memory cleanup completed - Freed {freed_mb:.1f}MB", 3000)
+                
             else:
                 # Light cleanup for normal operation
-                gc.collect()
+                collected = gc.collect()
+                if collected > 0:
+                    log_info(f"Light memory cleanup: {collected} objects collected")
                 
         except Exception as e:
-            print(f"Memory cleanup error: {e}")
+            log_error(f"Memory cleanup error: {e}")
+            # Fallback cleanup
+            try:
+                gc.collect()
+            except:
+                pass
     
     def resizeEvent(self, event):
         """Handle window resize with performance optimizations"""
@@ -844,9 +1057,9 @@ class DupeZDashboard(QMainWindow):
             log_error(f"Show event error: {e}")
     
     def closeEvent(self, event):
-        """Handle window close with performance optimizations"""
+        """Handle window close with stability optimizations"""
         try:
-            # Performance optimization: Stop all timers
+            # Stability optimization: Stop all timers
             if hasattr(self, 'update_timer'):
                 self.update_timer.stop()
             
@@ -862,6 +1075,16 @@ class DupeZDashboard(QMainWindow):
             if hasattr(self, 'animation_timer'):
                 self.animation_timer.stop()
             
+            if hasattr(self, 'cpu_monitor_timer'):
+                self.cpu_monitor_timer.stop()
+            
+            # Stop stability optimizer
+            if hasattr(self, 'stability_optimizer') and self.stability_optimizer:
+                try:
+                    self.stability_optimizer.stop_monitoring()
+                except Exception as e:
+                    log_error(f"Error stopping stability optimizer: {e}")
+            
             # Cleanup memory
             self.cleanup_memory()
             
@@ -870,6 +1093,12 @@ class DupeZDashboard(QMainWindow):
             
         except Exception as e:
             log_error(f"Close event error: {e}")
+            # Ensure cleanup happens even on error
+            try:
+                if hasattr(self, 'stability_optimizer') and self.stability_optimizer:
+                    self.stability_optimizer.stop_monitoring()
+            except:
+                pass
             event.accept()
     
     def set_controller(self, controller):
@@ -1005,9 +1234,68 @@ class DupeZDashboard(QMainWindow):
             log_error(f"Error opening settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to open settings: {e}")
     
-    # DayZ Gaming Dashboard removed for optimization
+    def open_dayz_gaming_dashboard(self):
+        """Open DayZ Gaming Dashboard"""
+        try:
+            self.dayz_gaming_dashboard.show()
+            self.dayz_gaming_dashboard.raise_()
+            self.dayz_gaming_dashboard.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening DayZ Gaming Dashboard: {e}")
     
-    # All dashboard methods removed for optimization
+    def open_dayz_duping_dashboard(self):
+        """Open DayZ Duping Dashboard"""
+        try:
+            self.dayz_duping_dashboard.show()
+            self.dayz_duping_dashboard.raise_()
+            self.dayz_duping_dashboard.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening DayZ Duping Dashboard: {e}")
+    
+    def open_network_control(self):
+        """Open Network Control Center"""
+        try:
+            self.unified_network_control.show()
+            self.unified_network_control.raise_()
+            self.unified_network_control.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening Network Control Center: {e}")
+    
+    def open_advanced_scanner(self):
+        """Open Advanced Network Scanner"""
+        try:
+            self.advanced_network_scanner.show()
+            self.advanced_network_scanner.raise_()
+            self.advanced_network_scanner.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening Advanced Network Scanner: {e}")
+    
+    def open_network_manipulator(self):
+        """Open Network Manipulator"""
+        try:
+            self.network_manipulator.show()
+            self.network_manipulator.raise_()
+            self.network_manipulator.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening Network Manipulator: {e}")
+    
+    def open_dayz_map(self):
+        """Open DayZ Map GUI"""
+        try:
+            self.dayz_map_gui.show()
+            self.dayz_map_gui.raise_()
+            self.dayz_map_gui.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening DayZ Map GUI: {e}")
+    
+    def open_account_tracker(self):
+        """Open DayZ Account Tracker"""
+        try:
+            self.dayz_account_tracker.show()
+            self.dayz_account_tracker.raise_()
+            self.dayz_account_tracker.activateWindow()
+        except Exception as e:
+            log_error(f"Error opening DayZ Account Tracker: {e}")
     
     def on_settings_changed(self, additional_settings: dict):
         """Handle settings changes with performance optimizations"""

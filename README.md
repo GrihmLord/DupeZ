@@ -70,11 +70,31 @@ pip install -r requirements.txt
 ```
 
 #### 3. Run the Application
+
+**Normal Mode:**
 ```bash
 python -m app.main
 ```
 
-**Note**: This runs the current source and reflects all latest UI optimizations.
+**Administrator Mode (Required for firewall control):**
+```bash
+# Option 1: Use the admin launcher (Recommended)
+./run_dupez_admin.bat
+
+# Option 2: Use PowerShell launcher
+./run_admin.ps1
+
+# Option 3: Right-click Command Prompt "Run as administrator", then:
+cd C:\Users\Owner\DupeZ
+.venv\Scripts\activate
+python -m app.main
+```
+
+**Note**: 
+- Normal mode runs with current source and reflects all latest UI optimizations
+- Admin mode is required for full firewall control functionality
+- Window title shows `[ADMIN]` when running with administrator privileges
+- Environment information is logged to verify correct Python/virtual environment usage
 
 ### Option 2: Use the Executable (Recommended for Users)
 
@@ -295,6 +315,33 @@ The application includes a DayZ Gaming Control Plugin that provides:
 - **Latency Optimization**: Automatic network path optimization
 - **Anti-DDoS Protection**: Gaming-specific DDoS protection rules
 
+## 🚀 **Stability Improvements (Completed)**
+
+### **Comprehensive Stability Optimizer**
+- **Real-time Monitoring**: Continuous monitoring of memory, CPU, and thread usage
+- **Automatic Cleanup**: Proactive memory cleanup when thresholds are exceeded
+- **Crash Prevention**: Detects and prevents stability issues before they cause crashes
+- **Resource Management**: Optimizes garbage collection and UI update frequencies
+- **Error Recovery**: Graceful handling of errors with automatic recovery mechanisms
+
+### **Memory Management Enhancements**
+- **Proactive Cleanup**: Memory cleanup triggered at 600MB (reduced from 800MB)
+- **Emergency Cleanup**: Critical cleanup at 800MB with multiple GC passes
+- **Cache Management**: Automatic clearing of UI caches and performance metrics
+- **Weak References**: Proper cleanup of object references to prevent memory leaks
+
+### **UI Stability Optimizations**
+- **Reduced Animation FPS**: From 60 FPS to 30 FPS for better stability
+- **Timer Frequency Reduction**: UDP checks from 5s to 10s, UI updates from 100ms to 150ms
+- **Throttled Updates**: Batched UI updates to prevent overwhelming the system
+- **Error Handling**: Comprehensive error handling with automatic recovery
+
+### **Performance Tuning**
+- **Garbage Collection**: More aggressive GC thresholds (700, 10, 10)
+- **Resource Monitoring**: System memory, disk space, and CPU usage monitoring
+- **Thread Health**: Detection of thread explosion and resource exhaustion
+- **Automatic Optimization**: Self-tuning based on system conditions
+
 ## Improvement Roadmap
 
 ### Phase 1: Enhanced Network Management (Next 2-4 weeks)
@@ -350,12 +397,14 @@ For issues and questions:
 ## Recent Achievements
 
 - [x] **Complete UI Cleanup**: Removed all performance monitoring and traffic graph tabs
-- [x] **Application Stability**: Fixed all crashes and stability issues
-- [x] **Memory Optimization**: Reduced memory usage and improved performance
-- [x] **Clean Interface**: Professional, clean UI design
-- [x] **Admin Compatibility**: Consistent behavior regardless of privileges
-- [x] **Performance Optimization**: Removed resource-heavy features
+- [x] **Application Stability**: Fixed all crashes and stability issues with comprehensive stability optimizer
+- [x] **Memory Optimization**: Reduced memory usage and improved performance with proactive cleanup
+- [x] **Clean Interface**: Professional, clean UI design without personal information
+- [x] **Admin Compatibility**: Consistent behavior regardless of privileges with environment detection
+- [x] **Performance Optimization**: Removed resource-heavy features and optimized timers
 - [x] **Code Consolidation**: Unified launcher and simplified structure
+- [x] **Stability Optimizer**: Real-time monitoring, automatic cleanup, and crash prevention
+- [x] **Personal Data Removal**: Cleaned placeholder text and examples in account dialogs
 
 ---
 

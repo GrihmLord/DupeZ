@@ -58,10 +58,10 @@ class EnterpriseNetworkDisruptor:
         self.man_in_middle_threads = {}
         
         # Enterprise attack configuration
-        self.attack_intensity = "enterprise"  # low, medium, high, enterprise, extreme
-        self.packet_rate = 5000  # packets per second
+        self.attack_intensity = "low"  # low, medium, high, enterprise, extreme
+        self.packet_rate = 100  # packets per second (reduced for stability)
         self.attack_duration = 0  # 0 = continuous
-        self.concurrent_attacks = 8  # number of simultaneous attack methods
+        self.concurrent_attacks = 2  # number of simultaneous attack methods (reduced for stability)
         
         # Enterprise traffic analysis
         self.traffic_analysis = {}

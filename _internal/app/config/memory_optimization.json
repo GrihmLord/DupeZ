@@ -1,0 +1,38 @@
+{
+    "memory_management": {
+        "enabled": true,
+        "cleanup_interval": 20000,
+        "memory_threshold_mb": 400,
+        "aggressive_cleanup_threshold_mb": 600,
+        "max_cache_size": 500,
+        "garbage_collection_enabled": true,
+        "monitoring_interval": 15000
+    },
+    "update_frequencies": {
+        "dashboard_status": 3000,
+        "device_list": 7000,
+        "performance_monitor": 3000,
+        "network_scanner": 7000,
+        "topology_view": 45000,
+        "graph_updates": 7000
+    },
+    "cache_limits": {
+        "max_devices": 500,
+        "max_network_rules": 200,
+        "max_log_entries": 1000,
+        "max_performance_data": 500
+    },
+    "storage_optimization": {
+        "log_rotation_size_mb": 0.25,
+        "max_log_files": 2,
+        "data_compression": true,
+        "cleanup_old_data_days": 7
+    },
+    "launcher_settings": {
+        "unified_launcher": true,
+        "system_resource_check": true,
+        "memory_optimization": true,
+        "optimized_logging": true,
+        "single_instance": true
+    }
+}

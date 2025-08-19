@@ -48,11 +48,15 @@ class EnhancedDeviceList(QWidget):
         self.devices = []
         self.disconnect_active = False  # Track disconnect state
         
-        # Performance optimization: Throttle UI updates
+        # Stability optimization: Enhanced UI update throttling
         self.ui_update_timer = QTimer()
         self.ui_update_timer.setSingleShot(True)
         self.ui_update_timer.timeout.connect(self._perform_batched_ui_update)
-        self.pending_ui_updates = []
+        self.device_ui_updates = []
+        
+        # Stability optimization: Add error handling for UI updates
+        self.ui_update_error_count = 0
+        self.max_ui_update_errors = 5
         
         # Performance optimization: Reduce logging during operations
         self.operation_in_progress = False
@@ -65,10 +69,10 @@ class EnhancedDeviceList(QWidget):
         # Connect resize event for responsive design
         self.resizeEvent = self.on_resize
         
-        # Setup UDP status timer (less frequent to reduce wakeups)
+        # Stability optimization: Reduced UDP status timer frequency
         self.udp_status_timer = QTimer()
         self.udp_status_timer.timeout.connect(self.check_udp_tool_status)
-        self.udp_status_timer.start(5000)  # Check every 5 seconds
+        self.udp_status_timer.start(10000)  # Check every 10 seconds for better stability
     
     def _initialize_disruptors(self):
         """Initialize network disruptors with proper error handling"""
@@ -1417,26 +1421,52 @@ class EnhancedDeviceList(QWidget):
     
     def _queue_ui_update(self, message: str):
         """Performance optimization: Queue UI updates for batching"""
-        self.pending_ui_updates.append(message)
+        self.device_ui_updates.append(message)
     
     def _schedule_ui_update(self):
-        """Performance optimization: Schedule batched UI update"""
-        if not self.ui_update_timer.isActive():
-            self.ui_update_timer.start(100)  # Update every 100ms instead of immediately
+        """Stability optimization: Schedule batched UI update with safety checks"""
+        try:
+            if not self.ui_update_timer.isActive():
+                # Stability optimization: Increased delay for better stability
+                self.ui_update_timer.start(150)  # Update every 150ms for better stability
+        except Exception as e:
+            log_error(f"Error scheduling UI update: {e}")
+            # Fallback: try to update immediately
+            try:
+                self._perform_batched_ui_update()
+            except:
+                pass
     
     def _perform_batched_ui_update(self):
-        """Performance optimization: Perform batched UI updates"""
+        """Stability optimization: Perform batched UI updates with error handling"""
         try:
-            if self.pending_ui_updates:
+            if self.device_ui_updates:
                 # Combine multiple messages into one update
-                combined_message = " | ".join(self.pending_ui_updates[-3:])  # Show last 3 messages
+                combined_message = " | ".join(self.device_ui_updates[-3:])  # Show last 3 messages
                 self.update_status(combined_message)
-                self.pending_ui_updates.clear()
+                self.device_ui_updates.clear()
                 
                 # Update blocking status indicator
                 self.update_blocking_status()
+                
+                # Reset error count on successful update
+                self.ui_update_error_count = 0
+                
         except Exception as e:
-            log_error(f"Error in batched UI update: {e}")
+            self.ui_update_error_count += 1
+            log_error(f"Error in batched UI update (attempt {self.ui_update_error_count}): {e}")
+            
+            # If too many errors, clear the queue and reset
+            if self.ui_update_error_count >= self.max_ui_update_errors:
+                log_warning("Too many UI update errors, clearing queue and resetting")
+                self.device_ui_updates.clear()
+                self.ui_update_error_count = 0
+                
+                # Try to recover by updating status
+                try:
+                    self.update_status("UI update recovered after errors")
+                except:
+                    pass
     
     def update_blocking_status(self):
         """Update the blocking status indicator"""
@@ -3263,3 +3293,34 @@ class EnhancedDeviceList(QWidget):
             self.scan_button.setEnabled(True)
             self.stop_button.setEnabled(False)
             self.progress_bar.setVisible(False)
+    
+    def closeEvent(self, event):
+        """Stability optimization: Clean up resources on close"""
+        try:
+            # Stop all timers
+            if hasattr(self, 'udp_status_timer'):
+                self.udp_status_timer.stop()
+            
+            if hasattr(self, 'ui_update_timer'):
+                self.ui_update_timer.stop()
+            
+            # Clear caches and data
+            if hasattr(self, 'device_ui_updates'):
+                self.device_ui_updates.clear()
+            
+            # Clear device table
+            if hasattr(self, 'device_table'):
+                self.device_table.clearContents()
+                self.device_table.setRowCount(0)
+            
+            # Clear devices list
+            if hasattr(self, 'devices'):
+                self.devices.clear()
+            
+            log_info("Enhanced device list cleanup completed")
+            
+        except Exception as e:
+            log_error(f"Error during enhanced device list cleanup: {e}")
+        
+        # Always accept the close event
+        event.accept()

@@ -644,26 +644,26 @@ class DayZAccountTracker(QWidget):
             
             # Account fields
             account_input = QLineEdit()
-            account_input.setPlaceholderText("e.g., Sir Grihm (Grihmlord)")
+            account_input.setPlaceholderText("Account Name")
             if account_data:
                 account_input.setText(account_data.get('account', ''))
             layout.addRow("Account:", account_input)
             
             email_input = QLineEdit()
-            email_input.setPlaceholderText("e.g., ismackthebandit@gmail.com")
+            email_input.setPlaceholderText("user@domain.com")
             if account_data:
                 email_input.setText(account_data.get('email', ''))
             layout.addRow("Email:", email_input)
             
             location_input = QLineEdit()
-            location_input.setPlaceholderText("e.g., 2602 Deep Woods Base")
+            location_input.setPlaceholderText("Location or Coordinates")
             if account_data:
                 location_input.setText(account_data.get('location', ''))
             layout.addRow("Location:", location_input)
             
             # Value field
             value_input = QLineEdit()
-            value_input.setPlaceholderText("e.g., $50, $100, High Value")
+            value_input.setPlaceholderText("Value or Worth")
             if account_data:
                 value_input.setText(account_data.get('value', ''))
             layout.addRow("Value:", value_input)
@@ -691,14 +691,14 @@ class DayZAccountTracker(QWidget):
             layout.addRow("Station:", station_combo)
             
             gear_input = QLineEdit()
-            gear_input.setPlaceholderText("e.g., Civilian, Blue Hiking Cargo")
+            gear_input.setPlaceholderText("Equipment Description")
             if account_data:
                 gear_input.setText(account_data.get('gear', ''))
             layout.addRow("Gear:", gear_input)
             
             holding_input = QTextEdit()
             holding_input.setMaximumHeight(60)
-            holding_input.setPlaceholderText("e.g., x3 Crates of Explosives {Holding barrel}")
+            holding_input.setPlaceholderText("Items Currently Holding")
             if account_data:
                 holding_input.setText(account_data.get('holding', ''))
             layout.addRow("Holding:", holding_input)

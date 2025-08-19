@@ -629,11 +629,11 @@ class AppController:
         try:
             log_info("🔧 Starting advanced features initialization...")
             
-            # Initialize traffic analyzer
+            # Initialize traffic analyzer (temporarily disabled for stability)
             log_info("📊 Initializing traffic analyzer...")
             self.traffic_analyzer = AdvancedTrafficAnalyzer()
-            self.traffic_analyzer.start()
-            log_info("✅ Traffic analyzer initialized")
+            # self.traffic_analyzer.start()  # Temporarily disabled to prevent high packet rate issues
+            log_info("✅ Traffic analyzer initialized (startup delayed for stability)")
             
             # Initialize plugin manager
             log_info("🔌 Initializing plugin manager...")
