@@ -404,11 +404,16 @@ class DayZDupingDashboard(QWidget):
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("color: #666; font-style: italic;")
         
+        # Active sessions count
+        self.active_sessions_label = QLabel("Active Sessions: 0")
+        self.active_sessions_label.setStyleSheet("color: #4CAF50; font-weight: bold;")
+        
         # Last update
         self.last_update_label = QLabel("Last update: Never")
         self.last_update_label.setStyleSheet("color: #666; font-size: 10px;")
         
         status_layout.addWidget(self.status_label)
+        status_layout.addWidget(self.active_sessions_label)
         status_layout.addStretch()
         status_layout.addWidget(self.last_update_label)
         

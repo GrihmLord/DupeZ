@@ -3294,6 +3294,25 @@ class EnhancedDeviceList(QWidget):
             self.stop_button.setEnabled(False)
             self.progress_bar.setVisible(False)
     
+    def refresh_table(self):
+        """Refresh the device table display"""
+        try:
+            if not hasattr(self, 'device_table') or not hasattr(self, 'devices'):
+                return
+                
+            # Clear current table
+            self.device_table.clearContents()
+            self.device_table.setRowCount(len(self.devices))
+            
+            # Repopulate table
+            for i, device in enumerate(self.devices):
+                self.add_device_to_table(device, i)
+                
+            self.update_status(f"Table refreshed - {len(self.devices)} devices displayed")
+            
+        except Exception as e:
+            log_error(f"Error refreshing table: {e}")
+    
     def closeEvent(self, event):
         """Stability optimization: Clean up resources on close"""
         try:
