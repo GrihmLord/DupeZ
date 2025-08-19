@@ -1,38 +1,38 @@
-# ⚡ DupeZ ⚡
+# DupeZ
 
-**Advanced LagSwitch Tool - Hacker Edition v2.0.0**
+**Advanced Network Lag Control Tool - Professional Edition v2.0.0**
 
-A powerful, optimized network lag control and device management tool designed for advanced users and network administrators. **Fully optimized for stability and performance with clean, minimal UI.**
+A powerful, optimized network lag control and device management tool designed for advanced users and network administrators. Fully optimized for stability and performance with clean, minimal UI.
 
-## 🚀 **Current Status - FULLY OPTIMIZED**
+## Current Status
 
-### ✅ **What's Been Accomplished**
-- **🎯 Clean Home Screen**: Only essential "Network Scanner" tab remains
-- **🚫 Performance Monitoring Removed**: All resource-heavy monitoring tabs eliminated
-- **🌊 Traffic Graphs Removed**: No more traffic visualization overhead
-- **⚡ Application Stability**: Fixed all crashes and "not responding" errors
-- **🧹 Emoji-Free UI**: Professional, clean interface without visual clutter
-- **💾 Memory Optimized**: Reduced memory usage and improved performance
-- **🔒 Admin-Ready**: Works consistently whether run as user or administrator
+### What's Been Accomplished
+- **Clean Home Screen**: Only essential "Network Scanner" tab remains
+- **Performance Monitoring Removed**: All resource-heavy monitoring tabs eliminated
+- **Traffic Graphs Removed**: No more traffic visualization overhead
+- **Application Stability**: Fixed all crashes and "not responding" errors
+- **Professional UI**: Clean interface without visual clutter
+- **Memory Optimized**: Reduced memory usage and improved performance
+- **Admin-Ready**: Works consistently whether run as user or administrator
 
-### 🎯 **Current Home Screen Features**
+### Current Home Screen Features
 - **Network Scanner**: Enhanced device discovery and management
 - **Tips Ticker**: Scrolling tips at bottom (like NASDAQ ticker)
 - **Sidebar**: Status indicators and control panel
 - **Clean Menu**: Essential tools only, no unnecessary features
 
-## 🚀 **LagSwitch Features**
+## Core Features
 
-### Core LagSwitch Functionality
-- **🎯 Advanced Device Targeting**: Precise control over network devices
-- **🧠 Smart Mode**: Intelligent traffic analysis and automatic blocking
-- **🚫 Mass Blocking**: Block multiple devices simultaneously
-- **⚡ Quick Scan**: Rapid network analysis and device discovery
-- **🔒 Security Features**: Hide sensitive data and encrypt information
-- **🎮 Gaming Device Detection**: Automatic identification of gaming consoles
-- **🔍 Network Tools**: Port scanning, ping testing, and connectivity analysis
+### LagSwitch Functionality
+- **Advanced Device Targeting**: Precise control over network devices
+- **Smart Mode**: Intelligent traffic analysis and automatic blocking
+- **Mass Blocking**: Block multiple devices simultaneously
+- **Quick Scan**: Rapid network analysis and device discovery
+- **Security Features**: Hide sensitive data and encrypt information
+- **Gaming Device Detection**: Automatic identification of gaming consoles
+- **Network Tools**: Port scanning, ping testing, and connectivity analysis
 
-### Advanced LagSwitch Features
+### Advanced Features
 - **mDNS Discovery**: Enhanced device discovery using multicast DNS
 - **Vendor Detection**: Identify device manufacturers from MAC addresses
 - **Traffic Analysis**: Monitor bandwidth usage and connection patterns
@@ -40,7 +40,7 @@ A powerful, optimized network lag control and device management tool designed fo
 - **Event-driven Architecture**: Real-time updates and notifications
 - **Hotkey Support**: Quick access to all lagswitch functions
 
-### 🔌 Plugin System
+### Plugin System
 - **Custom Rules Engine**: Create custom blocking and monitoring rules
 - **Plugin Manager**: Easy plugin installation, enabling, and management
 - **Gaming Control Plugin**: Advanced gaming device management with time-based restrictions
@@ -48,13 +48,13 @@ A powerful, optimized network lag control and device management tool designed fo
 - **Rule Conditions**: Time-based, device-type, traffic threshold, and IP range conditions
 - **Automated Actions**: Block, unblock, alert, and log based on custom rules
 
-## 📋 **Requirements**
+## Requirements
 
 - Windows 10/11
 - Python 3.8+
 - Administrator privileges (for firewall control)
 
-## 🛠️ **Installation**
+## Installation
 
 ### Option 1: Run from Source (Recommended for Development)
 
@@ -106,7 +106,7 @@ Then run:
 ./dist/DupeZ/DupeZ.exe
 ```
 
-## 🎮 **Usage**
+## Usage
 
 ### Basic Operation
 1. **Launch the Application**: Run `python -m app.main` from the project directory
@@ -115,7 +115,7 @@ Then run:
 4. **Toggle Blocking**: Use the "Block Selected" button or right-click menu
 5. **Smart Mode**: Enable intelligent automatic blocking based on traffic patterns
 
-### LagSwitch Hotkeys
+### Hotkeys
 - `W` (default): Toggle blocking for selected device
 - `Ctrl+S`: Scan network
 - `Ctrl+Shift+S`: Quick scan
@@ -135,7 +135,7 @@ Smart mode automatically detects and blocks devices based on:
 - Burst traffic detection
 - Connection limit violations
 
-## 🏗️ **Architecture**
+## Architecture
 
 ### Core Components
 - **AppController**: Main application logic and state management
@@ -155,7 +155,7 @@ Smart mode automatically detects and blocks devices based on:
 - **MDNSDiscovery**: Multicast DNS device discovery
 - **NetworkHelpers**: Utility functions for network operations
 
-## 🔧 **Configuration**
+## Configuration
 
 ### Settings File
 Configuration is stored in `app/config/settings.json`:
@@ -185,7 +185,7 @@ The application supports both light and dark themes:
 - `app/themes/dark.qss`: Dark theme (default)
 - `app/themes/light.qss`: Light theme
 
-## 🐛 **Troubleshooting**
+## Troubleshooting
 
 ### Common Issues
 
@@ -214,7 +214,7 @@ The application supports both light and dark themes:
 ### Logs
 Application logs are written to the console and can be found in the application output. Look for messages starting with timestamps like `[02:13:47]`.
 
-## 🔒 **Security**
+## Security
 
 ### Firewall Integration
 The application uses Windows Firewall rules for device blocking:
@@ -228,7 +228,7 @@ Some features require Administrator privileges:
 - Global hotkey registration
 - Network interface monitoring
 
-## 🧪 **Development**
+## Development
 
 ### Project Structure
 ```
@@ -280,7 +280,7 @@ python -m pytest development/tests/ --cov=app --cov-report=html
 ### Building
 See the Executable rebuild section above.
 
-## 🎮 **DayZ Gaming Integration**
+## DayZ Gaming Integration
 
 ### Gaming Control Plugin
 The application includes a DayZ Gaming Control Plugin that provides:
@@ -295,9 +295,9 @@ The application includes a DayZ Gaming Control Plugin that provides:
 - **Latency Optimization**: Automatic network path optimization
 - **Anti-DDoS Protection**: Gaming-specific DDoS protection rules
 
-## 🚀 **Improvement Roadmap**
+## Improvement Roadmap
 
-### **Phase 1: Enhanced Network Management (Next 2-4 weeks)**
+### Phase 1: Enhanced Network Management (Next 2-4 weeks)
 - [ ] **Multi-threaded Network Discovery**
   - Parallel ping scanning for faster results
   - Port scanning capabilities
@@ -309,7 +309,7 @@ The application includes a DayZ Gaming Control Plugin that provides:
   - Connection path visualization
   - Bandwidth usage between devices
 
-### **Phase 2: Advanced Gaming Control (Next 4-6 weeks)**
+### Phase 2: Advanced Gaming Control (Next 4-6 weeks)
 - [ ] **Multi-Game Support**
   - Configuration templates for different games
   - Auto-detection of running games
@@ -321,18 +321,18 @@ The application includes a DayZ Gaming Control Plugin that provides:
   - Memory scanning for modifications
   - Network traffic analysis for cheats
 
-### **Phase 3: Advanced Monitoring & Analytics (Next 6-8 weeks)**
+### Phase 3: Advanced Monitoring & Analytics (Next 6-8 weeks)
 - [ ] **Real-Time Analytics**
   - Customizable widget system
   - Real-time graphs and charts
   - Historical data analysis
   - Performance trend identification
 
-## 📄 **License**
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🤝 **Contributing**
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -340,25 +340,25 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📞 **Support**
+## Support
 
 For issues and questions:
 - Create an issue on GitHub
 - Check the troubleshooting section
 - Review the logs for error messages
 
-## 🎯 **Recent Achievements**
+## Recent Achievements
 
 - [x] **Complete UI Cleanup**: Removed all performance monitoring and traffic graph tabs
 - [x] **Application Stability**: Fixed all crashes and stability issues
 - [x] **Memory Optimization**: Reduced memory usage and improved performance
-- [x] **Clean Interface**: Professional, emoji-free UI design
+- [x] **Clean Interface**: Professional, clean UI design
 - [x] **Admin Compatibility**: Consistent behavior regardless of privileges
 - [x] **Performance Optimization**: Removed resource-heavy features
 - [x] **Code Consolidation**: Unified launcher and simplified structure
 
 ---
 
-**DupeZ v2.0.0** - Take control of your network lag with a clean, stable, and optimized interface! 🎮
+**DupeZ v2.0.0** - Take control of your network lag with a clean, stable, and optimized interface.
 
 *Last Updated: August 19, 2025 - Full UI optimization and stability improvements completed*
