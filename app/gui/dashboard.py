@@ -592,6 +592,12 @@ class DupeZDashboard(QMainWindow):
         settings_action.triggered.connect(self.open_settings)
         tools_menu.addAction(settings_action)
         
+        # Latency Configuration action
+        latency_action = QAction('&Latency Configuration', self)
+        latency_action.setShortcut('Ctrl+L')
+        latency_action.triggered.connect(self.open_latency_config)
+        tools_menu.addAction(latency_action)
+        
         tools_menu.addSeparator()
         
         # Minimal tools menu; removed DayZ and analysis-related actions
@@ -1233,6 +1239,21 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Error opening settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to open settings: {e}")
+    
+    def open_latency_config(self):
+        """Open latency configuration dialog"""
+        try:
+            from app.gui.latency_config_dialog import LatencyConfigDialog
+            if not hasattr(self, 'latency_config_dialog'):
+                self.latency_config_dialog = LatencyConfigDialog(self)
+            
+            self.latency_config_dialog.show()
+            self.latency_config_dialog.raise_()
+            self.latency_config_dialog.activateWindow()
+            
+        except Exception as e:
+            log_error(f"Error opening latency configuration: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to open latency configuration: {e}")
     
     def open_dayz_gaming_dashboard(self):
         """Open DayZ Gaming Dashboard"""

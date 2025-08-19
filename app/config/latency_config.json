@@ -1,0 +1,230 @@
+{
+  "latency_configuration": {
+    "version": "2.0.0",
+    "last_updated": "2025-01-19T00:00:00Z",
+    "description": "Centralized latency configuration for DupeZ application"
+  },
+  
+  "gaming_latency_tiers": {
+    "ultra_low": {
+      "name": "Ultra Low Latency",
+      "target_ms": 15,
+      "max_ms": 25,
+      "priority": "HIGHEST",
+      "description": "For competitive gaming and critical operations",
+      "bandwidth_reserved": 250,
+      "qos_level": "CRITICAL"
+    },
+    "low": {
+      "name": "Low Latency",
+      "target_ms": 25,
+      "max_ms": 40,
+      "priority": "HIGH",
+      "description": "For standard gaming and real-time applications",
+      "bandwidth_reserved": 200,
+      "qos_level": "HIGH"
+    },
+    "medium": {
+      "name": "Medium Latency",
+      "target_ms": 40,
+      "max_ms": 60,
+      "priority": "NORMAL",
+      "description": "For casual gaming and streaming",
+      "bandwidth_reserved": 150,
+      "qos_level": "NORMAL"
+    },
+    "high": {
+      "name": "High Latency",
+      "target_ms": 60,
+      "max_ms": 100,
+      "priority": "LOW",
+      "description": "For downloads and background tasks",
+      "bandwidth_reserved": 100,
+      "qos_level": "LOW"
+    },
+    "unlimited": {
+      "name": "Unlimited Latency",
+      "target_ms": 0,
+      "max_ms": 0,
+      "priority": "MINIMAL",
+      "description": "No latency restrictions",
+      "bandwidth_reserved": 50,
+      "qos_level": "MINIMAL"
+    }
+  },
+
+  "dayz_server_latency": {
+    "main_server": {
+      "name": "DayZ Main Server",
+      "ip": "192.168.1.100",
+      "ports": [2302, 2303],
+      "target_latency": 25,
+      "max_latency": 40,
+      "priority": "HIGH",
+      "auto_optimize": true,
+      "ddos_protection": true
+    },
+    "community_server": {
+      "name": "DayZ Community Server",
+      "ip": "192.168.1.101",
+      "ports": [2303, 2304],
+      "target_latency": 35,
+      "max_latency": 50,
+      "priority": "HIGH",
+      "auto_optimize": true,
+      "ddos_protection": true
+    },
+    "network_server": {
+      "name": "Network DayZ Server",
+      "ip": "10.5.0.100",
+      "ports": [2302],
+      "target_latency": 40,
+      "max_latency": 60,
+      "priority": "MEDIUM",
+      "auto_optimize": true,
+      "ddos_protection": false
+    }
+  },
+
+  "duping_latency_profiles": {
+    "stealth": {
+      "name": "Stealth Mode",
+      "latency_variance": 5.0,
+      "packet_timing": 10.0,
+      "target_latency": 30,
+      "max_latency": 50,
+      "detection_risk": "low",
+      "success_rate": 85.0,
+      "description": "Low detection risk, slower execution"
+    },
+    "balanced": {
+      "name": "Balanced Mode",
+      "latency_variance": 10.0,
+      "packet_timing": 5.0,
+      "target_latency": 25,
+      "max_latency": 40,
+      "detection_risk": "medium",
+      "success_rate": 90.0,
+      "description": "Balanced performance and stealth"
+    },
+    "aggressive": {
+      "name": "Aggressive Mode",
+      "latency_variance": 20.0,
+      "packet_timing": 2.0,
+      "target_latency": 20,
+      "max_latency": 35,
+      "detection_risk": "high",
+      "success_rate": 95.0,
+      "description": "High performance, higher detection risk"
+    },
+    "custom": {
+      "name": "Custom Mode",
+      "latency_variance": 15.0,
+      "packet_timing": 3.0,
+      "target_latency": 25,
+      "max_latency": 45,
+      "detection_risk": "medium",
+      "success_rate": 88.0,
+      "description": "User-defined configuration"
+    }
+  },
+
+  "network_optimization": {
+    "qos_policies": {
+      "gaming": {
+        "priority": "HIGHEST",
+        "latency_target": 25,
+        "bandwidth_reserved": 200,
+        "ports": [2302, 2303, 2304, 2305],
+        "protocols": ["tcp", "udp"]
+      },
+      "voice_chat": {
+        "priority": "HIGH",
+        "latency_target": 35,
+        "bandwidth_reserved": 50,
+        "ports": [27015, 27016, 27017],
+        "protocols": ["udp"]
+      },
+      "streaming": {
+        "priority": "LOW",
+        "latency_target": 200,
+        "bandwidth_limit": 30,
+        "ports": [80, 443, 8080],
+        "protocols": ["tcp"]
+      },
+      "downloads": {
+        "priority": "MINIMAL",
+        "latency_target": 300,
+        "bandwidth_limit": 20,
+        "ports": [80, 443, 21, 22],
+        "protocols": ["tcp"]
+      }
+    },
+    
+    "auto_optimization": {
+      "enabled": true,
+      "check_interval": 30,
+      "optimization_thresholds": {
+        "latency_warning": 50,
+        "latency_critical": 100,
+        "packet_loss_warning": 0.5,
+        "packet_loss_critical": 2.0
+      },
+      "optimization_cooldown": 300
+    }
+  },
+
+  "performance_monitoring": {
+    "real_time_metrics": true,
+    "alert_thresholds": {
+      "latency_warning": 50,
+      "latency_critical": 100,
+      "packet_loss_warning": 0.5,
+      "packet_loss_critical": 2.0,
+      "bandwidth_warning": 80,
+      "bandwidth_critical": 95
+    },
+    "logging": {
+      "level": "info",
+      "max_entries": 1000,
+      "auto_export": false
+    }
+  },
+
+  "device_specific_rules": {
+    "192.168.1.153": {
+      "name": "Your Gaming PC",
+      "type": "gaming_pc",
+      "priority": "HIGHEST",
+      "bandwidth_reserved": 200,
+      "latency_target": 20,
+      "gaming_ports": [2302, 2303, 2304, 2305],
+      "auto_optimize": true,
+      "ddos_protection": true
+    }
+  },
+
+  "scheduled_optimizations": {
+    "weekdays": {
+      "start": "18:00",
+      "end": "22:00",
+      "priority": "HIGH",
+      "latency_target": 25,
+      "bandwidth_reserved": 200
+    },
+    "weekends": {
+      "start": "10:00",
+      "end": "23:00",
+      "priority": "HIGHEST",
+      "latency_target": 20,
+      "bandwidth_reserved": 250
+    },
+    "work_hours": {
+      "start": "09:00",
+      "end": "17:00",
+      "priority": "LOW",
+      "latency_target": 100,
+      "bandwidth_reserved": 50
+    }
+  }
+}
