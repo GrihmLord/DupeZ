@@ -37,14 +37,17 @@ class DupingNetworkOptimizer(QWidget):
         
         # Header
         header = QLabel("🚀 DupeZ Duping Network Optimizer")
-        header.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        header.setFont(QFont("Arial", 18, QFont.Weight.Bold))
         header.setStyleSheet("""
             color: #ffffff;
-            padding: 15px;
-            background-color: #2c3e50;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            padding: 20px;
+            background: qlineargradient(x1:0, y1:0, x2:1, y2:0, 
+                stop:0 #2c3e50, stop:1 #34495e);
+            border-radius: 12px;
+            margin-bottom: 20px;
             text-align: center;
+            border: 3px solid #3498db;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         """)
         header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(header)
@@ -91,12 +94,21 @@ class DupingNetworkOptimizer(QWidget):
         account_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                font-size: 14px;
-                border: 2px solid #555555;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 15px;
+                font-size: 15px;
+                border: 3px solid #555555;
+                border-radius: 10px;
+                margin-top: 15px;
+                padding: 20px;
                 background-color: #1e1e1e;
+                color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 20px;
+                padding: 0 10px 0 10px;
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
@@ -121,17 +133,19 @@ class DupingNetworkOptimizer(QWidget):
         self.select_all_btn.clicked.connect(self.select_all_accounts)
         self.select_all_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2196F3;
+                background-color: #4CAF50;
                 color: white;
-                border: none;
+                border: 2px solid #45a049;
                 padding: 12px 20px;
-                border-radius: 6px;
+                border-radius: 8px;
                 font-weight: bold;
-                font-size: 12px;
-                min-width: 100px;
+                font-size: 13px;
+                min-width: 120px;
+                min-height: 25px;
             }
             QPushButton:hover {
-                background-color: #1976D2;
+                background-color: #45a049;
+                border-color: #4CAF50;
             }
         """)
         
@@ -139,17 +153,19 @@ class DupingNetworkOptimizer(QWidget):
         self.clear_selection_btn.clicked.connect(self.clear_account_selection)
         self.clear_selection_btn.setStyleSheet("""
             QPushButton {
-                background-color: #FF9800;
+                background-color: #f44336;
                 color: white;
-                border: none;
+                border: 2px solid #d32f2f;
                 padding: 12px 20px;
-                border-radius: 6px;
+                border-radius: 8px;
                 font-weight: bold;
-                font-size: 12px;
-                min-width: 100px;
+                font-size: 13px;
+                min-width: 120px;
+                min-height: 25px;
             }
             QPushButton:hover {
-                background-color: #F57C00;
+                background-color: #da190b;
+                border-color: #f44336;
             }
         """)
         
@@ -166,19 +182,21 @@ class DupingNetworkOptimizer(QWidget):
         profile_group.setStyleSheet("""
             QGroupBox {
                 font-weight: bold;
-                font-size: 14px;
-                border: 2px solid #555555;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding: 15px;
+                font-size: 15px;
+                border: 3px solid #555555;
+                border-radius: 10px;
+                margin-top: 15px;
+                padding: 20px;
                 background-color: #1e1e1e;
+                color: #ffffff;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 15px;
-                padding: 0 8px 0 8px;
+                left: 20px;
+                padding: 0 10px 0 10px;
                 color: #ffffff;
                 font-size: 16px;
+                font-weight: bold;
             }
         """)
         
@@ -194,24 +212,38 @@ class DupingNetworkOptimizer(QWidget):
                 background-color: #2b2b2b;
                 color: #ffffff;
                 border: 2px solid #555555;
-                border-radius: 6px;
-                padding: 8px;
-                font-size: 12px;
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 13px;
                 min-width: 150px;
+                min-height: 25px;
             }
             QComboBox::drop-down {
                 border: none;
-                width: 20px;
+                width: 25px;
             }
             QComboBox::down-arrow {
                 image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid #ffffff;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-top: 6px solid #ffffff;
+            }
+            QComboBox:hover {
+                border-color: #666666;
             }
         """)
         profile_label = QLabel("Profile:")
-        profile_label.setStyleSheet("color: #ffffff; font-weight: bold; font-size: 12px; padding: 5px;")
+        profile_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 13px;
+                padding: 8px;
+                background-color: #3a3a3a;
+                border-radius: 6px;
+                border: 1px solid #555555;
+            }
+        """)
         profile_layout.addRow(profile_label, self.profile_combo)
         
         self.latency_target_spin = QSpinBox()

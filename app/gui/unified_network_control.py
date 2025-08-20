@@ -65,12 +65,14 @@ class UnifiedNetworkControl(QWidget):
         # DayZ Firewall tab
         self.tab_widget.addTab(self.create_dayz_firewall_tab(), "🛡️ DayZ Firewall")
         
-        # Network Manipulation tab removed for optimization
+        # Network Manipulation tab (integrated from Network Manipulator)
+        self.tab_widget.addTab(self.create_network_manipulation_tab(), "🌊 Network Manipulation")
         
         # Rules management tab
         self.tab_widget.addTab(self.create_rules_tab(), "📋 Rules Management")
         
-        # Status & Monitoring tab removed for optimization
+        # IP History tab (integrated from Network Manipulator)
+        self.tab_widget.addTab(self.create_ip_history_tab(), "📜 IP History")
         
         layout.addWidget(self.tab_widget)
         self.setLayout(layout)
@@ -108,6 +110,13 @@ class UnifiedNetworkControl(QWidget):
         self.enterprise_status.setFont(QFont("Arial", 12, QFont.Weight.Bold))
         self.enterprise_status.setStyleSheet("color: #4caf50; padding: 8px; border: 2px solid #4caf50; border-radius: 5px;")
         status_layout.addWidget(self.enterprise_status, 1, 1)
+        
+        # Admin privileges (for status updates)
+        admin_status = "✅ Administrator" if is_admin() else "❌ Limited User"
+        self.admin_label = QLabel(f"Privileges: {admin_status}")
+        self.admin_label.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.admin_label.setStyleSheet("color: #ffffff; padding: 5px; border: 1px solid #555555; border-radius: 3px;")
+        status_layout.addWidget(self.admin_label, 2, 0, 1, 2)
         
         status_group.setLayout(status_layout)
         layout.addWidget(status_group)
@@ -227,13 +236,15 @@ class UnifiedNetworkControl(QWidget):
         widget.setLayout(layout)
         return widget
         
+
+        
     def create_network_manipulation_tab(self) -> QWidget:
-        """Create the Network Manipulation tab"""
+        """Create the network manipulation tab (integrated from Network Manipulator)"""
         widget = QWidget()
         layout = QVBoxLayout()
         
-        # IP blocking section
-        blocking_group = QGroupBox("🚫 IP Blocking")
+        # IP Blocking Group
+        blocking_group = QGroupBox("🛡️ IP Blocking")
         blocking_layout = QVBoxLayout()
         
         # IP input
@@ -243,70 +254,158 @@ class UnifiedNetworkControl(QWidget):
         self.block_ip_input.setPlaceholderText("192.168.1.100")
         ip_layout.addWidget(self.block_ip_input)
         
-        blocking_layout.addLayout(ip_layout)
-        
         # Blocking options
-        options_layout = QHBoxLayout()
-        
-        self.permanent_block = QCheckBox("Permanent Block")
+        options_layout = QVBoxLayout()
+        self.permanent_block = QCheckBox("Permanent Block (survives restart)")
         self.permanent_block.setChecked(False)
         options_layout.addWidget(self.permanent_block)
         
-        self.aggressive_block = QCheckBox("Aggressive Blocking")
+        self.aggressive_block = QCheckBox("Aggressive Blocking (multiple methods)")
         self.aggressive_block.setChecked(True)
         options_layout.addWidget(self.aggressive_block)
         
-        blocking_layout.addLayout(options_layout)
-        
         # Blocking buttons
         button_layout = QHBoxLayout()
-        
         self.block_button = QPushButton("🚫 Block IP")
-        self.block_button.setStyleSheet("background-color: #f44336; color: white; padding: 8px; font-weight: bold;")
+        self.block_button.clicked.connect(self.block_selected_ip)
+        self.block_button.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: 2px solid #d32f2f;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+                border-color: #f44336;
+            }
+        """)
+        
         self.unblock_button = QPushButton("✅ Unblock IP")
-        self.unblock_button.setStyleSheet("background-color: #4caf50; color: white; padding: 8px; font-weight: bold;")
+        self.unblock_button.clicked.connect(self.unblock_selected_ip)
+        self.unblock_button.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: 2px solid #45a049;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+                border-color: #4CAF50;
+            }
+        """)
+        
         self.unblock_all_button = QPushButton("🔄 Unblock All")
-        self.unblock_all_button.setStyleSheet("background-color: #2196f3; color: white; padding: 8px; font-weight: bold;")
+        self.unblock_all_button.clicked.connect(self.unblock_all_ips)
+        self.unblock_all_button.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: 2px solid #1976D2;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 100px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+                border-color: #2196F3;
+            }
+        """)
         
         button_layout.addWidget(self.block_button)
         button_layout.addWidget(self.unblock_button)
         button_layout.addWidget(self.unblock_all_button)
+        button_layout.addStretch()
         
+        blocking_layout.addLayout(ip_layout)
+        blocking_layout.addLayout(options_layout)
         blocking_layout.addLayout(button_layout)
         blocking_group.setLayout(blocking_layout)
         layout.addWidget(blocking_group)
         
-        # Traffic control section
-        traffic_group = QGroupBox("Traffic Control")
-        traffic_layout = QGridLayout()
+        # Packet Modification Group
+        packet_group = QGroupBox("📦 Packet Modification")
+        packet_layout = QVBoxLayout()
         
-        # Throttling controls
-        traffic_layout.addWidget(QLabel("Throttle Rate (%):"), 0, 0)
-        self.throttle_slider = QSlider(Qt.Orientation.Horizontal)
-        self.throttle_slider.setRange(0, 100)
-        self.throttle_slider.setValue(50)
-        self.throttle_slider.setToolTip("0% = no throttling, 100% = complete blocking")
-        traffic_layout.addWidget(self.throttle_slider, 0, 1)
+        # Packet delay controls
+        delay_layout = QHBoxLayout()
+        delay_layout.addWidget(QLabel("Packet Delay (ms):"))
+        self.packet_delay_spin = QSpinBox()
+        self.packet_delay_spin.setRange(0, 10000)
+        self.packet_delay_spin.setValue(100)
+        delay_layout.addWidget(self.packet_delay_spin)
         
-        self.throttle_label = QLabel("50%")
-        self.throttle_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        traffic_layout.addWidget(self.throttle_label, 0, 2)
+        # Packet loss controls
+        loss_layout = QHBoxLayout()
+        loss_layout.addWidget(QLabel("Packet Loss (%):"))
+        self.packet_loss_spin = QSpinBox()
+        self.packet_loss_spin.setRange(0, 100)
+        self.packet_loss_spin.setValue(5)
+        loss_layout.addWidget(self.packet_loss_spin)
         
-        # Throttle buttons
-        throttle_btn_layout = QHBoxLayout()
+        # Apply button
+        apply_layout = QHBoxLayout()
+        self.apply_packet_mods_btn = QPushButton("🔧 Apply Modifications")
+        self.apply_packet_mods_btn.clicked.connect(self.apply_packet_modifications)
+        self.apply_packet_mods_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: 2px solid #1976D2;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+                border-color: #2196F3;
+            }
+        """)
+        apply_layout.addWidget(self.apply_packet_mods_btn)
+        apply_layout.addStretch()
         
-        self.start_throttle_btn = QPushButton("Start Throttling")
-        self.start_throttle_btn.setStyleSheet("background-color: #ff9800; color: white; padding: 8px; font-weight: bold;")
-        self.stop_throttle_btn = QPushButton("⏹️ Stop Throttling")
-        self.stop_throttle_btn.setStyleSheet("background-color: #9e9e9e; color: white; padding: 8px; font-weight: bold;")
+        packet_layout.addLayout(delay_layout)
+        packet_layout.addLayout(loss_layout)
+        packet_layout.addLayout(apply_layout)
+        packet_group.setLayout(packet_layout)
+        layout.addWidget(packet_group)
         
-        throttle_btn_layout.addWidget(self.start_throttle_btn)
-        throttle_btn_layout.addWidget(self.stop_throttle_btn)
+        # Status display
+        status_group = QGroupBox("📊 Manipulation Status")
+        status_layout = QVBoxLayout()
         
-        traffic_layout.addLayout(throttle_btn_layout, 1, 0, 1, 3)
+        self.manipulation_status_label = QLabel("No active manipulations")
+        self.manipulation_status_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                padding: 10px;
+                background-color: #3a3a3a;
+                border-radius: 6px;
+                border: 1px solid #555555;
+            }
+        """)
+        status_layout.addWidget(self.manipulation_status_label)
         
-        traffic_group.setLayout(traffic_layout)
-        layout.addWidget(traffic_group)
+        status_group.setLayout(status_layout)
+        layout.addWidget(status_group)
         
         widget.setLayout(layout)
         return widget
@@ -345,6 +444,137 @@ class UnifiedNetworkControl(QWidget):
         button_layout.addWidget(self.refresh_rules_btn)
         
         layout.addLayout(button_layout)
+        
+        widget.setLayout(layout)
+        return widget
+        
+    def create_ip_history_tab(self) -> QWidget:
+        """Create the IP history tab (integrated from Network Manipulator)"""
+        widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # IP History Group
+        history_group = QGroupBox("📜 IP Manipulation History")
+        history_layout = QVBoxLayout()
+        
+        # History table
+        self.history_table = QTableWidget()
+        self.history_table.setColumnCount(5)
+        self.history_table.setHorizontalHeaderLabels([
+            "IP Address", "Action", "Timestamp", "Duration", "Status"
+        ])
+        
+        # Set table properties
+        header = self.history_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.history_table.setAlternatingRowColors(True)
+        self.history_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        
+        # Style the history table
+        self.history_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2b2b2b;
+                alternate-background-color: #353535;
+                color: #ffffff;
+                gridline-color: #555555;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #0078d4;
+                color: #ffffff;
+            }
+            QHeaderView::section {
+                background-color: #404040;
+                color: #ffffff;
+                padding: 10px;
+                border: 1px solid #555555;
+                font-weight: bold;
+                font-size: 13px;
+            }
+        """)
+        
+        history_layout.addWidget(self.history_table)
+        
+        # History controls
+        history_controls = QHBoxLayout()
+        
+        self.refresh_history_btn = QPushButton("🔄 Refresh History")
+        self.refresh_history_btn.clicked.connect(self.refresh_ip_history)
+        self.refresh_history_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2196F3;
+                color: white;
+                border: 2px solid #1976D2;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #1976D2;
+                border-color: #2196F3;
+            }
+        """)
+        
+        self.clear_history_btn = QPushButton("🗑️ Clear History")
+        self.clear_history_btn.clicked.connect(self.clear_ip_history)
+        self.clear_history_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: 2px solid #d32f2f;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+                border-color: #f44336;
+            }
+        """)
+        
+        self.export_history_btn = QPushButton("📤 Export History")
+        self.export_history_btn.clicked.connect(self.export_ip_history)
+        self.export_history_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: 2px solid #45a049;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+                border-color: #4CAF50;
+            }
+        """)
+        
+        history_controls.addWidget(self.refresh_history_btn)
+        history_controls.addWidget(self.clear_history_btn)
+        history_controls.addWidget(self.export_history_btn)
+        history_controls.addStretch()
+        
+        history_layout.addLayout(history_controls)
+        history_group.setLayout(history_layout)
+        layout.addWidget(history_group)
+        
+        # Load initial history
+        self.load_ip_history()
         
         widget.setLayout(layout)
         return widget
@@ -750,98 +980,361 @@ class UnifiedNetworkControl(QWidget):
             log_error(f"Error adding to history: {e}")
     
     def apply_styling(self):
-        """Apply styling to the widget"""
+        """Apply enhanced styling to improve readability"""
         self.setStyleSheet("""
+            /* Main widget background */
+            QWidget {
+                background-color: #1a1a1a;
+                color: #ffffff;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 12px;
+            }
+            
+            /* Group boxes with better visibility */
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #404040;
-                border-radius: 5px;
-                margin-top: 1ex;
-                padding-top: 10px;
+                font-size: 14px;
+                border: 3px solid #555555;
+                border-radius: 10px;
+                margin-top: 15px;
+                padding: 20px;
+                background-color: #2a2a2a;
                 color: #ffffff;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
+                left: 20px;
+                padding: 0 15px 0 15px;
                 color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
             }
+            
+            /* Labels with better contrast */
             QLabel {
                 color: #ffffff;
-                font-size: 11px;
+                font-size: 13px;
+                padding: 8px;
+                background-color: #3a3a3a;
+                border-radius: 6px;
+                border: 1px solid #555555;
             }
+            
+            /* Buttons with improved styling */
             QPushButton {
-                background-color: #2a2a2a;
-                border: 1px solid #404040;
-                border-radius: 3px;
-                padding: 5px;
+                background-color: #404040;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                padding: 12px 20px;
                 color: #ffffff;
-                min-height: 20px;
+                font-weight: bold;
+                font-size: 13px;
+                min-height: 30px;
+                min-width: 100px;
             }
             QPushButton:hover {
-                background-color: #404040;
-                border-color: #555555;
+                background-color: #555555;
+                border-color: #777777;
             }
+            QPushButton:pressed {
+                background-color: #333333;
+                border-color: #888888;
+            }
+            
+            /* Input fields with better visibility */
             QLineEdit {
-                background-color: #2a2a2a;
-                border: 1px solid #404040;
-                border-radius: 3px;
-                padding: 5px;
+                background-color: #3a3a3a;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 10px;
                 color: #ffffff;
-                min-height: 20px;
+                font-size: 13px;
+                min-height: 25px;
             }
+            QLineEdit:focus {
+                border-color: #4CAF50;
+                background-color: #404040;
+            }
+            
+            /* Spin boxes */
             QSpinBox {
-                background-color: #2a2a2a;
-                border: 1px solid #404040;
-                border-radius: 3px;
-                padding: 5px;
+                background-color: #3a3a3a;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 10px;
                 color: #ffffff;
-                min-height: 20px;
+                font-size: 13px;
+                min-height: 25px;
             }
+            QSpinBox:focus {
+                border-color: #4CAF50;
+                background-color: #404040;
+            }
+            
+            /* Combo boxes */
             QComboBox {
-                background-color: #2a2a2a;
-                border: 1px solid #404040;
-                border-radius: 3px;
-                padding: 5px;
+                background-color: #3a3a3a;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                padding: 10px;
                 color: #ffffff;
-                min-height: 20px;
+                font-size: 13px;
+                min-height: 25px;
+                min-width: 120px;
             }
+            QComboBox:focus {
+                border-color: #4CAF50;
+                background-color: #404040;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                border: 2px solid #ffffff;
+                width: 8px;
+                height: 8px;
+            }
+            
+            /* Checkboxes */
             QCheckBox {
                 color: #ffffff;
-                font-size: 11px;
+                font-size: 13px;
+                spacing: 8px;
+                padding: 5px;
             }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+                border: 2px solid #555555;
+                border-radius: 4px;
+                background-color: #3a3a3a;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #4CAF50;
+                border-color: #45a049;
+            }
+            
+            /* Tables with improved readability */
             QTableWidget {
-                background-color: #1a1a1a;
-                alternate-background-color: #2a2a2a;
-                gridline-color: #404040;
+                background-color: #2a2a2a;
+                alternate-background-color: #353535;
+                gridline-color: #555555;
                 color: #ffffff;
-                border: 1px solid #404040;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                font-size: 12px;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #0078d4;
+                color: #ffffff;
             }
             QHeaderView::section {
-                background-color: #2a2a2a;
+                background-color: #404040;
                 color: #ffffff;
-                padding: 5px;
-                border: 1px solid #404040;
+                padding: 12px;
+                border: 1px solid #555555;
+                font-weight: bold;
+                font-size: 13px;
             }
+            
+            /* Text areas */
             QTextEdit {
-                background-color: #1a1a1a;
-                border: 1px solid #404040;
+                background-color: #2a2a2a;
+                border: 2px solid #555555;
+                border-radius: 6px;
                 color: #ffffff;
+                font-size: 12px;
+                padding: 8px;
             }
+            
+            /* Sliders */
             QSlider::groove:horizontal {
-                border: 1px solid #404040;
-                height: 8px;
-                background: #2a2a2a;
-                border-radius: 4px;
+                border: 2px solid #555555;
+                height: 12px;
+                background: #3a3a3a;
+                border-radius: 6px;
             }
             QSlider::handle:horizontal {
-                background: #4caf50;
-                border: 1px solid #388e3c;
-                width: 18px;
-                margin: -2px 0;
-                border-radius: 9px;
+                background: #4CAF50;
+                border: 2px solid #45a049;
+                width: 24px;
+                margin: -6px 0;
+                border-radius: 12px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #45a049;
+                border-color: #4CAF50;
+            }
+            
+            /* Tab widget */
+            QTabWidget::pane {
+                border: 2px solid #555555;
+                border-radius: 8px;
+                background-color: #2a2a2a;
+            }
+            QTabBar::tab {
+                background-color: #404040;
+                color: #ffffff;
+                padding: 12px 20px;
+                margin-right: 3px;
+                border-radius: 6px 6px 0 0;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QTabBar::tab:selected {
+                background-color: #555555;
+                border-bottom: 3px solid #4CAF50;
+            }
+            QTabBar::tab:hover {
+                background-color: #505050;
             }
         """)
+
+    def block_selected_ip(self):
+        """Block the selected IP address"""
+        try:
+            ip = self.block_ip_input.text().strip()
+            if not ip:
+                QMessageBox.warning(self, "Warning", "Please enter an IP address")
+                return
+            
+            # Use the manipulator to block the IP
+            if self.manipulator.block_ip(ip, permanent=self.permanent_block.isChecked()):
+                self.manipulation_status_label.setText(f"IP {ip} blocked successfully")
+                self.add_to_ip_history(ip, "BLOCK", "Active")
+                log_info(f"IP {ip} blocked successfully")
+            else:
+                self.manipulation_status_label.setText(f"Failed to block IP {ip}")
+                log_error(f"Failed to block IP {ip}")
+                
+        except Exception as e:
+            log_error(f"Error blocking IP: {e}")
+            self.manipulation_status_label.setText("Error blocking IP")
+    
+    def unblock_selected_ip(self):
+        """Unblock the selected IP address"""
+        try:
+            ip = self.block_ip_input.text().strip()
+            if not ip:
+                QMessageBox.warning(self, "Warning", "Please enter an IP address")
+                return
+            
+            # Use the manipulator to unblock the IP
+            if self.manipulator.unblock_ip(ip):
+                self.manipulation_status_label.setText(f"IP {ip} unblocked successfully")
+                self.add_to_ip_history(ip, "UNBLOCK", "Inactive")
+                log_info(f"IP {ip} unblocked successfully")
+            else:
+                self.manipulation_status_label.setText(f"Failed to unblock IP {ip}")
+                log_error(f"Failed to unblock IP {ip}")
+                
+        except Exception as e:
+            log_error(f"Error unblocking IP: {e}")
+            self.manipulation_status_label.setText("Error unblocking IP")
+    
+    def apply_packet_modifications(self):
+        """Apply packet modifications"""
+        try:
+            delay = self.packet_delay_spin.value()
+            loss = self.packet_loss_spin.value()
+            
+            # Apply modifications through the manipulator
+            if self.manipulator.set_packet_delay(delay):
+                self.manipulation_status_label.setText(f"Packet delay set to {delay}ms")
+                log_info(f"Packet delay set to {delay}ms")
+            else:
+                self.manipulation_status_label.setText("Failed to set packet delay")
+                log_error("Failed to set packet delay")
+                
+            if self.manipulator.set_packet_loss(loss):
+                self.manipulation_status_label.setText(f"Packet loss set to {loss}%")
+                log_info(f"Packet loss set to {loss}%")
+            else:
+                self.manipulation_status_label.setText("Failed to set packet loss")
+                log_error("Failed to set packet loss")
+                
+        except Exception as e:
+            log_error(f"Error applying packet modifications: {e}")
+            self.manipulation_status_label.setText("Error applying modifications")
+    
+    def load_ip_history(self):
+        """Load IP manipulation history"""
+        try:
+            if hasattr(self, 'ip_history') and self.ip_history:
+                self.history_table.setRowCount(len(self.ip_history))
+                
+                for row, (ip, data) in enumerate(self.ip_history.items()):
+                    self.history_table.setItem(row, 0, QTableWidgetItem(ip))
+                    self.history_table.setItem(row, 1, QTableWidgetItem(data.get('action', 'Unknown')))
+                    self.history_table.setItem(row, 2, QTableWidgetItem(data.get('timestamp', 'Unknown')))
+                    self.history_table.setItem(row, 3, QTableWidgetItem(data.get('duration', 'Unknown')))
+                    self.history_table.setItem(row, 4, QTableWidgetItem(data.get('status', 'Unknown')))
+                    
+        except Exception as e:
+            log_error(f"Error loading IP history: {e}")
+    
+    def refresh_ip_history(self):
+        """Refresh the IP history table"""
+        try:
+            self.load_ip_history()
+            log_info("IP history refreshed")
+        except Exception as e:
+            log_error(f"Error refreshing IP history: {e}")
+    
+    def clear_ip_history(self):
+        """Clear the IP history"""
+        try:
+            self.ip_history.clear()
+            self.history_table.setRowCount(0)
+            self.save_history()
+            log_info("IP history cleared")
+        except Exception as e:
+            log_error(f"Error clearing IP history: {e}")
+    
+    def export_ip_history(self):
+        """Export IP history to file"""
+        try:
+            # Simple export to JSON
+            filename = f"ip_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            with open(filename, 'w') as f:
+                json.dump(self.ip_history, f, indent=2)
+            
+            QMessageBox.information(self, "Success", f"IP history exported to {filename}")
+            log_info(f"IP history exported to {filename}")
+            
+        except Exception as e:
+            log_error(f"Error exporting IP history: {e}")
+            QMessageBox.warning(self, "Error", f"Failed to export history: {e}")
+    
+    def add_to_ip_history(self, ip: str, action: str, status: str):
+        """Add an entry to IP history"""
+        try:
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.ip_history[ip] = {
+                'action': action,
+                'timestamp': timestamp,
+                'duration': 'N/A',
+                'status': status
+            }
+            self.save_history()
+            self.load_ip_history()
+            
+        except Exception as e:
+            log_error(f"Error adding to IP history: {e}")
+    
+    def save_history(self):
+        """Save IP history to file"""
+        try:
+            with open(self.history_file, 'w') as f:
+                json.dump(self.ip_history, f, indent=2)
+        except Exception as e:
+            log_error(f"Error saving IP history: {e}")
 
     def cleanup(self):
         """Cleanup resources when closing"""

@@ -15,7 +15,47 @@ from app.gui.network_manipulator_gui import NetworkManipulatorGUI
 from app.gui.dayz_map_gui import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
 
-from app.logs.logger import log_info, log_error
+# Unified Network Scanner that combines basic and advanced functionality
+class UnifiedNetworkScanner(QWidget):
+    """Unified Network Scanner combining basic device list and advanced scanner functionality"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        """Setup the unified scanner UI"""
+        layout = QVBoxLayout()
+        
+        # Title
+        title = QLabel("🔍 Unified Network Scanner")
+        title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
+        title.setStyleSheet("color: #ffffff; margin: 10px; text-align: center;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
+        
+        # Create tab widget for different scanner views
+        self.scanner_tabs = QTabWidget()
+        
+        # Basic Device Scanner (from EnhancedDeviceList)
+        self.enhanced_device_list = EnhancedDeviceList()
+        self.scanner_tabs.addTab(self.enhanced_device_list, "📱 Device List")
+        
+        # Advanced Network Scanner
+        self.advanced_network_scanner = AdvancedNetworkScanner()
+        self.scanner_tabs.addTab(self.advanced_network_scanner, "🔍 Advanced Scan")
+        
+        # Status bar
+        self.status_label = QLabel("Ready to scan network")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 8px;")
+        
+        layout.addWidget(self.scanner_tabs)
+        layout.addWidget(self.status_label)
+        
+        self.setLayout(layout)
+
+from app.logs.logger import log_info, log_error, log_warning
 import threading
 import json
 import random
@@ -354,41 +394,34 @@ class DupeZDashboard(QMainWindow):
         # Performance optimization: Enable hardware acceleration for device list
         self.enhanced_device_list.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         
-        # Add all the proper tabs
-        self.content_tabs.addTab(self.enhanced_device_list, "Network Scanner")
+        # Unified Network Scanner (combining basic and advanced functionality)
+        self.unified_network_scanner = UnifiedNetworkScanner()
+        self.content_tabs.addTab(self.unified_network_scanner, "Network Scanner")
+        
+        # DayZ Account Tracker (needs to be created first)
+        self.dayz_account_tracker = DayZAccountTracker()
+        self.content_tabs.addTab(self.dayz_account_tracker, "Account Tracker")
         
         # DayZ Gaming Dashboard
         self.dayz_gaming_dashboard = DayZGamingDashboard()
         self.content_tabs.addTab(self.dayz_gaming_dashboard, "DayZ Gaming")
         
-        # DayZ Duping Dashboard
-        self.dayz_duping_dashboard = DayZDupingDashboard()
+        # DayZ Duping Dashboard (with integrated optimizer)
+        self.dayz_duping_dashboard = DayZDupingDashboard(account_tracker=self.dayz_account_tracker)
         self.content_tabs.addTab(self.dayz_duping_dashboard, "DayZ Duping")
         
         # Unified Network Control
         self.unified_network_control = UnifiedNetworkControl()
         self.content_tabs.addTab(self.unified_network_control, "Network Control")
         
-        # Advanced Network Scanner
-        self.advanced_network_scanner = AdvancedNetworkScanner()
-        self.content_tabs.addTab(self.advanced_network_scanner, "Advanced Scanner")
-        
-        # Network Manipulator
-        self.network_manipulator = NetworkManipulatorGUI()
-        self.content_tabs.addTab(self.network_manipulator, "Network Manipulator")
+        # Network Manipulator functionality now integrated into Network Control tab
         
         # DayZ Map GUI
         self.dayz_map_gui = DayZMapGUI()
         self.content_tabs.addTab(self.dayz_map_gui, "DayZ Map")
         
-        # DayZ Account Tracker
-        self.dayz_account_tracker = DayZAccountTracker()
-        self.content_tabs.addTab(self.dayz_account_tracker, "Account Tracker")
-        
         # DupeZ Duping Network Optimizer
-        from app.gui.duping_network_optimizer import DupingNetworkOptimizer
-        self.duping_optimizer = DupingNetworkOptimizer(self.dayz_account_tracker)
-        self.content_tabs.addTab(self.duping_optimizer, "Duping Optimizer")
+        # Duping Network Optimizer functionality is now integrated into DayZ Duping tab
         
         # Ensure all tabs are properly configured
         QTimer.singleShot(0, self._sanitize_tab_labels)
@@ -576,10 +609,7 @@ class DupeZDashboard(QMainWindow):
         scanner_action.triggered.connect(self.open_advanced_scanner)
         advanced_menu.addAction(scanner_action)
         
-        # Network Manipulator
-        manipulator_action = QAction('Network Manipulator', self)
-        manipulator_action.triggered.connect(self.open_network_manipulator)
-        advanced_menu.addAction(manipulator_action)
+        # Network Manipulator (now integrated into Network Control tab)
         
         # DayZ Map
         map_action = QAction('DayZ Map', self)
@@ -591,10 +621,7 @@ class DupeZDashboard(QMainWindow):
         account_action.triggered.connect(self.open_account_tracker)
         advanced_menu.addAction(account_action)
         
-        # Duping Network Optimizer
-        optimizer_action = QAction('Duping Network Optimizer', self)
-        optimizer_action.triggered.connect(self.open_duping_optimizer)
-        advanced_menu.addAction(optimizer_action)
+        # Duping Network Optimizer (now integrated into DayZ Duping tab)
         
         # Settings action
         settings_action = QAction('&Settings', self)
@@ -1301,14 +1328,7 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Error opening Advanced Network Scanner: {e}")
     
-    def open_network_manipulator(self):
-        """Open Network Manipulator"""
-        try:
-            self.network_manipulator.show()
-            self.network_manipulator.raise_()
-            self.network_manipulator.activateWindow()
-        except Exception as e:
-            log_error(f"Error opening Network Manipulator: {e}")
+    # open_network_manipulator method removed - functionality integrated into Network Control tab
     
     def open_dayz_map(self):
         """Open DayZ Map GUI"""
@@ -1328,14 +1348,7 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Error opening DayZ Account Tracker: {e}")
     
-    def open_duping_optimizer(self):
-        """Open DupeZ Duping Network Optimizer"""
-        try:
-            self.duping_optimizer.show()
-            self.duping_optimizer.raise_()
-            self.duping_optimizer.activateWindow()
-        except Exception as e:
-            log_error(f"Error opening DupeZ Duping Network Optimizer: {e}")
+    # open_duping_optimizer method removed - functionality integrated into DayZ Duping tab
     
     def on_settings_changed(self, additional_settings: dict):
         """Handle settings changes with performance optimizations"""

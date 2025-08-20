@@ -809,10 +809,17 @@ class DayZAccountTracker(QWidget):
     def load_accounts(self):
         """Load accounts from storage"""
         try:
-            self.accounts = account_manager.accounts
+            # Force reload from account manager
+            self.accounts = account_manager.accounts.copy()
+            log_info(f"Loaded {len(self.accounts)} accounts from account manager")
+            
+            # Refresh the table display
             self.refresh_account_table()
+            
+            # Update statistics
             self.update_statistics()
-            log_info(f"Loaded {len(self.accounts)} accounts")
+            
+            log_info(f"Successfully loaded and displayed {len(self.accounts)} accounts")
         except Exception as e:
             log_error(f"Failed to load accounts: {e}")
             self.accounts = []
@@ -945,31 +952,29 @@ class DayZAccountTracker(QWidget):
                         # Debug: Log the raw row data
                         log_info(f"Processing CSV row {row_num}: {dict(row)}")
                         
-                        # Map CSV columns to account fields
+                        # Map CSV columns to account fields with consistent field names
                         account_data = {
                             'account': row.get('Account', '').strip(),
                             'email': row.get('Email', '').strip(),
                             'location': row.get('Location', '').strip(),
                             'value': row.get('Value', '').strip(),
-                            'status': row.get('Status', '').strip(),
+                            'status': row.get('Status', 'Ready').strip(),  # Default to Ready
                             'station': row.get('Station', '').strip(),
                             'gear': row.get('Gear', '').strip(),
                             'holding': row.get('Holding', '').strip(),
                             'last_seen': datetime.now().isoformat(),
-                            'created_date': datetime.now().isoformat()
+                            'created_date': datetime.now().isoformat(),
+                            'id': f"imported_{accounts_imported + 1}_{datetime.now().timestamp()}"
                         }
-                        
-                        # Debug: Log the processed account data
-                        log_info(f"Processed account data: {account_data}")
                         
                         # Validate account data
                         if self._validate_account_data(account_data):
                             # Check for duplicates
                             if not self._is_duplicate_account(account_data):
-                                # Add to accounts list
+                                # Add to local accounts list first
                                 self.accounts.append(account_data)
                                 
-                                # Add to account manager using proper method
+                                # Add to account manager
                                 try:
                                     account_manager.add_account(account_data)
                                     log_info(f"Successfully added account to manager: {account_data['account']}")
@@ -992,46 +997,43 @@ class DayZAccountTracker(QWidget):
                         log_error(f"Error processing row {row_num}: {e}")
                         continue
             
-            # Update local accounts list from account manager
-            self.accounts = account_manager.accounts.copy()
-            log_info(f"Updated local accounts list: {len(self.accounts)} accounts")
-            
-            # Debug: Print account details
-            for i, acc in enumerate(self.accounts):
-                log_info(f"Account {i+1}: {acc.get('account', 'N/A')} - {acc.get('status', 'N/A')}")
-            
-            # Force reload accounts from storage to ensure synchronization
+            # Save all imported accounts at once
             try:
-                log_info("Forcing reload of accounts from storage...")
-                self.load_accounts()
-                log_info(f"Reloaded accounts: {len(self.accounts)} accounts")
+                account_manager.save_changes(account_manager.accounts)
+                log_info("Saved all imported accounts to storage")
             except Exception as e:
-                log_warning(f"Failed to reload accounts: {e}")
+                log_error(f"Failed to save imported accounts: {e}")
             
-            # Update the display
-            log_info("Refreshing account table display...")
-            self.refresh_account_table()
-            log_info("Account table display refreshed")
+            # Update the display immediately
+            log_info("Refreshing account table and statistics...")
             
-            # Debug: Check if table has rows after refresh
-            log_info(f"Table row count after refresh: {self.account_table.rowCount()}")
-            log_info(f"Table column count after refresh: {self.account_table.columnCount()}")
-            
-            # Debug: Check if table is visible and properly initialized
-            log_info(f"Table is visible: {self.account_table.isVisible()}")
-            log_info(f"Table parent is visible: {self.account_table.parent().isVisible() if self.account_table.parent() else 'No parent'}")
-            log_info(f"Table size: {self.account_table.size()}")
-            log_info(f"Table geometry: {self.account_table.geometry()}")
-            
-            # Debug: Check if accounts are actually in the table
-            log_info(f"Table item count check:")
-            for row in range(self.account_table.rowCount()):
-                account_item = self.account_table.item(row, 0)
-                if account_item:
-                    log_info(f"Row {row}: {account_item.text()}")
-                else:
-                    log_info(f"Row {row}: No item")
-            
+            # Force table update to ensure data is displayed
+            if hasattr(self, 'account_table'):
+                log_info("Clearing and rebuilding account table...")
+                self.account_table.clearContents()
+                self.account_table.setRowCount(0)  # Reset row count
+                
+                # Ensure we have the latest data from account manager
+                self.accounts = account_manager.accounts.copy()
+                log_info(f"Updated local accounts list: {len(self.accounts)} accounts")
+                
+                # Rebuild table with new data
+                self.setup_account_table(self.accounts)
+                
+                # Force refresh of statistics
+                self.update_statistics()
+                
+                # Ensure table is visible and properly sized
+                self.account_table.resizeColumnsToContents()
+                self.account_table.setVisible(True)
+                
+                log_info(f"Table rebuilt with {len(self.accounts)} accounts")
+                log_info(f"Table now has {self.account_table.rowCount()} rows")
+                
+                # Debug: Check if accounts are actually in the table
+                for i, acc in enumerate(self.accounts):
+                    log_info(f"Account {i+1}: {acc.get('account', 'N/A')} - {acc.get('status', 'N/A')}")
+                
             # Show results
             QMessageBox.information(
                 self, 
@@ -1043,6 +1045,7 @@ class DayZAccountTracker(QWidget):
             )
             
             log_info(f"CSV import completed: {accounts_imported} imported, {accounts_skipped} skipped")
+            log_info(f"Final account count: {len(self.accounts)}")
             
         except Exception as e:
             log_error(f"Failed to process CSV file: {e}")

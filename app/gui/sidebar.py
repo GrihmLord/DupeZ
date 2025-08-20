@@ -33,12 +33,64 @@ class Sidebar(QWidget):
         self.start_status_updates()
     
     def init_ui(self):
-        """Initialize the user interface with lagswitch styling"""
+        """Initialize the user interface with improved organization and readability"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(8, 8, 8, 8)  # Reduced margins for more space
-        layout.setSpacing(8)  # Reduced spacing for more compact layout
+        layout.setContentsMargins(8, 8, 8, 8)  # Reduced margins for compact layout
+        layout.setSpacing(8)  # Reduced spacing for better organization
         
-        # Title with hacker styling
+        # Apply cleaner, more readable styling
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #1e1e1e;
+                color: #ffffff;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 10px;
+            }
+            QGroupBox {
+                font-weight: bold;
+                font-size: 11px;
+                border: 1px solid #444444;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding: 8px;
+                background-color: #2a2a2a;
+                color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 5px 0 5px;
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QLabel {
+                color: #ffffff;
+                font-size: 10px;
+                padding: 2px;
+                margin: 1px;
+            }
+            QPushButton {
+                background-color: #3a3a3a;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 4px;
+                padding: 6px 8px;
+                font-weight: bold;
+                font-size: 10px;
+                min-height: 18px;
+                max-height: 28px;
+            }
+            QPushButton:hover {
+                background-color: #4a4a4a;
+                border-color: #666666;
+            }
+            QPushButton:pressed {
+                background-color: #2a2a2a;
+            }
+        """)
+        
+        # Compact title with improved styling
         title_label = QLabel("⚡ DUPEZ ⚡")
         title_label.setObjectName("title_label")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -48,8 +100,10 @@ class Sidebar(QWidget):
                 font-weight: bold;
                 color: #00ffff;
                 border: 2px solid #00ffff;
-                padding: 6px;
+                padding: 8px;
                 background-color: #1a1a1a;
+                border-radius: 8px;
+                margin: 2px;
             }
         """)
         layout.addWidget(title_label)
@@ -58,10 +112,23 @@ class Sidebar(QWidget):
         network_group = QGroupBox("🌐 NETWORK STATUS")
         network_layout = QVBoxLayout()
         
-        # Network information display
-        self.network_info_label = QLabel("Initializing...")
+        # Compact network information display
+        self.network_info_label = QLabel("Initializing network...")
         self.network_info_label.setObjectName("network_info")
         self.network_info_label.setWordWrap(True)
+        self.network_info_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 9px;
+                padding: 4px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                border: 1px solid #555555;
+                min-height: 25px;
+                max-height: 60px;
+            }
+        """)
         network_layout.addWidget(self.network_info_label)
         
         network_group.setLayout(network_layout)
@@ -71,24 +138,72 @@ class Sidebar(QWidget):
         status_group = QGroupBox("SYSTEM STATUS")
         status_layout = QVBoxLayout()
         
-        # Device count with enhanced display
-        self.device_count_label = QLabel("📱 DEVICES: 0")
+        # Compact, organized status displays
+        self.device_count_label = QLabel("📱 Devices: 0")
         self.device_count_label.setObjectName("device_count")
+        self.device_count_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 10px;
+                padding: 4px 6px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                border: 1px solid #555555;
+                margin: 1px;
+            }
+        """)
         status_layout.addWidget(self.device_count_label)
         
         # Smart mode status
-        self.smart_mode_status = QLabel("🧠 SMART MODE: OFF")
+        self.smart_mode_status = QLabel("🧠 Smart Mode: OFF")
         self.smart_mode_status.setObjectName("status_label")
+        self.smart_mode_status.setStyleSheet("""
+            QLabel {
+                color: #ff6b6b;
+                font-weight: bold;
+                font-size: 10px;
+                padding: 4px 6px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                border: 1px solid #555555;
+                margin: 1px;
+            }
+        """)
         status_layout.addWidget(self.smart_mode_status)
         
         # Blocking status
-        self.blocking_status = QLabel("🔒 BLOCKING: NONE")
+        self.blocking_status = QLabel("🔒 Blocking: None")
         self.blocking_status.setObjectName("status_label")
+        self.blocking_status.setStyleSheet("""
+            QLabel {
+                color: #4ecdc4;
+                font-weight: bold;
+                font-size: 10px;
+                padding: 4px 6px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                border: 1px solid #555555;
+                margin: 1px;
+            }
+        """)
         status_layout.addWidget(self.blocking_status)
         
         # Scan status
-        self.scan_status = QLabel("🔍 SCAN: READY")
+        self.scan_status = QLabel("🔍 Scan: Ready")
         self.scan_status.setObjectName("status_label")
+        self.scan_status.setStyleSheet("""
+            QLabel {
+                color: #95e1d3;
+                font-weight: bold;
+                font-size: 10px;
+                padding: 4px 6px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                border: 1px solid #555555;
+                margin: 1px;
+            }
+        """)
         status_layout.addWidget(self.scan_status)
         
         # Traffic display removed for optimization
@@ -101,56 +216,58 @@ class Sidebar(QWidget):
         controls_group.setVisible(True)  # Ensure visibility
         controls_layout = QVBoxLayout()
         
-        # Enhanced control buttons with terminal styling - more compact
-        self.smart_mode_btn = QPushButton("🧠 SMART MODE")
+        # Compact, organized control buttons
+        self.smart_mode_btn = QPushButton("🧠 Smart Mode")
         self.smart_mode_btn.setObjectName("smart_mode_btn")
         self.smart_mode_btn.setCheckable(True)
-        self.smart_mode_btn.setMaximumHeight(35)  # Compact height
+        self.smart_mode_btn.setMaximumHeight(26)
         self.smart_mode_btn.clicked.connect(self.toggle_smart_mode)
         controls_layout.addWidget(self.smart_mode_btn)
         
         # Scan button
-        self.scan_btn = QPushButton("🔍 SCAN NETWORK")
+        self.scan_btn = QPushButton("🔍 Scan Network")
         self.scan_btn.setObjectName("scan_btn")
-        self.scan_btn.setMaximumHeight(35)  # Compact height
+        self.scan_btn.setMaximumHeight(26)
         self.scan_btn.clicked.connect(self.request_scan)
         controls_layout.addWidget(self.scan_btn)
         
         # Quick scan button
-        self.quick_scan_btn = QPushButton("⚡ QUICK SCAN")
+        self.quick_scan_btn = QPushButton("⚡ Quick Scan")
         self.quick_scan_btn.setObjectName("scan_btn")
-        self.quick_scan_btn.setMaximumHeight(35)  # Compact height
+        self.quick_scan_btn.setMaximumHeight(26)
         self.quick_scan_btn.clicked.connect(self.request_quick_scan)
         controls_layout.addWidget(self.quick_scan_btn)
         
         # PS5 restoration button
-        self.ps5_restore_btn = QPushButton("🎮 RESTORE PS5")
+        self.ps5_restore_btn = QPushButton("🎮 Restore PS5")
         self.ps5_restore_btn.setObjectName("block_btn")
-        self.ps5_restore_btn.setMaximumHeight(35)  # Compact height
+        self.ps5_restore_btn.setMaximumHeight(26)
         self.ps5_restore_btn.setStyleSheet("""
             QPushButton {
-                background-color: #ff4444;
+                background-color: #ff6b6b;
                 color: #ffffff;
                 font-weight: bold;
+                border: 1px solid #ff5252;
             }
             QPushButton:hover {
-                background-color: #cc3333;
+                background-color: #ff5252;
+                border-color: #ff1744;
             }
         """)
         self.ps5_restore_btn.clicked.connect(self.restore_ps5_internet)
         controls_layout.addWidget(self.ps5_restore_btn)
         
         # Clear data button
-        self.clear_btn = QPushButton("🗑️ CLEAR DATA")
+        self.clear_btn = QPushButton("🗑️ Clear Data")
         self.clear_btn.setObjectName("block_btn")
-        self.clear_btn.setMaximumHeight(35)  # Compact height
+        self.clear_btn.setMaximumHeight(26)
         self.clear_btn.clicked.connect(self.clear_data)
         controls_layout.addWidget(self.clear_btn)
         
         # Settings button
-        self.settings_btn = QPushButton("⚙️ SETTINGS")
+        self.settings_btn = QPushButton("⚙️ Settings")
         self.settings_btn.setObjectName("refresh_btn")
-        self.settings_btn.setMaximumHeight(35)  # Compact height
+        self.settings_btn.setMaximumHeight(26)
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         controls_layout.addWidget(self.settings_btn)
         
@@ -286,13 +403,16 @@ class Sidebar(QWidget):
                     QPushButton {
                         background-color: #4CAF50;
                         color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
+                        border: 2px solid #45a049;
+                        padding: 10px;
+                        border-radius: 6px;
                         font-weight: bold;
+                        font-size: 11px;
+                        min-height: 25px;
                     }
                     QPushButton:hover {
                         background-color: #45a049;
+                        border-color: #4CAF50;
                     }
                 """)
             else:
@@ -301,13 +421,16 @@ class Sidebar(QWidget):
                     QPushButton {
                         background-color: #f44336;
                         color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
+                        border: 2px solid #d32f2f;
+                        padding: 10px;
+                        border-radius: 6px;
                         font-weight: bold;
+                        font-size: 11px;
+                        min-height: 25px;
                     }
                     QPushButton:hover {
                         background-color: #da190b;
+                        border-color: #f44336;
                     }
                 """)
                 
@@ -326,10 +449,12 @@ class Sidebar(QWidget):
                     QPushButton {
                         background-color: #ff9800;
                         color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
+                        border: 2px solid #f57c00;
+                        padding: 10px;
+                        border-radius: 6px;
                         font-weight: bold;
+                        font-size: 11px;
+                        min-height: 25px;
                     }
                 """)
             else:
@@ -339,13 +464,16 @@ class Sidebar(QWidget):
                     QPushButton {
                         background-color: #2196F3;
                         color: white;
-                        border: none;
-                        padding: 8px;
-                        border-radius: 4px;
+                        border: 2px solid #1976D2;
+                        padding: 10px;
+                        border-radius: 6px;
                         font-weight: bold;
+                        font-size: 11px;
+                        min-height: 25px;
                     }
                     QPushButton:hover {
                         background-color: #1976D2;
+                        border-color: #2196F3;
                     }
                 """)
                 
@@ -370,9 +498,11 @@ class Sidebar(QWidget):
                         QLabel {
                             color: #4caf50;
                             font-weight: bold;
-                            padding: 4px;
+                            padding: 8px;
                             background-color: #1b5e20;
-                            border-radius: 4px;
+                            border-radius: 6px;
+                            border: 1px solid #4caf50;
+                            font-size: 12px;
                         }
                     """)
                 else:
@@ -394,9 +524,11 @@ class Sidebar(QWidget):
                         QLabel {{
                             color: {color};
                             font-weight: bold;
-                            padding: 4px;
+                            padding: 8px;
                             background-color: {bg_color};
-                            border-radius: 4px;
+                            border-radius: 6px;
+                            border: 1px solid {color};
+                            font-size: 12px;
                         }}
                     """)
             else:
@@ -407,9 +539,11 @@ class Sidebar(QWidget):
                         QLabel {
                             color: #f44336;
                             font-weight: bold;
-                            padding: 4px;
+                            padding: 8px;
                             background-color: #b71c1c;
-                            border-radius: 4px;
+                            border-radius: 6px;
+                            border: 1px solid #f44336;
+                            font-size: 12px;
                         }
                     """)
                 else:
@@ -418,9 +552,11 @@ class Sidebar(QWidget):
                         QLabel {
                             color: #4caf50;
                             font-weight: bold;
-                            padding: 4px;
+                            padding: 8px;
                             background-color: #1b5e20;
-                            border-radius: 4px;
+                            border-radius: 6px;
+                            border: 1px solid #4caf50;
+                            font-size: 12px;
                         }
                     """)
                     
@@ -501,17 +637,57 @@ class Sidebar(QWidget):
                         self.update_smart_mode_status(enabled)
                         if enabled:
                             self.smart_mode_status.setText("🧠 SMART MODE: ON")
-                            self.smart_mode_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                            self.smart_mode_status.setStyleSheet("""
+            QLabel {
+                color: #00ff00;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #1b5e20;
+                border-radius: 6px;
+                border: 1px solid #00ff00;
+            }
+        """)
                         else:
                             self.smart_mode_status.setText("🧠 SMART MODE: OFF")
-                            self.smart_mode_status.setStyleSheet("color: #ff0000; font-weight: bold;")
+                            self.smart_mode_status.setStyleSheet("""
+            QLabel {
+                color: #ff0000;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #b71c1c;
+                border-radius: 6px;
+                border: 1px solid #ff0000;
+            }
+        """)
                     else:
                         self.smart_mode_status.setText("🧠 SMART MODE: ERROR")
-                        self.smart_mode_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                        self.smart_mode_status.setStyleSheet("""
+            QLabel {
+                color: #ff8800;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #e65100;
+                border-radius: 6px;
+                border: 1px solid #ff8800;
+            }
+        """)
                 except Exception as e:
                     log_error(f"Smart mode status error: {e}")
                     self.smart_mode_status.setText("🧠 SMART MODE: ERROR")
-                    self.smart_mode_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                    self.smart_mode_status.setStyleSheet("""
+            QLabel {
+                color: #ff8800;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #e65100;
+                border-radius: 6px;
+                border: 1px solid #ff8800;
+            }
+        """)
                 
                 # Update blocking status with real blocked devices
                 try:
@@ -519,15 +695,45 @@ class Sidebar(QWidget):
                     if blocked_devices and len(blocked_devices) > 0:
                         self.update_blocking_status(True)
                         self.blocking_status.setText(f"🔒 BLOCKING: {len(blocked_devices)} DEVICES")
-                        self.blocking_status.setStyleSheet("color: #ff0000; font-weight: bold;")
+                        self.blocking_status.setStyleSheet("""
+            QLabel {
+                color: #ff0000;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #b71c1c;
+                border-radius: 6px;
+                border: 1px solid #ff0000;
+            }
+        """)
                     else:
                         self.update_blocking_status(False)
                         self.blocking_status.setText("🔒 BLOCKING: NONE")
-                        self.blocking_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                        self.blocking_status.setStyleSheet("""
+            QLabel {
+                color: #00ff00;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #1b5e20;
+                border-radius: 6px;
+                border: 1px solid #00ff00;
+            }
+        """)
                 except Exception as e:
                     log_error(f"Blocking status error: {e}")
                     self.blocking_status.setText("🔒 BLOCKING: ERROR")
-                    self.blocking_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                    self.blocking_status.setStyleSheet("""
+            QLabel {
+                color: #ff8800;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #e65100;
+                border-radius: 6px;
+                border: 1px solid #ff8800;
+            }
+        """)
                 
                 # Traffic status removed for optimization
                 
@@ -536,15 +742,45 @@ class Sidebar(QWidget):
                     if self.controller.is_scanning():
                         self.update_scan_status(True)
                         self.scan_status.setText("🔍 SCAN: IN PROGRESS")
-                        self.scan_status.setStyleSheet("color: #ffff00; font-weight: bold;")
+                        self.scan_status.setStyleSheet("""
+            QLabel {
+                color: #ffff00;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #f57f17;
+                border-radius: 6px;
+                border: 1px solid #ffff00;
+            }
+        """)
                     else:
                         self.update_scan_status(False)
                         self.scan_status.setText("🔍 SCAN: READY")
-                        self.scan_status.setStyleSheet("color: #00ff00; font-weight: bold;")
+                        self.scan_status.setStyleSheet("""
+            QLabel {
+                color: #00ff00;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #1b5e20;
+                border-radius: 6px;
+                border: 1px solid #00ff00;
+            }
+        """)
                 except Exception as e:
                     log_error(f"Scan status error: {e}")
                     self.scan_status.setText("🔍 SCAN: ERROR")
-                    self.scan_status.setStyleSheet("color: #ff8800; font-weight: bold;")
+                    self.scan_status.setStyleSheet("""
+            QLabel {
+                color: #ff8800;
+                font-weight: bold;
+                font-size: 12px;
+                padding: 8px;
+                background-color: #e65100;
+                border-radius: 6px;
+                border: 1px solid #ff8800;
+            }
+        """)
                     
             except Exception as e:
                 log_error(f"Error updating status: {e}")

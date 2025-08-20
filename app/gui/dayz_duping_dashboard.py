@@ -48,8 +48,9 @@ class DupingSessionThread(QThread):
 class DayZDupingDashboard(QWidget):
     """DayZ Duping Network Optimization Dashboard"""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, account_tracker=None):
         super().__init__(parent)
+        self.account_tracker = account_tracker
         self.optimizer = DayZDupingOptimizer()
         self.session_thread = DupingSessionThread(self.optimizer)
         
@@ -78,6 +79,7 @@ class DayZDupingDashboard(QWidget):
         
         # Tab widget
         self.tab_widget = QTabWidget()
+        self.tab_widget.addTab(self.create_account_selection_tab(), "🎯 Account Selection")
         self.tab_widget.addTab(self.create_session_tab(), "🎮 Duping Sessions")
         self.tab_widget.addTab(self.create_network_tab(), "🌐 Network Profiles")
         self.tab_widget.addTab(self.create_techniques_tab(), "⚡ Manipulation Techniques")
@@ -161,6 +163,172 @@ class DayZDupingDashboard(QWidget):
         header_layout.addLayout(quick_actions_layout)
         
         return header_layout
+    
+    def create_account_selection_tab(self):
+        """Create the account selection tab (integrated from Duping Network Optimizer)"""
+        tab_widget = QWidget()
+        layout = QVBoxLayout()
+        
+        # Account Selection Group
+        account_group = QGroupBox("🎯 Select Accounts for Optimization")
+        account_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 13px;
+                border: 2px solid #555555;
+                border-radius: 8px;
+                margin-top: 10px;
+                padding: 15px;
+                background-color: #3a3a3a;
+                color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 15px;
+                padding: 0 8px 0 8px;
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: bold;
+            }
+        """)
+        account_layout = QVBoxLayout()
+        
+        # Account table
+        self.account_table = QTableWidget()
+        self.account_table.setColumnCount(5)
+        self.account_table.setHorizontalHeaderLabels([
+            "Select", "Account Name", "Status", "Server", "Last Used"
+        ])
+        
+        # Style the account table
+        self.account_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #2a2a2a;
+                alternate-background-color: #3a3a3a;
+                color: #ffffff;
+                gridline-color: #555555;
+                border: 1px solid #555555;
+                border-radius: 6px;
+                font-size: 11px;
+            }
+            QTableWidget::item {
+                padding: 6px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #4CAF50;
+                color: #ffffff;
+            }
+            QHeaderView::section {
+                background-color: #4a4a4a;
+                color: #ffffff;
+                padding: 8px;
+                border: 1px solid #555555;
+                font-weight: bold;
+                font-size: 11px;
+            }
+        """)
+        self.account_table.setAlternatingRowColors(True)
+        account_layout.addWidget(self.account_table)
+        
+        # Selection controls
+        selection_controls = QHBoxLayout()
+        
+        self.select_all_btn = QPushButton("Select All")
+        self.select_all_btn.clicked.connect(self.select_all_accounts)
+        self.select_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: 1px solid #45a049;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 11px;
+                min-width: 100px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+                border-color: #4CAF50;
+            }
+        """)
+        
+        self.clear_selection_btn = QPushButton("Clear Selection")
+        self.clear_selection_btn.clicked.connect(self.clear_account_selection)
+        self.clear_selection_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: 1px solid #d32f2f;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 11px;
+                min-width: 100px;
+                min-height: 22px;
+            }
+            QPushButton:hover {
+                background-color: #da190b;
+                border-color: #f44336;
+            }
+        """)
+        
+        selection_controls.addWidget(self.select_all_btn)
+        selection_controls.addWidget(self.clear_selection_btn)
+        selection_controls.addStretch()
+        
+        account_layout.addLayout(selection_controls)
+        account_group.setLayout(account_layout)
+        layout.addWidget(account_group)
+        
+        # Selected accounts status
+        selected_group = QGroupBox("📋 Selected Accounts Status")
+        selected_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 15px;
+                border: 3px solid #555555;
+                border-radius: 10px;
+                margin-top: 15px;
+                padding: 20px;
+                background-color: #1e1e1e;
+                color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 20px;
+                padding: 0 10px 0 10px;
+                color: #ffffff;
+                font-size: 16px;
+                font-weight: bold;
+            }
+        """)
+        selected_layout = QVBoxLayout()
+        
+        self.selected_accounts_label = QLabel("No accounts selected")
+        self.selected_accounts_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                padding: 10px;
+                background-color: #3a3a3a;
+                border-radius: 6px;
+                border: 1px solid #555555;
+            }
+        """)
+        selected_layout.addWidget(self.selected_accounts_label)
+        
+        selected_group.setLayout(selected_layout)
+        layout.addWidget(selected_group)
+        
+        tab_widget.setLayout(layout)
+        
+        # Load accounts if tracker is available
+        if self.account_tracker:
+            self.load_accounts_table()
+        
+        return tab_widget
     
     def create_session_tab(self):
         """Create the duping sessions tab"""
@@ -377,6 +545,16 @@ class DayZDupingDashboard(QWidget):
         controls_layout.addWidget(self.refresh_techniques_btn)
         controls_layout.addStretch()
         
+        # Add the missing labels directly to controls layout
+        self.total_techniques_label = QLabel("Total: 0")
+        self.total_techniques_label.setStyleSheet("color: #4CAF50; font-weight: bold; padding: 5px;")
+        self.enabled_techniques_label = QLabel("Enabled: 0")
+        self.enabled_techniques_label.setStyleSheet("color: #2196F3; font-weight: bold; padding: 5px;")
+        
+        controls_layout.addWidget(self.total_techniques_label)
+        controls_layout.addWidget(self.enabled_techniques_label)
+        controls_layout.addStretch()
+        
         techniques_layout.addLayout(controls_layout)
         techniques_group.setLayout(techniques_layout)
         layout.addWidget(techniques_group)
@@ -449,37 +627,114 @@ class DayZDupingDashboard(QWidget):
         # Real-time monitoring timer removed for optimization
     
     def apply_styling(self):
-        """Apply custom styling"""
+        """Apply custom styling with improved readability and fonts"""
         self.setStyleSheet("""
             QWidget {
-                background-color: #f5f5f5;
+                background-color: #2b2b2b;
+                color: #ffffff;
                 font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 11px;
             }
             QGroupBox {
                 font-weight: bold;
-                border: 2px solid #ddd;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
+                font-size: 12px;
+                border: 2px solid #555555;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                background-color: #3a3a3a;
+                color: #ffffff;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
-                left: 10px;
+                left: 8px;
                 padding: 0 5px 0 5px;
+                color: #ffffff;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QLabel {
+                color: #ffffff;
+                font-size: 11px;
+                font-weight: normal;
+            }
+            QPushButton {
+                background-color: #4a4a4a;
+                color: #ffffff;
+                border: 1px solid #666666;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 11px;
+                min-height: 20px;
+            }
+            QPushButton:hover {
+                background-color: #5a5a5a;
+                border-color: #777777;
+            }
+            QPushButton:pressed {
+                background-color: #3a3a3a;
+            }
+            QLineEdit, QComboBox, QSpinBox {
+                background-color: #3a3a3a;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 4px 6px;
+                font-size: 11px;
+                min-height: 18px;
+            }
+            QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+                border-color: #4CAF50;
             }
             QTableWidget {
-                gridline-color: #ddd;
-                background-color: white;
-                alternate-background-color: #f9f9f9;
+                gridline-color: #555555;
+                background-color: #2a2a2a;
+                alternate-background-color: #3a3a3a;
+                color: #ffffff;
+                font-size: 10px;
             }
             QTableWidget::item {
-                padding: 5px;
+                padding: 4px;
+                border: none;
             }
             QHeaderView::section {
-                background-color: #e0e0e0;
-                padding: 5px;
-                border: 1px solid #ddd;
+                background-color: #4a4a4a;
+                color: #ffffff;
+                padding: 6px;
+                border: 1px solid #555555;
                 font-weight: bold;
+                font-size: 10px;
+            }
+            QTabWidget::pane {
+                border: 1px solid #555555;
+                background-color: #2b2b2b;
+            }
+            QTabBar::tab {
+                background-color: #3a3a3a;
+                color: #ffffff;
+                padding: 8px 16px;
+                margin-right: 2px;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+                font-size: 11px;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #4CAF50;
+                color: #ffffff;
+            }
+            QTabBar::tab:hover {
+                background-color: #5a5a5a;
+            }
+            QTextEdit {
+                background-color: #2a2a2a;
+                color: #ffffff;
+                border: 1px solid #555555;
+                border-radius: 3px;
+                padding: 4px;
+                font-size: 10px;
+                font-family: 'Consolas', 'Monaco', monospace;
             }
         """)
     
@@ -811,14 +1066,8 @@ Traffic Patterns: {', '.join(profile['traffic_patterns'])}"""
             self.total_techniques_label.setText(str(report.get("total_techniques", 0)))
             self.enabled_techniques_label.setText(str(report.get("enabled_techniques", 0)))
             
-            # Update optimization status
+            # Update optimization status (removed for simplicity)
             status = report.get("optimization_status", "stopped")
-            self.optimization_status_label.setText(status.title())
-            
-            if status == "running":
-                self.optimization_status_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #4CAF50;")
-            else:
-                self.optimization_status_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #f44336;")
             
             # Update last update time
             self.last_update_label.setText(f"Last update: {datetime.now().strftime('%H:%M:%S')}")
@@ -833,6 +1082,76 @@ Traffic Patterns: {', '.join(profile['traffic_patterns'])}"""
     # clear_performance_logs removed for optimization
     
     # export_performance_logs removed for optimization
+    
+    def load_accounts_table(self):
+        """Load accounts from account tracker into the table"""
+        try:
+            if not self.account_tracker:
+                return
+                
+            accounts = self.account_tracker.accounts
+            self.account_table.setRowCount(len(accounts))
+            
+            for row, account_id in enumerate(accounts.keys()):
+                account = accounts[account_id]
+                
+                # Checkbox for selection
+                checkbox = QCheckBox()
+                checkbox.stateChanged.connect(self.update_selected_accounts)
+                self.account_table.setCellWidget(row, 0, checkbox)
+                
+                # Account details
+                self.account_table.setItem(row, 1, QTableWidgetItem(account.get('username', 'Unknown')))
+                self.account_table.setItem(row, 2, QTableWidgetItem(account.get('status', 'Unknown')))
+                self.account_table.setItem(row, 3, QTableWidgetItem(account.get('server_location', 'Unknown')))
+                self.account_table.setItem(row, 4, QTableWidgetItem(account.get('last_login', 'Never')))
+                
+        except Exception as e:
+            log_error(f"Failed to load accounts table: {e}")
+    
+    def select_all_accounts(self):
+        """Select all accounts in the table"""
+        try:
+            for row in range(self.account_table.rowCount()):
+                checkbox = self.account_table.cellWidget(row, 0)
+                if checkbox:
+                    checkbox.setChecked(True)
+        except Exception as e:
+            log_error(f"Failed to select all accounts: {e}")
+    
+    def clear_account_selection(self):
+        """Clear all account selections"""
+        try:
+            for row in range(self.account_table.rowCount()):
+                checkbox = self.account_table.cellWidget(row, 0)
+                if checkbox:
+                    checkbox.setChecked(False)
+        except Exception as e:
+            log_error(f"Failed to clear account selection: {e}")
+    
+    def update_selected_accounts(self):
+        """Update the selected accounts status"""
+        try:
+            selected_count = 0
+            selected_accounts = []
+            
+            for row in range(self.account_table.rowCount()):
+                checkbox = self.account_table.cellWidget(row, 0)
+                if checkbox and checkbox.isChecked():
+                    selected_count += 1
+                    account_name = self.account_table.item(row, 1)
+                    if account_name:
+                        selected_accounts.append(account_name.text())
+            
+            if selected_count == 0:
+                self.selected_accounts_label.setText("No accounts selected")
+            elif selected_count == 1:
+                self.selected_accounts_label.setText(f"1 account selected: {selected_accounts[0]}")
+            else:
+                self.selected_accounts_label.setText(f"{selected_count} accounts selected")
+                
+        except Exception as e:
+            log_error(f"Failed to update selected accounts: {e}")
     
     def closeEvent(self, event):
         """Handle application close event"""

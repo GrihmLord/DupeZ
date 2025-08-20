@@ -12,7 +12,7 @@
   "connection_limit": 100,
   "suspicious_activity_threshold": 20,
   "block_duration": 30,
-  "theme": "dark",
+  "theme": "hacker",
   "auto_refresh": false,
   "refresh_interval": 60,
   "show_device_icons": true,
