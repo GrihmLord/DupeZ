@@ -156,160 +156,53 @@ class DayZMapGUI(QWidget):
         self.map_view = None
         self.map_placeholder = None
         
-        try:
-            # Create WebEngine view with proper error handling
-            self.map_view = QWebEngineView()
-            self.map_view.setMinimumHeight(500)
-            self.map_view.setMinimumWidth(400)
-            
-            # Set up error handling for the WebEngine (with proper error checking)
-            try:
-                self.map_view.page().javaScriptConsoleMessage.connect(self.handle_js_console)
-            except Exception as e:
-                log_warning(f"Could not connect JavaScript console handler: {e}")
-            
-            # Apply styling
-            self.map_view.setStyleSheet("""
-                QWebEngineView {
-                    border: 2px solid #4CAF50;
-                    border-radius: 8px;
-                    background-color: #1a1a1a;
-                }
-            """)
-            
-            # Add to layout
-            map_layout.addWidget(self.map_view)
-            
-            # Load interactive map after a short delay to ensure WebEngine is ready
-            QTimer.singleShot(1000, self.load_izurvive_map)
-            log_info("WebEngine initialized successfully, map will load in 1 second")
-            
-            # Set up load finished handler (with proper error checking)
-            try:
-                self.map_view.loadFinished.connect(self.on_map_load_finished)
-            except Exception as e:
-                log_warning(f"Could not connect load finished handler: {e}")
-            
-        except Exception as e:
-            log_error(f"WebEngine initialization failed: {e}")
+        # Check admin status first
+        import ctypes
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+        
+        if is_admin:
+            # Admin mode - skip WebEngine entirely and use local map
+            log_info("Running as Administrator - using local interactive map system")
             self.map_view = None
-            
-            # Create enhanced fallback with better admin privilege handling
-            self.map_placeholder = QLabel()
-            self.map_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.map_placeholder.setStyleSheet("""
-                QLabel {
-                    background-color: #1a1a1a;
-                    border: 2px solid #555555;
-                    border-radius: 8px;
-                    padding: 40px;
-                    color: #ffffff;
-                    font-size: 14px;
-                    line-height: 1.5;
-                }
-            """)
-            self.map_placeholder.setMinimumHeight(500)
-            
-            # Check if running as admin and provide specific guidance
-            import ctypes
-            is_admin = ctypes.windll.shell32.IsUserAnAdmin()
-            
-            if is_admin:
-                # Create an enhanced local map for admin users
-                admin_message = f"""🗺️ Interactive DayZ Map (Admin Mode)
-
-✅ Local Map System Active
-
-Since you're running as Administrator, we've created a local interactive map system.
-
-🔧 Features Available:
-1. ✅ GPS Coordinate System
-2. ✅ Add/Remove Markers  
-3. ✅ Loot Location Tracking
-4. ✅ Export/Import Data
-5. ✅ Quick Actions
-
-📊 Current Map: {self.current_map}
-📍 GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}
-
-🌐 For full iZurvive experience:
-   Visit: https://www.izurvive.com
-
-💡 Tip: Use the controls on the right to manage your map data!"""
-            else:
-                admin_message = f"""🗺️ Interactive DayZ Map
-
-⚠️  WebEngine Not Available
-
-The map cannot load due to WebEngine issues.
-This may be due to missing dependencies or system configuration.
-
-🔧 Solutions:
-1. Install PyQt6-WebEngine: pip install PyQt6-WebEngine
-2. Use the map controls on the right side
-3. Access iZurvive directly: https://www.izurvive.com
-
-📊 Current Map: {self.current_map}
-📍 GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}"""
-            
-            self.map_placeholder.setText(admin_message)
-            
-            # For admin users, create a fully functional local interactive map
-            if is_admin:
-                # Create a local HTML map that works without WebEngine
-                local_map_html = self.create_admin_interactive_map()
+            self.create_admin_map_system(map_layout)
+        else:
+            # Non-admin mode - try WebEngine
+            try:
+                # Create WebEngine view with proper error handling
+                self.map_view = QWebEngineView()
+                self.map_view.setMinimumHeight(500)
+                self.map_view.setMinimumWidth(400)
                 
-                # Create a QTextEdit to display the HTML map
-                self.admin_map_view = QTextEdit()
-                self.admin_map_view.setHtml(local_map_html)
-                self.admin_map_view.setReadOnly(True)
-                self.admin_map_view.setStyleSheet("""
-                    QTextEdit {
-                        background-color: #1a1a1a;
+                # Apply styling
+                self.map_view.setStyleSheet("""
+                    QWebEngineView {
                         border: 2px solid #4CAF50;
                         border-radius: 8px;
-                        color: #ffffff;
-                        font-family: Arial, sans-serif;
-                        font-size: 12px;
+                        background-color: #1a1a1a;
                     }
                 """)
-                self.admin_map_view.setMinimumHeight(500)
                 
-                # Add the local map to the layout (admin users get the interactive map)
-                map_layout.addWidget(self.admin_map_view)
+                # Add to layout
+                map_layout.addWidget(self.map_view)
                 
-                log_info("Created admin interactive map system")
-            else:
-                # For non-admin users, show the enhanced placeholder
-                self.map_placeholder.setOpenExternalLinks(True)
-                self.map_placeholder.setTextFormat(Qt.TextFormat.RichText)
-                enhanced_message = f"""<div style='text-align: center; color: white; font-family: Arial;'>
-<h2 style='color: #4CAF50;'>🗺️ Interactive DayZ Map</h2>
-
-<p style='color: #90EE90; font-size: 14px;'><b>⚠️ WebEngine Not Available</b></p>
-
-<p>The map cannot load due to WebEngine issues.</p>
-
-<h3 style='color: #FFA500;'>🔧 Solutions:</h3>
-<p style='text-align: left; margin-left: 20px;'>
-• Install PyQt6-WebEngine: pip install PyQt6-WebEngine<br/>
-• Use the map controls on the right side<br/>
-• Access iZurvive directly: https://www.izurvive.com
-</p>
-
-<p style='color: #87CEEB;'><b>📊 Current Map:</b> {self.current_map}</p>
-<p style='color: #87CEEB;'><b>📍 GPS:</b> {self.gps_coordinates['x']}/{self.gps_coordinates['y']}</p>
-
-<p style='color: #FFB6C1;'><b>🌐 For full iZurvive experience:</b></p>
-<p><a href='https://www.izurvive.com' style='color: #87CEEB; text-decoration: underline;'>Visit: https://www.izurvive.com</a></p>
-
-<p style='color: #98FB98; font-size: 12px;'><b>💡 Tip:</b> Use the controls on the right to manage your map data!</p>
-</div>"""
-                self.map_placeholder.setText(enhanced_message)
+                # Load interactive map after a short delay to ensure WebEngine is ready
+                QTimer.singleShot(1000, self.load_izurvive_map)
+                log_info("WebEngine initialized successfully, map will load in 1 second")
                 
-                # Only add placeholder for non-admin users
-                map_layout.addWidget(self.map_placeholder)
-            log_warning(f"WebEngine not available - using enhanced fallback (Admin: {is_admin})")
+                # Set up load finished handler (with proper error checking)
+                try:
+                    self.map_view.loadFinished.connect(self.on_map_load_finished)
+                except Exception as e:
+                    log_warning(f"Could not connect load finished handler: {e}")
+                
+                # Set up WebEngine signals safely after a delay
+                QTimer.singleShot(2000, self.setup_webengine_signals)
+                
+            except Exception as e:
+                log_error(f"WebEngine initialization failed: {e}")
+                self.map_view = None
+                # Fallback to local map for non-admin users too
+                self.create_local_map_fallback(map_layout)
         
         map_group.setLayout(map_layout)
         splitter.addWidget(map_group)
@@ -1631,6 +1524,18 @@ This may be due to missing dependencies or system configuration.
         except Exception as e:
             log_error(f"Error handling JS console message: {e}")
     
+    def setup_webengine_signals(self):
+        """Setup WebEngine signals safely"""
+        try:
+            if hasattr(self, 'map_view') and self.map_view is not None:
+                # Set up JavaScript console handler safely
+                try:
+                    self.map_view.page().javaScriptConsoleMessage.connect(self.handle_js_console)
+                except Exception as e:
+                    log_warning(f"Could not connect JavaScript console handler: {e}")
+        except Exception as e:
+            log_warning(f"Could not setup WebEngine signals: {e}")
+    
     def on_map_load_finished(self, success):
         """Handle map load completion"""
         try:
@@ -1642,6 +1547,133 @@ This may be due to missing dependencies or system configuration.
                 self.create_local_interactive_map()
         except Exception as e:
             log_error(f"Error in map load finished handler: {e}")
+    
+    def create_admin_map_system(self, map_layout):
+        """Create the admin map system without WebEngine"""
+        try:
+            # Create a local HTML map that works without WebEngine
+            local_map_html = self.create_admin_interactive_map()
+            
+            # Create a QTextEdit to display the HTML map
+            self.admin_map_view = QTextEdit()
+            self.admin_map_view.setHtml(local_map_html)
+            self.admin_map_view.setReadOnly(True)
+            self.admin_map_view.setStyleSheet("""
+                QTextEdit {
+                    background-color: #1a1a1a;
+                    border: 2px solid #4CAF50;
+                    border-radius: 8px;
+                    color: #ffffff;
+                    font-family: Arial, sans-serif;
+                    font-size: 12px;
+                }
+            """)
+            self.admin_map_view.setMinimumHeight(500)
+            
+            # Add the local map to the layout
+            map_layout.addWidget(self.admin_map_view)
+            
+            log_info("Created admin interactive map system successfully")
+            
+        except Exception as e:
+            log_error(f"Failed to create admin map system: {e}")
+            # Fallback to simple text display
+            self.create_simple_admin_fallback(map_layout)
+    
+    def create_local_map_fallback(self, map_layout):
+        """Create a local map fallback for non-admin users when WebEngine fails"""
+        try:
+            # Create enhanced placeholder
+            self.map_placeholder = QLabel()
+            self.map_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.map_placeholder.setStyleSheet("""
+                QLabel {
+                    background-color: #1a1a1a;
+                    border: 2px solid #555555;
+                    border-radius: 8px;
+                    padding: 40px;
+                    color: #ffffff;
+                    font-size: 14px;
+                    line-height: 1.5;
+                }
+            """)
+            self.map_placeholder.setMinimumHeight(500)
+            
+            self.map_placeholder.setOpenExternalLinks(True)
+            self.map_placeholder.setTextFormat(Qt.TextFormat.RichText)
+            enhanced_message = f"""<div style='text-align: center; color: white; font-family: Arial;'>
+<h2 style='color: #4CAF50;'>🗺️ Interactive DayZ Map</h2>
+
+<p style='color: #90EE90; font-size: 14px;'><b>⚠️ WebEngine Not Available</b></p>
+
+<p>The map cannot load due to WebEngine issues.</p>
+
+<h3 style='color: #FFA500;'>🔧 Solutions:</h3>
+<p style='text-align: left; margin-left: 20px;'>
+• Install PyQt6-WebEngine: pip install PyQt6-WebEngine<br/>
+• Use the map controls on the right side<br/>
+• Access iZurvive directly: https://www.izurvive.com
+</p>
+
+<p style='color: #87CEEB;'><b>📊 Current Map:</b> {self.current_map}</p>
+<p style='color: #87CEEB;'><b>📍 GPS:</b> {self.gps_coordinates['x']}/{self.gps_coordinates['y']}</p>
+
+<p style='color: #FFB6C1;'><b>🌐 For full iZurvive experience:</b></p>
+<p><a href='https://www.izurvive.com' style='color: #87CEEB; text-decoration: underline;'>Visit: https://www.izurvive.com</a></p>
+
+<p style='color: #98FB98; font-size: 12px;'><b>💡 Tip:</b> Use the controls on the right to manage your map data!</p>
+</div>"""
+            self.map_placeholder.setText(enhanced_message)
+            
+            map_layout.addWidget(self.map_placeholder)
+            log_info("Created local map fallback successfully")
+            
+        except Exception as e:
+            log_error(f"Failed to create local map fallback: {e}")
+    
+    def create_simple_admin_fallback(self, map_layout):
+        """Create a simple text-based fallback if HTML map creation fails"""
+        try:
+            fallback_label = QLabel(f"""🗺️ Interactive DayZ Map (Admin Mode)
+
+✅ Local Map System Active
+
+Since you're running as Administrator, we've created a local interactive map system.
+
+🔧 Features Available:
+1. ✅ GPS Coordinate System
+2. ✅ Add/Remove Markers  
+3. ✅ Loot Location Tracking
+4. ✅ Export/Import Data
+5. ✅ Quick Actions
+
+📊 Current Map: {self.current_map}
+📍 GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}
+
+🌐 For full iZurvive experience:
+   Visit: https://www.izurvive.com
+
+💡 Tip: Use the controls on the right to manage your map data!""")
+            
+            fallback_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            fallback_label.setStyleSheet("""
+                QLabel {
+                    background-color: #1a1a1a;
+                    border: 2px solid #4CAF50;
+                    border-radius: 8px;
+                    padding: 40px;
+                    color: #ffffff;
+                    font-size: 14px;
+                    line-height: 1.5;
+                }
+            """)
+            fallback_label.setMinimumHeight(500)
+            
+            map_layout.addWidget(fallback_label)
+            log_info("Created simple admin fallback successfully")
+            
+        except Exception as e:
+            log_error(f"Failed to create simple admin fallback: {e}")
     
     def create_admin_interactive_map(self):
         """Create a fully functional local interactive map for admin users"""
@@ -2095,4 +2127,4 @@ WebEngine map loading failed, but we've created a local interactive map system.
             log_info("DayZ map data saved")
             
         except Exception as e:
-            log_error(f"Error during map cleanup: {e}") 
+            log_error(f"Error during map cleanup: {e}")

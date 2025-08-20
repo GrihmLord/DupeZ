@@ -1092,8 +1092,7 @@ Traffic Patterns: {', '.join(profile['traffic_patterns'])}"""
             accounts = self.account_tracker.accounts
             self.account_table.setRowCount(len(accounts))
             
-            for row, account_id in enumerate(accounts.keys()):
-                account = accounts[account_id]
+            for row, account in enumerate(accounts):
                 
                 # Checkbox for selection
                 checkbox = QCheckBox()

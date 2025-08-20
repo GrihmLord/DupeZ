@@ -387,6 +387,84 @@ class UnifiedNetworkControl(QWidget):
         packet_group.setLayout(packet_layout)
         layout.addWidget(packet_group)
         
+        # Throttle Control Group
+        throttle_group = QGroupBox("🚦 Traffic Throttling")
+        throttle_layout = QVBoxLayout()
+        
+        # Throttle rate control
+        rate_layout = QHBoxLayout()
+        rate_layout.addWidget(QLabel("Throttle Rate (%):"))
+        self.throttle_slider = QSlider(Qt.Orientation.Horizontal)
+        self.throttle_slider.setRange(0, 100)
+        self.throttle_slider.setValue(50)
+        self.throttle_slider.setToolTip("0% = no traffic, 100% = full speed")
+        rate_layout.addWidget(self.throttle_slider)
+        
+        self.throttle_label = QLabel("50%")
+        self.throttle_label.setStyleSheet("""
+            QLabel {
+                color: #ffffff;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 5px 10px;
+                background-color: #3a3a3a;
+                border-radius: 4px;
+                min-width: 50px;
+                text-align: center;
+            }
+        """)
+        rate_layout.addWidget(self.throttle_label)
+        
+        # Throttle buttons
+        throttle_button_layout = QHBoxLayout()
+        
+        self.start_throttle_btn = QPushButton("🚦 Start Throttling")
+        self.start_throttle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FF9800;
+                color: white;
+                border: 2px solid #F57C00;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #F57C00;
+                border-color: #FF9800;
+            }
+        """)
+        
+        self.stop_throttle_btn = QPushButton("⏹️ Stop Throttling")
+        self.stop_throttle_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9E9E9E;
+                color: white;
+                border: 2px solid #757575;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 12px;
+                min-width: 120px;
+                min-height: 25px;
+            }
+            QPushButton:hover {
+                background-color: #757575;
+                border-color: #9E9E9E;
+            }
+        """)
+        
+        throttle_button_layout.addWidget(self.start_throttle_btn)
+        throttle_button_layout.addWidget(self.stop_throttle_btn)
+        throttle_button_layout.addStretch()
+        
+        throttle_layout.addLayout(rate_layout)
+        throttle_layout.addLayout(throttle_button_layout)
+        throttle_group.setLayout(throttle_layout)
+        layout.addWidget(throttle_group)
+        
         # Status display
         status_group = QGroupBox("📊 Manipulation Status")
         status_layout = QVBoxLayout()
