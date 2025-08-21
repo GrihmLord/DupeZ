@@ -1,0 +1,109 @@
+{
+  "rules": [
+    {
+      "name": "DayZ TCP Priority - Main Server",
+      "priority": 100,
+      "source_ip": "192.168.1.153",
+      "dest_ip": "192.168.1.100",
+      "source_port": "any",
+      "dest_port": 2302,
+      "protocol": "tcp",
+      "action": "PRIORITIZE",
+      "bandwidth_limit": 200,
+      "latency_target": 25,
+      "enabled": true
+    },
+    {
+      "name": "DayZ UDP Priority - Main Server",
+      "priority": 100,
+      "source_ip": "192.168.1.153",
+      "dest_ip": "192.168.1.100",
+      "source_port": "any",
+      "dest_port": 2302,
+      "protocol": "udp",
+      "action": "PRIORITIZE",
+      "bandwidth_limit": 200,
+      "latency_target": 25,
+      "enabled": true
+    },
+    {
+      "name": "DayZ Alternative Ports",
+      "priority": 95,
+      "source_ip": "192.168.1.153",
+      "dest_ip": "192.168.1.101",
+      "source_port": "any",
+      "dest_port": 2303,
+      "protocol": "any",
+      "action": "PRIORITIZE",
+      "bandwidth_limit": 150,
+      "latency_target": 35,
+      "enabled": true
+    },
+    {
+      "name": "Network Server Priority",
+      "priority": 90,
+      "source_ip": "192.168.1.153",
+      "dest_ip": "10.5.0.100",
+      "source_port": "any",
+      "dest_port": 2302,
+      "protocol": "any",
+      "action": "PRIORITIZE",
+      "bandwidth_limit": 120,
+      "latency_target": 40,
+      "enabled": true
+    },
+    {
+      "name": "Non-Gaming Traffic Throttle",
+      "priority": 50,
+      "source_ip": "any",
+      "dest_ip": "any",
+      "source_port": "any",
+      "dest_port": "any",
+      "protocol": "any",
+      "action": "THROTTLE",
+      "bandwidth_limit": 50,
+      "latency_target": 200,
+      "enabled": true
+    },
+    {
+      "name": "Streaming Service Limit",
+      "priority": 30,
+      "source_ip": "any",
+      "dest_ip": "any",
+      "source_port": "any",
+      "dest_port": "any",
+      "protocol": "any",
+      "action": "THROTTLE",
+      "bandwidth_limit": 30,
+      "latency_target": 300,
+      "enabled": false
+    }
+  ],
+  "global_settings": {
+    "auto_optimization": true,
+    "optimization_interval": 30,
+    "performance_threshold": 80,
+    "bandwidth_reservation": 200,
+    "qos_enabled": true,
+    "windivert_integration": true,
+    "gaming_pc_ip": "192.168.1.153",
+    "local_networks": ["192.168.1.0/24", "10.5.0.0/24"]
+  },
+  "qos_policies": {
+    "gaming_priority": "HIGH",
+    "streaming_priority": "LOW",
+    "browsing_priority": "NORMAL",
+    "download_priority": "LOW"
+  },
+  "device_specific_rules": {
+    "192.168.1.153": {
+      "name": "Your Gaming PC",
+      "priority": "HIGHEST",
+      "bandwidth_reserved": 200,
+      "latency_target": 20,
+      "gaming_ports": [2302, 2303, 2304, 2305]
+    }
+  },
+  "last_updated": "2025-01-16T16:15:00",
+  "version": "1.0.0"
+}

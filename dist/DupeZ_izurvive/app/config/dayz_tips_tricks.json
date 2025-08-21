@@ -1,0 +1,476 @@
+{
+  "tips_categories": {
+    "performance_optimization": {
+      "title": "Performance Optimization",
+      "description": "Optimize your system and DayZ for maximum performance",
+      "icon": "🚀",
+      "tips": [
+        {
+          "id": "perf_001",
+          "title": "Graphics Settings Optimization",
+          "description": "Configure DayZ graphics for optimal performance",
+          "content": "🎮 **DayZ Graphics Settings for Maximum FPS:**\n\n**Essential Settings:**\n• Object Detail: Low/Medium (reduces CPU load)\n• Terrain Detail: Low (major FPS impact)\n• Shadow Quality: Low/Off (significant FPS boost)\n• Anti-Aliasing: Off (use GPU scaling instead)\n• Texture Quality: High (minimal FPS impact)\n• View Distance: 1500-2000m (balance performance/visibility)\n\n**Advanced Settings:**\n• HDR: Off (reduces GPU load)\n• Edge Smoothing: Off\n• Post-Process Quality: Low\n• Particle Quality: Low\n• Cloud Quality: Low\n\n**Performance Impact:**\n- Low Settings: +40-60 FPS\n- Medium Settings: +20-30 FPS\n- High Settings: Base performance",
+          "difficulty": "Beginner",
+          "fps_boost": "40-60",
+          "category": "Graphics",
+          "tags": ["fps", "graphics", "performance", "settings"],
+          "estimated_time": "15 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "perf_002",
+          "title": "Windows Performance Settings",
+          "description": "Optimize Windows for gaming performance",
+          "content": "🖥️ **Windows 10/11 Gaming Optimization:**\n\n**Power Settings:**\n• Power Plan: High Performance\n• USB Selective Suspend: Disabled\n• PCI Express Link State Power Management: Off\n• Processor Power Management: 100% minimum\n\n**Visual Effects:**\n• Adjust for Best Performance\n• Disable animations and transparency\n• Turn off unnecessary visual effects\n\n**Gaming Features:**\n• Game Mode: On\n• Hardware-accelerated GPU scheduling: On\n• Variable refresh rate: On (if supported)\n\n**Expected Results:**\n- Reduced input lag: 5-15ms\n- Improved frame stability: +10-20%\n- Better overall responsiveness",
+          "difficulty": "Intermediate",
+          "fps_boost": "15-25",
+          "category": "System",
+          "tags": ["windows", "system", "power", "gaming"],
+          "estimated_time": "20 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "perf_003",
+          "title": "Network Optimization",
+          "description": "Optimize network settings for DayZ",
+          "content": "🌐 **Network Optimization for DayZ:**\n\n**TCP/IP Settings:**\n• TCP Chimney: Enabled\n• Receive Side Scaling: Enabled\n• Network Adapter Power Management: Disabled\n• Jumbo Frames: 9014 bytes (if supported)\n\n**DNS Optimization:**\n• Primary DNS: 1.1.1.1 (Cloudflare)\n• Secondary DNS: 8.8.8.8 (Google)\n• DNS over HTTPS: Enabled\n\n**Router Settings:**\n• QoS: Prioritize gaming traffic\n• Port Forwarding: 2302-2303 (DayZ)\n• UPnP: Enabled\n• NAT Type: Open\n\n**Expected Results:**\n- Reduced latency: 10-30ms\n- Improved connection stability\n- Better server response times",
+          "difficulty": "Advanced",
+          "fps_boost": "5-15",
+          "category": "Network",
+          "tags": ["network", "tcp", "dns", "router"],
+          "estimated_time": "30 minutes",
+          "risk_level": "Medium"
+        },
+        {
+          "id": "perf_004",
+          "title": "GPU Driver Optimization",
+          "description": "Optimize GPU drivers for DayZ",
+          "content": "🎯 **GPU Driver Optimization:**\n\n**NVIDIA Settings:**\n• Power Management: Prefer Maximum Performance\n• Texture Quality: High Quality\n• Anisotropic Filtering: 16x\n• Vertical Sync: Off\n• Shader Cache: On\n• Threaded Optimization: On\n\n**AMD Settings:**\n• Power Efficiency: Disabled\n• Surface Format Optimization: Enabled\n• Tessellation: 64x\n• Shader Cache: AMD Optimized\n• GPU Scaling: Enabled\n\n**General Settings:**\n• Update to latest drivers\n• Clean install drivers\n• Disable unnecessary features\n• Monitor GPU temperature\n\n**Expected Results:**\n- FPS Boost: +10-20%\n- Better frame stability\n- Reduced stuttering",
+          "difficulty": "Intermediate",
+          "fps_boost": "10-20",
+          "category": "Graphics",
+          "tags": ["gpu", "drivers", "nvidia", "amd"],
+          "estimated_time": "25 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "perf_005",
+          "title": "Memory & Storage Optimization",
+          "description": "Optimize RAM and storage for DayZ",
+          "content": "💾 **Memory & Storage Optimization:**\n\n**RAM Optimization:**\n• Close background applications\n• Disable startup programs\n• Use Game Mode\n• Monitor memory usage\n• Virtual Memory: 1.5x RAM size\n\n**Storage Optimization:**\n• Install DayZ on SSD\n• Defragment HDD (if using)\n• Enable TRIM for SSDs\n• Keep 20% free space\n• Disable indexing on game drive\n\n**System Optimization:**\n• Disable Superfetch/Prefetch\n• Disable Windows Search\n• Disable Windows Update during gaming\n• Use Game Mode\n\n**Expected Results:**\n- Faster loading times: +30-50%\n- Reduced stuttering: -40-60%\n- Better overall responsiveness",
+          "difficulty": "Intermediate",
+          "fps_boost": "15-25",
+          "category": "System",
+          "tags": ["ram", "storage", "ssd", "memory"],
+          "estimated_time": "35 minutes",
+          "risk_level": "Low"
+        }
+      ]
+    },
+    "gameplay_strategies": {
+      "title": "Gameplay Strategies",
+      "description": "Advanced strategies for survival and success",
+      "icon": "⚔️",
+      "tips": [
+        {
+          "id": "game_001",
+          "title": "Combat Optimization",
+          "description": "Optimize combat performance and accuracy",
+          "content": "⚔️ **Combat Performance Optimization:**\n\n**Mouse Settings:**\n• DPI: 400-800 (precision over speed)\n• Polling Rate: 1000Hz\n• Sensitivity: Low (0.5-1.0 in-game)\n• Raw Input: Enabled\n\n**Graphics for Combat:**\n• Motion Blur: Off (reduces disorientation)\n• Depth of Field: Off (clear vision)\n• Lens Flare: Off (no visual interference)\n• Bloom: Off (better target visibility)\n\n**Performance Tips:**\n• Close background applications\n• Use fullscreen mode\n• Disable Windows Game Bar\n• Monitor GPU temperature\n\n**Expected Results:**\n- Improved accuracy: +20-30%\n- Better target acquisition\n- Reduced visual distractions",
+          "difficulty": "Intermediate",
+          "fps_boost": "10-20",
+          "category": "Combat",
+          "tags": ["combat", "mouse", "accuracy", "targeting"],
+          "estimated_time": "20 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "game_002",
+          "title": "Survival Techniques",
+          "description": "Advanced survival strategies",
+          "content": "🏕️ **Advanced Survival Techniques:**\n\n**Inventory Management:**\n• Use hotkeys for quick access\n• Organize items by priority\n• Keep essential items in quick slots\n• Regular inventory cleanup\n\n**Movement Optimization:**\n• Use prone for stealth\n• Crouch-walk in dangerous areas\n• Use cover effectively\n• Minimize unnecessary movement\n\n**Resource Management:**\n• Prioritize food and water\n• Repair items before they break\n• Use crafting efficiently\n• Plan resource routes\n\n**Expected Results:**\n- Increased survival rate: +40-60%\n- Better resource efficiency\n- Improved tactical advantage",
+          "difficulty": "Beginner",
+          "fps_boost": "0",
+          "category": "Survival",
+          "tags": ["survival", "inventory", "movement", "resources"],
+          "estimated_time": "30 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "game_003",
+          "title": "Audio Optimization",
+          "description": "Optimize audio for better gameplay awareness",
+          "content": "🔊 **Audio Optimization for DayZ:**\n\n**Audio Settings:**\n• Master Volume: 80-90%\n• Effects Volume: 70-80%\n• Voice Volume: 60-70%\n• Music Volume: 20-30%\n\n**Hardware Settings:**\n• Use stereo headphones\n• Enable 3D audio if supported\n• Disable audio enhancements\n• Set sample rate to 44.1kHz\n\n**Audio Tips:**\n• Listen for footsteps and gunshots\n• Use audio cues for navigation\n• Adjust volume for different environments\n• Test audio in safe areas\n\n**Expected Results:**\n- Better environmental awareness\n- Improved threat detection\n- Enhanced immersion",
+          "difficulty": "Beginner",
+          "fps_boost": "0",
+          "category": "Audio",
+          "tags": ["audio", "sound", "awareness", "immersion"],
+          "estimated_time": "15 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "game_004",
+          "title": "Base Building Strategies",
+          "description": "Advanced base building and defense techniques",
+          "content": "🏗️ **Base Building & Defense Strategies:**\n\n**Location Selection:**\n• Choose elevated positions\n• Near water sources\n• Away from major roads\n• Hidden from common paths\n• Multiple escape routes\n\n**Defense Design:**\n• Multiple layers of walls\n• Strategic door placement\n• Watchtowers for visibility\n• Trap systems\n• Escape tunnels\n\n**Resource Management:**\n• Plan building phases\n• Use local resources\n• Build from inside out\n• Maintain supply lines\n• Regular maintenance\n\n**Expected Results:**\n- Better base security: +60-80%\n- Improved survival rate\n- More strategic advantage",
+          "difficulty": "Advanced",
+          "fps_boost": "0",
+          "category": "Building",
+          "tags": ["base", "defense", "strategy", "security"],
+          "estimated_time": "90 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "game_005",
+          "title": "Vehicle Combat Tactics",
+          "description": "Advanced vehicle combat and driving techniques",
+          "content": "🚗 **Vehicle Combat & Driving Tactics:**\n\n**Combat Driving:**\n• Use terrain for cover\n• Keep moving during combat\n• Use reverse for quick escapes\n• Coordinate with passengers\n• Maintain escape routes\n\n**Vehicle Maintenance:**\n• Regular engine checks\n• Keep spare parts\n• Monitor fuel levels\n• Repair damage quickly\n• Use quality tires\n\n**Tactical Positioning:**\n• Park strategically\n• Use vehicles as cover\n• Maintain mobility\n• Plan escape routes\n• Coordinate with team\n\n**Expected Results:**\n- Better vehicle survival: +50-70%\n- Improved combat effectiveness\n- Enhanced mobility",
+          "difficulty": "Advanced",
+          "fps_boost": "0",
+          "category": "Combat",
+          "tags": ["vehicle", "combat", "driving", "tactics"],
+          "estimated_time": "60 minutes",
+          "risk_level": "Medium"
+        }
+      ]
+    },
+    "game_mechanics": {
+      "title": "Game Mechanics & Exploits",
+      "description": "Understanding DayZ game mechanics and useful exploits",
+      "icon": "🎯",
+      "tips": [
+        {
+          "id": "mech_001",
+          "title": "Inventory Exploits",
+          "description": "Useful inventory manipulation techniques",
+          "content": "🎒 **Inventory Exploitation Techniques:**\n\n**Quick Transfer Exploit:**\n• Hold Shift + Click to transfer items instantly\n• Use this to quickly move items between containers\n• Works with any inventory slot\n• Bypasses normal transfer animations\n\n**Stacking Exploits:**\n• Some items can be stacked beyond normal limits\n• Use this for efficient storage\n• Test with different item combinations\n• Monitor for server-side validation\n\n**Container Manipulation:**\n• Use tents and barrels for extended storage\n• Place containers in strategic locations\n• Use multiple containers for organization\n• Hide containers in remote areas\n\n**⚠️ Warning: Some exploits may be patched in updates**",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Inventory",
+          "tags": ["inventory", "exploits", "storage", "manipulation"],
+          "estimated_time": "20 minutes",
+          "risk_level": "Medium"
+        },
+        {
+          "id": "mech_002",
+          "title": "Movement Mechanics",
+          "description": "Advanced movement techniques and exploits",
+          "content": "🏃 **Advanced Movement Mechanics:**\n\n**Sprint Exploits:**\n• Use prone + sprint for faster movement\n• Combine with stamina management\n• Use terrain to your advantage\n• Practice timing for optimal results\n\n**Climbing Techniques:**\n• Some objects can be climbed that shouldn't be\n• Use this for tactical positioning\n• Test different surfaces and angles\n• Be aware of fall damage\n\n**Stealth Movement:**\n• Use prone + slow movement for stealth\n• Combine with dark clothing\n• Use cover and shadows\n• Minimize sound generation\n\n**Expected Results:**\n- Improved tactical positioning\n- Better escape routes\n- Enhanced stealth capabilities",
+          "difficulty": "Advanced",
+          "fps_boost": "0",
+          "category": "Movement",
+          "tags": ["movement", "stealth", "climbing", "positioning"],
+          "estimated_time": "45 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "mech_003",
+          "title": "Combat Mechanics",
+          "description": "Understanding combat system mechanics",
+          "content": "⚔️ **Combat System Mechanics:**\n\n**Damage Calculation:**\n• Different body parts have different damage multipliers\n• Headshots are always lethal\n• Armor reduces damage but doesn't eliminate it\n• Bleeding affects health over time\n\n**Weapon Handling:**\n• Recoil patterns are predictable\n• Burst fire is more accurate than full auto\n• Different stances affect accuracy\n• Movement affects weapon accuracy\n\n**Combat Exploits:**\n• Use third-person view for better awareness\n• Peek around corners without exposing yourself\n• Use prone position for stability\n• Combine with audio cues\n\n**Expected Results:**\n- Better combat performance\n- Improved survival rate\n- More tactical options",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Combat",
+          "tags": ["combat", "damage", "weapons", "tactics"],
+          "estimated_time": "30 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "mech_004",
+          "title": "Building Mechanics",
+          "description": "Advanced building and construction techniques",
+          "content": "🏗️ **Building System Mechanics:**\n\n**Foundation Exploits:**\n• Some terrain allows building in unusual locations\n• Use this for strategic positioning\n• Test different building spots\n• Be aware of server restrictions\n\n**Construction Techniques:**\n• Build from inside out for better protection\n• Use multiple layers for security\n• Place doors strategically\n• Use walls for cover and concealment\n\n**Building Exploits:**\n• Some objects can be placed in unexpected ways\n• Use this for creative designs\n• Test placement limits\n• Monitor for server validation\n\n**Expected Results:**\n- Better base designs\n- Improved security\n- More creative building options",
+          "difficulty": "Advanced",
+          "fps_boost": "0",
+          "category": "Building",
+          "tags": ["building", "construction", "bases", "security"],
+          "estimated_time": "60 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "mech_005",
+          "title": "Zombie Mechanics",
+          "description": "Understanding zombie behavior and AI patterns",
+          "content": "🧟 **Zombie AI Mechanics:**\n\n**Detection System:**\n• Zombies have limited vision range\n• Sound travels further than sight\n• Movement speed affects detection\n• Light levels impact visibility\n\n**Behavior Patterns:**\n• Zombies follow predictable paths\n• They can be distracted by noise\n• Groups coordinate attacks\n• Some are faster than others\n\n**Exploitation Techniques:**\n• Use noise to redirect zombies\n• Exploit pathfinding limitations\n• Use terrain for advantage\n• Time your movements\n\n**Expected Results:**\n- Better zombie avoidance: +70-90%\n- Improved survival rate\n- More strategic gameplay",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Survival",
+          "tags": ["zombies", "ai", "behavior", "avoidance"],
+          "estimated_time": "25 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "mech_006",
+          "title": "Weather & Environment Mechanics",
+          "description": "Understanding weather effects and environmental interactions",
+          "content": "🌦️ **Weather & Environment Mechanics:**\n\n**Weather Effects:**\n• Rain reduces visibility and hearing\n• Fog limits sight range\n• Wind affects sound propagation\n• Temperature affects stamina\n\n**Environmental Interactions:**\n• Different surfaces make different sounds\n• Water affects movement speed\n• Elevation changes sound travel\n• Time of day affects visibility\n\n**Exploitation Techniques:**\n• Use weather for stealth\n• Plan activities around conditions\n• Use environment for cover\n• Time operations strategically\n\n**Expected Results:**\n- Better environmental awareness\n- Improved stealth capabilities\n- More strategic gameplay",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Survival",
+          "tags": ["weather", "environment", "stealth", "strategy"],
+          "estimated_time": "20 minutes",
+          "risk_level": "None"
+        }
+      ]
+    },
+    "item_functionality": {
+      "title": "Item Functionality",
+      "description": "Understanding how items work and their hidden features",
+      "icon": "🔧",
+      "tips": [
+        {
+          "id": "item_001",
+          "title": "Weapon Mechanics",
+          "description": "Understanding weapon behavior and mechanics",
+          "content": "🔫 **Weapon System Mechanics:**\n\n**Ammunition Types:**\n• Different ammo types have different effects\n• Hollow point causes more bleeding\n• Armor-piercing ignores some armor\n• Tracer rounds reveal your position\n\n**Weapon Maintenance:**\n• Clean weapons regularly for better accuracy\n• Damaged weapons can jam or misfire\n• Use cleaning kits to restore condition\n• Monitor weapon durability\n\n**Weapon Exploits:**\n• Some weapons can be used in unexpected ways\n• Test different firing modes\n• Use attachments for better performance\n• Practice with different ammunition\n\n**Expected Results:**\n- Better weapon performance\n- Improved accuracy\n- More tactical options",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Weapons",
+          "tags": ["weapons", "ammunition", "maintenance", "accuracy"],
+          "estimated_time": "25 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "item_002",
+          "title": "Medical Items",
+          "description": "Understanding medical item effects and usage",
+          "content": "💊 **Medical System Mechanics:**\n\n**Healing Items:**\n• Different items heal different amounts\n• Some items have side effects\n• Use items in the right order\n• Monitor health status\n\n**Medical Exploits:**\n• Some combinations work better than others\n• Use timing for optimal healing\n• Combine with rest for better results\n• Monitor for adverse effects\n\n**Medical Management:**\n• Carry a variety of medical items\n• Use items strategically\n• Monitor your condition\n• Plan for emergencies\n\n**Expected Results:**\n- Better survival rate\n- Improved healing efficiency\n- More medical options",
+          "difficulty": "Beginner",
+          "fps_boost": "0",
+          "category": "Medical",
+          "tags": ["medical", "healing", "health", "survival"],
+          "estimated_time": "20 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "item_003",
+          "title": "Food & Water Mechanics",
+          "description": "Understanding nutrition and hydration systems",
+          "content": "🍖 **Nutrition System Mechanics:**\n\n**Food Types:**\n• Different foods provide different nutrition\n• Some foods have hidden benefits\n• Use cooking for better nutrition\n• Monitor hunger and thirst\n\n**Hydration System:**\n• Water sources vary in quality\n• Some containers hold more water\n• Use purification tablets when possible\n• Monitor hydration levels\n\n**Nutrition Exploits:**\n• Some combinations provide bonuses\n• Use timing for optimal nutrition\n• Combine with rest for better results\n• Monitor for adverse effects\n\n**Expected Results:**\n- Better health management\n- Improved stamina\n- More efficient nutrition",
+          "difficulty": "Beginner",
+          "fps_boost": "0",
+          "category": "Nutrition",
+          "tags": ["food", "water", "nutrition", "health"],
+          "estimated_time": "15 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "item_004",
+          "title": "Tool & Crafting Mechanics",
+          "description": "Understanding tools and crafting systems",
+          "content": "🛠️ **Crafting System Mechanics:**\n\n**Tool Usage:**\n• Different tools have different purposes\n• Some tools can be used creatively\n• Use tools efficiently\n• Monitor tool condition\n\n**Crafting Exploits:**\n• Some recipes have hidden requirements\n• Use timing for better results\n• Combine items creatively\n• Test different combinations\n\n**Crafting Efficiency:**\n• Plan your crafting projects\n• Use the right tools for the job\n• Monitor material requirements\n• Store crafted items properly\n\n**Expected Results:**\n- Better crafting efficiency\n- More creative options\n- Improved resource management",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Crafting",
+          "tags": ["crafting", "tools", "materials", "efficiency"],
+          "estimated_time": "35 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "item_005",
+          "title": "Clothing & Armor Mechanics",
+          "description": "Understanding clothing effects and armor systems",
+          "content": "👕 **Clothing & Armor Mechanics:**\n\n**Protection System:**\n• Different materials provide different protection\n• Layering affects overall protection\n• Some items have hidden bonuses\n• Monitor item condition\n\n**Environmental Effects:**\n• Clothing affects temperature\n• Wet clothes reduce effectiveness\n• Some items provide camouflage\n• Movement affects noise levels\n\n**Optimization Techniques:**\n• Choose appropriate clothing for conditions\n• Layer items strategically\n• Maintain item quality\n• Use camouflage effectively\n\n**Expected Results:**\n- Better environmental protection\n- Improved stealth capabilities\n- Enhanced survival rate",
+          "difficulty": "Beginner",
+          "fps_boost": "0",
+          "category": "Survival",
+          "tags": ["clothing", "armor", "protection", "stealth"],
+          "estimated_time": "20 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "item_006",
+          "title": "Vehicle Parts & Mechanics",
+          "description": "Understanding vehicle components and repair systems",
+          "content": "🚗 **Vehicle System Mechanics:**\n\n**Component System:**\n• Different parts affect performance\n• Quality affects durability\n• Some parts are interchangeable\n• Monitor part condition\n\n**Repair Mechanics:**\n• Use appropriate tools for repairs\n• Some damage is irreversible\n• Regular maintenance prevents issues\n• Monitor vehicle health\n\n**Performance Optimization:**\n• Choose quality parts\n• Regular maintenance schedule\n• Monitor performance metrics\n• Plan for repairs\n\n**Expected Results:**\n- Better vehicle performance\n- Improved reliability\n- Enhanced mobility",
+          "difficulty": "Intermediate",
+          "fps_boost": "0",
+          "category": "Vehicles",
+          "tags": ["vehicles", "parts", "repair", "maintenance"],
+          "estimated_time": "40 minutes",
+          "risk_level": "Low"
+        }
+      ]
+    },
+    "advanced_techniques": {
+      "title": "Advanced Techniques",
+      "description": "Expert-level optimization techniques",
+      "icon": "🚀",
+      "tips": [
+        {
+          "id": "adv_001",
+          "title": "GPU Overclocking",
+          "description": "Safely overclock your GPU for better performance",
+          "content": "🚀 **GPU Overclocking Guide:**\n\n**Safe Overclocking Steps:**\n1. Install MSI Afterburner\n2. Increase Core Clock: +50-100 MHz\n3. Increase Memory Clock: +200-400 MHz\n4. Test stability with benchmarks\n5. Monitor temperatures (keep under 85°C)\n\n**Voltage Settings:**\n• Core Voltage: +10-20% (if supported)\n• Power Limit: +10-15%\n• Temperature Limit: 85°C\n\n**Monitoring:**\n• Use GPU-Z for detailed info\n• Monitor FPS improvements\n• Watch for artifacts or crashes\n\n**Expected Results:**\n- FPS Boost: +15-25%\n- Better frame stability\n- Improved minimum FPS\n\n**⚠️ Warning: Overclocking may void warranty**",
+          "difficulty": "Expert",
+          "fps_boost": "15-25",
+          "category": "Hardware",
+          "tags": ["overclocking", "gpu", "performance", "hardware"],
+          "estimated_time": "60 minutes",
+          "risk_level": "High"
+        },
+        {
+          "id": "adv_002",
+          "title": "Memory Optimization",
+          "description": "Optimize RAM for gaming performance",
+          "content": "💾 **RAM Optimization Techniques:**\n\n**Windows Memory Settings:**\n• Virtual Memory: 1.5x RAM size\n• Memory Compression: Disabled\n• Superfetch: Disabled for SSDs\n• Prefetch: Disabled for SSDs\n\n**RAM Timing Optimization:**\n• Enable XMP/DOCP in BIOS\n• Optimize CAS latency\n• Adjust memory frequency\n• Test stability with MemTest86\n\n**Background Process Management:**\n• Close unnecessary applications\n• Disable startup programs\n• Use Game Mode\n• Monitor memory usage\n\n**Expected Results:**\n- Reduced stuttering: -30-50%\n- Better frame consistency\n- Improved loading times",
+          "difficulty": "Advanced",
+          "fps_boost": "10-20",
+          "category": "Hardware",
+          "tags": ["ram", "memory", "bios", "timing"],
+          "estimated_time": "45 minutes",
+          "risk_level": "Medium"
+        },
+        {
+          "id": "adv_003",
+          "title": "CPU Optimization",
+          "description": "Optimize CPU settings for gaming",
+          "content": "🖥️ **CPU Optimization for Gaming:**\n\n**BIOS Settings:**\n• Enable CPU Performance Mode\n• Disable Power Saving Features\n• Set CPU Ratio to Manual\n• Enable Turbo Boost\n\n**Windows CPU Settings:**\n• Set CPU Affinity for DayZ\n• Disable CPU Parking\n• Optimize for Background Services\n• Set Processor Scheduling to Programs\n\n**Advanced Settings:**\n• Disable Hyper-Threading (if causing issues)\n• Optimize CPU Cache\n• Monitor CPU temperatures\n• Use CPU-Z for monitoring\n\n**Expected Results:**\n- Reduced CPU bottleneck\n- Better frame consistency\n- Improved responsiveness",
+          "difficulty": "Advanced",
+          "fps_boost": "5-15",
+          "category": "Hardware",
+          "tags": ["cpu", "bios", "performance", "bottleneck"],
+          "estimated_time": "40 minutes",
+          "risk_level": "Medium"
+        },
+        {
+          "id": "adv_004",
+          "title": "Network Protocol Optimization",
+          "description": "Advanced network protocol tuning for DayZ",
+          "content": "🌐 **Advanced Network Protocol Optimization:**\n\n**TCP/IP Tuning:**\n• TCP Window Size: 65535\n• TCP Timestamps: Disabled\n• TCP Selective ACK: Enabled\n• TCP Sack: Enabled\n\n**Network Adapter Settings:**\n• Jumbo Frames: 9014 bytes\n• Receive Buffers: 8192\n• Transmit Buffers: 8192\n• Interrupt Moderation: Disabled\n\n**Advanced Protocols:**\n• IPv6: Disabled (if causing issues)\n• NetBIOS: Disabled\n• LLMNR: Disabled\n• DNS over HTTPS: Enabled\n\n**Expected Results:**\n- Reduced network latency: 15-35ms\n- Better connection stability\n- Improved packet handling",
+          "difficulty": "Expert",
+          "fps_boost": "10-20",
+          "category": "Network",
+          "tags": ["network", "protocols", "tcp", "optimization"],
+          "estimated_time": "75 minutes",
+          "risk_level": "High"
+        }
+      ]
+    },
+    "server_optimization": {
+      "title": "Server Optimization",
+      "description": "Optimize server connection and performance",
+      "icon": "🌍",
+      "tips": [
+        {
+          "id": "serv_001",
+          "title": "Server Selection",
+          "description": "Choose the best servers for your location",
+          "content": "🌍 **Optimal Server Selection:**\n\n**Location-Based Selection:**\n• Choose servers in your region\n• Test ping to multiple servers\n• Avoid servers with high packet loss\n• Use server browser filters\n\n**Server Performance Factors:**\n• Player count (30-60 optimal)\n• Server hardware quality\n• Network infrastructure\n• Admin activity level\n\n**Connection Testing:**\n• Use ping command\n• Test during peak hours\n• Monitor connection stability\n• Check server rules\n\n**Expected Results:**\n- Reduced latency: 20-50ms\n- Better connection stability\n- Improved gameplay experience",
+          "difficulty": "Beginner",
+          "fps_boost": "5-10",
+          "category": "Server",
+          "tags": ["server", "ping", "location", "connection"],
+          "estimated_time": "20 minutes",
+          "risk_level": "None"
+        },
+        {
+          "id": "serv_002",
+          "title": "Connection Optimization",
+          "description": "Optimize your connection to DayZ servers",
+          "content": "🔌 **Connection Optimization:**\n\n**Network Settings:**\n• Use Ethernet over WiFi\n• Disable IPv6 (if causing issues)\n• Optimize MTU size\n• Use gaming VPN (if needed)\n\n**Router Configuration:**\n• Enable QoS for gaming\n• Port forward DayZ ports\n• Use 5GHz WiFi (if no Ethernet)\n• Update router firmware\n\n**ISP Optimization:**\n• Contact ISP about gaming optimization\n• Request static IP (if needed)\n• Check for packet loss issues\n• Monitor bandwidth usage\n\n**Expected Results:**\n- Reduced connection issues: -60-80%\n- Better server response\n- Improved overall stability",
+          "difficulty": "Intermediate",
+          "fps_boost": "5-15",
+          "category": "Network",
+          "tags": ["connection", "router", "isp", "vpn"],
+          "estimated_time": "35 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "serv_003",
+          "title": "Server Performance Monitoring",
+          "description": "Monitor and optimize server performance",
+          "content": "📊 **Server Performance Monitoring:**\n\n**Performance Metrics:**\n• Monitor server FPS\n• Track player count changes\n• Monitor server response times\n• Check for lag spikes\n\n**Optimization Techniques:**\n• Choose optimal play times\n• Monitor server population\n• Use server-specific settings\n• Report issues to admins\n\n**Connection Management:**\n• Monitor connection quality\n• Track packet loss\n• Monitor latency variations\n• Use connection testing tools\n\n**Expected Results:**\n- Better server performance\n- Improved connection quality\n- Enhanced gameplay experience",
+          "difficulty": "Intermediate",
+          "fps_boost": "5-15",
+          "category": "Server",
+          "tags": ["monitoring", "performance", "metrics", "optimization"],
+          "estimated_time": "30 minutes",
+          "risk_level": "None"
+        }
+      ]
+    },
+    "modding_optimization": {
+      "title": "Modding Optimization",
+      "description": "Optimize DayZ mods for better performance",
+      "icon": "🔧",
+      "tips": [
+        {
+          "id": "mod_001",
+          "title": "Mod Performance Management",
+          "description": "Manage mods for optimal performance",
+          "content": "🔧 **Mod Performance Management:**\n\n**Mod Selection:**\n• Choose lightweight mods\n• Avoid conflicting mods\n• Test mods individually\n• Monitor FPS impact\n• Limit mod count\n\n**Mod Settings:**\n• Disable unnecessary features\n• Reduce mod quality settings\n• Use performance versions\n• Limit mod count\n\n**Mod Management:**\n• Regular mod updates\n• Clean mod installations\n• Monitor mod conflicts\n• Backup mod configurations\n\n**Expected Results:**\n- Reduced mod-related lag\n- Better overall stability\n- Improved loading times",
+          "difficulty": "Intermediate",
+          "fps_boost": "10-25",
+          "category": "Modding",
+          "tags": ["mods", "performance", "conflicts", "management"],
+          "estimated_time": "25 minutes",
+          "risk_level": "Low"
+        },
+        {
+          "id": "mod_002",
+          "title": "Mod Conflict Resolution",
+          "description": "Resolve mod conflicts and compatibility issues",
+          "content": "⚡ **Mod Conflict Resolution:**\n\n**Conflict Detection:**\n• Use mod managers\n• Check load order\n• Monitor error logs\n• Test mod combinations\n• Identify conflicting files\n\n**Resolution Techniques:**\n• Adjust load order\n• Remove conflicting mods\n• Use compatibility patches\n• Update mods regularly\n• Test thoroughly\n\n**Prevention Strategies:**\n• Research mod compatibility\n• Use trusted mod sources\n• Backup configurations\n• Test before main play\n• Monitor performance\n\n**Expected Results:**\n- Reduced crashes: -70-90%\n- Better stability\n- Improved performance",
+          "difficulty": "Advanced",
+          "fps_boost": "15-30",
+          "category": "Modding",
+          "tags": ["conflicts", "compatibility", "stability", "performance"],
+          "estimated_time": "45 minutes",
+          "risk_level": "Medium"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "version": "2.1.0",
+    "last_updated": "2024-12-19T12:00:00Z",
+    "total_tips": 35,
+    "categories": 7,
+    "difficulty_levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
+    "risk_levels": ["None", "Low", "Medium", "High"],
+    "tags": [
+      "fps", "graphics", "performance", "settings", "windows", "system", 
+      "power", "gaming", "network", "tcp", "dns", "router", "gpu", 
+      "drivers", "nvidia", "amd", "combat", "mouse", "accuracy", 
+      "targeting", "survival", "inventory", "movement", "resources",
+      "audio", "sound", "awareness", "immersion", "overclocking",
+      "hardware", "ram", "memory", "bios", "timing", "cpu", "bottleneck",
+      "server", "ping", "location", "connection", "isp", "vpn",
+      "mods", "conflicts", "management", "exploits", "mechanics",
+      "weapons", "medical", "food", "crafting", "building", "stealth",
+      "zombies", "ai", "behavior", "avoidance", "weather", "environment",
+      "vehicles", "parts", "repair", "maintenance", "clothing", "armor",
+      "protection", "base", "defense", "strategy", "security", "modding",
+      "compatibility", "stability"
+    ]
+  },
+  "search_index": {
+    "keywords": {
+      "fps": ["perf_001", "perf_002", "perf_003", "perf_004", "perf_005", "adv_001", "adv_002", "adv_003"],
+      "graphics": ["perf_001", "perf_004", "game_001"],
+      "performance": ["perf_001", "perf_002", "perf_003", "perf_004", "perf_005", "adv_001", "adv_002", "adv_003"],
+      "network": ["perf_003", "serv_002", "adv_004"],
+      "combat": ["game_001", "mech_003", "game_005"],
+      "survival": ["game_002", "item_002", "mech_005", "mech_006", "item_005"],
+      "overclocking": ["adv_001"],
+      "memory": ["adv_002", "perf_005"],
+      "cpu": ["adv_003"],
+      "server": ["serv_001", "serv_002", "serv_003"],
+      "mods": ["mod_001", "mod_002"],
+      "exploits": ["mech_001", "mech_002", "mech_003", "mech_004", "mech_005", "mech_006"],
+      "mechanics": ["mech_001", "mech_002", "mech_003", "mech_004", "mech_005", "mech_006"],
+      "weapons": ["item_001"],
+      "medical": ["item_002"],
+      "food": ["item_003"],
+      "crafting": ["item_004"],
+      "building": ["mech_004", "game_004"],
+      "stealth": ["mech_002", "mech_005", "mech_006", "item_005"],
+      "zombies": ["mech_005"],
+      "vehicles": ["game_005", "item_006"],
+      "base": ["game_004"],
+      "defense": ["game_004"],
+      "modding": ["mod_001", "mod_002"]
+    }
+  }
+}

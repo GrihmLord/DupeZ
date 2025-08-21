@@ -1,0 +1,58 @@
+{
+  "favorites": [
+    "192.168.1.100:2302",
+    "192.168.1.101:2303",
+    "10.5.0.100:2302"
+  ],
+  "known_servers": [
+    {
+      "ip": "192.168.1.100",
+      "port": 2302,
+      "name": "Local DayZ Server - Main",
+      "type": "Private",
+      "description": "Your main local DayZ server for testing and development"
+    },
+    {
+      "ip": "192.168.1.101",
+      "port": 2303,
+      "name": "Local DayZ Server - Community",
+      "type": "Community",
+      "description": "Local community DayZ server"
+    },
+    {
+      "ip": "10.5.0.100",
+      "port": 2302,
+      "name": "Network DayZ Server",
+      "type": "Network",
+      "description": "DayZ server on your 10.5.0.x network"
+    },
+    {
+      "ip": "192.168.1.153",
+      "port": 2302,
+      "name": "Your Gaming PC",
+      "type": "Local",
+      "description": "Your current gaming PC - for local testing"
+    }
+  ],
+  "scan_settings": {
+    "local_network_scan": true,
+    "public_server_scan": false,
+    "scan_interval": 60,
+    "timeout": 5,
+    "max_retries": 3,
+    "network_ranges": [
+      "192.168.1.0/24",
+      "10.5.0.0/24"
+    ]
+  },
+  "optimization_settings": {
+    "auto_optimize": true,
+    "gaming_priority": "HIGH",
+    "reserved_bandwidth": 150,
+    "latency_threshold": 80,
+    "packet_loss_threshold": 0.5,
+    "your_gaming_pc": "192.168.1.153"
+  },
+  "last_updated": "2025-01-16T16:15:00",
+  "version": "1.0.0"
+} 
