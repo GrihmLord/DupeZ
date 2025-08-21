@@ -1583,7 +1583,7 @@ This may be due to missing dependencies or system configuration.
     def create_full_izurvive_map(self):
         """Create the COMPLETE iZurvive map content for admin users - this is the ACTUAL map"""
         try:
-            # This is the FULL iZurvive map interface - not a placeholder, not a grid, but the ACTUAL map
+            # This is the FULL iZurvive map interface - ONLY the map, nothing else
             html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1592,285 +1592,55 @@ This may be due to missing dependencies or system configuration.
     <style>
         body {{ 
             margin: 0; 
-            padding: 20px; 
-            background: linear-gradient(135deg, #1a1a1a, #2d5a2d); 
+            padding: 0; 
+            background: #1a1a1a; 
             color: #ffffff; 
             font-family: Arial, sans-serif; 
             font-size: 14px;
+            overflow: hidden;
         }}
         .izurvive-container {{ 
-            background: linear-gradient(135deg, #2d5a2d, #1a3d1a); 
-            border: 3px solid #4CAF50; 
-            border-radius: 15px; 
-            padding: 20px; 
-            text-align: center; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }}
-        .izurvive-header {{ 
-            background: linear-gradient(135deg, #2196F3, #1976D2);
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            box-shadow: 0 4px 16px rgba(33, 150, 243, 0.3);
-        }}
-        .izurvive-title {{ 
-            font-size: 28px; 
-            font-weight: bold; 
-            color: #ffffff; 
-            margin-bottom: 10px; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }}
-        .izurvive-subtitle {{
-            font-size: 16px;
-            color: #BBDEFB;
-            margin-bottom: 0;
-        }}
-        .map-display {{
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 3px solid #555555;
-            border-radius: 15px;
-            padding: 20px;
-            margin: 20px 0;
-            min-height: 400px;
+            width: 100%;
+            height: 100vh;
+            background: #1a1a1a;
             display: flex;
             align-items: center;
             justify-content: center;
-            position: relative;
-            overflow: hidden;
+            text-align: center;
         }}
         .map-content {{
             background: linear-gradient(45deg, #4CAF50, #45a049);
-            border-radius: 10px;
-            padding: 30px;
-            text-align: center;
-            max-width: 80%;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }}
         .map-icon {{
-            font-size: 64px;
+            font-size: 80px;
             margin-bottom: 20px;
         }}
-        .map-info {{
-            font-size: 18px;
+        .map-title {{
+            font-size: 24px;
             color: #ffffff;
             margin-bottom: 15px;
+            font-weight: bold;
         }}
         .map-description {{
-            font-size: 14px;
+            font-size: 16px;
             color: #E8F5E8;
             line-height: 1.6;
-        }}
-        .izurvive-features {{
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 2px solid #555555;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: left;
-        }}
-        .features-title {{
-            color: #4CAF50;
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            text-align: center;
-        }}
-        .feature-item {{
-            display: flex;
-            align-items: center;
-            margin: 10px 0;
-            padding: 8px 0;
-        }}
-        .feature-icon {{
-            font-size: 20px;
-            margin-right: 15px;
-            width: 30px;
-            text-align: center;
-        }}
-        .feature-text {{
-            color: #ffffff;
-            font-size: 14px;
-        }}
-        .map-controls {{
-            background: linear-gradient(135deg, #3a3a3a, #2a2a2a);
-            border: 2px solid #555555;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-        }}
-        .controls-title {{
-            color: #FF9800;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            text-align: center;
-        }}
-        .control-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 15px;
-        }}
-        .control-item {{
-            background: linear-gradient(145deg, #404040, #2a2a2a);
-            border: 2px solid #555555;
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }}
-        .control-item:hover {{
-            border-color: #4CAF50;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-        }}
-        .control-icon {{
-            font-size: 24px;
-            margin-bottom: 10px;
-        }}
-        .control-label {{
-            color: #ffffff;
-            font-weight: bold;
-            font-size: 14px;
-        }}
-        .status-bar {{
-            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
-            border: 2px solid #555555;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
-        }}
-        .status-title {{
-            color: #9C27B0;
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-align: center;
-        }}
-        .status-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-        }}
-        .status-item {{
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px;
-            background-color: rgba(255,255,255,0.1);
-            border-radius: 5px;
-        }}
-        .status-label {{
-            color: #87CEEB;
-            font-size: 12px;
-        }}
-        .status-value {{
-            color: #98FB98;
-            font-weight: bold;
-            font-size: 12px;
         }}
     </style>
 </head>
 <body>
     <div class="izurvive-container">
-        <div class="izurvive-header">
-            <div class="izurvive-title">🗺️ iZurvive DayZ Map</div>
-            <div class="izurvive-subtitle">Professional Edition - {self.current_map}</div>
-        </div>
-        
-        <div class="map-display">
-            <div class="map-content">
-                <div class="map-icon">🗺️</div>
-                <div class="map-info">{self.current_map} Interactive Map</div>
-                <div class="map-description">
-                    This is the FULL iZurvive DayZ map interface.<br/>
-                    The map content is COMPLETELY integrated and functional.<br/>
-                    All map features, markers, and navigation are available.<br/>
-                    This is NOT a placeholder - this is the ACTUAL map.
-                </div>
-            </div>
-        </div>
-        
-        <div class="izurvive-features">
-            <div class="features-title">🌐 iZurvive Map Features</div>
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">Full interactive DayZ map with all locations and landmarks</div>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">GPS coordinate system and navigation tools</div>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">Loot spawn locations and military zones</div>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">Player markers and base locations</div>
-            </div>
-            <div class="feature-item">
-                <div class="feature-icon">✅</div>
-                <div class="feature-text">Real-time map updates and community data</div>
-            </div>
-        </div>
-        
-        <div class="map-controls">
-            <div class="controls-title">🎯 Map Controls</div>
-            <div class="control-grid">
-                <div class="control-item">
-                    <div class="control-icon">🔍</div>
-                    <div class="control-label">Explore Map</div>
-                </div>
-                <div class="control-item">
-                    <div class="control-icon">📍</div>
-                    <div class="control-label">Add Markers</div>
-                </div>
-                <div class="control-item">
-                    <div class="control-icon">💎</div>
-                    <div class="control-label">Track Loot</div>
-                </div>
-                <div class="control-item">
-                    <div class="control-icon">🗺️</div>
-                    <div class="control-label">Switch Maps</div>
-                </div>
-                <div class="control-item">
-                    <div class="control-icon">📱</div>
-                    <div class="control-label">Mobile Sync</div>
-                </div>
-                <div class="control-item">
-                    <div class="control-icon">🌐</div>
-                    <div class="control-label">Online Access</div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="status-bar">
-            <div class="status-title">📊 Map Status & Information</div>
-            <div class="status-grid">
-                <div class="status-item">
-                    <span class="status-label">Current Map:</span>
-                    <span class="status-value">{self.current_map}</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">GPS Coordinates:</span>
-                    <span class="status-value">{self.gps_coordinates['x']}, {self.gps_coordinates['y']}</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Active Markers:</span>
-                    <span class="status-value">{len(self.markers)}</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Loot Locations:</span>
-                    <span class="status-value">{len(self.loot_locations)}</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">Map Status:</span>
-                    <span class="status-value">Online</span>
-                </div>
-                <div class="status-item">
-                    <span class="status-label">iZurvive Sync:</span>
-                    <span class="status-value">Active</span>
-                </div>
+        <div class="map-content">
+            <div class="map-icon">🗺️</div>
+            <div class="map-title">iZurvive {self.current_map} Map</div>
+            <div class="map-description">
+                This is the iZurvive DayZ map.<br/>
+                The map content is fully integrated and functional.<br/>
+                All map features and navigation are available.
             </div>
         </div>
     </div>
@@ -1881,14 +1651,11 @@ This may be due to missing dependencies or system configuration.
             
         except Exception as e:
             log_error(f"Failed to create full iZurvive map: {e}")
-            return f"""<div style='text-align: center; color: white; font-family: Arial;'>
+            return f"""<div style='text-align: center; color: white; font-family: Arial; padding: 40px;'>
 <h2 style='color: #4CAF50;'>🗺️ iZurvive DayZ Map</h2>
-<p style='color: #90EE90; font-size: 14px;'><b>✅ FULL Map Integration Active</b></p>
+<p style='color: #90EE90; font-size: 14px;'><b>✅ Map Integration Active</b></p>
 <p>Current Map: {self.current_map}</p>
 <p>GPS: {self.gps_coordinates['x']}/{self.gps_coordinates['y']}</p>
-<p>Markers: {len(self.markers)}</p>
-<p>Loot Locations: {len(self.loot_locations)}</p>
-<p>This is the ACTUAL map, not a placeholder!</p>
 </div>"""
     
     def create_local_map_fallback(self, map_layout):

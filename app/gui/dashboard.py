@@ -12,7 +12,7 @@ from app.gui.dayz_duping_dashboard import DayZDupingDashboard
 from app.gui.unified_network_control import UnifiedNetworkControl
 from app.gui.advanced_network_scanner import AdvancedNetworkScanner
 from app.gui.network_manipulator_gui import NetworkManipulatorGUI
-from app.gui.dayz_map_gui import DayZMapGUI
+from app.gui.dayz_map_gui_new import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
 
 # Unified Network Scanner that combines basic and advanced functionality
