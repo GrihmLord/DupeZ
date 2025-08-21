@@ -1,0 +1,28 @@
+{
+  "global_keybind": "F12",
+  "global_timer_duration": 0,
+  "button_mode": false,
+  "auto_stop": true,
+  "rules": [
+    {
+      "name": "DayZ Official Server Block",
+      "ip": "0.0.0.0",
+      "port": 2302,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F12"
+    },
+    {
+      "name": "DayZ Community Server Block",
+      "ip": "0.0.0.0",
+      "port": 2303,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F11"
+    }
+  ]
+}

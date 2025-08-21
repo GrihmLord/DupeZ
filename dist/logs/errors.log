@@ -1,0 +1,9 @@
+2025-08-21 00:12:35 - ERROR - DupeZ - _log_with_context:168 - WinDivert.dll not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\WinDivert.dll
+Exception: None
+
+2025-08-21 00:12:35 - ERROR - DupeZ - _log_with_context:168 - WinDivert64.sys not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\WinDivert64.sys
+Exception: None
+
+2025-08-21 00:12:35 - ERROR - DupeZ - _log_with_context:168 - clumsy.exe not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\clumsy.exe
+Exception: None
+

@@ -1,0 +1,26 @@
+2025-08-21 00:12:35 - PERFORMANCE - Running as compiled executable, using PyInstaller paths
+2025-08-21 00:12:35 - PERFORMANCE - WinDivert.dll not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\WinDivert.dll
+2025-08-21 00:12:35 - PERFORMANCE - WinDivert64.sys not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\WinDivert64.sys
+2025-08-21 00:12:35 - PERFORMANCE - clumsy.exe not found at: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\clumsy.exe
+2025-08-21 00:12:35 - PERFORMANCE - Clumsy disruptor initialized - WinDivert DLL: C:\Users\Owner\AppData\Local\Temp\_MEI245242\app\firewall\WinDivert.dll
+2025-08-21 00:12:35 - PERFORMANCE - [SUCCESS] Created default DayZ firewall configuration
+2025-08-21 00:12:35 - PERFORMANCE - [SUCCESS] Global keybind set to F12
+2025-08-21 00:12:35 - PERFORMANCE - Data persistence manager initialized
+2025-08-21 00:12:35 - PERFORMANCE - [ROCKET] DupeZ Application Starting | Context: startup_time=2025-08-21T00:12:35.610681 | python_version=3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)] | platform=win32
+2025-08-21 00:12:35 - PERFORMANCE - Application startup initiated
+2025-08-21 00:12:35 - PERFORMANCE - Initializing DupeZ...
+2025-08-21 00:12:35 - PERFORMANCE - Python executable: C:\Users\Owner\DupeZ\dist\DupeZ_izurvive.exe
+2025-08-21 00:12:35 - PERFORMANCE - Python version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
+2025-08-21 00:12:35 - PERFORMANCE - Working directory: C:\Users\Owner\DupeZ\dist
+2025-08-21 00:12:35 - PERFORMANCE - Admin privileges: Yes
+2025-08-21 00:12:35 - PERFORMANCE - DupeZ version: 2.0.0 Professional Edition
+2025-08-21 00:12:35 - PERFORMANCE - [TOOLS] Starting advanced features initialization...
+2025-08-21 00:12:35 - PERFORMANCE - [STATS] Initializing traffic analyzer...
+2025-08-21 00:12:35 - PERFORMANCE - [SUCCESS] Traffic analyzer initialized (startup delayed for stability)
+2025-08-21 00:12:35 - PERFORMANCE - 🔌 Initializing plugin manager...
+2025-08-21 00:12:35 - PERFORMANCE - Loaded 0 plugins
+2025-08-21 00:12:35 - PERFORMANCE - Loaded 0 plugins
+2025-08-21 00:12:35 - PERFORMANCE - [SUCCESS] Plugin manager initialized
+2025-08-21 00:12:35 - PERFORMANCE - [NETWORK] Initializing network disruptor...
+2025-08-21 00:12:35 - PERFORMANCE - 📡 Network disruptor imported: <app.firewall.network_disruptor.NetworkDisruptor object at 0x000002559DE44F20>
+2025-08-21 00:12:35 - PERFORMANCE - [TOOLS] Initializing enhanced network disruptor...
