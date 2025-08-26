@@ -24,6 +24,7 @@ wheels/
 venv/
 env/
 ENV/
+.venv/
 
 # IDE
 .vscode/
@@ -39,6 +40,7 @@ logs/
 test_report.json
 .coverage
 htmlcov/
+.pytest_cache/
 
 # Build artifacts
 build/
@@ -56,3 +58,6 @@ cleanup_*.py
 # Large executable files
 *.exe
 DupeZ.exe
+
+# Temporary
+temp/

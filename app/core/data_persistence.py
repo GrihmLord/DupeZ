@@ -288,11 +288,45 @@ class MarkerManager(AutoSaveMixin):
         self.save_changes(self.markers)
 
 
-# Global manager instances
-settings_manager = SettingsManager()
-device_manager = DeviceManager()
-account_manager = AccountManager()
-marker_manager = MarkerManager()
+# Global manager instances - Singleton pattern to prevent duplicate initialization
+_settings_manager = None
+_device_manager = None
+_account_manager = None
+_marker_manager = None
+
+def get_settings_manager():
+    """Get singleton settings manager instance"""
+    global _settings_manager
+    if _settings_manager is None:
+        _settings_manager = SettingsManager()
+    return _settings_manager
+
+def get_device_manager():
+    """Get singleton device manager instance"""
+    global _device_manager
+    if _device_manager is None:
+        _device_manager = DeviceManager()
+    return _device_manager
+
+def get_account_manager():
+    """Get singleton account manager instance"""
+    global _account_manager
+    if _account_manager is None:
+        _account_manager = AccountManager()
+    return _account_manager
+
+def get_marker_manager():
+    """Get singleton marker manager instance"""
+    global _marker_manager
+    if _marker_manager is None:
+        _marker_manager = MarkerManager()
+    return _marker_manager
+
+# Backward compatibility
+settings_manager = get_settings_manager()
+device_manager = get_device_manager()
+account_manager = get_account_manager()
+marker_manager = get_marker_manager()
 
 
 def save_all_data():

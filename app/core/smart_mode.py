@@ -358,22 +358,32 @@ class SmartModeEngine:
         except Exception as e:
             log_error(f"Set block duration error: {e}")
 
-# Global enterprise instance
-smart_mode = SmartModeEngine()
+# Global enterprise instance - Singleton pattern to prevent duplicate initialization
+_smart_mode = None
+
+def get_smart_mode():
+    """Get singleton smart mode instance"""
+    global _smart_mode
+    if _smart_mode is None:
+        _smart_mode = SmartModeEngine()
+    return _smart_mode
+
+# Backward compatibility
+smart_mode = get_smart_mode()
 
 # Helper functions for external access
 def enable_smart_mode():
     """Enable enterprise smart mode"""
-    smart_mode.enable()
+    get_smart_mode().enable()
 
 def disable_smart_mode():
     """Disable enterprise smart mode"""
-    smart_mode.disable()
+    get_smart_mode().disable()
 
 def get_smart_mode_status() -> Dict:
     """Get enterprise smart mode status"""
-    return smart_mode.get_smart_mode_status()
+    return get_smart_mode().get_smart_mode_status()
 
 def is_enabled() -> bool:
     """Check if enterprise smart mode is enabled"""
-    return smart_mode.is_enabled()
+    return get_smart_mode().is_enabled()

@@ -169,28 +169,11 @@ class SimplifiedNetworkScanner(QWidget):
         self.connect_signals()
         
     def _initialize_disruptors(self):
-        """Initialize network disruptors"""
-        try:
-            if ClumsyNetworkDisruptor:
-                self.clumsy_network_disruptor = ClumsyNetworkDisruptor()
-                if self.clumsy_network_disruptor.initialize():
-                    log_info("Clumsy network disruptor initialized successfully")
-                else:
-                    log_warning("Clumsy network disruptor initialization failed")
-                    self.clumsy_network_disruptor = None
-        except Exception as e:
-            log_error(f"Error initializing Clumsy disruptor: {e}")
-            
-        try:
-            if EnterpriseNetworkDisruptor:
-                self.enterprise_network_disruptor = EnterpriseNetworkDisruptor()
-                if self.enterprise_network_disruptor.initialize():
-                    log_info("Enterprise network disruptor initialized successfully")
-                else:
-                    log_warning("Enterprise network disruptor initialization failed")
-                    self.enterprise_network_disruptor = None
-        except Exception as e:
-            log_error(f"Error initializing Enterprise disruptor: {e}")
+        """Initialize network disruptors - DISABLED to prevent duplicate initialization"""
+        # Network disruptors are now initialized only in the controller to prevent overlay issues
+        self.clumsy_network_disruptor = None
+        self.enterprise_network_disruptor = None
+        log_info("Network disruptors disabled in GUI to prevent duplicate initialization")
     
     def setup_ui(self):
         """Setup a simple, Clumsy-like network scanner UI"""
@@ -865,12 +848,17 @@ class SimplifiedNetworkScanner(QWidget):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle('Fusion')  # Use Fusion style for consistent look
+    # Only create QApplication if one doesn't already exist
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication(sys.argv)
+        app.setStyle('Fusion')  # Use Fusion style for consistent look
     
     # Create and show the scanner
     scanner = SimplifiedNetworkScanner()
     scanner.show()
     
-    sys.exit(app.exec())
+    # Only exit if we created the application
+    if QApplication.instance() == app:
+        sys.exit(app.exec())
 

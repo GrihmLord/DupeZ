@@ -1,0 +1,19 @@
+include README.md
+include requirements.txt
+recursive-include app *.py *.qss *.json *.ico *.png
+
+# Exclude development/test/docs/logs/build artifacts from sdist
+prune development
+prune docs
+prune logs
+prune build
+prune dist
+prune temp
+exclude *.spec
+exclude *.bat
+exclude *.ps1
+exclude test_*.py
+
+
+
+

@@ -36,8 +36,9 @@ class DayZMapGUI(QWidget):
     gps_coordinates_updated = pyqtSignal(str, str)  # x, y
     loot_found = pyqtSignal(str, str, str)  # item, location, coordinates
     
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
+        self.controller = controller
         self.markers = []
         self.loot_locations = []
         self.gps_coordinates = {"x": "000", "y": "000"}
@@ -676,6 +677,10 @@ class DayZMapGUI(QWidget):
         
         self.setLayout(layout)
         self.apply_styling()
+    
+    def set_controller(self, controller):
+        """Set the controller for this component"""
+        self.controller = controller
         
     def connect_signals(self):
         """Connect all signals"""

@@ -470,4 +470,15 @@ class DayZFirewallController:
             log_error(f"Error during cleanup: {e}")
 
 # Global instance
-dayz_firewall = DayZFirewallController() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_dayz_firewall = None
+
+def get_dayz_firewall():
+    """Get singleton dayz firewall controller instance"""
+    global _dayz_firewall
+    if _dayz_firewall is None:
+        _dayz_firewall = DayZFirewallController()
+    return _dayz_firewall
+
+# Backward compatibility
+dayz_firewall = get_dayz_firewall() 

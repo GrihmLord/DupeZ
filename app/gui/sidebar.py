@@ -1,11 +1,14 @@
 # app/gui/sidebar.py
 
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QPushButton, QLabel, 
-                             QFrame, QHBoxLayout, QProgressBar, QGroupBox)
-from PyQt6.QtCore import pyqtSignal, QTimer, Qt
+                             QFrame, QHBoxLayout, QProgressBar, QGroupBox, QSizePolicy)
+from PyQt6.QtCore import pyqtSignal, QTimer, Qt, QSize
 from PyQt6.QtGui import QFont, QPalette, QColor
 from typing import Dict, Optional
 from app.logs.logger import log_info, log_error
+
+# Global instance tracking to prevent duplicates
+_sidebar_instances = set()
 
 class Sidebar(QWidget):
     """Enhanced sidebar with status indicators and controls"""
@@ -22,6 +25,15 @@ class Sidebar(QWidget):
     
     def __init__(self, controller=None):
         super().__init__()
+        
+        # Check if this instance already exists to prevent duplicates
+        if id(self) in _sidebar_instances:
+            log_info("Sidebar instance already exists, preventing duplicate initialization")
+            return
+        
+        # Add this instance to tracking set
+        _sidebar_instances.add(id(self))
+        
         self.controller = controller
         self.smart_mode_active = False
         self.scanning = False
@@ -29,6 +41,31 @@ class Sidebar(QWidget):
         self.device_count = 0
         self.update_timer = None
         
+        # Prevent multiple initializations within the same instance
+        if hasattr(self, '_initialized'):
+            log_info("Sidebar already initialized, skipping duplicate setup")
+            return
+        self._initialized = True
+        
+        # Add duplicate prevention for updates
+        self._last_network_info = None
+        self._last_device_count = None
+        self._last_smart_mode = None
+        self._last_blocking_status = None
+        self._updating = False
+        
+        # Set responsive sizing with better integration
+        self.setMinimumWidth(200)
+        self.setMaximumWidth(500)  # Increased maximum for better responsiveness
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        
+        # Store preferred width for responsive behavior
+        self._preferred_width = 250  # Default preferred width
+        
+        # Set unique object name for proper identification
+        self.setObjectName("main_sidebar")
+        
+        log_info("Initializing sidebar with cohesive system integration")
         self.init_ui()
         self.start_status_updates()
     
@@ -286,8 +323,8 @@ class Sidebar(QWidget):
         layout.addStretch()
         self.setLayout(layout)
         
-        # Set object name for styling
-        self.setObjectName("sidebar")
+        # Set object name for styling (already set in __init__)
+        # self.setObjectName("main_sidebar")
     
     def set_controller(self, controller):
         """Set the controller and connect to its events"""
@@ -295,6 +332,37 @@ class Sidebar(QWidget):
         if controller:
             # Connect to controller state changes
             controller.state.add_observer(self.on_controller_state_change)
+    
+    def setPreferredWidth(self, width):
+        """Set the preferred width for responsive sizing"""
+        try:
+            # Ensure width is within bounds
+            if width < 200:
+                width = 200
+            elif width > 500:
+                width = 500
+            
+            self._preferred_width = width
+            
+            # Update the widget's size hint
+            self.updateGeometry()
+            
+            # Force a resize to apply the new preferred width
+            self.resize(width, self.height())
+            
+            log_info(f"Sidebar preferred width set to {width}px")
+            
+        except Exception as e:
+            log_error(f"Error setting sidebar preferred width: {e}")
+    
+    def sizeHint(self):
+        """Return the preferred size hint for responsive sizing"""
+        try:
+            # Return size hint based on preferred width
+            return QSize(self._preferred_width, super().sizeHint().height())
+        except Exception as e:
+            log_error(f"Error in sidebar sizeHint: {e}")
+            return super().sizeHint()
     
     def on_controller_state_change(self, event: str, data):
         """Handle controller state changes"""
@@ -805,6 +873,8 @@ class Sidebar(QWidget):
         """Stop status updates"""
         if self.update_timer:
             self.update_timer.stop()
+            self.update_timer.deleteLater()
+            self.update_timer = None
     
     def set_network_info(self, network_info: Dict):
         """Set network information manually"""
@@ -901,3 +971,68 @@ class Sidebar(QWidget):
         except Exception as e:
             log_error(f"Error in PS5 restoration: {e}")
             QMessageBox.critical(None, "Error", f"Failed to restore PS5 internet: {e}")
+
+    @classmethod
+    def get_instance_count(cls):
+        """Get the number of active sidebar instances"""
+        return len(_sidebar_instances)
+    
+    @classmethod
+    def clear_all_instances(cls):
+        """Clear all sidebar instances (for testing/debugging)"""
+        global _sidebar_instances
+        _sidebar_instances.clear()
+        log_info("All sidebar instances cleared")
+    
+    def is_duplicate(self):
+        """Check if this sidebar instance is a duplicate"""
+        return len(_sidebar_instances) > 1
+    
+    def get_system_integration_status(self):
+        """Get the integration status with the system"""
+        return {
+            'instance_id': id(self),
+            'total_instances': len(_sidebar_instances),
+            'is_duplicate': self.is_duplicate(),
+            'has_controller': self.controller is not None,
+            'is_initialized': hasattr(self, '_initialized'),
+            'object_name': self.objectName(),
+            'responsive_sizing': {
+                'current_width': self.width(),
+                'preferred_width': self._preferred_width,
+                'minimum_width': self.minimumWidth(),
+                'maximum_width': self.maximumWidth(),
+                'size_policy': str(self.sizePolicy().horizontalPolicy())
+            }
+        }
+    
+    def cleanup(self):
+        """Clean up resources to prevent memory leaks and rendering issues"""
+        try:
+            self.stop_updates()
+            if hasattr(self, '_initialized'):
+                delattr(self, '_initialized')
+            
+            # Clear duplicate prevention cache
+            self._last_network_info = None
+            self._last_device_count = None
+            self._last_smart_mode = None
+            self._last_blocking_status = None
+            self._updating = False
+            
+            # Remove from global instance tracking
+            if id(self) in _sidebar_instances:
+                _sidebar_instances.remove(id(self))
+                log_info("Sidebar instance removed from tracking")
+            
+        except Exception as e:
+            log_error(f"Error cleaning up sidebar: {e}")
+    
+    def closeEvent(self, event):
+        """Handle close event to ensure proper cleanup"""
+        try:
+            self.cleanup()
+            event.accept()
+        except Exception as e:
+            log_error(f"Error in sidebar close event: {e}")
+            event.accept()

@@ -518,4 +518,15 @@ Lag_Delay = 100"""
         }
 
 # Global instance
-clumsy_network_disruptor = ClumsyNetworkDisruptor() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_clumsy_network_disruptor = None
+
+def get_clumsy_network_disruptor():
+    """Get singleton clumsy network disruptor instance"""
+    global _clumsy_network_disruptor
+    if _clumsy_network_disruptor is None:
+        _clumsy_network_disruptor = ClumsyNetworkDisruptor()
+    return _clumsy_network_disruptor
+
+# Backward compatibility
+clumsy_network_disruptor = get_clumsy_network_disruptor() 

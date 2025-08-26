@@ -26,8 +26,9 @@ class DayZGamingDashboard(QWidget):
     server_removed = pyqtSignal(str)
     optimization_triggered = pyqtSignal()
     
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
+        self.controller = controller
         self.setWindowTitle("🎮 DayZ Gaming Dashboard")
         self.setMinimumSize(1000, 700)
         
@@ -54,6 +55,9 @@ class DayZGamingDashboard(QWidget):
         
         # Create tabs
         self.tabs = QTabWidget()
+        # Enable movable tabs in existing app
+        self.tabs.setMovable(True)
+        self.tabs.setTabsClosable(False)
         
         # Server Management Tab
         server_tab = self.create_server_management_tab()
@@ -86,7 +90,11 @@ class DayZGamingDashboard(QWidget):
         
         layout.addLayout(status_layout)
         self.setLayout(layout)
-        
+    
+    def set_controller(self, controller):
+        """Set the controller for this component"""
+        self.controller = controller
+    
     def create_server_management_tab(self) -> QWidget:
         """Create the server management tab"""
         widget = QWidget()

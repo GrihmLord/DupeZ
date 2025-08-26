@@ -48,6 +48,9 @@ class NetworkManipulatorGUI(QWidget):
         
         # Create tab widget
         self.tab_widget = QTabWidget()
+        # Enable movable tabs in existing app
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setTabsClosable(False)
         layout.addWidget(self.tab_widget)
         
         # Create tabs

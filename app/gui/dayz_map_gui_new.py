@@ -21,8 +21,9 @@ from app.logs.logger import log_info, log_error
 class DayZMapGUI(QWidget):
     """Interactive DayZ map with full iZurvive integration"""
     
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
+        self.controller = controller
         self.markers = []
         self.loot_locations = []
         self.gps_coordinates = {"x": "000", "y": "000"}
@@ -30,6 +31,10 @@ class DayZMapGUI(QWidget):
         self.setup_ui()
         self.connect_signals()
         self.load_map_data()
+    
+    def set_controller(self, controller):
+        """Set the controller for this component"""
+        self.controller = controller
         
     def setup_ui(self):
         """Setup the main UI with iZurvive map"""

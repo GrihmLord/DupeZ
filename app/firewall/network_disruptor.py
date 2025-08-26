@@ -767,4 +767,15 @@ class NetworkDisruptor:
         log_info("🛑 Network disruptor stopped")
 
 # Global instance
-network_disruptor = NetworkDisruptor() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_network_disruptor = None
+
+def get_network_disruptor():
+    """Get singleton network disruptor instance"""
+    global _network_disruptor
+    if _network_disruptor is None:
+        _network_disruptor = NetworkDisruptor()
+    return _network_disruptor
+
+# Backward compatibility
+network_disruptor = get_network_disruptor() 

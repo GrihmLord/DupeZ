@@ -33,6 +33,12 @@ class StabilityOptimizer(QObject):
         self.last_memory_cleanup = time.time()
         self.memory_cleanup_interval = 20  # More frequent cleanup for stability
         
+        # Signal throttling to prevent UI overlay issues
+        self.last_memory_warning = 0
+        self.last_stability_alert = 0
+        self.last_optimization_signal = 0
+        self.signal_throttle_interval = 10  # Minimum 10 seconds between signals
+        
         # Performance tracking
         self.performance_metrics = {
             'memory_usage': [],
@@ -59,20 +65,20 @@ class StabilityOptimizer(QObject):
         
     def _setup_timers(self):
         """Setup monitoring timers"""
-        # Enhanced monitoring timers for better stability
+        # Enhanced monitoring timers for better stability (reduced frequency to prevent UI overlay issues)
         self.memory_timer = QTimer()
         self.memory_timer.timeout.connect(self._monitor_memory)
-        self.memory_timer.start(5000)  # Check every 5 seconds for better stability
+        self.memory_timer.start(30000)  # Check every 30 seconds (reduced from 5 seconds)
         
         # Stability check timer
         self.stability_timer = QTimer()
         self.stability_timer.timeout.connect(self._run_stability_checks)
-        self.stability_timer.start(15000)  # More frequent stability checks
+        self.stability_timer.start(60000)  # Check every 60 seconds (reduced from 15 seconds)
         
         # Cleanup timer
         self.cleanup_timer = QTimer()
         self.cleanup_timer.timeout.connect(self._perform_cleanup)
-        self.cleanup_timer.start(30000)  # More frequent cleanup for stability
+        self.cleanup_timer.start(120000)  # Cleanup every 2 minutes (reduced from 30 seconds)
         
     def start_monitoring(self):
         """Start stability monitoring"""
@@ -113,12 +119,17 @@ class StabilityOptimizer(QObject):
             if len(self.performance_metrics['memory_usage']) > 100:
                 self.performance_metrics['memory_usage'] = self.performance_metrics['memory_usage'][-50:]
             
-            # Check thresholds
+            # Check thresholds with throttling to prevent UI overlay issues
+            current_time = time.time()
             if memory_mb > self.critical_memory_threshold_mb:
-                self.memory_warning.emit(f"Critical memory usage: {memory_mb:.1f}MB")
+                if current_time - self.last_memory_warning > self.signal_throttle_interval:
+                    self.memory_warning.emit(f"Critical memory usage: {memory_mb:.1f}MB")
+                    self.last_memory_warning = current_time
                 self._emergency_cleanup()
             elif memory_mb > self.memory_threshold_mb:
-                self.memory_warning.emit(f"High memory usage: {memory_mb:.1f}MB")
+                if current_time - self.last_memory_warning > self.signal_throttle_interval:
+                    self.memory_warning.emit(f"High memory usage: {memory_mb:.1f}MB")
+                    self.last_memory_warning = current_time
                 self._trigger_cleanup()
                 
         except Exception as e:
@@ -139,12 +150,17 @@ class StabilityOptimizer(QObject):
             if len(self.performance_metrics['thread_count']) > 100:
                 self.performance_metrics['thread_count'] = self.performance_metrics['thread_count'][-50:]
                 
-            # Check for excessive resource usage
+            # Check for excessive resource usage with throttling to prevent UI overlay issues
+            current_time = time.time()
             if cpu_percent > 90:
-                self.stability_alert.emit(f"High CPU usage: {cpu_percent:.1f}%")
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit(f"High CPU usage: {cpu_percent:.1f}%")
+                    self.last_stability_alert = current_time
                 
             if thread_count > 100:
-                self.stability_alert.emit(f"High thread count: {thread_count}")
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit(f"High thread count: {thread_count}")
+                    self.last_stability_alert = current_time
                 
         except Exception as e:
             log_error(f"System resource monitoring error: {e}")
@@ -174,7 +190,10 @@ class StabilityOptimizer(QObject):
             if len(recent_memory) >= 5:
                 trend = (recent_memory[-1] - recent_memory[0]) / len(recent_memory)
                 if trend > 10:  # 10MB increase per check
-                    self.stability_alert.emit(f"Potential memory leak detected: {trend:.1f}MB/check increase")
+                    current_time = time.time()
+                    if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                        self.stability_alert.emit(f"Potential memory leak detected: {trend:.1f}MB/check increase")
+                        self.last_stability_alert = current_time
                     
         except Exception as e:
             log_error(f"Memory usage check error: {e}")
@@ -190,7 +209,10 @@ class StabilityOptimizer(QObject):
             
             # Check for thread explosion
             if avg_threads > 50:
-                self.stability_alert.emit(f"High thread count detected: {avg_threads:.1f} average")
+                current_time = time.time()
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit(f"High thread count detected: {avg_threads:.1f} average")
+                    self.last_stability_alert = current_time
                 
         except Exception as e:
             log_error(f"Thread health check error: {e}")
@@ -207,7 +229,10 @@ class StabilityOptimizer(QObject):
             
             # Check if GC is effective
             if before_count - after_count < 100 and collected > 0:
-                self.stability_alert.emit("Garbage collector may not be effective")
+                current_time = time.time()
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit("Garbage collector may not be effective")
+                    self.last_stability_alert = current_time
                 
         except Exception as e:
             log_error(f"GC health check error: {e}")
@@ -218,12 +243,18 @@ class StabilityOptimizer(QObject):
             # Check available memory
             available_memory = psutil.virtual_memory().available / 1024 / 1024
             if available_memory < 1000:  # Less than 1GB available
-                self.stability_alert.emit(f"Low system memory: {available_memory:.1f}MB available")
+                current_time = time.time()
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit(f"Low system memory: {available_memory:.1f}MB available")
+                    self.last_stability_alert = current_time
                 
             # Check disk space
             disk_usage = psutil.disk_usage('/')
             if disk_usage.percent > 90:
-                self.stability_alert.emit(f"Low disk space: {disk_usage.percent:.1f}% used")
+                current_time = time.time()
+                if current_time - self.last_stability_alert > self.signal_throttle_interval:
+                    self.stability_alert.emit(f"Low disk space: {disk_usage.percent:.1f}% used")
+                    self.last_stability_alert = current_time
                 
         except Exception as e:
             log_error(f"System resource check error: {e}")
@@ -284,7 +315,12 @@ class StabilityOptimizer(QObject):
             self.performance_metrics['last_optimization'] = time.time()
             
             log_info(f"Stability cleanup completed: {collected} objects collected")
-            self.optimization_complete.emit(f"Cleanup completed: {collected} objects collected")
+            
+            # Throttle optimization signals to prevent UI overlay issues
+            current_time = time.time()
+            if current_time - self.last_optimization_signal > self.signal_throttle_interval:
+                self.optimization_complete.emit(f"Cleanup completed: {collected} objects collected")
+                self.last_optimization_signal = current_time
             
         except Exception as e:
             log_error(f"Cleanup error: {e}")
@@ -351,5 +387,15 @@ class StabilityOptimizer(QObject):
         except Exception as e:
             log_error(f"Performance optimization error: {e}")
 
-# Global stability optimizer instance
-stability_optimizer = StabilityOptimizer()
+# Global stability optimizer instance - Singleton pattern to prevent duplicate initialization
+_stability_optimizer = None
+
+def get_stability_optimizer():
+    """Get singleton stability optimizer instance"""
+    global _stability_optimizer
+    if _stability_optimizer is None:
+        _stability_optimizer = StabilityOptimizer()
+    return _stability_optimizer
+
+# Backward compatibility
+stability_optimizer = get_stability_optimizer()

@@ -129,4 +129,15 @@ class DupeInternetDropper:
         return self.active_methods.copy()
 
 # Global instance
-dupe_internet_dropper = DupeInternetDropper() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_dupe_internet_dropper = None
+
+def get_dupe_internet_dropper():
+    """Get singleton dupe internet dropper instance"""
+    global _dupe_internet_dropper
+    if _dupe_internet_dropper is None:
+        _dupe_internet_dropper = DupeInternetDropper()
+    return _dupe_internet_dropper
+
+# Backward compatibility
+dupe_internet_dropper = get_dupe_internet_dropper() 

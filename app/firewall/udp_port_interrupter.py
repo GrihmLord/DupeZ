@@ -470,4 +470,15 @@ class UDPPortInterrupter:
             return False
 
 # Global instance
-udp_port_interrupter = UDPPortInterrupter() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_udp_port_interrupter = None
+
+def get_udp_port_interrupter():
+    """Get singleton UDP port interrupter instance"""
+    global _udp_port_interrupter
+    if _udp_port_interrupter is None:
+        _udp_port_interrupter = UDPPortInterrupter()
+    return _udp_port_interrupter
+
+# Backward compatibility
+udp_port_interrupter = get_udp_port_interrupter() 

@@ -102,4 +102,15 @@ class PS5Blocker:
         log_info("PS5 blocker stopped")
 
 # Global instance
-ps5_blocker = PS5Blocker() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_ps5_blocker = None
+
+def get_ps5_blocker():
+    """Get singleton PS5 blocker instance"""
+    global _ps5_blocker
+    if _ps5_blocker is None:
+        _ps5_blocker = PS5Blocker()
+    return _ps5_blocker
+
+# Backward compatibility
+ps5_blocker = get_ps5_blocker() 

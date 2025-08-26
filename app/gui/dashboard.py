@@ -1,6 +1,6 @@
 # app/gui/dashboard.py
 
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QMainWindow, QStatusBar, QDialog, QMessageBox, QTabWidget, QSplitter, QScrollArea
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QMainWindow, QStatusBar, QDialog, QMessageBox, QTabWidget, QSplitter, QScrollArea, QSizePolicy
 from PyQt6.QtGui import QIcon, QAction, QFont
 from PyQt6.QtCore import Qt, QTimer
 
@@ -30,12 +30,14 @@ class UnifiedNetworkScanner(QWidget):
         # Title
         title = QLabel("🔍 Unified Network Scanner")
         title.setFont(QFont("Arial", 16, QFont.Weight.Bold))
-        title.setStyleSheet("color: #ffffff; margin: 10px; text-align: center;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(title)
         
         # Create tab widget for different scanner views
         self.scanner_tabs = QTabWidget()
+        # Enable movable tabs in existing scanner UI
+        self.scanner_tabs.setMovable(True)
+        self.scanner_tabs.setTabsClosable(False)
         
         # Basic Device Scanner (from EnhancedDeviceList)
         self.enhanced_device_list = EnhancedDeviceList()
@@ -60,6 +62,7 @@ import threading
 import json
 import random
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime
 
 class TipsTicker(QWidget):
     """Scrolling tips ticker like NASDAQ ticker with performance optimizations"""
@@ -94,7 +97,6 @@ class TipsTicker(QWidget):
                 padding: 5px 10px;
                 border-radius: 3px;
                 font-weight: bold;
-                white-space: nowrap;
             }
         """)
         
@@ -328,21 +330,34 @@ class DupeZDashboard(QMainWindow):
         screen = self.screen()
         screen_geometry = screen.availableGeometry()
         
-        # Calculate responsive window size (80% of screen size)
-        window_width = int(screen_geometry.width() * 0.8)
-        window_height = int(screen_geometry.height() * 0.8)
+        # Calculate responsive window size (adaptive to screen size)
+        if screen_geometry.width() >= 1920:
+            # Large screens (4K, 1440p)
+            window_width = int(screen_geometry.width() * 0.85)
+            window_height = int(screen_geometry.height() * 0.85)
+        elif screen_geometry.width() >= 1366:
+            # Medium screens (1080p, 1440p)
+            window_width = int(screen_geometry.width() * 0.8)
+            window_height = int(screen_geometry.height() * 0.8)
+        else:
+            # Small screens (720p, 900p)
+            window_width = int(screen_geometry.width() * 0.95)
+            window_height = int(screen_geometry.height() * 0.95)
+        
         window_x = (screen_geometry.width() - window_width) // 2
         window_y = (screen_geometry.height() - window_height) // 2
         
         self.setGeometry(window_x, window_y, window_width, window_height)
         
-        # Set minimum size to prevent window from becoming too small
-        self.setMinimumSize(1200, 700)
+        # Set adaptive minimum size based on screen size
+        if screen_geometry.width() >= 1920:
+            self.setMinimumSize(1600, 900)
+        elif screen_geometry.width() >= 1366:
+            self.setMinimumSize(1200, 700)
+        else:
+            self.setMinimumSize(1000, 600)
         
-        # Force window to be visible and active
-        self.setWindowState(Qt.WindowState.WindowActive)
-        self.raise_()
-        self.activateWindow()
+        # Ensure window is visible (avoid redundant forced activation for stability)
         
         # Apply default theme (dark)
         self.apply_default_theme()
@@ -359,33 +374,60 @@ class DupeZDashboard(QMainWindow):
         
         # Main layout with proper spacing and performance optimizations
         layout = QVBoxLayout()  # Changed to VBoxLayout to accommodate ticker
-        layout.setSpacing(8)  # Add spacing between elements
-        layout.setContentsMargins(8, 8, 8, 8)  # Add margins
+        layout.setSpacing(4)  # Reduced spacing for better layout
+        layout.setContentsMargins(4, 4, 4, 4)  # Reduced margins for better layout
         
-        # Content area with horizontal layout
-        content_layout = QHBoxLayout()
-        content_layout.setSpacing(8)
+        # Content area with splitter for better admin layout organization
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(3)
         
         # Sidebar with responsive width and performance optimizations
         self.sidebar = Sidebar(controller=self.controller)
-        self.sidebar.setObjectName("sidebar")
+        # Object name is set in Sidebar.__init__() for proper identification
         
         # Performance optimization: Enable hardware acceleration for sidebar
         self.sidebar.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
         
-        # Calculate responsive sidebar width (20-25% of window width)
-        sidebar_width = max(250, min(350, int(window_width * 0.22)))
-        self.sidebar.setMinimumWidth(sidebar_width)
-        self.sidebar.setMaximumWidth(sidebar_width)
-        content_layout.addWidget(self.sidebar)
+        # Calculate responsive sidebar width (adaptive to screen size)
+        if screen_geometry.width() >= 1920:
+            # Large screens - wider sidebar
+            sidebar_width = max(300, min(400, int(window_width * 0.18)))
+        elif screen_geometry.width() >= 1366:
+            # Medium screens - standard sidebar
+            sidebar_width = max(250, min(350, int(window_width * 0.22)))
+        else:
+            # Small screens - compact sidebar
+            sidebar_width = max(200, min(250, int(window_width * 0.25)))
+        
+        # Store initial sidebar width for responsive resizing
+        self.initial_sidebar_width = sidebar_width
+        
+        # Set responsive sidebar sizing
+        self.sidebar.setMinimumWidth(200)  # Minimum width
+        self.sidebar.setMaximumWidth(500)  # Maximum width
+        self.sidebar.setPreferredWidth(sidebar_width)  # Preferred width
+        
+        # Set sidebar properties for responsive display
+        self.sidebar.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        
+        # Add sidebar to splitter (left pane)
+        splitter.addWidget(self.sidebar)
         
         # Content area with tabs and performance optimizations
         self.content_tabs = QTabWidget()
         self.content_tabs.setObjectName("content_tabs")
         self.content_tabs.setTabPosition(QTabWidget.TabPosition.North)
         
+        # Enable moveable tabs
+        self.content_tabs.setMovable(True)
+        self.content_tabs.setTabsClosable(False)  # Keep tabs open for now
+        
         # Performance optimization: Enable hardware acceleration for tabs
         self.content_tabs.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, True)
+        
+        # Set content tabs to expand and fill available space
+        self.content_tabs.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         
         # Enhanced device list tab (main scanner) with performance optimizations
         self.enhanced_device_list = EnhancedDeviceList(controller=self.controller)
@@ -426,10 +468,21 @@ class DupeZDashboard(QMainWindow):
         # Ensure all tabs are properly configured
         QTimer.singleShot(0, self._sanitize_tab_labels)
         
-        content_layout.addWidget(self.content_tabs)
+        # Add content tabs to splitter (right pane)
+        splitter.addWidget(self.content_tabs)
         
-        # Add content layout to main layout
-        layout.addLayout(content_layout)
+        # Configure splitter for responsive behavior
+        splitter.setStretchFactor(0, 0)  # Sidebar maintains size
+        splitter.setStretchFactor(1, 1)  # Content expands
+        splitter.setChildrenCollapsible(False)  # Prevent collapsing
+        splitter.setHandleWidth(3)  # Visible handle for resizing
+        
+        # Set initial sizes with responsive proportions
+        content_width = max(800, window_width - sidebar_width)
+        splitter.setSizes([sidebar_width, content_width])
+        
+        # Add splitter to main layout
+        layout.addWidget(splitter)
         
         # Add tips ticker at the bottom with performance optimizations
         self.tips_ticker = TipsTicker()
@@ -442,25 +495,26 @@ class DupeZDashboard(QMainWindow):
         
         # Ensure window is shown and visible
         self.show()
-        self.raise_()
-        self.activateWindow()
         
         # Performance optimization: Re-enable updates after showing
         self.setUpdatesEnabled(True)
+        
+        # Connect resize event for responsive layout
+        self.resizeEvent = self.on_resize_event
     
     def apply_default_theme(self):
-        """Apply the default theme to the application"""
+        """Apply the responsive theme to the application"""
         try:
             # Import and use theme manager
             from app.themes.theme_manager import theme_manager
-            success = theme_manager.apply_theme("dark")
+            success = theme_manager.apply_theme("responsive_dark")
             if success:
-                log_info("Default theme applied successfully")
+                log_info("Responsive theme applied successfully")
             else:
-                log_error("Failed to apply default theme")
+                log_error("Failed to apply responsive theme")
                 self.apply_fallback_theme()
         except Exception as e:
-            log_error(f"Failed to apply default theme: {e}")
+            log_error(f"Failed to apply responsive theme: {e}")
             self.apply_fallback_theme()
     
     def apply_fallback_theme(self):
@@ -498,6 +552,67 @@ class DupeZDashboard(QMainWindow):
                 }
             """)
             log_info("Basic fallback styling applied")
+    
+    def on_resize_event(self, event):
+        """Handle window resize events for responsive layout"""
+        try:
+            # Get new window size
+            new_width = event.size().width()
+            new_height = event.size().height()
+            
+            # Adjust sidebar width based on new window size
+            if new_width >= 1920:
+                # Large screens - wider sidebar
+                sidebar_width = max(300, min(400, int(new_width * 0.18)))
+            elif new_width >= 1366:
+                # Medium screens - standard sidebar
+                sidebar_width = max(250, min(350, int(new_width * 0.22)))
+            else:
+                # Small screens - compact sidebar
+                sidebar_width = max(200, min(250, int(new_width * 0.25)))
+            
+            # Update sidebar width
+            if hasattr(self, 'sidebar'):
+                self.sidebar.setMinimumWidth(sidebar_width)
+                self.sidebar.setMaximumWidth(sidebar_width)
+            
+            # Adjust tab sizes for better responsiveness
+            if hasattr(self, 'content_tabs'):
+                # Make tabs more responsive to window width
+                if new_width >= 1920:
+                    self.content_tabs.setStyleSheet("""
+                        QTabBar::tab {
+                            min-width: 140px;
+                            padding: 14px 24px;
+                            font-size: 11pt;
+                        }
+                    """)
+                elif new_width >= 1366:
+                    self.content_tabs.setStyleSheet("""
+                        QTabBar::tab {
+                            min-width: 120px;
+                            padding: 12px 20px;
+                            font-size: 10pt;
+                        }
+                    """)
+                else:
+                    self.content_tabs.setStyleSheet("""
+                        QTabBar::tab {
+                            min-width: 100px;
+                            padding: 10px 16px;
+                            font-size: 9pt;
+                        }
+                    """)
+            
+            # Call parent resize event
+            super().resizeEvent(event)
+            
+            log_info(f"Window resized to {new_width}x{new_height}, sidebar adjusted to {sidebar_width}px")
+            
+        except Exception as e:
+            log_error(f"Error in resize event handler: {e}")
+            # Call parent resize event as fallback
+            super().resizeEvent(event)
     
     def setup_menu(self):
         """Setup the application menu bar with lagswitch functionality"""
@@ -1071,17 +1186,49 @@ class DupeZDashboard(QMainWindow):
                 pass
     
     def resizeEvent(self, event):
-        """Handle window resize with performance optimizations"""
+        """Handle window resize with responsive sidebar sizing"""
         try:
-            # Performance optimization: Throttle resize updates
-            self.throttle_ui_update(super().resizeEvent, event)
+            # Call parent resize event
+            super().resizeEvent(event)
             
-            # Update responsive layouts
+            # Get new window dimensions
+            new_width = self.width()
+            new_height = self.height()
+            
+            # Calculate responsive sidebar width based on new window size
+            if new_width >= 1920:
+                # Large screens - wider sidebar
+                sidebar_width = max(300, min(400, int(new_width * 0.18)))
+            elif new_width >= 1366:
+                # Medium screens - standard sidebar
+                sidebar_width = max(250, min(350, int(new_width * 0.22)))
+            else:
+                # Small screens - compact sidebar
+                sidebar_width = max(200, min(250, int(new_width * 0.25)))
+            
+            # Update sidebar responsive sizing
             if hasattr(self, 'sidebar'):
-                # Recalculate sidebar width for responsiveness
-                window_width = self.width()
-                sidebar_width = max(250, min(350, int(window_width * 0.22)))
-                self.sidebar.setMaximumWidth(sidebar_width)
+                # Update preferred width for responsive behavior
+                self.sidebar.setPreferredWidth(sidebar_width)
+                
+                # Ensure sidebar stays within responsive bounds
+                if sidebar_width < 200:
+                    sidebar_width = 200
+                elif sidebar_width > 500:
+                    sidebar_width = 500
+                
+                # Update splitter sizes for responsive layout
+                splitter = self.findChild(QSplitter)
+                if splitter:
+                    # Calculate content area width
+                    content_width = max(800, new_width - sidebar_width)
+                    splitter.setSizes([sidebar_width, content_width])
+                    
+                    # Update splitter stretch factors for responsive behavior
+                    splitter.setStretchFactor(0, 0)  # Sidebar maintains size
+                    splitter.setStretchFactor(1, 1)  # Content expands
+            
+            log_info(f"Window resized to {new_width}x{new_height}, sidebar adjusted to {sidebar_width}px")
             
         except Exception as e:
             log_error(f"Resize event error: {e}")
@@ -1681,5 +1828,268 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Topology update implementation error: {e}")
             self._topology_updating = False
+
+    def broadcast_event(self, event_name: str, data=None):
+        """Broadcast an event to all listening components"""
+        try:
+            if hasattr(self, '_component_events') and event_name in self._component_events:
+                for callback in self._component_events[event_name]:
+                    try:
+                        if data:
+                            callback(data)
+                        else:
+                            callback()
+                    except Exception as e:
+                        log_error(f"Error in event callback for {event_name}: {e}")
+                        
+        except Exception as e:
+            log_error(f"Error broadcasting event {event_name}: {e}")
+    
+    def monitor_gui_cohesion(self):
+        """Monitor and ensure GUI cohesion and organization"""
+        try:
+            # Initialize cohesion monitoring if not already done
+            if not hasattr(self, '_cohesion_monitor'):
+                self._cohesion_monitor = {
+                    'component_status': {},
+                    'communication_health': {},
+                    'performance_metrics': {},
+                    'last_check': None
+                }
+            
+            # Check component status
+            self._check_component_status()
+            
+            # Monitor communication health
+            self._monitor_communication_health()
+            
+            # Track performance metrics
+            self._track_performance_metrics()
+            
+            # Update last check time
+            self._cohesion_monitor['last_check'] = datetime.now()
+            
+            log_info("GUI cohesion monitoring completed")
+            
+        except Exception as e:
+            log_error(f"Error in GUI cohesion monitoring: {e}")
+    
+    def _check_component_status(self):
+        """Check the status of all GUI components"""
+        try:
+            components = [
+                'sidebar', 'enhanced_device_list', 'unified_network_scanner',
+                'dayz_account_tracker', 'dayz_gaming_dashboard', 
+                'dayz_duping_dashboard', 'unified_network_control', 'dayz_map_gui'
+            ]
+            
+            for component_name in components:
+                if hasattr(self, component_name):
+                    component = getattr(self, component_name)
+                    if component:
+                        self._cohesion_monitor['component_status'][component_name] = {
+                            'active': True,
+                            'controller_connected': hasattr(component, 'controller') and component.controller is not None,
+                            'last_update': datetime.now()
+                        }
+                    else:
+                        self._cohesion_monitor['component_status'][component_name] = {
+                            'active': False,
+                            'controller_connected': False,
+                            'last_update': None
+                        }
+                        
+        except Exception as e:
+            log_error(f"Error checking component status: {e}")
+    
+    def _monitor_communication_health(self):
+        """Monitor the health of component communication"""
+        try:
+            if hasattr(self, '_component_events'):
+                for event_name, callbacks in self._component_events.items():
+                    self._cohesion_monitor['communication_health'][event_name] = {
+                        'listeners': len(callbacks),
+                        'last_broadcast': None,
+                        'health_score': min(100, len(callbacks) * 20)  # Score based on listener count
+                    }
+                    
+        except Exception as e:
+            log_error(f"Error monitoring communication health: {e}")
+    
+    def _track_performance_metrics(self):
+        """Track performance metrics for GUI optimization"""
+        try:
+            import psutil
+            import gc
+            
+            # Memory usage
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            
+            # Garbage collection stats
+            gc_stats = gc.get_stats()
+            
+            self._cohesion_monitor['performance_metrics'] = {
+                'memory_usage_mb': memory_info.rss / 1024 / 1024,
+                'memory_percent': process.memory_percent(),
+                'cpu_percent': process.cpu_percent(),
+                'gc_collections': len(gc_stats),
+                'active_threads': threading.active_count(),
+                'timestamp': datetime.now()
+            }
+            
+            # Log warnings if metrics are concerning
+            if self._cohesion_monitor['performance_metrics']['memory_usage_mb'] > 500:
+                log_warning(f"High memory usage: {self._cohesion_monitor['performance_metrics']['memory_usage_mb']:.1f}MB")
+                
+            if self._cohesion_monitor['performance_metrics']['cpu_percent'] > 80:
+                log_warning(f"High CPU usage: {self._cohesion_monitor['performance_metrics']['cpu_percent']:.1f}%")
+                
+        except Exception as e:
+            log_error(f"Error tracking performance metrics: {e}")
+    
+    def get_gui_health_report(self):
+        """Generate a comprehensive GUI health report"""
+        try:
+            # Run monitoring if not recently done
+            if (not self._cohesion_monitor.get('last_check') or 
+                (datetime.now() - self._cohesion_monitor['last_check']).seconds > 60):
+                self.monitor_gui_cohesion()
+            
+            report = {
+                'timestamp': datetime.now().isoformat(),
+                'overall_health': self._calculate_overall_health(),
+                'component_status': self._cohesion_monitor['component_status'],
+                'communication_health': self._cohesion_monitor['communication_health'],
+                'performance_metrics': self._cohesion_monitor['performance_metrics'],
+                'recommendations': self._generate_health_recommendations()
+            }
+            
+            return report
+            
+        except Exception as e:
+            log_error(f"Error generating GUI health report: {e}")
+            return {'error': str(e)}
+    
+    def _calculate_overall_health(self):
+        """Calculate overall GUI health score"""
+        try:
+            score = 100
+            
+            # Deduct points for inactive components
+            for component_name, status in self._cohesion_monitor['component_status'].items():
+                if not status['active']:
+                    score -= 10
+                if not status['controller_connected']:
+                    score -= 5
+            
+            # Deduct points for poor communication health
+            for event_name, health in self._cohesion_monitor['communication_health'].items():
+                if health['listeners'] == 0:
+                    score -= 5
+            
+            # Deduct points for performance issues
+            metrics = self._cohesion_monitor['performance_metrics']
+            if metrics.get('memory_usage_mb', 0) > 500:
+                score -= 10
+            if metrics.get('cpu_percent', 0) > 80:
+                score -= 10
+            
+            return max(0, score)
+            
+        except Exception as e:
+            log_error(f"Error calculating overall health: {e}")
+            return 0
+    
+    def _generate_health_recommendations(self):
+        """Generate recommendations for improving GUI health"""
+        try:
+            recommendations = []
+            
+            # Check component status
+            for component_name, status in self._cohesion_monitor['component_status'].items():
+                if not status['active']:
+                    recommendations.append(f"Reactivate {component_name} component")
+                if not status['controller_connected']:
+                    recommendations.append(f"Reconnect {component_name} to controller")
+            
+            # Check communication health
+            for event_name, health in self._cohesion_monitor['communication_health'].items():
+                if health['listeners'] == 0:
+                    recommendations.append(f"Add listeners for {event_name} events")
+            
+            # Check performance
+            metrics = self._cohesion_monitor['performance_metrics']
+            if metrics.get('memory_usage_mb', 0) > 500:
+                recommendations.append("Consider memory cleanup or component optimization")
+            if metrics.get('cpu_percent', 0) > 80:
+                recommendations.append("Reduce update frequencies or optimize animations")
+            
+            return recommendations
+            
+        except Exception as e:
+            log_error(f"Error generating recommendations: {e}")
+            return ["Error generating recommendations"]
+    
+    def optimize_gui_performance(self):
+        """Automatically optimize GUI performance based on health report"""
+        try:
+            report = self.get_gui_health_report()
+            
+            if report['overall_health'] < 70:
+                log_info("GUI health below threshold, performing optimizations...")
+                
+                # Memory optimization
+                if report['performance_metrics'].get('memory_usage_mb', 0) > 500:
+                    self.cleanup_memory()
+                    gc.collect()
+                
+                # Component reconnection
+                for component_name, status in report['component_status'].items():
+                    if not status['controller_connected']:
+                        self._reconnect_component(component_name)
+                
+                # Communication optimization
+                for event_name, health in report['communication_health'].items():
+                    if health['listeners'] == 0:
+                        self._restore_event_listeners(event_name)
+                
+                log_info("GUI performance optimization completed")
+                
+        except Exception as e:
+            log_error(f"Error optimizing GUI performance: {e}")
+    
+    def _reconnect_component(self, component_name):
+        """Reconnect a component to the controller"""
+        try:
+            if hasattr(self, component_name):
+                component = getattr(self, component_name)
+                if component and hasattr(component, 'set_controller'):
+                    component.set_controller(self.controller)
+                    log_info(f"Reconnected {component_name} to controller")
+                    
+        except Exception as e:
+            log_error(f"Error reconnecting {component_name}: {e}")
+    
+    def _restore_event_listeners(self, event_name):
+        """Restore event listeners for a specific event"""
+        try:
+            if hasattr(self, '_component_events') and event_name in self._component_events:
+                # Re-establish listeners based on event type
+                if event_name == 'network_scan_completed':
+                    if hasattr(self, 'enhanced_device_list') and self.enhanced_device_list:
+                        self._component_events[event_name].append(
+                            self.enhanced_device_list.refresh_device_list
+                        )
+                elif event_name in ['device_blocked', 'device_unblocked']:
+                    if hasattr(self, 'sidebar') and self.sidebar:
+                        self._component_events[event_name].append(
+                            self.sidebar.update_blocking_status
+                        )
+                
+                log_info(f"Restored listeners for {event_name}")
+                
+        except Exception as e:
+            log_error(f"Error restoring event listeners for {event_name}: {e}")
 
     

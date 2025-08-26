@@ -48,9 +48,10 @@ class DupingSessionThread(QThread):
 class DayZDupingDashboard(QWidget):
     """DayZ Duping Network Optimization Dashboard"""
     
-    def __init__(self, parent=None, account_tracker=None):
+    def __init__(self, parent=None, account_tracker=None, controller=None):
         super().__init__(parent)
         self.account_tracker = account_tracker
+        self.controller = controller
         self.optimizer = DayZDupingOptimizer()
         self.session_thread = DupingSessionThread(self.optimizer)
         
@@ -64,6 +65,10 @@ class DayZDupingDashboard(QWidget):
         self.session_thread.start()
         
         log_info("DayZ Duping Dashboard initialized")
+    
+    def set_controller(self, controller):
+        """Set the controller for this component"""
+        self.controller = controller
     
     def setup_ui(self):
         """Setup the user interface"""
@@ -79,6 +84,9 @@ class DayZDupingDashboard(QWidget):
         
         # Tab widget
         self.tab_widget = QTabWidget()
+        # Enable movable tabs in existing app
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setTabsClosable(False)
         self.tab_widget.addTab(self.create_account_selection_tab(), "🎯 Account Selection")
         self.tab_widget.addTab(self.create_session_tab(), "🎮 Duping Sessions")
         self.tab_widget.addTab(self.create_network_tab(), "🌐 Network Profiles")

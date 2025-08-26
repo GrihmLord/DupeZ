@@ -1012,4 +1012,15 @@ class EnterpriseNetworkDisruptor:
         log_info("Enterprise Network Disruptor stopped")
 
 # Global enterprise instance
-enterprise_network_disruptor = EnterpriseNetworkDisruptor() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_enterprise_network_disruptor = None
+
+def get_enterprise_network_disruptor():
+    """Get singleton enterprise network disruptor instance"""
+    global _enterprise_network_disruptor
+    if _enterprise_network_disruptor is None:
+        _enterprise_network_disruptor = EnterpriseNetworkDisruptor()
+    return _enterprise_network_disruptor
+
+# Backward compatibility
+enterprise_network_disruptor = get_enterprise_network_disruptor() 

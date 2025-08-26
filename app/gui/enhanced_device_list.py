@@ -76,29 +76,11 @@ class EnhancedDeviceList(QWidget):
     
     def _initialize_disruptors(self):
         """Initialize network disruptors with proper error handling"""
-        try:
-            # Initialize Clumsy network disruptor
-            try:
-                from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
-                self.clumsy_network_disruptor = clumsy_network_disruptor
-                log_info("Clumsy network disruptor initialized successfully")
-            except Exception as e:
-                log_error(f"Failed to initialize Clumsy network disruptor: {e}")
-                self.clumsy_network_disruptor = None
-            
-            # Initialize Enterprise network disruptor
-            try:
-                from app.firewall.enterprise_network_disruptor import enterprise_network_disruptor
-                self.enterprise_network_disruptor = enterprise_network_disruptor
-                log_info("Enterprise network disruptor initialized successfully")
-            except Exception as e:
-                log_error(f"Failed to initialize Enterprise network disruptor: {e}")
-                self.enterprise_network_disruptor = None
-                
-        except Exception as e:
-            log_error(f"Error initializing network disruptors: {e}")
-            self.clumsy_network_disruptor = None
-            self.enterprise_network_disruptor = None
+        # Network disruptors: DISABLED to prevent duplicate initialization
+        # Network disruptors are now initialized only in the controller to prevent overlay issues
+        self.clumsy_network_disruptor = None
+        self.enterprise_network_disruptor = None
+        log_info("Network disruptors disabled in GUI to prevent duplicate initialization")
     
     def setup_ui(self):
         """Setup a simple, Clumsy-like network scanner UI"""

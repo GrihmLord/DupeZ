@@ -39,6 +39,9 @@ class LatencyConfigDialog(QDialog):
         
         # Tab widget for different configuration sections
         self.tab_widget = QTabWidget()
+        # Enable movable tabs in existing app
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setTabsClosable(False)
         
         # Gaming Latency Tab
         self.gaming_tab = GamingLatencyTab()

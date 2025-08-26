@@ -5,6 +5,7 @@ Handles light, dark, and rainbow themes with dynamic color generation
 """
 
 import os
+import sys
 import json
 import time
 import math
@@ -31,7 +32,8 @@ class ThemeManager(QObject):
             "light": "light.qss",
             "dark": "dark.qss", 
             "hacker": "hacker.qss",
-            "rainbow": "rainbow.qss"
+            "rainbow": "rainbow.qss",
+            "responsive_dark": "responsive_dark.qss"
         }
         self.rainbow_timer = None
         self.rainbow_hue = 0.0
@@ -48,15 +50,26 @@ class ThemeManager(QObject):
         """Load all theme files into memory"""
         self.theme_styles = {}
         
+        # Resolve base path to support PyInstaller (sys._MEIPASS) and dev runs
+        base_path = getattr(sys, '_MEIPASS', os.getcwd())
+        themes_base_dir = os.path.join(base_path, self.themes_dir)
+        
         for theme_name, filename in self.theme_files.items():
-            filepath = os.path.join(self.themes_dir, filename)
+            filepath = os.path.join(themes_base_dir, filename)
             try:
                 if os.path.exists(filepath):
                     with open(filepath, 'r', encoding='utf-8') as f:
                         self.theme_styles[theme_name] = f.read()
                     log_info(f"Loaded theme: {theme_name}")
                 else:
-                    log_error(f"Theme file not found: {filepath}")
+                    # Fallback to relative path in case of unusual working dirs
+                    alt_path = os.path.join(self.themes_dir, filename)
+                    if os.path.exists(alt_path):
+                        with open(alt_path, 'r', encoding='utf-8') as f:
+                            self.theme_styles[theme_name] = f.read()
+                        log_info(f"Loaded theme (alt path): {theme_name}")
+                    else:
+                        log_error(f"Theme file not found: {filepath}")
             except Exception as e:
                 log_error(f"Error loading theme {theme_name}: {e}")
     

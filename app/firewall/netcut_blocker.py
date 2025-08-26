@@ -487,4 +487,15 @@ class NetCutBlocker:
         log_info("🛑 NetCut blocker stopped")
 
 # Global instance
-netcut_blocker = NetCutBlocker() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_netcut_blocker = None
+
+def get_netcut_blocker():
+    """Get singleton netcut blocker instance"""
+    global _netcut_blocker
+    if _netcut_blocker is None:
+        _netcut_blocker = NetCutBlocker()
+    return _netcut_blocker
+
+# Backward compatibility
+netcut_blocker = get_netcut_blocker() 

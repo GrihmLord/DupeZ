@@ -686,5 +686,15 @@ class AdvancedReportingSystem:
         except Exception as e:
             log_error(f"Error deleting report {report_id}: {e}")
 
-# Global reporting system instance
-advanced_reporting_system = AdvancedReportingSystem() 
+# Global reporting system instance - Singleton pattern to prevent duplicate initialization
+_advanced_reporting_system = None
+
+def get_advanced_reporting_system():
+    """Get singleton advanced reporting system instance"""
+    global _advanced_reporting_system
+    if _advanced_reporting_system is None:
+        _advanced_reporting_system = AdvancedReportingSystem()
+    return _advanced_reporting_system
+
+# Backward compatibility
+advanced_reporting_system = get_advanced_reporting_system() 

@@ -1247,5 +1247,15 @@ class {class_name}Plugin({self.categories[category].__name__}):
             log_error(f"Error getting plugin status: {e}")
             return {}
 
-# Global plugin manager instance
-advanced_plugin_manager = AdvancedPluginManager() 
+# Global plugin manager instance - Singleton pattern to prevent duplicate initialization
+_advanced_plugin_manager = None
+
+def get_advanced_plugin_manager():
+    """Get singleton advanced plugin manager instance"""
+    global _advanced_plugin_manager
+    if _advanced_plugin_manager is None:
+        _advanced_plugin_manager = AdvancedPluginManager()
+    return _advanced_plugin_manager
+
+# Backward compatibility
+advanced_plugin_manager = get_advanced_plugin_manager() 

@@ -36,8 +36,9 @@ class UnifiedNetworkControl(QWidget):
     manipulation_started = pyqtSignal(str, str)
     manipulation_stopped = pyqtSignal(str, str)
     
-    def __init__(self, parent=None):
+    def __init__(self, controller=None, parent=None):
         super().__init__(parent)
+        self.controller = controller
         self.manipulator = get_network_manipulator()
         self.history_file = "network_manipulator_history.json"
         self.ip_history = self.load_history()
@@ -58,6 +59,9 @@ class UnifiedNetworkControl(QWidget):
         
         # Create tab widget
         self.tab_widget = QTabWidget()
+        # Enable movable tabs in existing app
+        self.tab_widget.setMovable(True)
+        self.tab_widget.setTabsClosable(False)
         
         # Main control tab
         self.tab_widget.addTab(self.create_main_control_tab(), "🎯 Main Control")
@@ -77,6 +81,10 @@ class UnifiedNetworkControl(QWidget):
         layout.addWidget(self.tab_widget)
         self.setLayout(layout)
         self.apply_styling()
+    
+    def set_controller(self, controller):
+        """Set the controller for this component"""
+        self.controller = controller
         
     def create_main_control_tab(self) -> QWidget:
         """Create the main control tab with quick access to key features"""

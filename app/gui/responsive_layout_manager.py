@@ -1,412 +1,339 @@
 #!/usr/bin/env python3
 """
-Responsive Layout Manager for DupeZ GUI
-Ensures all components fit properly on different screen sizes
+Responsive Layout Manager for DupeZ
+Handles dynamic layouts and adaptive sizing for different screen sizes
 """
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
-                             QLabel, QPushButton, QTableWidget, QTabWidget,
-                             QGroupBox, QSplitter, QScrollArea, QFrame,
-                             QSizePolicy, QApplication)
-from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
-from PyQt6.QtGui import QFont, QPalette, QColor
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QSplitter
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QFont
 from typing import Dict, List, Optional, Tuple
-import sys
+import math
+
+from app.logs.logger import log_info, log_error
 
 class ResponsiveLayoutManager:
-    """Manages responsive layouts for different screen sizes"""
+    """Manages responsive layouts and adaptive sizing"""
     
-    def __init__(self):
+    def __init__(self, parent_widget: QWidget):
+        self.parent = parent_widget
         self.screen_sizes = {
-            'small': (1024, 768),      # Small laptop
-            'medium': (1366, 768),     # Standard laptop
-            'large': (1920, 1080),     # Full HD
-            'ultra': (2560, 1440),     # 2K
-            '4k': (3840, 2160)         # 4K
+            'small': {'min_width': 1000, 'min_height': 600},
+            'medium': {'min_width': 1200, 'min_height': 700},
+            'large': {'min_width': 1600, 'min_height': 900},
+            'xlarge': {'min_width': 1920, 'min_height': 1080}
+        }
+        self.current_size_category = 'medium'
+        self.layout_elements = {}
+        self.adaptive_timers = {}
+        
+        # Initialize responsive settings
+        self.setup_responsive_settings()
+    
+    def setup_responsive_settings(self):
+        """Setup initial responsive settings"""
+        self.responsive_config = {
+            'sidebar': {
+                'small': {'min_width': 200, 'max_width': 250, 'ratio': 0.25},
+                'medium': {'min_width': 250, 'max_width': 350, 'ratio': 0.22},
+                'large': {'min_width': 300, 'max_width': 400, 'ratio': 0.18},
+                'xlarge': {'min_width': 350, 'max_width': 450, 'ratio': 0.16}
+            },
+            'tabs': {
+                'small': {'min_width': 100, 'padding': '10px 16px', 'font_size': '9pt'},
+                'medium': {'min_width': 120, 'padding': '12px 20px', 'font_size': '10pt'},
+                'large': {'min_width': 140, 'padding': '14px 24px', 'font_size': '11pt'},
+                'xlarge': {'min_width': 160, 'padding': '16px 28px', 'font_size': '12pt'}
+            },
+            'buttons': {
+                'small': {'padding': '6px 12px', 'min_height': 18, 'font_size': '8pt'},
+                'medium': {'padding': '8px 16px', 'min_height': 20, 'font_size': '9pt'},
+                'large': {'padding': '10px 20px', 'min_height': 24, 'font_size': '10pt'},
+                'xlarge': {'padding': '12px 24px', 'min_height': 28, 'font_size': '11pt'}
+            },
+            'inputs': {
+                'small': {'padding': '6px 10px', 'min_height': 18, 'font_size': '8pt'},
+                'medium': {'padding': '8px 12px', 'min_height': 20, 'font_size': '9pt'},
+                'large': {'padding': '10px 16px', 'min_height': 24, 'font_size': '10pt'},
+                'xlarge': {'padding': '12px 20px', 'min_height': 28, 'font_size': '11pt'}
+            }
+        }
+    
+    def get_screen_category(self, width: int, height: int) -> str:
+        """Determine screen size category"""
+        if width >= 1920:
+            return 'xlarge'
+        elif width >= 1600:
+            return 'large'
+        elif width >= 1200:
+            return 'medium'
+        else:
+            return 'small'
+    
+    def calculate_responsive_dimensions(self, width: int, height: int) -> Dict:
+        """Calculate responsive dimensions for all elements"""
+        category = self.get_screen_category(width, height)
+        self.current_size_category = category
+        
+        dimensions = {
+            'window': {
+                'min_width': self.screen_sizes[category]['min_width'],
+                'min_height': self.screen_sizes[category]['min_height'],
+                'target_width': int(width * 0.8 if category == 'medium' else 0.85 if category == 'large' else 0.95),
+                'target_height': int(height * 0.8 if category == 'medium' else 0.85 if category == 'large' else 0.95)
+            },
+            'sidebar': {
+                'min_width': self.responsive_config['sidebar'][category]['min_width'],
+                'max_width': self.responsive_config['sidebar'][category]['max_width'],
+                'target_width': max(
+                    self.responsive_config['sidebar'][category]['min_width'],
+                    min(
+                        self.responsive_config['sidebar'][category]['max_width'],
+                        int(width * self.responsive_config['sidebar'][category]['ratio'])
+                    )
+                )
+            },
+            'tabs': self.responsive_config['tabs'][category],
+            'buttons': self.responsive_config['buttons'][category],
+            'inputs': self.responsive_config['inputs'][category]
         }
         
-        self.current_screen_size = self._detect_screen_size()
-        self.scale_factors = self._calculate_scale_factors()
-        
-    def _detect_screen_size(self) -> str:
-        """Detect current screen size category"""
+        return dimensions
+    
+    def apply_responsive_layout(self, dimensions: Dict):
+        """Apply responsive layout to all registered elements"""
         try:
-            app = QApplication.instance()
-            if app:
-                screen = app.primaryScreen()
-                geometry = screen.availableGeometry()
-                width, height = geometry.width(), geometry.height()
-                
-                # Determine screen size category
-                if width <= 1024:
-                    return 'small'
-                elif width <= 1366:
-                    return 'medium'
-                elif width <= 1920:
-                    return 'large'
-                elif width <= 2560:
-                    return 'ultra'
-                else:
-                    return '4k'
-        except Exception:
-            pass
+            # Apply sidebar sizing
+            if 'sidebar' in self.layout_elements:
+                sidebar = self.layout_elements['sidebar']
+                sidebar.setMinimumWidth(dimensions['sidebar']['min_width'])
+                sidebar.setMaximumWidth(dimensions['sidebar']['max_width'])
+                sidebar.setFixedWidth(dimensions['sidebar']['target_width'])
+            
+            # Apply tab styling
+            if 'content_tabs' in self.layout_elements:
+                tabs = self.layout_elements['content_tabs']
+                tab_style = f"""
+                    QTabBar::tab {{
+                        min-width: {dimensions['tabs']['min_width']}px;
+                        padding: {dimensions['tabs']['padding']};
+                        font-size: {dimensions['tabs']['font_size']};
+                    }}
+                """
+                tabs.setStyleSheet(tab_style)
+            
+            # Apply button styling
+            if 'buttons' in self.layout_elements:
+                for button_id, button in self.layout_elements['buttons'].items():
+                    button_style = f"""
+                        QPushButton {{
+                            padding: {dimensions['buttons']['padding']};
+                            min-height: {dimensions['buttons']['min_height']}px;
+                            font-size: {dimensions['buttons']['font_size']};
+                        }}
+                    """
+                    button.setStyleSheet(button_style)
+            
+            # Apply input styling
+            if 'inputs' in self.layout_elements:
+                for input_id, input_widget in self.layout_elements['inputs'].items():
+                    input_style = f"""
+                        QLineEdit, QComboBox, QSpinBox {{
+                            padding: {dimensions['inputs']['padding']};
+                            min-height: {dimensions['inputs']['min_height']}px;
+                            font-size: {dimensions['inputs']['font_size']};
+                        }}
+                    """
+                    input_widget.setStyleSheet(input_style)
+            
+            log_info(f"Applied responsive layout for {self.current_size_category} screen")
+            
+        except Exception as e:
+            log_error(f"Error applying responsive layout: {e}")
+    
+    def register_layout_element(self, element_type: str, element_id: str, element: QWidget):
+        """Register a layout element for responsive management"""
+        if element_type not in self.layout_elements:
+            self.layout_elements[element_type] = {}
         
-        return 'medium'  # Default fallback
+        self.layout_elements[element_type][element_id] = element
+        log_info(f"Registered {element_type}: {element_id}")
     
-    def _calculate_scale_factors(self) -> Dict[str, float]:
-        """Calculate scale factors for different screen sizes"""
-        base_size = self.screen_sizes['medium']
-        base_width, base_height = base_size
+    def unregister_layout_element(self, element_type: str, element_id: str):
+        """Unregister a layout element"""
+        if element_type in self.layout_elements and element_id in self.layout_elements[element_type]:
+            del self.layout_elements[element_type][element_id]
+            log_info(f"Unregistered {element_type}: {element_id}")
+    
+    def create_adaptive_splitter(self, orientation: Qt.Orientation = Qt.Orientation.Horizontal) -> QSplitter:
+        """Create an adaptive splitter that adjusts to content"""
+        splitter = QSplitter(orientation)
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(3)
         
-        factors = {}
-        for size_name, (width, height) in self.screen_sizes.items():
-            width_factor = width / base_width
-            height_factor = height / base_height
-            factors[size_name] = min(width_factor, height_factor)
+        # Store splitter for responsive management
+        self.layout_elements['splitters'] = self.layout_elements.get('splitters', {})
+        self.layout_elements['splitters'][f'splitter_{len(self.layout_elements["splitters"])}'] = splitter
         
-        return factors
+        return splitter
     
-    def get_scale_factor(self) -> float:
-        """Get current scale factor"""
-        return self.scale_factors.get(self.current_screen_size, 1.0)
+    def create_responsive_grid(self, rows: int, cols: int, spacing: int = 8) -> QGridLayout:
+        """Create a responsive grid layout"""
+        grid = QGridLayout()
+        grid.setSpacing(spacing)
+        grid.setContentsMargins(spacing, spacing, spacing, spacing)
+        
+        # Store grid for responsive management
+        self.layout_elements['grids'] = self.layout_elements.get('grids', {})
+        self.layout_elements['grids'][f'grid_{len(self.layout_elements["grids"])}'] = grid
+        
+        return grid
     
-    def get_responsive_font_size(self, base_size: int) -> int:
-        """Get responsive font size based on screen size"""
-        scale_factor = self.get_scale_factor()
-        return max(8, int(base_size * scale_factor))
+    def create_adaptive_container(self, layout_type: str = 'vertical') -> Tuple[QWidget, QVBoxLayout]:
+        """Create an adaptive container with appropriate layout"""
+        container = QWidget()
+        
+        if layout_type == 'vertical':
+            layout = QVBoxLayout()
+        elif layout_type == 'horizontal':
+            layout = QHBoxLayout()
+        else:
+            layout = QVBoxLayout()
+        
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+        container.setLayout(layout)
+        
+        # Store container for responsive management
+        self.layout_elements['containers'] = self.layout_elements.get('containers', {})
+        self.layout_elements['containers'][f'container_{len(self.layout_elements["containers"])}'] = container
+        
+        return container, layout
     
-    def get_responsive_spacing(self, base_spacing: int) -> int:
-        """Get responsive spacing based on screen size"""
-        scale_factor = self.get_scale_factor()
-        return max(2, int(base_spacing * scale_factor))
+    def optimize_for_screen_size(self, width: int, height: int):
+        """Optimize layout for specific screen size"""
+        dimensions = self.calculate_responsive_dimensions(width, height)
+        self.apply_responsive_layout(dimensions)
+        
+        # Additional optimizations based on screen size
+        if self.current_size_category == 'small':
+            self._optimize_small_screen()
+        elif self.current_size_category == 'large':
+            self._optimize_large_screen()
+        elif self.current_size_category == 'xlarge':
+            self._optimize_xlarge_screen()
     
-    def get_responsive_margins(self, base_margins: int) -> int:
-        """Get responsive margins based on screen size"""
-        scale_factor = self.get_scale_factor()
-        return max(4, int(base_margins * scale_factor))
+    def _optimize_small_screen(self):
+        """Optimize layout for small screens"""
+        # Reduce margins and spacing
+        for container_id, container in self.layout_elements.get('containers', {}).items():
+            layout = container.layout()
+            if layout:
+                layout.setSpacing(4)
+                layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Make tabs more compact
+        if 'content_tabs' in self.layout_elements:
+            tabs = self.layout_elements['content_tabs']
+            tabs.setStyleSheet("""
+                QTabBar::tab {
+                    margin-right: 1px;
+                    padding: 8px 12px;
+                }
+            """)
+    
+    def _optimize_large_screen(self):
+        """Optimize layout for large screens"""
+        # Increase margins and spacing for better readability
+        for container_id, container in self.layout_elements.get('containers', {}).items():
+            layout = container.layout()
+            if layout:
+                layout.setSpacing(12)
+                layout.setContentsMargins(12, 12, 12, 12)
+    
+    def _optimize_xlarge_screen(self):
+        """Optimize layout for extra large screens"""
+        # Maximum spacing and margins for 4K displays
+        for container_id, container in self.layout_elements.get('containers', {}).items():
+            layout = container.layout()
+            if layout:
+                layout.setSpacing(16)
+                layout.setContentsMargins(16, 16, 16, 16)
+        
+        # Increase font sizes for better readability
+        if 'content_tabs' in self.layout_elements:
+            tabs = self.layout_elements['content_tabs']
+            tabs.setStyleSheet("""
+                QTabBar::tab {
+                    font-size: 12pt;
+                    padding: 16px 28px;
+                }
+            """)
+    
+    def get_responsive_font(self, base_size: int = 9) -> QFont:
+        """Get responsive font size based on screen category"""
+        font_sizes = {
+            'small': base_size - 1,
+            'medium': base_size,
+            'large': base_size + 1,
+            'xlarge': base_size + 2
+        }
+        
+        font = QFont()
+        font.setPointSize(font_sizes.get(self.current_size_category, base_size))
+        return font
+    
+    def cleanup(self):
+        """Cleanup responsive layout manager"""
+        try:
+            # Clear all registered elements
+            self.layout_elements.clear()
+            
+            # Stop all adaptive timers
+            for timer in self.adaptive_timers.values():
+                if timer.isActive():
+                    timer.stop()
+            
+            self.adaptive_timers.clear()
+            
+            log_info("Responsive layout manager cleaned up")
+            
+        except Exception as e:
+            log_error(f"Error cleaning up responsive layout manager: {e}")
+
 
 class ResponsiveWidget(QWidget):
     """Base class for responsive widgets"""
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._layout_manager = None
+        self.layout_manager = None
         self.setup_responsive_layout()
     
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
     def setup_responsive_layout(self):
-        """Setup responsive layout - override in subclasses"""
-        pass
+        """Setup responsive layout for this widget"""
+        if hasattr(self.parent(), 'layout_manager'):
+            self.layout_manager = self.parent().layout_manager
+        else:
+            # Create standalone layout manager
+            self.layout_manager = ResponsiveLayoutManager(self)
     
     def resizeEvent(self, event):
-        """Handle resize events for responsive design"""
+        """Handle resize events for responsive behavior"""
         super().resizeEvent(event)
-        self.update_responsive_layout()
-    
-    def update_responsive_layout(self):
-        """Update layout for current screen size - override in subclasses"""
-        pass
-
-class ResponsiveTableWidget(QTableWidget):
-    """Responsive table widget with automatic column sizing"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._layout_manager = None
-        self.column_ratios = {}
-        self.setup_responsive_table()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_table(self):
-        """Setup responsive table properties"""
-        # Enable automatic column sizing
-        self.horizontalHeader().setStretchLastSection(True)
-        self.horizontalHeader().setSectionResizeMode(
-            self.horizontalHeader().ResizeMode.Interactive
-        )
         
-        # Set responsive font
-        font = self.font()
-        font.setPointSize(self.layout_manager.get_responsive_font_size(9))
-        self.setFont(font)
+        if self.layout_manager:
+            self.layout_manager.optimize_for_screen_size(
+                event.size().width(),
+                event.size().height()
+            )
     
-    def set_column_ratios(self, ratios: Dict[int, float]):
-        """Set column width ratios for responsive sizing"""
-        self.column_ratios = ratios
+    def register_for_responsive_layout(self, element_type: str, element_id: str, element: QWidget):
+        """Register this widget's elements for responsive layout management"""
+        if self.layout_manager:
+            self.layout_manager.register_layout_element(element_type, element_id, element)
     
-    def resizeEvent(self, event):
-        """Handle resize events with responsive column sizing"""
-        super().resizeEvent(event)
-        self.update_column_widths()
-    
-    def update_column_widths(self):
-        """Update column widths based on current table width"""
-        if not self.column_ratios:
-            return
-        
-        total_width = self.width()
-        if total_width <= 0:
-            return
-        
-        # Calculate column widths based on ratios
-        for col, ratio in self.column_ratios.items():
-            if col < self.columnCount():
-                width = int(total_width * ratio)
-                self.setColumnWidth(col, width)
-
-class ResponsiveTabWidget(QTabWidget):
-    """Responsive tab widget with proper sizing"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._layout_manager = None
-        self.setup_responsive_tabs()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_tabs(self):
-        """Setup responsive tab properties"""
-        # Set tab position
-        self.setTabPosition(QTabWidget.TabPosition.North)
-        
-        # Set responsive font for tab labels
-        font = self.font()
-        font.setPointSize(self.layout_manager.get_responsive_font_size(10))
-        self.setFont(font)
-        
-        # Enable tab scrolling for small screens
-        self.setUsesScrollButtons(True)
-        self.setElideMode(Qt.TextElideMode.ElideRight)
-
-class ResponsiveGroupBox(QGroupBox):
-    """Responsive group box with proper spacing"""
-    
-    def __init__(self, title: str = "", parent=None):
-        super().__init__(title, parent)
-        self._layout_manager = None
-        self.setup_responsive_group()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_group(self):
-        """Setup responsive group box properties"""
-        # Set responsive font
-        font = self.font()
-        font.setPointSize(self.layout_manager.get_responsive_font_size(10))
-        font.setBold(True)
-        self.setFont(font)
-        
-        # Set responsive margins
-        margins = self.layout_manager.get_responsive_margins(8)
-        self.setContentsMargins(margins, margins, margins, margins)
-
-class ResponsiveButton(QPushButton):
-    """Responsive button with proper sizing"""
-    
-    def __init__(self, text: str = "", parent=None):
-        super().__init__(text, parent)
-        self._layout_manager = None
-        self.setup_responsive_button()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_button(self):
-        """Setup responsive button properties"""
-        # Set responsive font
-        font = self.font()
-        font.setPointSize(self.layout_manager.get_responsive_font_size(9))
-        self.setFont(font)
-        
-        # Set minimum size
-        min_height = max(20, int(25 * self.layout_manager.get_scale_factor()))
-        self.setMinimumHeight(min_height)
-        
-        # Set size policy
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
-
-class ResponsiveLabel(QLabel):
-    """Responsive label with proper font sizing"""
-    
-    def __init__(self, text: str = "", parent=None):
-        super().__init__(text, parent)
-        self._layout_manager = None
-        self.setup_responsive_label()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_label(self):
-        """Setup responsive label properties"""
-        # Set responsive font
-        font = self.font()
-        font.setPointSize(self.layout_manager.get_responsive_font_size(9))
-        self.setFont(font)
-        
-        # Enable word wrapping
-        self.setWordWrap(True)
-
-class ResponsiveSplitter(QSplitter):
-    """Responsive splitter with proper sizing"""
-    
-    def __init__(self, orientation: Qt.Orientation = Qt.Orientation.Horizontal, parent=None):
-        super().__init__(orientation, parent)
-        self._layout_manager = None
-        self.setup_responsive_splitter()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_splitter(self):
-        """Setup responsive splitter properties"""
-        # Set handle width
-        handle_width = max(4, int(6 * self.layout_manager.get_scale_factor()))
-        self.setHandleWidth(handle_width)
-        
-        # Enable children collapsible
-        self.setChildrenCollapsible(True)
-
-class ResponsiveScrollArea(QScrollArea):
-    """Responsive scroll area with proper sizing"""
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._layout_manager = None
-        self.setup_responsive_scroll()
-    
-    @property
-    def layout_manager(self):
-        """Lazy initialization of layout manager"""
-        if self._layout_manager is None:
-            self._layout_manager = ResponsiveLayoutManager()
-        return self._layout_manager
-    
-    def setup_responsive_scroll(self):
-        """Setup responsive scroll area properties"""
-        # Set scroll bar policy
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        
-        # Set widget resize mode
-        self.setWidgetResizable(True)
-        
-        # Set frame style
-        self.setFrameStyle(QFrame.Shape.StyledPanel)
-
-def create_responsive_layout(layout_type: str = "vertical", parent=None) -> QVBoxLayout | QHBoxLayout | QGridLayout:
-    """Create a responsive layout with proper spacing"""
-    layout_manager = ResponsiveLayoutManager()
-    
-    if layout_type == "vertical":
-        layout = QVBoxLayout()
-    elif layout_type == "horizontal":
-        layout = QHBoxLayout()
-    elif layout_type == "grid":
-        layout = QGridLayout()
-    else:
-        layout = QVBoxLayout()
-    
-    # Set responsive spacing and margins
-    spacing = layout_manager.get_responsive_spacing(8)
-    margins = layout_manager.get_responsive_margins(8)
-    
-    layout.setSpacing(spacing)
-    layout.setContentsMargins(margins, margins, margins, margins)
-    
-    return layout
-
-def apply_responsive_styling(widget: QWidget, style_type: str = "default"):
-    """Apply responsive styling to a widget"""
-    layout_manager = ResponsiveLayoutManager()
-    scale_factor = layout_manager.get_scale_factor()
-    
-    if style_type == "compact":
-        # Compact styling for small screens
-        widget.setStyleSheet(f"""
-            QWidget {{
-                font-size: {max(8, int(9 * scale_factor))}px;
-                padding: {max(2, int(4 * scale_factor))}px;
-                margin: {max(1, int(2 * scale_factor))}px;
-            }}
-        """)
-    elif style_type == "comfortable":
-        # Comfortable styling for large screens
-        widget.setStyleSheet(f"""
-            QWidget {{
-                font-size: {max(10, int(11 * scale_factor))}px;
-                padding: {max(4, int(6 * scale_factor))}px;
-                margin: {max(2, int(4 * scale_factor))}px;
-            }}
-        """)
-    else:
-        # Default responsive styling
-        widget.setStyleSheet(f"""
-            QWidget {{
-                font-size: {max(9, int(10 * scale_factor))}px;
-                padding: {max(3, int(5 * scale_factor))}px;
-                margin: {max(1, int(3 * scale_factor))}px;
-            }}
-        """)
-
-def get_screen_info() -> Dict[str, any]:
-    """Get current screen information"""
-    try:
-        app = QApplication.instance()
-        if app:
-            screen = app.primaryScreen()
-            geometry = screen.availableGeometry()
-            physical_size = screen.physicalSize()
-            
-            return {
-                'width': geometry.width(),
-                'height': geometry.height(),
-                'physical_width': physical_size.width(),
-                'physical_height': physical_size.height(),
-                'dpi': screen.logicalDotsPerInch(),
-                'device_pixel_ratio': screen.devicePixelRatio()
-            }
-    except Exception:
-        pass
-    
-    return {
-        'width': 1366,
-        'height': 768,
-        'physical_width': 0,
-        'physical_height': 0,
-        'dpi': 96,
-        'device_pixel_ratio': 1.0
-    } 
+    def cleanup_responsive_layout(self):
+        """Cleanup responsive layout resources"""
+        if self.layout_manager:
+            self.layout_manager.cleanup() 

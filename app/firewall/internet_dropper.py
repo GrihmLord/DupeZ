@@ -272,4 +272,15 @@ class InternetDropper:
         }
 
 # Global instance
-internet_dropper = InternetDropper() 
+# Global instance - Singleton pattern to prevent duplicate initialization
+_internet_dropper = None
+
+def get_internet_dropper():
+    """Get singleton internet dropper instance"""
+    global _internet_dropper
+    if _internet_dropper is None:
+        _internet_dropper = InternetDropper()
+    return _internet_dropper
+
+# Backward compatibility
+internet_dropper = get_internet_dropper() 

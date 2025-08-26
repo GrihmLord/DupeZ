@@ -284,5 +284,15 @@ class LatencyManager:
             log_error(f"Failed to generate performance summary: {e}")
             return {"error": str(e)}
 
-# Global instance
-latency_manager = LatencyManager()
+# Global instance - Singleton pattern to prevent duplicate initialization
+_latency_manager = None
+
+def get_latency_manager():
+    """Get singleton latency manager instance"""
+    global _latency_manager
+    if _latency_manager is None:
+        _latency_manager = LatencyManager()
+    return _latency_manager
+
+# Backward compatibility
+latency_manager = get_latency_manager()
