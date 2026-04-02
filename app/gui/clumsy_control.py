@@ -25,6 +25,13 @@ try:
 except ImportError:
     SMART_ENGINE_AVAILABLE = False
 
+# Profile system
+try:
+    from app.core.profiles import ProfileManager
+    PROFILES_AVAILABLE = True
+except ImportError:
+    PROFILES_AVAILABLE = False
+
 
 # ======================================================================
 # Disruption Presets — full clumsy feature coverage
@@ -349,6 +356,40 @@ class ClumsyControlView(QWidget):
         self.preset_desc.setStyleSheet("color: #6b7280; font-size: 11px; padding: 4px;")
         self.preset_desc.setWordWrap(True)
         preset_layout.addWidget(self.preset_desc)
+
+        # Profile save/load buttons
+        if PROFILES_AVAILABLE:
+            self._profile_manager = ProfileManager()
+            profile_btn_row = QHBoxLayout()
+            profile_btn_row.setSpacing(6)
+
+            self.btn_save_profile = QPushButton("SAVE")
+            self.btn_save_profile.setStyleSheet(self._btn_style("#00ff88", "#0a1a0a"))
+            self.btn_save_profile.setFixedHeight(26)
+            self.btn_save_profile.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self.btn_save_profile.setToolTip("Save current settings as a named profile")
+            self.btn_save_profile.clicked.connect(self._on_save_profile)
+            profile_btn_row.addWidget(self.btn_save_profile)
+
+            self.btn_load_profile = QPushButton("LOAD")
+            self.btn_load_profile.setStyleSheet(self._btn_style("#00d9ff", "#0a1628"))
+            self.btn_load_profile.setFixedHeight(26)
+            self.btn_load_profile.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self.btn_load_profile.setToolTip("Load a saved profile")
+            self.btn_load_profile.clicked.connect(self._on_load_profile)
+            profile_btn_row.addWidget(self.btn_load_profile)
+
+            self.btn_delete_profile = QPushButton("DEL")
+            self.btn_delete_profile.setStyleSheet(self._btn_style("#ff4444", "#1a0a0a"))
+            self.btn_delete_profile.setFixedHeight(26)
+            self.btn_delete_profile.setFixedWidth(50)
+            self.btn_delete_profile.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self.btn_delete_profile.setToolTip("Delete a saved profile")
+            self.btn_delete_profile.clicked.connect(self._on_delete_profile)
+            profile_btn_row.addWidget(self.btn_delete_profile)
+
+            preset_layout.addLayout(profile_btn_row)
+
         preset_group.setLayout(preset_layout)
         right_layout.addWidget(preset_group)
 
@@ -930,6 +971,93 @@ class ClumsyControlView(QWidget):
                 self._active_session_id = None
 
     # ------------------------------------------------------------------
+    # Profile Management
+    # ------------------------------------------------------------------
+    def _on_save_profile(self):
+        """Save current slider/module state as a named profile."""
+        if not PROFILES_AVAILABLE:
+            return
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, "Save Profile", "Profile name:",
+            text=self.preset_combo.currentText())
+        if not ok or not name.strip():
+            return
+
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        params = self._collect_params()
+        self._profile_manager.save(
+            name=name.strip(), methods=methods, params=params,
+            description=f"Saved from DupeZ ({len(methods)} modules)")
+        log_info(f"Profile saved: {name.strip()}")
+        QMessageBox.information(self, "Saved", f"Profile '{name.strip()}' saved.")
+
+    def _on_load_profile(self):
+        """Load a saved profile and apply to controls."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles found.")
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Load Profile", "Select profile:", names, 0, False)
+        if not ok or not name:
+            return
+
+        profile = self._profile_manager.load(name)
+        if not profile:
+            return
+
+        # Apply to controls
+        for key, cb in self.module_checks.items():
+            cb.setChecked(key in profile.methods)
+        for key, slider in self.sliders.items():
+            if key in profile.params:
+                slider.setValue(int(profile.params[key]))
+        direction = profile.params.get("direction", "both")
+        self.dir_inbound.setChecked(direction in ("inbound", "both"))
+        self.dir_outbound.setChecked(direction in ("outbound", "both"))
+        for key, cb in self.extra_checks.items():
+            if key in profile.params:
+                cb.setChecked(bool(profile.params[key]))
+
+        # Switch preset to Custom
+        idx = self.preset_combo.findText("Custom")
+        if idx >= 0:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(idx)
+            self.preset_combo.blockSignals(False)
+        self.preset_desc.setText(profile.description)
+        log_info(f"Profile loaded: {name}")
+
+    def _on_delete_profile(self):
+        """Delete a saved profile."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles found.")
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Delete Profile", "Select profile to delete:", names, 0, False)
+        if not ok or not name:
+            return
+
+        confirm = QMessageBox.question(
+            self, "Confirm Delete", f"Delete profile '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if confirm == QMessageBox.StandardButton.Yes:
+            self._profile_manager.delete(name)
+            log_info(f"Profile deleted: {name}")
+
+    # ------------------------------------------------------------------
     # Smart Mode — AI Auto-Tune
     # ------------------------------------------------------------------
     def _on_smart_profile(self):
@@ -1029,7 +1157,8 @@ class ClumsyControlView(QWidget):
             f"{'(' + profile.device_hint + ')' if profile.device_hint else ''}",
             f"<span style='color:#94a3b8'>Quality:</span> <b>{profile.quality_score:.0f}/100</b>",
             f"",
-            f"<b style='color:#e040fb'>RECOMMENDATION: {rec.name}</b>",
+            f"<b style='color:#e040fb'>RECOMMENDATION: {rec.name}</b> "
+            f"<span style='color:#6b7280'>(goal: {rec.goal})</span>",
             f"<span style='color:#94a3b8'>Modules:</span> {' + '.join(rec.methods)}",
         ]
         for reason in rec.reasoning[:3]:
