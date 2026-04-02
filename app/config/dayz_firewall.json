@@ -1,0 +1,88 @@
+{
+  "global_keybind": "F12",
+  "global_timer_duration": 0,
+  "button_mode": false,
+  "auto_stop": true,
+  "rules": [
+    {
+      "name": "DayZ Official Server Block",
+      "ip": "0.0.0.0",
+      "port": 2302,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F12"
+    },
+    {
+      "name": "DayZ Community Server Block",
+      "ip": "0.0.0.0",
+      "port": 2303,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F11"
+    },
+    {
+      "name": "DayZ Experimental Block",
+      "ip": "0.0.0.0",
+      "port": 2304,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F10"
+    },
+    {
+      "name": "DayZ Modded Server Block",
+      "ip": "0.0.0.0",
+      "port": 2305,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F9"
+    },
+    {
+      "name": "Steam Game Server Block",
+      "ip": "0.0.0.0",
+      "port": 27015,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F8"
+    },
+    {
+      "name": "Steam Game Server Block 2",
+      "ip": "0.0.0.0",
+      "port": 27016,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F7"
+    },
+    {
+      "name": "Steam Game Server Block 3",
+      "ip": "0.0.0.0",
+      "port": 27017,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F6"
+    },
+    {
+      "name": "Steam Game Server Block 4",
+      "ip": "0.0.0.0",
+      "port": 27018,
+      "protocol": "UDP",
+      "action": "block",
+      "enabled": true,
+      "timer_duration": 0,
+      "keybind": "F5"
+    }
+  ]
+} 

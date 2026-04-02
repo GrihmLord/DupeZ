@@ -1,0 +1,76 @@
+{
+    "stability_optimizations": {
+        "enabled": true,
+        "version": "2.0.0",
+        "description": "Comprehensive stability improvements for DupeZ application"
+    },
+    
+    "memory_management": {
+        "cleanup_threshold_mb": 600,
+        "critical_threshold_mb": 800,
+        "cleanup_interval_seconds": 30,
+        "emergency_cleanup_enabled": true,
+        "garbage_collection_passes": 2,
+        "cache_limits": {
+            "max_memory_usage": 100,
+            "max_cpu_usage": 100,
+            "max_thread_count": 100
+        }
+    },
+    
+    "ui_optimizations": {
+        "animation_fps": 30,
+        "tip_change_interval_seconds": 20,
+        "scroll_interval_ms": 100,
+        "ui_update_throttle_ms": 150,
+        "status_bar_update_interval_ms": 3000,
+        "memory_cleanup_interval_ms": 30000
+    },
+    
+    "timer_optimizations": {
+        "udp_status_check_seconds": 10,
+        "stability_check_interval_seconds": 30,
+        "cleanup_interval_seconds": 60,
+        "memory_monitoring_interval_ms": 10000
+    },
+    
+    "error_handling": {
+        "max_ui_update_errors": 5,
+        "error_recovery_enabled": true,
+        "fallback_cleanup_enabled": true,
+        "graceful_degradation": true
+    },
+    
+    "resource_monitoring": {
+        "cpu_threshold_percent": 90,
+        "thread_threshold": 100,
+        "system_memory_threshold_mb": 1000,
+        "disk_space_threshold_percent": 90
+    },
+    
+    "cleanup_tasks": [
+        "clear_ui_caches",
+        "clear_tips_ticker_cache",
+        "clear_pending_ui_updates",
+        "clear_performance_metrics",
+        "force_garbage_collection",
+        "stop_all_timers"
+    ],
+    
+    "stability_features": {
+        "memory_leak_detection": true,
+        "thread_health_monitoring": true,
+        "gc_health_checking": true,
+        "system_resource_monitoring": true,
+        "automatic_cleanup": true,
+        "emergency_cleanup": true
+    },
+    
+    "performance_tuning": {
+        "gc_thresholds": [700, 10, 10],
+        "memory_cleanup_aggressive": true,
+        "ui_update_batching": true,
+        "animation_throttling": true,
+        "timer_frequency_reduction": true
+    }
+}

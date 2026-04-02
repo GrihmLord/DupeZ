@@ -1,0 +1,71 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Python
+*.py text eol=lf
+*.pyw text eol=lf
+
+# Web / Config
+*.json text eol=lf
+*.ini text eol=lf
+*.cfg text eol=lf
+*.txt text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+
+# Stylesheets
+*.qss text eol=lf
+*.css text eol=lf
+
+# C source (clumsy_src)
+*.c text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.s text eol=lf
+
+# Build scripts
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Build configs
+*.spec text eol=lf
+*.lua text eol=lf
+*.zig text eol=lf
+*.rc text eol=lf
+*.manifest text eol=lf
+
+# HTML / Docs
+*.html text eol=lf
+*.htm text eol=lf
+
+# Binary files - never touch these
+*.dll binary
+*.exe binary
+*.sys binary
+*.lib binary
+*.a binary
+*.so binary
+*.dylib binary
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.svg binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.cur binary
+*.pyd binary
+*.whl binary
+
+# PyInstaller
+*.spec text eol=lf

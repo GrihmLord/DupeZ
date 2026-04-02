@@ -1,0 +1,29 @@
+{
+  "markers": [
+    {
+      "name": "Spawn Point",
+      "type": "Player",
+      "coordinates": "11460/7396",
+      "map": "Chernarus+",
+      "timestamp": "2025-01-27T12:00:00"
+    },
+    {
+      "name": "Military Base",
+      "type": "Military",
+      "coordinates": "12000/7500",
+      "map": "Chernarus+",
+      "timestamp": "2025-01-27T12:00:00"
+    },
+    {
+      "name": "Hospital",
+      "type": "Medical",
+      "coordinates": "11000/7200",
+      "map": "Chernarus+",
+      "timestamp": "2025-01-27T12:00:00"
+    }
+  ],
+  "gps_coordinates": {
+    "x": "11460",
+    "y": "7396"
+  }
+} 

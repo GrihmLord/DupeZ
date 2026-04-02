@@ -1,0 +1,1 @@
+"""DupeZ docs module"""

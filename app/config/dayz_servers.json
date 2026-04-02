@@ -1,0 +1,22 @@
+{
+  "favorites": [],
+  "known_servers": [],
+  "scan_settings": {
+    "local_network_scan": true,
+    "public_server_scan": false,
+    "scan_interval": 60,
+    "timeout": 5,
+    "max_retries": 3,
+    "network_ranges": []
+  },
+  "optimization_settings": {
+    "auto_optimize": true,
+    "gaming_priority": "HIGH",
+    "reserved_bandwidth": 150,
+    "latency_threshold": 80,
+    "packet_loss_threshold": 0.5,
+    "your_gaming_pc": ""
+  },
+  "last_updated": "",
+  "version": "1.0.0"
+}

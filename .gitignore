@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs (created at runtime)
+logs/
+*.log
+
+# Test reports
+test_report.json
+.coverage
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Application specific
+*.lock
+cleanup_*.py
+
+# User data — NEVER commit
+app/data/*.json
+app/data/*.db
+app/data/*.db-journal
+app/data/*.backup.*
+
+# Environment files
+.env
+.env.*
+
+# Runtime caches
+device_cache.json
+
+# Crash dumps
+FATAL_CRASH.txt
+
+# Clumsy runtime files (generated at runtime)
+app/firewall/presets.ini
+
+# WinDivert external sample/test executables (not needed for DupeZ)
+app/firewall/clumsy_src/external/**/*.exe
+
+# Settings temp file (atomic write)
+app/config/settings.json.tmp

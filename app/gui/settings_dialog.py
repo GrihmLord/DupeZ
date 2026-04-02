@@ -1,0 +1,926 @@
+# app/gui/settings_dialog.py
+
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
+                              QWidget, QLabel, QSpinBox, QCheckBox, QComboBox,
+                              QPushButton, QGroupBox, QFormLayout,
+                              QTextEdit, QSlider, QMessageBox, QScrollArea,
+                              QFrame)
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QFont, QCursor
+from app.logs.logger import log_info, log_error
+from app.core.state import AppSettings
+
+
+# ---------------------------------------------------------------------------
+# Inline stylesheet — applied directly to the dialog so it always matches
+# the DupeZ cyber‑HUD look regardless of the active app theme.
+# ---------------------------------------------------------------------------
+SETTINGS_STYLE = """
+SettingsDialog {
+    background-color: #060913;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    font-size: 13px;
+}
+
+/* --- Tabs --- */
+QTabWidget::pane {
+    border: 1px solid #1e293b;
+    background-color: transparent;
+    border-radius: 8px;
+}
+QTabBar::tab {
+    background-color: transparent;
+    color: #64748b;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 18px;
+    font-weight: 600;
+    font-size: 12px;
+}
+QTabBar::tab:hover {
+    color: #cbd5e1;
+}
+QTabBar::tab:selected {
+    color: #00f0ff;
+    border-bottom: 2px solid #00f0ff;
+}
+
+/* --- Glass Cards (GroupBox) --- */
+QGroupBox {
+    background-color: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    border-radius: 8px;
+    margin-top: 18px;
+    padding: 14px 10px 10px 10px;
+    font-weight: bold;
+    color: #00f0ff;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 15px;
+    padding: 0 6px;
+    color: #00f0ff;
+    font-size: 12px;
+}
+
+/* --- Labels --- */
+QLabel {
+    color: #cbd5e1;
+    background: transparent;
+}
+QLabel#dialog_title {
+    color: #00f0ff;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+QLabel#dialog_subtitle {
+    color: #64748b;
+    font-size: 11px;
+}
+QLabel#theme_info {
+    color: #64748b;
+    font-style: italic;
+    font-size: 11px;
+    padding: 4px 0;
+}
+QLabel#speed_value {
+    color: #00f0ff;
+    font-weight: bold;
+    font-family: 'Consolas', monospace;
+    min-width: 32px;
+}
+
+/* --- Inputs --- */
+QLineEdit, QSpinBox, QComboBox {
+    background-color: #0f172a;
+    color: #ffffff;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px 12px;
+    min-height: 24px;
+}
+QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+    border: 1px solid #00f0ff;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #1e293b;
+    border: none;
+    border-left: 1px solid #334155;
+    width: 18px;
+}
+QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+    background-color: #334155;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 24px;
+}
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid #94a3b8;
+}
+QComboBox QAbstractItemView {
+    background-color: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    selection-background-color: rgba(0, 240, 255, 0.2);
+    selection-color: #00f0ff;
+    outline: 0;
+}
+
+/* --- Checkboxes --- */
+QCheckBox {
+    spacing: 8px;
+    color: #cbd5e1;
+}
+QCheckBox::indicator {
+    width: 18px;
+    height: 18px;
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 4px;
+}
+QCheckBox::indicator:checked {
+    background-color: #00f0ff;
+    border: 1px solid #00f0ff;
+}
+QCheckBox::indicator:unchecked:hover {
+    border: 1px solid #475569;
+}
+
+/* --- Sliders --- */
+QSlider::groove:horizontal {
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    height: 6px;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background-color: #00f0ff;
+    border: 1px solid #00f0ff;
+    width: 16px;
+    margin: -5px 0;
+    border-radius: 8px;
+}
+QSlider::handle:horizontal:hover {
+    background-color: #00d4e0;
+}
+QSlider::sub-page:horizontal {
+    background-color: rgba(0, 240, 255, 0.3);
+    border-radius: 3px;
+}
+
+/* --- TextEdit --- */
+QTextEdit {
+    background-color: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 6px;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+}
+QTextEdit:focus {
+    border: 1px solid #00f0ff;
+}
+
+/* --- Scrollbar --- */
+QScrollBar:vertical {
+    background-color: #060913;
+    width: 10px;
+}
+QScrollBar::handle:vertical {
+    background-color: #1e293b;
+    border-radius: 5px;
+    min-height: 20px;
+    margin: 2px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #334155;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+
+/* --- Buttons (base) --- */
+QPushButton {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+}
+QPushButton:hover {
+    background-color: #334155;
+    border: 1px solid #475569;
+}
+QPushButton:pressed {
+    background-color: #0f172a;
+}
+QPushButton:disabled {
+    background-color: #0f172a;
+    color: #475569;
+    border-color: #1e293b;
+}
+
+/* Save button — cyan accent */
+QPushButton#save_btn {
+    background-color: rgba(0, 240, 255, 0.12);
+    color: #00f0ff;
+    border: 1px solid #00f0ff;
+}
+QPushButton#save_btn:hover {
+    background-color: rgba(0, 240, 255, 0.25);
+}
+
+/* Cancel button — subtle */
+QPushButton#cancel_btn {
+    background-color: #1e293b;
+    color: #94a3b8;
+    border: 1px solid #334155;
+}
+QPushButton#cancel_btn:hover {
+    color: #f8fafc;
+    background-color: #334155;
+}
+
+/* Reset button — danger red */
+QPushButton#reset_btn {
+    background-color: rgba(255, 0, 60, 0.1);
+    color: #ff003c;
+    border: 1px solid rgba(255, 0, 60, 0.4);
+}
+QPushButton#reset_btn:hover {
+    background-color: rgba(255, 0, 60, 0.2);
+    border-color: #ff003c;
+}
+
+/* Apply Theme button — cyan */
+QPushButton#apply_theme_btn {
+    background-color: rgba(0, 240, 255, 0.1);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.4);
+    padding: 6px 14px;
+}
+QPushButton#apply_theme_btn:hover {
+    background-color: rgba(0, 240, 255, 0.2);
+}
+
+/* Start Rainbow — green accent */
+QPushButton#start_rainbow_btn {
+    background-color: rgba(0, 255, 136, 0.1);
+    color: #00ff88;
+    border: 1px solid rgba(0, 255, 136, 0.4);
+}
+QPushButton#start_rainbow_btn:hover {
+    background-color: rgba(0, 255, 136, 0.2);
+}
+
+/* Stop Rainbow — red accent */
+QPushButton#stop_rainbow_btn {
+    background-color: rgba(255, 0, 60, 0.1);
+    color: #ff003c;
+    border: 1px solid rgba(255, 0, 60, 0.4);
+}
+QPushButton#stop_rainbow_btn:hover {
+    background-color: rgba(255, 0, 60, 0.2);
+}
+
+/* Quick theme buttons */
+QPushButton#quick_theme_btn {
+    padding: 5px 12px;
+    font-size: 11px;
+}
+
+/* Separator line */
+QFrame#separator {
+    background-color: #1e293b;
+    max-height: 1px;
+    margin: 6px 0;
+}
+
+/* --- MessageBox override --- */
+QMessageBox {
+    background-color: #0a0f1a;
+    color: #e2e8f0;
+}
+QMessageBox QPushButton {
+    min-width: 90px;
+    min-height: 28px;
+}
+"""
+
+
+class SettingsDialog(QDialog):
+    """DupeZ Settings — cyber HUD styled dialog"""
+
+    settings_changed = pyqtSignal(dict)
+
+    def __init__(self, current_settings: AppSettings, parent=None):
+        super().__init__(parent)
+        self.current_settings = current_settings
+        self.new_settings = current_settings
+
+        self.setWindowTitle("DupeZ Settings")
+        self.setModal(True)
+        self.resize(640, 560)
+        self.setMinimumSize(520, 420)
+        self.setStyleSheet(SETTINGS_STYLE)
+
+        self._build_ui()
+        self._load_settings()
+        self.update_theme_info()
+
+    # ------------------------------------------------------------------
+    # UI Construction
+    # ------------------------------------------------------------------
+    def _build_ui(self):
+        root = QVBoxLayout()
+        root.setSpacing(10)
+        root.setContentsMargins(16, 14, 16, 14)
+
+        # Header
+        header = QHBoxLayout()
+        title = QLabel("SETTINGS")
+        title.setObjectName("dialog_title")
+        header.addWidget(title)
+        header.addStretch()
+        subtitle = QLabel("Configure DupeZ behavior")
+        subtitle.setObjectName("dialog_subtitle")
+        header.addWidget(subtitle)
+        root.addLayout(header)
+
+        # Separator
+        sep = QFrame()
+        sep.setObjectName("separator")
+        sep.setFrameShape(QFrame.Shape.HLine)
+        root.addWidget(sep)
+
+        # Tab widget
+        self.tab_widget = QTabWidget()
+        self.tab_widget.addTab(self._tab_general(), "General")
+        self.tab_widget.addTab(self._tab_network(), "Network")
+        self.tab_widget.addTab(self._tab_smart(), "Smart Mode")
+        self.tab_widget.addTab(self._tab_interface(), "Interface")
+        self.tab_widget.addTab(self._tab_advanced(), "Advanced")
+        root.addWidget(self.tab_widget, 1)
+
+        # Bottom buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+
+        self.save_btn = QPushButton("Save")
+        self.save_btn.setObjectName("save_btn")
+        self.save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.save_btn.clicked.connect(self.save_settings)
+
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setObjectName("cancel_btn")
+        self.cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.cancel_btn.clicked.connect(self.reject)
+
+        self.reset_btn = QPushButton("Reset Defaults")
+        self.reset_btn.setObjectName("reset_btn")
+        self.reset_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.reset_btn.clicked.connect(self.reset_to_defaults)
+
+        btn_row.addWidget(self.save_btn)
+        btn_row.addWidget(self.cancel_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(self.reset_btn)
+        root.addLayout(btn_row)
+
+        self.setLayout(root)
+
+    # --- General Tab ---
+    def _tab_general(self):
+        w = QWidget()
+        lay = QVBoxLayout()
+        lay.setSpacing(6)
+
+        g = QGroupBox("Auto-Scan")
+        fl = QFormLayout()
+        self.auto_scan_checkbox = QCheckBox("Enable automatic scanning")
+        fl.addRow("Auto-Scan:", self.auto_scan_checkbox)
+
+        self.scan_interval_spinbox = QSpinBox()
+        self.scan_interval_spinbox.setRange(30, 3600)
+        self.scan_interval_spinbox.setSuffix(" sec")
+        fl.addRow("Interval:", self.scan_interval_spinbox)
+
+        self.max_devices_spinbox = QSpinBox()
+        self.max_devices_spinbox.setRange(10, 500)
+        self.max_devices_spinbox.setSuffix(" devices")
+        fl.addRow("Max Devices:", self.max_devices_spinbox)
+        g.setLayout(fl)
+        lay.addWidget(g)
+
+        g2 = QGroupBox("Logging")
+        fl2 = QFormLayout()
+        self.log_level_combo = QComboBox()
+        self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        fl2.addRow("Log Level:", self.log_level_combo)
+        g2.setLayout(fl2)
+        lay.addWidget(g2)
+
+        lay.addStretch()
+        w.setLayout(lay)
+        return w
+
+    # --- Network Tab ---
+    def _tab_network(self):
+        w = QWidget()
+        lay = QVBoxLayout()
+        lay.setSpacing(6)
+
+        g = QGroupBox("Scanning")
+        fl = QFormLayout()
+
+        self.ping_timeout_spinbox = QSpinBox()
+        self.ping_timeout_spinbox.setRange(1, 10)
+        self.ping_timeout_spinbox.setSuffix(" sec")
+        fl.addRow("Ping Timeout:", self.ping_timeout_spinbox)
+
+        self.max_threads_spinbox = QSpinBox()
+        self.max_threads_spinbox.setRange(5, 50)
+        self.max_threads_spinbox.setSuffix(" threads")
+        fl.addRow("Threads:", self.max_threads_spinbox)
+
+        self.quick_scan_checkbox = QCheckBox("Fast ARP-only mode")
+        fl.addRow("Quick Scan:", self.quick_scan_checkbox)
+        g.setLayout(fl)
+        lay.addWidget(g)
+
+        lay.addStretch()
+        w.setLayout(lay)
+        return w
+
+    # --- Smart Mode Tab ---
+    def _tab_smart(self):
+        w = QWidget()
+        lay = QVBoxLayout()
+        lay.setSpacing(6)
+
+        g1 = QGroupBox("Smart Mode")
+        fl1 = QFormLayout()
+        self.smart_mode_checkbox = QCheckBox("Enable traffic analysis")
+        fl1.addRow("Smart Mode:", self.smart_mode_checkbox)
+        self.auto_block_checkbox = QCheckBox("Auto-block suspicious devices")
+        fl1.addRow("Auto-Block:", self.auto_block_checkbox)
+        g1.setLayout(fl1)
+        lay.addWidget(g1)
+
+        g2 = QGroupBox("Thresholds")
+        fl2 = QFormLayout()
+        self.high_traffic_threshold = QSpinBox()
+        self.high_traffic_threshold.setRange(100, 10000)
+        self.high_traffic_threshold.setSuffix(" KB/s")
+        fl2.addRow("High Traffic:", self.high_traffic_threshold)
+
+        self.connection_limit = QSpinBox()
+        self.connection_limit.setRange(10, 1000)
+        self.connection_limit.setSuffix(" conn")
+        fl2.addRow("Connection Limit:", self.connection_limit)
+
+        self.suspicious_activity_threshold = QSpinBox()
+        self.suspicious_activity_threshold.setRange(5, 100)
+        self.suspicious_activity_threshold.setSuffix(" events/min")
+        fl2.addRow("Suspicious Activity:", self.suspicious_activity_threshold)
+        g2.setLayout(fl2)
+        lay.addWidget(g2)
+
+        g3 = QGroupBox("Blocking")
+        fl3 = QFormLayout()
+        self.block_duration_spinbox = QSpinBox()
+        self.block_duration_spinbox.setRange(1, 1440)
+        self.block_duration_spinbox.setSuffix(" min")
+        fl3.addRow("Block Duration:", self.block_duration_spinbox)
+
+        self.whitelist_edit = QTextEdit()
+        self.whitelist_edit.setMaximumHeight(70)
+        self.whitelist_edit.setPlaceholderText("One IP per line")
+        fl3.addRow("Whitelist:", self.whitelist_edit)
+        g3.setLayout(fl3)
+        lay.addWidget(g3)
+
+        lay.addStretch()
+        w.setLayout(lay)
+        return w
+
+    # --- Interface Tab ---
+    def _tab_interface(self):
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
+        w = QWidget()
+        lay = QVBoxLayout()
+        lay.setSpacing(6)
+
+        # Theme selection
+        g1 = QGroupBox("Theme")
+        t_lay = QVBoxLayout()
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Theme:"))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(["dark", "light", "hacker", "rainbow"])
+        self.theme_combo.currentTextChanged.connect(self.on_theme_selected)
+        row.addWidget(self.theme_combo, 1)
+
+        self.apply_theme_btn = QPushButton("Apply")
+        self.apply_theme_btn.setObjectName("apply_theme_btn")
+        self.apply_theme_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.apply_theme_btn.clicked.connect(self.apply_selected_theme)
+        row.addWidget(self.apply_theme_btn)
+        t_lay.addLayout(row)
+
+        # Quick theme buttons
+        qrow = QHBoxLayout()
+        qrow.setSpacing(6)
+        for name in ("Dark", "Light", "Hacker", "Rainbow"):
+            btn = QPushButton(name)
+            btn.setObjectName("quick_theme_btn")
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.clicked.connect(lambda checked, n=name.lower(): self.apply_theme(n))
+            qrow.addWidget(btn)
+            # Store references for later
+            setattr(self, f"{name.lower()}_theme_btn", btn)
+        t_lay.addLayout(qrow)
+
+        g1.setLayout(t_lay)
+        lay.addWidget(g1)
+
+        # Rainbow controls
+        g2 = QGroupBox("Rainbow Mode")
+        r_lay = QVBoxLayout()
+
+        speed_row = QHBoxLayout()
+        speed_row.addWidget(QLabel("Speed:"))
+        self.rainbow_speed_slider = QSlider(Qt.Orientation.Horizontal)
+        self.rainbow_speed_slider.setRange(1, 100)
+        self.rainbow_speed_slider.setValue(20)
+        self.rainbow_speed_slider.valueChanged.connect(self.on_rainbow_speed_changed)
+        speed_row.addWidget(self.rainbow_speed_slider, 1)
+
+        self.speed_label = QLabel("2.0")
+        self.speed_label.setObjectName("speed_value")
+        speed_row.addWidget(self.speed_label)
+        r_lay.addLayout(speed_row)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        self.start_rainbow_btn = QPushButton("Start Rainbow")
+        self.start_rainbow_btn.setObjectName("start_rainbow_btn")
+        self.start_rainbow_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.start_rainbow_btn.clicked.connect(self.start_rainbow_mode)
+        btn_row.addWidget(self.start_rainbow_btn)
+
+        self.stop_rainbow_btn = QPushButton("Stop Rainbow")
+        self.stop_rainbow_btn.setObjectName("stop_rainbow_btn")
+        self.stop_rainbow_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.stop_rainbow_btn.clicked.connect(self.stop_rainbow_mode)
+        btn_row.addWidget(self.stop_rainbow_btn)
+        r_lay.addLayout(btn_row)
+
+        self.theme_info_label = QLabel("Current Theme: Dark")
+        self.theme_info_label.setObjectName("theme_info")
+        r_lay.addWidget(self.theme_info_label)
+
+        g2.setLayout(r_lay)
+        lay.addWidget(g2)
+
+        # Display settings
+        g3 = QGroupBox("Display")
+        fl3 = QFormLayout()
+
+        self.auto_refresh_checkbox = QCheckBox("Auto-refresh device list")
+        fl3.addRow("Auto-Refresh:", self.auto_refresh_checkbox)
+
+        self.refresh_interval_spinbox = QSpinBox()
+        self.refresh_interval_spinbox.setRange(10, 300)
+        self.refresh_interval_spinbox.setSuffix(" sec")
+        fl3.addRow("Refresh Interval:", self.refresh_interval_spinbox)
+
+        self.show_device_icons_checkbox = QCheckBox("Show device type icons")
+        fl3.addRow("Device Icons:", self.show_device_icons_checkbox)
+
+        self.show_status_indicators_checkbox = QCheckBox("Show status indicators")
+        fl3.addRow("Status Indicators:", self.show_status_indicators_checkbox)
+
+        self.compact_view_checkbox = QCheckBox("Compact row height")
+        fl3.addRow("Compact View:", self.compact_view_checkbox)
+        g3.setLayout(fl3)
+        lay.addWidget(g3)
+
+        # Notifications
+        g4 = QGroupBox("Notifications")
+        fl4 = QFormLayout()
+        self.show_notifications_checkbox = QCheckBox("Desktop notifications")
+        fl4.addRow("Notifications:", self.show_notifications_checkbox)
+        self.sound_alerts_checkbox = QCheckBox("Sound alerts")
+        fl4.addRow("Sound:", self.sound_alerts_checkbox)
+        g4.setLayout(fl4)
+        lay.addWidget(g4)
+
+        lay.addStretch()
+        w.setLayout(lay)
+        scroll.setWidget(w)
+        return scroll
+
+    # --- Advanced Tab ---
+    def _tab_advanced(self):
+        w = QWidget()
+        lay = QVBoxLayout()
+        lay.setSpacing(6)
+
+        g1 = QGroupBox("Performance")
+        fl1 = QFormLayout()
+        self.cache_duration_spinbox = QSpinBox()
+        self.cache_duration_spinbox.setRange(30, 600)
+        self.cache_duration_spinbox.setSuffix(" sec")
+        fl1.addRow("Cache Duration:", self.cache_duration_spinbox)
+
+        self.memory_limit_spinbox = QSpinBox()
+        self.memory_limit_spinbox.setRange(50, 1000)
+        self.memory_limit_spinbox.setSuffix(" MB")
+        fl1.addRow("Memory Limit:", self.memory_limit_spinbox)
+        g1.setLayout(fl1)
+        lay.addWidget(g1)
+
+        g2 = QGroupBox("Security")
+        fl2 = QFormLayout()
+        self.require_admin_checkbox = QCheckBox("Require administrator")
+        fl2.addRow("Admin Required:", self.require_admin_checkbox)
+        self.encrypt_logs_checkbox = QCheckBox("Encrypt log files")
+        fl2.addRow("Encrypt Logs:", self.encrypt_logs_checkbox)
+        g2.setLayout(fl2)
+        lay.addWidget(g2)
+
+        g3 = QGroupBox("Debug")
+        fl3 = QFormLayout()
+        self.debug_mode_checkbox = QCheckBox("Enable debug mode")
+        fl3.addRow("Debug Mode:", self.debug_mode_checkbox)
+        self.verbose_logging_checkbox = QCheckBox("Verbose logging")
+        fl3.addRow("Verbose:", self.verbose_logging_checkbox)
+        g3.setLayout(fl3)
+        lay.addWidget(g3)
+
+        lay.addStretch()
+        w.setLayout(lay)
+        return w
+
+    # ------------------------------------------------------------------
+    # Load / Save / Reset
+    # ------------------------------------------------------------------
+    def _load_settings(self):
+        """Populate all controls from current_settings."""
+        try:
+            s = self.current_settings
+
+            # General
+            self.auto_scan_checkbox.setChecked(s.auto_scan)
+            self.scan_interval_spinbox.setValue(s.scan_interval)
+            self.max_devices_spinbox.setValue(s.max_devices)
+            self.log_level_combo.setCurrentText(s.log_level)
+
+            # Network
+            self.ping_timeout_spinbox.setValue(s.ping_timeout)
+            self.max_threads_spinbox.setValue(s.max_threads)
+            self.quick_scan_checkbox.setChecked(s.quick_scan)
+
+            # Smart Mode
+            self.smart_mode_checkbox.setChecked(s.smart_mode)
+            self.auto_block_checkbox.setChecked(s.auto_block)
+            self.high_traffic_threshold.setValue(s.high_traffic_threshold)
+            self.connection_limit.setValue(s.connection_limit)
+            self.suspicious_activity_threshold.setValue(s.suspicious_activity_threshold)
+            self.block_duration_spinbox.setValue(s.block_duration)
+            if hasattr(s, 'whitelist') and s.whitelist:
+                self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
+
+            # Interface
+            self.theme_combo.setCurrentText(s.theme)
+            self.auto_refresh_checkbox.setChecked(s.auto_refresh)
+            self.refresh_interval_spinbox.setValue(s.refresh_interval)
+            self.show_device_icons_checkbox.setChecked(s.show_device_icons)
+            self.show_status_indicators_checkbox.setChecked(s.show_status_indicators)
+            self.compact_view_checkbox.setChecked(s.compact_view)
+            self.show_notifications_checkbox.setChecked(s.show_notifications)
+            self.sound_alerts_checkbox.setChecked(s.sound_alerts)
+
+            # Advanced
+            self.cache_duration_spinbox.setValue(s.cache_duration)
+            self.memory_limit_spinbox.setValue(s.memory_limit)
+            self.require_admin_checkbox.setChecked(s.require_admin)
+            self.encrypt_logs_checkbox.setChecked(s.encrypt_logs)
+            self.debug_mode_checkbox.setChecked(s.debug_mode)
+            self.verbose_logging_checkbox.setChecked(s.verbose_logging)
+
+        except Exception as e:
+            log_error(f"Error loading settings: {e}")
+
+    def save_settings(self):
+        """Collect all controls → AppSettings → emit → accept."""
+        try:
+            new_settings = AppSettings(
+                smart_mode=self.smart_mode_checkbox.isChecked(),
+                auto_scan=self.auto_scan_checkbox.isChecked(),
+                scan_interval=self.scan_interval_spinbox.value(),
+                max_devices=self.max_devices_spinbox.value(),
+                log_level=self.log_level_combo.currentText(),
+
+                ping_timeout=self.ping_timeout_spinbox.value(),
+                max_threads=self.max_threads_spinbox.value(),
+                quick_scan=self.quick_scan_checkbox.isChecked(),
+                auto_block=self.auto_block_checkbox.isChecked(),
+                high_traffic_threshold=self.high_traffic_threshold.value(),
+                connection_limit=self.connection_limit.value(),
+                suspicious_activity_threshold=self.suspicious_activity_threshold.value(),
+                block_duration=self.block_duration_spinbox.value(),
+
+                theme=self.theme_combo.currentText(),
+                auto_refresh=self.auto_refresh_checkbox.isChecked(),
+                refresh_interval=self.refresh_interval_spinbox.value(),
+                show_device_icons=self.show_device_icons_checkbox.isChecked(),
+                show_status_indicators=self.show_status_indicators_checkbox.isChecked(),
+                compact_view=self.compact_view_checkbox.isChecked(),
+                show_notifications=self.show_notifications_checkbox.isChecked(),
+                sound_alerts=self.sound_alerts_checkbox.isChecked(),
+
+                cache_duration=self.cache_duration_spinbox.value(),
+                memory_limit=self.memory_limit_spinbox.value(),
+                require_admin=self.require_admin_checkbox.isChecked(),
+                encrypt_logs=self.encrypt_logs_checkbox.isChecked(),
+                debug_mode=self.debug_mode_checkbox.isChecked(),
+                verbose_logging=self.verbose_logging_checkbox.isChecked(),
+
+                whitelist=(self.whitelist_edit.toPlainText().split('\n')
+                           if self.whitelist_edit.toPlainText() else []),
+            )
+
+            self.new_settings = new_settings
+
+            self.settings_changed.emit({
+                "theme": self.theme_combo.currentText(),
+                "auto_refresh": self.auto_refresh_checkbox.isChecked(),
+                "refresh_interval": self.refresh_interval_spinbox.value(),
+                "show_device_icons": self.show_device_icons_checkbox.isChecked(),
+                "show_status_indicators": self.show_status_indicators_checkbox.isChecked(),
+                "compact_view": self.compact_view_checkbox.isChecked(),
+                "show_notifications": self.show_notifications_checkbox.isChecked(),
+                "sound_alerts": self.sound_alerts_checkbox.isChecked(),
+            })
+
+            if hasattr(self, 'controller') and self.controller:
+                self.controller.update_settings(new_settings)
+
+            log_info("Settings saved")
+            QMessageBox.information(self, "Settings", "Settings saved successfully.")
+            self.accept()
+
+        except Exception as e:
+            log_error(f"Error saving settings: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to save settings:\n{e}")
+
+    def reset_to_defaults(self):
+        """Reset all controls to AppSettings() defaults."""
+        try:
+            reply = QMessageBox.question(
+                self, "Reset Settings",
+                "Reset all settings to factory defaults?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+            d = AppSettings()
+
+            self.auto_scan_checkbox.setChecked(d.auto_scan)
+            self.scan_interval_spinbox.setValue(d.scan_interval)
+            self.max_devices_spinbox.setValue(d.max_devices)
+            self.log_level_combo.setCurrentText(d.log_level)
+
+            self.ping_timeout_spinbox.setValue(d.ping_timeout)
+            self.max_threads_spinbox.setValue(d.max_threads)
+            self.quick_scan_checkbox.setChecked(d.quick_scan)
+
+            self.smart_mode_checkbox.setChecked(d.smart_mode)
+            self.auto_block_checkbox.setChecked(d.auto_block)
+            self.high_traffic_threshold.setValue(d.high_traffic_threshold)
+            self.connection_limit.setValue(d.connection_limit)
+            self.suspicious_activity_threshold.setValue(d.suspicious_activity_threshold)
+            self.block_duration_spinbox.setValue(d.block_duration)
+            self.whitelist_edit.clear()
+
+            self.theme_combo.setCurrentText(d.theme)
+            self.auto_refresh_checkbox.setChecked(d.auto_refresh)
+            self.refresh_interval_spinbox.setValue(d.refresh_interval)
+            self.show_device_icons_checkbox.setChecked(d.show_device_icons)
+            self.show_status_indicators_checkbox.setChecked(d.show_status_indicators)
+            self.compact_view_checkbox.setChecked(d.compact_view)
+            self.show_notifications_checkbox.setChecked(d.show_notifications)
+            self.sound_alerts_checkbox.setChecked(d.sound_alerts)
+
+            self.cache_duration_spinbox.setValue(d.cache_duration)
+            self.memory_limit_spinbox.setValue(d.memory_limit)
+            self.require_admin_checkbox.setChecked(d.require_admin)
+            self.encrypt_logs_checkbox.setChecked(d.encrypt_logs)
+            self.debug_mode_checkbox.setChecked(d.debug_mode)
+            self.verbose_logging_checkbox.setChecked(d.verbose_logging)
+
+            log_info("Settings reset to defaults")
+
+        except Exception as e:
+            log_error(f"Error resetting settings: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to reset:\n{e}")
+
+    def get_new_settings(self) -> AppSettings:
+        return self.new_settings
+
+    # ------------------------------------------------------------------
+    # Theme controls
+    # ------------------------------------------------------------------
+    def on_theme_selected(self, theme_name: str):
+        try:
+            self.update_theme_info()
+        except Exception as e:
+            log_error(f"Error handling theme selection: {e}")
+
+    def apply_selected_theme(self):
+        try:
+            self.apply_theme(self.theme_combo.currentText())
+        except Exception as e:
+            log_error(f"Error applying selected theme: {e}")
+
+    def apply_theme(self, theme_name: str):
+        try:
+            from app.themes.theme_manager import theme_manager
+
+            if theme_manager.get_current_theme() == theme_name:
+                return
+
+            success = theme_manager.apply_theme(theme_name)
+            if success:
+                self.theme_combo.blockSignals(True)
+                self.theme_combo.setCurrentText(theme_name)
+                self.theme_combo.blockSignals(False)
+                # Re-apply our own stylesheet so the dialog stays styled
+                self.setStyleSheet(SETTINGS_STYLE)
+                self.update_theme_info()
+                log_info(f"Theme applied: {theme_name}")
+        except Exception as e:
+            log_error(f"Error applying theme {theme_name}: {e}")
+
+    def on_rainbow_speed_changed(self, value: int):
+        try:
+            speed = value / 10.0
+            self.speed_label.setText(f"{speed:.1f}")
+            from app.themes.theme_manager import theme_manager
+            theme_manager.set_rainbow_speed(speed)
+        except Exception as e:
+            log_error(f"Error changing rainbow speed: {e}")
+
+    def start_rainbow_mode(self):
+        try:
+            from app.themes.theme_manager import theme_manager
+            theme_manager.start_rainbow_mode()
+            # Re-apply dialog style since rainbow overwrites app stylesheet
+            self.setStyleSheet(SETTINGS_STYLE)
+            self.update_theme_info()
+        except Exception as e:
+            log_error(f"Error starting rainbow mode: {e}")
+
+    def stop_rainbow_mode(self):
+        try:
+            from app.themes.theme_manager import theme_manager
+            theme_manager.stop_rainbow_mode()
+            theme_manager.apply_theme("dark")
+            self.theme_combo.setCurrentText("dark")
+            self.setStyleSheet(SETTINGS_STYLE)
+            self.update_theme_info()
+        except Exception as e:
+            log_error(f"Error stopping rainbow mode: {e}")
+
+    def update_theme_info(self):
+        try:
+            from app.themes.theme_manager import theme_manager
+            current = theme_manager.get_current_theme()
+            rainbow = theme_manager.is_rainbow_active()
+            speed = theme_manager.get_rainbow_speed()
+
+            text = f"Current Theme: {current.title()}"
+            if rainbow:
+                text += f"  •  Rainbow Active (Speed {speed:.1f})"
+
+            self.theme_info_label.setText(text)
+            self.start_rainbow_btn.setEnabled(not rainbow)
+            self.stop_rainbow_btn.setEnabled(rainbow)
+        except Exception as e:
+            log_error(f"Error updating theme info: {e}")
