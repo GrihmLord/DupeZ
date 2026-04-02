@@ -4,12 +4,41 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v3.3.1 — 2026-04-02 (Hardening Pass)
+
+Full codebase audit — 11 fixes across 11 files targeting thread safety, crash resilience, frozen-exe compatibility, and correctness.
+
+### Fixed — Critical
+- **`blocker.py`** — Missing `log_warning` import crashed `clear_all_dupez_blocks()` at runtime.
+- **`blocker.py`** — `is_active()` method shadowed `self.is_active` bool attribute; renamed to `get_active()`.
+
+### Fixed — High
+- **`data_persistence.py`** — `save_data()` used bare `json.dump`; crash mid-write corrupted file. Now uses atomic tmp → fsync → replace pattern.
+- **`smart_engine.py`** — Hardcoded `"app/data/session_history.json"` broke in PyInstaller builds. Now uses `_resolve_data_directory()`.
+- **`logger.py`** — Relative `"logs"` directory resolved to `System32\logs` in frozen exe. Added `_resolve_log_directory()` with `sys.frozen` detection.
+
+### Fixed — Medium
+- **`state.py`** — `_observers` list had no thread protection. Added `threading.Lock` to `add_observer()` and `notify_observers()`.
+- **`controller.py`** — `start_auto_scan()` never reset `stop_scanning` flag, preventing auto-scan restart after manual stop.
+- **`network_profiler.py`** — `ip.startswith("172.2")` incorrectly matched public IPs 172.200-255.x.x. Added proper RFC1918 172.16.0.0/12 range check.
+- **`session_tracker.py`** — `_active_sessions` dict mutations in `start_session()`/`end_session()` were unprotected. Now guarded by `self._lock`.
+
+### Fixed — Low
+- **`native_divert_engine.py`** — Out-of-Order module had unbounded packet buffer. Added `MAX_BUFFER=64` safety valve.
+- **`helpers.py`** — 350-entry duplicate emoji replacement dict replaced with single `encode('ascii', errors='replace')` call.
+
+### Changed
+- **`main.py`** — Version log updated to 3.3.0. AppUserModelID updated to `com.dupez.app.3.3`.
+- **`dashboard.py`** — Window title updated to "DupeZ v3.3.0".
+
+---
+
 ## v3.3.0 — 2026-04-02 (Network Intelligence)
 
 Network intelligence toolkit. Live traffic monitoring, latency overlay for gameplay, and standalone port scanner.
 
 ### Added
-- **`app/gui/network_tools.py`** — New Network Tools module with 3 tab views:
+- **`app/gui/network_tools.py`** — New Network Tools module with 4 tab views:
   - `TrafficMonitorWidget` — Real-time per-interface bandwidth table. Shows bytes sent/recv, rate in KB/s with color-coded thresholds, total throughput bar.
   - `LatencyOverlayWidget` — Continuous ping monitor with sparkline graph. Floating always-on-top transparent overlay mode for gameplay (draggable, right-click to close).
   - `PortScannerWidget` — TCP port scanner with preset port sets (Common 100, Gaming, Web, All 1-1024, Full 1-65535). Threaded scanning with progress bar, service identification for 25+ known ports.

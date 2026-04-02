@@ -1,8 +1,8 @@
-# DupeZ v3.0.0
+# DupeZ v3.3.0
 
 Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard.
 
-Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, and more.
+Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, and more. Includes AI auto-tuning, scheduled disruptions, macro chains, live traffic monitoring, and a connection mapper.
 
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![Python](https://img.shields.io/badge/python-3.10%2B-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
 
@@ -11,7 +11,7 @@ Built for the DayZ community — scan your local network, target specific device
 ## Features
 
 ### Clumsy Control (Main View)
-ARP/TCP network scanner with per-device disruption controls. Select a device, pick your disruption methods, dial in parameters with sliders, and go. Includes preset profiles, session timers, and live status feedback.
+ARP/TCP network scanner with per-device disruption controls. Select a device, pick your disruption methods, dial in parameters with sliders, and go. Includes preset profiles, session timers, live status feedback, multi-device targeting, scheduled disruptions, and macro chains.
 
 **Disruption Methods:** Drop, Lag, Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order
 
@@ -26,13 +26,19 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | Total Chaos | All modules maxed — complete network destruction |
 | Custom | Set your own parameters |
 
+### AI Smart Mode (v3.1.0+)
+Network profiler + ML-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 5 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
+
+### Network Tools (v3.3.0+)
+Four-tab network intelligence toolkit: Live Traffic Monitor (per-interface bandwidth), Latency Overlay (floating transparent ping/jitter widget), Port Scanner (Common/Gaming/Web/Full presets), and Connection Mapper (real-time topology with gaming port detection and hostname resolution).
+
 ### iZurvive Map
 Ad-free embedded iZurvive with map selector dropdown. MutationObserver-based ad blocker catches dynamically injected ads.
 
 **Supported Maps:** Chernarus+ (Satellite), Chernarus+ (Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, Takistan
 
 ### Account Tracker
-Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search and filter, bulk operations, and per-account status tracking. Formatted XLSX export with status color-coding.
+Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search and filter, bulk operations, and per-account status tracking. Formatted XLSX export with status color-coding. Data persists across sessions via atomic JSON writes.
 
 **Statuses:** Ready, Blood Infection, Storage, Dead, Offline
 
@@ -93,7 +99,14 @@ app/
 ├── core/
 │   ├── controller.py                # Scan, disrupt, block — main app logic
 │   ├── state.py                     # Observable state + device model
-│   └── data_persistence.py          # JSON persistence for accounts/settings
+│   ├── data_persistence.py          # JSON persistence for accounts/settings
+│   ├── scheduler.py                 # Disruption scheduler + macro engine
+│   └── profiles.py                  # Named disruption profile system
+├── ai/
+│   ├── smart_engine.py              # ML-based disruption parameter optimizer
+│   ├── network_profiler.py          # Target connection profiler (RTT/jitter/loss)
+│   ├── llm_advisor.py               # Natural-language disruption tuning (Ollama/OpenAI)
+│   └── session_tracker.py           # Session history + feedback learning
 ├── firewall/
 │   ├── clumsy_network_disruptor.py  # Clumsy.exe + native WinDivert engine
 │   ├── native_divert_engine.py      # Pure Python WinDivert packet interception
@@ -102,8 +115,9 @@ app/
 │   ├── WinDivert.dll / .sys         # WinDivert driver
 │   └── clumsy_src/                  # Clumsy C source (with --silent patch)
 ├── gui/
-│   ├── dashboard.py                 # 3-view sidebar rail (Clumsy | Map | Accounts)
-│   ├── clumsy_control.py            # Device list + disruption controls + presets
+│   ├── dashboard.py                 # 4-view sidebar rail (Clumsy | Map | Accounts | Network)
+│   ├── clumsy_control.py            # Device list + disruption controls + presets + AI panel
+│   ├── network_tools.py             # Traffic monitor, latency overlay, port scanner, connection mapper
 │   ├── dayz_map_gui_new.py          # Ad-free iZurvive + map selector
 │   ├── dayz_account_tracker.py      # Multi-account tracker with XLSX support
 │   ├── hotkey.py                    # Global hotkey listener
@@ -112,10 +126,10 @@ app/
 │   ├── device_scan.py               # ARP/TCP device discovery
 │   └── enhanced_scanner.py          # Threaded scanner with signals
 ├── themes/                          # QSS stylesheets (dark, hacker, light, rainbow)
+├── logs/                            # Rotating log files (auto-managed)
+├── utils/                           # Helpers and system utilities
 ├── resources/                       # App icons
 └── config/                          # JSON config files
-config/
-└── config.py                        # Central app settings
 ```
 
 ---
@@ -220,7 +234,13 @@ All three produce the same result: targeted packet manipulation on the selected 
 
 ## Version History
 
-**v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine. Aggressive disruption defaults.
+**v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper with gaming port detection, latency overlay with floating transparent widget, port scanner with service ID. 4-view dashboard. Full codebase hardening pass (11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation).
+
+**v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions with auto-stop. Disruption macro chains. Profile import/export.
+
+**v3.1.0** — AI Smart Mode. ML-based disruption optimizer with 5 goal strategies. Network profiler (RTT/jitter/loss/bandwidth). LLM advisor via Ollama or OpenAI-compatible API. Session tracking with feedback learning. Profile system. System tray mode. Device nicknames. Scan caching.
+
+**v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine.
 
 **v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration, account tracker, multiple disruptors.
 
@@ -232,9 +252,6 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 
 ## Roadmap
 
-**v3.1.0** — Profile system, tray mode, session history, device nicknames, scan caching.
-**v3.2.0** — Multi-device disruption, scheduled disruptions, disruption macros, profile import/export.
-**v3.3.0** — Live traffic monitor, connection mapper, latency overlay, port scanner.
 **v4.0.0** — Plugin API, CLI mode, Linux support, auto-updater.
 
 Full roadmap with details: [ROADMAP.md](ROADMAP.md)
