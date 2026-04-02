@@ -67,7 +67,7 @@ class DupeZDashboard(QMainWindow):
     # ------------------------------------------------------------------
     def setup_ui(self):
         admin_text = " [ADMIN]" if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ v3.1.0{admin_text}")
+        self.setWindowTitle(f"DupeZ v3.3.0{admin_text}")
         # App icon — try resources first, fall back to assets
         for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
             if os.path.exists(icon_path):
@@ -119,7 +119,7 @@ class DupeZDashboard(QMainWindow):
         tb_layout.setSpacing(8)
 
         # Icon + title
-        title_label = QLabel("DupeZ v3.1.0")
+        title_label = QLabel("DupeZ v3.3.0")
         title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
         tb_layout.addWidget(title_label)
 
@@ -622,7 +622,7 @@ class DupeZDashboard(QMainWindow):
         title.setStyleSheet("color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;")
         layout.addWidget(title)
 
-        version = QLabel("v3.1.0")
+        version = QLabel("v3.3.0")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
         layout.addWidget(version)
