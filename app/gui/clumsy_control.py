@@ -996,7 +996,7 @@ class ClumsyControlView(QWidget):
 
     @staticmethod
     def _mask_ip(ip: str) -> str:
-        """Mask an IP: 192.168.137.5 → 192.168.***.***"""
+        """Mask an IP: 198.51.100.5 → 198.51.***.***"""
         parts = ip.split('.')
         if len(parts) == 4:
             return f"{parts[0]}.{parts[1]}.***.***"

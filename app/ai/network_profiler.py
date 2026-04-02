@@ -97,9 +97,9 @@ class NetworkProfiler:
 
     Usage:
         profiler = NetworkProfiler()
-        profile = profiler.profile("192.168.137.5")
+        profile = profiler.profile("198.51.100.5")
         # or async:
-        profiler.profile_async("192.168.137.5", callback=on_done)
+        profiler.profile_async("198.51.100.5", callback=on_done)
     """
 
     def __init__(self, ping_count: int = 10, ping_timeout: float = 2.0,
@@ -237,13 +237,21 @@ class NetworkProfiler:
             # Windows ICS / Mobile Hotspot subnet
             profile.connection_type = "hotspot"
         elif (ip.startswith("192.168.") or ip.startswith("10.") or
-              ip.startswith("172.16.") or ip.startswith("172.17.") or
-              ip.startswith("172.18.") or ip.startswith("172.19.") or
-              ip.startswith("172.2") or ip.startswith("172.30.") or
-              ip.startswith("172.31.")):
+              self._is_172_private(ip)):
             profile.connection_type = "lan"
         else:
             profile.connection_type = "wan"
+
+    @staticmethod
+    def _is_172_private(ip: str) -> bool:
+        """Check if IP is in the 172.16.0.0/12 private range (172.16-31.x.x)."""
+        if not ip.startswith("172."):
+            return False
+        try:
+            second_octet = int(ip.split(".")[1])
+            return 16 <= second_octet <= 31
+        except (IndexError, ValueError):
+            return False
 
     # ------------------------------------------------------------------
     # Hop Count Estimation

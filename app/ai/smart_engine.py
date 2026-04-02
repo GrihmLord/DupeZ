@@ -76,7 +76,7 @@ class SmartDisruptionEngine:
 
     Usage:
         engine = SmartDisruptionEngine()
-        profile = NetworkProfiler().profile("192.168.137.5")
+        profile = NetworkProfiler().profile("198.51.100.5")
         rec = engine.recommend(profile, goal="disconnect")
         # rec.methods, rec.params → feed directly into NativeWinDivertEngine
     """
@@ -84,7 +84,10 @@ class SmartDisruptionEngine:
     # Disruption goals
     GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "auto"]
 
-    def __init__(self, history_path: str = "app/data/session_history.json"):
+    def __init__(self, history_path: str = ""):
+        if not history_path:
+            from app.core.data_persistence import _resolve_data_directory
+            history_path = os.path.join(_resolve_data_directory(), "session_history.json")
         self.history_path = history_path
         self._model = None  # Future: trained model
         self._load_history()
