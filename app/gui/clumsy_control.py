@@ -4,15 +4,26 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
     QSlider, QComboBox, QGroupBox, QGridLayout, QMessageBox,
-    QProgressBar, QSplitter, QCheckBox, QSpinBox, QScrollArea
+    QProgressBar, QSplitter, QCheckBox, QSpinBox, QScrollArea,
+    QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QMetaObject, Q_ARG
 from PyQt6.QtGui import QFont, QColor, QCursor
 from typing import List, Dict, Optional
 import time
 
 from app.logs.logger import log_info, log_error, log_warning
 from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+
+# Smart Disruption Engine — AI auto-tuning
+try:
+    from app.ai.network_profiler import NetworkProfiler
+    from app.ai.smart_engine import SmartDisruptionEngine
+    from app.ai.llm_advisor import LLMAdvisor, LLMConfig
+    from app.ai.session_tracker import SessionTracker
+    SMART_ENGINE_AVAILABLE = True
+except ImportError:
+    SMART_ENGINE_AVAILABLE = False
 
 
 # ======================================================================
@@ -340,6 +351,132 @@ class ClumsyControlView(QWidget):
         preset_layout.addWidget(self.preset_desc)
         preset_group.setLayout(preset_layout)
         right_layout.addWidget(preset_group)
+
+        # ---- SMART MODE: AI AUTO-TUNE ----
+        if SMART_ENGINE_AVAILABLE:
+            self._smart_profiler = NetworkProfiler(ping_count=6, ping_timeout=2.0)
+            self._smart_engine = SmartDisruptionEngine()
+            self._smart_tracker = SessionTracker()
+            self._smart_advisor = LLMAdvisor()
+            self._active_session_id = None
+
+            smart_group = self._card("AI AUTO-TUNE")
+            smart_layout = QVBoxLayout()
+            smart_layout.setSpacing(6)
+
+            # Goal selector
+            goal_row = QHBoxLayout()
+            goal_label = QLabel("GOAL:")
+            goal_label.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: bold;")
+            goal_label.setFixedWidth(40)
+            goal_row.addWidget(goal_label)
+
+            self.smart_goal_combo = QComboBox()
+            self.smart_goal_combo.addItems(["Auto", "Disconnect", "Lag", "Desync", "Throttle", "Chaos"])
+            self.smart_goal_combo.setStyleSheet(self._combo_style())
+            goal_row.addWidget(self.smart_goal_combo, 1)
+            smart_layout.addLayout(goal_row)
+
+            # Intensity slider
+            intensity_row = QHBoxLayout()
+            int_label = QLabel("POWER:")
+            int_label.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: bold;")
+            int_label.setFixedWidth(48)
+            intensity_row.addWidget(int_label)
+
+            self.smart_intensity_slider = QSlider(Qt.Orientation.Horizontal)
+            self.smart_intensity_slider.setRange(0, 100)
+            self.smart_intensity_slider.setValue(80)
+            self.smart_intensity_slider.setStyleSheet(self._slider_style().replace(
+                "#00d9ff", "#a855f7").replace(
+                "rgba(0, 217, 255, 0.3)", "rgba(168, 85, 247, 0.3)"))
+            intensity_row.addWidget(self.smart_intensity_slider, 1)
+
+            self.smart_intensity_label = QLabel("80%")
+            self.smart_intensity_label.setFixedWidth(35)
+            self.smart_intensity_label.setAlignment(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            self.smart_intensity_label.setStyleSheet(
+                "color: #a855f7; font-weight: bold; font-size: 11px;")
+            intensity_row.addWidget(self.smart_intensity_label)
+            self.smart_intensity_slider.valueChanged.connect(
+                lambda v: self.smart_intensity_label.setText(f"{v}%"))
+            smart_layout.addLayout(intensity_row)
+
+            # LLM prompt input (natural language)
+            self.smart_llm_input = None
+            llm_row = QHBoxLayout()
+            llm_label = QLabel("ASK AI:")
+            llm_label.setStyleSheet("color: #94a3b8; font-size: 11px; font-weight: bold;")
+            llm_label.setFixedWidth(48)
+            llm_row.addWidget(llm_label)
+
+            self.smart_llm_input = QLineEdit()
+            self.smart_llm_input.setPlaceholderText("e.g. desync a PS5 on my hotspot playing DayZ")
+            self.smart_llm_input.setStyleSheet("""
+                QLineEdit {
+                    background: #0a1628; color: #e0e0e0; border: 1px solid #1a2a3a;
+                    border-radius: 4px; padding: 6px 8px; font-size: 11px;
+                }
+                QLineEdit:focus { border-color: #a855f7; }
+            """)
+            self.smart_llm_input.returnPressed.connect(self._on_smart_llm_ask)
+            llm_row.addWidget(self.smart_llm_input, 1)
+            smart_layout.addLayout(llm_row)
+
+            # Action buttons
+            smart_btn_row = QHBoxLayout()
+            smart_btn_row.setSpacing(6)
+
+            self.btn_smart_profile = QPushButton("PROFILE")
+            self.btn_smart_profile.setStyleSheet(self._btn_style("#a855f7", "#1a0a2a"))
+            self.btn_smart_profile.setFixedHeight(32)
+            self.btn_smart_profile.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self.btn_smart_profile.setToolTip("Probe target and analyze connection")
+            self.btn_smart_profile.clicked.connect(self._on_smart_profile)
+            smart_btn_row.addWidget(self.btn_smart_profile)
+
+            self.btn_smart_disrupt = QPushButton("SMART DISRUPT")
+            self.btn_smart_disrupt.setStyleSheet(self._btn_style("#a855f7", "#1a0a2a").replace(
+                "#a855f7", "#e040fb"))
+            self.btn_smart_disrupt.setFixedHeight(32)
+            self.btn_smart_disrupt.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            self.btn_smart_disrupt.setToolTip("Profile + auto-tune + disrupt in one click")
+            self.btn_smart_disrupt.clicked.connect(self._on_smart_disrupt)
+            smart_btn_row.addWidget(self.btn_smart_disrupt)
+            smart_layout.addLayout(smart_btn_row)
+
+            # AI recommendation display
+            self.smart_info_label = QLabel("Select a target and click PROFILE or SMART DISRUPT")
+            self.smart_info_label.setWordWrap(True)
+            self.smart_info_label.setStyleSheet(
+                "color: #6b7280; font-size: 10px; padding: 4px; "
+                "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 4px;")
+            self.smart_info_label.setMinimumHeight(50)
+            smart_layout.addWidget(self.smart_info_label)
+
+            # Confidence / effectiveness bar
+            self.smart_confidence_bar = QProgressBar()
+            self.smart_confidence_bar.setRange(0, 100)
+            self.smart_confidence_bar.setValue(0)
+            self.smart_confidence_bar.setFormat("Confidence: %p%")
+            self.smart_confidence_bar.setFixedHeight(16)
+            self.smart_confidence_bar.setStyleSheet("""
+                QProgressBar {
+                    background: #0a1628; border: 1px solid #1a2a3a;
+                    border-radius: 3px; font-size: 9px; color: #94a3b8;
+                    text-align: center;
+                }
+                QProgressBar::chunk {
+                    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                        stop:0 #a855f7, stop:1 #e040fb);
+                    border-radius: 3px;
+                }
+            """)
+            smart_layout.addWidget(self.smart_confidence_bar)
+
+            smart_group.setLayout(smart_layout)
+            right_layout.addWidget(smart_group)
 
         # Global direction toggle
         dir_group = self._card("DIRECTION")
@@ -775,12 +912,227 @@ class ClumsyControlView(QWidget):
             log_info(f"Disruption stopped on {self.selected_ip}")
             self._refresh_device_table_status()
 
+            # End smart session tracking if active
+            if SMART_ENGINE_AVAILABLE and hasattr(self, '_active_session_id') and self._active_session_id:
+                self._smart_tracker.end_session(self._active_session_id)
+                self._active_session_id = None
+
     def _on_stop_all(self):
         if self.controller:
             self.controller.stop_all_disruptions()
             self._disruption_timers.clear()
             log_info("All disruptions stopped")
             self._refresh_device_table_status()
+
+            # End all smart sessions
+            if SMART_ENGINE_AVAILABLE and hasattr(self, '_active_session_id') and self._active_session_id:
+                self._smart_tracker.end_session(self._active_session_id)
+                self._active_session_id = None
+
+    # ------------------------------------------------------------------
+    # Smart Mode — AI Auto-Tune
+    # ------------------------------------------------------------------
+    def _on_smart_profile(self):
+        """Profile the selected target and display analysis."""
+        if not SMART_ENGINE_AVAILABLE:
+            return
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device from the list first.")
+            return
+
+        self.smart_info_label.setText(f"Profiling {self.selected_ip}...")
+        self.smart_info_label.setStyleSheet(
+            "color: #a855f7; font-size: 10px; padding: 4px; "
+            "background: #0a0f18; border: 1px solid #a855f7; border-radius: 4px;")
+        self.btn_smart_profile.setEnabled(False)
+        self.btn_smart_disrupt.setEnabled(False)
+
+        def _on_profile_done(profile):
+            # Generate recommendation
+            goal = self.smart_goal_combo.currentText().lower()
+            intensity = self.smart_intensity_slider.value() / 100.0
+            rec = self._smart_engine.recommend(profile, goal=goal, intensity=intensity)
+
+            # Update UI (must be thread-safe via signal)
+            QMetaObject.invokeMethod(
+                self, "_smart_update_ui",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, profile),
+                Q_ARG(object, rec),
+            )
+
+        self._smart_profiler.profile_async(self.selected_ip, callback=_on_profile_done)
+
+    def _on_smart_disrupt(self):
+        """Profile + auto-tune + disrupt in one click."""
+        if not SMART_ENGINE_AVAILABLE:
+            return
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device from the list first.")
+            return
+
+        self.smart_info_label.setText(f"Smart disrupting {self.selected_ip}...")
+        self.smart_info_label.setStyleSheet(
+            "color: #e040fb; font-size: 10px; padding: 4px; "
+            "background: #0a0f18; border: 1px solid #e040fb; border-radius: 4px;")
+        self.btn_smart_profile.setEnabled(False)
+        self.btn_smart_disrupt.setEnabled(False)
+
+        def _on_profile_done(profile):
+            goal = self.smart_goal_combo.currentText().lower()
+            intensity = self.smart_intensity_slider.value() / 100.0
+            rec = self._smart_engine.recommend(profile, goal=goal, intensity=intensity)
+
+            QMetaObject.invokeMethod(
+                self, "_smart_apply_and_disrupt",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, profile),
+                Q_ARG(object, rec),
+            )
+
+        self._smart_profiler.profile_async(self.selected_ip, callback=_on_profile_done)
+
+    def _on_smart_llm_ask(self):
+        """Handle natural language input to LLM advisor."""
+        if not SMART_ENGINE_AVAILABLE or not self.smart_llm_input:
+            return
+
+        prompt = self.smart_llm_input.text().strip()
+        if not prompt:
+            return
+
+        self.smart_info_label.setText("Asking AI advisor...")
+        self.smart_llm_input.setEnabled(False)
+
+        def _on_result(result):
+            QMetaObject.invokeMethod(
+                self, "_smart_apply_llm_result",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, result),
+            )
+
+        self._smart_advisor.ask_async(prompt, callback=_on_result)
+
+    @pyqtSlot(object, object)
+    def _smart_update_ui(self, profile, rec):
+        """Update Smart Mode UI with profiling results (called on main thread)."""
+        self.btn_smart_profile.setEnabled(True)
+        self.btn_smart_disrupt.setEnabled(True)
+
+        # Build info text
+        info_lines = [
+            f"<b style='color:#a855f7'>TARGET ANALYSIS</b>",
+            f"<span style='color:#94a3b8'>RTT:</span> <b>{profile.avg_rtt_ms:.0f}ms</b> "
+            f"(jitter: {profile.jitter_ms:.0f}ms) &nbsp; "
+            f"<span style='color:#94a3b8'>Loss:</span> <b>{profile.packet_loss_pct:.0f}%</b>",
+            f"<span style='color:#94a3b8'>Type:</span> {profile.connection_type} / {profile.device_type} "
+            f"{'(' + profile.device_hint + ')' if profile.device_hint else ''}",
+            f"<span style='color:#94a3b8'>Quality:</span> <b>{profile.quality_score:.0f}/100</b>",
+            f"",
+            f"<b style='color:#e040fb'>RECOMMENDATION: {rec.name}</b>",
+            f"<span style='color:#94a3b8'>Modules:</span> {' + '.join(rec.methods)}",
+        ]
+        for reason in rec.reasoning[:3]:
+            info_lines.append(f"<span style='color:#6b7280'>• {reason}</span>")
+
+        self.smart_info_label.setText("<br>".join(info_lines))
+        self.smart_info_label.setStyleSheet(
+            "color: #e0e0e0; font-size: 10px; padding: 6px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 4px;")
+
+        # Update confidence bar
+        conf_pct = int(rec.confidence * 100)
+        self.smart_confidence_bar.setValue(conf_pct)
+        self.smart_confidence_bar.setFormat(
+            f"Confidence: {conf_pct}% | Effectiveness: {rec.estimated_effectiveness:.0f}%")
+
+        # Auto-apply recommendation to the controls
+        self._apply_recommendation(rec)
+
+    @pyqtSlot(object, object)
+    def _smart_apply_and_disrupt(self, profile, rec):
+        """Apply recommendation and start disruption (main thread)."""
+        self._smart_update_ui(profile, rec)
+
+        # Start disruption with the recommended config
+        if self.controller and self.selected_ip:
+            success = self.controller.disrupt_device(
+                self.selected_ip, rec.methods, rec.params)
+            if success:
+                self._disruption_timers[self.selected_ip] = time.time()
+                log_info(f"Smart disruption started on {self.selected_ip}: "
+                         f"{rec.name} ({rec.methods})")
+                self._refresh_device_table_status()
+
+                # Track session
+                self._active_session_id = self._smart_tracker.start_session(
+                    profile, rec,
+                    intensity=self.smart_intensity_slider.value() / 100.0)
+            else:
+                QMessageBox.warning(
+                    self, "Failed",
+                    f"Smart disruption failed on {self.selected_ip}.\n"
+                    "Check admin privileges, WinDivert files, and logs.")
+
+    @pyqtSlot(object)
+    def _smart_apply_llm_result(self, result):
+        """Apply LLM advisor result to the controls (main thread)."""
+        self.smart_llm_input.setEnabled(True)
+        if not result:
+            self.smart_info_label.setText("AI advisor returned no result. Try rephrasing.")
+            return
+
+        # Build a fake recommendation to reuse the apply logic
+        from app.ai.smart_engine import DisruptionRecommendation
+        rec = DisruptionRecommendation(
+            name=result.get("name", "AI Recommendation"),
+            description=result.get("description", ""),
+            methods=result.get("methods", []),
+            params=result.get("params", {}),
+            reasoning=[result.get("reasoning", "")],
+            confidence=0.7,
+            estimated_effectiveness=75,
+        )
+        self._apply_recommendation(rec)
+
+        info_lines = [
+            f"<b style='color:#a855f7'>AI ADVISOR: {rec.name}</b>",
+            f"<span style='color:#94a3b8'>{rec.description}</span>",
+            f"<span style='color:#94a3b8'>Modules:</span> {' + '.join(rec.methods)}",
+            f"<span style='color:#6b7280'>{rec.reasoning[0] if rec.reasoning else ''}</span>",
+        ]
+        self.smart_info_label.setText("<br>".join(info_lines))
+        self.smart_confidence_bar.setValue(70)
+        self.smart_confidence_bar.setFormat("AI Advisor — apply with DISRUPT button")
+
+    def _apply_recommendation(self, rec):
+        """Apply a DisruptionRecommendation to the manual controls."""
+        # Set module checkboxes
+        for key, cb in self.module_checks.items():
+            cb.setChecked(key in rec.methods)
+
+        # Set slider values
+        for key, slider in self.sliders.items():
+            if key in rec.params:
+                slider.setValue(int(rec.params[key]))
+
+        # Set direction
+        direction = rec.params.get("direction", "both")
+        self.dir_inbound.setChecked(direction in ("inbound", "both"))
+        self.dir_outbound.setChecked(direction in ("outbound", "both"))
+
+        # Set extra checkboxes
+        for key, cb in self.extra_checks.items():
+            if key in rec.params:
+                cb.setChecked(bool(rec.params[key]))
+
+        # Switch preset to Custom since AI overrode it
+        idx = self.preset_combo.findText("Custom")
+        if idx >= 0:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(idx)
+            self.preset_combo.blockSignals(False)
+            self.preset_desc.setText(rec.description)
 
     # ------------------------------------------------------------------
     # Presets

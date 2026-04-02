@@ -4,13 +4,14 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
-## v3.1.0 — Quality of Life
+## v3.1.0 — Smart Mode + Quality of Life
 
 **Target:** Q2 2026
 
-- **Profile System** — Save/load named disruption profiles per game or scenario. Quick-switch between configs without re-dialing sliders every time.
+- ~~**Profile System** — Save/load named disruption profiles per game or scenario.~~ ✅ Done
+- ~~**Session History** — Log of past disruption sessions with timestamps, targets, methods, and durations.~~ ✅ Done
+- **AI Auto-Tune Engine** — Network profiler + ML-based parameter optimizer + LLM advisor. ✅ Done
 - **Tray Mode** — Minimize to system tray with hotkey toggle. Run disruptions in background without the window in the way.
-- **Session History** — Log of past disruption sessions with timestamps, targets, methods, and durations. Exportable for review.
 - **Device Nicknames** — Assign friendly names to scanned devices so you're not squinting at MACs every time.
 - **Scan Result Caching** — Persist discovered devices across restarts so the device list isn't empty on every launch.
 
@@ -65,6 +66,7 @@ These are ideas worth exploring but not committed to a release.
 
 - [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Clumsy Control with presets and sliders. Map selector. Account tracker. Native WinDivert engine.
 - [x] **v3.0.1** — Production hardening. Atomic settings writes. Settings dialog overhaul. Full QSS coverage. Dead code purge. IP sanitization. Cross-platform line endings.
+- [x] **v3.1.0** — Smart Mode. AI auto-tune engine. Network profiler. LLM advisor (Ollama/Mistral). Session tracking with feedback learning. Profile system. No more guess and check.
 
 ---
 

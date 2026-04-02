@@ -4,6 +4,32 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v3.1.0 — 2026-04-02 (Smart Mode)
+
+AI-powered auto-tuning. No more guess and check — DupeZ now profiles your target's connection and computes optimal disruption parameters automatically.
+
+### Added
+- **`app/ai/` module** — Complete AI auto-tune subsystem (4 new files, ~1,500 lines):
+  - `network_profiler.py` — Probes target IP in real-time: RTT, jitter, packet loss, bandwidth estimation, hop count, port fingerprinting, device type inference, connection quality scoring (0-100).
+  - `smart_engine.py` — Maps network profiles to optimal disruption parameters. 5 goal strategies (disconnect, lag, desync, throttle, chaos) with connection-type adjustments (hotspot/LAN/WAN) and device-type tuning (console/PC/mobile). Intensity slider (0-100%) scales all parameters.
+  - `llm_advisor.py` — Natural-language disruption tuning via Ollama (local Mistral 7B) or any OpenAI-compatible API. Describe what you want in plain English → get a tuned preset. Falls back to keyword-based interpretation when no LLM is available.
+  - `session_tracker.py` — Logs every disruption session (profile snapshot, config used, duration, user rating). Feeds back into the engine to improve future recommendations. Atomic JSON persistence.
+- **AI Auto-Tune UI panel** in Clumsy Control view:
+  - Goal selector (Auto, Disconnect, Lag, Desync, Throttle, Chaos)
+  - Intensity slider with purple accent theme
+  - "ASK AI" text input for natural language requests
+  - PROFILE button (analyze target without disrupting)
+  - SMART DISRUPT button (profile + auto-tune + disrupt in one click)
+  - Live recommendation display with reasoning, confidence bar, and estimated effectiveness
+- **`app/core/profiles.py`** — Profile system for saving/loading/sharing named disruption configs. JSON-based, supports import/export, tracks usage count and timestamps.
+- **Session history** — Persistent log of past disruptions with target profiles, configs used, and effectiveness ratings. Enables the engine to learn from past sessions.
+
+### Changed
+- `clumsy_control.py` — Integrated Smart Mode panel between Preset selector and Direction toggle. Session tracking wired to stop/stop-all buttons.
+- Smart Mode now defaults to AI-recommended settings when enabled, automatically populating all module checkboxes and sliders.
+
+---
+
 ## v3.0.1 — 2026-04-01
 
 Production hardening pass for public community release.
