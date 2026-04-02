@@ -470,7 +470,14 @@ class DupeZDashboard(QMainWindow):
     # Menu
     # ------------------------------------------------------------------
     def setup_menu(self):
-        self.menuBar().setVisible(False)  # Hide native menubar
+        # Kill the native QMainWindow menubar entirely — it always renders
+        # above the central widget, ignoring layout order. Replace it with
+        # a zero-height dummy so Qt doesn't draw anything there.
+        dummy = QMenuBar(self)
+        dummy.setFixedHeight(0)
+        dummy.setVisible(False)
+        self.setMenuBar(dummy)
+
         menubar = self.custom_menubar
 
         # File
