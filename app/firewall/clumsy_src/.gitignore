@@ -1,0 +1,10 @@
+bin/
+build/
+tmp/
+zig-cache/
+zig-out/
+etc/clumsy.aps
+*.swp
+obj_vs
+obj_ninja
+obj_gmake
