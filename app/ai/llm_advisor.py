@@ -353,6 +353,7 @@ class LLMAdvisor:
     def _fallback_disconnect(self, prompt: str) -> dict:
         intensity = self._detect_intensity(prompt)
         return {
+            "goal": "disconnect",
             "name": "AI Disconnect",
             "description": "Keyword-parsed disconnect configuration",
             "methods": ["disconnect", "drop", "lag", "bandwidth", "throttle"],
@@ -372,6 +373,7 @@ class LLMAdvisor:
     def _fallback_lag(self, prompt: str) -> dict:
         intensity = self._detect_intensity(prompt)
         return {
+            "goal": "lag",
             "name": "AI Lag",
             "description": "Keyword-parsed lag configuration",
             "methods": ["lag", "drop"],
@@ -386,6 +388,7 @@ class LLMAdvisor:
     def _fallback_desync(self, prompt: str) -> dict:
         intensity = self._detect_intensity(prompt)
         return {
+            "goal": "desync",
             "name": "AI Desync",
             "description": "Keyword-parsed desync configuration",
             "methods": ["lag", "duplicate", "ood"],
@@ -402,6 +405,7 @@ class LLMAdvisor:
     def _fallback_throttle(self, prompt: str) -> dict:
         intensity = self._detect_intensity(prompt)
         return {
+            "goal": "throttle",
             "name": "AI Throttle",
             "description": "Keyword-parsed throttle configuration",
             "methods": ["bandwidth", "throttle"],
@@ -418,6 +422,7 @@ class LLMAdvisor:
 
     def _fallback_chaos(self, prompt: str) -> dict:
         return {
+            "goal": "chaos",
             "name": "AI Chaos",
             "description": "Maximum disruption — all modules",
             "methods": ["disconnect", "drop", "lag", "duplicate",

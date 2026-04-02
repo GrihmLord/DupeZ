@@ -234,7 +234,7 @@ class LagModule(DisruptionModule):
 
     def __init__(self, params):
         super().__init__(params)
-        self._lag_queue = deque()
+        self._lag_queue = deque(maxlen=10000)  # bounded to prevent memory leak
         self._lag_thread = None
         self._running = True
 
@@ -369,6 +369,12 @@ class OODModule(DisruptionModule):
                 self._buffer.clear()
             return True
         return False
+
+    def stop(self):
+        """Flush any remaining buffered packets on shutdown."""
+        # Drop remaining buffer — no send_fn available at stop time,
+        # and the WinDivert handle may already be closed.
+        self._buffer.clear()
 
 
 class RSTModule(DisruptionModule):

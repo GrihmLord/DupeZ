@@ -11,9 +11,11 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QMetaObject, Q_ARG
 from PyQt6.QtGui import QFont, QColor, QCursor
 from typing import List, Dict, Optional
 import time
+import threading
 
 from app.logs.logger import log_info, log_error, log_warning
 from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+from app.core.data_persistence import nickname_manager, device_cache_manager
 
 # Smart Disruption Engine — AI auto-tuning
 try:
@@ -199,6 +201,7 @@ class ClumsyControlView(QWidget):
         self.controller = controller
         self.devices = []
         self.selected_ip = None
+        self.selected_ips = set()     # multi-target mode
         self._disruption_timers = {}  # ip -> start_time
         self._ip_hidden = False       # IP masking state
         self._row_checkboxes = []     # list of (QCheckBox, real_ip) per row
@@ -285,19 +288,40 @@ class ClumsyControlView(QWidget):
         """)
         self.network_combo.currentTextChanged.connect(self._on_network_filter_changed)
         net_filter_row.addWidget(self.network_combo, 1)
+
+        self.multi_target_btn = QPushButton("MULTI")
+        self.multi_target_btn.setCheckable(True)
+        self.multi_target_btn.setToolTip("Multi-Target Mode — select multiple devices for simultaneous disruption")
+        self.multi_target_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #64748b; border: 1px solid #1e293b;
+                padding: 3px 10px; font-size: 10px; font-weight: bold; border-radius: 4px;
+            }
+            QPushButton:checked {
+                background: rgba(168,85,247,0.15); color: #a855f7; border: 1px solid #a855f7;
+            }
+            QPushButton:hover { color: #e0e0e0; border-color: #3a4a5a; }
+        """)
+        self.multi_target_btn.setFixedHeight(26)
+        self.multi_target_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        net_filter_row.addWidget(self.multi_target_btn)
+
         left_layout.addLayout(net_filter_row)
 
-        # Device table — col 0 = select checkbox, 1 = IP, 2 = Hostname, 3 = Vendor, 4 = Status, 5 = Session
+        # Device table — col 0=select, 1=IP, 2=Nickname, 3=Hostname, 4=Vendor, 5=Status, 6=Session
         self.device_table = QTableWidget()
-        self.device_table.setColumnCount(6)
-        self.device_table.setHorizontalHeaderLabels(["", "IP", "Hostname", "Vendor", "Status", "Session"])
+        self.device_table.setColumnCount(7)
+        self.device_table.setHorizontalHeaderLabels(["", "IP", "Nickname", "Hostname", "Vendor", "Status", "Session"])
+        self.device_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.device_table.customContextMenuRequested.connect(self._device_context_menu)
         hdr = self.device_table.horizontalHeader()
         hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
         hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
-        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
         hdr.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+        hdr.setSectionResizeMode(6, QHeaderView.ResizeMode.ResizeToContents)
         self.device_table.setColumnWidth(0, 32)
         self.device_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.device_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -387,6 +411,26 @@ class ClumsyControlView(QWidget):
             self.btn_delete_profile.setToolTip("Delete a saved profile")
             self.btn_delete_profile.clicked.connect(self._on_delete_profile)
             profile_btn_row.addWidget(self.btn_delete_profile)
+
+            # Import / Export
+            io_row = QHBoxLayout()
+            io_row.setSpacing(4)
+            btn_import = QPushButton("IMPORT")
+            btn_import.setStyleSheet(self._btn_style("#94a3b8", "#0a1628"))
+            btn_import.setFixedHeight(24)
+            btn_import.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn_import.setToolTip("Import a profile from JSON file")
+            btn_import.clicked.connect(self._on_import_profile)
+            io_row.addWidget(btn_import)
+
+            btn_export = QPushButton("EXPORT")
+            btn_export.setStyleSheet(self._btn_style("#94a3b8", "#0a1628"))
+            btn_export.setFixedHeight(24)
+            btn_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn_export.setToolTip("Export a profile to JSON file")
+            btn_export.clicked.connect(self._on_export_profile)
+            io_row.addWidget(btn_export)
+            preset_layout.addLayout(io_row)
 
             preset_layout.addLayout(profile_btn_row)
 
@@ -662,6 +706,68 @@ class ClumsyControlView(QWidget):
 
         right_layout.addLayout(btn_layout)
 
+        # ── Scheduler / Macro panel ──
+        sched_group = self._card("SCHEDULER / MACROS")
+        sched_layout = QVBoxLayout()
+        sched_layout.setSpacing(6)
+
+        # Quick-schedule row
+        sched_row1 = QHBoxLayout()
+        sched_row1.setSpacing(4)
+        self.sched_duration = QSpinBox()
+        self.sched_duration.setRange(5, 3600)
+        self.sched_duration.setValue(60)
+        self.sched_duration.setSuffix("s")
+        self.sched_duration.setToolTip("Disruption duration (seconds)")
+        self.sched_duration.setFixedWidth(80)
+        self.sched_duration.setStyleSheet("QSpinBox { background: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }")
+        sched_row1.addWidget(QLabel("Duration:"))
+        sched_row1.addWidget(self.sched_duration)
+
+        self.sched_delay = QSpinBox()
+        self.sched_delay.setRange(0, 3600)
+        self.sched_delay.setValue(0)
+        self.sched_delay.setSuffix("s")
+        self.sched_delay.setToolTip("Delay before starting (0 = now)")
+        self.sched_delay.setFixedWidth(80)
+        self.sched_delay.setStyleSheet("QSpinBox { background: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }")
+        sched_row1.addWidget(QLabel("Delay:"))
+        sched_row1.addWidget(self.sched_delay)
+        sched_layout.addLayout(sched_row1)
+
+        sched_row2 = QHBoxLayout()
+        sched_row2.setSpacing(4)
+        self.btn_sched_once = QPushButton("TIMED DISRUPT")
+        self.btn_sched_once.setToolTip("Disrupt for set duration, then auto-stop")
+        self.btn_sched_once.setStyleSheet(self._btn_style("#a855f7", "#1a0a2a"))
+        self.btn_sched_once.setFixedHeight(30)
+        self.btn_sched_once.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_sched_once.clicked.connect(self._on_timed_disrupt)
+        sched_row2.addWidget(self.btn_sched_once)
+
+        self.btn_run_macro = QPushButton("RUN MACRO")
+        self.btn_run_macro.setToolTip("Chain disruption steps in sequence")
+        self.btn_run_macro.setStyleSheet(self._btn_style("#e040fb", "#1a0a1a"))
+        self.btn_run_macro.setFixedHeight(30)
+        self.btn_run_macro.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_run_macro.clicked.connect(self._on_run_macro)
+        sched_row2.addWidget(self.btn_run_macro)
+
+        self.btn_stop_macro = QPushButton("STOP MACRO")
+        self.btn_stop_macro.setStyleSheet(self._btn_style("#fbbf24", "#1a1a0a"))
+        self.btn_stop_macro.setFixedHeight(30)
+        self.btn_stop_macro.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_stop_macro.clicked.connect(self._on_stop_macro)
+        sched_row2.addWidget(self.btn_stop_macro)
+        sched_layout.addLayout(sched_row2)
+
+        self.sched_status = QLabel("No scheduled disruptions")
+        self.sched_status.setStyleSheet("color: #6b7280; font-size: 11px;")
+        sched_layout.addWidget(self.sched_status)
+
+        sched_group.setLayout(sched_layout)
+        right_layout.addWidget(sched_group)
+
         # Clumsy status
         self.clumsy_status_label = QLabel("Clumsy: Checking...")
         self.clumsy_status_label.setStyleSheet("color: #6b7280; font-size: 11px; padding: 4px;")
@@ -788,7 +894,7 @@ class ClumsyControlView(QWidget):
             cb.stateChanged.connect(lambda state, r_ip=ip, r_cb=cb: self._on_row_checkbox(r_ip, r_cb, state))
 
             # If this IP was previously selected, re-check it
-            if ip == self.selected_ip:
+            if ip in self.selected_ips or ip == self.selected_ip:
                 cb.setChecked(True)
 
             # Col 1: IP (masked or real)
@@ -797,26 +903,34 @@ class ClumsyControlView(QWidget):
             ip_item.setData(Qt.ItemDataRole.UserRole, ip)  # store real IP
             self.device_table.setItem(row, 1, ip_item)
 
-            # Col 2-3: Hostname, Vendor
-            self.device_table.setItem(row, 2, QTableWidgetItem(hostname or "—"))
-            self.device_table.setItem(row, 3, QTableWidgetItem(vendor or "—"))
+            # Col 2: Nickname
+            mac = d.mac if hasattr(d, 'mac') else d.get('mac', '')
+            nick = nickname_manager.get_nickname(mac=mac, ip=ip)
+            nick_item = QTableWidgetItem(nick or "—")
+            if nick:
+                nick_item.setForeground(QColor("#fbbf24"))
+            self.device_table.setItem(row, 2, nick_item)
 
-            # Col 4: Status
+            # Col 3-4: Hostname, Vendor
+            self.device_table.setItem(row, 3, QTableWidgetItem(hostname or "—"))
+            self.device_table.setItem(row, 4, QTableWidgetItem(vendor or "—"))
+
+            # Col 5: Status
             if ip in disrupted:
                 status_item = QTableWidgetItem("DISRUPTED")
                 status_item.setForeground(QColor("#ff4444"))
             else:
                 status_item = QTableWidgetItem("ONLINE")
                 status_item.setForeground(QColor("#00ff88"))
-            self.device_table.setItem(row, 4, status_item)
+            self.device_table.setItem(row, 5, status_item)
 
-            # Col 5: Session timer
+            # Col 6: Session timer
             if ip in self._disruption_timers:
                 elapsed = int(time.time() - self._disruption_timers[ip])
                 session_text = f"{elapsed // 60}:{elapsed % 60:02d}"
             else:
                 session_text = "—"
-            self.device_table.setItem(row, 5, QTableWidgetItem(session_text))
+            self.device_table.setItem(row, 6, QTableWidgetItem(session_text))
 
         total = len(self.devices)
         if network_filter == "All Networks":
@@ -826,28 +940,58 @@ class ClumsyControlView(QWidget):
         self.scan_finished.emit(self.devices)
 
     def _on_row_checkbox(self, ip: str, checkbox: QCheckBox, state: int):
-        """Handle row checkbox click — radio-like: only one selected at a time."""
+        """Handle row checkbox click — radio-like or multi-select depending on mode."""
+        multi = hasattr(self, 'multi_target_btn') and self.multi_target_btn.isChecked()
+
         if state == 2:  # Qt.CheckState.Checked
-            # Uncheck all other checkboxes
-            for cb, cb_ip in self._row_checkboxes:
-                if cb is not checkbox:
-                    cb.blockSignals(True)
-                    cb.setChecked(False)
-                    cb.blockSignals(False)
-            # Set as selected target
-            self.selected_ip = ip
-            display = self._mask_ip(ip) if self._ip_hidden else ip
-            self.target_label.setText(f"TARGET: {display}")
-            self.target_label.setStyleSheet(
-                "font-size: 14px; font-weight: bold; color: #00d9ff; letter-spacing: 1px; padding: 8px;"
-            )
+            if multi:
+                # Multi-target: keep all checked, track set
+                self.selected_ips.add(ip)
+                self.selected_ip = ip  # primary target for smart mode etc.
+            else:
+                # Single-target: uncheck all others
+                for cb, cb_ip in self._row_checkboxes:
+                    if cb is not checkbox:
+                        cb.blockSignals(True)
+                        cb.setChecked(False)
+                        cb.blockSignals(False)
+                self.selected_ips = {ip}
+                self.selected_ip = ip
+
+            # Update target label
+            if multi and len(self.selected_ips) > 1:
+                self.target_label.setText(f"TARGETS: {len(self.selected_ips)} devices")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #a855f7; letter-spacing: 1px; padding: 8px;"
+                )
+            else:
+                display = self._mask_ip(ip) if self._ip_hidden else ip
+                self.target_label.setText(f"TARGET: {display}")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #00d9ff; letter-spacing: 1px; padding: 8px;"
+                )
         else:
-            # Unchecked — clear selection if it was this IP
+            # Unchecked
+            self.selected_ips.discard(ip)
             if self.selected_ip == ip:
-                self.selected_ip = None
+                self.selected_ip = next(iter(self.selected_ips), None)
+
+            if not self.selected_ips:
                 self.target_label.setText("NO TARGET SELECTED")
                 self.target_label.setStyleSheet(
                     "font-size: 14px; font-weight: bold; color: #ff4444; letter-spacing: 1px; padding: 8px;"
+                )
+            elif len(self.selected_ips) > 1:
+                self.target_label.setText(f"TARGETS: {len(self.selected_ips)} devices")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #a855f7; letter-spacing: 1px; padding: 8px;"
+                )
+            else:
+                remaining = next(iter(self.selected_ips))
+                display = self._mask_ip(remaining) if self._ip_hidden else remaining
+                self.target_label.setText(f"TARGET: {display}")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #00d9ff; letter-spacing: 1px; padding: 8px;"
                 )
 
     @staticmethod
@@ -872,6 +1016,60 @@ class ClumsyControlView(QWidget):
         if self.selected_ip:
             display = self._mask_ip(self.selected_ip) if self._ip_hidden else self.selected_ip
             self.target_label.setText(f"TARGET: {display}")
+
+    # ------------------------------------------------------------------
+    # Device Context Menu (right-click)
+    # ------------------------------------------------------------------
+    def _device_context_menu(self, pos):
+        """Right-click context menu on device table — set/clear nickname."""
+        from PyQt6.QtWidgets import QMenu as _QMenu, QInputDialog
+        row_idx = self.device_table.rowAt(pos.y())
+        if row_idx < 0:
+            return
+        ip_item = self.device_table.item(row_idx, 1)
+        if not ip_item:
+            return
+        real_ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
+
+        # Find MAC for this device
+        mac = ""
+        for d in self.devices:
+            d_ip = d.ip if hasattr(d, 'ip') else d.get('ip', '')
+            if d_ip == real_ip:
+                mac = d.mac if hasattr(d, 'mac') else d.get('mac', '')
+                break
+
+        key = mac or real_ip
+        current_nick = nickname_manager.get_nickname(mac=mac, ip=real_ip)
+
+        menu = _QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background: #0a0e1a; color: #e2e8f0; border: 1px solid #1e293b; }
+            QMenu::item { padding: 6px 20px; }
+            QMenu::item:selected { background: rgba(0, 217, 255, 0.2); }
+        """)
+
+        set_action = menu.addAction("Set Nickname..." if not current_nick else f"Rename \"{current_nick}\"...")
+        clear_action = None
+        if current_nick:
+            clear_action = menu.addAction("Clear Nickname")
+
+        action = menu.exec(self.device_table.viewport().mapToGlobal(pos))
+        if action == set_action:
+            text, ok = QInputDialog.getText(self, "Device Nickname",
+                                            f"Nickname for {real_ip}:", text=current_nick)
+            if ok and text.strip():
+                nickname_manager.set_nickname(key, text.strip())
+                nick_item = self.device_table.item(row_idx, 2)
+                if nick_item:
+                    nick_item.setText(text.strip())
+                    nick_item.setForeground(QColor("#fbbf24"))
+        elif clear_action and action == clear_action:
+            nickname_manager.remove_nickname(key)
+            nick_item = self.device_table.item(row_idx, 2)
+            if nick_item:
+                nick_item.setText("—")
+                nick_item.setForeground(QColor("#e0e0e0"))
 
     # ------------------------------------------------------------------
     # Device Selection
@@ -917,13 +1115,13 @@ class ClumsyControlView(QWidget):
         return params
 
     def _on_disrupt(self):
-        if not self.selected_ip:
+        targets = list(self.selected_ips) if self.selected_ips else ([self.selected_ip] if self.selected_ip else [])
+        if not targets:
             QMessageBox.warning(self, "No Target", "Select a device from the list first.")
             return
 
         methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
         if not methods:
-            # Fall back to preset
             preset = self.preset_combo.currentText()
             methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
             if not methods:
@@ -932,25 +1130,33 @@ class ClumsyControlView(QWidget):
         params = self._collect_params()
 
         if self.controller:
-            success = self.controller.disrupt_device(self.selected_ip, methods, params)
-            if success:
-                self._disruption_timers[self.selected_ip] = time.time()
-                log_info(f"Disruption started on {self.selected_ip}: methods={methods}")
-                self._refresh_device_table_status()
-            else:
+            failed = []
+            for ip in targets:
+                success = self.controller.disrupt_device(ip, methods, params)
+                if success:
+                    self._disruption_timers[ip] = time.time()
+                    log_info(f"Disruption started on {ip}: methods={methods}")
+                else:
+                    failed.append(ip)
+
+            self._refresh_device_table_status()
+
+            if failed:
                 QMessageBox.warning(
-                    self, "Failed",
-                    f"Could not start disruption on {self.selected_ip}.\n"
+                    self, "Partial Failure",
+                    f"Could not start disruption on: {', '.join(failed)}\n"
                     "Check admin privileges, WinDivert files, and logs."
                 )
 
     def _on_stop(self):
-        if not self.selected_ip:
+        targets = list(self.selected_ips) if self.selected_ips else ([self.selected_ip] if self.selected_ip else [])
+        if not targets:
             return
         if self.controller:
-            self.controller.stop_disruption(self.selected_ip)
-            self._disruption_timers.pop(self.selected_ip, None)
-            log_info(f"Disruption stopped on {self.selected_ip}")
+            for ip in targets:
+                self.controller.stop_disruption(ip)
+                self._disruption_timers.pop(ip, None)
+                log_info(f"Disruption stopped on {ip}")
             self._refresh_device_table_status()
 
             # End smart session tracking if active
@@ -969,6 +1175,119 @@ class ClumsyControlView(QWidget):
             if SMART_ENGINE_AVAILABLE and hasattr(self, '_active_session_id') and self._active_session_id:
                 self._smart_tracker.end_session(self._active_session_id)
                 self._active_session_id = None
+
+    # ------------------------------------------------------------------
+    # Scheduled / Timed Disruption + Macros
+    # ------------------------------------------------------------------
+    def _on_timed_disrupt(self):
+        """Start a disruption with auto-stop after duration."""
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device first.")
+            return
+        if not self.controller:
+            return
+
+        from app.core.scheduler import ScheduledRule
+        duration = self.sched_duration.value()
+        delay = self.sched_delay.value()
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            preset = self.preset_combo.currentText()
+            methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
+        params = self._collect_params()
+
+        if delay == 0:
+            # Immediate start with auto-stop timer
+            targets = list(self.selected_ips) if self.selected_ips else [self.selected_ip]
+            for ip in targets:
+                self.controller.disrupt_device(ip, methods, params)
+                self._disruption_timers[ip] = time.time()
+
+            # Schedule auto-stop
+            def _auto_stop():
+                time.sleep(duration)
+                if self.controller:
+                    for ip in targets:
+                        self.controller.stop_disruption(ip)
+                        self._disruption_timers.pop(ip, None)
+                    log_info(f"Timed disruption ended after {duration}s")
+
+            threading.Thread(target=_auto_stop, daemon=True).start()
+            self.sched_status.setText(f"Timed: {duration}s on {len(targets)} target(s)")
+            self.sched_status.setStyleSheet("color: #a855f7; font-size: 11px;")
+            self._refresh_device_table_status()
+        else:
+            # Delayed start via scheduler
+            rule = ScheduledRule(
+                name=f"Timed-{self.selected_ip}-{duration}s",
+                target_ip=self.selected_ip,
+                methods=methods,
+                params=params,
+                start_time="",
+                duration_seconds=duration,
+                repeat_interval=0,
+            )
+            # Use epoch for delayed start
+            rule.last_run = time.time() - 99999  # force immediate on next tick after delay
+            self.controller.scheduler.add_rule(rule)
+            self.sched_status.setText(f"Scheduled: {delay}s delay → {duration}s disruption")
+            self.sched_status.setStyleSheet("color: #a855f7; font-size: 11px;")
+
+    def _on_run_macro(self):
+        """Run a disruption macro — chain preset steps in sequence."""
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device first.")
+            return
+        if not self.controller:
+            return
+
+        from app.core.scheduler import DisruptionMacro, MacroStep
+
+        macros = self.controller.scheduler.get_macros()
+        if macros:
+            # Let user pick an existing macro
+            from PyQt6.QtWidgets import QInputDialog
+            names = [m.name for m in macros]
+            names.insert(0, "-- Create Quick Macro --")
+            choice, ok = QInputDialog.getItem(
+                self, "Run Macro", "Select macro:", names, 0, False)
+            if not ok:
+                return
+            if choice != "-- Create Quick Macro --":
+                macro = next(m for m in macros if m.name == choice)
+                self.controller.scheduler.run_macro(macro.macro_id, self.selected_ip)
+                self.sched_status.setText(f"Macro '{macro.name}' running...")
+                self.sched_status.setStyleSheet("color: #e040fb; font-size: 11px;")
+                return
+
+        # Quick macro: current settings → light → heavy → stop
+        duration = self.sched_duration.value() // 3 or 10
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            methods = ["drop", "lag"]
+        params = self._collect_params()
+
+        macro = DisruptionMacro(
+            name="Quick Macro",
+            target_ip=self.selected_ip,
+            repeat_count=1,
+            steps=[
+                MacroStep(methods=["lag", "drop"], params={"lag_delay": 500, "drop_chance": 40, "direction": "both"}, duration_seconds=duration),
+                MacroStep(methods=methods, params=params, duration_seconds=duration),
+                MacroStep(methods=["lag", "drop", "bandwidth"], params={"lag_delay": 2000, "drop_chance": 90, "bandwidth_limit": 1, "direction": "both"}, duration_seconds=duration),
+            ]
+        )
+        mid = self.controller.scheduler.add_macro(macro)
+        self.controller.scheduler.run_macro(mid, self.selected_ip)
+        self.sched_status.setText(f"Quick Macro running ({duration}s x 3 steps)...")
+        self.sched_status.setStyleSheet("color: #e040fb; font-size: 11px;")
+
+    def _on_stop_macro(self):
+        """Stop the active macro."""
+        if self.controller:
+            self.controller.scheduler.stop_macro()
+            self.sched_status.setText("Macro stopped")
+            self.sched_status.setStyleSheet("color: #6b7280; font-size: 11px;")
 
     # ------------------------------------------------------------------
     # Profile Management
@@ -1056,6 +1375,43 @@ class ClumsyControlView(QWidget):
         if confirm == QMessageBox.StandardButton.Yes:
             self._profile_manager.delete(name)
             log_info(f"Profile deleted: {name}")
+
+    def _on_export_profile(self):
+        """Export a profile to a standalone JSON file."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles to export.")
+            return
+        from PyQt6.QtWidgets import QInputDialog, QFileDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Export Profile", "Select profile:", names, 0, False)
+        if not ok or not name:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Profile", f"{name}.json", "JSON (*.json)")
+        if path:
+            if self._profile_manager.export_profile(name, path):
+                QMessageBox.information(self, "Exported", f"Profile '{name}' exported to:\n{path}")
+            else:
+                QMessageBox.warning(self, "Failed", "Export failed — check logs.")
+
+    def _on_import_profile(self):
+        """Import a profile from a JSON file."""
+        if not PROFILES_AVAILABLE:
+            return
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Profile", "", "JSON (*.json)")
+        if not path:
+            return
+        profile = self._profile_manager.import_profile(path)
+        if profile:
+            QMessageBox.information(self, "Imported", f"Profile '{profile.name}' imported.")
+        else:
+            QMessageBox.warning(self, "Failed", "Import failed — check file format and logs.")
 
     # ------------------------------------------------------------------
     # Smart Mode — AI Auto-Tune
@@ -1334,7 +1690,7 @@ class ClumsyControlView(QWidget):
             ip_item = self.device_table.item(row, 1)  # IP col
             if ip_item:
                 ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
-                status_item = self.device_table.item(row, 4)  # Status col
+                status_item = self.device_table.item(row, 5)  # Status col
                 if ip in disrupted:
                     if status_item:
                         status_item.setText("DISRUPTED")
@@ -1349,7 +1705,7 @@ class ClumsyControlView(QWidget):
             ip_item = self.device_table.item(row, 1)  # IP col
             if ip_item:
                 ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
-                session_item = self.device_table.item(row, 5)  # Session col
+                session_item = self.device_table.item(row, 6)  # Session col
                 if ip in self._disruption_timers and session_item:
                     elapsed = int(time.time() - self._disruption_timers[ip])
                     session_item.setText(f"{elapsed // 60}:{elapsed % 60:02d}")

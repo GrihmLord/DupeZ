@@ -70,10 +70,14 @@ class SessionTracker:
         history = tracker.get_history(limit=50)
     """
 
-    def __init__(self, history_path: str = "app/data/session_history.json"):
+    def __init__(self, history_path: str = ""):
+        if not history_path:
+            from app.core.data_persistence import _resolve_data_directory
+            history_path = os.path.join(_resolve_data_directory(), "session_history.json")
         self.history_path = history_path
         self._active_sessions: Dict[str, SessionRecord] = {}
         self._history: List[dict] = []
+        self._lock = __import__('threading').Lock()
         self._load_history()
 
     def _load_history(self):
@@ -164,8 +168,9 @@ class SessionTracker:
             # If it ran for a while, assume it was somewhat effective
             record.auto_effectiveness = min(80, 30 + record.duration_seconds * 0.5)
 
-        # Append to history
-        self._history.append(asdict(record))
+        # Append to history (thread-safe)
+        with self._lock:
+            self._history.append(asdict(record))
         self._save_history()
 
         log_info(f"SessionTracker: ended session {session_id} "

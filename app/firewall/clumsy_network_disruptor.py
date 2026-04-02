@@ -32,6 +32,7 @@ Architecture (clumsy.exe, from reading main.c):
 import os
 import sys
 import time
+import threading
 import subprocess
 import traceback
 import ctypes
@@ -1018,6 +1019,7 @@ class ClumsyNetworkDisruptor:
     def __init__(self):
         self.is_running = False
         self.disrupted_devices: Dict[str, dict] = {}
+        self._device_lock = threading.Lock()
         self.clumsy_exe = None
         self.windivert_dll = None
         self.windivert_sys = None
@@ -1152,12 +1154,13 @@ class ClumsyNetworkDisruptor:
                     log_error("ClumsyEngine start FAILED")
                     return False
 
-            self.disrupted_devices[target_ip] = {
-                "engine": engine,
-                "methods": methods,
-                "params": params,
-                "start_time": time.time(),
-            }
+            with self._device_lock:
+                self.disrupted_devices[target_ip] = {
+                    "engine": engine,
+                    "methods": methods,
+                    "params": params,
+                    "start_time": time.time(),
+                }
             log_info(f"DISRUPTION ACTIVE: {target_ip} (PID={engine._proc.pid})")
             return True
 
@@ -1168,9 +1171,10 @@ class ClumsyNetworkDisruptor:
 
     def reconnect_device_clumsy(self, target_ip: str) -> bool:
         try:
-            if target_ip not in self.disrupted_devices:
-                return True
-            info = self.disrupted_devices.pop(target_ip)
+            with self._device_lock:
+                if target_ip not in self.disrupted_devices:
+                    return True
+                info = self.disrupted_devices.pop(target_ip)
             engine = info.get("engine")
             if engine:
                 engine.stop()
@@ -1178,22 +1182,27 @@ class ClumsyNetworkDisruptor:
             return True
         except Exception as e:
             log_error(f"Error stopping {target_ip}: {e}")
-            self.disrupted_devices.pop(target_ip, None)
+            with self._device_lock:
+                self.disrupted_devices.pop(target_ip, None)
             return False
 
     def clear_all_disruptions_clumsy(self) -> bool:
-        for ip in list(self.disrupted_devices.keys()):
+        with self._device_lock:
+            ips = list(self.disrupted_devices.keys())
+        for ip in ips:
             self.reconnect_device_clumsy(ip)
         return True
 
     def get_disrupted_devices_clumsy(self) -> List[str]:
-        dead = [ip for ip, info in self.disrupted_devices.items()
-                if info.get("engine") and not info["engine"].alive]
-        for ip in dead:
-            info = self.disrupted_devices.pop(ip)
+        with self._device_lock:
+            dead = [ip for ip, info in self.disrupted_devices.items()
+                    if info.get("engine") and not info["engine"].alive]
+            dead_infos = {ip: self.disrupted_devices.pop(ip) for ip in dead}
+        for ip, info in dead_infos.items():
             if info.get("engine"):
                 info["engine"].stop()
-        return list(self.disrupted_devices.keys())
+        with self._device_lock:
+            return list(self.disrupted_devices.keys())
 
     def get_device_status_clumsy(self, target_ip: str) -> Dict:
         if target_ip not in self.disrupted_devices:

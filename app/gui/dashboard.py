@@ -8,16 +8,23 @@ import webbrowser
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStatusBar, QStackedWidget, QDialog, QMessageBox,
-    QGraphicsDropShadowEffect
+    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu
 )
 from PyQt6.QtGui import QIcon, QAction, QFont, QCursor, QColor
-from PyQt6.QtCore import Qt, QTimer, QPoint
+from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSlot
 
 from app.gui.clumsy_control import ClumsyControlView
 from app.gui.dayz_map_gui_new import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
+from app.gui.network_tools import NetworkToolsView
 from app.gui.settings_dialog import SettingsDialog
 from app.logs.logger import log_info, log_error, log_warning
+
+try:
+    from app.gui.hotkey import hotkey_manager, KEYBOARD_AVAILABLE
+except ImportError:
+    KEYBOARD_AVAILABLE = False
+    hotkey_manager = None
 
 IS_ADMIN = os.name != 'nt' or (
     hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
@@ -30,9 +37,14 @@ class DupeZDashboard(QMainWindow):
     def __init__(self, controller=None):
         super().__init__()
         self.controller = controller
+        self._minimize_to_tray = True  # User can toggle via settings
+        self._force_quit = False
+
         self.setup_ui()
         self.setup_menu()
         self.setup_status_bar()
+        self.setup_tray()
+        self.setup_tray_hotkey()
         self.connect_signals()
 
         # Periodic status bar update
@@ -45,12 +57,17 @@ class DupeZDashboard(QMainWindow):
         self.stats_timer.timeout.connect(self._update_header_stats)
         self.stats_timer.start(2000)
 
+        # Tray tooltip updater
+        self.tray_timer = QTimer()
+        self.tray_timer.timeout.connect(self._update_tray_tooltip)
+        self.tray_timer.start(5000)
+
     # ------------------------------------------------------------------
     # UI Setup
     # ------------------------------------------------------------------
     def setup_ui(self):
         admin_text = " [ADMIN]" if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ v3.0.0{admin_text}")
+        self.setWindowTitle(f"DupeZ v3.1.0{admin_text}")
         # App icon — try resources first, fall back to assets
         for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
             if os.path.exists(icon_path):
@@ -102,7 +119,7 @@ class DupeZDashboard(QMainWindow):
         tb_layout.setSpacing(8)
 
         # Icon + title
-        title_label = QLabel("DupeZ v3.0.0")
+        title_label = QLabel("DupeZ v3.1.0")
         title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
         tb_layout.addWidget(title_label)
 
@@ -196,8 +213,9 @@ class DupeZDashboard(QMainWindow):
         self.btn_clumsy = self._nav_btn("🎯", "Clumsy Control")
         self.btn_map = self._nav_btn("🗺️", "iZurvive Map")
         self.btn_accounts = self._nav_btn("👤", "Account Tracker")
+        self.btn_nettools = self._nav_btn("📡", "Network Tools")
 
-        self.nav_buttons = [self.btn_clumsy, self.btn_map, self.btn_accounts]
+        self.nav_buttons = [self.btn_clumsy, self.btn_map, self.btn_accounts, self.btn_nettools]
         for i, btn in enumerate(self.nav_buttons):
             btn.clicked.connect(lambda checked, idx=i: self.switch_view(idx))
             sl.addWidget(btn, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -219,6 +237,10 @@ class DupeZDashboard(QMainWindow):
         # View 2: Accounts
         self.accounts_view = DayZAccountTracker()
         self.view_stack.addWidget(self.accounts_view)
+
+        # View 3: Network Tools
+        self.nettools_view = NetworkToolsView(controller=self.controller)
+        self.view_stack.addWidget(self.nettools_view)
 
         cl.addWidget(self.view_stack, 1)
         main_layout.addWidget(content, 1)
@@ -266,6 +288,157 @@ class DupeZDashboard(QMainWindow):
             pass
 
     # ------------------------------------------------------------------
+    # System Tray
+    # ------------------------------------------------------------------
+    def setup_tray(self):
+        """Initialize system tray icon with context menu."""
+        self.tray_icon = None
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            log_info("System tray not available on this platform")
+            self._minimize_to_tray = False
+            return
+
+        self.tray_icon = QSystemTrayIcon(self)
+
+        # Icon — reuse app icon
+        for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
+            if os.path.exists(icon_path):
+                self.tray_icon.setIcon(QIcon(icon_path))
+                break
+        else:
+            self.tray_icon.setIcon(self.windowIcon())
+
+        self.tray_icon.setToolTip("DupeZ — No active disruptions")
+
+        # Context menu
+        tray_menu = QMenu()
+        tray_menu.setStyleSheet("""
+            QMenu {
+                background: #0a0e1a;
+                color: #e2e8f0;
+                border: 1px solid #1e293b;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 6px 24px;
+            }
+            QMenu::item:selected {
+                background: rgba(0, 217, 255, 0.2);
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #1e293b;
+                margin: 4px 8px;
+            }
+        """)
+
+        self.tray_action_show = QAction("Show DupeZ", self)
+        self.tray_action_show.triggered.connect(self._tray_show_window)
+        tray_menu.addAction(self.tray_action_show)
+
+        tray_menu.addSeparator()
+
+        self.tray_action_status = QAction("Disruptions: 0", self)
+        self.tray_action_status.setEnabled(False)
+        tray_menu.addAction(self.tray_action_status)
+
+        self.tray_action_stop_all = QAction("Stop All Disruptions", self)
+        self.tray_action_stop_all.triggered.connect(self._stop_all_disruptions)
+        tray_menu.addAction(self.tray_action_stop_all)
+
+        tray_menu.addSeparator()
+
+        tray_action_quit = QAction("Quit", self)
+        tray_action_quit.triggered.connect(self._tray_quit)
+        tray_menu.addAction(tray_action_quit)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self._tray_activated)
+        self.tray_icon.show()
+        log_info("System tray icon initialized")
+
+    def setup_tray_hotkey(self):
+        """Register a global hotkey to toggle window visibility (Ctrl+Shift+D)."""
+        if not KEYBOARD_AVAILABLE or hotkey_manager is None:
+            return
+        try:
+            hotkey_manager.add_listener(
+                "tray_toggle",
+                callback=self._hotkey_toggle_visibility,
+                keys=["ctrl+shift+d"],
+                config={"cooldown": 0.5, "enabled": True}
+            )
+            hotkey_manager.start_all()
+            log_info("Tray hotkey registered: Ctrl+Shift+D")
+        except Exception as e:
+            log_error(f"Failed to register tray hotkey: {e}")
+
+    def _hotkey_toggle_visibility(self):
+        """Toggle window visibility from hotkey (thread-safe)."""
+        try:
+            from PyQt6.QtCore import QMetaObject, Qt as QtConst
+            QMetaObject.invokeMethod(self, "_toggle_visibility_slot",
+                                     QtConst.ConnectionType.QueuedConnection)
+        except Exception as e:
+            log_error(f"Hotkey toggle error: {e}")
+
+    @pyqtSlot()
+    def _toggle_visibility_slot(self):
+        """Slot for thread-safe visibility toggle."""
+        if self.isVisible() and not self.isMinimized():
+            self._minimize_to_tray_action()
+        else:
+            self._tray_show_window()
+
+    def _tray_activated(self, reason):
+        """Handle tray icon activation (double-click to show)."""
+        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._tray_show_window()
+
+    def _tray_show_window(self):
+        """Restore window from tray."""
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+        if self.tray_icon:
+            self.tray_action_show.setText("Hide DupeZ")
+
+    def _minimize_to_tray_action(self):
+        """Minimize the window to system tray."""
+        self.hide()
+        if self.tray_icon:
+            self.tray_action_show.setText("Show DupeZ")
+            self.tray_icon.showMessage(
+                "DupeZ",
+                "Running in background. Ctrl+Shift+D to toggle.",
+                QSystemTrayIcon.MessageIcon.Information,
+                2000
+            )
+
+    def _tray_quit(self):
+        """Fully quit from tray context menu."""
+        self._force_quit = True
+        self.close()
+
+    def _update_tray_tooltip(self):
+        """Update tray icon tooltip with disruption count."""
+        if not self.tray_icon:
+            return
+        try:
+            count = 0
+            if self.controller:
+                count = len(self.controller.get_disrupted_devices())
+            if count > 0:
+                tip = f"DupeZ — {count} active disruption{'s' if count != 1 else ''}"
+            else:
+                tip = "DupeZ — No active disruptions"
+            self.tray_icon.setToolTip(tip)
+            if hasattr(self, 'tray_action_status'):
+                self.tray_action_status.setText(f"Disruptions: {count}")
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
     # Theme
     # ------------------------------------------------------------------
     def apply_default_theme(self):
@@ -299,7 +472,8 @@ class DupeZDashboard(QMainWindow):
         self._add_action(file_menu, '&Scan Network', 'Ctrl+S', lambda: self.clumsy_view.start_scan())
         self._add_action(file_menu, '&Export Data', 'Ctrl+E', self.export_data)
         file_menu.addSeparator()
-        self._add_action(file_menu, 'E&xit', 'Ctrl+Q', self.close)
+        self._add_action(file_menu, 'Minimize to &Tray', '', self._minimize_to_tray_action)
+        self._add_action(file_menu, 'E&xit', 'Ctrl+Q', self._tray_quit)
 
         # Tools
         tools_menu = menubar.addMenu('&Tools')
@@ -311,6 +485,7 @@ class DupeZDashboard(QMainWindow):
         self._add_action(view_menu, '&Clumsy Control', 'Ctrl+1', lambda: self.switch_view(0))
         self._add_action(view_menu, '&Map', 'Ctrl+2', lambda: self.switch_view(1))
         self._add_action(view_menu, '&Accounts', 'Ctrl+3', lambda: self.switch_view(2))
+        self._add_action(view_menu, '&Network Tools', 'Ctrl+4', lambda: self.switch_view(3))
 
         # Help
         help_menu = menubar.addMenu('&Help')
@@ -402,6 +577,7 @@ class DupeZDashboard(QMainWindow):
         <p><b>Ctrl+1/2/3</b> — Switch Views</p>
         <p><b>Ctrl+,</b> — Settings</p>
         <p><b>Ctrl+E</b> — Export Data</p>
+        <p><b>Ctrl+Shift+D</b> — Toggle Window (Tray Mode)</p>
         <p><b>Ctrl+Q</b> — Exit</p>
         """)
 
@@ -446,7 +622,7 @@ class DupeZDashboard(QMainWindow):
         title.setStyleSheet("color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;")
         layout.addWidget(title)
 
-        version = QLabel("v3.0.1")
+        version = QLabel("v3.1.0")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
         layout.addWidget(version)
@@ -669,9 +845,25 @@ class DupeZDashboard(QMainWindow):
     # Lifecycle
     # ------------------------------------------------------------------
     def closeEvent(self, event):
+        # Minimize to tray instead of quitting (unless force quit)
+        if self._minimize_to_tray and self.tray_icon and not self._force_quit:
+            event.ignore()
+            self._minimize_to_tray_action()
+            return
+
         try:
             self.update_timer.stop()
             self.stats_timer.stop()
+            self.tray_timer.stop()
+
+            # Clean up tray
+            if self.tray_icon:
+                self.tray_icon.hide()
+
+            # Clean up hotkeys
+            if KEYBOARD_AVAILABLE and hotkey_manager:
+                hotkey_manager.stop_all()
+
             if self.controller:
                 self.controller.shutdown()
             gc.collect()

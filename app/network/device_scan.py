@@ -126,14 +126,14 @@ class NativeNetworkScanner:
         """Calculate ICMP checksum"""
         if len(data) % 2 == 1:
             data += b'\0'
-        
-        sum = 0
+
+        checksum = 0
         for i in range(0, len(data), 2):
-            sum += (data[i] << 8) + data[i + 1]
-        
-        sum = (sum >> 16) + (sum & 0xffff)
-        sum += sum >> 16
-        return ~sum & 0xffff
+            checksum += (data[i] << 8) + data[i + 1]
+
+        checksum = (checksum >> 16) + (checksum & 0xffff)
+        checksum += checksum >> 16
+        return ~checksum & 0xffff
     
     def get_mac_address_native(self, ip: str) -> Optional[str]:
         """Get MAC address using native ARP table lookup"""

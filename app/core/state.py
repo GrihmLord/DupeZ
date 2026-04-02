@@ -62,7 +62,14 @@ class AppSettings:
             self.whitelist = []
 
 class AppState:
-    def __init__(self, config_file: str = "app/config/settings.json"):
+    def __init__(self, config_file: str = ""):
+        if not config_file:
+            import sys
+            if getattr(sys, 'frozen', False):
+                base = os.path.dirname(sys.executable)
+            else:
+                base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            config_file = os.path.join(base, "app", "config", "settings.json")
         self.config_file = config_file
         self.devices: List[Device] = []
         self.selected_ip: Optional[str] = None

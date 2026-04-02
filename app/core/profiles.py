@@ -68,7 +68,10 @@ class ProfileManager:
         pm.import_profile("/path/to/share.json")
     """
 
-    def __init__(self, profiles_dir: str = "app/data/profiles"):
+    def __init__(self, profiles_dir: str = ""):
+        if not profiles_dir:
+            from app.core.data_persistence import _resolve_data_directory
+            profiles_dir = os.path.join(_resolve_data_directory(), "profiles")
         self.profiles_dir = profiles_dir
         os.makedirs(profiles_dir, exist_ok=True)
 

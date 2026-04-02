@@ -4,38 +4,38 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
-## v3.1.0 — Smart Mode + Quality of Life
+## v3.1.0 — Smart Mode + Quality of Life ✅
 
-**Target:** Q2 2026
+**Released:** 2026-04-02
 
 - ~~**Profile System** — Save/load named disruption profiles per game or scenario.~~ ✅ Done
 - ~~**Session History** — Log of past disruption sessions with timestamps, targets, methods, and durations.~~ ✅ Done
-- **AI Auto-Tune Engine** — Network profiler + ML-based parameter optimizer + LLM advisor. ✅ Done
-- **Tray Mode** — Minimize to system tray with hotkey toggle. Run disruptions in background without the window in the way.
-- **Device Nicknames** — Assign friendly names to scanned devices so you're not squinting at MACs every time.
-- **Scan Result Caching** — Persist discovered devices across restarts so the device list isn't empty on every launch.
+- ~~**AI Auto-Tune Engine** — Network profiler + ML-based parameter optimizer + LLM advisor.~~ ✅ Done
+- ~~**Tray Mode** — Minimize to system tray with hotkey toggle. Ctrl+Shift+D global hotkey.~~ ✅ Done
+- ~~**Device Nicknames** — Assign friendly names to scanned devices via right-click context menu.~~ ✅ Done
+- ~~**Scan Result Caching** — Persist discovered devices across restarts.~~ ✅ Done
 
 ---
 
-## v3.2.0 — Multi-Target & Scheduling
+## v3.2.0 — Multi-Target & Scheduling ✅
 
-**Target:** Q3 2026
+**Released:** 2026-04-02
 
-- **Multi-Device Disruption** — Select and disrupt multiple devices simultaneously with independent parameters per target.
-- **Scheduled Disruptions** — Timer-based rules: start disruption at X, stop at Y, repeat on interval. Useful for timed PvP scenarios.
-- **Disruption Macros** — Chain multiple disruption profiles in sequence (e.g., light lag for 30s → heavy lag for 10s → disconnect for 5s → repeat).
-- **Import/Export Profiles** — Share disruption profiles as JSON files with the community.
+- ~~**Multi-Device Disruption** — MULTI toggle enables simultaneous disruption of multiple selected devices.~~ ✅ Done
+- ~~**Scheduled Disruptions** — Timed Disrupt button with configurable duration and delay. Auto-stop after timer expires.~~ ✅ Done
+- ~~**Disruption Macros** — Chain disruption steps in sequence with Quick Macro and saved macro support.~~ ✅ Done
+- ~~**Import/Export Profiles** — IMPORT/EXPORT buttons in profile panel. Share profiles as standalone JSON files.~~ ✅ Done
 
 ---
 
-## v3.3.0 — Network Intelligence
+## v3.3.0 — Network Intelligence ✅
 
-**Target:** Q4 2026
+**Released:** 2026-04-02
 
-- **Live Traffic Monitor** — Real-time bandwidth graph per device. See who's actually eating your network.
-- **Connection Mapper** — Visual topology showing which devices are talking to which external IPs.
-- **Latency Overlay** — Floating transparent widget showing current ping/jitter to a target IP. Stays on top during gameplay.
-- **Port Scanner Integration** — Quick scan open ports on discovered devices for identification.
+- ~~**Live Traffic Monitor** — Real-time per-interface bandwidth table with rate calculation and total throughput bar.~~ ✅ Done
+- ~~**Connection Mapper** — Visual topology showing which devices are talking to which external IPs. Live-updating table + text topology, filter by TCP/UDP/Established/Gaming.~~ ✅ Done
+- ~~**Latency Overlay** — Floating transparent always-on-top ping/jitter widget with sparkline graph. Draggable.~~ ✅ Done
+- ~~**Port Scanner Integration** — Standalone port scanner with Common/Gaming/Web/Full port sets and service identification.~~ ✅ Done
 
 ---
 
@@ -66,7 +66,9 @@ These are ideas worth exploring but not committed to a release.
 
 - [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Clumsy Control with presets and sliders. Map selector. Account tracker. Native WinDivert engine.
 - [x] **v3.0.1** — Production hardening. Atomic settings writes. Settings dialog overhaul. Full QSS coverage. Dead code purge. IP sanitization. Cross-platform line endings.
-- [x] **v3.1.0** — Smart Mode. AI auto-tune engine. Network profiler. LLM advisor (Ollama/Mistral). Session tracking with feedback learning. Profile system. No more guess and check.
+- [x] **v3.1.0** — Smart Mode. AI auto-tune engine. Network profiler. LLM advisor (Ollama/Mistral). Session tracking with feedback learning. Profile system. Tray mode. Device nicknames. Scan caching.
+- [x] **v3.2.0** — Multi-target simultaneous disruption. Scheduled/timed disruptions. Disruption macros. Profile import/export.
+- [x] **v3.3.0** — Network Intelligence. Live traffic monitor. Latency overlay. Port scanner. 4-view dashboard.
 
 ---
 

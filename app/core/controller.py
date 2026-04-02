@@ -10,7 +10,11 @@ from app.firewall import blocker
 from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
 from app.logs.logger import log_info, log_error, log_performance, log_network_scan, log_blocking_event
 from app.core.state import AppState, Device, AppSettings
-from app.core.data_persistence import persistence_manager, settings_manager, device_manager, account_manager, marker_manager, save_all_data
+from app.core.data_persistence import (
+    persistence_manager, settings_manager, device_manager, account_manager,
+    marker_manager, device_cache_manager, save_all_data
+)
+from app.core.scheduler import DisruptionScheduler
 
 
 class AppController:
@@ -20,8 +24,18 @@ class AppController:
         self.stop_scanning = False
         self.auto_scan_enabled = True
 
+        # Load cached devices from last session
+        self._load_device_cache()
+
         # Initialize clumsy
         self._init_clumsy()
+
+        # Disruption scheduler + macro engine
+        self.scheduler = DisruptionScheduler(
+            disrupt_fn=self.disrupt_device,
+            stop_fn=self.stop_disruption
+        )
+        self.scheduler.start()
 
         # Start auto-scan if enabled
         if self.state.settings.auto_scan:
@@ -66,6 +80,40 @@ class AppController:
         return clumsy_network_disruptor.get_clumsy_status()
 
     # ------------------------------------------------------------------
+    # Device Cache
+    # ------------------------------------------------------------------
+    def _load_device_cache(self):
+        """Load cached devices from last session so list isn't empty on launch."""
+        try:
+            cached = device_cache_manager.get_cached_devices()
+            if cached:
+                self.state.update_devices(cached)
+                log_info(f"Loaded {len(cached)} cached devices from previous session")
+        except Exception as e:
+            log_error(f"Device cache load error: {e}")
+
+    def _save_device_cache(self, devices: list):
+        """Persist discovered devices for next launch."""
+        try:
+            serializable = []
+            for d in devices:
+                if isinstance(d, dict):
+                    serializable.append(d)
+                elif hasattr(d, '__dict__'):
+                    serializable.append({
+                        'ip': getattr(d, 'ip', ''),
+                        'mac': getattr(d, 'mac', ''),
+                        'hostname': getattr(d, 'hostname', ''),
+                        'vendor': getattr(d, 'vendor', ''),
+                        'local': getattr(d, 'local', False),
+                        'traffic': getattr(d, 'traffic', 0),
+                        'last_seen': getattr(d, 'last_seen', ''),
+                    })
+            device_cache_manager.update_cache(serializable)
+        except Exception as e:
+            log_error(f"Device cache save error: {e}")
+
+    # ------------------------------------------------------------------
     # Device Scanning
     # ------------------------------------------------------------------
     def scan_devices(self, quick: bool = True) -> List[Dict]:
@@ -108,6 +156,7 @@ class AppController:
                 log_info(f"Found device: {ip} — {d.get('hostname', 'Unknown')}")
 
             self.state.update_devices(real_devices)
+            self._save_device_cache(real_devices)
 
             duration = time.time() - start_time
             log_network_scan(len(real_devices), duration)
@@ -148,21 +197,18 @@ class AppController:
         log_info(f"Scan status: {status_msg}")
 
     def _verify_device_exists(self, ip: str) -> bool:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1.0)
-            for port in [80, 443, 22, 53, 8080]:
-                try:
-                    result = sock.connect_ex((ip, port))
-                    sock.close()
-                    if result == 0:
-                        return True
-                except:
-                    continue
-            sock.close()
-            return False
-        except:
-            return False
+        """Probe common ports to verify a device is reachable."""
+        for port in [80, 443, 22, 53, 8080]:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(1.0)
+                result = sock.connect_ex((ip, port))
+                sock.close()
+                if result == 0:
+                    return True
+            except Exception:
+                pass
+        return False
 
     def quick_scan_devices(self) -> List[Dict]:
         return self.scan_devices(quick=True)
@@ -286,6 +332,7 @@ class AppController:
         try:
             log_info("Controller shutting down...")
             self.stop_auto_scan()
+            self.scheduler.stop()
             clumsy_network_disruptor.stop_clumsy()
             save_all_data()
             log_info("Controller shutdown complete")

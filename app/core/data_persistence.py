@@ -13,6 +13,27 @@ from pathlib import Path
 from app.logs.logger import log_info, log_error
 
 
+def _resolve_data_directory() -> str:
+    """Resolve a writable data directory that works for both dev and PyInstaller.
+
+    When running from source the relative ``app/data`` path is fine.
+    When running as a frozen PyInstaller exe the bundled ``app/data`` inside
+    ``_MEIPASS`` is **read-only**, so we store user data next to the exe
+    instead (``<exe_dir>/app/data``).  ``main.py`` already calls
+    ``os.chdir(os.path.dirname(sys.executable))`` for frozen builds, so the
+    relative path resolves correctly — but we make it absolute here to be
+    safe.
+    """
+    import sys
+    if getattr(sys, 'frozen', False):
+        # Next to the exe — writable, survives restarts
+        base = os.path.dirname(sys.executable)
+    else:
+        # Dev: project root (wherever dupez.py lives)
+        base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, "app", "data")
+
+
 @dataclass
 class PersistenceConfig:
     """Configuration for data persistence"""
@@ -20,12 +41,16 @@ class PersistenceConfig:
     save_interval: int = 30  # seconds
     backup_enabled: bool = True
     max_backups: int = 5
-    data_directory: str = "app/data"
+    data_directory: str = ""
+
+    def __post_init__(self):
+        if not self.data_directory:
+            self.data_directory = _resolve_data_directory()
 
 
 class DataPersistenceManager:
     """Centralized data persistence manager"""
-    
+
     def __init__(self, config: PersistenceConfig = None):
         self.config = config or PersistenceConfig()
         self.data_directory = Path(self.config.data_directory)
@@ -288,11 +313,72 @@ class MarkerManager(AutoSaveMixin):
         self.save_changes(self.markers)
 
 
+class NicknameManager(AutoSaveMixin):
+    """Manager for device nicknames — friendly names for scanned devices.
+
+    Stores {mac_or_ip: nickname} mappings.  MAC is preferred key when
+    available because IPs can change across DHCP leases.
+    """
+
+    def __init__(self):
+        super().__init__("device_nicknames")
+        self.nicknames: Dict[str, str] = self.load_saved_data({})
+
+    def set_nickname(self, key: str, nickname: str):
+        """Set or update a nickname for a device (key = MAC or IP)."""
+        if nickname:
+            self.nicknames[key] = nickname
+        else:
+            self.nicknames.pop(key, None)
+        self.save_changes(self.nicknames, force=True)
+
+    def get_nickname(self, mac: str = "", ip: str = "") -> str:
+        """Get nickname — tries MAC first, falls back to IP."""
+        if mac and mac in self.nicknames:
+            return self.nicknames[mac]
+        if ip and ip in self.nicknames:
+            return self.nicknames[ip]
+        return ""
+
+    def remove_nickname(self, key: str):
+        """Remove a nickname."""
+        if key in self.nicknames:
+            del self.nicknames[key]
+            self.save_changes(self.nicknames, force=True)
+
+    def get_all(self) -> Dict[str, str]:
+        return dict(self.nicknames)
+
+
+class DeviceCacheManager(AutoSaveMixin):
+    """Persists discovered devices across restarts so the device list
+    isn't empty on every launch."""
+
+    def __init__(self):
+        super().__init__("device_cache")
+        self._cache: List[Dict] = self.load_saved_data([])
+
+    def update_cache(self, devices: List[Dict]):
+        """Replace the cached device list with the latest scan results."""
+        self._cache = devices
+        self.save_changes(self._cache, force=True)
+
+    def get_cached_devices(self) -> List[Dict]:
+        """Return the last-known device list."""
+        return list(self._cache)
+
+    def clear(self):
+        self._cache = []
+        self.save_changes(self._cache, force=True)
+
+
 # Global manager instances
 settings_manager = SettingsManager()
 device_manager = DeviceManager()
 account_manager = AccountManager()
 marker_manager = MarkerManager()
+nickname_manager = NicknameManager()
+device_cache_manager = DeviceCacheManager()
 
 
 def save_all_data():

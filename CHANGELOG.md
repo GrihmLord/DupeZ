@@ -4,9 +4,48 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
-## v3.1.0 — 2026-04-02 (Smart Mode)
+## v3.3.0 — 2026-04-02 (Network Intelligence)
 
-AI-powered auto-tuning. No more guess and check — DupeZ now profiles your target's connection and computes optimal disruption parameters automatically.
+Network intelligence toolkit. Live traffic monitoring, latency overlay for gameplay, and standalone port scanner.
+
+### Added
+- **`app/gui/network_tools.py`** — New Network Tools module with 3 tab views:
+  - `TrafficMonitorWidget` — Real-time per-interface bandwidth table. Shows bytes sent/recv, rate in KB/s with color-coded thresholds, total throughput bar.
+  - `LatencyOverlayWidget` — Continuous ping monitor with sparkline graph. Floating always-on-top transparent overlay mode for gameplay (draggable, right-click to close).
+  - `PortScannerWidget` — TCP port scanner with preset port sets (Common 100, Gaming, Web, All 1-1024, Full 1-65535). Threaded scanning with progress bar, service identification for 25+ known ports.
+- **Network Tools view** — 4th sidebar nav button (📡) in dashboard. Accessible via Ctrl+4.
+
+### Changed
+- `dashboard.py` — Expanded from 3-view to 4-view architecture (Clumsy | Map | Accounts | Network Tools).
+
+---
+
+## v3.2.0 — 2026-04-02 (Multi-Target & Scheduling)
+
+Multi-device disruption, timed disruptions, macro chains, and profile sharing.
+
+### Added
+- **Multi-Device Disruption** — MULTI toggle in device list enables selecting multiple targets. DISRUPT/STOP buttons operate on all selected devices simultaneously.
+- **`app/core/scheduler.py`** — Disruption scheduler + macro engine (~280 lines):
+  - `ScheduledRule` — Timer-based disruption rules with HH:MM triggers, duration, and repeat intervals.
+  - `DisruptionMacro` / `MacroStep` — Named sequences of disruption steps with per-step timing and repeat control.
+  - `DisruptionScheduler` — Background thread scheduler with atomic JSON persistence.
+- **Scheduler UI** in Clumsy Control view:
+  - Duration/Delay spinboxes for timed disruptions
+  - TIMED DISRUPT button — disrupt for N seconds, then auto-stop
+  - RUN MACRO — execute saved macros or generate Quick Macros (3-step: light → current → heavy)
+  - STOP MACRO — halt active macro execution
+- **Import/Export Profiles** — IMPORT and EXPORT buttons in profile panel. Export profiles as standalone JSON, import from file.
+
+### Changed
+- `clumsy_control.py` — Device checkboxes now support multi-select mode. Target label shows count when multiple selected. DISRUPT iterates all targets.
+- `controller.py` — Scheduler integrated into controller lifecycle (start on init, stop on shutdown).
+
+---
+
+## v3.1.0 — 2026-04-02 (Smart Mode + QoL)
+
+AI-powered auto-tuning, system tray mode, device nicknames, and scan caching.
 
 ### Added
 - **`app/ai/` module** — Complete AI auto-tune subsystem (4 new files, ~1,500 lines):
@@ -23,9 +62,15 @@ AI-powered auto-tuning. No more guess and check — DupeZ now profiles your targ
   - Live recommendation display with reasoning, confidence bar, and estimated effectiveness
 - **`app/core/profiles.py`** — Profile system for saving/loading/sharing named disruption configs. JSON-based, supports import/export, tracks usage count and timestamps.
 - **Session history** — Persistent log of past disruptions with target profiles, configs used, and effectiveness ratings. Enables the engine to learn from past sessions.
+- **Tray Mode** — System tray icon with context menu (Show/Hide, disruption status, Stop All, Quit). Minimize-to-tray on window close. Ctrl+Shift+D global hotkey to toggle visibility.
+- **Device Nicknames** — Right-click any device in the table to set/rename/clear a friendly nickname. Nicknames persist across sessions (stored in `device_nicknames.json`). Shown in gold (#fbbf24) in the Nickname column.
+- **Scan Result Caching** — `DeviceCacheManager` persists last scan results to `device_cache.json`. Device list pre-populated on launch from cache.
 
 ### Changed
-- `clumsy_control.py` — Integrated Smart Mode panel between Preset selector and Direction toggle. Session tracking wired to stop/stop-all buttons.
+- `dashboard.py` — Version bumped to 3.1.0. System tray icon with tooltip showing active disruption count. Hotkey manager integration. Close event minimizes to tray by default (Quit via tray menu or Ctrl+Q). Hotkeys help dialog updated.
+- `clumsy_control.py` — Device table expanded to 7 columns (added Nickname). Integrated Smart Mode panel between Preset selector and Direction toggle. Session tracking wired to stop/stop-all buttons. Context menu for nickname management.
+- `controller.py` — Device cache loaded on init, saved after each scan.
+- `data_persistence.py` — Added `NicknameManager` and `DeviceCacheManager` with global instances.
 - Smart Mode now defaults to AI-recommended settings when enabled, automatically populating all module checkboxes and sliders.
 
 ---
