@@ -8,7 +8,7 @@ import webbrowser
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStatusBar, QStackedWidget, QDialog, QMessageBox,
-    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu
+    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu, QMenuBar
 )
 from PyQt6.QtGui import QIcon, QAction, QFont, QCursor, QColor
 from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSlot
@@ -66,8 +66,8 @@ class DupeZDashboard(QMainWindow):
     # UI Setup
     # ------------------------------------------------------------------
     def setup_ui(self):
-        admin_text = " [ADMIN]" if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ v3.3.0{admin_text}")
+        admin_text = "ADMIN " if IS_ADMIN else ""
+        self.setWindowTitle(f"DupeZ {admin_text}v3.3.0")
         # App icon — try resources first, fall back to assets
         for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
             if os.path.exists(icon_path):
@@ -169,6 +169,11 @@ class DupeZDashboard(QMainWindow):
         tb_layout.addWidget(self.btn_close)
 
         main_layout.addWidget(self.title_bar)
+
+        # === EMBEDDED MENU BAR (below title bar) ===
+        self.custom_menubar = QMenuBar()
+        self.custom_menubar.setObjectName("custom_menubar")
+        main_layout.addWidget(self.custom_menubar)
 
         # === HEADER ===
         header = QWidget()
@@ -465,7 +470,8 @@ class DupeZDashboard(QMainWindow):
     # Menu
     # ------------------------------------------------------------------
     def setup_menu(self):
-        menubar = self.menuBar()
+        self.menuBar().setVisible(False)  # Hide native menubar
+        menubar = self.custom_menubar
 
         # File
         file_menu = menubar.addMenu('&File')
