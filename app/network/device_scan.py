@@ -27,7 +27,9 @@ def handle_network_error(func):
             
             # Write to network error log
             try:
-                with open('logs/network_errors.log', 'a', encoding='utf-8') as f:
+                from app.logs.logger import _resolve_log_directory
+                _net_err_log = os.path.join(_resolve_log_directory(), 'network_errors.log')
+                with open(_net_err_log, 'a', encoding='utf-8') as f:
                     f.write(f"\n{'='*60}\n")
                     f.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                     f.write(f"Function: {func.__name__}\n")

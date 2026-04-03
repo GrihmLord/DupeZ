@@ -79,6 +79,10 @@ class AppController:
         """Get overall clumsy disruptor status"""
         return clumsy_network_disruptor.get_clumsy_status()
 
+    def get_engine_stats(self) -> Dict:
+        """Get aggregated packet stats from all active disruption engines."""
+        return clumsy_network_disruptor.get_all_engine_stats()
+
     # ------------------------------------------------------------------
     # Device Cache
     # ------------------------------------------------------------------
@@ -266,6 +270,7 @@ class AppController:
     # ------------------------------------------------------------------
     def start_auto_scan(self):
         self.auto_scan_enabled = True
+        self.stop_scanning = False  # Reset so the loop can run again
         if not self.scan_thread or not self.scan_thread.is_alive():
             self.scan_thread = threading.Thread(target=self._auto_scan_loop, daemon=True)
             self.scan_thread.start()

@@ -16,7 +16,6 @@ about network disruption theory.
 """
 
 import json
-import os
 import threading
 from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass
@@ -48,6 +47,7 @@ You have access to these disruption modules:
 - rst: Inject TCP RST flags to kill connections. Params: rst_chance (0-100%)
 - disconnect: Drop 99% of packets (hard kill)
 - bandwidth: Limit throughput. Params: bandwidth_limit (KB/s), bandwidth_queue (0-1000)
+- godmode: Directional lag — freeze others' view of you while you keep moving. Inbound packets get lagged, outbound pass through untouched. Params: godmode_lag_ms (0-5000), godmode_drop_inbound_pct (0-100)
 
 Connection types and their characteristics:
 - hotspot (192.168.137.x): Windows ICS/mobile hotspot. Already fragile, needs less aggression.
@@ -63,6 +63,7 @@ Common gaming scenarios:
 - DayZ: UDP-heavy, very sensitive to desync. Best approach: lag + duplicate + ood
 - General FPS: Lag + drop is usually sufficient
 - Full disconnect: disconnect + drop + bandwidth cap + throttle
+- God mode / invincibility: Use godmode module — lags inbound only so others freeze but you keep moving. Best on hotspot/ICS.
 
 When the user describes what they want, respond ONLY with a valid JSON object:
 {
@@ -321,23 +322,57 @@ class LLMAdvisor:
     # ------------------------------------------------------------------
     def _fallback_interpret(self, prompt: str) -> dict:
         """Parse natural language into disruption config using keywords.
-        Works without any LLM — pure pattern matching."""
-        prompt_lower = prompt.lower()
+        Works without any LLM — pure pattern matching.
 
-        # Detect goal
+        Priority order matters: stop commands first, then specific goals
+        before broad ones (chaos last to avoid false positives).
+        """
+        prompt_lower = prompt.lower().strip()
+
+        # --- Stop/start commands (highest priority) ---
+        # These match even when combined with other words like "stop everything"
+        stop_words = {"stop", "off", "disable", "halt", "cancel"}
+        start_words = {"start", "on", "enable", "go", "begin", "resume"}
+        first_word = prompt_lower.split()[0] if prompt_lower else ""
+
+        if first_word in stop_words:
+            return {
+                "goal": "stop", "name": "Stop", "description": "Stop disruption",
+                "methods": [], "params": {}, "action": "stop",
+                "reasoning": "Stop command detected (keyword-parsed, no LLM)",
+            }
+        if first_word in start_words and len(prompt_lower.split()) <= 3:
+            return {
+                "goal": "start", "name": "Start", "description": "Start disruption",
+                "methods": [], "params": {}, "action": "start",
+                "reasoning": "Start command detected (keyword-parsed, no LLM)",
+            }
+
+        # --- Specific disruption goals (narrower matches first) ---
+        if any(w in prompt_lower for w in ["god mode", "godmode", "invincib",
+                                            "invisible", "freeze them", "freeze other",
+                                            "keep moving", "can't see me"]):
+            return self._fallback_godmode(prompt_lower)
+
         if any(w in prompt_lower for w in ["desync", "duplicate", "clone", "flood"]):
             return self._fallback_desync(prompt_lower)
-        elif any(w in prompt_lower for w in ["disconnect", "kill", "boot", "kick"]):
+
+        if any(w in prompt_lower for w in ["disconnect", "kill", "boot", "kick"]):
             return self._fallback_disconnect(prompt_lower)
-        elif any(w in prompt_lower for w in ["lag", "delay", "slow"]):
+
+        if any(w in prompt_lower for w in ["lag", "delay", "slow"]):
             return self._fallback_lag(prompt_lower)
-        elif any(w in prompt_lower for w in ["throttle", "bandwidth", "cap", "limit"]):
+
+        if any(w in prompt_lower for w in ["throttle", "bandwidth", "cap", "limit"]):
             return self._fallback_throttle(prompt_lower)
-        elif any(w in prompt_lower for w in ["chaos", "everything", "destroy", "nuke"]):
+
+        # Chaos — broad match, must come last. "everything" only matches chaos
+        # when NOT preceded by stop/cancel words (handled above).
+        if any(w in prompt_lower for w in ["chaos", "everything", "destroy", "nuke"]):
             return self._fallback_chaos(prompt_lower)
-        else:
-            # Default to disconnect
-            return self._fallback_disconnect(prompt_lower)
+
+        # Default to disconnect
+        return self._fallback_disconnect(prompt_lower)
 
     def _detect_intensity(self, prompt: str) -> float:
         """Detect intensity from keywords."""
@@ -420,6 +455,46 @@ class LLMAdvisor:
             "reasoning": f"Throttle config at {intensity:.0%} intensity (keyword-parsed, no LLM)",
         }
 
+    def _fallback_godmode(self, prompt: str) -> dict:
+        """God Mode: inbound-only lag so others freeze while you keep moving."""
+        intensity = self._detect_intensity(prompt)
+
+        # Base inbound lag: 1500–4000 ms scaled by intensity
+        lag_ms = int(1500 + 2500 * intensity)
+
+        # At high intensity, also drop some inbound packets for harder freeze
+        drop_pct = 0
+        if intensity >= 0.8:
+            drop_pct = int(20 + 30 * (intensity - 0.8) / 0.2)  # 20-50%
+
+        # Detect hotspot hint — godmode is most effective on ICS/hotspot
+        on_hotspot = any(w in prompt for w in ["hotspot", "ics", "mobile",
+                                                "tether", "137"])
+        if on_hotspot:
+            # Hotspot adds natural instability; pull lag back slightly
+            lag_ms = int(lag_ms * 0.8)
+
+        return {
+            "goal": "godmode",
+            "name": "AI God Mode",
+            "description": (
+                "Directional lag — inbound packets delayed so other players "
+                "freeze while your actions register instantly"
+            ),
+            "methods": ["godmode"],
+            "params": {
+                "godmode_lag_ms": lag_ms,
+                "godmode_drop_inbound_pct": drop_pct,
+                "direction": "both",  # godmode handles direction internally
+            },
+            "reasoning": (
+                f"God Mode at {intensity:.0%} intensity: {lag_ms}ms inbound lag"
+                f"{f', {drop_pct}% inbound drop' if drop_pct else ''}"
+                f"{' (hotspot-tuned)' if on_hotspot else ''}"
+                " (keyword-parsed, no LLM)"
+            ),
+        }
+
     def _fallback_chaos(self, prompt: str) -> dict:
         return {
             "goal": "chaos",
@@ -452,4 +527,9 @@ class LLMAdvisor:
             parts.append("duplicate floods with packet copies causing desync")
         if "bandwidth" in methods:
             parts.append(f"bandwidth caps throughput to {config.get('params', {}).get('bandwidth_limit', '?')} KB/s")
+        if "godmode" in methods:
+            lag = config.get('params', {}).get('godmode_lag_ms', '?')
+            drop = config.get('params', {}).get('godmode_drop_inbound_pct', 0)
+            parts.append(f"god mode lags inbound {lag}ms while passing outbound instantly"
+                        f"{f', dropping {drop}% inbound' if drop else ''}")
         return "This configuration " + ", ".join(parts) + "." if parts else "Custom disruption configuration."

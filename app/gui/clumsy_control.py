@@ -1,5 +1,8 @@
 # app/gui/clumsy_control.py — Main View: Device List + Full Clumsy Disruption Controls
 
+import os
+import re
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QFrame,
@@ -33,6 +36,22 @@ try:
     PROFILES_AVAILABLE = True
 except ImportError:
     PROFILES_AVAILABLE = False
+
+# Voice control
+try:
+    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available
+    VOICE_AVAILABLE = is_voice_available()
+except ImportError:
+    VOICE_AVAILABLE = False
+
+# GPC / CronusZEN integration
+try:
+    from app.gpc.gpc_generator import (GPCGenerator, list_templates,
+                                        get_template, TEMPLATES)
+    from app.gpc.device_bridge import DeviceMonitor, scan_devices, is_device_connected
+    GPC_AVAILABLE = True
+except ImportError:
+    GPC_AVAILABLE = False
 
 
 # ======================================================================
@@ -99,6 +118,24 @@ PRESETS = {
             "lag_delay": 1500, "drop_chance": 95, "duplicate_chance": 80,
             "duplicate_count": 10, "tamper_chance": 60, "rst_chance": 90,
             "ood_chance": 80, "direction": "both",
+        }
+    },
+    "God Mode": {
+        "description": "Directional lag — others freeze, you keep moving. Shots hit in real time.",
+        "methods": ["godmode"],
+        "params": {
+            "godmode_lag_ms": 2000,
+            "godmode_drop_inbound_pct": 0,
+            "direction": "both",
+        }
+    },
+    "God Mode Aggressive": {
+        "description": "God Mode + 30% inbound drop — harder freeze, more desync on unlag",
+        "methods": ["godmode"],
+        "params": {
+            "godmode_lag_ms": 3000,
+            "godmode_drop_inbound_pct": 30,
+            "direction": "both",
         }
     },
     "Custom": {
@@ -186,6 +223,15 @@ MODULE_DEFS = [
             ("Queue Size", "bandwidth_queue", 0, 1000, 0),
         ]
     },
+    {
+        "key": "godmode",
+        "label": "GOD MODE",
+        "desc": "Freeze others, keep moving",
+        "params": [
+            ("Inbound Lag (ms)", "godmode_lag_ms", 0, 5000, 2000),
+            ("Inbound Drop %", "godmode_drop_inbound_pct", 0, 100, 0),
+        ]
+    },
 ]
 
 
@@ -205,6 +251,10 @@ class ClumsyControlView(QWidget):
         self._disruption_timers = {}  # ip -> start_time
         self._ip_hidden = False       # IP masking state
         self._row_checkboxes = []     # list of (QCheckBox, real_ip) per row
+        self._voice_controller = None  # initialized in _build_voice_panel
+        self._gpc_generator = None     # initialized in _build_gpc_panel
+        self._gpc_last_source = ""
+        self._gpc_monitor = None
 
         self.setup_ui()
         self.connect_signals()
@@ -218,6 +268,11 @@ class ClumsyControlView(QWidget):
         self.session_timer = QTimer()
         self.session_timer.timeout.connect(self._update_session_timers)
         self.session_timer.start(1000)
+
+        # Stats dashboard refresh
+        self.stats_refresh_timer = QTimer()
+        self.stats_refresh_timer.timeout.connect(self._refresh_stats_panel)
+        self.stats_refresh_timer.start(1500)
 
     # ------------------------------------------------------------------
     # UI Setup
@@ -457,7 +512,7 @@ class ClumsyControlView(QWidget):
             goal_row.addWidget(goal_label)
 
             self.smart_goal_combo = QComboBox()
-            self.smart_goal_combo.addItems(["Auto", "Disconnect", "Lag", "Desync", "Throttle", "Chaos"])
+            self.smart_goal_combo.addItems(["Auto", "Disconnect", "Lag", "Desync", "Throttle", "Chaos", "God Mode"])
             self.smart_goal_combo.setStyleSheet(self._combo_style())
             goal_row.addWidget(self.smart_goal_combo, 1)
             smart_layout.addLayout(goal_row)
@@ -767,6 +822,15 @@ class ClumsyControlView(QWidget):
 
         sched_group.setLayout(sched_layout)
         right_layout.addWidget(sched_group)
+
+        # ---- LIVE STATS DASHBOARD ----
+        self._build_stats_panel(right_layout)
+
+        # ---- VOICE CONTROL PANEL ----
+        self._build_voice_panel(right_layout)
+
+        # ---- GPC / CRONUS PANEL ----
+        self._build_gpc_panel(right_layout)
 
         # Clumsy status
         self.clumsy_status_label = QLabel("Clumsy: Checking...")
@@ -1709,6 +1773,593 @@ class ClumsyControlView(QWidget):
                 if ip in self._disruption_timers and session_item:
                     elapsed = int(time.time() - self._disruption_timers[ip])
                     session_item.setText(f"{elapsed // 60}:{elapsed % 60:02d}")
+
+    # ------------------------------------------------------------------
+    # Live Stats Dashboard
+    # ------------------------------------------------------------------
+    def _build_stats_panel(self, parent_layout):
+        """Build the real-time packet stats dashboard."""
+        stats_group = self._card("LIVE STATS")
+        stats_layout = QVBoxLayout()
+        stats_layout.setSpacing(4)
+
+        # Summary row: processed | dropped | passed
+        summary_row = QHBoxLayout()
+        summary_row.setSpacing(12)
+
+        self._stat_processed = QLabel("0")
+        self._stat_dropped = QLabel("0")
+        self._stat_passed = QLabel("0")
+        self._stat_inbound = QLabel("0")
+        self._stat_outbound = QLabel("0")
+
+        for label_text, widget, color in [
+            ("PROCESSED", self._stat_processed, "#00d9ff"),
+            ("DROPPED", self._stat_dropped, "#ff4444"),
+            ("PASSED", self._stat_passed, "#00ff88"),
+            ("IN", self._stat_inbound, "#a855f7"),
+            ("OUT", self._stat_outbound, "#fbbf24"),
+        ]:
+            col = QVBoxLayout()
+            col.setSpacing(0)
+            header = QLabel(label_text)
+            header.setStyleSheet(f"color: #6b7280; font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+            header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            col.addWidget(header)
+            widget.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+            widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            col.addWidget(widget)
+            summary_row.addLayout(col)
+
+        stats_layout.addLayout(summary_row)
+
+        # Drop rate bar
+        drop_row = QHBoxLayout()
+        drop_lbl = QLabel("DROP RATE:")
+        drop_lbl.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        drop_lbl.setFixedWidth(70)
+        drop_row.addWidget(drop_lbl)
+
+        self._stat_drop_bar = QProgressBar()
+        self._stat_drop_bar.setRange(0, 100)
+        self._stat_drop_bar.setValue(0)
+        self._stat_drop_bar.setFormat("%p%")
+        self._stat_drop_bar.setFixedHeight(14)
+        self._stat_drop_bar.setStyleSheet("""
+            QProgressBar {
+                background: #0a1628; border: 1px solid #1a2a3a;
+                border-radius: 3px; font-size: 9px; color: #94a3b8;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #ff4444, stop:1 #ff8800);
+                border-radius: 3px;
+            }
+        """)
+        drop_row.addWidget(self._stat_drop_bar, 1)
+        stats_layout.addLayout(drop_row)
+
+        # Active engines count
+        self._stat_engines_label = QLabel("Engines: 0 active")
+        self._stat_engines_label.setStyleSheet("color: #6b7280; font-size: 10px;")
+        stats_layout.addWidget(self._stat_engines_label)
+
+        # Per-device breakdown (compact table)
+        self._stat_device_table = QTableWidget()
+        self._stat_device_table.setColumnCount(4)
+        self._stat_device_table.setHorizontalHeaderLabels(["Device", "Processed", "Dropped", "Methods"])
+        self._stat_device_table.setMaximumHeight(100)
+        self._stat_device_table.verticalHeader().setVisible(False)
+        self._stat_device_table.setAlternatingRowColors(True)
+        hdr = self._stat_device_table.horizontalHeader()
+        for i in range(4):
+            hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        self._stat_device_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #0a0f18; color: #e0e0e0;
+                border: 1px solid #1a2a3a; gridline-color: #1a2a3a; font-size: 10px;
+            }
+            QTableWidget::item:alternate { background-color: #0a1628; }
+            QHeaderView::section {
+                background-color: #0f1923; color: #94a3b8; padding: 3px;
+                border: 1px solid #1a2a3a; font-weight: bold; font-size: 9px;
+            }
+        """)
+        stats_layout.addWidget(self._stat_device_table)
+
+        stats_group.setLayout(stats_layout)
+        parent_layout.addWidget(stats_group)
+
+    def _refresh_stats_panel(self):
+        """Refresh the stats dashboard with live engine data."""
+        if not self.controller or not hasattr(self.controller, 'get_engine_stats'):
+            return
+        try:
+            stats = self.controller.get_engine_stats()
+
+            processed = stats.get("packets_processed", 0)
+            dropped = stats.get("packets_dropped", 0)
+            passed = stats.get("packets_passed", 0)
+            inbound = stats.get("packets_inbound", 0)
+            outbound = stats.get("packets_outbound", 0)
+
+            self._stat_processed.setText(self._format_count(processed))
+            self._stat_dropped.setText(self._format_count(dropped))
+            self._stat_passed.setText(self._format_count(passed))
+            self._stat_inbound.setText(self._format_count(inbound))
+            self._stat_outbound.setText(self._format_count(outbound))
+
+            # Drop rate
+            if processed > 0:
+                drop_pct = int((dropped / processed) * 100)
+                self._stat_drop_bar.setValue(min(drop_pct, 100))
+            else:
+                self._stat_drop_bar.setValue(0)
+
+            # Active engines
+            active = stats.get("active_engines", 0)
+            self._stat_engines_label.setText(f"Engines: {active} active")
+
+            # Per-device breakdown
+            per_device = stats.get("per_device", {})
+            self._stat_device_table.setRowCount(0)
+            for ip, dstats in per_device.items():
+                row = self._stat_device_table.rowCount()
+                self._stat_device_table.insertRow(row)
+                display_ip = self._mask_ip(ip) if self._ip_hidden else ip
+                self._stat_device_table.setItem(row, 0, QTableWidgetItem(display_ip))
+                self._stat_device_table.setItem(row, 1, QTableWidgetItem(
+                    self._format_count(dstats.get("packets_processed", 0))))
+                self._stat_device_table.setItem(row, 2, QTableWidgetItem(
+                    self._format_count(dstats.get("packets_dropped", 0))))
+                methods = ", ".join(dstats.get("methods", []))
+                self._stat_device_table.setItem(row, 3, QTableWidgetItem(methods))
+
+        except Exception as e:
+            log_error(f"Stats refresh error: {e}")
+
+    @staticmethod
+    def _format_count(n: int) -> str:
+        """Format a packet count for display: 1234 → '1.2K', 1234567 → '1.2M'."""
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        elif n >= 1_000:
+            return f"{n / 1_000:.1f}K"
+        return str(n)
+
+    # ------------------------------------------------------------------
+    # Voice Control Panel
+    # ------------------------------------------------------------------
+    def _build_voice_panel(self, parent_layout):
+        """Build the voice control UI section."""
+        voice_group = self._card("VOICE CONTROL")
+        vl = QVBoxLayout()
+        vl.setSpacing(6)
+
+        if not VOICE_AVAILABLE:
+            missing_label = QLabel("Install sounddevice + openai-whisper to enable")
+            missing_label.setStyleSheet("color: #6b7280; font-size: 10px; font-style: italic;")
+            vl.addWidget(missing_label)
+            voice_group.setLayout(vl)
+            parent_layout.addWidget(voice_group)
+            return
+
+        # Status row
+        status_row = QHBoxLayout()
+        self.voice_status_label = QLabel("Voice: Not initialized")
+        self.voice_status_label.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 3px;")
+        status_row.addWidget(self.voice_status_label, 1)
+        vl.addLayout(status_row)
+
+        # Controls row
+        ctrl_row = QHBoxLayout()
+
+        self.btn_voice_init = QPushButton("INIT")
+        self.btn_voice_init.setStyleSheet(self._btn_style("#e040fb", "#0a1628"))
+        self.btn_voice_init.setFixedHeight(28)
+        self.btn_voice_init.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_init.clicked.connect(self._on_voice_init)
+        ctrl_row.addWidget(self.btn_voice_init)
+
+        self.btn_voice_listen = QPushButton("LISTEN")
+        self.btn_voice_listen.setStyleSheet(self._btn_style("#00ff88", "#0a1628"))
+        self.btn_voice_listen.setFixedHeight(28)
+        self.btn_voice_listen.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_listen.setEnabled(False)
+        self.btn_voice_listen.setToolTip("Toggle continuous listening — say 'stop listening' to deactivate")
+        self.btn_voice_listen.clicked.connect(self._on_voice_listen_toggle)
+        ctrl_row.addWidget(self.btn_voice_listen)
+
+        self.btn_voice_ptt = QPushButton("PTT")
+        self.btn_voice_ptt.setStyleSheet(self._btn_style("#6b7280", "#0a1628"))
+        self.btn_voice_ptt.setFixedHeight(28)
+        self.btn_voice_ptt.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_ptt.setEnabled(False)
+        self.btn_voice_ptt.setToolTip("Push-to-talk: hold to record, release to transcribe")
+        self.btn_voice_ptt.pressed.connect(self._on_voice_ptt_press)
+        self.btn_voice_ptt.released.connect(self._on_voice_ptt_release)
+        ctrl_row.addWidget(self.btn_voice_ptt)
+
+        vl.addLayout(ctrl_row)
+
+        # Model selector
+        model_row = QHBoxLayout()
+        model_label = QLabel("MODEL:")
+        model_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        model_label.setFixedWidth(48)
+        model_row.addWidget(model_label)
+
+        self.voice_model_combo = QComboBox()
+        self.voice_model_combo.addItems(["tiny", "base", "small"])
+        self.voice_model_combo.setStyleSheet(self._combo_style())
+        model_row.addWidget(self.voice_model_combo, 1)
+        vl.addLayout(model_row)
+
+        # Mic selector
+        mic_row = QHBoxLayout()
+        mic_label = QLabel("MIC:")
+        mic_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        mic_label.setFixedWidth(48)
+        mic_row.addWidget(mic_label)
+
+        self.voice_mic_combo = QComboBox()
+        self.voice_mic_combo.addItem("System Default", None)
+        self.voice_mic_combo.setStyleSheet(self._combo_style())
+        mic_row.addWidget(self.voice_mic_combo, 1)
+        vl.addLayout(mic_row)
+
+        voice_group.setLayout(vl)
+        parent_layout.addWidget(voice_group)
+
+        # Initialize voice controller (lazy)
+        self._voice_controller = None
+
+    def _on_voice_init(self):
+        """Initialize the voice engine."""
+        if not VOICE_AVAILABLE:
+            return
+
+        model_name = self.voice_model_combo.currentText()
+        self.voice_status_label.setText(f"Loading {model_name} model...")
+        self.voice_status_label.setStyleSheet(
+            "color: #e040fb; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #e040fb; border-radius: 3px;")
+        self.btn_voice_init.setEnabled(False)
+
+        # Build advisor if smart engine available
+        advisor = None
+        if SMART_ENGINE_AVAILABLE:
+            advisor = LLMAdvisor()
+
+        config = VoiceConfig(model_name=model_name)
+
+        # Mic selection
+        mic_data = self.voice_mic_combo.currentData()
+        if mic_data is not None:
+            config.input_device = mic_data
+
+        self._voice_controller = VoiceController(
+            advisor=advisor,
+            on_command=self._on_voice_command,
+            on_status=self._on_voice_status_update,
+            on_listening_changed=self._on_voice_listening_changed,
+            config=config,
+        )
+
+        def _on_loaded(ok):
+            QMetaObject.invokeMethod(
+                self, "_voice_init_done",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, ok),
+            )
+
+        self._voice_controller.initialize(callback=_on_loaded)
+
+    @pyqtSlot(object)
+    def _voice_init_done(self, ok):
+        self.btn_voice_init.setEnabled(True)
+        if ok:
+            self.btn_voice_listen.setEnabled(True)
+            self.btn_voice_ptt.setEnabled(True)
+            self.voice_status_label.setText("Voice ready — click LISTEN or hold PTT")
+            self.voice_status_label.setStyleSheet(
+                "color: #00ff88; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #00ff88; border-radius: 3px;")
+
+            # Populate mic list
+            if self._voice_controller:
+                devices = self._voice_controller.list_input_devices()
+                self.voice_mic_combo.clear()
+                self.voice_mic_combo.addItem("System Default", None)
+                for dev in devices:
+                    self.voice_mic_combo.addItem(dev["name"], dev["index"])
+        else:
+            self.voice_status_label.setText("Voice init failed — check logs")
+            self.voice_status_label.setStyleSheet(
+                "color: #ff4444; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #ff4444; border-radius: 3px;")
+
+    def _on_voice_listen_toggle(self):
+        """Toggle continuous listening on/off."""
+        if not self._voice_controller:
+            return
+        self._voice_controller.toggle_listening()
+
+    def _on_voice_listening_changed(self, listening: bool):
+        """Called from VoiceController (background thread) when listening state changes.
+        Marshal to main thread for GUI update."""
+        QMetaObject.invokeMethod(
+            self, "_voice_update_listen_btn",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, listening),
+        )
+
+    @pyqtSlot(object)
+    def _voice_update_listen_btn(self, listening):
+        """Update LISTEN button appearance based on listening state."""
+        if not hasattr(self, 'btn_voice_listen'):
+            return
+        if listening:
+            self.btn_voice_listen.setText("LISTENING")
+            self.btn_voice_listen.setStyleSheet(self._btn_style("#ff4444", "#0a1628"))
+            self.voice_status_label.setText("Listening... say 'stop listening' to deactivate")
+            self.voice_status_label.setStyleSheet(
+                "color: #ff4444; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #ff4444; border-radius: 3px;")
+        else:
+            self.btn_voice_listen.setText("LISTEN")
+            self.btn_voice_listen.setStyleSheet(self._btn_style("#00ff88", "#0a1628"))
+            self.voice_status_label.setText("Voice ready — click LISTEN or hold PTT")
+            self.voice_status_label.setStyleSheet(
+                "color: #00ff88; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #00ff88; border-radius: 3px;")
+
+    def _on_voice_ptt_press(self):
+        if self._voice_controller:
+            self._voice_controller.push_to_talk_press()
+
+    def _on_voice_ptt_release(self):
+        if self._voice_controller:
+            self._voice_controller.push_to_talk_release()
+
+    def _on_voice_command(self, config: dict):
+        """Handle a voice-generated disruption config.
+        NOTE: This is called from a background thread (VoiceController).
+        Must marshal all GUI operations to the main thread."""
+        QMetaObject.invokeMethod(
+            self, "_voice_apply_command",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, config),
+        )
+
+    @pyqtSlot(object)
+    def _voice_apply_command(self, config):
+        """Apply voice command on the main thread (Qt-safe)."""
+        action = config.get("action")
+        if action == "stop":
+            self._on_stop()
+            return
+        if action == "start":
+            self._on_disrupt()
+            return
+
+        # Apply as disruption config
+        methods = config.get("methods", [])
+        params = config.get("params", {})
+        if methods and self.selected_ip and self.controller:
+            log_info(f"VoiceCommand: applying {config.get('name', 'voice config')}")
+            self.controller.disrupt_device(self.selected_ip, methods, params)
+            self._disruption_timers[self.selected_ip] = time.time()
+            self._refresh_device_table_status()
+
+    def _on_voice_status_update(self, msg: str):
+        """Thread-safe voice status update."""
+        QMetaObject.invokeMethod(
+            self, "_voice_set_status",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, msg),
+        )
+
+    @pyqtSlot(object)
+    def _voice_set_status(self, msg):
+        if hasattr(self, 'voice_status_label'):
+            self.voice_status_label.setText(msg)
+
+    # ------------------------------------------------------------------
+    # GPC / CronusZEN Panel
+    # ------------------------------------------------------------------
+    def _build_gpc_panel(self, parent_layout):
+        """Build the GPC script management panel."""
+        gpc_group = self._card("GPC / CRONUS")
+        gl = QVBoxLayout()
+        gl.setSpacing(6)
+
+        if not GPC_AVAILABLE:
+            missing_label = QLabel("GPC module not available")
+            missing_label.setStyleSheet("color: #6b7280; font-size: 10px; font-style: italic;")
+            gl.addWidget(missing_label)
+            gpc_group.setLayout(gl)
+            parent_layout.addWidget(gpc_group)
+            return
+
+        # Device status
+        self.gpc_device_label = QLabel("Device: Scanning...")
+        self.gpc_device_label.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 3px;")
+        gl.addWidget(self.gpc_device_label)
+
+        # Template selector
+        tmpl_row = QHBoxLayout()
+        tmpl_label = QLabel("SCRIPT:")
+        tmpl_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        tmpl_label.setFixedWidth(48)
+        tmpl_row.addWidget(tmpl_label)
+
+        self.gpc_template_combo = QComboBox()
+        for tmpl in list_templates():
+            self.gpc_template_combo.addItem(
+                f"{tmpl['name']} ({tmpl['game']})", tmpl['name'])
+        self.gpc_template_combo.setStyleSheet(self._combo_style())
+        tmpl_row.addWidget(self.gpc_template_combo, 1)
+        gl.addLayout(tmpl_row)
+
+        # Template description
+        self.gpc_desc_label = QLabel("")
+        self.gpc_desc_label.setStyleSheet("color: #6b7280; font-size: 9px; padding: 2px;")
+        self.gpc_desc_label.setWordWrap(True)
+        gl.addWidget(self.gpc_desc_label)
+        self.gpc_template_combo.currentIndexChanged.connect(self._on_gpc_template_changed)
+        self._on_gpc_template_changed()  # set initial description
+
+        # Buttons
+        btn_row = QHBoxLayout()
+
+        self.btn_gpc_generate = QPushButton("GENERATE")
+        self.btn_gpc_generate.setStyleSheet(self._btn_style("#ff6b35", "#0a1628"))
+        self.btn_gpc_generate.setFixedHeight(28)
+        self.btn_gpc_generate.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_generate.clicked.connect(self._on_gpc_generate)
+        btn_row.addWidget(self.btn_gpc_generate)
+
+        self.btn_gpc_export = QPushButton("EXPORT .GPC")
+        self.btn_gpc_export.setStyleSheet(self._btn_style("#00d9ff", "#0a1628"))
+        self.btn_gpc_export.setFixedHeight(28)
+        self.btn_gpc_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_export.setEnabled(False)
+        self.btn_gpc_export.clicked.connect(self._on_gpc_export)
+        btn_row.addWidget(self.btn_gpc_export)
+
+        self.btn_gpc_sync = QPushButton("SYNC TIMING")
+        self.btn_gpc_sync.setStyleSheet(self._btn_style("#e040fb", "#0a1628"))
+        self.btn_gpc_sync.setFixedHeight(28)
+        self.btn_gpc_sync.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_sync.setToolTip("Generate script synced with current disruption settings")
+        self.btn_gpc_sync.clicked.connect(self._on_gpc_sync)
+        btn_row.addWidget(self.btn_gpc_sync)
+
+        gl.addLayout(btn_row)
+
+        # Generated script preview (collapsed by default)
+        self.gpc_preview_label = QLabel("")
+        self.gpc_preview_label.setStyleSheet(
+            "color: #6b7280; font-size: 9px; font-family: 'Consolas', 'Courier New', monospace; "
+            "padding: 4px; background: #080c14; border: 1px solid #1a2a3a; border-radius: 3px;")
+        self.gpc_preview_label.setWordWrap(True)
+        self.gpc_preview_label.setMaximumHeight(120)
+        self.gpc_preview_label.hide()
+        gl.addWidget(self.gpc_preview_label)
+
+        gpc_group.setLayout(gl)
+        parent_layout.addWidget(gpc_group)
+
+        # State
+        self._gpc_generator = GPCGenerator()
+        self._gpc_last_source = ""
+
+        # Start device monitor in background
+        self._gpc_monitor = DeviceMonitor(
+            on_connect=lambda dev: self._gpc_device_event(f"Connected: {dev.name}"),
+            on_disconnect=lambda dev: self._gpc_device_event(f"Disconnected: {dev.name}"),
+        )
+        self._gpc_monitor.start()
+
+        # Initial device scan
+        def _initial_scan():
+            devices = scan_devices()
+            if devices:
+                msg = f"Device: {devices[0].name} ({devices[0].device_type.upper()})"
+            else:
+                msg = "Device: None detected — scripts export to file"
+            QMetaObject.invokeMethod(
+                self, "_gpc_set_device_label",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, msg),
+            )
+
+        threading.Thread(target=_initial_scan, daemon=True).start()
+
+    def _on_gpc_template_changed(self):
+        if not GPC_AVAILABLE:
+            return
+        name = self.gpc_template_combo.currentData()
+        if name:
+            tmpl = get_template(name)
+            if tmpl:
+                self.gpc_desc_label.setText(tmpl.description)
+
+    def _on_gpc_generate(self):
+        if not GPC_AVAILABLE:
+            return
+        name = self.gpc_template_combo.currentData()
+        tmpl = get_template(name) if name else None
+        if not tmpl:
+            return
+
+        source = self._gpc_generator.generate(tmpl)
+        self._gpc_last_source = source
+        self.btn_gpc_export.setEnabled(True)
+
+        # Show preview (first 500 chars)
+        preview = source[:500] + ("..." if len(source) > 500 else "")
+        self.gpc_preview_label.setText(preview)
+        self.gpc_preview_label.show()
+        log_info(f"GPC: generated script '{name}' ({len(source)} chars)")
+
+    def _on_gpc_sync(self):
+        """Generate a GPC script synced with current disruption params."""
+        if not GPC_AVAILABLE:
+            return
+
+        # Gather current disruption config from active modules
+        params = self._collect_params()
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            preset = self.preset_combo.currentText()
+            methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
+
+        config = {"methods": methods, "params": params}
+        source = self._gpc_generator.generate_from_disruption(config)
+        self._gpc_last_source = source
+        self.btn_gpc_export.setEnabled(True)
+
+        preview = source[:500] + ("..." if len(source) > 500 else "")
+        self.gpc_preview_label.setText(preview)
+        self.gpc_preview_label.show()
+        log_info(f"GPC: generated synced script ({len(source)} chars)")
+
+    def _on_gpc_export(self):
+        """Export the last generated script to a .gpc file."""
+        if not self._gpc_last_source or not GPC_AVAILABLE:
+            return
+
+        from app.gpc.device_bridge import get_default_export_path
+        export_dir = get_default_export_path()
+        name = self.gpc_template_combo.currentData() or "dupez_script"
+        safe_name = re.sub(r'[^\w\-]', '_', name.lower())
+        path = os.path.join(export_dir, f"{safe_name}.gpc")
+
+        ok = self._gpc_generator.export_to_file(self._gpc_last_source, path)
+        if ok:
+            QMessageBox.information(self, "GPC Export",
+                                   f"Script exported to:\n{path}")
+        else:
+            QMessageBox.warning(self, "GPC Export", "Failed to export — check logs")
+
+    def _gpc_device_event(self, msg: str):
+        QMetaObject.invokeMethod(
+            self, "_gpc_set_device_label",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, msg),
+        )
+
+    @pyqtSlot(object)
+    def _gpc_set_device_label(self, msg):
+        if hasattr(self, 'gpc_device_label'):
+            self.gpc_device_label.setText(msg)
 
     # ------------------------------------------------------------------
     # Styles

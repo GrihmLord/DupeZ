@@ -5,6 +5,7 @@ Provides advanced network scanning with device identification and error handling
 """
 
 import subprocess
+import sys
 import socket
 import threading
 import time
@@ -14,6 +15,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import platform
 import re
+
+# Suppress console window flash on Windows
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 from app.logs.logger import log_info, log_error, log_performance, log_network_scan, log_device_detection
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -306,7 +310,8 @@ class EnhancedNetworkScanner(QObject):
             if platform.system().lower() == "windows":
                 result = subprocess.run(
                     ['ping', '-n', '1', '-w', str(self.timeout * 1000), ip],
-                    capture_output=True, text=True, timeout=self.timeout + 1
+                    capture_output=True, text=True, timeout=self.timeout + 1,
+                    creationflags=_NO_WINDOW
                 )
             else:
                 result = subprocess.run(
@@ -329,7 +334,8 @@ class EnhancedNetworkScanner(QObject):
             # Get MAC address using ARP
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ['arp', '-a', ip], capture_output=True, text=True, timeout=5
+                    ['arp', '-a', ip], capture_output=True, text=True, timeout=5,
+                    creationflags=_NO_WINDOW
                 )
             else:
                 result = subprocess.run(
@@ -352,7 +358,8 @@ class EnhancedNetworkScanner(QObject):
                 try:
                     nbt = subprocess.run(
                         ['nbtstat', '-a', ip],
-                        capture_output=True, text=True, timeout=3
+                        capture_output=True, text=True, timeout=3,
+                        creationflags=_NO_WINDOW
                     )
                     if nbt.returncode == 0:
                         for line in nbt.stdout.splitlines():
@@ -658,7 +665,8 @@ class EnhancedNetworkScanner(QObject):
         try:
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ['arp', '-a'], capture_output=True, text=True, timeout=5
+                    ['arp', '-a'], capture_output=True, text=True, timeout=5,
+                    creationflags=_NO_WINDOW
                 )
             else:
                 result = subprocess.run(
@@ -847,13 +855,14 @@ class EnhancedNetworkScanner(QObject):
         try:
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ['arp', '-a'], capture_output=True, text=True, timeout=5
+                    ['arp', '-a'], capture_output=True, text=True, timeout=5,
+                    creationflags=_NO_WINDOW
                 )
             else:
                 result = subprocess.run(
                     ['arp', '-n'], capture_output=True, text=True, timeout=5
                 )
-            
+
             if result.returncode == 0:
                 return ip in result.stdout
             return False

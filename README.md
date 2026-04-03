@@ -1,4 +1,4 @@
-# DupeZ v3.3.0
+# DupeZ v3.5.0
 
 Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard.
 
@@ -13,7 +13,7 @@ Built for the DayZ community — scan your local network, target specific device
 ### Clumsy Control (Main View)
 ARP/TCP network scanner with per-device disruption controls. Select a device, pick your disruption methods, dial in parameters with sliders, and go. Includes preset profiles, session timers, live status feedback, multi-device targeting, scheduled disruptions, and macro chains.
 
-**Disruption Methods:** Drop, Lag, Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order
+**Disruption Methods:** Drop, Lag, Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order, God Mode
 
 **Presets:**
 
@@ -23,11 +23,22 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | DupeZ Default | Disconnect + 95% drop + 1500ms lag + 1KB/s cap + throttle |
 | Heavy Lag | 3000ms delay + 95% drop + 1KB/s cap |
 | Light Lag | 800ms delay + 60% drop |
+| God Mode | Directional lag — others freeze, you keep moving. 2000ms inbound lag |
+| God Mode Aggressive | God Mode + 30% inbound drop for harder freeze |
 | Total Chaos | All modules maxed — complete network destruction |
 | Custom | Set your own parameters |
 
 ### AI Smart Mode (v3.1.0+)
-Network profiler + ML-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 5 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
+Network profiler + ML-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 6 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
+
+### God Mode (v3.4.0+)
+Directional lag engine — inbound packets are delayed while outbound passes through untouched. The target's game client stops receiving your position updates (you freeze on their screen), but your actions register on the server in real time. Configurable inbound lag (0-5000ms) and optional inbound packet drop for harder freeze. Most effective on ICS/hotspot where your machine is the gateway.
+
+### Voice Control (v3.4.0+)
+Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Hold the PTT button, speak a command like "heavy lag on the PS5" or "god mode", and the LLM advisor interprets it into a disruption config. Supports model selection (tiny/base/small), mic selection, and simple start/stop voice commands. Requires `sounddevice` and `openai-whisper` packages (optional — DupeZ runs without them).
+
+### GPC / CronusZEN Support (v3.4.0+)
+Native GPC script integration for CronusZEN and CronusMAX devices. Parse existing .gpc files, generate new scripts synced with DupeZ disruption timing, and export directly to Zen Studio's library folder. Built-in templates: DayZ Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil. Auto-detects connected Cronus devices via USB. Requires `pyserial` for device detection (optional).
 
 ### Network Tools (v3.3.0+)
 Four-tab network intelligence toolkit: Live Traffic Monitor (per-interface bandwidth), Latency Overlay (floating transparent ping/jitter widget), Port Scanner (Common/Gaming/Web/Full presets), and Connection Mapper (real-time topology with gaming port detection and hostname resolution).
@@ -106,7 +117,12 @@ app/
 │   ├── smart_engine.py              # ML-based disruption parameter optimizer
 │   ├── network_profiler.py          # Target connection profiler (RTT/jitter/loss)
 │   ├── llm_advisor.py               # Natural-language disruption tuning (Ollama/OpenAI)
-│   └── session_tracker.py           # Session history + feedback learning
+│   ├── session_tracker.py           # Session history + feedback learning
+│   └── voice_control.py             # Push-to-talk voice commands via Whisper STT
+├── gpc/
+│   ├── gpc_parser.py                # CronusZEN .gpc script tokenizer + parser
+│   ├── gpc_generator.py             # Generate .gpc scripts synced with DupeZ
+│   └── device_bridge.py             # Cronus USB device detection + Zen Studio export
 ├── firewall/
 │   ├── clumsy_network_disruptor.py  # Clumsy.exe + native WinDivert engine
 │   ├── native_divert_engine.py      # Pure Python WinDivert packet interception
@@ -230,15 +246,21 @@ DupeZ uses a three-tier fallback for packet disruption:
 
 All three produce the same result: targeted packet manipulation on the selected device for the configured duration.
 
+**God Mode** uses the Native WinDivert Engine exclusively. It inspects the `Outbound` bit (position 17 in the WinDivert address bitfield) to classify each packet's direction, then applies lag/drop only to inbound packets. On ICS/hotspot setups, the `NETWORK_FORWARD` layer is used so forwarded traffic is intercepted at the gateway.
+
 ---
 
 ## Version History
+
+**v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling. Version bump across all modules.
+
+**v3.4.0** — God Mode directional lag engine (inbound delay, outbound untouched). Push-to-talk voice control via OpenAI Whisper. CronusZEN/MAX GPC script integration (parser, generator, device bridge, 4 built-in templates). 100% drop fidelity fix. Direction-aware packet filtering. Smart Engine 6th goal strategy (godmode). LLM Advisor godmode fallback. Voice + GPC GUI panels. Thread safety and audit fixes.
 
 **v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper with gaming port detection, latency overlay with floating transparent widget, port scanner with service ID. 4-view dashboard. Full codebase hardening pass (11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation).
 
 **v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions with auto-stop. Disruption macro chains. Profile import/export.
 
-**v3.1.0** — AI Smart Mode. ML-based disruption optimizer with 5 goal strategies. Network profiler (RTT/jitter/loss/bandwidth). LLM advisor via Ollama or OpenAI-compatible API. Session tracking with feedback learning. Profile system. System tray mode. Device nicknames. Scan caching.
+**v3.1.0** — AI Smart Mode. ML-based disruption optimizer with 6 goal strategies. Network profiler (RTT/jitter/loss/bandwidth). LLM advisor via Ollama or OpenAI-compatible API. Session tracking with feedback learning. Profile system. System tray mode. Device nicknames. Scan caching.
 
 **v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine.
 

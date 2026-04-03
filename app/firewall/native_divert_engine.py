@@ -118,14 +118,25 @@ class WINDIVERT_ADDRESS(ctypes.Structure):
 
     @property
     def Outbound(self):
-        return bool(self._bitfield & (1 << 24))
+        # WinDivert 2.x bitfield layout (from windivert.h):
+        #   Layer(8) | Event(8) | Sniffed(1) | Outbound(1) | Loopback(1) | ...
+        # On little-endian x86, Outbound is bit 17.
+        return bool(self._bitfield & (1 << 17))
 
     @Outbound.setter
     def Outbound(self, val):
         if val:
-            self._bitfield |= (1 << 24)
+            self._bitfield |= (1 << 17)
         else:
-            self._bitfield &= ~(1 << 24)
+            self._bitfield &= ~(1 << 17)
+
+    @property
+    def Loopback(self):
+        return bool(self._bitfield & (1 << 18))
+
+    @property
+    def IPv6(self):
+        return bool(self._bitfield & (1 << 20))
 
 
 # ======================================================================
@@ -204,13 +215,56 @@ class WinDivertDLL:
 
 
 # ======================================================================
+# Direction Constants
+# ======================================================================
+DIR_BOTH     = "both"      # Module processes packets in both directions
+DIR_INBOUND  = "inbound"   # Module only processes inbound packets (Outbound=False)
+DIR_OUTBOUND = "outbound"  # Module only processes outbound packets (Outbound=True)
+
+
+# ======================================================================
 # Disruption Modules
 # ======================================================================
 class DisruptionModule:
-    """Base class for packet disruption modules."""
+    """Base class for packet disruption modules.
+
+    Direction-aware: each module has a ``direction`` attribute that controls
+    which packets it acts on.  The engine's packet loop checks this BEFORE
+    calling ``process()``, so modules themselves don't need to inspect the
+    address direction — they can assume every packet they see is in-scope.
+
+    Direction mapping:
+      "both"     → process all packets
+      "inbound"  → only packets where addr.Outbound is False
+      "outbound" → only packets where addr.Outbound is True
+
+    For the NETWORK_FORWARD layer (ICS/hotspot), direction is relative to
+    the Windows routing stack:
+      Outbound=True  → packet leaving the gateway (from target to internet)
+      Outbound=False → packet arriving at the gateway (from internet to target)
+
+    So to freeze the target's view of YOU (God Mode), you lag INBOUND
+    (packets flowing from internet → gateway → target).  Their outbound
+    actions still reach the server in real time.
+    """
 
     def __init__(self, params: dict):
         self.params = params
+        # Per-module direction — defaults to the global "direction" param,
+        # but can be overridden per-module via "{module}_direction" param.
+        self.direction = params.get("direction", DIR_BOTH)
+
+    def matches_direction(self, addr: WINDIVERT_ADDRESS) -> bool:
+        """Check if this packet matches the module's direction filter.
+        Called by the engine before process() — returns True if the
+        module should act on this packet."""
+        if self.direction == DIR_BOTH:
+            return True
+        if self.direction == DIR_OUTBOUND:
+            return addr.Outbound
+        if self.direction == DIR_INBOUND:
+            return not addr.Outbound
+        return True  # unknown → process
 
     def process(self, packet_data: bytearray, addr: WINDIVERT_ADDRESS,
                 send_fn) -> bool:
@@ -220,20 +274,38 @@ class DisruptionModule:
 
 
 class DropModule(DisruptionModule):
-    """Randomly drop packets based on chance percentage."""
+    """Randomly drop packets based on chance percentage.
+
+    When drop_chance is 100, ALL packets are dropped with zero leakage.
+    This uses an exact comparison (>=) not probabilistic, so 100% means 100%.
+    """
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.direction = params.get("drop_direction", params.get("direction", DIR_BOTH))
 
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("drop_chance", 95)
+        # Exact 100% check — no random.random() call needed, zero leakage
+        if chance >= 100:
+            return True
         if random.random() * 100 < chance:
             return True  # dropped — don't send
         return False
 
 
 class LagModule(DisruptionModule):
-    """Buffer packets and release them after a delay."""
+    """Buffer packets and release them after a delay.
+
+    For God Mode, set lag_direction="inbound" so only packets flowing
+    TO the target get delayed.  Their outbound packets pass through
+    unmodified, meaning their actions register on the server in real time
+    while their view of you freezes.
+    """
 
     def __init__(self, params):
         super().__init__(params)
+        self.direction = params.get("lag_direction", params.get("direction", DIR_BOTH))
         self._lag_queue = deque(maxlen=10000)  # bounded to prevent memory leak
         self._lag_thread = None
         self._running = True
@@ -281,10 +353,14 @@ class LagModule(DisruptionModule):
 class DuplicateModule(DisruptionModule):
     """Send packets multiple times."""
 
+    def __init__(self, params):
+        super().__init__(params)
+        self.direction = params.get("duplicate_direction", params.get("direction", DIR_BOTH))
+
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("duplicate_chance", 80)
         count = self.params.get("duplicate_count", 10)
-        if random.random() * 100 < chance:
+        if chance >= 100 or random.random() * 100 < chance:
             # Send the original + extra copies
             for _ in range(count):
                 send_fn(packet_data, addr)
@@ -297,13 +373,14 @@ class ThrottleModule(DisruptionModule):
 
     def __init__(self, params):
         super().__init__(params)
+        self.direction = params.get("throttle_direction", params.get("direction", DIR_BOTH))
         self._last_send = 0
 
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("throttle_chance", 100)
         frame_ms = self.params.get("throttle_frame", 400)
         now = time.time()
-        if random.random() * 100 < chance:
+        if chance >= 100 or random.random() * 100 < chance:
             if (now - self._last_send) * 1000 < frame_ms:
                 return True  # throttled — drop
             self._last_send = now
@@ -313,9 +390,13 @@ class ThrottleModule(DisruptionModule):
 class CorruptModule(DisruptionModule):
     """Flip random bits in packet payload."""
 
+    def __init__(self, params):
+        super().__init__(params)
+        self.direction = params.get("tamper_direction", params.get("direction", DIR_BOTH))
+
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("tamper_chance", 60)
-        if random.random() * 100 < chance and len(packet_data) > 40:
+        if (chance >= 100 or random.random() * 100 < chance) and len(packet_data) > 40:
             # Corrupt a random byte in the payload (skip IP+TCP headers)
             offset = random.randint(40, len(packet_data) - 1)
             packet_data[offset] ^= random.randint(1, 255)
@@ -328,6 +409,7 @@ class BandwidthModule(DisruptionModule):
 
     def __init__(self, params):
         super().__init__(params)
+        self.direction = params.get("bandwidth_direction", params.get("direction", DIR_BOTH))
         self._bytes_sent = 0
         self._window_start = time.time()
 
@@ -350,19 +432,27 @@ class BandwidthModule(DisruptionModule):
 class OODModule(DisruptionModule):
     """Out of order — buffer a few packets and release in random order."""
 
+    MAX_BUFFER = 64  # Prevent unbounded growth under heavy traffic
+
     def __init__(self, params):
         super().__init__(params)
+        self.direction = params.get("ood_direction", params.get("direction", DIR_BOTH))
         self._buffer = []
 
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("ood_chance", 80)
-        if random.random() * 100 < chance:
+        if chance >= 100 or random.random() * 100 < chance:
             # Deep copy
             addr_copy = WINDIVERT_ADDRESS()
             ctypes.memmove(ctypes.byref(addr_copy), ctypes.byref(addr),
                             ctypes.sizeof(WINDIVERT_ADDRESS))
             self._buffer.append((bytearray(packet_data), addr_copy))
-            if len(self._buffer) >= 4:
+            if len(self._buffer) >= self.MAX_BUFFER:
+                # Safety valve: flush everything to prevent memory leak
+                for pkt, a in self._buffer:
+                    send_fn(pkt, a)
+                self._buffer.clear()
+            elif len(self._buffer) >= 4:
                 random.shuffle(self._buffer)
                 for pkt, a in self._buffer:
                     send_fn(pkt, a)
@@ -372,17 +462,19 @@ class OODModule(DisruptionModule):
 
     def stop(self):
         """Flush any remaining buffered packets on shutdown."""
-        # Drop remaining buffer — no send_fn available at stop time,
-        # and the WinDivert handle may already be closed.
         self._buffer.clear()
 
 
 class RSTModule(DisruptionModule):
     """Inject TCP RST packets to kill connections."""
 
+    def __init__(self, params):
+        super().__init__(params)
+        self.direction = params.get("rst_direction", params.get("direction", DIR_BOTH))
+
     def process(self, packet_data, addr, send_fn):
         chance = self.params.get("rst_chance", 90)
-        if random.random() * 100 < chance and len(packet_data) >= 40:
+        if (chance >= 100 or random.random() * 100 < chance) and len(packet_data) >= 40:
             # Check if TCP (protocol 6 in IP header byte 9)
             if packet_data[9] == 6:
                 # Get IP header length
@@ -396,12 +488,142 @@ class RSTModule(DisruptionModule):
 
 
 class DisconnectModule(DisruptionModule):
-    """Drop 99% of packets — hard disconnect that sustains for full duration."""
+    """Hard disconnect — configurable drop rate, defaults to TRUE 100%.
+
+    When disconnect_chance is 100 (default), every single packet is dropped.
+    No random.random() call, no probability leak, no 1-in-100 slip-through.
+    This is what ZeroDay meant: "when you drop 100% it actually drops 100%."
+
+    Set disconnect_chance < 100 for a softer disconnect (e.g. 95% for the
+    old clumsy behavior).
+    """
+
+    def __init__(self, params):
+        super().__init__(params)
+        self.direction = params.get("disconnect_direction", params.get("direction", DIR_BOTH))
 
     def process(self, packet_data, addr, send_fn):
-        if random.random() < 0.99:
-            return True  # dropped
+        chance = self.params.get("disconnect_chance", 100)
+        # Exact 100% — deterministic drop, zero leakage
+        if chance >= 100:
+            return True
+        # Probabilistic drop for sub-100% values
+        if random.random() * 100 < chance:
+            return True
         return False
+
+
+class GodModeModule(DisruptionModule):
+    """God Mode — directional lag that freezes others' view of you.
+
+    How it works (on ICS/hotspot NETWORK_FORWARD layer):
+      - INBOUND packets (internet → gateway → target's console):
+        These carry game state updates about YOUR position/actions.
+        We LAG these heavily so the target's game client doesn't see you move.
+        Their screen freezes — you become invisible/invincible to them.
+
+      - OUTBOUND packets (target's console → gateway → internet):
+        These carry the TARGET's inputs (movement, shooting, etc).
+        We pass these through UNTOUCHED so their actions register on the
+        game server in real time. Shots they fire still hit in real time.
+
+    The result: you can move freely, deal damage, and they can't see you.
+    When God Mode is deactivated, their client catches up — game state
+    reconciles and any damage they took while you were "invisible" lands.
+
+    Parameters:
+      godmode_lag_ms: Delay applied to inbound packets (default: 2000ms)
+      godmode_drop_inbound_pct: Optional % of inbound packets to drop (default: 0)
+        Set >0 to make the freeze more aggressive (some packets never arrive).
+    """
+
+    def __init__(self, params):
+        super().__init__(params)
+        # God Mode always targets both directions — it handles direction
+        # internally (lag inbound, pass outbound).
+        self.direction = DIR_BOTH
+        # Safety cap: 10K packets in queue. If exceeded, oldest packets
+        # are silently dropped — prevents unbounded memory on high traffic.
+        self._lag_queue = deque(maxlen=10000)
+        self._lag_lock = threading.Lock()
+        self._lag_thread = None
+        self._running = True
+        self._inbound_lagged = 0
+        self._inbound_dropped = 0
+        self._outbound_passed = 0
+
+    def start_flush_thread(self, send_fn, divert_dll, handle):
+        """Start background thread that flushes lagged inbound packets."""
+        self._send_fn = send_fn
+        self._divert_dll = divert_dll
+        self._handle = handle
+        self._lag_thread = threading.Thread(
+            target=self._flush_loop, daemon=True, name="GodModeFlush"
+        )
+        self._lag_thread.start()
+
+    def _flush_loop(self):
+        while self._running:
+            now = time.time()
+            to_send = []
+            with self._lag_lock:
+                while self._lag_queue and self._lag_queue[0][0] <= now:
+                    to_send.append(self._lag_queue.popleft())
+
+            for _, pkt_data, addr in to_send:
+                try:
+                    buf = (ctypes.c_uint8 * len(pkt_data))(*pkt_data)
+                    send_len = wintypes.UINT(0)
+                    self._divert_dll.send(
+                        self._handle, buf, len(pkt_data),
+                        ctypes.byref(send_len), ctypes.byref(addr)
+                    )
+                except Exception:
+                    pass
+            time.sleep(0.001)
+
+    def process(self, packet_data, addr, send_fn):
+        if addr.Outbound:
+            # OUTBOUND — target's actions → server. Pass through untouched.
+            self._outbound_passed += 1
+            return False  # let it through
+
+        # INBOUND — server updates → target. Lag heavily.
+        self._inbound_lagged += 1
+
+        # Optional inbound drop for more aggressive freeze
+        drop_pct = self.params.get("godmode_drop_inbound_pct", 0)
+        if drop_pct > 0:
+            drop_pct = min(100, max(0, drop_pct))  # clamp 0-100
+            if drop_pct >= 100:
+                self._inbound_dropped += 1
+                return True  # drop entirely
+            if random.random() * 100 < drop_pct:
+                self._inbound_dropped += 1
+                return True  # probabilistic drop
+
+        # Lag the inbound packet
+        delay_ms = self.params.get("godmode_lag_ms", 2000)
+        delay_ms = max(0, min(30000, delay_ms))  # clamp 0-30s safety
+        release_time = time.time() + (delay_ms / 1000.0)
+        addr_copy = WINDIVERT_ADDRESS()
+        ctypes.memmove(ctypes.byref(addr_copy), ctypes.byref(addr),
+                        ctypes.sizeof(WINDIVERT_ADDRESS))
+        with self._lag_lock:
+            self._lag_queue.append((release_time, bytearray(packet_data), addr_copy))
+        return True  # consumed — will be sent later
+
+    def stop(self):
+        self._running = False
+        # Drain remaining queued packets (don't leak them)
+        remaining = 0
+        with self._lag_lock:
+            remaining = len(self._lag_queue)
+            self._lag_queue.clear()
+        log_info(f"GodMode stats: inbound_lagged={self._inbound_lagged}, "
+                 f"inbound_dropped={self._inbound_dropped}, "
+                 f"outbound_passed={self._outbound_passed}, "
+                 f"queue_drained={remaining}")
 
 
 # Module name → class mapping
@@ -415,6 +637,7 @@ MODULE_MAP = {
     "ood":        OODModule,
     "rst":        RSTModule,
     "disconnect": DisconnectModule,
+    "godmode":    GodModeModule,
 }
 
 
@@ -445,6 +668,9 @@ class NativeWinDivertEngine:
         self._modules = []        # Active disruption modules
         self._packets_processed = 0
         self._packets_dropped = 0
+        self._packets_inbound = 0
+        self._packets_outbound = 0
+        self._packets_passed = 0
 
         # Emulate subprocess-like interface for compatibility
         self._proc = self  # self acts as the "process"
@@ -465,6 +691,19 @@ class NativeWinDivertEngine:
         if self.alive:
             return None
         return 0
+
+    def get_stats(self) -> Dict:
+        """Return live packet counters for this engine instance."""
+        return {
+            "packets_processed": self._packets_processed,
+            "packets_dropped": self._packets_dropped,
+            "packets_inbound": self._packets_inbound,
+            "packets_outbound": self._packets_outbound,
+            "packets_passed": self._packets_passed,
+            "alive": self.alive,
+            "target_ip": self.target_ip,
+            "methods": list(self.methods),
+        }
 
     def start(self) -> bool:
         """Open WinDivert handle and start packet processing thread."""
@@ -583,8 +822,12 @@ class NativeWinDivertEngine:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
 
-        log_info(f"NativeEngine stopped (processed={self._packets_processed}, "
-                 f"dropped={self._packets_dropped})")
+        log_info(f"NativeEngine stopped ("
+                 f"processed={self._packets_processed}, "
+                 f"inbound={self._packets_inbound}, "
+                 f"outbound={self._packets_outbound}, "
+                 f"dropped={self._packets_dropped}, "
+                 f"passed={self._packets_passed})")
 
     def _cleanup(self):
         if self._handle and self._handle != INVALID_HANDLE_VALUE:
@@ -600,11 +843,15 @@ class NativeWinDivertEngine:
 
         Module order matters — aggressive droppers go first to maximize
         disruption. Packets that survive early modules hit later ones.
-        Order: disconnect → drop → bandwidth → throttle → lag → ood → duplicate → corrupt → rst
+        Order: godmode → disconnect → drop → bandwidth → throttle → lag → ood → duplicate → corrupt → rst
+
+        God Mode is special: it handles direction internally (lag inbound,
+        pass outbound) so it goes first.  If godmode is active, other
+        modules only see packets that godmode didn't consume.
         """
         # Enforce optimal module order for maximum disruption
         PRIORITY_ORDER = [
-            "disconnect", "drop", "bandwidth", "throttle",
+            "godmode", "disconnect", "drop", "bandwidth", "throttle",
             "lag", "ood", "duplicate", "corrupt", "rst",
         ]
         ordered_methods = [m for m in PRIORITY_ORDER if m in self.methods]
@@ -617,16 +864,18 @@ class NativeWinDivertEngine:
             if cls:
                 mod = cls(self.params)
                 self._modules.append(mod)
-                log_info(f"NativeEngine: module '{method_name}' initialized")
+                log_info(f"NativeEngine: module '{method_name}' initialized "
+                         f"(direction={mod.direction})")
 
-                # Start lag flush thread if needed
-                if isinstance(mod, LagModule):
+                # Start flush threads for modules that need them
+                if isinstance(mod, (LagModule, GodModeModule)):
                     mod.start_flush_thread(
                         self._send_packet, self._divert, self._handle
                     )
             else:
                 log_info(f"NativeEngine: unknown module '{method_name}' — skip")
-        log_info(f"NativeEngine: module chain = {[m.__class__.__name__ for m in self._modules]}")
+        log_info(f"NativeEngine: module chain = "
+                 f"{[f'{m.__class__.__name__}({m.direction})' for m in self._modules]}")
 
     def _send_packet(self, packet_data, addr):
         """Send a packet through WinDivert (recalculates checksums)."""
@@ -642,7 +891,17 @@ class NativeWinDivertEngine:
             pass  # best-effort send
 
     def _packet_loop(self):
-        """Main packet capture/process/reinject loop."""
+        """Main packet capture/process/reinject loop.
+
+        Direction-aware: before calling a module's process(), we check
+        whether the packet's direction matches the module's direction
+        filter.  This means a module configured for "inbound" only will
+        never see outbound packets — they skip right past it.
+
+        This is what makes God Mode work: the GodModeModule handles
+        direction internally, but regular modules (lag, drop, etc.) can
+        also be configured per-direction via "{module}_direction" params.
+        """
         packet_buf = (ctypes.c_uint8 * MAX_PACKET_SIZE)()
         recv_len = wintypes.UINT(0)
         addr = WINDIVERT_ADDRESS()
@@ -675,16 +934,29 @@ class NativeWinDivertEngine:
 
                 self._packets_processed += 1
 
+                # Track direction
+                if addr.Outbound:
+                    self._packets_outbound += 1
+                else:
+                    self._packets_inbound += 1
+
                 # Copy packet data to mutable bytearray
                 packet_data = bytearray(packet_buf[:pkt_len])
 
-                # Run through ALL disruption modules in chain.
-                # Each module gets a chance to drop/defer the packet.
-                # If ANY module consumes it, it's gone — no further processing.
-                # This means disconnect(95%) + drop(95%) stack: only 0.25%
-                # of packets survive both.
+                # Run through disruption module chain.
+                # Direction check: each module only processes packets that
+                # match its direction filter.  Modules whose direction
+                # doesn't match are silently skipped for this packet.
+                #
+                # If ANY module consumes the packet (returns True), the
+                # packet is gone — no further modules see it.
+                # Stacking example: disconnect(100%) + drop(95%) — if
+                # disconnect catches it first, drop never runs.
                 consumed = False
                 for mod in self._modules:
+                    # Skip module if direction doesn't match
+                    if not mod.matches_direction(addr):
+                        continue
                     result = mod.process(packet_data, addr, self._send_packet)
                     if result:
                         consumed = True
@@ -693,6 +965,7 @@ class NativeWinDivertEngine:
 
                 # If no module consumed it, send it through
                 if not consumed:
+                    self._packets_passed += 1
                     self._send_packet(packet_data, addr)
 
             except Exception as e:

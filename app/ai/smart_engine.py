@@ -82,7 +82,7 @@ class SmartDisruptionEngine:
     """
 
     # Disruption goals
-    GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "auto"]
+    GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "godmode", "auto"]
 
     def __init__(self, history_path: str = ""):
         if not history_path:
@@ -114,12 +114,19 @@ class SmartDisruptionEngine:
         Returns:
             DisruptionRecommendation with methods, params, and reasoning
         """
+        # Clamp intensity to valid range
+        intensity = max(0.0, min(1.0, intensity))
+
         if goal == "auto":
             goal = self._infer_goal(profile)
 
-        log_info(f"SmartEngine: computing recommendation for {profile.target_ip} "
+        # Safe attribute access — guard against malformed profiles
+        target_ip = getattr(profile, 'target_ip', 'unknown')
+        quality = getattr(profile, 'quality_score', 50)
+
+        log_info(f"SmartEngine: computing recommendation for {target_ip} "
                  f"(goal={goal}, intensity={intensity:.1f}, "
-                 f"quality={profile.quality_score:.0f})")
+                 f"quality={quality:.0f})")
 
         # Route to goal-specific strategy
         strategy_map = {
@@ -128,9 +135,12 @@ class SmartDisruptionEngine:
             "desync":     self._strategy_desync,
             "throttle":   self._strategy_throttle,
             "chaos":      self._strategy_chaos,
+            "godmode":    self._strategy_godmode,
         }
 
-        strategy_fn = strategy_map.get(goal, self._strategy_disconnect)
+        # Normalize goal key (GUI sends "god mode", map uses "godmode")
+        goal_key = goal.replace(" ", "")
+        strategy_fn = strategy_map.get(goal_key, self._strategy_disconnect)
         rec = strategy_fn(profile, intensity)
 
         # Apply connection-specific adjustments
@@ -392,6 +402,86 @@ class SmartDisruptionEngine:
         return rec
 
     # ------------------------------------------------------------------
+    # Strategy: God Mode
+    # ------------------------------------------------------------------
+    def _strategy_godmode(self, profile, intensity: float) -> DisruptionRecommendation:
+        """Directional lag — freeze others' view of you while you keep moving.
+
+        How it works:
+          - Inbound packets (server → target) are lagged heavily.
+            The target's game client stops receiving position updates about you.
+            To them, you freeze in place or disappear.
+          - Outbound packets (target → server) pass through untouched.
+            Your actions (movement, shots, damage) register on the server
+            in real time.
+
+        The net effect: you can move freely and deal damage while being
+        functionally invisible. When God Mode is deactivated, the
+        target's client catches up — all delayed packets arrive at once
+        and the game state reconciles.
+
+        Intensity controls:
+          - Low intensity (0.3): short lag, minimal desync
+          - Medium (0.6): noticeable freeze, good for repositioning
+          - High (1.0): long freeze + inbound drop, maximum invisibility
+        """
+        rec = DisruptionRecommendation(
+            name="Smart God Mode",
+            description="Directional lag — freeze their view, keep moving freely",
+        )
+
+        # Scale lag based on intensity and connection quality
+        base_rtt = profile.avg_rtt_ms
+        if base_rtt < 20:
+            # Low-latency connection — need more lag to be noticeable
+            lag_ms = int(self._scale(1000, 4000, intensity))
+        elif base_rtt < 80:
+            lag_ms = int(self._scale(800, 3000, intensity))
+        else:
+            # Already laggy — less delay needed
+            lag_ms = int(self._scale(500, 2000, intensity))
+
+        # At high intensity, also drop some inbound packets
+        # This makes the freeze more aggressive — some server updates
+        # never arrive at all, increasing desync
+        drop_inbound = 0
+        if intensity > 0.7:
+            drop_inbound = int(self._scale(0, 40, (intensity - 0.7) / 0.3))
+
+        rec.methods = ["godmode"]
+        rec.params = {
+            "godmode_lag_ms": lag_ms,
+            "godmode_drop_inbound_pct": drop_inbound,
+            "direction": "both",
+        }
+        rec.reasoning = [
+            "God Mode: inbound packets lagged, outbound packets pass through",
+            f"Inbound lag set to {lag_ms}ms — target won't see you move for "
+            f"~{lag_ms/1000:.1f}s at a time",
+            f"Their outbound actions still register in real time on the server",
+        ]
+
+        if drop_inbound > 0:
+            rec.reasoning.append(
+                f"Aggressive mode: {drop_inbound}% of inbound packets dropped entirely "
+                "for harder freeze")
+
+        # God Mode is most effective on hotspot/ICS where you control the gateway
+        if profile.connection_type == "hotspot":
+            rec.estimated_effectiveness = self._scale(85, 99, intensity)
+            rec.reasoning.append(
+                "Hotspot detected — God Mode is maximally effective when you "
+                "are the gateway (ICS/mobile hotspot)")
+        else:
+            rec.estimated_effectiveness = self._scale(70, 90, intensity)
+            rec.reasoning.append(
+                "Note: God Mode works best on hotspot/ICS where your machine "
+                "is the gateway. On regular LAN, effectiveness depends on "
+                "network topology.")
+
+        return rec
+
+    # ------------------------------------------------------------------
     # Connection-specific adjustments
     # ------------------------------------------------------------------
     def _adjust_for_connection(self, rec: DisruptionRecommendation,
@@ -401,6 +491,9 @@ class SmartDisruptionEngine:
             # Hotspot connections are already fragile — reduce aggression
             if "lag_delay" in rec.params:
                 rec.params["lag_delay"] = int(rec.params["lag_delay"] * 0.7)
+            if "godmode_lag_ms" in rec.params:
+                # Hotspot amplifies lag naturally — pull back godmode lag
+                rec.params["godmode_lag_ms"] = int(rec.params["godmode_lag_ms"] * 0.8)
             if "drop_chance" in rec.params:
                 # Don't need as much — hotspot drops are amplified
                 rec.params["drop_chance"] = min(rec.params["drop_chance"],

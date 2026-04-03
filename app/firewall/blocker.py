@@ -6,10 +6,14 @@ Provides basic firewall blocking functionality
 
 import platform
 import subprocess
+import sys
 import socket
 from typing import List, Dict, Optional
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_error, log_warning
 import time
+
+# Suppress console window flash on Windows
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 def is_admin() -> bool:
     """Check if running with administrator privileges"""
@@ -41,13 +45,13 @@ def block_device(ip: str, block: bool = True) -> bool:
                         "netsh", "advfirewall", "firewall", "add", "rule",
                         f"name={rule_name}_In", "dir=in", "action=block",
                         f"remoteip={ip}", "enable=yes"
-                    ], capture_output=True, timeout=3)  # Reduced timeout from 5 to 3
-                    
+                    ], capture_output=True, timeout=3, creationflags=_NO_WINDOW)
+
                     subprocess.run([
                         "netsh", "advfirewall", "firewall", "add", "rule",
                         f"name={rule_name}_Out", "dir=out", "action=block",
                         f"remoteip={ip}", "enable=yes"
-                    ], capture_output=True, timeout=3)  # Reduced timeout from 5 to 3
+                    ], capture_output=True, timeout=3, creationflags=_NO_WINDOW)
                     
                     # Performance optimization: Reduce logging
                     if hasattr(block_device, '_last_log_time') and time.time() - getattr(block_device, '_last_log_time', 0) > 2.0:
@@ -63,12 +67,12 @@ def block_device(ip: str, block: bool = True) -> bool:
                     subprocess.run([
                         "netsh", "advfirewall", "firewall", "delete", "rule",
                         f"name={rule_name}_In"
-                    ], capture_output=True, timeout=3)  # Reduced timeout from 5 to 3
-                    
+                    ], capture_output=True, timeout=3, creationflags=_NO_WINDOW)
+
                     subprocess.run([
                         "netsh", "advfirewall", "firewall", "delete", "rule",
                         f"name={rule_name}_Out"
-                    ], capture_output=True, timeout=3)  # Reduced timeout from 5 to 3
+                    ], capture_output=True, timeout=3, creationflags=_NO_WINDOW)
                     
                     # Performance optimization: Reduce logging
                     if hasattr(block_device, '_last_log_time') and time.time() - getattr(block_device, '_last_log_time', 0) > 2.0:
@@ -109,7 +113,7 @@ def is_ip_blocked(ip: str) -> bool:
             result = subprocess.run([
                 "netsh", "advfirewall", "firewall", "show", "rule",
                 f"name=DupeZBlock_{ip.replace('.', '_')}_In"
-            ], capture_output=True, text=True, timeout=5)
+            ], capture_output=True, text=True, timeout=5, creationflags=_NO_WINDOW)
             
             return "No rules match the specified criteria" not in result.stdout
         else:
@@ -131,7 +135,7 @@ def clear_all_dupez_blocks() -> bool:
                 result = subprocess.run([
                     "netsh", "advfirewall", "firewall", "delete", "rule",
                     "name=DupeZBlock_*"
-                ], capture_output=True, timeout=5)
+                ], capture_output=True, timeout=5, creationflags=_NO_WINDOW)
                 
                 if result.returncode == 0:
                     log_info("Cleared all DupeZ firewall blocks")
@@ -158,7 +162,7 @@ def get_blocked_ips() -> List[str]:
         if platform.system() == "Windows":
             result = subprocess.run([
                 "netsh", "advfirewall", "firewall", "show", "rule", "name=DupeZBlock*"
-            ], capture_output=True, text=True, timeout=5)
+            ], capture_output=True, text=True, timeout=5, creationflags=_NO_WINDOW)
             
             for line in result.stdout.split('\n'):
                 if 'Rule Name:' in line and 'DupeZBlock' in line:
@@ -237,7 +241,7 @@ class NetworkBlocker:
             log_error(f"NetworkBlocker clear all error: {e}", exception=e)
             return False
     
-    def is_active(self) -> bool:
+    def get_active(self) -> bool:
         """Check if blocker is active"""
         return self.is_active
     

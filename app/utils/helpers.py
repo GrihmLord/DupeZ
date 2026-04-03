@@ -8,6 +8,9 @@ import socket
 import psutil
 from typing import Dict, List, Optional, Tuple
 
+# Suppress console window flash on Windows
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
 def get_system_info() -> Dict:
     """Get comprehensive system information"""
     try:
@@ -96,7 +99,8 @@ def ping_host(host: str, timeout: float = 1.0) -> Tuple[bool, float]:
         if platform.system().lower() == "windows":
             result = subprocess.run(
                 ["ping", "-n", "1", "-w", str(int(timeout * 1000)), host],
-                capture_output=True, text=True, timeout=timeout + 1
+                capture_output=True, text=True, timeout=timeout + 1,
+                creationflags=_NO_WINDOW
             )
         else:
             result = subprocess.run(
@@ -227,175 +231,14 @@ def get_common_ports() -> Dict[str, int]:
 
 def safe_console_message(message: str) -> str:
     """
-    Convert emoji and Unicode characters to console-safe text for Windows
-    This prevents UnicodeEncodeError when logging to console
+    Convert emoji and Unicode characters to console-safe text for Windows.
+    Uses encode/decode with 'replace' which handles ALL non-ASCII characters
+    in one pass — no need to enumerate every possible emoji.
     """
     if platform.system() == "Windows":
-        # Replace common emojis with text equivalents
-        emoji_replacements = {
-            "🧹": "[CLEAN]",
-            "✅": "[SUCCESS]",
-            "🛑": "[STOP]",
-            "🚀": "[START]",
-            "📊": "[STATS]",
-            "🔍": "[SEARCH]",
-            "⚡": "[POWER]",
-            "🐛": "[DEBUG]",
-            "💾": "[SAVE]",
-            "🌐": "[NETWORK]",
-            "🖥️": "[SYSTEM]",
-            "💿": "[DISK]",
-            "📱": "[DEVICE]",
-            "🔒": "[SECURITY]",
-            "⚠️": "[WARNING]",
-            "❌": "[ERROR]",
-            "ℹ️": "[INFO]",
-            "🎯": "[TARGET]",
-            "🔄": "[REFRESH]",
-            "⏱️": "[TIMER]",
-            "🛡️": "[SHIELD]",
-            "🚨": "[ALERT]",
-            "🎮": "[GAMING]",
-            "🔧": "[TOOLS]",
-            "📈": "[CHART]",
-            "🎪": "[CIRCUS]",
-            "🏆": "[TROPHY]",
-            "💡": "[IDEA]",
-            "🔮": "[MAGIC]",
-            "🎭": "[THEATER]",
-            "🎨": "[ART]",
-            "🎵": "[MUSIC]",
-            "🎬": "[MOVIE]",
-            "🎲": "[DICE]",
-            "🎸": "[GUITAR]",
-            "🎹": "[PIANO]",
-            "🎺": "[TRUMPET]",
-            "🎻": "[VIOLIN]",
-            "🥁": "[DRUM]",
-            "🎤": "[MICROPHONE]",
-            "🎧": "[HEADPHONES]",
-            "📺": "[TV]",
-            "📻": "[RADIO]",
-            "📱": "[PHONE]",
-            "💻": "[LAPTOP]",
-            "⌨️": "[KEYBOARD]",
-            "🖱️": "[MOUSE]",
-            "🖨️": "[PRINTER]",
-            "📷": "[CAMERA]",
-            "🎥": "[VIDEO]",
-            "📹": "[CAMCORDER]",
-            "📼": "[TAPE]",
-            "💿": "[CD]",
-            "📀": "[DVD]",
-            "💾": "[FLOPPY]",
-            "🗜️": "[COMPRESS]",
-            "📁": "[FOLDER]",
-            "📂": "[OPEN_FOLDER]",
-            "🗂️": "[CARD_INDEX]",
-            "📅": "[CALENDAR]",
-            "📆": "[TEAR_CALENDAR]",
-            "🗓️": "[SPIRAL_CALENDAR]",
-            "📇": "[CARD_INDEX]",
-            "🗃️": "[CARD_BOX]",
-            "📋": "[CLIPBOARD]",
-            "📌": "[PUSHPIN]",
-            "📍": "[ROUND_PUSHPIN]",
-            "🎯": "[BULLSEYE]",
-            "🎪": "[CIRCUS_TENT]",
-            "🎨": "[ARTIST_PALETTE]",
-            "🎭": "[PERFORMING_ARTS]",
-            "🎬": "[CLAPPER_BOARD]",
-            "🎤": "[MICROPHONE]",
-            "🎧": "[HEADPHONE]",
-            "🎼": "[MUSICAL_SCORE]",
-            "🎹": "[MUSICAL_KEYBOARD]",
-            "🎸": "[GUITAR]",
-            "🎺": "[TRUMPET]",
-            "🎻": "[VIOLIN]",
-            "🥁": "[DRUM]",
-            "🎷": "[SAXOPHONE]",
-            "📺": "[TELEVISION]",
-            "📻": "[RADIO]",
-            "📱": "[MOBILE_PHONE]",
-            "💻": "[LAPTOP_COMPUTER]",
-            "🖥️": "[DESKTOP_COMPUTER]",
-            "⌨️": "[KEYBOARD]",
-            "🖱️": "[COMPUTER_MOUSE]",
-            "🖨️": "[PRINTER]",
-            "📷": "[CAMERA]",
-            "🎥": "[MOVIE_CAMERA]",
-            "📹": "[VIDEOCASSETTE]",
-            "📼": "[VIDEOCASSETTE]",
-            "💿": "[OPTICAL_DISC]",
-            "📀": "[DVD]",
-            "💾": "[FLOPPY_DISK]",
-            "🗜️": "[COMPRESSION]",
-            "📁": "[FILE_FOLDER]",
-            "📂": "[OPEN_FILE_FOLDER]",
-            "🗂️": "[CARD_INDEX_DIVIDERS]",
-            "📅": "[TEAR_OFF_CALENDAR]",
-            "📆": "[SPIRAL_CALENDAR]",
-            "🗓️": "[SPIRAL_CALENDAR]",
-            "📇": "[CARD_INDEX]",
-            "🗃️": "[CARD_FILE_BOX]",
-            "📋": "[CLIPBOARD]",
-            "📌": "[PUSHPIN]",
-            "📍": "[ROUND_PUSHPIN]",
-            # Add more emojis that appear in the logs
-            "🚀": "[ROCKET]",
-            "🎯": "[TARGET]",
-            "⏱️": "[TIMER]",
-            "🚨": "[ALERT]",
-            "🎮": "[GAMING]",
-            "🔧": "[TOOLS]",
-            "📈": "[CHART]",
-            "🎪": "[CIRCUS]",
-            "🏆": "[TROPHY]",
-            "💡": "[IDEA]",
-            "🔮": "[MAGIC]",
-            "🎭": "[THEATER]",
-            "🎨": "[ART]",
-            "🎵": "[MUSIC]",
-            "🎬": "[MOVIE]",
-            "🎲": "[DICE]",
-            "🎸": "[GUITAR]",
-            "🎹": "[PIANO]",
-            "🎺": "[TRUMPET]",
-            "🎻": "[VIOLIN]",
-            "🥁": "[DRUM]",
-            "🎷": "[SAXOPHONE]",
-            "🎤": "[MICROPHONE]",
-            "🎧": "[HEADPHONE]",
-            "📺": "[TELEVISION]",
-            "📻": "[RADIO]",
-            "📱": "[MOBILE_PHONE]",
-            "💻": "[LAPTOP_COMPUTER]",
-            "🖥️": "[DESKTOP_COMPUTER]",
-            "⌨️": "[KEYBOARD]",
-            "🖱️": "[COMPUTER_MOUSE]",
-            "🖨️": "[PRINTER]",
-            "📷": "[CAMERA]",
-            "🎥": "[MOVIE_CAMERA]",
-            "📹": "[VIDEOCASSETTE]",
-            "📼": "[VIDEOCASSETTE]",
-            "💿": "[OPTICAL_DISC]",
-            "📀": "[DVD]",
-            "💾": "[FLOPPY_DISK]",
-            "🗜️": "[COMPRESSION]",
-            "📁": "[FILE_FOLDER]",
-            "📂": "[OPEN_FILE_FOLDER]",
-            "🗂️": "[CARD_INDEX_DIVIDERS]",
-            "📅": "[TEAR_OFF_CALENDAR]",
-            "📆": "[SPIRAL_CALENDAR]",
-            "🗓️": "[SPIRAL_CALENDAR]",
-            "📇": "[CARD_INDEX]",
-            "🗃️": "[CARD_FILE_BOX]",
-            "📋": "[CLIPBOARD]",
-            "📌": "[PUSHPIN]",
-            "📍": "[ROUND_PUSHPIN]"
-        }
-        
-        for emoji, replacement in emoji_replacements.items():
-            message = message.replace(emoji, replacement)
-    
+        try:
+            # Try encoding to the console's code page; replace failures with '?'
+            return message.encode('ascii', errors='replace').decode('ascii')
+        except Exception:
+            pass
     return message

@@ -23,6 +23,10 @@ hidden = (
         'pyqtgraph', 'psutil', 'keyboard', 'PIL',
         'scapy', 'scapy.all',
         'cryptography', 'numpy', 'pandas', 'openpyxl',
+        # Voice control (optional)
+        'sounddevice', 'whisper',
+        # GPC / CronusZEN (optional)
+        'serial', 'serial.tools', 'serial.tools.list_ports',
     ]
 )
 

@@ -79,10 +79,14 @@ class DataPersistenceManager:
             if self.config.backup_enabled and file_path.exists():
                 self._create_backup(file_path)
             
-            # Save data
-            with open(file_path, 'w', encoding='utf-8') as f:
+            # Atomic write: tmp → fsync → replace
+            tmp_path = file_path.with_suffix(".tmp")
+            with open(tmp_path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
-            
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(str(tmp_path), str(file_path))
+
             # Update tracking
             self._dirty_data.discard(data_type)
             self._last_save_time = time.time()

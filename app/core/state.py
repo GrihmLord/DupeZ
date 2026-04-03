@@ -2,6 +2,7 @@
 
 import json
 import os
+import threading
 from typing import List, Dict, Optional, Callable
 from dataclasses import dataclass, asdict
 from datetime import datetime
@@ -78,17 +79,21 @@ class AppState:
         self.network_info: Dict = {}
         self.scan_in_progress: bool = False
         self._observers: List[Callable] = []
-        
+        self._lock = threading.Lock()
+
         # Load settings
         self.load_settings()
     
     def add_observer(self, callback: Callable):
         """Add an observer to be notified of state changes"""
-        self._observers.append(callback)
+        with self._lock:
+            self._observers.append(callback)
     
     def notify_observers(self, event: str, data: any = None):
         """Notify all observers of a state change"""
-        for observer in self._observers:
+        with self._lock:
+            observers = list(self._observers)
+        for observer in observers:
             try:
                 observer(event, data)
             except Exception as e:

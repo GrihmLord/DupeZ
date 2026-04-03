@@ -8,7 +8,7 @@ import webbrowser
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStatusBar, QStackedWidget, QDialog, QMessageBox,
-    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu, QMenuBar
+    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu
 )
 from PyQt6.QtGui import QIcon, QAction, QFont, QCursor, QColor
 from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSlot
@@ -67,7 +67,7 @@ class DupeZDashboard(QMainWindow):
     # ------------------------------------------------------------------
     def setup_ui(self):
         admin_text = "ADMIN " if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ {admin_text}v3.3.0")
+        self.setWindowTitle(f"DupeZ {admin_text}v3.5.0")
         # App icon — try resources first, fall back to assets
         for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
             if os.path.exists(icon_path):
@@ -119,7 +119,7 @@ class DupeZDashboard(QMainWindow):
         tb_layout.setSpacing(8)
 
         # Icon + title
-        title_label = QLabel("DupeZ v3.3.0")
+        title_label = QLabel("DupeZ v3.5.0")
         title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
         tb_layout.addWidget(title_label)
 
@@ -169,11 +169,6 @@ class DupeZDashboard(QMainWindow):
         tb_layout.addWidget(self.btn_close)
 
         main_layout.addWidget(self.title_bar)
-
-        # === EMBEDDED MENU BAR (below title bar) ===
-        self.custom_menubar = QMenuBar()
-        self.custom_menubar.setObjectName("custom_menubar")
-        main_layout.addWidget(self.custom_menubar)
 
         # === HEADER ===
         header = QWidget()
@@ -470,15 +465,7 @@ class DupeZDashboard(QMainWindow):
     # Menu
     # ------------------------------------------------------------------
     def setup_menu(self):
-        # Kill the native QMainWindow menubar entirely — it always renders
-        # above the central widget, ignoring layout order. Replace it with
-        # a zero-height dummy so Qt doesn't draw anything there.
-        dummy = QMenuBar(self)
-        dummy.setFixedHeight(0)
-        dummy.setVisible(False)
-        self.setMenuBar(dummy)
-
-        menubar = self.custom_menubar
+        menubar = self.menuBar()
 
         # File
         file_menu = menubar.addMenu('&File')
@@ -635,7 +622,7 @@ class DupeZDashboard(QMainWindow):
         title.setStyleSheet("color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;")
         layout.addWidget(title)
 
-        version = QLabel("v3.3.0")
+        version = QLabel("v3.5.0")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
         layout.addWidget(version)

@@ -3,7 +3,7 @@
 Disruption Scheduler + Macro Engine
 
 Scheduler — Timer-based disruption rules:
-  "Start disruption on 192.168.1.50 at 20:00, stop at 20:30, repeat daily"
+  "Start disruption on 198.51.100.5 at 20:00, stop at 20:30, repeat daily"
 
 Macros — Sequential profile chains with timing:
   "Light Lag 30s → Heavy Lag 10s → Disconnect 5s → repeat 3x"

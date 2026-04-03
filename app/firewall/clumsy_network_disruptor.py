@@ -388,6 +388,7 @@ class ClumsyEngine:
             self._proc = subprocess.Popen(
                 cmd_list, cwd=self.clumsy_dir,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                creationflags=CREATE_NO_WINDOW,
             )
             log_info(f"ClumsyEngine launched: PID={self._proc.pid}")
 
@@ -403,6 +404,7 @@ class ClumsyEngine:
                     self._proc = subprocess.Popen(
                         cmd_list, cwd=self.clumsy_dir,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                        creationflags=CREATE_NO_WINDOW,
                     )
                     log_info(f"ClumsyEngine relaunched (GUI): PID={self._proc.pid}")
                     return self._start_gui_automation()
@@ -1229,6 +1231,28 @@ class ClumsyNetworkDisruptor:
             "is_admin": self._is_admin(),
             "initialized": self._initialized,
         }
+
+    def get_all_engine_stats(self) -> Dict:
+        """Aggregate stats from all active disruption engines."""
+        totals = {
+            "packets_processed": 0, "packets_dropped": 0,
+            "packets_inbound": 0, "packets_outbound": 0,
+            "packets_passed": 0, "active_engines": 0,
+            "per_device": {},
+        }
+        with self._device_lock:
+            for ip, info in self.disrupted_devices.items():
+                eng = info.get("engine")
+                if eng and hasattr(eng, 'get_stats'):
+                    stats = eng.get_stats()
+                    totals["packets_processed"] += stats.get("packets_processed", 0)
+                    totals["packets_dropped"] += stats.get("packets_dropped", 0)
+                    totals["packets_inbound"] += stats.get("packets_inbound", 0)
+                    totals["packets_outbound"] += stats.get("packets_outbound", 0)
+                    totals["packets_passed"] += stats.get("packets_passed", 0)
+                    totals["active_engines"] += 1 if stats.get("alive") else 0
+                    totals["per_device"][ip] = stats
+        return totals
 
     def start_clumsy(self):
         self.is_running = True

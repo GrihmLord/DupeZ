@@ -138,7 +138,8 @@ class SessionTracker:
             intensity=intensity,
         )
 
-        self._active_sessions[session_id] = record
+        with self._lock:
+            self._active_sessions[session_id] = record
         log_info(f"SessionTracker: started session {session_id} "
                  f"({recommendation.name} → {profile.target_ip})")
         return session_id
@@ -152,7 +153,8 @@ class SessionTracker:
             user_rating: 0-5 (0=unrated, 1=didn't work, 5=perfect)
             notes: Optional user notes
         """
-        record = self._active_sessions.pop(session_id, None)
+        with self._lock:
+            record = self._active_sessions.pop(session_id, None)
         if not record:
             log_error(f"SessionTracker: unknown session {session_id}")
             return

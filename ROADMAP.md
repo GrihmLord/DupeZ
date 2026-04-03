@@ -39,6 +39,31 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
+## v3.4.0 — God Mode + Voice + GPC ✅
+
+**Released:** 2026-04-02
+
+- ~~**God Mode / Directional Lag** — Inbound packets delayed while outbound passes untouched. Target freezes on others' screens while your actions register in real time. Configurable inbound lag (0–5000ms) and optional inbound drop.~~ ✅ Done
+- ~~**100% Drop Fidelity** — Drop module uses packet discard instead of re-inject. True 100% when configured.~~ ✅ Done
+- ~~**Direction-Aware Filtering** — All disruption modules implement `matches_direction()`. WinDivert outbound bit detection for per-packet direction classification.~~ ✅ Done
+- ~~**Voice Control** — Push-to-talk voice commands via OpenAI Whisper (local, offline). Speak disruption commands, LLM advisor interprets into configs. Model selection (tiny/base/small), mic selection.~~ ✅ Done
+- ~~**GPC / CronusZEN Support** — Parse .gpc files, generate scripts synced with DupeZ timing, export to Zen Studio. 4 built-in templates (Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil). USB device detection.~~ ✅ Done
+- ~~**Smart Engine God Mode Strategy** — 6th goal strategy with hotspot-aware tuning.~~ ✅ Done
+- ~~**LLM Advisor God Mode Fallback** — Keyword-based godmode interpretation when no LLM available.~~ ✅ Done
+
+---
+
+## v3.5.0 — Live Stats + Distribution Polish ✅
+
+**Released:** 2026-04-03
+
+- ~~**Live Stats Dashboard** — Real-time packet counters (processed, dropped, passed, inbound, outbound) with auto-refresh. Drop rate bar, active engine count, per-device breakdown table.~~ ✅ Done
+- ~~**Engine Stats API** — `get_stats()` on NativeDisruptEngine, `get_all_engine_stats()` aggregator on ClumsyNetworkDisruptor, `get_engine_stats()` on AppController.~~ ✅ Done
+- ~~**PyInstaller Spec Update** — Hidden imports for optional voice and GPC dependencies so frozen exe bundles correctly.~~ ✅ Done
+- ~~**Version Bump** — 3.3.0 → 3.5.0 across all modules, title bar, about dialog, and AppUserModelID.~~ ✅ Done
+
+---
+
 ## v4.0.0 — Platform & Extensibility
 
 **Target:** 2027
@@ -59,6 +84,7 @@ These are ideas worth exploring but not committed to a release.
 - **Replay System** — Record and replay disruption sessions for testing and consistency.
 - **Mobile Companion** — Lightweight mobile app for monitoring active disruptions and triggering presets remotely.
 - **Community Hub** — In-app feed for shared disruption profiles, presets, and configs.
+- **Voice Macro Chains** — Chain voice commands into multi-step disruption sequences.
 
 ---
 
@@ -70,6 +96,8 @@ These are ideas worth exploring but not committed to a release.
 - [x] **v3.2.0** — Multi-target simultaneous disruption. Scheduled/timed disruptions. Disruption macros. Profile import/export.
 - [x] **v3.3.0** — Network Intelligence. Live traffic monitor. Latency overlay. Port scanner. 4-view dashboard.
 - [x] **v3.3.1** — Hardening pass. 11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation, OOD buffer bounds.
+- [x] **v3.4.0** — God Mode + Voice + GPC. Directional lag engine. Push-to-talk voice control via Whisper. CronusZEN/MAX GPC integration. 100% drop fidelity. Direction-aware filtering. 6th smart engine strategy.
+- [x] **v3.5.0** — Live Stats Dashboard. Real-time packet counters with per-device breakdown. Engine stats API. PyInstaller spec update for optional deps. Version bump.
 
 ---
 
