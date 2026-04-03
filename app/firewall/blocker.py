@@ -8,7 +8,7 @@ import platform
 import subprocess
 import socket
 from typing import List, Dict, Optional
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_error, log_warning
 import time
 
 def is_admin() -> bool:
@@ -179,7 +179,7 @@ class NetworkBlocker:
     
     def __init__(self):
         self.blocked_ips = set()
-        self.is_active = False
+        self._is_active = False
     
     def block_ip(self, ip: str) -> bool:
         """Block an IP address"""
@@ -187,7 +187,7 @@ class NetworkBlocker:
             success = block_device(ip, block=True)
             if success:
                 self.blocked_ips.add(ip)
-                self.is_active = True
+                self._is_active = True
                 log_info(f"NetworkBlocker blocked IP: {ip}")
             return success
         except Exception as e:
@@ -201,7 +201,7 @@ class NetworkBlocker:
             if success:
                 self.blocked_ips.discard(ip)
                 if not self.blocked_ips:
-                    self.is_active = False
+                    self._is_active = False
                 log_info(f"NetworkBlocker unblocked IP: {ip}")
             return success
         except Exception as e:
@@ -230,7 +230,7 @@ class NetworkBlocker:
             success = clear_all_dupez_blocks()
             if success:
                 self.blocked_ips.clear()
-                self.is_active = False
+                self._is_active = False
                 log_info("NetworkBlocker cleared all blocks")
             return success
         except Exception as e:
@@ -239,12 +239,12 @@ class NetworkBlocker:
     
     def is_active(self) -> bool:
         """Check if blocker is active"""
-        return self.is_active
-    
+        return self._is_active
+
     def get_status(self) -> Dict:
         """Get blocker status"""
         return {
-            "is_active": self.is_active,
+            "is_active": self._is_active,
             "blocked_ips": list(self.blocked_ips),
             "total_blocked": len(self.blocked_ips)
         }

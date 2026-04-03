@@ -149,17 +149,16 @@ class AppController:
 
     def _verify_device_exists(self, ip: str) -> bool:
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1.0)
             for port in [80, 443, 22, 53, 8080]:
                 try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(1.0)
                     result = sock.connect_ex((ip, port))
                     sock.close()
                     if result == 0:
                         return True
                 except:
                     continue
-            sock.close()
             return False
         except:
             return False
@@ -180,8 +179,13 @@ class AppController:
         return self.state.get_selected_device()
 
     def toggle_lag(self, ip: str = None) -> bool:
-        """Toggle blocking for a device via netsh firewall"""
+        """Toggle blocking for a device via netsh firewall.
+
+        If no IP is provided, falls back to the currently selected device.
+        """
         try:
+            if not ip:
+                ip = self.state.selected_ip
             if not ip:
                 return False
             device = self.state.get_device_by_ip(ip)
