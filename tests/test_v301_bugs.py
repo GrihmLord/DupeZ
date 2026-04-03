@@ -176,7 +176,7 @@ class TestVersionConsistency(unittest.TestCase):
 
     def test_dashboard_version(self):
         """dashboard.py should reference version 3.0"""
-        with open("app/gui/dashboard.py", "r") as f:
+        with open("app/gui/dashboard.py", "r", encoding="utf-8") as f:
             source = f.read()
         self.assertIn("3.0", source, "dashboard.py should contain version 3.0")
 

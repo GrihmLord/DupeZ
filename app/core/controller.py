@@ -295,3 +295,4 @@ class AppController:
             log_info("Controller shutdown complete")
         except Exception as e:
             log_error(f"Shutdown error: {e}")
+
