@@ -15,6 +15,7 @@ from app.core.data_persistence import (
     marker_manager, device_cache_manager, save_all_data
 )
 from app.core.scheduler import DisruptionScheduler
+from app.plugins.loader import PluginLoader
 
 
 class AppController:
@@ -36,6 +37,10 @@ class AppController:
             stop_fn=self.stop_disruption
         )
         self.scheduler.start()
+
+        # Plugin system
+        self.plugin_loader = PluginLoader()
+        self._init_plugins()
 
         # Start auto-scan if enabled
         if self.state.settings.auto_scan:
@@ -331,11 +336,35 @@ class AppController:
         return len(self.get_blocked_devices()) > 0
 
     # ------------------------------------------------------------------
+    # Plugin System
+    # ------------------------------------------------------------------
+    def _init_plugins(self):
+        """Discover and load all plugins from the plugins directory."""
+        try:
+            self.plugin_loader.discover()
+            self.plugin_loader.load_all(self)
+            active = self.plugin_loader.get_active_plugins()
+            log_info(f"Plugin system initialized: {len(active)} active plugin(s)")
+        except Exception as e:
+            log_error(f"Plugin system init error: {e}")
+
+    def get_plugin_info(self) -> list:
+        """Return info about all discovered plugins."""
+        return self.plugin_loader.get_plugin_info()
+
+    def reload_plugins(self):
+        """Unload all plugins, re-discover, and reload."""
+        self.plugin_loader.unload_all()
+        self.plugin_loader.discover()
+        self.plugin_loader.load_all(self)
+
+    # ------------------------------------------------------------------
     # Shutdown
     # ------------------------------------------------------------------
     def shutdown(self):
         try:
             log_info("Controller shutting down...")
+            self.plugin_loader.unload_all()
             self.stop_auto_scan()
             self.scheduler.stop()
             clumsy_network_disruptor.stop_clumsy()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Network Intelligence Tools — v3.5.0
+Network Intelligence Tools — v4.0.0
 
 Three tools packaged as a tabbed widget:
   1. Live Traffic Monitor   — real-time bandwidth graph per device

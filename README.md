@@ -1,8 +1,8 @@
-# DupeZ v3.5.0
+# DupeZ v4.0.0
 
-Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard.
+Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard. Now with a plugin API, CLI mode, and auto-updater.
 
-Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, and more. Includes AI auto-tuning, scheduled disruptions, macro chains, live traffic monitoring, and a connection mapper.
+Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, and more. Includes AI auto-tuning, scheduled disruptions, macro chains, live traffic monitoring, a connection mapper, and a plugin system for community extensions.
 
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![Python](https://img.shields.io/badge/python-3.10%2B-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
 
@@ -39,6 +39,15 @@ Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Hold the
 
 ### GPC / CronusZEN Support (v3.4.0+)
 Native GPC script integration for CronusZEN and CronusMAX devices. Parse existing .gpc files, generate new scripts synced with DupeZ disruption timing, and export directly to Zen Studio's library folder. Built-in templates: DayZ Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil. Auto-detects connected Cronus devices via USB. Requires `pyserial` for device detection (optional).
+
+### Plugin API (v4.0.0+)
+Lightweight plugin system for community-built extensions. Drop a folder with a `manifest.json` + Python entry point into `plugins/` and DupeZ auto-discovers it on startup. Four plugin types: **DisruptionPlugin** (new packet manipulation methods), **ScannerPlugin** (new network scanners), **UIPanelPlugin** (new sidebar views), and **GenericPlugin** (background automation). Plugins receive full access to `AppController`. Hot-reload via Tools menu or CLI.
+
+### CLI Mode (v4.0.0+)
+Run DupeZ headless from the terminal. Subcommands: `scan`, `disrupt`, `stop`, `status`, `devices`, `plugins`. Interactive REPL with `dupez-cli interactive`. Script disruptions with `--methods` and `--params` flags for automation pipelines.
+
+### Auto-Updater (v4.0.0+)
+In-app update checker queries GitHub Releases for the latest version. One-click download via Help > Check for Updates. Semver comparison, release notes display, and direct download link to the latest `.exe` or `.zip` asset.
 
 ### Network Tools (v3.3.0+)
 Four-tab network intelligence toolkit: Live Traffic Monitor (per-interface bandwidth), Latency Overlay (floating transparent ping/jitter widget), Port Scanner (Common/Gaming/Web/Full presets), and Connection Mapper (real-time topology with gaming port detection and hostname resolution).
@@ -85,8 +94,12 @@ cd DupeZ
 # Install dependencies
 pip install -r requirements.txt
 
-# Run (auto-elevates via UAC)
+# Run GUI (auto-elevates via UAC)
 python dupez.py
+
+# Run CLI (headless)
+python -m app.cli scan
+python -m app.cli interactive
 ```
 
 ### Build standalone exe
@@ -102,17 +115,22 @@ build.bat
 ## Project Structure
 
 ```
-dupez.py                             # Entry point — run this
+dupez.py                             # Entry point — run this (GUI mode)
 dupez.spec                           # PyInstaller build spec
 build.bat                            # One-click build script
 app/
 ├── main.py                          # UAC elevation, crash handler, Qt init
+├── cli.py                           # CLI mode — headless terminal interface + REPL
 ├── core/
-│   ├── controller.py                # Scan, disrupt, block — main app logic
+│   ├── controller.py                # Scan, disrupt, block — main app logic + plugin management
 │   ├── state.py                     # Observable state + device model
 │   ├── data_persistence.py          # JSON persistence for accounts/settings
 │   ├── scheduler.py                 # Disruption scheduler + macro engine
-│   └── profiles.py                  # Named disruption profile system
+│   ├── profiles.py                  # Named disruption profile system
+│   └── updater.py                   # Auto-updater via GitHub Releases API
+├── plugins/
+│   ├── base.py                      # Plugin base classes (Disruption, Scanner, UIPanel, Generic)
+│   └── loader.py                    # Plugin discovery, validation, lifecycle management
 ├── ai/
 │   ├── smart_engine.py              # ML-based disruption parameter optimizer
 │   ├── network_profiler.py          # Target connection profiler (RTT/jitter/loss)
@@ -131,7 +149,7 @@ app/
 │   ├── WinDivert.dll / .sys         # WinDivert driver
 │   └── clumsy_src/                  # Clumsy C source (with --silent patch)
 ├── gui/
-│   ├── dashboard.py                 # 4-view sidebar rail (Clumsy | Map | Accounts | Network)
+│   ├── dashboard.py                 # Sidebar rail + view stack + plugin panel loader
 │   ├── clumsy_control.py            # Device list + disruption controls + presets + AI panel
 │   ├── network_tools.py             # Traffic monitor, latency overlay, port scanner, connection mapper
 │   ├── dayz_map_gui_new.py          # Ad-free iZurvive + map selector
@@ -146,6 +164,10 @@ app/
 ├── utils/                           # Helpers and system utilities
 ├── resources/                       # App icons
 └── config/                          # JSON config files
+plugins/                             # Community plugins (each folder = one plugin)
+└── example_ping_monitor/            # Example: live ping monitor UI panel
+    ├── manifest.json
+    └── plugin.py
 ```
 
 ---
@@ -252,19 +274,21 @@ All three produce the same result: targeted packet manipulation on the selected 
 
 ## Version History
 
-**v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling. Version bump across all modules.
+**v4.0.0** — Platform & Extensibility. Plugin API with 4 plugin types (disruption, scanner, ui_panel, generic), manifest-based discovery, and auto-loading. CLI mode with subcommands, interactive REPL, and scriptable disruptions. Auto-updater via GitHub Releases API with in-app one-click download.
 
-**v3.4.0** — God Mode directional lag engine (inbound delay, outbound untouched). Push-to-talk voice control via OpenAI Whisper. CronusZEN/MAX GPC script integration (parser, generator, device bridge, 4 built-in templates). 100% drop fidelity fix. Direction-aware packet filtering. Smart Engine 6th goal strategy (godmode). LLM Advisor godmode fallback. Voice + GPC GUI panels. Thread safety and audit fixes.
+**v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling.
 
-**v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper with gaming port detection, latency overlay with floating transparent widget, port scanner with service ID. 4-view dashboard. Full codebase hardening pass (11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation).
+**v3.4.0** — God Mode directional lag engine. Push-to-talk voice control via OpenAI Whisper. CronusZEN/MAX GPC script integration. 100% drop fidelity. Direction-aware packet filtering.
 
-**v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions with auto-stop. Disruption macro chains. Profile import/export.
+**v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper, latency overlay, port scanner. 4-view dashboard. Codebase hardening pass.
 
-**v3.1.0** — AI Smart Mode. ML-based disruption optimizer with 6 goal strategies. Network profiler (RTT/jitter/loss/bandwidth). LLM advisor via Ollama or OpenAI-compatible API. Session tracking with feedback learning. Profile system. System tray mode. Device nicknames. Scan caching.
+**v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions. Disruption macro chains. Profile import/export.
 
-**v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine.
+**v3.1.0** — AI Smart Mode. ML-based disruption optimizer. Network profiler. LLM advisor. Session tracking. Profile system. System tray mode.
 
-**v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration, account tracker, multiple disruptors.
+**v3.0.0** — Complete architectural overhaul. 89% code reduction. 3-view dashboard. Native WinDivert engine.
+
+**v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration.
 
 **v1.0.0** — Basic network scanner with device blocking.
 
@@ -274,7 +298,9 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 
 ## Roadmap
 
-**v4.0.0** — Plugin API, CLI mode, Linux support, auto-updater.
+**v4.1.0** — Linux support (`tc`/`iptables` backend).
+
+**Stretch Goals** — Steam integration, DayZ server browser, replay system, mobile companion, community hub, voice macro chains.
 
 Full roadmap with details: [ROADMAP.md](ROADMAP.md)
 

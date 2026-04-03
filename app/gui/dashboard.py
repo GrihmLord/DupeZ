@@ -67,7 +67,7 @@ class DupeZDashboard(QMainWindow):
     # ------------------------------------------------------------------
     def setup_ui(self):
         admin_text = "ADMIN " if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ {admin_text}v3.5.0")
+        self.setWindowTitle(f"DupeZ {admin_text}v4.0.0")
         # App icon — try resources first, fall back to assets
         for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
             if os.path.exists(icon_path):
@@ -119,7 +119,7 @@ class DupeZDashboard(QMainWindow):
         tb_layout.setSpacing(8)
 
         # Icon + title
-        title_label = QLabel("DupeZ v3.5.0")
+        title_label = QLabel("DupeZ v4.0.0")
         title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
         tb_layout.addWidget(title_label)
 
@@ -242,6 +242,9 @@ class DupeZDashboard(QMainWindow):
         self.nettools_view = NetworkToolsView(controller=self.controller)
         self.view_stack.addWidget(self.nettools_view)
 
+        # --- Plugin UI Panels ---
+        self._load_plugin_panels(sl)
+
         cl.addWidget(self.view_stack, 1)
         main_layout.addWidget(content, 1)
 
@@ -275,6 +278,50 @@ class DupeZDashboard(QMainWindow):
         self.view_stack.setCurrentIndex(index)
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
+
+    # ------------------------------------------------------------------
+    # Plugin UI Panels
+    # ------------------------------------------------------------------
+    def _load_plugin_panels(self, sidebar_layout):
+        """Load UI panel plugins into the sidebar and view stack."""
+        if not self.controller or not hasattr(self.controller, 'plugin_loader'):
+            return
+        try:
+            ui_plugins = self.controller.plugin_loader.get_ui_panel_plugins()
+            if not ui_plugins:
+                return
+
+            # Add a separator before plugin panels
+            separator = QLabel("─" * 4)
+            separator.setStyleSheet("color: #1e293b; font-size: 8px;")
+            separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            sidebar_layout.addWidget(separator)
+
+            for loaded in ui_plugins:
+                try:
+                    info = loaded.instance.get_panel_info()
+                    widget = loaded.instance.create_widget(parent=self.view_stack)
+                    if widget is None:
+                        continue
+
+                    # Add to view stack
+                    view_index = self.view_stack.count()
+                    self.view_stack.addWidget(widget)
+
+                    # Add nav button
+                    btn = self._nav_btn(
+                        info.get("icon", "🔌"),
+                        info.get("tooltip", loaded.name)
+                    )
+                    btn.clicked.connect(lambda checked, idx=view_index: self.switch_view(idx))
+                    self.nav_buttons.append(btn)
+                    sidebar_layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignHCenter)
+
+                    log_info(f"Plugin UI panel loaded: {loaded.name}")
+                except Exception as e:
+                    log_error(f"Failed to load plugin UI panel '{loaded.name}': {e}")
+        except Exception as e:
+            log_error(f"Plugin panel loading error: {e}")
 
     # ------------------------------------------------------------------
     # Header Stats
@@ -489,6 +536,8 @@ class DupeZDashboard(QMainWindow):
 
         # Help
         help_menu = menubar.addMenu('&Help')
+        self._add_action(help_menu, 'Check for &Updates', '', self._check_for_updates)
+        help_menu.addSeparator()
         self._add_action(help_menu, '&Hotkeys', 'F1', self.show_hotkeys)
         self._add_action(help_menu, '&About', '', self.show_about)
 
@@ -581,6 +630,29 @@ class DupeZDashboard(QMainWindow):
         <p><b>Ctrl+Q</b> — Exit</p>
         """)
 
+    def _check_for_updates(self):
+        """Check GitHub for new releases and show result."""
+        try:
+            from app.core.updater import updater
+            result = updater.check_sync()
+            if result.get("error"):
+                QMessageBox.warning(self, "Update Check", f"Could not check for updates:\n{result['error']}")
+            elif result.get("update_available"):
+                reply = QMessageBox.question(
+                    self, "Update Available",
+                    f"DupeZ {result['latest_version']} is available!\n"
+                    f"You're running {result['current_version']}.\n\n"
+                    f"Open download page?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                if reply == QMessageBox.StandardButton.Yes:
+                    updater.open_download()
+            else:
+                QMessageBox.information(self, "Up to Date", f"DupeZ {result['current_version']} is the latest version.")
+        except Exception as e:
+            log_error(f"Update check error: {e}")
+            QMessageBox.warning(self, "Update Check", f"Error checking for updates:\n{e}")
+
     def show_about(self):
         dlg = QDialog(self)
         dlg.setWindowTitle("About DupeZ")
@@ -622,7 +694,7 @@ class DupeZDashboard(QMainWindow):
         title.setStyleSheet("color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;")
         layout.addWidget(title)
 
-        version = QLabel("v3.5.0")
+        version = QLabel("v4.0.0")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
         layout.addWidget(version)

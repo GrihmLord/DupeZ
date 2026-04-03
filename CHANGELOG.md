@@ -4,6 +4,31 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v4.0.0 — 2026-04-03 (Platform & Extensibility)
+
+Major platform release. Plugin API, CLI mode, and auto-updater.
+
+### Added — Plugin API
+- **`app/plugins/base.py`** — Base classes for all plugin types: `DisruptionPlugin`, `ScannerPlugin`, `UIPanelPlugin`, `GenericPlugin`. Each receives a reference to `AppController` on activation.
+- **`app/plugins/loader.py`** — `PluginLoader` with full lifecycle: discovery, manifest validation, dynamic import, activation, deactivation, and hot-reload. Plugins live in `plugins/` with a `manifest.json` + Python entry point.
+- **`manifest.json` schema** — Declares name, version, description, type, entry_point, author, dependencies, and min DupeZ version. Validated on discovery.
+- **Dashboard integration** — UI panel plugins automatically get a sidebar nav button and view stack entry. Loaded after core views during `setup_ui()`.
+- **Controller integration** — `AppController._init_plugins()`, `get_plugin_info()`, `reload_plugins()`. Plugins unloaded cleanly on shutdown.
+- **Example plugin: Ping Monitor** — Live latency panel showing real-time ping to all discovered devices. Demonstrates the full `UIPanelPlugin` lifecycle with thread-safe Qt signals.
+
+### Added — CLI Mode
+- **`app/cli.py`** — Full headless terminal interface. Subcommands: `scan`, `disrupt`, `stop`, `status`, `devices`, `plugins`. Interactive REPL mode with `dupez-cli interactive`.
+- **Scriptable disruptions** — `dupez-cli disrupt <ip> --methods drop,lag --params '{"drop_chance":50}'`. Pipe-friendly output for automation.
+
+### Added — Auto-Updater
+- **`app/core/updater.py`** — `UpdateChecker` queries GitHub Releases API for latest version. Compares semver, offers one-click download via browser. Sync and async check modes.
+- **Dashboard menu** — Help > Check for Updates triggers update check with dialog.
+
+### Changed
+- **Version bump** — 3.5.0 → 4.0.0 across all modules, title bar, about dialog, AppUserModelID, and PyInstaller spec.
+
+---
+
 ## v3.5.0 — 2026-04-03 (Live Stats + Distribution Polish)
 
 Quality-of-life release: real-time packet stats dashboard, PyInstaller packaging improvements, and version bump.

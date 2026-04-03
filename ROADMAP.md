@@ -64,14 +64,14 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
-## v4.0.0 — Platform & Extensibility
+## v4.0.0 — Platform & Extensibility ✅
 
-**Target:** 2027
+**Released:** 2026-04-03
 
-- **Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point.
-- **CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation.
-- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6.
-- **Auto-Updater** — In-app update checker with one-click download from GitHub releases.
+- ~~**Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point. Auto-discovery from `plugins/` directory. Hot-reload support.~~ ✅ Done
+- ~~**CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation. Interactive REPL mode.~~ ✅ Done
+- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred to v4.1.0)*
+- ~~**Auto-Updater** — In-app update checker with one-click download from GitHub releases.~~ ✅ Done
 
 ---
 
@@ -98,6 +98,7 @@ These are ideas worth exploring but not committed to a release.
 - [x] **v3.3.1** — Hardening pass. 11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation, OOD buffer bounds.
 - [x] **v3.4.0** — God Mode + Voice + GPC. Directional lag engine. Push-to-talk voice control via Whisper. CronusZEN/MAX GPC integration. 100% drop fidelity. Direction-aware filtering. 6th smart engine strategy.
 - [x] **v3.5.0** — Live Stats Dashboard. Real-time packet counters with per-device breakdown. Engine stats API. PyInstaller spec update for optional deps. Version bump.
+- [x] **v4.0.0** — Platform & Extensibility. Plugin API with manifest schema, auto-discovery, and 4 plugin types (disruption, scanner, ui_panel, generic). CLI mode with scriptable disruptions and interactive REPL. Auto-updater via GitHub Releases API.
 
 ---
 

@@ -77,7 +77,7 @@ def main():
 
         if os.name == 'nt':
             try:
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('com.dupez.app.3.5')
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('com.dupez.app.4.0')
             except Exception as e:
                 log_error(f"Failed to set AppUserModelID: {e}")
 
@@ -90,7 +90,7 @@ def main():
 
         log_info("Initializing DupeZ...")
         log_info(f"Admin privileges: {'Yes' if IS_ADMIN else 'No'}")
-        log_info("DupeZ version: 3.5.0")
+        log_info("DupeZ version: 4.0.0")
 
         controller = AppController()
         window = DupeZDashboard(controller=controller)
