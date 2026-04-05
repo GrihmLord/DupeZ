@@ -34,15 +34,20 @@ hidden = (
 datas = [
     # Config JSONs
     (os.path.join(ROOT, 'app', 'config'),           os.path.join('app', 'config')),
-    (os.path.join(ROOT, 'config'),                   'config'),
     # Icons / assets
     (os.path.join(ROOT, 'app', 'resources'),         os.path.join('app', 'resources')),
     (os.path.join(ROOT, 'app', 'assets'),            os.path.join('app', 'assets')),
     # Themes
     (os.path.join(ROOT, 'app', 'themes'),            os.path.join('app', 'themes')),
-    # Data files
-    (os.path.join(ROOT, 'data'),                     'data'),
 ]
+
+# Optional directories — only include if they exist and are non-empty
+for src, dest in [
+    (os.path.join(ROOT, 'config'), 'config'),
+    (os.path.join(ROOT, 'data'),   'data'),
+]:
+    if os.path.isdir(src) and os.listdir(src):
+        datas.append((src, dest))
 
 # ── binary DLLs for WinDivert + Clumsy ──────────────────────────────────
 binaries = []
