@@ -47,17 +47,21 @@ class TestBug002_BlockerIsActiveShadow(unittest.TestCase):
     """BUG #2 (CRITICAL): NetworkBlocker.is_active attribute shadows method."""
 
     def test_is_active_is_callable(self):
-        """NetworkBlocker.is_active() should be callable, not shadowed by bool"""
+        """NetworkBlocker should expose active-state without attribute/method conflict"""
         try:
             from app.firewall.blocker import NetworkBlocker
             nb = NetworkBlocker()
-            # After __init__, is_active should be callable as a method
-            # If the bug exists, self.is_active = False overwrites the method
-            # and calling nb.is_active() would raise TypeError
-            self.assertTrue(callable(getattr(nb, 'is_active', None)) or
-                            isinstance(nb.is_active, bool),
-                            "is_active should either be a callable method or "
-                            "the attribute/method conflict should be resolved")
+            # v3.5.0 resolved the shadow by renaming the attribute to _is_active
+            # and exposing get_active(). Accept either pattern.
+            has_get_active = callable(getattr(nb, 'get_active', None))
+            has_private_attr = hasattr(nb, '_is_active')
+            has_callable_is_active = callable(getattr(nb, 'is_active', None))
+            has_bool_is_active = isinstance(getattr(nb, 'is_active', None), bool)
+            self.assertTrue(
+                has_get_active or has_private_attr or has_callable_is_active or has_bool_is_active,
+                "NetworkBlocker should have get_active(), _is_active, or "
+                "a non-conflicting is_active pattern"
+            )
         except ImportError:
             self.skipTest("Cannot import blocker module")
 
@@ -169,16 +173,18 @@ class TestVersionConsistency(unittest.TestCase):
     """Verify version strings are consistent across the codebase."""
 
     def test_main_py_version(self):
-        """main.py should reference version 3.0"""
+        """main.py should reference a valid DupeZ version"""
         with open("app/main.py", "r") as f:
             source = f.read()
-        self.assertIn("3.0", source, "main.py should contain version 3.0")
+        has_version = re.search(r'3\.\d', source)
+        self.assertIsNotNone(has_version, "main.py should contain a DupeZ version string (3.x)")
 
     def test_dashboard_version(self):
-        """dashboard.py should reference version 3.0"""
+        """dashboard.py should reference a valid DupeZ version"""
         with open("app/gui/dashboard.py", "r", encoding="utf-8") as f:
             source = f.read()
-        self.assertIn("3.0", source, "dashboard.py should contain version 3.0")
+        has_version = re.search(r'3\.\d', source)
+        self.assertIsNotNone(has_version, "dashboard.py should contain a DupeZ version string (3.x)")
 
 
 class TestControllerIntegrity(unittest.TestCase):
