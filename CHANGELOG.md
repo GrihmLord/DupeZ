@@ -4,6 +4,32 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v3.0.2 — 2026-04-04
+
+PvP preset additions and account tracker stability fixes.
+
+### Added
+- **Ghost Rush preset** — Outbound-only disruption. Enemies see you frozen at your last position while you move freely. 1200ms outbound lag + 90% drop + throttle. Designed for rushing campers behind cover.
+- **Phantom Peek preset** — Lighter outbound burst for quick peeks. 600ms outbound lag + 80% drop. Peek corners, take shots, duck back before their client updates.
+- **Direction-aware presets** — Both new presets use `"direction": "outbound"` to only disrupt packets you send (your position updates) while keeping inbound clean (you still see enemies in real time).
+- 14 regression tests covering all v3.0.1 bug fixes (`tests/test_v301_bugs.py`).
+
+### Fixed
+- **Blocker missing import** — `log_warning` not imported in `blocker.py`, causing `NameError` on `clear_all_dupez_blocks()`.
+- **Blocker method shadow** — `self.is_active` attribute shadowed the `is_active()` method in `NetworkBlocker`. Renamed attribute to `self._is_active`.
+- **Socket reuse after close** — `_verify_device_exists()` in `controller.py` created one socket outside the port loop then reused it after `close()`. Moved socket creation inside the loop.
+- **Hotkey crash with no IP** — `toggle_lag()` crashed when called via hotkey with no IP argument and no device selected. Now falls back to `state.selected_ip`.
+- **Variable shadowing import** — `except Exception as log_error:` in `device_scan.py` shadowed the `log_error` function import. Renamed to `log_err`.
+- **Account tracker duplicate input** — CSV and XLSX import appended each account to both `self.accounts` and `account_manager`, doubling entries. Now only writes to `account_manager`.
+- **Signal stacking on refresh** — `itemSelectionChanged` signal reconnected on every table refresh without disconnecting the previous handler. Caused erratic selection behavior after multiple refreshes.
+
+### Changed
+- Version bumped to 3.0.2 across `main.py`, `dashboard.py` (window title, title bar, sidebar).
+- Preset table in README updated with all 9 presets including Ghost Rush and Phantom Peek.
+- README, CHANGELOG, and ROADMAP updated for public release.
+
+---
+
 ## v3.0.1 — 2026-04-01
 
 Production hardening pass for public community release.

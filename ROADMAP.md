@@ -65,6 +65,7 @@ These are ideas worth exploring but not committed to a release.
 
 - [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Clumsy Control with presets and sliders. Map selector. Account tracker. Native WinDivert engine.
 - [x] **v3.0.1** — Production hardening. Atomic settings writes. Settings dialog overhaul. Full QSS coverage. Dead code purge. IP sanitization. Cross-platform line endings.
+- [x] **v3.0.2** — Ghost Rush + Phantom Peek outbound-only PvP presets. 7 bug fixes (5 core + 2 account tracker). 14 regression tests. Version consistency cleanup.
 
 ---
 
