@@ -230,10 +230,7 @@ class AppController:
         return self.state.get_selected_device()
 
     def toggle_lag(self, ip: str = None) -> bool:
-        """Toggle blocking for a device via netsh firewall.
-
-        If no IP is provided, falls back to the currently selected device.
-        """
+        """Toggle blocking for a device via netsh firewall"""
         try:
             if not ip:
                 ip = self.state.selected_ip
@@ -275,4 +272,76 @@ class AppController:
     # ------------------------------------------------------------------
     def start_auto_scan(self):
         self.auto_scan_enabled = True
-        self.stop
+        self.stop_scanning = False  # Reset so the loop can run again
+        if not self.scan_thread or not self.scan_thread.is_alive():
+            self.scan_thread = threading.Thread(target=self._auto_scan_loop, daemon=True)
+            self.scan_thread.start()
+
+    def stop_auto_scan(self):
+        self.auto_scan_enabled = False
+        self.stop_scanning = True
+
+    def _auto_scan_loop(self):
+        while self.auto_scan_enabled and not self.stop_scanning:
+            try:
+                self.quick_scan_devices()
+                time.sleep(30)
+            except Exception as e:
+                log_error(f"Auto-scan error: {e}")
+                time.sleep(60)
+
+    # ------------------------------------------------------------------
+    # Network Info
+    # ------------------------------------------------------------------
+    def get_network_info(self) -> Dict:
+        try:
+            info = {}
+            interfaces = psutil.net_if_addrs()
+            active = []
+            for name, addrs in interfaces.items():
+                for addr in addrs:
+                    if addr.family == 2:
+                        active.append({"name": name, "ip": addr.address, "netmask": addr.netmask})
+            info["interfaces"] = active
+            net_io = psutil.net_io_counters()
+            info["bytes_sent"] = net_io.bytes_sent
+            info["bytes_recv"] = net_io.bytes_recv
+            return info
+        except Exception as e:
+            log_error(f"Get network info failed: {e}")
+            return {}
+
+    # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+    def update_settings(self, new_settings: AppSettings):
+        self.state.settings = new_settings
+        self.state.save_settings()
+
+    def update_setting(self, key: str, value):
+        if hasattr(self.state.settings, key):
+            setattr(self.state.settings, key, value)
+            self.state.save_settings()
+
+    def get_settings(self):
+        return self.state.settings
+
+    def is_scanning(self) -> bool:
+        return self.state.scan_in_progress
+
+    def is_blocking(self) -> bool:
+        return len(self.get_blocked_devices()) > 0
+
+    # ------------------------------------------------------------------
+    # Shutdown
+    # ------------------------------------------------------------------
+    def shutdown(self):
+        try:
+            log_info("Controller shutting down...")
+            self.stop_auto_scan()
+            self.scheduler.stop()
+            clumsy_network_disruptor.stop_clumsy()
+            save_all_data()
+            log_info("Controller shutdown complete")
+        except Exception as e:
+            log_error(f"Shutdown error: {e}")
