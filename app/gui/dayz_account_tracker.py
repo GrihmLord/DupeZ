@@ -298,9 +298,14 @@ class DayZAccountTracker(QWidget):
                     elif status == 'Offline':
                         status_item.setBackground(QColor(96, 125, 139))  # Blue Gray
             
+            # Disconnect any previous selection handler to avoid stacking
+            try:
+                self.account_table.itemSelectionChanged.disconnect(self.on_account_selected)
+            except TypeError:
+                pass  # No previous connection
             # Connect selection change
             self.account_table.itemSelectionChanged.connect(self.on_account_selected)
-            
+
             # Auto-resize columns
             self.account_table.resizeColumnsToContents()
             
@@ -818,7 +823,7 @@ class DayZAccountTracker(QWidget):
 
                     if self._validate_account_data(account_data):
                         if not self._is_duplicate_account(account_data):
-                            self.accounts.append(account_data)
+                            # Add to account manager only (not self.accounts to avoid double-append)
                             try:
                                 account_manager.add_account(account_data)
                             except Exception as e:
@@ -937,18 +942,14 @@ class DayZAccountTracker(QWidget):
                         if self._validate_account_data(account_data):
                             # Check for duplicates
                             if not self._is_duplicate_account(account_data):
-                                # Add to local accounts list first
-                                self.accounts.append(account_data)
-                                
-                                # Add to account manager
+                                # Add to account manager only (not self.accounts to avoid double-append)
                                 try:
                                     account_manager.add_account(account_data)
                                     log_info(f"Successfully added account to manager: {account_data['account']}")
                                 except Exception as e:
                                     log_warning(f"Failed to add account to manager: {e}")
-                                    # Fallback: add directly to account manager's accounts list
                                     account_manager.accounts.append(account_data)
-                                
+
                                 accounts_imported += 1
                                 log_info(f"Imported account: {account_data['account']}")
                             else:
