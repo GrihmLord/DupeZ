@@ -81,6 +81,24 @@ PRESETS = {
             "ood_chance": 80, "direction": "both",
         }
     },
+    "Ghost Rush": {
+        "description": "Outbound-only freeze — enemies see you frozen while you move freely",
+        "methods": ["lag", "drop", "throttle"],
+        "params": {
+            "lag_delay": 1200, "drop_chance": 90,
+            "throttle_chance": 95, "throttle_frame": 400,
+            "throttle_drop": True,
+            "direction": "outbound",
+        }
+    },
+    "Phantom Peek": {
+        "description": "Quick outbound burst — peek, shoot, vanish before they update",
+        "methods": ["lag", "drop"],
+        "params": {
+            "lag_delay": 600, "drop_chance": 80,
+            "direction": "outbound",
+        }
+    },
     "Custom": {
         "description": "Set your own parameters below",
         "methods": [],
