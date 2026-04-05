@@ -25,6 +25,10 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | Light Lag | 800ms delay + 60% drop |
 | God Mode | Directional lag — others freeze, you keep moving. 2000ms inbound lag |
 | God Mode Aggressive | God Mode + 30% inbound drop for harder freeze |
+| Desync | Duplicate flood + 800ms lag + out-of-order — massive server desync |
+| Bandwidth Cap | Throttle to 1KB/s — near-zero bandwidth |
+| Ghost Rush | Outbound-only freeze — enemies see you frozen while you move freely |
+| Phantom Peek | Quick outbound burst — peek, shoot, vanish before they update |
 | Total Chaos | All modules maxed — complete network destruction |
 | Custom | Set your own parameters |
 
@@ -223,79 +227,4 @@ Theme selection, rainbow mode, display preferences, and notifications.
 
 ### Advanced
 
-Performance tuning, security, and debug controls.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Cache Duration | 60s | How long to cache scan results (30–600) |
-| Memory Limit | 200 MB | Max memory before garbage collection (50–1000) |
-| Require Admin | On | Enforce administrator privileges on startup |
-| Encrypt Logs | Off | Encrypt log files at rest |
-| Debug Mode | Off | Enable debug output and developer features |
-| Verbose Logging | Off | Log all internal operations (noisy) |
-
----
-
-## Disruption Engine
-
-DupeZ uses a three-tier fallback for packet disruption:
-
-1. **Native WinDivert Engine** — Pure Python, loads WinDivert.dll directly via ctypes. No GUI window, no external process. Fastest startup.
-2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
-3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation to click buttons and hide the window.
-
-All three produce the same result: targeted packet manipulation on the selected device for the configured duration.
-
-**God Mode** uses the Native WinDivert Engine exclusively. It inspects the `Outbound` bit (position 17 in the WinDivert address bitfield) to classify each packet's direction, then applies lag/drop only to inbound packets. On ICS/hotspot setups, the `NETWORK_FORWARD` layer is used so forwarded traffic is intercepted at the gateway.
-
----
-
-## Version History
-
-**v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling. Version bump across all modules.
-
-**v3.4.0** — God Mode directional lag engine (inbound delay, outbound untouched). Push-to-talk voice control via OpenAI Whisper. CronusZEN/MAX GPC script integration (parser, generator, device bridge, 4 built-in templates). 100% drop fidelity fix. Direction-aware packet filtering. Smart Engine 6th goal strategy (godmode). LLM Advisor godmode fallback. Voice + GPC GUI panels. Thread safety and audit fixes.
-
-**v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper with gaming port detection, latency overlay with floating transparent widget, port scanner with service ID. 4-view dashboard. Full codebase hardening pass (11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation).
-
-**v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions with auto-stop. Disruption macro chains. Profile import/export.
-
-**v3.1.0** — AI Smart Mode. ML-based disruption optimizer with 6 goal strategies. Network profiler (RTT/jitter/loss/bandwidth). LLM advisor via Ollama or OpenAI-compatible API. Session tracking with feedback learning. Profile system. System tray mode. Device nicknames. Scan caching.
-
-**v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine.
-
-**v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration, account tracker, multiple disruptors.
-
-**v1.0.0** — Basic network scanner with device blocking.
-
-See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) for what's coming next.
-
----
-
-## Roadmap
-
-**v4.0.0** — Plugin API, CLI mode, Linux support, auto-updater.
-
-Full roadmap with details: [ROADMAP.md](ROADMAP.md)
-
----
-
-## Contributing
-
-Issues and pull requests welcome. If you're building something on top of DupeZ or have feature requests, open an issue.
-
-## Acknowledgments
-
-DupeZ stands on the shoulders of two projects:
-
-- **[Clumsy](https://github.com/jagt/clumsy)** by [jagt (Chen Tao)](https://github.com/jagt) — The original network condition simulator for Windows. Clumsy uses WinDivert to intercept and manipulate network packets in real time. This is the core engine that makes everything possible. ([Official site](https://jagt.github.io/clumsy/))
-
-- **[Clumsy Keybind Edition](https://github.com/kalirenegade-dev/clumsy)** (v0.3.4) by [Kalirenegade](https://github.com/kalirenegade-dev) — Fork of Clumsy that added keybind support, timer, and disconnect modules. DupeZ is built directly on top of this fork.
-
-## License
-
-Proprietary. All rights reserved.
-
----
-
-**Built by [GrihmLord](https://github.com/GrihmLord)**
+Performance tuning,

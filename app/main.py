@@ -117,9 +117,4 @@ def main():
 
     except Exception as e:
         log_error(f"Unhandled exception in main: {e}")
-        QMessageBox.critical(None, "Critical Error", f"An error occurred:\n{e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+        QMessageBox.critical(None, "Critical Error", f"An error oc

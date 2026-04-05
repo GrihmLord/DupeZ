@@ -36,7 +36,7 @@ def handle_network_error(func):
                     f.write(f"Error: {e}\n")
                     f.write(f"Traceback:\n{traceback.format_exc()}\n")
                     f.write(f"{'='*60}\n")
-            except Exception as log_error:
+            except Exception as log_err:
                 pass  # Don't let logging errors cause more issues
             
             # Return safe defaults
