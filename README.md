@@ -1,4 +1,4 @@
-# DupeZ v3.0.0
+# DupeZ v3.0.2
 
 Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard.
 
@@ -23,6 +23,10 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | DupeZ Default | Disconnect + 95% drop + 1500ms lag + 1KB/s cap + throttle |
 | Heavy Lag | 3000ms delay + 95% drop + 1KB/s cap |
 | Light Lag | 800ms delay + 60% drop |
+| Desync | Duplicate flood + 800ms lag + out-of-order — massive server desync |
+| Bandwidth Cap | Throttle to 1KB/s — near-zero bandwidth |
+| Ghost Rush | Outbound-only freeze — enemies see you frozen while you move freely |
+| Phantom Peek | Quick outbound burst — peek, shoot, vanish before they update |
 | Total Chaos | All modules maxed — complete network destruction |
 | Custom | Set your own parameters |
 
@@ -220,6 +224,10 @@ All three produce the same result: targeted packet manipulation on the selected 
 
 ## Version History
 
+**v3.0.2** — Ghost Rush and Phantom Peek outbound-only presets for PvP advantage. Account tracker duplicate input fix. Signal stacking fix. 5 critical bug fixes from v3.0.1.
+
+**v3.0.1** — Production hardening. 5 bug fixes (blocker import, method shadow, socket reuse, hotkey crash, variable shadow). 14 regression tests. Atomic settings writes. Settings dialog overhaul. Full QSS coverage.
+
 **v3.0.0** — Complete architectural overhaul. Stripped from 110+ files / ~60,800 lines down to 14 core files / ~6,600 lines (89% reduction). Rebuilt dashboard as clean 3-view tool. Added Clumsy Control with presets and sliders, map selector with 8 maps, enhanced account tracker with XLSX import/export. Native WinDivert engine. Aggressive disruption defaults.
 
 **v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration, account tracker, multiple disruptors.
@@ -235,6 +243,7 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 **v3.1.0** — Profile system, tray mode, session history, device nicknames, scan caching.
 **v3.2.0** — Multi-device disruption, scheduled disruptions, disruption macros, profile import/export.
 **v3.3.0** — Live traffic monitor, connection mapper, latency overlay, port scanner.
+**v3.5.0** — Smart Mode with automated threat detection and intelligent blocking.
 **v4.0.0** — Plugin API, CLI mode, Linux support, auto-updater.
 
 Full roadmap with details: [ROADMAP.md](ROADMAP.md)

@@ -90,7 +90,7 @@ def main():
 
         log_info("Initializing DupeZ...")
         log_info(f"Admin privileges: {'Yes' if IS_ADMIN else 'No'}")
-        log_info("DupeZ version: 3.0.0")
+        log_info("DupeZ version: 3.0.2")
 
         controller = AppController()
         window = DupeZDashboard(controller=controller)
