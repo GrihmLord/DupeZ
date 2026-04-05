@@ -684,4 +684,189 @@ class DupeZDashboard(QMainWindow):
         credits_text = QLabel(
             '<span style="color:#e2e8f0;">Built by</span> '
             '<a href="https://github.com/GrihmLord" style="color:#00d9ff; text-decoration:none; font-weight:bold;">GrihmLord</a><br><br>'
-            '<span style="color:#94a3b8;">Stand
+            '<span style="color:#94a3b8;">Standing on the shoulders of:</span><br>'
+            '<a href="https://github.com/jagt/clumsy" style="color:#00d9ff; text-decoration:none;">Clumsy</a>'
+            ' <span style="color:#64748b;">by jagt (Chen Tao)</span><br>'
+            '<a href="https://github.com/kalirenegade-dev/clumsy" style="color:#00d9ff; text-decoration:none;">Keybind Edition</a>'
+            ' <span style="color:#64748b;">by Kalirenegade</span>'
+        )
+        credits_text.setOpenExternalLinks(True)
+        credits_text.setWordWrap(True)
+        credits_text.setStyleSheet("font-size: 12px; line-height: 1.6;")
+        layout.addWidget(credits_text)
+
+        layout.addSpacing(12)
+
+        # Separator
+        sep3 = QLabel()
+        sep3.setFixedHeight(1)
+        sep3.setStyleSheet("background: rgba(51, 65, 85, 0.5);")
+        layout.addWidget(sep3)
+
+        layout.addSpacing(8)
+
+        # Support section
+        support_title = QLabel("SUPPORT THE PROJECT")
+        support_title.setStyleSheet("color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;")
+        layout.addWidget(support_title)
+
+        support_text = QLabel(
+            '<span style="color:#94a3b8;">If you like DupeZ and want to show appreciation:</span><br>'
+            '<span style="color:#00ff88; font-size:14px; font-weight:bold;">CashApp: $YngTycoon</span>'
+        )
+        support_text.setWordWrap(True)
+        support_text.setStyleSheet("font-size: 12px; line-height: 1.6;")
+        layout.addWidget(support_text)
+
+        layout.addStretch()
+
+        # GitHub button
+        gh_btn = QPushButton("GitHub")
+        gh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        gh_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #00d9ff;
+                border: 1px solid #00d9ff;
+                border-radius: 6px;
+                padding: 8px 24px;
+                font-weight: 600;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background: rgba(0, 217, 255, 0.15);
+            }
+        """)
+        gh_btn.clicked.connect(lambda: webbrowser.open("https://github.com/GrihmLord/DupeZ"))
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(gh_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        dlg.exec()
+
+    # ------------------------------------------------------------------
+    # Frameless Window — Drag, Resize, Maximize
+    # ------------------------------------------------------------------
+    def _toggle_maximize(self):
+        if self.isMaximized():
+            self.showNormal()
+            self.btn_maximize.setText("\u25a1")
+        else:
+            self.showMaximized()
+            self.btn_maximize.setText("\u25a3")
+
+    def _get_resize_edge(self, pos):
+        """Detect which edge/corner the mouse is near for resize."""
+        m = self._resize_margin
+        rect = self.rect()
+        edges = []
+        if pos.x() <= m:
+            edges.append("left")
+        elif pos.x() >= rect.width() - m:
+            edges.append("right")
+        if pos.y() <= m:
+            edges.append("top")
+        elif pos.y() >= rect.height() - m:
+            edges.append("bottom")
+        return "+".join(edges) if edges else None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            edge = self._get_resize_edge(event.position().toPoint())
+            if edge:
+                self._resizing = True
+                self._resize_edge = edge
+                self._drag_pos = event.globalPosition().toPoint()
+                self._start_geometry = self.geometry()
+            elif self.title_bar.geometry().contains(event.position().toPoint()):
+                self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            else:
+                self._drag_pos = None
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        if self._resizing and self._drag_pos:
+            delta = event.globalPosition().toPoint() - self._drag_pos
+            geo = self._start_geometry
+            new_geo = self.geometry()
+            edge = self._resize_edge
+
+            if "right" in edge:
+                new_geo.setWidth(max(self.minimumWidth(), geo.width() + delta.x()))
+            if "bottom" in edge:
+                new_geo.setHeight(max(self.minimumHeight(), geo.height() + delta.y()))
+            if "left" in edge:
+                new_w = max(self.minimumWidth(), geo.width() - delta.x())
+                new_geo.setLeft(geo.left() + geo.width() - new_w)
+                new_geo.setWidth(new_w)
+            if "top" in edge:
+                new_h = max(self.minimumHeight(), geo.height() - delta.y())
+                new_geo.setTop(geo.top() + geo.height() - new_h)
+                new_geo.setHeight(new_h)
+
+            self.setGeometry(new_geo)
+        elif self._drag_pos and not self._resizing:
+            if self.isMaximized():
+                self.showNormal()
+                self.btn_maximize.setText("\u25a1")
+                self._drag_pos = QPoint(self.width() // 2, 18)
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+        else:
+            # Update cursor shape for resize hints
+            edge = self._get_resize_edge(event.position().toPoint())
+            if edge in ("left", "right"):
+                self.setCursor(Qt.CursorShape.SizeHorCursor)
+            elif edge in ("top", "bottom"):
+                self.setCursor(Qt.CursorShape.SizeVerCursor)
+            elif edge in ("left+top", "right+bottom"):
+                self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+            elif edge in ("right+top", "left+bottom"):
+                self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+            else:
+                self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._drag_pos = None
+        self._resizing = False
+        self._resize_edge = None
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event):
+        if self.title_bar.geometry().contains(event.position().toPoint()):
+            self._toggle_maximize()
+        super().mouseDoubleClickEvent(event)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+    def closeEvent(self, event):
+        # Minimize to tray instead of quitting (unless force quit)
+        if self._minimize_to_tray and self.tray_icon and not self._force_quit:
+            event.ignore()
+            self._minimize_to_tray_action()
+            return
+
+        try:
+            self.update_timer.stop()
+            self.stats_timer.stop()
+            self.tray_timer.stop()
+
+            # Clean up tray
+            if self.tray_icon:
+                self.tray_icon.hide()
+
+            # Clean up hotkeys
+            if KEYBOARD_AVAILABLE and hotkey_manager:
+                hotkey_manager.stop_all()
+
+            if self.controller:
+                self.controller.shutdown()
+            gc.collect()
+        except Exception as e:
+            log_error(f"Close error: {e}")
+        event.accept()
