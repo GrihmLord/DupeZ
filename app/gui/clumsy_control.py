@@ -938,4 +938,1541 @@ class ClumsyControlView(QWidget):
         disrupted = self.controller.get_disrupted_devices() if self.controller else []
 
         visible_count = 0
-        for d in self
+        for d in self.devices:
+            ip = d.ip if hasattr(d, 'ip') else d.get('ip', '')
+            hostname = d.hostname if hasattr(d, 'hostname') else d.get('hostname', '')
+            vendor = d.vendor if hasattr(d, 'vendor') else d.get('vendor', '')
+
+            if network_filter != "All Networks":
+                subnet_prefix = network_filter.replace('.x', '')
+                if not ip.startswith(subnet_prefix + '.'):
+                    continue
+
+            row = self.device_table.rowCount()
+            self.device_table.insertRow(row)
+            visible_count += 1
+
+            # Col 0: Selection checkbox (radio-like — only one at a time)
+            cb = QCheckBox()
+            cb.setStyleSheet("""
+                QCheckBox { margin-left: 6px; }
+                QCheckBox::indicator { width: 14px; height: 14px; }
+                QCheckBox::indicator:unchecked {
+                    border: 1px solid #3a4a5a; background: #0a1628; border-radius: 7px;
+                }
+                QCheckBox::indicator:checked {
+                    border: 1px solid #00d9ff; background: #00d9ff; border-radius: 7px;
+                }
+            """)
+            cb_widget = QWidget()
+            cb_layout = QHBoxLayout(cb_widget)
+            cb_layout.addWidget(cb)
+            cb_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            cb_layout.setContentsMargins(0, 0, 0, 0)
+            self.device_table.setCellWidget(row, 0, cb_widget)
+
+            # Store reference with real IP
+            self._row_checkboxes.append((cb, ip))
+            cb.stateChanged.connect(lambda state, r_ip=ip, r_cb=cb: self._on_row_checkbox(r_ip, r_cb, state))
+
+            # If this IP was previously selected, re-check it
+            if ip in self.selected_ips or ip == self.selected_ip:
+                cb.setChecked(True)
+
+            # Col 1: IP (masked or real)
+            display_ip = self._mask_ip(ip) if self._ip_hidden else ip
+            ip_item = QTableWidgetItem(display_ip)
+            ip_item.setData(Qt.ItemDataRole.UserRole, ip)  # store real IP
+            self.device_table.setItem(row, 1, ip_item)
+
+            # Col 2: Nickname
+            mac = d.mac if hasattr(d, 'mac') else d.get('mac', '')
+            nick = nickname_manager.get_nickname(mac=mac, ip=ip)
+            nick_item = QTableWidgetItem(nick or "—")
+            if nick:
+                nick_item.setForeground(QColor("#fbbf24"))
+            self.device_table.setItem(row, 2, nick_item)
+
+            # Col 3-4: Hostname, Vendor
+            self.device_table.setItem(row, 3, QTableWidgetItem(hostname or "—"))
+            self.device_table.setItem(row, 4, QTableWidgetItem(vendor or "—"))
+
+            # Col 5: Status
+            if ip in disrupted:
+                status_item = QTableWidgetItem("DISRUPTED")
+                status_item.setForeground(QColor("#ff4444"))
+            else:
+                status_item = QTableWidgetItem("ONLINE")
+                status_item.setForeground(QColor("#00ff88"))
+            self.device_table.setItem(row, 5, status_item)
+
+            # Col 6: Session timer
+            if ip in self._disruption_timers:
+                elapsed = int(time.time() - self._disruption_timers[ip])
+                session_text = f"{elapsed // 60}:{elapsed % 60:02d}"
+            else:
+                session_text = "—"
+            self.device_table.setItem(row, 6, QTableWidgetItem(session_text))
+
+        total = len(self.devices)
+        if network_filter == "All Networks":
+            self.device_count_label.setText(f"{total} devices found")
+        else:
+            self.device_count_label.setText(f"{visible_count} of {total} devices ({network_filter})")
+        self.scan_finished.emit(self.devices)
+
+    def _on_row_checkbox(self, ip: str, checkbox: QCheckBox, state: int):
+        """Handle row checkbox click — radio-like or multi-select depending on mode."""
+        multi = hasattr(self, 'multi_target_btn') and self.multi_target_btn.isChecked()
+
+        if state == 2:  # Qt.CheckState.Checked
+            if multi:
+                # Multi-target: keep all checked, track set
+                self.selected_ips.add(ip)
+                self.selected_ip = ip  # primary target for smart mode etc.
+            else:
+                # Single-target: uncheck all others
+                for cb, cb_ip in self._row_checkboxes:
+                    if cb is not checkbox:
+                        cb.blockSignals(True)
+                        cb.setChecked(False)
+                        cb.blockSignals(False)
+                self.selected_ips = {ip}
+                self.selected_ip = ip
+
+            # Update target label
+            if multi and len(self.selected_ips) > 1:
+                self.target_label.setText(f"TARGETS: {len(self.selected_ips)} devices")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #a855f7; letter-spacing: 1px; padding: 8px;"
+                )
+            else:
+                display = self._mask_ip(ip) if self._ip_hidden else ip
+                self.target_label.setText(f"TARGET: {display}")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #00d9ff; letter-spacing: 1px; padding: 8px;"
+                )
+        else:
+            # Unchecked
+            self.selected_ips.discard(ip)
+            if self.selected_ip == ip:
+                self.selected_ip = next(iter(self.selected_ips), None)
+
+            if not self.selected_ips:
+                self.target_label.setText("NO TARGET SELECTED")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #ff4444; letter-spacing: 1px; padding: 8px;"
+                )
+            elif len(self.selected_ips) > 1:
+                self.target_label.setText(f"TARGETS: {len(self.selected_ips)} devices")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #a855f7; letter-spacing: 1px; padding: 8px;"
+                )
+            else:
+                remaining = next(iter(self.selected_ips))
+                display = self._mask_ip(remaining) if self._ip_hidden else remaining
+                self.target_label.setText(f"TARGET: {display}")
+                self.target_label.setStyleSheet(
+                    "font-size: 14px; font-weight: bold; color: #00d9ff; letter-spacing: 1px; padding: 8px;"
+                )
+
+    @staticmethod
+    def _mask_ip(ip: str) -> str:
+        """Mask an IP: 198.51.100.5 → 198.51.***.***"""
+        parts = ip.split('.')
+        if len(parts) == 4:
+            return f"{parts[0]}.{parts[1]}.***.***"
+        return "***"
+
+    def _toggle_ip_visibility(self):
+        """Toggle IP masking on/off."""
+        self._ip_hidden = self.hide_ip_btn.isChecked()
+        # Update all IP cells in the table
+        for row in range(self.device_table.rowCount()):
+            ip_item = self.device_table.item(row, 1)
+            if ip_item:
+                real_ip = ip_item.data(Qt.ItemDataRole.UserRole)
+                if real_ip:
+                    ip_item.setText(self._mask_ip(real_ip) if self._ip_hidden else real_ip)
+        # Update target label
+        if self.selected_ip:
+            display = self._mask_ip(self.selected_ip) if self._ip_hidden else self.selected_ip
+            self.target_label.setText(f"TARGET: {display}")
+
+    # ------------------------------------------------------------------
+    # Device Context Menu (right-click)
+    # ------------------------------------------------------------------
+    def _device_context_menu(self, pos):
+        """Right-click context menu on device table — set/clear nickname."""
+        from PyQt6.QtWidgets import QMenu as _QMenu, QInputDialog
+        row_idx = self.device_table.rowAt(pos.y())
+        if row_idx < 0:
+            return
+        ip_item = self.device_table.item(row_idx, 1)
+        if not ip_item:
+            return
+        real_ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
+
+        # Find MAC for this device
+        mac = ""
+        for d in self.devices:
+            d_ip = d.ip if hasattr(d, 'ip') else d.get('ip', '')
+            if d_ip == real_ip:
+                mac = d.mac if hasattr(d, 'mac') else d.get('mac', '')
+                break
+
+        key = mac or real_ip
+        current_nick = nickname_manager.get_nickname(mac=mac, ip=real_ip)
+
+        menu = _QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background: #0a0e1a; color: #e2e8f0; border: 1px solid #1e293b; }
+            QMenu::item { padding: 6px 20px; }
+            QMenu::item:selected { background: rgba(0, 217, 255, 0.2); }
+        """)
+
+        set_action = menu.addAction("Set Nickname..." if not current_nick else f"Rename \"{current_nick}\"...")
+        clear_action = None
+        if current_nick:
+            clear_action = menu.addAction("Clear Nickname")
+
+        action = menu.exec(self.device_table.viewport().mapToGlobal(pos))
+        if action == set_action:
+            text, ok = QInputDialog.getText(self, "Device Nickname",
+                                            f"Nickname for {real_ip}:", text=current_nick)
+            if ok and text.strip():
+                nickname_manager.set_nickname(key, text.strip())
+                nick_item = self.device_table.item(row_idx, 2)
+                if nick_item:
+                    nick_item.setText(text.strip())
+                    nick_item.setForeground(QColor("#fbbf24"))
+        elif clear_action and action == clear_action:
+            nickname_manager.remove_nickname(key)
+            nick_item = self.device_table.item(row_idx, 2)
+            if nick_item:
+                nick_item.setText("—")
+                nick_item.setForeground(QColor("#e0e0e0"))
+
+    # ------------------------------------------------------------------
+    # Device Selection
+    # ------------------------------------------------------------------
+    def _on_device_selected(self):
+        rows = self.device_table.selectionModel().selectedRows()
+        if rows:
+            row = rows[0].row()
+            ip_item = self.device_table.item(row, 1)  # IP is col 1 now
+            if ip_item:
+                real_ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
+                # Check the corresponding checkbox (which triggers _on_row_checkbox)
+                for cb, cb_ip in self._row_checkboxes:
+                    if cb_ip == real_ip:
+                        cb.setChecked(True)
+                        break
+
+    # ------------------------------------------------------------------
+    # Disruption Actions
+    # ------------------------------------------------------------------
+    def _collect_params(self) -> dict:
+        """Read all slider + checkbox values into a params dict."""
+        params = {}
+
+        # Slider values
+        for key, slider in self.sliders.items():
+            params[key] = slider.value()
+
+        # Extra checkboxes
+        for key, cb in self.extra_checks.items():
+            params[key] = cb.isChecked()
+
+        # Direction
+        inb = self.dir_inbound.isChecked()
+        outb = self.dir_outbound.isChecked()
+        if inb and outb:
+            params["direction"] = "both"
+        elif inb:
+            params["direction"] = "inbound"
+        else:
+            params["direction"] = "outbound"
+
+        return params
+
+    def _on_disrupt(self):
+        targets = list(self.selected_ips) if self.selected_ips else ([self.selected_ip] if self.selected_ip else [])
+        if not targets:
+            QMessageBox.warning(self, "No Target", "Select a device from the list first.")
+            return
+
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            preset = self.preset_combo.currentText()
+            methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
+            if not methods:
+                methods = ["drop", "lag"]
+
+        params = self._collect_params()
+
+        if self.controller:
+            failed = []
+            for ip in targets:
+                success = self.controller.disrupt_device(ip, methods, params)
+                if success:
+                    self._disruption_timers[ip] = time.time()
+                    log_info(f"Disruption started on {ip}: methods={methods}")
+                else:
+                    failed.append(ip)
+
+            self._refresh_device_table_status()
+
+            if failed:
+                QMessageBox.warning(
+                    self, "Partial Failure",
+                    f"Could not start disruption on: {', '.join(failed)}\n"
+                    "Check admin privileges, WinDivert files, and logs."
+                )
+
+    def _on_stop(self):
+        targets = list(self.selected_ips) if self.selected_ips else ([self.selected_ip] if self.selected_ip else [])
+        if not targets:
+            return
+        if self.controller:
+            for ip in targets:
+                self.controller.stop_disruption(ip)
+                self._disruption_timers.pop(ip, None)
+                log_info(f"Disruption stopped on {ip}")
+            self._refresh_device_table_status()
+
+            # End smart session tracking if active
+            if SMART_ENGINE_AVAILABLE and hasattr(self, '_active_session_id') and self._active_session_id:
+                self._smart_tracker.end_session(self._active_session_id)
+                self._active_session_id = None
+
+    def _on_stop_all(self):
+        if self.controller:
+            self.controller.stop_all_disruptions()
+            self._disruption_timers.clear()
+            log_info("All disruptions stopped")
+            self._refresh_device_table_status()
+
+            # End all smart sessions
+            if SMART_ENGINE_AVAILABLE and hasattr(self, '_active_session_id') and self._active_session_id:
+                self._smart_tracker.end_session(self._active_session_id)
+                self._active_session_id = None
+
+    # ------------------------------------------------------------------
+    # Scheduled / Timed Disruption + Macros
+    # ------------------------------------------------------------------
+    def _on_timed_disrupt(self):
+        """Start a disruption with auto-stop after duration."""
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device first.")
+            return
+        if not self.controller:
+            return
+
+        from app.core.scheduler import ScheduledRule
+        duration = self.sched_duration.value()
+        delay = self.sched_delay.value()
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            preset = self.preset_combo.currentText()
+            methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
+        params = self._collect_params()
+
+        if delay == 0:
+            # Immediate start with auto-stop timer
+            targets = list(self.selected_ips) if self.selected_ips else [self.selected_ip]
+            for ip in targets:
+                self.controller.disrupt_device(ip, methods, params)
+                self._disruption_timers[ip] = time.time()
+
+            # Schedule auto-stop
+            def _auto_stop():
+                time.sleep(duration)
+                if self.controller:
+                    for ip in targets:
+                        self.controller.stop_disruption(ip)
+                        self._disruption_timers.pop(ip, None)
+                    log_info(f"Timed disruption ended after {duration}s")
+
+            threading.Thread(target=_auto_stop, daemon=True).start()
+            self.sched_status.setText(f"Timed: {duration}s on {len(targets)} target(s)")
+            self.sched_status.setStyleSheet("color: #a855f7; font-size: 11px;")
+            self._refresh_device_table_status()
+        else:
+            # Delayed start via scheduler
+            rule = ScheduledRule(
+                name=f"Timed-{self.selected_ip}-{duration}s",
+                target_ip=self.selected_ip,
+                methods=methods,
+                params=params,
+                start_time="",
+                duration_seconds=duration,
+                repeat_interval=0,
+            )
+            # Use epoch for delayed start
+            rule.last_run = time.time() - 99999  # force immediate on next tick after delay
+            self.controller.scheduler.add_rule(rule)
+            self.sched_status.setText(f"Scheduled: {delay}s delay → {duration}s disruption")
+            self.sched_status.setStyleSheet("color: #a855f7; font-size: 11px;")
+
+    def _on_run_macro(self):
+        """Run a disruption macro — chain preset steps in sequence."""
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device first.")
+            return
+        if not self.controller:
+            return
+
+        from app.core.scheduler import DisruptionMacro, MacroStep
+
+        macros = self.controller.scheduler.get_macros()
+        if macros:
+            # Let user pick an existing macro
+            from PyQt6.QtWidgets import QInputDialog
+            names = [m.name for m in macros]
+            names.insert(0, "-- Create Quick Macro --")
+            choice, ok = QInputDialog.getItem(
+                self, "Run Macro", "Select macro:", names, 0, False)
+            if not ok:
+                return
+            if choice != "-- Create Quick Macro --":
+                macro = next(m for m in macros if m.name == choice)
+                self.controller.scheduler.run_macro(macro.macro_id, self.selected_ip)
+                self.sched_status.setText(f"Macro '{macro.name}' running...")
+                self.sched_status.setStyleSheet("color: #e040fb; font-size: 11px;")
+                return
+
+        # Quick macro: current settings → light → heavy → stop
+        duration = self.sched_duration.value() // 3 or 10
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            methods = ["drop", "lag"]
+        params = self._collect_params()
+
+        macro = DisruptionMacro(
+            name="Quick Macro",
+            target_ip=self.selected_ip,
+            repeat_count=1,
+            steps=[
+                MacroStep(methods=["lag", "drop"], params={"lag_delay": 500, "drop_chance": 40, "direction": "both"}, duration_seconds=duration),
+                MacroStep(methods=methods, params=params, duration_seconds=duration),
+                MacroStep(methods=["lag", "drop", "bandwidth"], params={"lag_delay": 2000, "drop_chance": 90, "bandwidth_limit": 1, "direction": "both"}, duration_seconds=duration),
+            ]
+        )
+        mid = self.controller.scheduler.add_macro(macro)
+        self.controller.scheduler.run_macro(mid, self.selected_ip)
+        self.sched_status.setText(f"Quick Macro running ({duration}s x 3 steps)...")
+        self.sched_status.setStyleSheet("color: #e040fb; font-size: 11px;")
+
+    def _on_stop_macro(self):
+        """Stop the active macro."""
+        if self.controller:
+            self.controller.scheduler.stop_macro()
+            self.sched_status.setText("Macro stopped")
+            self.sched_status.setStyleSheet("color: #6b7280; font-size: 11px;")
+
+    # ------------------------------------------------------------------
+    # Profile Management
+    # ------------------------------------------------------------------
+    def _on_save_profile(self):
+        """Save current slider/module state as a named profile."""
+        if not PROFILES_AVAILABLE:
+            return
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(
+            self, "Save Profile", "Profile name:",
+            text=self.preset_combo.currentText())
+        if not ok or not name.strip():
+            return
+
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        params = self._collect_params()
+        self._profile_manager.save(
+            name=name.strip(), methods=methods, params=params,
+            description=f"Saved from DupeZ ({len(methods)} modules)")
+        log_info(f"Profile saved: {name.strip()}")
+        QMessageBox.information(self, "Saved", f"Profile '{name.strip()}' saved.")
+
+    def _on_load_profile(self):
+        """Load a saved profile and apply to controls."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles found.")
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Load Profile", "Select profile:", names, 0, False)
+        if not ok or not name:
+            return
+
+        profile = self._profile_manager.load(name)
+        if not profile:
+            return
+
+        # Apply to controls
+        for key, cb in self.module_checks.items():
+            cb.setChecked(key in profile.methods)
+        for key, slider in self.sliders.items():
+            if key in profile.params:
+                slider.setValue(int(profile.params[key]))
+        direction = profile.params.get("direction", "both")
+        self.dir_inbound.setChecked(direction in ("inbound", "both"))
+        self.dir_outbound.setChecked(direction in ("outbound", "both"))
+        for key, cb in self.extra_checks.items():
+            if key in profile.params:
+                cb.setChecked(bool(profile.params[key]))
+
+        # Switch preset to Custom
+        idx = self.preset_combo.findText("Custom")
+        if idx >= 0:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(idx)
+            self.preset_combo.blockSignals(False)
+        self.preset_desc.setText(profile.description)
+        log_info(f"Profile loaded: {name}")
+
+    def _on_delete_profile(self):
+        """Delete a saved profile."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles found.")
+            return
+
+        from PyQt6.QtWidgets import QInputDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Delete Profile", "Select profile to delete:", names, 0, False)
+        if not ok or not name:
+            return
+
+        confirm = QMessageBox.question(
+            self, "Confirm Delete", f"Delete profile '{name}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if confirm == QMessageBox.StandardButton.Yes:
+            self._profile_manager.delete(name)
+            log_info(f"Profile deleted: {name}")
+
+    def _on_export_profile(self):
+        """Export a profile to a standalone JSON file."""
+        if not PROFILES_AVAILABLE:
+            return
+        profiles = self._profile_manager.list_profiles()
+        if not profiles:
+            QMessageBox.information(self, "No Profiles", "No saved profiles to export.")
+            return
+        from PyQt6.QtWidgets import QInputDialog, QFileDialog
+        names = [p.name for p in profiles]
+        name, ok = QInputDialog.getItem(
+            self, "Export Profile", "Select profile:", names, 0, False)
+        if not ok or not name:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export Profile", f"{name}.json", "JSON (*.json)")
+        if path:
+            if self._profile_manager.export_profile(name, path):
+                QMessageBox.information(self, "Exported", f"Profile '{name}' exported to:\n{path}")
+            else:
+                QMessageBox.warning(self, "Failed", "Export failed — check logs.")
+
+    def _on_import_profile(self):
+        """Import a profile from a JSON file."""
+        if not PROFILES_AVAILABLE:
+            return
+        from PyQt6.QtWidgets import QFileDialog
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Import Profile", "", "JSON (*.json)")
+        if not path:
+            return
+        profile = self._profile_manager.import_profile(path)
+        if profile:
+            QMessageBox.information(self, "Imported", f"Profile '{profile.name}' imported.")
+        else:
+            QMessageBox.warning(self, "Failed", "Import failed — check file format and logs.")
+
+    # ------------------------------------------------------------------
+    # Smart Mode — AI Auto-Tune
+    # ------------------------------------------------------------------
+    def _on_smart_profile(self):
+        """Profile the selected target and display analysis."""
+        if not SMART_ENGINE_AVAILABLE:
+            return
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device from the list first.")
+            return
+
+        self.smart_info_label.setText(f"Profiling {self.selected_ip}...")
+        self.smart_info_label.setStyleSheet(
+            "color: #a855f7; font-size: 10px; padding: 4px; "
+            "background: #0a0f18; border: 1px solid #a855f7; border-radius: 4px;")
+        self.btn_smart_profile.setEnabled(False)
+        self.btn_smart_disrupt.setEnabled(False)
+
+        def _on_profile_done(profile):
+            # Generate recommendation
+            goal = self.smart_goal_combo.currentText().lower()
+            intensity = self.smart_intensity_slider.value() / 100.0
+            rec = self._smart_engine.recommend(profile, goal=goal, intensity=intensity)
+
+            # Update UI (must be thread-safe via signal)
+            QMetaObject.invokeMethod(
+                self, "_smart_update_ui",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, profile),
+                Q_ARG(object, rec),
+            )
+
+        self._smart_profiler.profile_async(self.selected_ip, callback=_on_profile_done)
+
+    def _on_smart_disrupt(self):
+        """Profile + auto-tune + disrupt in one click."""
+        if not SMART_ENGINE_AVAILABLE:
+            return
+        if not self.selected_ip:
+            QMessageBox.warning(self, "No Target", "Select a device from the list first.")
+            return
+
+        self.smart_info_label.setText(f"Smart disrupting {self.selected_ip}...")
+        self.smart_info_label.setStyleSheet(
+            "color: #e040fb; font-size: 10px; padding: 4px; "
+            "background: #0a0f18; border: 1px solid #e040fb; border-radius: 4px;")
+        self.btn_smart_profile.setEnabled(False)
+        self.btn_smart_disrupt.setEnabled(False)
+
+        def _on_profile_done(profile):
+            goal = self.smart_goal_combo.currentText().lower()
+            intensity = self.smart_intensity_slider.value() / 100.0
+            rec = self._smart_engine.recommend(profile, goal=goal, intensity=intensity)
+
+            QMetaObject.invokeMethod(
+                self, "_smart_apply_and_disrupt",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, profile),
+                Q_ARG(object, rec),
+            )
+
+        self._smart_profiler.profile_async(self.selected_ip, callback=_on_profile_done)
+
+    def _on_smart_llm_ask(self):
+        """Handle natural language input to LLM advisor."""
+        if not SMART_ENGINE_AVAILABLE or not self.smart_llm_input:
+            return
+
+        prompt = self.smart_llm_input.text().strip()
+        if not prompt:
+            return
+
+        self.smart_info_label.setText("Asking AI advisor...")
+        self.smart_llm_input.setEnabled(False)
+
+        def _on_result(result):
+            QMetaObject.invokeMethod(
+                self, "_smart_apply_llm_result",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, result),
+            )
+
+        self._smart_advisor.ask_async(prompt, callback=_on_result)
+
+    @pyqtSlot(object, object)
+    def _smart_update_ui(self, profile, rec):
+        """Update Smart Mode UI with profiling results (called on main thread)."""
+        self.btn_smart_profile.setEnabled(True)
+        self.btn_smart_disrupt.setEnabled(True)
+
+        # Build info text
+        info_lines = [
+            f"<b style='color:#a855f7'>TARGET ANALYSIS</b>",
+            f"<span style='color:#94a3b8'>RTT:</span> <b>{profile.avg_rtt_ms:.0f}ms</b> "
+            f"(jitter: {profile.jitter_ms:.0f}ms) &nbsp; "
+            f"<span style='color:#94a3b8'>Loss:</span> <b>{profile.packet_loss_pct:.0f}%</b>",
+            f"<span style='color:#94a3b8'>Type:</span> {profile.connection_type} / {profile.device_type} "
+            f"{'(' + profile.device_hint + ')' if profile.device_hint else ''}",
+            f"<span style='color:#94a3b8'>Quality:</span> <b>{profile.quality_score:.0f}/100</b>",
+            f"",
+            f"<b style='color:#e040fb'>RECOMMENDATION: {rec.name}</b> "
+            f"<span style='color:#6b7280'>(goal: {rec.goal})</span>",
+            f"<span style='color:#94a3b8'>Modules:</span> {' + '.join(rec.methods)}",
+        ]
+        for reason in rec.reasoning[:3]:
+            info_lines.append(f"<span style='color:#6b7280'>• {reason}</span>")
+
+        self.smart_info_label.setText("<br>".join(info_lines))
+        self.smart_info_label.setStyleSheet(
+            "color: #e0e0e0; font-size: 10px; padding: 6px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 4px;")
+
+        # Update confidence bar
+        conf_pct = int(rec.confidence * 100)
+        self.smart_confidence_bar.setValue(conf_pct)
+        self.smart_confidence_bar.setFormat(
+            f"Confidence: {conf_pct}% | Effectiveness: {rec.estimated_effectiveness:.0f}%")
+
+        # Auto-apply recommendation to the controls
+        self._apply_recommendation(rec)
+
+    @pyqtSlot(object, object)
+    def _smart_apply_and_disrupt(self, profile, rec):
+        """Apply recommendation and start disruption (main thread)."""
+        self._smart_update_ui(profile, rec)
+
+        # Start disruption with the recommended config
+        if self.controller and self.selected_ip:
+            success = self.controller.disrupt_device(
+                self.selected_ip, rec.methods, rec.params)
+            if success:
+                self._disruption_timers[self.selected_ip] = time.time()
+                log_info(f"Smart disruption started on {self.selected_ip}: "
+                         f"{rec.name} ({rec.methods})")
+                self._refresh_device_table_status()
+
+                # Track session
+                self._active_session_id = self._smart_tracker.start_session(
+                    profile, rec,
+                    intensity=self.smart_intensity_slider.value() / 100.0)
+            else:
+                QMessageBox.warning(
+                    self, "Failed",
+                    f"Smart disruption failed on {self.selected_ip}.\n"
+                    "Check admin privileges, WinDivert files, and logs.")
+
+    @pyqtSlot(object)
+    def _smart_apply_llm_result(self, result):
+        """Apply LLM advisor result to the controls (main thread)."""
+        self.smart_llm_input.setEnabled(True)
+        if not result:
+            self.smart_info_label.setText("AI advisor returned no result. Try rephrasing.")
+            return
+
+        # Build a fake recommendation to reuse the apply logic
+        from app.ai.smart_engine import DisruptionRecommendation
+        rec = DisruptionRecommendation(
+            name=result.get("name", "AI Recommendation"),
+            description=result.get("description", ""),
+            methods=result.get("methods", []),
+            params=result.get("params", {}),
+            reasoning=[result.get("reasoning", "")],
+            confidence=0.7,
+            estimated_effectiveness=75,
+        )
+        self._apply_recommendation(rec)
+
+        info_lines = [
+            f"<b style='color:#a855f7'>AI ADVISOR: {rec.name}</b>",
+            f"<span style='color:#94a3b8'>{rec.description}</span>",
+            f"<span style='color:#94a3b8'>Modules:</span> {' + '.join(rec.methods)}",
+            f"<span style='color:#6b7280'>{rec.reasoning[0] if rec.reasoning else ''}</span>",
+        ]
+        self.smart_info_label.setText("<br>".join(info_lines))
+        self.smart_confidence_bar.setValue(70)
+        self.smart_confidence_bar.setFormat("AI Advisor — apply with DISRUPT button")
+
+    def _apply_recommendation(self, rec):
+        """Apply a DisruptionRecommendation to the manual controls."""
+        # Set module checkboxes
+        for key, cb in self.module_checks.items():
+            cb.setChecked(key in rec.methods)
+
+        # Set slider values
+        for key, slider in self.sliders.items():
+            if key in rec.params:
+                slider.setValue(int(rec.params[key]))
+
+        # Set direction
+        direction = rec.params.get("direction", "both")
+        self.dir_inbound.setChecked(direction in ("inbound", "both"))
+        self.dir_outbound.setChecked(direction in ("outbound", "both"))
+
+        # Set extra checkboxes
+        for key, cb in self.extra_checks.items():
+            if key in rec.params:
+                cb.setChecked(bool(rec.params[key]))
+
+        # Switch preset to Custom since AI overrode it
+        idx = self.preset_combo.findText("Custom")
+        if idx >= 0:
+            self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(idx)
+            self.preset_combo.blockSignals(False)
+            self.preset_desc.setText(rec.description)
+
+    # ------------------------------------------------------------------
+    # Presets
+    # ------------------------------------------------------------------
+    def _on_preset_changed(self, preset_name: str):
+        preset = PRESETS.get(preset_name, {})
+        self.preset_desc.setText(preset.get("description", ""))
+
+        methods = preset.get("methods", [])
+        params = preset.get("params", {})
+
+        # Set module checkboxes
+        for key, cb in self.module_checks.items():
+            cb.setChecked(key in methods)
+
+        # Set slider values from preset params
+        for key, slider in self.sliders.items():
+            if key in params:
+                slider.setValue(int(params[key]))
+
+        # Set direction
+        direction = params.get("direction", "outbound")
+        self.dir_inbound.setChecked(direction in ("inbound", "both"))
+        self.dir_outbound.setChecked(direction in ("outbound", "both"))
+
+        # Set extra checkboxes
+        for key, cb in self.extra_checks.items():
+            if key in params:
+                cb.setChecked(bool(params[key]))
+
+    # ------------------------------------------------------------------
+    # Status Refresh
+    # ------------------------------------------------------------------
+    def _refresh_disruption_status(self):
+        try:
+            status = clumsy_network_disruptor.get_clumsy_status()
+            admin = status.get("is_admin", False)
+            exe = status.get("clumsy_exe_exists", False)
+            dll = status.get("windivert_dll_exists", False)
+
+            if admin and exe and dll:
+                count = status.get("disrupted_devices_count", 0)
+                if count > 0:
+                    self.clumsy_status_label.setText(
+                        f"Engine: ACTIVE | {count} disruption(s)")
+                    self.clumsy_status_label.setStyleSheet(
+                        "color: #ff4444; font-size: 11px; padding: 4px; font-weight: bold;")
+                else:
+                    self.clumsy_status_label.setText("Engine: Ready")
+                    self.clumsy_status_label.setStyleSheet(
+                        "color: #00ff88; font-size: 11px; padding: 4px;")
+            else:
+                issues = []
+                if not admin:
+                    issues.append("no admin")
+                if not exe:
+                    issues.append("clumsy.exe missing")
+                if not dll:
+                    issues.append("WinDivert.dll missing")
+                self.clumsy_status_label.setText(
+                    f"Engine: UNAVAILABLE ({', '.join(issues)})")
+                self.clumsy_status_label.setStyleSheet(
+                    "color: #ff4444; font-size: 11px; padding: 4px;")
+        except Exception as e:
+            self.clumsy_status_label.setText(f"Engine: Error — {e}")
+
+    def _refresh_device_table_status(self):
+        disrupted = self.controller.get_disrupted_devices() if self.controller else []
+        for row in range(self.device_table.rowCount()):
+            ip_item = self.device_table.item(row, 1)  # IP col
+            if ip_item:
+                ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
+                status_item = self.device_table.item(row, 5)  # Status col
+                if ip in disrupted:
+                    if status_item:
+                        status_item.setText("DISRUPTED")
+                        status_item.setForeground(QColor("#ff4444"))
+                else:
+                    if status_item:
+                        status_item.setText("ONLINE")
+                        status_item.setForeground(QColor("#00ff88"))
+
+    def _update_session_timers(self):
+        for row in range(self.device_table.rowCount()):
+            ip_item = self.device_table.item(row, 1)  # IP col
+            if ip_item:
+                ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
+                session_item = self.device_table.item(row, 6)  # Session col
+                if ip in self._disruption_timers and session_item:
+                    elapsed = int(time.time() - self._disruption_timers[ip])
+                    session_item.setText(f"{elapsed // 60}:{elapsed % 60:02d}")
+
+    # ------------------------------------------------------------------
+    # Live Stats Dashboard
+    # ------------------------------------------------------------------
+    def _build_stats_panel(self, parent_layout):
+        """Build the real-time packet stats dashboard."""
+        stats_group = self._card("LIVE STATS")
+        stats_layout = QVBoxLayout()
+        stats_layout.setSpacing(4)
+
+        # Summary row: processed | dropped | passed
+        summary_row = QHBoxLayout()
+        summary_row.setSpacing(12)
+
+        self._stat_processed = QLabel("0")
+        self._stat_dropped = QLabel("0")
+        self._stat_passed = QLabel("0")
+        self._stat_inbound = QLabel("0")
+        self._stat_outbound = QLabel("0")
+
+        for label_text, widget, color in [
+            ("PROCESSED", self._stat_processed, "#00d9ff"),
+            ("DROPPED", self._stat_dropped, "#ff4444"),
+            ("PASSED", self._stat_passed, "#00ff88"),
+            ("IN", self._stat_inbound, "#a855f7"),
+            ("OUT", self._stat_outbound, "#fbbf24"),
+        ]:
+            col = QVBoxLayout()
+            col.setSpacing(0)
+            header = QLabel(label_text)
+            header.setStyleSheet(f"color: #6b7280; font-size: 9px; font-weight: bold; letter-spacing: 1px;")
+            header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            col.addWidget(header)
+            widget.setStyleSheet(f"color: {color}; font-size: 14px; font-weight: bold;")
+            widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            col.addWidget(widget)
+            summary_row.addLayout(col)
+
+        stats_layout.addLayout(summary_row)
+
+        # Drop rate bar
+        drop_row = QHBoxLayout()
+        drop_lbl = QLabel("DROP RATE:")
+        drop_lbl.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        drop_lbl.setFixedWidth(70)
+        drop_row.addWidget(drop_lbl)
+
+        self._stat_drop_bar = QProgressBar()
+        self._stat_drop_bar.setRange(0, 100)
+        self._stat_drop_bar.setValue(0)
+        self._stat_drop_bar.setFormat("%p%")
+        self._stat_drop_bar.setFixedHeight(14)
+        self._stat_drop_bar.setStyleSheet("""
+            QProgressBar {
+                background: #0a1628; border: 1px solid #1a2a3a;
+                border-radius: 3px; font-size: 9px; color: #94a3b8;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 #ff4444, stop:1 #ff8800);
+                border-radius: 3px;
+            }
+        """)
+        drop_row.addWidget(self._stat_drop_bar, 1)
+        stats_layout.addLayout(drop_row)
+
+        # Active engines count
+        self._stat_engines_label = QLabel("Engines: 0 active")
+        self._stat_engines_label.setStyleSheet("color: #6b7280; font-size: 10px;")
+        stats_layout.addWidget(self._stat_engines_label)
+
+        # Per-device breakdown (compact table)
+        self._stat_device_table = QTableWidget()
+        self._stat_device_table.setColumnCount(4)
+        self._stat_device_table.setHorizontalHeaderLabels(["Device", "Processed", "Dropped", "Methods"])
+        self._stat_device_table.setMaximumHeight(100)
+        self._stat_device_table.verticalHeader().setVisible(False)
+        self._stat_device_table.setAlternatingRowColors(True)
+        hdr = self._stat_device_table.horizontalHeader()
+        for i in range(4):
+            hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
+        self._stat_device_table.setStyleSheet("""
+            QTableWidget {
+                background-color: #0a0f18; color: #e0e0e0;
+                border: 1px solid #1a2a3a; gridline-color: #1a2a3a; font-size: 10px;
+            }
+            QTableWidget::item:alternate { background-color: #0a1628; }
+            QHeaderView::section {
+                background-color: #0f1923; color: #94a3b8; padding: 3px;
+                border: 1px solid #1a2a3a; font-weight: bold; font-size: 9px;
+            }
+        """)
+        stats_layout.addWidget(self._stat_device_table)
+
+        stats_group.setLayout(stats_layout)
+        parent_layout.addWidget(stats_group)
+
+    def _refresh_stats_panel(self):
+        """Refresh the stats dashboard with live engine data."""
+        if not self.controller or not hasattr(self.controller, 'get_engine_stats'):
+            return
+        try:
+            stats = self.controller.get_engine_stats()
+
+            processed = stats.get("packets_processed", 0)
+            dropped = stats.get("packets_dropped", 0)
+            passed = stats.get("packets_passed", 0)
+            inbound = stats.get("packets_inbound", 0)
+            outbound = stats.get("packets_outbound", 0)
+
+            self._stat_processed.setText(self._format_count(processed))
+            self._stat_dropped.setText(self._format_count(dropped))
+            self._stat_passed.setText(self._format_count(passed))
+            self._stat_inbound.setText(self._format_count(inbound))
+            self._stat_outbound.setText(self._format_count(outbound))
+
+            # Drop rate
+            if processed > 0:
+                drop_pct = int((dropped / processed) * 100)
+                self._stat_drop_bar.setValue(min(drop_pct, 100))
+            else:
+                self._stat_drop_bar.setValue(0)
+
+            # Active engines
+            active = stats.get("active_engines", 0)
+            self._stat_engines_label.setText(f"Engines: {active} active")
+
+            # Per-device breakdown
+            per_device = stats.get("per_device", {})
+            self._stat_device_table.setRowCount(0)
+            for ip, dstats in per_device.items():
+                row = self._stat_device_table.rowCount()
+                self._stat_device_table.insertRow(row)
+                display_ip = self._mask_ip(ip) if self._ip_hidden else ip
+                self._stat_device_table.setItem(row, 0, QTableWidgetItem(display_ip))
+                self._stat_device_table.setItem(row, 1, QTableWidgetItem(
+                    self._format_count(dstats.get("packets_processed", 0))))
+                self._stat_device_table.setItem(row, 2, QTableWidgetItem(
+                    self._format_count(dstats.get("packets_dropped", 0))))
+                methods = ", ".join(dstats.get("methods", []))
+                self._stat_device_table.setItem(row, 3, QTableWidgetItem(methods))
+
+        except Exception as e:
+            log_error(f"Stats refresh error: {e}")
+
+    @staticmethod
+    def _format_count(n: int) -> str:
+        """Format a packet count for display: 1234 → '1.2K', 1234567 → '1.2M'."""
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        elif n >= 1_000:
+            return f"{n / 1_000:.1f}K"
+        return str(n)
+
+    # ------------------------------------------------------------------
+    # Voice Control Panel
+    # ------------------------------------------------------------------
+    def _build_voice_panel(self, parent_layout):
+        """Build the voice control UI section."""
+        voice_group = self._card("VOICE CONTROL")
+        vl = QVBoxLayout()
+        vl.setSpacing(6)
+
+        if not VOICE_AVAILABLE:
+            missing_label = QLabel("Install sounddevice + openai-whisper to enable")
+            missing_label.setStyleSheet("color: #6b7280; font-size: 10px; font-style: italic;")
+            vl.addWidget(missing_label)
+            voice_group.setLayout(vl)
+            parent_layout.addWidget(voice_group)
+            return
+
+        # Status row
+        status_row = QHBoxLayout()
+        self.voice_status_label = QLabel("Voice: Not initialized")
+        self.voice_status_label.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 3px;")
+        status_row.addWidget(self.voice_status_label, 1)
+        vl.addLayout(status_row)
+
+        # Controls row
+        ctrl_row = QHBoxLayout()
+
+        self.btn_voice_init = QPushButton("INIT")
+        self.btn_voice_init.setStyleSheet(self._btn_style("#e040fb", "#0a1628"))
+        self.btn_voice_init.setFixedHeight(28)
+        self.btn_voice_init.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_init.clicked.connect(self._on_voice_init)
+        ctrl_row.addWidget(self.btn_voice_init)
+
+        self.btn_voice_listen = QPushButton("LISTEN")
+        self.btn_voice_listen.setStyleSheet(self._btn_style("#00ff88", "#0a1628"))
+        self.btn_voice_listen.setFixedHeight(28)
+        self.btn_voice_listen.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_listen.setEnabled(False)
+        self.btn_voice_listen.setToolTip("Toggle continuous listening — say 'stop listening' to deactivate")
+        self.btn_voice_listen.clicked.connect(self._on_voice_listen_toggle)
+        ctrl_row.addWidget(self.btn_voice_listen)
+
+        self.btn_voice_ptt = QPushButton("PTT")
+        self.btn_voice_ptt.setStyleSheet(self._btn_style("#6b7280", "#0a1628"))
+        self.btn_voice_ptt.setFixedHeight(28)
+        self.btn_voice_ptt.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_voice_ptt.setEnabled(False)
+        self.btn_voice_ptt.setToolTip("Push-to-talk: hold to record, release to transcribe")
+        self.btn_voice_ptt.pressed.connect(self._on_voice_ptt_press)
+        self.btn_voice_ptt.released.connect(self._on_voice_ptt_release)
+        ctrl_row.addWidget(self.btn_voice_ptt)
+
+        vl.addLayout(ctrl_row)
+
+        # Model selector
+        model_row = QHBoxLayout()
+        model_label = QLabel("MODEL:")
+        model_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        model_label.setFixedWidth(48)
+        model_row.addWidget(model_label)
+
+        self.voice_model_combo = QComboBox()
+        self.voice_model_combo.addItems(["tiny", "base", "small"])
+        self.voice_model_combo.setStyleSheet(self._combo_style())
+        model_row.addWidget(self.voice_model_combo, 1)
+        vl.addLayout(model_row)
+
+        # Mic selector
+        mic_row = QHBoxLayout()
+        mic_label = QLabel("MIC:")
+        mic_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        mic_label.setFixedWidth(48)
+        mic_row.addWidget(mic_label)
+
+        self.voice_mic_combo = QComboBox()
+        self.voice_mic_combo.addItem("System Default", None)
+        self.voice_mic_combo.setStyleSheet(self._combo_style())
+        mic_row.addWidget(self.voice_mic_combo, 1)
+        vl.addLayout(mic_row)
+
+        voice_group.setLayout(vl)
+        parent_layout.addWidget(voice_group)
+
+        # Initialize voice controller (lazy)
+        self._voice_controller = None
+
+    def _on_voice_init(self):
+        """Initialize the voice engine."""
+        if not VOICE_AVAILABLE:
+            return
+
+        model_name = self.voice_model_combo.currentText()
+        self.voice_status_label.setText(f"Loading {model_name} model...")
+        self.voice_status_label.setStyleSheet(
+            "color: #e040fb; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #e040fb; border-radius: 3px;")
+        self.btn_voice_init.setEnabled(False)
+
+        # Build advisor if smart engine available
+        advisor = None
+        if SMART_ENGINE_AVAILABLE:
+            advisor = LLMAdvisor()
+
+        config = VoiceConfig(model_name=model_name)
+
+        # Mic selection
+        mic_data = self.voice_mic_combo.currentData()
+        if mic_data is not None:
+            config.input_device = mic_data
+
+        self._voice_controller = VoiceController(
+            advisor=advisor,
+            on_command=self._on_voice_command,
+            on_status=self._on_voice_status_update,
+            on_listening_changed=self._on_voice_listening_changed,
+            config=config,
+        )
+
+        def _on_loaded(ok):
+            QMetaObject.invokeMethod(
+                self, "_voice_init_done",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, ok),
+            )
+
+        self._voice_controller.initialize(callback=_on_loaded)
+
+    @pyqtSlot(object)
+    def _voice_init_done(self, ok):
+        self.btn_voice_init.setEnabled(True)
+        if ok:
+            self.btn_voice_listen.setEnabled(True)
+            self.btn_voice_ptt.setEnabled(True)
+            self.voice_status_label.setText("Voice ready — click LISTEN or hold PTT")
+            self.voice_status_label.setStyleSheet(
+                "color: #00ff88; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #00ff88; border-radius: 3px;")
+
+            # Populate mic list
+            if self._voice_controller:
+                devices = self._voice_controller.list_input_devices()
+                self.voice_mic_combo.clear()
+                self.voice_mic_combo.addItem("System Default", None)
+                for dev in devices:
+                    self.voice_mic_combo.addItem(dev["name"], dev["index"])
+        else:
+            self.voice_status_label.setText("Voice init failed — check logs")
+            self.voice_status_label.setStyleSheet(
+                "color: #ff4444; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #ff4444; border-radius: 3px;")
+
+    def _on_voice_listen_toggle(self):
+        """Toggle continuous listening on/off."""
+        if not self._voice_controller:
+            return
+        self._voice_controller.toggle_listening()
+
+    def _on_voice_listening_changed(self, listening: bool):
+        """Called from VoiceController (background thread) when listening state changes.
+        Marshal to main thread for GUI update."""
+        QMetaObject.invokeMethod(
+            self, "_voice_update_listen_btn",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, listening),
+        )
+
+    @pyqtSlot(object)
+    def _voice_update_listen_btn(self, listening):
+        """Update LISTEN button appearance based on listening state."""
+        if not hasattr(self, 'btn_voice_listen'):
+            return
+        if listening:
+            self.btn_voice_listen.setText("LISTENING")
+            self.btn_voice_listen.setStyleSheet(self._btn_style("#ff4444", "#0a1628"))
+            self.voice_status_label.setText("Listening... say 'stop listening' to deactivate")
+            self.voice_status_label.setStyleSheet(
+                "color: #ff4444; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #ff4444; border-radius: 3px;")
+        else:
+            self.btn_voice_listen.setText("LISTEN")
+            self.btn_voice_listen.setStyleSheet(self._btn_style("#00ff88", "#0a1628"))
+            self.voice_status_label.setText("Voice ready — click LISTEN or hold PTT")
+            self.voice_status_label.setStyleSheet(
+                "color: #00ff88; font-size: 10px; padding: 2px; "
+                "background: #0a0f18; border: 1px solid #00ff88; border-radius: 3px;")
+
+    def _on_voice_ptt_press(self):
+        if self._voice_controller:
+            self._voice_controller.push_to_talk_press()
+
+    def _on_voice_ptt_release(self):
+        if self._voice_controller:
+            self._voice_controller.push_to_talk_release()
+
+    def _on_voice_command(self, config: dict):
+        """Handle a voice-generated disruption config.
+        NOTE: This is called from a background thread (VoiceController).
+        Must marshal all GUI operations to the main thread."""
+        QMetaObject.invokeMethod(
+            self, "_voice_apply_command",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, config),
+        )
+
+    @pyqtSlot(object)
+    def _voice_apply_command(self, config):
+        """Apply voice command on the main thread (Qt-safe)."""
+        action = config.get("action")
+        if action == "stop":
+            self._on_stop()
+            return
+        if action == "start":
+            self._on_disrupt()
+            return
+
+        # Apply as disruption config
+        methods = config.get("methods", [])
+        params = config.get("params", {})
+        if methods and self.selected_ip and self.controller:
+            log_info(f"VoiceCommand: applying {config.get('name', 'voice config')}")
+            self.controller.disrupt_device(self.selected_ip, methods, params)
+            self._disruption_timers[self.selected_ip] = time.time()
+            self._refresh_device_table_status()
+
+    def _on_voice_status_update(self, msg: str):
+        """Thread-safe voice status update."""
+        QMetaObject.invokeMethod(
+            self, "_voice_set_status",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, msg),
+        )
+
+    @pyqtSlot(object)
+    def _voice_set_status(self, msg):
+        if hasattr(self, 'voice_status_label'):
+            self.voice_status_label.setText(msg)
+
+    # ------------------------------------------------------------------
+    # GPC / CronusZEN Panel
+    # ------------------------------------------------------------------
+    def _build_gpc_panel(self, parent_layout):
+        """Build the GPC script management panel."""
+        gpc_group = self._card("GPC / CRONUS")
+        gl = QVBoxLayout()
+        gl.setSpacing(6)
+
+        if not GPC_AVAILABLE:
+            missing_label = QLabel("GPC module not available")
+            missing_label.setStyleSheet("color: #6b7280; font-size: 10px; font-style: italic;")
+            gl.addWidget(missing_label)
+            gpc_group.setLayout(gl)
+            parent_layout.addWidget(gpc_group)
+            return
+
+        # Device status
+        self.gpc_device_label = QLabel("Device: Scanning...")
+        self.gpc_device_label.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; padding: 2px; "
+            "background: #0a0f18; border: 1px solid #1a2a3a; border-radius: 3px;")
+        gl.addWidget(self.gpc_device_label)
+
+        # Template selector
+        tmpl_row = QHBoxLayout()
+        tmpl_label = QLabel("SCRIPT:")
+        tmpl_label.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
+        tmpl_label.setFixedWidth(48)
+        tmpl_row.addWidget(tmpl_label)
+
+        self.gpc_template_combo = QComboBox()
+        for tmpl in list_templates():
+            self.gpc_template_combo.addItem(
+                f"{tmpl['name']} ({tmpl['game']})", tmpl['name'])
+        self.gpc_template_combo.setStyleSheet(self._combo_style())
+        tmpl_row.addWidget(self.gpc_template_combo, 1)
+        gl.addLayout(tmpl_row)
+
+        # Template description
+        self.gpc_desc_label = QLabel("")
+        self.gpc_desc_label.setStyleSheet("color: #6b7280; font-size: 9px; padding: 2px;")
+        self.gpc_desc_label.setWordWrap(True)
+        gl.addWidget(self.gpc_desc_label)
+        self.gpc_template_combo.currentIndexChanged.connect(self._on_gpc_template_changed)
+        self._on_gpc_template_changed()  # set initial description
+
+        # Buttons
+        btn_row = QHBoxLayout()
+
+        self.btn_gpc_generate = QPushButton("GENERATE")
+        self.btn_gpc_generate.setStyleSheet(self._btn_style("#ff6b35", "#0a1628"))
+        self.btn_gpc_generate.setFixedHeight(28)
+        self.btn_gpc_generate.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_generate.clicked.connect(self._on_gpc_generate)
+        btn_row.addWidget(self.btn_gpc_generate)
+
+        self.btn_gpc_export = QPushButton("EXPORT .GPC")
+        self.btn_gpc_export.setStyleSheet(self._btn_style("#00d9ff", "#0a1628"))
+        self.btn_gpc_export.setFixedHeight(28)
+        self.btn_gpc_export.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_export.setEnabled(False)
+        self.btn_gpc_export.clicked.connect(self._on_gpc_export)
+        btn_row.addWidget(self.btn_gpc_export)
+
+        self.btn_gpc_sync = QPushButton("SYNC TIMING")
+        self.btn_gpc_sync.setStyleSheet(self._btn_style("#e040fb", "#0a1628"))
+        self.btn_gpc_sync.setFixedHeight(28)
+        self.btn_gpc_sync.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.btn_gpc_sync.setToolTip("Generate script synced with current disruption settings")
+        self.btn_gpc_sync.clicked.connect(self._on_gpc_sync)
+        btn_row.addWidget(self.btn_gpc_sync)
+
+        gl.addLayout(btn_row)
+
+        # Generated script preview (collapsed by default)
+        self.gpc_preview_label = QLabel("")
+        self.gpc_preview_label.setStyleSheet(
+            "color: #6b7280; font-size: 9px; font-family: 'Consolas', 'Courier New', monospace; "
+            "padding: 4px; background: #080c14; border: 1px solid #1a2a3a; border-radius: 3px;")
+        self.gpc_preview_label.setWordWrap(True)
+        self.gpc_preview_label.setMaximumHeight(120)
+        self.gpc_preview_label.hide()
+        gl.addWidget(self.gpc_preview_label)
+
+        gpc_group.setLayout(gl)
+        parent_layout.addWidget(gpc_group)
+
+        # State
+        self._gpc_generator = GPCGenerator()
+        self._gpc_last_source = ""
+
+        # Start device monitor in background
+        self._gpc_monitor = DeviceMonitor(
+            on_connect=lambda dev: self._gpc_device_event(f"Connected: {dev.name}"),
+            on_disconnect=lambda dev: self._gpc_device_event(f"Disconnected: {dev.name}"),
+        )
+        self._gpc_monitor.start()
+
+        # Initial device scan
+        def _initial_scan():
+            devices = scan_devices()
+            if devices:
+                msg = f"Device: {devices[0].name} ({devices[0].device_type.upper()})"
+            else:
+                msg = "Device: None detected — scripts export to file"
+            QMetaObject.invokeMethod(
+                self, "_gpc_set_device_label",
+                Qt.ConnectionType.QueuedConnection,
+                Q_ARG(object, msg),
+            )
+
+        threading.Thread(target=_initial_scan, daemon=True).start()
+
+    def _on_gpc_template_changed(self):
+        if not GPC_AVAILABLE:
+            return
+        name = self.gpc_template_combo.currentData()
+        if name:
+            tmpl = get_template(name)
+            if tmpl:
+                self.gpc_desc_label.setText(tmpl.description)
+
+    def _on_gpc_generate(self):
+        if not GPC_AVAILABLE:
+            return
+        name = self.gpc_template_combo.currentData()
+        tmpl = get_template(name) if name else None
+        if not tmpl:
+            return
+
+        source = self._gpc_generator.generate(tmpl)
+        self._gpc_last_source = source
+        self.btn_gpc_export.setEnabled(True)
+
+        # Show preview (first 500 chars)
+        preview = source[:500] + ("..." if len(source) > 500 else "")
+        self.gpc_preview_label.setText(preview)
+        self.gpc_preview_label.show()
+        log_info(f"GPC: generated script '{name}' ({len(source)} chars)")
+
+    def _on_gpc_sync(self):
+        """Generate a GPC script synced with current disruption params."""
+        if not GPC_AVAILABLE:
+            return
+
+        # Gather current disruption config from active modules
+        params = self._collect_params()
+        methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
+        if not methods:
+            preset = self.preset_combo.currentText()
+            methods = PRESETS.get(preset, {}).get("methods", ["drop", "lag"])
+
+        config = {"methods": methods, "params": params}
+        source = self._gpc_generator.generate_from_disruption(config)
+        self._gpc_last_source = source
+        self.btn_gpc_export.setEnabled(True)
+
+        preview = source[:500] + ("..." if len(source) > 500 else "")
+        self.gpc_preview_label.setText(preview)
+        self.gpc_preview_label.show()
+        log_info(f"GPC: generated synced script ({len(source)} chars)")
+
+    def _on_gpc_export(self):
+        """Export the last generated script to a .gpc file."""
+        if not self._gpc_last_source or not GPC_AVAILABLE:
+            return
+
+        from app.gpc.device_bridge import get_default_export_path
+        export_dir = get_default_export_path()
+        name = self.gpc_template_combo.currentData() or "dupez_script"
+        safe_name = re.sub(r'[^\w\-]', '_', name.lower())
+        path = os.path.join(export_dir, f"{safe_name}.gpc")
+
+        ok = self._gpc_generator.export_to_file(self._gpc_last_source, path)
+        if ok:
+            QMessageBox.information(self, "GPC Export",
+                                   f"Script exported to:\n{path}")
+        else:
+            QMessageBox.warning(self, "GPC Export", "Failed to export — check logs")
+
+    def _gpc_device_event(self, msg: str):
+        QMetaObject.invokeMethod(
+            self, "_gpc_set_device_label",
+            Qt.ConnectionType.QueuedConnection,
+            Q_ARG(object, msg),
+        )
+
+    @pyqtSlot(object)
+    def _gpc_set_device_label(self, msg):
+        if hasattr(self, 'gpc_device_label'):
+            self.gpc_device_label.setText(msg)
+
+    # ------------------------------------------------------------------
+    # Styles
+    # ------------------------------------------------------------------
+    def _card(self, title: str) -> QGroupBox:
+        box = QGroupBox(title)
+        box.setStyleSheet("""
+            QGroupBox {
+                color: #00d9ff;
+                font-size: 11px;
+                font-weight: bold;
+                letter-spacing: 1px;
+                border: 1px solid #1a2a3a;
+                border-radius: 6px;
+                margin-top: 12px;
+                padding: 12px 8px 8px 8px;
+                background: #0f1923;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 12px;
+                padding: 0 6px;
+            }
+        """)
+        return box
+
+    @staticmethod
+    def _btn_style(color: str, bg: str) -> str:
+        return f"""
+            QPushButton {{
+                background: {bg};
+                color: {color};
+                border: 1px solid {color};
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                letter-spacing: 1px;
+            }}
+            QPushButton:hover {{
+                background: {color};
+                color: #0a0a0a;
+            }}
+            QPushButton:pressed {{
+                background: {color};
+                color: #0a0a0a;
+                border: 2px solid {color};
+            }}
+            QPushButton:disabled {{
+                background: #1a1a1a;
+                color: #4a4a4a;
+                border: 1px solid #2a2a2a;
+            }}
+        """
+
+    @staticmethod
+    def _slider_style() -> str:
+        return """
+            QSlider::groove:horizontal {
+                border: 1px solid #1a2a3a;
+                height: 6px;
+                background: #0a1628;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #00d9ff;
+                border: none;
+                width: 14px;
+                margin: -4px 0;
+                border-radius: 7px;
+            }
+            QSlider::sub-page:horizontal {
+                background: rgba(0, 217, 255, 0.3);
+                border-radius: 3px;
+            }
+        """
+
+    @staticmethod
+    def _combo_style() -> str:
+        return """
+            QComboBox {
+                background: #0a1628;
+                color: #e0e0e0;
+                border: 1px solid #1a2a3a;
+                border-radius: 4px;
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 20px;
+            }
+            QComboBox QAbstractItemView {
+                background: #0f1923;
+                color: #e0e0e0;
+                selection-background-color: rgba(0, 217, 255, 0.3);
+                border: 1px solid #1a2a3a;
+            }
+        """
