@@ -34,14 +34,11 @@ hidden = (
 datas = [
     # Config JSONs
     (os.path.join(ROOT, 'app', 'config'),           os.path.join('app', 'config')),
-    (os.path.join(ROOT, 'config'),                   'config'),
     # Icons / assets
     (os.path.join(ROOT, 'app', 'resources'),         os.path.join('app', 'resources')),
     (os.path.join(ROOT, 'app', 'assets'),            os.path.join('app', 'assets')),
     # Themes
     (os.path.join(ROOT, 'app', 'themes'),            os.path.join('app', 'themes')),
-    # Data files
-    (os.path.join(ROOT, 'data'),                     'data'),
 ]
 
 # ── binary DLLs for WinDivert + Clumsy ──────────────────────────────────
