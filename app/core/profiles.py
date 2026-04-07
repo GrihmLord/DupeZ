@@ -19,10 +19,9 @@ Profiles can be:
 import json
 import os
 import time
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 from typing import Dict, List, Optional
 from app.logs.logger import log_info, log_error
-
 
 @dataclass
 class DisruptionProfile:
@@ -51,10 +50,9 @@ class DisruptionProfile:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'DisruptionProfile':
-        known_fields = {f.name for f in __import__('dataclasses').fields(cls)}
+        known_fields = {f.name for f in fields(cls)}
         filtered = {k: v for k, v in data.items() if k in known_fields}
         return cls(**filtered)
-
 
 class ProfileManager:
     """Manages disruption profiles — CRUD + import/export.
@@ -88,7 +86,6 @@ class ProfileManager:
         """Save a new or updated profile."""
         path = self._profile_path(name)
 
-        # Load existing to preserve metadata
         existing = self._load_file(path)
         now = time.time()
 
@@ -192,7 +189,7 @@ class ProfileManager:
             try:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
-            except:
+            except Exception:
                 pass
 
     def _load_file(self, path: str) -> Optional[DisruptionProfile]:
@@ -205,3 +202,4 @@ class ProfileManager:
         except Exception as e:
             log_error(f"ProfileManager: load failed ({path}): {e}")
         return None
+

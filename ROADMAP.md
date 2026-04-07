@@ -64,14 +64,23 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
-## v4.0.0 — Platform & Extensibility
+## v4.0.0 — Platform & Extensibility ✅
 
-**Target:** 2027
+**Released:** 2026-04-06
 
-- **Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point.
-- **CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation.
-- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6.
-- **Auto-Updater** — In-app update checker with one-click download from GitHub releases.
+- ~~**Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point. Auto-discovery from `plugins/` directory. Hot-reload support. sys.path/sys.modules leak-safe loading.~~ ✅ Done
+- ~~**CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation. Interactive REPL mode.~~ ✅ Done
+- ~~**Auto-Updater** — In-app update checker with one-click download from GitHub releases.~~ ✅ Done
+- ~~**God Mode Overhaul** — NAT keepalive system (1 packet/800ms) prevents Windows ICS NAT table timeout during long freeze cycles. Burst-controlled flush on deactivation (50 packets/5ms burst). Full WinDivert NETWORK_FORWARD documentation.~~ ✅ Done
+- ~~**Desync Engine Rewrite** — Lag module passthrough mode auto-enables when stacked with duplicate/ood. Lag queues delayed copies while originals flow to downstream modules. True lag+dupe+ood stacking for maximum desync.~~ ✅ Done
+- ~~**Fixed Duplicate Count** — DuplicateModule now sends 1 original + N copies = N+1 total deliveries (was N, missing the original).~~ ✅ Done
+- ~~**Thread-Safe LLM Advisor** — Conversation history protected by lock for ask_async concurrency. Error handling on get_explanation.~~ ✅ Done
+- ~~**Full Opsec Audit** — All target IPs masked via mask_ip() in every log statement across the codebase (7 files, 12 call sites). No personal data in tracked files.~~ ✅ Done
+- ~~**iZurvive Ad Blocker v2** — Two-layer: network-level QWebEngineUrlRequestInterceptor blocks ~28 ad domains + DOM-level CSS/JS cleanup. OAuth login preserved.~~ ✅ Done
+- ~~**Scheduler/Macro Fixes** — Repeat-only rule first-fire bug. Epoch-based delayed start. QTimer.singleShot for auto-stop (was threading.Thread race). Macro step callback for GUI timer sync.~~ ✅ Done
+- ~~**Thread Safety Pass** — Data persistence lock, network scanner executor lock, state observer Qt thread marshalling, GPC bridge callback-outside-lock pattern, enhanced scanner threading.Event.~~ ✅ Done
+- ~~**Custom Menu Bar** — Embedded QMenuBar below frameless title bar with dark theme styling. ADMIN badge repositioned before version string.~~ ✅ Done
+- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred to v4.1.0)*
 
 ---
 
@@ -92,16 +101,13 @@ These are ideas worth exploring but not committed to a release.
 
 - [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Clumsy Control with presets and sliders. Map selector. Account tracker. Native WinDivert engine.
 - [x] **v3.0.1** — Production hardening. Atomic settings writes. Settings dialog overhaul. Full QSS coverage. Dead code purge. IP sanitization. Cross-platform line endings.
-<<<<<<< HEAD
 - [x] **v3.1.0** — Smart Mode. AI auto-tune engine. Network profiler. LLM advisor (Ollama/Mistral). Session tracking with feedback learning. Profile system. Tray mode. Device nicknames. Scan caching.
 - [x] **v3.2.0** — Multi-target simultaneous disruption. Scheduled/timed disruptions. Disruption macros. Profile import/export.
 - [x] **v3.3.0** — Network Intelligence. Live traffic monitor. Latency overlay. Port scanner. 4-view dashboard.
 - [x] **v3.3.1** — Hardening pass. 11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation, OOD buffer bounds.
 - [x] **v3.4.0** — God Mode + Voice + GPC. Directional lag engine. Push-to-talk voice control via Whisper. CronusZEN/MAX GPC integration. 100% drop fidelity. Direction-aware filtering. 6th smart engine strategy.
 - [x] **v3.5.0** — Live Stats Dashboard. Real-time packet counters with per-device breakdown. Engine stats API. PyInstaller spec update for optional deps. Version bump.
-=======
-- [x] **v3.0.2** — Ghost Rush + Phantom Peek outbound-only PvP presets. 7 bug fixes (5 core + 2 account tracker). 14 regression tests. Version consistency cleanup.
->>>>>>> main
+- [x] **v4.0.0** — Platform & Extensibility. Plugin API with manifest schema, auto-discovery, and 4 plugin types (disruption, scanner, ui_panel, generic). CLI mode with scriptable disruptions and interactive REPL. Auto-updater via GitHub Releases API.
 
 ---
 

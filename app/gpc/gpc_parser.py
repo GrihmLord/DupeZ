@@ -21,14 +21,11 @@ This parser extracts:
 """
 
 import re
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from app.logs.logger import log_info, log_error
 
-
-# ---------------------------------------------------------------------------
 # Token types
-# ---------------------------------------------------------------------------
 class TokenType:
     PREPROCESSOR = "PREPROCESSOR"   # #define, #include, #pragma
     KEYWORD      = "KEYWORD"        # main, combo, function, if, else, while, for, int, data
@@ -47,7 +44,6 @@ class TokenType:
     COMMENT      = "COMMENT"        # // or /* */
     EOF          = "EOF"
 
-
 @dataclass
 class Token:
     type: str
@@ -55,16 +51,12 @@ class Token:
     line: int
     col: int
 
-
-# ---------------------------------------------------------------------------
 # Parsed structures
-# ---------------------------------------------------------------------------
 @dataclass
 class GPCDefine:
     name: str
     value: str
     line: int
-
 
 @dataclass
 class GPCVariable:
@@ -75,14 +67,12 @@ class GPCVariable:
     array_size: Optional[int] = None
     line: int = 0
 
-
 @dataclass
 class GPCComboStep:
     """A single step inside a combo block."""
     function: str          # set_val, wait, etc.
     args: List[str] = field(default_factory=list)
     raw: str = ""
-
 
 @dataclass
 class GPCCombo:
@@ -101,7 +91,6 @@ class GPCCombo:
                 except (ValueError, IndexError):
                     pass
         return total
-
 
 @dataclass
 class GPCScript:
@@ -124,10 +113,7 @@ class GPCScript:
                 return c
         return None
 
-
-# ---------------------------------------------------------------------------
 # Tokenizer
-# ---------------------------------------------------------------------------
 KEYWORDS = {
     "main", "combo", "function", "if", "else", "while", "for",
     "int", "data", "return", "break", "continue",
@@ -152,7 +138,6 @@ TOKEN_PATTERNS = [
     (TokenType.IDENTIFIER,   r'[A-Za-z_]\w*'),
 ]
 
-
 def tokenize(source: str) -> List[Token]:
     """Tokenize GPC source code into a list of tokens."""
     tokens = []
@@ -163,7 +148,6 @@ def tokenize(source: str) -> List[Token]:
     master_pattern = '|'.join(
         f'(?P<T{i}>{pat})' for i, (_, pat) in enumerate(TOKEN_PATTERNS)
     )
-    # Add whitespace skip
     master_pattern = f'(?P<WS>\\s+)|{master_pattern}'
 
     for m in re.finditer(master_pattern, source):
@@ -196,10 +180,7 @@ def tokenize(source: str) -> List[Token]:
     tokens.append(Token(type=TokenType.EOF, value="", line=line, col=0))
     return tokens
 
-
-# ---------------------------------------------------------------------------
 # Parser
-# ---------------------------------------------------------------------------
 class GPCParser:
     """Parse tokenized GPC into a GPCScript structure."""
 
@@ -227,18 +208,10 @@ class GPCParser:
         if tok.type == TokenType.PREPROCESSOR:
             self._parse_preprocessor()
         elif tok.type == TokenType.KEYWORD:
-            if tok.value == "main":
-                self._parse_main()
-            elif tok.value == "combo":
-                self._parse_combo()
-            elif tok.value == "function":
-                self._parse_function()
-            elif tok.value in ("int", "data"):
-                self._parse_variable()
-            else:
-                self._advance()
-        elif tok.type == TokenType.EOF:
-            self._advance()
+            _KW_PARSERS = {"main": self._parse_main, "combo": self._parse_combo,
+                           "function": self._parse_function, "int": self._parse_variable,
+                           "data": self._parse_variable}
+            _KW_PARSERS.get(tok.value, self._advance)()
         else:
             self._advance()
 
@@ -265,7 +238,6 @@ class GPCParser:
             line=type_tok.line,
         )
 
-        # Check for array
         if self._check(TokenType.LBRACKET):
             self._advance()  # [
             var.is_array = True
@@ -274,7 +246,6 @@ class GPCParser:
             if self._check(TokenType.RBRACKET):
                 self._advance()  # ]
 
-        # Check for initializer
         if self._check(TokenType.OPERATOR) and self._peek().value == '=':
             self._advance()  # =
             if not self._at_end() and not self._check(TokenType.SEMICOLON):
@@ -418,10 +389,7 @@ class GPCParser:
         if self._check(TokenType.SEMICOLON):
             self._advance()
 
-
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 def parse_gpc(source: str) -> GPCScript:
     """Parse GPC source code string into a GPCScript."""
     tokens = tokenize(source)
@@ -434,7 +402,6 @@ def parse_gpc(source: str) -> GPCScript:
 
     return script
 
-
 def parse_gpc_file(path: str) -> GPCScript:
     """Parse a .gpc file from disk."""
     try:
@@ -446,3 +413,4 @@ def parse_gpc_file(path: str) -> GPCScript:
         script = GPCScript()
         script.errors.append(f"Failed to read file: {e}")
         return script
+

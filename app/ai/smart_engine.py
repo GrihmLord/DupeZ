@@ -27,15 +27,10 @@ Disruption Goals (user-selectable):
 
 import json
 import os
-import math
 from dataclasses import dataclass, asdict, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List
 from app.logs.logger import log_info, log_error
-
-
-# ======================================================================
-# Disruption Recommendation
-# ======================================================================
+from app.utils.helpers import mask_ip
 @dataclass
 class DisruptionRecommendation:
     """Output of the smart engine — a complete disruption configuration."""
@@ -66,11 +61,6 @@ class DisruptionRecommendation:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
-
-# ======================================================================
-# Smart Disruption Engine
-# ======================================================================
 class SmartDisruptionEngine:
     """Maps network profiles to optimal disruption parameters.
 
@@ -124,7 +114,7 @@ class SmartDisruptionEngine:
         target_ip = getattr(profile, 'target_ip', 'unknown')
         quality = getattr(profile, 'quality_score', 50)
 
-        log_info(f"SmartEngine: computing recommendation for {target_ip} "
+        log_info(f"SmartEngine: computing recommendation for {mask_ip(target_ip)} "
                  f"(goal={goal}, intensity={intensity:.1f}, "
                  f"quality={quality:.0f})")
 
@@ -149,7 +139,6 @@ class SmartDisruptionEngine:
         # Apply device-specific adjustments
         self._adjust_for_device(rec, profile)
 
-        # Set metadata
         rec.goal = goal
         rec.confidence = self._compute_confidence(profile, rec)
 
@@ -170,9 +159,7 @@ class SmartDisruptionEngine:
         recs.sort(key=lambda r: r.estimated_effectiveness, reverse=True)
         return recs
 
-    # ------------------------------------------------------------------
     # Goal Inference
-    # ------------------------------------------------------------------
     def _infer_goal(self, profile) -> str:
         """Infer the best goal based on network profile."""
         # Hotspot + console → usually want disconnect or desync for gaming
@@ -186,9 +173,7 @@ class SmartDisruptionEngine:
             return "disconnect"
         return "disconnect"
 
-    # ------------------------------------------------------------------
     # Strategy: Disconnect
-    # ------------------------------------------------------------------
     def _strategy_disconnect(self, profile, intensity: float) -> DisruptionRecommendation:
         """Kill the connection entirely."""
         rec = DisruptionRecommendation(
@@ -202,6 +187,7 @@ class SmartDisruptionEngine:
             # Strong connection — need to stack everything
             rec.methods = ["disconnect", "drop", "lag", "bandwidth", "throttle"]
             rec.params = {
+                "disconnect_chance": 100,
                 "drop_chance": self._scale(85, 99, intensity),
                 "lag_delay": self._scale(1000, 3000, intensity),
                 "bandwidth_limit": 1,
@@ -223,6 +209,7 @@ class SmartDisruptionEngine:
             # Medium connection — moderate approach
             rec.methods = ["disconnect", "drop", "bandwidth", "throttle"]
             rec.params = {
+                "disconnect_chance": 100,
                 "drop_chance": self._scale(70, 95, intensity),
                 "bandwidth_limit": self._scale(1, 5, 1 - intensity),
                 "bandwidth_queue": 0,
@@ -242,6 +229,7 @@ class SmartDisruptionEngine:
             # Weak connection — light touch will kill it
             rec.methods = ["disconnect", "drop"]
             rec.params = {
+                "disconnect_chance": 100,
                 "drop_chance": self._scale(50, 80, intensity),
                 "direction": "both",
             }
@@ -254,9 +242,7 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Strategy: Lag
-    # ------------------------------------------------------------------
     def _strategy_lag(self, profile, intensity: float) -> DisruptionRecommendation:
         """Induce perceivable lag without full disconnect."""
         rec = DisruptionRecommendation(
@@ -264,16 +250,10 @@ class SmartDisruptionEngine:
             description="Calculated latency injection — keeps connection alive but unplayable",
         )
 
-        # Scale lag delay based on existing RTT
-        # If they already have 50ms, adding 500ms is devastating
-        # If they have 5ms, need more to be noticeable
+        # Scale lag based on existing RTT — lower RTT needs more added lag
         base_rtt = profile.avg_rtt_ms
-        if base_rtt < 10:
-            target_lag = self._scale(500, 2000, intensity)
-        elif base_rtt < 50:
-            target_lag = self._scale(300, 1500, intensity)
-        else:
-            target_lag = self._scale(200, 800, intensity)
+        lo, hi = ((500,2000) if base_rtt < 10 else (300,1500) if base_rtt < 50 else (200,800))
+        target_lag = self._scale(lo, hi, intensity)
 
         rec.methods = ["lag", "drop"]
         rec.params = {
@@ -291,9 +271,7 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Strategy: Desync
-    # ------------------------------------------------------------------
     def _strategy_desync(self, profile, intensity: float) -> DisruptionRecommendation:
         """Cause game state desynchronization."""
         rec = DisruptionRecommendation(
@@ -327,9 +305,7 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Strategy: Throttle
-    # ------------------------------------------------------------------
     def _strategy_throttle(self, profile, intensity: float) -> DisruptionRecommendation:
         """Degrade to minimum playable state."""
         rec = DisruptionRecommendation(
@@ -363,9 +339,7 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Strategy: Chaos
-    # ------------------------------------------------------------------
     def _strategy_chaos(self, profile, intensity: float) -> DisruptionRecommendation:
         """Maximum unpredictable disruption — all modules."""
         rec = DisruptionRecommendation(
@@ -401,9 +375,7 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Strategy: God Mode
-    # ------------------------------------------------------------------
     def _strategy_godmode(self, profile, intensity: float) -> DisruptionRecommendation:
         """Directional lag — freeze others' view of you while you keep moving.
 
@@ -430,16 +402,10 @@ class SmartDisruptionEngine:
             description="Directional lag — freeze their view, keep moving freely",
         )
 
-        # Scale lag based on intensity and connection quality
+        # Scale lag based on RTT — low-latency needs more lag to be noticeable
         base_rtt = profile.avg_rtt_ms
-        if base_rtt < 20:
-            # Low-latency connection — need more lag to be noticeable
-            lag_ms = int(self._scale(1000, 4000, intensity))
-        elif base_rtt < 80:
-            lag_ms = int(self._scale(800, 3000, intensity))
-        else:
-            # Already laggy — less delay needed
-            lag_ms = int(self._scale(500, 2000, intensity))
+        lo, hi = ((1000,4000) if base_rtt < 20 else (800,3000) if base_rtt < 80 else (500,2000))
+        lag_ms = int(self._scale(lo, hi, intensity))
 
         # At high intensity, also drop some inbound packets
         # This makes the freeze more aggressive — some server updates
@@ -448,17 +414,28 @@ class SmartDisruptionEngine:
         if intensity > 0.7:
             drop_inbound = int(self._scale(0, 40, (intensity - 0.7) / 0.3))
 
+        # NAT keepalive interval: at high intensity we can reduce it (more
+        # aggressive = fewer keepalives = harder freeze but more NAT risk).
+        # At low intensity, keep default 800ms for safety.
+        keepalive_ms = int(self._scale(800, 400, intensity))
+        if intensity >= 0.95:
+            keepalive_ms = 0  # max intensity disables keepalive entirely
+
         rec.methods = ["godmode"]
         rec.params = {
             "godmode_lag_ms": lag_ms,
             "godmode_drop_inbound_pct": drop_inbound,
+            "godmode_keepalive_interval_ms": keepalive_ms,
             "direction": "both",
         }
         rec.reasoning = [
-            "God Mode: inbound packets lagged, outbound packets pass through",
+            "God Mode: inbound packets (server→target) lagged, outbound (target→server) pass through",
             f"Inbound lag set to {lag_ms}ms — target won't see you move for "
             f"~{lag_ms/1000:.1f}s at a time",
             f"Their outbound actions still register in real time on the server",
+            f"NAT keepalive: 1 packet every {keepalive_ms}ms to prevent NAT table timeout"
+            if keepalive_ms > 0 else
+            "NAT keepalive DISABLED — maximum freeze but risk of NAT timeout on long sessions",
         ]
 
         if drop_inbound > 0:
@@ -471,7 +448,7 @@ class SmartDisruptionEngine:
             rec.estimated_effectiveness = self._scale(85, 99, intensity)
             rec.reasoning.append(
                 "Hotspot detected — God Mode is maximally effective when you "
-                "are the gateway (ICS/mobile hotspot)")
+                "are the gateway (ICS/mobile hotspot, NETWORK_FORWARD layer)")
         else:
             rec.estimated_effectiveness = self._scale(70, 90, intensity)
             rec.reasoning.append(
@@ -481,21 +458,18 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # ------------------------------------------------------------------
     # Connection-specific adjustments
-    # ------------------------------------------------------------------
+    # (param_key, scale_factor) pairs for hotspot reduction
+    _HOTSPOT_SCALE = {"lag_delay": 0.7, "godmode_lag_ms": 0.8}
+
     def _adjust_for_connection(self, rec: DisruptionRecommendation,
                                profile, intensity: float):
         """Tune recommendation based on connection type."""
         if profile.connection_type == "hotspot":
-            # Hotspot connections are already fragile — reduce aggression
-            if "lag_delay" in rec.params:
-                rec.params["lag_delay"] = int(rec.params["lag_delay"] * 0.7)
-            if "godmode_lag_ms" in rec.params:
-                # Hotspot amplifies lag naturally — pull back godmode lag
-                rec.params["godmode_lag_ms"] = int(rec.params["godmode_lag_ms"] * 0.8)
+            for key, factor in self._HOTSPOT_SCALE.items():
+                if key in rec.params:
+                    rec.params[key] = int(rec.params[key] * factor)
             if "drop_chance" in rec.params:
-                # Don't need as much — hotspot drops are amplified
                 rec.params["drop_chance"] = min(rec.params["drop_chance"],
                                                  self._scale(60, 90, intensity))
             rec.reasoning.append(
@@ -503,20 +477,16 @@ class SmartDisruptionEngine:
             rec.estimated_effectiveness = min(100, rec.estimated_effectiveness + 10)
 
         elif profile.connection_type == "lan":
-            # LAN is resilient — need to be more aggressive
             if "drop_chance" in rec.params:
                 rec.params["drop_chance"] = min(100, rec.params["drop_chance"] + 5)
             rec.reasoning.append(
                 "Adjusted for LAN: increased aggression (LAN connections are resilient)")
 
         elif profile.connection_type == "wan":
-            # WAN has natural jitter — exploit it
             rec.reasoning.append(
                 "WAN connection detected — natural latency variability works in our favor")
 
-    # ------------------------------------------------------------------
     # Device-specific adjustments
-    # ------------------------------------------------------------------
     def _adjust_for_device(self, rec: DisruptionRecommendation, profile):
         """Tune recommendation based on device type."""
         if profile.device_type == "console":
@@ -537,38 +507,29 @@ class SmartDisruptionEngine:
                 "Adjusted for mobile: these devices already struggle with packet loss")
             rec.estimated_effectiveness = min(100, rec.estimated_effectiveness + 10)
 
-    # ------------------------------------------------------------------
     # Confidence Score
-    # ------------------------------------------------------------------
     def _compute_confidence(self, profile, rec: DisruptionRecommendation) -> float:
         """How confident we are in this recommendation (0-1)."""
-        confidence = 0.7  # base
+        confidence = 0.7 + sum(delta for cond, delta in [
+            (profile.packets_received > 5, 0.1),
+            (profile.jitter_ms > 0, 0.05),
+            (len(profile.open_ports) > 0, 0.05),
+            (profile.device_type != "unknown", 0.1),
+        ] if cond)
 
-        # More data = more confidence
-        if profile.packets_received > 5:
+        if self._history and any(
+            h.get("device_type") == profile.device_type
+            and h.get("connection_type") == profile.connection_type
+            for h in self._history
+        ):
             confidence += 0.1
-        if profile.jitter_ms > 0:
-            confidence += 0.05
-        if len(profile.open_ports) > 0:
-            confidence += 0.05
-        if profile.device_type != "unknown":
-            confidence += 0.1
-
-        # Historical data would boost this further
-        if self._history:
-            matching = [h for h in self._history
-                        if h.get("device_type") == profile.device_type
-                        and h.get("connection_type") == profile.connection_type]
-            if matching:
-                confidence += 0.1
 
         return min(1.0, confidence)
 
-    # ------------------------------------------------------------------
     # Utility
-    # ------------------------------------------------------------------
     @staticmethod
     def _scale(low: float, high: float, t: float) -> float:
         """Linear interpolation between low and high based on t (0-1)."""
         t = max(0.0, min(1.0, t))
         return low + (high - low) * t
+

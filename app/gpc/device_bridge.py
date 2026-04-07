@@ -23,13 +23,11 @@ Dependencies:
 
 import os
 import sys
-import re
 import threading
 import time
 from typing import List, Dict, Optional, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from app.logs.logger import log_info, log_error
-
 
 # Cronus USB Vendor ID (community-identified)
 CRONUS_VID = "2508"
@@ -39,7 +37,6 @@ CRONUS_DEVICE_NAMES = [
     "cronus zen", "cronus max", "cronuszen", "cronusmax",
     "collective minds", "cm device",
 ]
-
 
 @dataclass
 class CronusDevice:
@@ -53,10 +50,7 @@ class CronusDevice:
     connected: bool = False
     firmware_version: str = ""
 
-
-# ---------------------------------------------------------------------------
 # Device detection
-# ---------------------------------------------------------------------------
 class DeviceDetector:
     """Detect CronusZEN/MAX devices connected via USB."""
 
@@ -80,49 +74,45 @@ class DeviceDetector:
     def get_last_scan(self) -> List[CronusDevice]:
         return self._last_scan
 
-    def _scan_windows(self) -> List[CronusDevice]:
-        """Scan for Cronus devices on Windows using WMI/registry."""
+    def _scan_pyserial(self) -> List[CronusDevice]:
+        """Scan for Cronus devices using pyserial's list_ports (cross-platform)."""
         devices = []
-
-        # Method 1: Try pyserial's list_ports
         try:
             from serial.tools import list_ports
             for port in list_ports.comports():
                 desc_lower = (port.description or "").lower()
-                mfr_lower = (port.manufacturer or "").lower()
+                mfr_lower = (getattr(port, 'manufacturer', None) or "").lower()
                 vid = f"{port.vid:04X}" if port.vid else ""
-
-                is_cronus = (
-                    vid == CRONUS_VID
-                    or any(n in desc_lower for n in CRONUS_DEVICE_NAMES)
-                    or any(n in mfr_lower for n in CRONUS_DEVICE_NAMES)
-                )
-
-                if is_cronus:
-                    dev_type = "zen" if "zen" in desc_lower else "max"
+                if (vid == CRONUS_VID
+                        or any(n in desc_lower for n in CRONUS_DEVICE_NAMES)
+                        or any(n in mfr_lower for n in CRONUS_DEVICE_NAMES)):
                     devices.append(CronusDevice(
                         name=port.description or "Cronus Device",
-                        port=port.device,
-                        vid=vid,
+                        port=port.device, vid=vid,
                         pid=f"{port.pid:04X}" if port.pid else "",
-                        serial_number=port.serial_number or "",
-                        device_type=dev_type,
+                        serial_number=getattr(port, 'serial_number', '') or "",
+                        device_type="zen" if "zen" in desc_lower else "max",
                         connected=True,
                     ))
-            return devices
         except ImportError:
             pass
+        return devices
 
-        # Method 2: WMI fallback via subprocess
+    def _scan_windows(self) -> List[CronusDevice]:
+        """Scan for Cronus devices on Windows using pyserial + WMI fallback."""
+        devices = self._scan_pyserial()
+        if devices:
+            return devices
+
+        # WMI fallback via subprocess
         try:
             import subprocess
-            _NO_WINDOW = 0x08000000
             result = subprocess.run(
                 ["wmic", "path", "Win32_PnPEntity", "where",
                  f"DeviceID like '%VID_{CRONUS_VID}%'",
                  "get", "Name,DeviceID", "/format:csv"],
                 capture_output=True, text=True, timeout=10,
-                creationflags=_NO_WINDOW,
+                creationflags=0x08000000,
             )
             for line in result.stdout.strip().split('\n'):
                 if CRONUS_VID.lower() in line.lower():
@@ -130,44 +120,18 @@ class DeviceDetector:
                     if len(parts) >= 3:
                         name = parts[-1].strip() or "Cronus Device"
                         devices.append(CronusDevice(
-                            name=name,
-                            vid=CRONUS_VID,
-                            connected=True,
+                            name=name, vid=CRONUS_VID, connected=True,
                             device_type="zen" if "zen" in name.lower() else "max",
                         ))
         except Exception as e:
             log_error(f"DeviceDetector: WMI scan failed: {e}")
-
         return devices
 
     def _scan_unix(self) -> List[CronusDevice]:
         """Scan for Cronus devices on Linux/Mac."""
-        devices = []
+        return self._scan_pyserial()
 
-        # Check /dev for Cronus serial devices
-        try:
-            from serial.tools import list_ports
-            for port in list_ports.comports():
-                desc_lower = (port.description or "").lower()
-                vid = f"{port.vid:04X}" if port.vid else ""
-                if vid == CRONUS_VID or any(n in desc_lower for n in CRONUS_DEVICE_NAMES):
-                    devices.append(CronusDevice(
-                        name=port.description or "Cronus Device",
-                        port=port.device,
-                        vid=vid,
-                        pid=f"{port.pid:04X}" if port.pid else "",
-                        connected=True,
-                        device_type="zen" if "zen" in desc_lower else "max",
-                    ))
-        except ImportError:
-            pass
-
-        return devices
-
-
-# ---------------------------------------------------------------------------
 # Device Monitor — background polling for connect/disconnect events
-# ---------------------------------------------------------------------------
 class DeviceMonitor:
     """Monitor for Cronus device connect/disconnect events.
 
@@ -218,29 +182,37 @@ class DeviceMonitor:
             try:
                 current = self._detector.scan()
                 current_keys = set()
+                connect_events = []
+                disconnect_events = []
 
+                # Update state under lock, collect events for dispatch outside lock
                 with self._lock:
                     for dev in current:
                         key = dev.port or dev.serial_number or dev.name
                         current_keys.add(key)
                         if key not in self._known_devices:
                             self._known_devices[key] = dev
-                            if self._on_connect:
-                                try:
-                                    self._on_connect(dev)
-                                except Exception as e:
-                                    log_error(f"DeviceMonitor: connect callback error: {e}")
+                            connect_events.append(dev)
 
-                    # Check for disconnects
                     for key in list(self._known_devices.keys()):
                         if key not in current_keys:
                             dev = self._known_devices.pop(key)
                             dev.connected = False
-                            if self._on_disconnect:
-                                try:
-                                    self._on_disconnect(dev)
-                                except Exception as e:
-                                    log_error(f"DeviceMonitor: disconnect callback error: {e}")
+                            disconnect_events.append(dev)
+
+                # Fire callbacks outside lock to prevent deadlocks
+                for dev in connect_events:
+                    if self._on_connect:
+                        try:
+                            self._on_connect(dev)
+                        except Exception as e:
+                            log_error(f"DeviceMonitor: connect callback error: {e}")
+                for dev in disconnect_events:
+                    if self._on_disconnect:
+                        try:
+                            self._on_disconnect(dev)
+                        except Exception as e:
+                            log_error(f"DeviceMonitor: disconnect callback error: {e}")
 
                 self._consecutive_errors = 0
 
@@ -255,10 +227,7 @@ class DeviceMonitor:
 
             time.sleep(self._poll_interval)
 
-
-# ---------------------------------------------------------------------------
 # Zen Studio integration — export path management
-# ---------------------------------------------------------------------------
 def find_zen_studio_library() -> Optional[str]:
     """Find the Zen Studio GPC library folder on the system.
 
@@ -293,7 +262,6 @@ def find_zen_studio_library() -> Optional[str]:
 
     return None
 
-
 def get_default_export_path() -> str:
     """Get the best path to export .gpc files.
     Prefers Zen Studio library, falls back to user Documents."""
@@ -308,15 +276,12 @@ def get_default_export_path() -> str:
     os.makedirs(docs, exist_ok=True)
     return docs
 
-
-# ---------------------------------------------------------------------------
 # Public API
-# ---------------------------------------------------------------------------
 def scan_devices() -> List[CronusDevice]:
     """Quick scan for connected Cronus devices."""
     return DeviceDetector().scan()
 
-
 def is_device_connected() -> bool:
     """Check if any Cronus device is connected."""
     return len(scan_devices()) > 0
+

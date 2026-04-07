@@ -1,0 +1,11 @@
+{
+    "name": "ping_monitor",
+    "version": "1.0.0",
+    "description": "Live ping monitor panel — shows real-time latency to selected devices.",
+    "type": "ui_panel",
+    "entry_point": "plugin.py",
+    "author": "DupeZ",
+    "url": "https://github.com/GrihmLord/DupeZ",
+    "min_dupez_version": "4.0.0",
+    "dependencies": []
+}
