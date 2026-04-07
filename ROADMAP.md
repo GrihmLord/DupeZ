@@ -66,12 +66,21 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ## v4.0.0 — Platform & Extensibility ✅
 
-**Released:** 2026-04-03
+**Released:** 2026-04-06
 
-- ~~**Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point. Auto-discovery from `plugins/` directory. Hot-reload support.~~ ✅ Done
+- ~~**Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point. Auto-discovery from `plugins/` directory. Hot-reload support. sys.path/sys.modules leak-safe loading.~~ ✅ Done
 - ~~**CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation. Interactive REPL mode.~~ ✅ Done
-- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred to v4.1.0)*
 - ~~**Auto-Updater** — In-app update checker with one-click download from GitHub releases.~~ ✅ Done
+- ~~**God Mode Overhaul** — NAT keepalive system (1 packet/800ms) prevents Windows ICS NAT table timeout during long freeze cycles. Burst-controlled flush on deactivation (50 packets/5ms burst). Full WinDivert NETWORK_FORWARD documentation.~~ ✅ Done
+- ~~**Desync Engine Rewrite** — Lag module passthrough mode auto-enables when stacked with duplicate/ood. Lag queues delayed copies while originals flow to downstream modules. True lag+dupe+ood stacking for maximum desync.~~ ✅ Done
+- ~~**Fixed Duplicate Count** — DuplicateModule now sends 1 original + N copies = N+1 total deliveries (was N, missing the original).~~ ✅ Done
+- ~~**Thread-Safe LLM Advisor** — Conversation history protected by lock for ask_async concurrency. Error handling on get_explanation.~~ ✅ Done
+- ~~**Full Opsec Audit** — All target IPs masked via mask_ip() in every log statement across the codebase (7 files, 12 call sites). No personal data in tracked files.~~ ✅ Done
+- ~~**iZurvive Ad Blocker v2** — Two-layer: network-level QWebEngineUrlRequestInterceptor blocks ~28 ad domains + DOM-level CSS/JS cleanup. OAuth login preserved.~~ ✅ Done
+- ~~**Scheduler/Macro Fixes** — Repeat-only rule first-fire bug. Epoch-based delayed start. QTimer.singleShot for auto-stop (was threading.Thread race). Macro step callback for GUI timer sync.~~ ✅ Done
+- ~~**Thread Safety Pass** — Data persistence lock, network scanner executor lock, state observer Qt thread marshalling, GPC bridge callback-outside-lock pattern, enhanced scanner threading.Event.~~ ✅ Done
+- ~~**Custom Menu Bar** — Embedded QMenuBar below frameless title bar with dark theme styling. ADMIN badge repositioned before version string.~~ ✅ Done
+- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred to v4.1.0)*
 
 ---
 

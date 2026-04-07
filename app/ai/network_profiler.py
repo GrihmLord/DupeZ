@@ -16,18 +16,17 @@ The profile is the input to SmartDisruptionEngine — it decides
 what settings will be most effective against THIS specific connection.
 """
 
-import os
+import re
 import sys
 import time
 import socket
-import struct
 import threading
 import statistics
 import subprocess
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List, Optional, Tuple
+from typing import List
 from app.logs.logger import log_info, log_error
-
+from app.utils.helpers import mask_ip
 
 @dataclass
 class NetworkProfile:
@@ -71,36 +70,21 @@ class NetworkProfile:
     def to_dict(self) -> dict:
         return asdict(self)
 
-    def to_feature_vector(self) -> List[float]:
-        """Convert profile to numeric feature vector for the ML model."""
-        conn_type_map = {"local": 0, "lan": 1, "hotspot": 2, "wan": 3, "unknown": 2}
-        dev_type_map = {"console": 0, "pc": 1, "mobile": 2, "router": 3, "iot": 4, "unknown": 2}
-
-        return [
-            self.avg_rtt_ms,
-            self.jitter_ms,
-            self.packet_loss_pct,
-            self.estimated_bandwidth_kbps,
-            self.hop_count,
-            conn_type_map.get(self.connection_type, 2),
-            dev_type_map.get(self.device_type, 2),
-            self.tcp_pct,
-            self.udp_pct,
-            self.quality_score,
-            len(self.open_ports),
-            1.0 if self.is_behind_nat else 0.0,
-        ]
-
 
 class NetworkProfiler:
-    """Probes a target IP and builds a NetworkProfile.
+    """Probes a target IP and builds a NetworkProfile."""
 
-    Usage:
-        profiler = NetworkProfiler()
-        profile = profiler.profile("198.51.100.5")
-        # or async:
-        profiler.profile_async("198.51.100.5", callback=on_done)
-    """
+    # Common gaming ports to fingerprint
+    _GAME_PORTS = [
+        3074,   # Xbox Live / PSN
+        3478, 3479, 3480,  # PSN / STUN
+        9306, 9308,        # DayZ
+        27015, 27016,      # Steam / Source
+        25565,             # Minecraft
+        7777, 7778,        # Unreal / ARK
+        30000, 30001,      # Various
+    ]
+    _COMMON_PORTS = [80, 443, 22, 53, 8080, 3389, 5353]
 
     def __init__(self, ping_count: int = 10, ping_timeout: float = 2.0,
                  port_scan_enabled: bool = True):
@@ -108,21 +92,9 @@ class NetworkProfiler:
         self.ping_timeout = ping_timeout
         self.port_scan_enabled = port_scan_enabled
 
-        # Common gaming ports to fingerprint
-        self._game_ports = [
-            3074,   # Xbox Live / PSN
-            3478, 3479, 3480,  # PSN / STUN
-            9306, 9308,        # DayZ
-            27015, 27016,      # Steam / Source
-            25565,             # Minecraft
-            7777, 7778,        # Unreal / ARK
-            30000, 30001,      # Various
-        ]
-        self._common_ports = [80, 443, 22, 53, 8080, 3389, 5353]
-
     def profile(self, target_ip: str, device_info: dict = None) -> NetworkProfile:
         """Run full profiling suite on target IP. Blocks until complete."""
-        log_info(f"NetworkProfiler: profiling {target_ip}...")
+        log_info(f"NetworkProfiler: profiling {mask_ip(target_ip)}...")
         start = time.time()
 
         profile = NetworkProfile(
@@ -153,7 +125,7 @@ class NetworkProfiler:
         self._compute_quality_score(profile)
 
         elapsed = time.time() - start
-        log_info(f"NetworkProfiler: {target_ip} profiled in {elapsed:.1f}s "
+        log_info(f"NetworkProfiler: {mask_ip(target_ip)} profiled in {elapsed:.1f}s "
                  f"(rtt={profile.avg_rtt_ms:.1f}ms, loss={profile.packet_loss_pct:.0f}%, "
                  f"quality={profile.quality_score:.0f}/100, type={profile.connection_type}, "
                  f"device={profile.device_type})")
@@ -170,9 +142,7 @@ class NetworkProfiler:
         t.start()
         return t
 
-    # ------------------------------------------------------------------
     # Probe: ICMP Ping
-    # ------------------------------------------------------------------
     def _probe_ping(self, profile: NetworkProfile):
         """Send ICMP pings via system ping command and parse results."""
         try:
@@ -187,7 +157,6 @@ class NetworkProfiler:
             output = result.stdout
 
             # Parse RTT values from "time=XXms" or "time<1ms"
-            import re
             rtt_matches = re.findall(r'time[=<](\d+)ms', output)
             if rtt_matches:
                 rtts = [float(x) for x in rtt_matches]
@@ -219,15 +188,13 @@ class NetworkProfiler:
                     profile.hop_count = 255 - ttl
 
         except subprocess.TimeoutExpired:
-            log_error(f"NetworkProfiler: ping to {profile.target_ip} timed out")
+            log_error(f"NetworkProfiler: ping to {mask_ip(profile.target_ip)} timed out")
             profile.packet_loss_pct = 100.0
         except Exception as e:
             log_error(f"NetworkProfiler: ping failed: {e}")
             profile.packet_loss_pct = 100.0
 
-    # ------------------------------------------------------------------
     # Connection Type Detection
-    # ------------------------------------------------------------------
     def _detect_connection_type(self, profile: NetworkProfile):
         """Determine if target is local, LAN, hotspot, or WAN."""
         ip = profile.target_ip
@@ -253,33 +220,27 @@ class NetworkProfiler:
         except (IndexError, ValueError):
             return False
 
-    # ------------------------------------------------------------------
     # Hop Count Estimation
-    # ------------------------------------------------------------------
     def _estimate_hops(self, profile: NetworkProfile):
         """Already extracted from ping TTL. Add traceroute if needed."""
         # hop_count was set in _probe_ping from TTL
         if profile.hop_count == 0 and profile.connection_type in ("lan", "hotspot"):
             profile.hop_count = 1  # reasonable default for local devices
 
-    # ------------------------------------------------------------------
     # Port Scanning
-    # ------------------------------------------------------------------
     def _scan_ports(self, profile: NetworkProfile):
         """Quick TCP connect scan on gaming + common ports."""
-        ports_to_scan = self._game_ports + self._common_ports
+        ports_to_scan = self._GAME_PORTS + self._COMMON_PORTS
         open_ports = []
         lock = threading.Lock()
 
         def _check_port(port):
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(0.5)
-                result = sock.connect_ex((profile.target_ip, port))
-                sock.close()
-                if result == 0:
-                    with lock:
-                        open_ports.append(port)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(0.5)
+                    if sock.connect_ex((profile.target_ip, port)) == 0:
+                        with lock:
+                            open_ports.append(port)
             except Exception:
                 pass
 
@@ -294,34 +255,27 @@ class NetworkProfiler:
 
         profile.open_ports = sorted(open_ports)
 
-    # ------------------------------------------------------------------
     # Device Type Inference
-    # ------------------------------------------------------------------
     def _infer_device_type(self, profile: NetworkProfile,
                            device_info: dict = None):
         """Infer device type from ports, TTL, and scanner info."""
         # If the scanner already identified the device, use that
+        _DTYPE_MAP = {
+            'playstation': ('console', 'PlayStation'), 'ps5': ('console', 'PlayStation'),
+            'ps4': ('console', 'PlayStation'), 'xbox': ('console', 'Xbox'),
+            'nintendo': ('console', 'Nintendo'), 'switch': ('console', 'Nintendo'),
+            'iphone': ('mobile', None), 'android': ('mobile', None), 'mobile': ('mobile', None),
+        }
         if device_info:
             dtype = device_info.get("device_type", "").lower()
-            if "playstation" in dtype or "ps5" in dtype or "ps4" in dtype:
-                profile.device_type = "console"
-                profile.device_hint = "PlayStation"
-                return
-            elif "xbox" in dtype:
-                profile.device_type = "console"
-                profile.device_hint = "Xbox"
-                return
-            elif "nintendo" in dtype or "switch" in dtype:
-                profile.device_type = "console"
-                profile.device_hint = "Nintendo"
-                return
-            elif "iphone" in dtype or "android" in dtype or "mobile" in dtype:
-                profile.device_type = "mobile"
-                profile.device_hint = dtype.title()
-                return
+            for kw, (dev_type, hint) in _DTYPE_MAP.items():
+                if kw in dtype:
+                    profile.device_type = dev_type
+                    profile.device_hint = hint or dtype.title()
+                    return
 
         # Port-based heuristics
-        gaming_ports_open = set(profile.open_ports) & set(self._game_ports)
+        gaming_ports_open = set(profile.open_ports) & set(self._GAME_PORTS)
         if gaming_ports_open:
             # PSN ports
             if {3074, 3478, 3479, 3480} & set(profile.open_ports):
@@ -344,40 +298,24 @@ class NetworkProfiler:
                 pass
             profile.device_type = "unknown"
 
-    # ------------------------------------------------------------------
     # Bandwidth Estimation
-    # ------------------------------------------------------------------
     def _estimate_bandwidth(self, profile: NetworkProfile):
         """Lightweight bandwidth estimate based on RTT and connection type."""
         # Full bandwidth probing would require a cooperative endpoint.
         # Instead, estimate from connection type and RTT characteristics.
-        if profile.connection_type == "local":
-            profile.estimated_bandwidth_kbps = 1000000  # loopback
-        elif profile.connection_type == "hotspot":
-            # Mobile hotspot: typically 5-50 Mbps shared
-            # Use RTT as a rough indicator of congestion
-            if profile.avg_rtt_ms < 5:
-                profile.estimated_bandwidth_kbps = 25000
-            elif profile.avg_rtt_ms < 20:
-                profile.estimated_bandwidth_kbps = 10000
-            else:
-                profile.estimated_bandwidth_kbps = 5000
-        elif profile.connection_type == "lan":
-            if profile.avg_rtt_ms < 2:
-                profile.estimated_bandwidth_kbps = 100000  # gigabit
-            else:
-                profile.estimated_bandwidth_kbps = 50000
-        else:  # wan
-            if profile.avg_rtt_ms < 30:
-                profile.estimated_bandwidth_kbps = 50000
-            elif profile.avg_rtt_ms < 100:
-                profile.estimated_bandwidth_kbps = 10000
-            else:
-                profile.estimated_bandwidth_kbps = 2000
+        # (rtt_threshold, bandwidth) pairs — first match wins; fallback is last value
+        _BW_TABLE = {
+            "local":   [(float('inf'), 1000000)],
+            "hotspot": [(5, 25000), (20, 10000), (float('inf'), 5000)],
+            "lan":     [(2, 100000), (float('inf'), 50000)],
+            "wan":     [(30, 50000), (100, 10000), (float('inf'), 2000)],
+        }
+        for threshold, bw in _BW_TABLE.get(profile.connection_type, _BW_TABLE["wan"]):
+            if profile.avg_rtt_ms < threshold:
+                profile.estimated_bandwidth_kbps = bw
+                break
 
-    # ------------------------------------------------------------------
     # Quality Score
-    # ------------------------------------------------------------------
     def _compute_quality_score(self, profile: NetworkProfile):
         """Compute connection quality 0-100 (higher = better = harder to disrupt)."""
         score = 100.0
@@ -404,3 +342,4 @@ class NetworkProfiler:
             score += 5
 
         profile.quality_score = max(0, min(100, score))
+

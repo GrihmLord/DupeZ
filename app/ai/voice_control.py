@@ -26,48 +26,27 @@ are lazy so missing packages only surface when voice is actually activated.
 import threading
 import time
 import numpy as np
-from typing import Callable, Optional, Dict, Any
-from dataclasses import dataclass, field
+from typing import Callable, Optional
+from dataclasses import dataclass
 from app.logs.logger import log_info, log_error
 
-
-# ---------------------------------------------------------------------------
 # Lazy dependency checks
-# ---------------------------------------------------------------------------
-def _check_sounddevice():
-    """Return the sounddevice module or None."""
+def _try_import(name):
     try:
-        import sounddevice as sd
-        return sd
+        return __import__(name)
     except ImportError:
         return None
 
+SOUNDDEVICE = _try_import("sounddevice")
+WHISPER = _try_import("whisper")
 
-def _check_whisper():
-    """Return the whisper module or None."""
-    try:
-        import whisper
-        return whisper
-    except ImportError:
-        return None
-
-
-SOUNDDEVICE = _check_sounddevice()
-WHISPER = _check_whisper()
-
+_DEPS = [(SOUNDDEVICE, "sounddevice"), (WHISPER, "openai-whisper")]
 VOICE_AVAILABLE = SOUNDDEVICE is not None and WHISPER is not None
 if not VOICE_AVAILABLE:
-    missing = []
-    if SOUNDDEVICE is None:
-        missing.append("sounddevice")
-    if WHISPER is None:
-        missing.append("openai-whisper")
-    log_info(f"VoiceControl: disabled — missing packages: {', '.join(missing)}")
+    log_info(f"VoiceControl: disabled — missing packages: "
+             f"{', '.join(pkg for mod, pkg in _DEPS if mod is None)}")
 
-
-# ---------------------------------------------------------------------------
 # Configuration
-# ---------------------------------------------------------------------------
 @dataclass
 class VoiceConfig:
     """All tunables for voice capture + transcription."""
@@ -94,10 +73,7 @@ class VoiceConfig:
     silence_timeout: float = 1.5      # seconds of silence to end an utterance
     max_continuous_seconds: float = 15.0  # max single utterance in continuous mode
 
-
-# ---------------------------------------------------------------------------
 # Voice Engine
-# ---------------------------------------------------------------------------
 class VoiceEngine:
     """Captures audio, transcribes it, and fires a callback with the text.
 
@@ -129,6 +105,7 @@ class VoiceEngine:
 
         # Continuous listening state
         self._continuous = False
+        self._continuous_event = threading.Event()  # thread-safe check for audio callback
         self._continuous_stream = None
         self._continuous_buffer = []   # accumulates audio during speech
         self._speech_active = False    # True when speech energy detected
@@ -136,9 +113,7 @@ class VoiceEngine:
         self._utterance_start = 0.0    # timestamp when speech began
         self._transcribing = False     # True while a transcription is in progress
 
-    # ------------------------------------------------------------------
     # Model management
-    # ------------------------------------------------------------------
     def load_model(self, model_name: str = None):
         """Load the Whisper model. Blocks on first call (downloads weights).
         Call from a background thread if you want non-blocking init."""
@@ -180,13 +155,9 @@ class VoiceEngine:
         t.start()
         return t
 
-    def is_ready(self) -> bool:
-        """True if model is loaded and dependencies available."""
-        return VOICE_AVAILABLE and self._model is not None
+    def is_ready(self): return VOICE_AVAILABLE and self._model is not None
 
-    # ------------------------------------------------------------------
     # Audio capture — push-to-talk
-    # ------------------------------------------------------------------
     def start_recording(self):
         """Begin capturing audio from the microphone.
         Call this on hotkey PRESS."""
@@ -260,7 +231,6 @@ class VoiceEngine:
             self._emit_status("Too short — try again")
             return
 
-        # Check for silence
         rms = np.sqrt(np.mean(audio ** 2))
         if rms < self.config.silence_threshold:
             log_info(f"VoiceEngine: audio is silence (RMS={rms:.4f}), skipping")
@@ -280,13 +250,9 @@ class VoiceEngine:
                              daemon=True, name="VoiceTranscribe")
         t.start()
 
-    def is_recording(self) -> bool:
-        """Check if currently recording (PTT mode)."""
-        return self._recording
+    def is_recording(self): return self._recording
 
-    # ------------------------------------------------------------------
     # Continuous listening (toggle mode)
-    # ------------------------------------------------------------------
     def start_continuous(self) -> bool:
         """Start continuous listening — auto-detects speech and transcribes.
         Returns True if started successfully."""
@@ -298,6 +264,7 @@ class VoiceEngine:
             if self._continuous:
                 return True  # already running
             self._continuous = True
+            self._continuous_event.set()
             self._speech_active = False
             self._continuous_buffer = []
             self._transcribing = False
@@ -323,6 +290,7 @@ class VoiceEngine:
             self._emit_status(f"Mic error: {e}")
             with self._lock:
                 self._continuous = False
+                self._continuous_event.clear()
             return False
 
     def stop_continuous(self):
@@ -331,6 +299,7 @@ class VoiceEngine:
             if not self._continuous:
                 return
             self._continuous = False
+            self._continuous_event.clear()
 
         if self._continuous_stream is not None:
             try:
@@ -343,13 +312,7 @@ class VoiceEngine:
         # If there's pending speech, transcribe it
         with self._lock:
             if self._continuous_buffer and self._speech_active:
-                audio = np.concatenate(self._continuous_buffer, axis=0)
-                self._continuous_buffer = []
-                self._speech_active = False
-                if len(audio) / self.config.sample_rate >= self.config.min_audio_length:
-                    t = threading.Thread(target=self._transcribe, args=(audio,),
-                                         daemon=True, name="VoiceTranscribeFinal")
-                    t.start()
+                self._flush_and_transcribe()
             else:
                 self._continuous_buffer = []
                 self._speech_active = False
@@ -357,15 +320,30 @@ class VoiceEngine:
         log_info("VoiceEngine: continuous listening stopped")
         self._emit_status("Voice off")
 
-    def is_continuous(self) -> bool:
-        """Check if continuous listening is active."""
-        return self._continuous
+    def is_continuous(self): return self._continuous
+
+    def _flush_and_transcribe(self, min_duration: bool = True):
+        """Concatenate buffer, reset speech state, and spawn transcription thread.
+        Must be called while holding self._lock."""
+        audio = np.concatenate(self._continuous_buffer, axis=0)
+        self._continuous_buffer = []
+        self._speech_active = False
+        self._silence_start = 0.0
+        duration = len(audio) / self.config.sample_rate
+        if self._transcribing or (min_duration and duration < self.config.min_audio_length):
+            return
+        self._transcribing = True
+        if min_duration:
+            log_info(f"VoiceEngine: utterance captured ({duration:.1f}s)")
+        threading.Thread(target=self._transcribe_continuous,
+                         args=(audio,), daemon=True,
+                         name="VoiceTranscribeCont").start()
 
     def _continuous_callback(self, indata, frames, time_info, status):
         """Sounddevice callback for continuous mode — detects speech boundaries."""
         if status:
             log_error(f"VoiceEngine: continuous callback status: {status}")
-        if not self._continuous:
+        if not self._continuous_event.is_set():
             return
 
         chunk = indata.copy()
@@ -376,7 +354,6 @@ class VoiceEngine:
         with self._lock:
             if is_speech:
                 if not self._speech_active:
-                    # Speech just started
                     self._speech_active = True
                     self._utterance_start = now
                     self._continuous_buffer = []
@@ -387,38 +364,14 @@ class VoiceEngine:
 
                 # Safety cap — don't record forever
                 if now - self._utterance_start > self.config.max_continuous_seconds:
-                    audio = np.concatenate(self._continuous_buffer, axis=0)
-                    self._continuous_buffer = []
-                    self._speech_active = False
-                    if not self._transcribing:
-                        self._transcribing = True
-                        t = threading.Thread(target=self._transcribe_continuous,
-                                             args=(audio,), daemon=True,
-                                             name="VoiceTranscribeCont")
-                        t.start()
+                    self._flush_and_transcribe(min_duration=False)
             else:
                 if self._speech_active:
-                    # Silence during speech — might be end of utterance
                     self._continuous_buffer.append(chunk)
-
                     if self._silence_start == 0.0:
                         self._silence_start = now
                     elif now - self._silence_start >= self.config.silence_timeout:
-                        # Enough silence — utterance complete
-                        audio = np.concatenate(self._continuous_buffer, axis=0)
-                        self._continuous_buffer = []
-                        self._speech_active = False
-                        self._silence_start = 0.0
-
-                        duration = len(audio) / self.config.sample_rate
-                        if duration >= self.config.min_audio_length and not self._transcribing:
-                            self._transcribing = True
-                            log_info(f"VoiceEngine: utterance captured ({duration:.1f}s)")
-                            t = threading.Thread(
-                                target=self._transcribe_continuous,
-                                args=(audio,), daemon=True,
-                                name="VoiceTranscribeCont")
-                            t.start()
+                        self._flush_and_transcribe()
 
     def _transcribe_continuous(self, audio: np.ndarray):
         """Transcribe audio from continuous mode, then reset for next utterance."""
@@ -431,9 +384,7 @@ class VoiceEngine:
             if self._continuous:
                 self._emit_status("Listening...")
 
-    # ------------------------------------------------------------------
     # Audio input devices
-    # ------------------------------------------------------------------
     @staticmethod
     def list_input_devices() -> list:
         """Return list of available audio input devices."""
@@ -462,9 +413,7 @@ class VoiceEngine:
                 name = str(device_index)
         log_info(f"VoiceEngine: input device set to {name}")
 
-    # ------------------------------------------------------------------
     # Internal
-    # ------------------------------------------------------------------
     def _audio_callback(self, indata, frames, time_info, status):
         """Called by sounddevice InputStream for each audio chunk."""
         if status:
@@ -513,10 +462,7 @@ class VoiceEngine:
             except Exception:
                 pass
 
-
-# ---------------------------------------------------------------------------
 # Voice Controller — ties VoiceEngine + LLMAdvisor + HotkeyManager together
-# ---------------------------------------------------------------------------
 class VoiceController:
     """High-level controller that wires voice input to disruption commands.
 
@@ -587,9 +533,7 @@ class VoiceController:
 
         self._engine.load_model_async(callback=_on_loaded)
 
-    # ------------------------------------------------------------------
     # Toggle listening (primary mode)
-    # ------------------------------------------------------------------
     def toggle_listening(self) -> bool:
         """Toggle continuous listening on/off. Returns new state."""
         if not self._enabled:
@@ -601,34 +545,27 @@ class VoiceController:
         else:
             return self.start_listening()
 
+    def _notify_listening(self, state: bool):
+        if self._on_listening_changed:
+            try:
+                self._on_listening_changed(state)
+            except Exception:
+                pass
+
     def start_listening(self) -> bool:
         """Start continuous listening mode."""
         if not self._enabled:
             return False
         ok = self._engine.start_continuous()
-        if ok and self._on_listening_changed:
-            try:
-                self._on_listening_changed(True)
-            except Exception:
-                pass
+        if ok:
+            self._notify_listening(True)
         return ok
 
     def stop_listening(self):
         """Stop continuous listening mode."""
         self._engine.stop_continuous()
-        if self._on_listening_changed:
-            try:
-                self._on_listening_changed(False)
-            except Exception:
-                pass
+        self._notify_listening(False)
 
-    def is_listening(self) -> bool:
-        """True if continuous listening is active."""
-        return self._engine.is_continuous()
-
-    # ------------------------------------------------------------------
-    # Push-to-talk (legacy mode)
-    # ------------------------------------------------------------------
     def push_to_talk_press(self):
         """Call on hotkey press — starts recording."""
         if not self._enabled:
@@ -641,9 +578,7 @@ class VoiceController:
             return
         self._engine.stop_recording()
 
-    # ------------------------------------------------------------------
     # State queries
-    # ------------------------------------------------------------------
     def is_available(self) -> bool:
         """True if voice control is fully initialized."""
         return VOICE_AVAILABLE and self._enabled and self._engine.is_ready()
@@ -651,22 +586,12 @@ class VoiceController:
     def is_recording(self) -> bool:
         return self._engine.is_recording()
 
-    def set_advisor(self, advisor):
-        """Set or replace the LLM advisor."""
-        self._advisor = advisor
-
     def set_input_device(self, device_index: Optional[int]):
         """Change microphone."""
         self._engine.set_input_device(device_index)
 
     def list_input_devices(self) -> list:
         return VoiceEngine.list_input_devices()
-
-    def set_model(self, model_name: str):
-        """Switch Whisper model (requires reload)."""
-        self._config.model_name = model_name
-        self._engine._model = None  # force reload
-        self.initialize()
 
     def enable(self):
         """Enable voice control."""
@@ -683,38 +608,7 @@ class VoiceController:
             self._engine.stop_continuous()
         log_info("VoiceController: disabled")
 
-    # ------------------------------------------------------------------
     # Hotkey integration
-    # ------------------------------------------------------------------
-    def register_hotkey(self, key: str = "v"):
-        """Register push-to-talk hotkey via the global HotkeyManager.
-        Hold key to record, release to transcribe."""
-        if self._hotkey_registered:
-            return
-
-        try:
-            import keyboard as kb
-
-            def on_press(event):
-                if event.name == key and not event.is_keypad:
-                    self.push_to_talk_press()
-
-            def on_release(event):
-                if event.name == key and not event.is_keypad:
-                    self.push_to_talk_release()
-
-            kb.on_press(on_press, suppress=False)
-            kb.on_release(on_release, suppress=False)
-            self._hotkey_registered = True
-            log_info(f"VoiceController: push-to-talk hotkey registered: '{key}'")
-        except ImportError:
-            log_error("VoiceController: keyboard module not available for hotkey")
-        except Exception as e:
-            log_error(f"VoiceController: failed to register hotkey: {e}")
-
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
     def _handle_transcription(self, text: str):
         """Route transcribed text through LLM advisor to get a disruption config."""
         log_info(f"VoiceController: processing command: '{text}'")
@@ -772,20 +666,12 @@ class VoiceController:
             except Exception:
                 pass
 
-
-# ---------------------------------------------------------------------------
 # Module-level convenience
-# ---------------------------------------------------------------------------
 def is_voice_available() -> bool:
     """Check if voice control dependencies are installed."""
     return VOICE_AVAILABLE
 
-
 def get_missing_packages() -> list:
     """Return list of missing packages needed for voice control."""
-    missing = []
-    if _check_sounddevice() is None:
-        missing.append("sounddevice")
-    if _check_whisper() is None:
-        missing.append("openai-whisper")
-    return missing
+    return [pkg for mod, pkg in _DEPS if mod is None]
+

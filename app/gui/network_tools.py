@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""
-Network Intelligence Tools — v4.0.0
-
-Three tools packaged as a tabbed widget:
-  1. Live Traffic Monitor   — real-time bandwidth graph per device
-  2. Latency Overlay        — floating transparent ping/jitter widget
-  3. Port Scanner           — scan open ports on discovered devices
-"""
+"""Network Intelligence Tools — Live Traffic, Latency Overlay, Port Scanner."""
 
 import time
 import threading
@@ -14,23 +7,54 @@ import socket
 import subprocess
 import sys
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QTableWidget, QTableWidgetItem, QHeaderView, QTabWidget,
-    QSpinBox, QLineEdit, QProgressBar, QGroupBox, QComboBox,
+    QLineEdit, QProgressBar, QComboBox,
     QMessageBox, QCheckBox
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot, QMetaObject, Q_ARG
-from PyQt6.QtGui import QFont, QColor, QCursor, QPainter, QPen, QBrush
+from PyQt6.QtGui import QColor, QCursor
 
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_error
+
+_NT_TITLE_QSS = "color: #00d9ff; font-size: 14px; font-weight: bold; letter-spacing: 1px;"
+_NT_GREEN_BTN = "QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 4px 16px; border-radius: 4px; } QPushButton:hover { background: #00cc6a; }"
+_NT_RED_BTN = "QPushButton { background: #ff4444; color: white; font-weight: bold; border: none; padding: 4px 16px; border-radius: 4px; } QPushButton:hover { background: #cc3333; }"
+_NT_GREEN_BTN_LG = "QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 6px 18px; border-radius: 4px; } QPushButton:hover { background: #00cc6a; }"
+_NT_RED_BTN_LG = "QPushButton { background: #ff4444; color: white; font-weight: bold; border: none; padding: 6px 18px; border-radius: 4px; } QPushButton:hover { background: #cc3333; }"
+_NT_TABLE_QSS = """
+    QTableWidget { background-color: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }
+    QTableWidget::item:selected { background-color: rgba(0,217,255,0.2); }
+    QTableWidget::item:alternate { background-color: #0a1628; }
+    QHeaderView::section { background-color: #16213e; color: #00d9ff; padding: 6px; border: 1px solid #1a2a3a; font-weight: bold; }
+"""
+_NT_INPUT_QSS = "QLineEdit { background: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; padding: 4px; }"
+
+# State colors for connection display (module-level to avoid recreation per call)
+_STATE_COLORS = {"ESTABLISHED": "#00ff88", "TIME_WAIT": "#fbbf24",
+                 "CLOSE_WAIT": "#fbbf24", "SYN_SENT": "#a855f7", "SYN_RECV": "#a855f7"}
+
+# Suppress console window flash on Windows
+_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+_PING_FLAG = "-n" if sys.platform == "win32" else "-c"
 
 
-# ======================================================================
-# Live Traffic Monitor
-# ======================================================================
+def _run_ping(target: str, timeout: int = 1000) -> float:
+    """Run a single ping and return RTT in ms, or -1 on failure."""
+    try:
+        result = subprocess.run(
+            ["ping", _PING_FLAG, "1", "-w", str(timeout), target],
+            capture_output=True, text=True, timeout=5,
+            creationflags=_NO_WINDOW,
+        )
+        m = re.search(r'time[=<](\d+\.?\d*)', result.stdout)
+        return float(m.group(1)) if m else -1
+    except Exception:
+        return -1
+
 class TrafficMonitorWidget(QWidget):
     """Real-time bandwidth usage per device using psutil.
 
@@ -41,14 +65,13 @@ class TrafficMonitorWidget(QWidget):
     def __init__(self, controller=None, parent=None):
         super().__init__(parent)
         self.controller = controller
-        self._history: Dict[str, list] = {}   # ip -> [(timestamp, bytes_in, bytes_out)]
         self._prev_counters = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
         title = QLabel("LIVE TRAFFIC MONITOR")
-        title.setStyleSheet("color: #00d9ff; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
+        title.setStyleSheet(_NT_TITLE_QSS)
         layout.addWidget(title)
 
         # Interface table
@@ -60,12 +83,7 @@ class TrafficMonitorWidget(QWidget):
             hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }
-            QTableWidget::item:selected { background-color: rgba(0,217,255,0.2); }
-            QTableWidget::item:alternate { background-color: #0a1628; }
-            QHeaderView::section { background-color: #16213e; color: #00d9ff; padding: 6px; border: 1px solid #1a2a3a; font-weight: bold; }
-        """)
+        self.table.setStyleSheet(_NT_TABLE_QSS)
         layout.addWidget(self.table)
 
         # Bandwidth bar
@@ -151,11 +169,6 @@ class TrafficMonitorWidget(QWidget):
             pass
         except Exception as e:
             log_error(f"Traffic monitor error: {e}")
-
-
-# ======================================================================
-# Latency Overlay
-# ======================================================================
 class LatencyOverlayWidget(QWidget):
     """Ping/jitter display for a target IP.
 
@@ -176,7 +189,7 @@ class LatencyOverlayWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
 
         title = QLabel("LATENCY OVERLAY")
-        title.setStyleSheet("color: #00d9ff; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
+        title.setStyleSheet(_NT_TITLE_QSS)
         layout.addWidget(title)
 
         # Target input
@@ -184,14 +197,11 @@ class LatencyOverlayWidget(QWidget):
         target_row.addWidget(QLabel("Target:"))
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("IP or hostname (e.g. 198.51.100.1)")
-        self.target_input.setStyleSheet("QLineEdit { background: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; padding: 4px; }")
+        self.target_input.setStyleSheet(_NT_INPUT_QSS)
         target_row.addWidget(self.target_input, 1)
 
         self.btn_start = QPushButton("START")
-        self.btn_start.setStyleSheet("""
-            QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 4px 16px; border-radius: 4px; }
-            QPushButton:hover { background: #00cc6a; }
-        """)
+        self.btn_start.setStyleSheet(_NT_GREEN_BTN)
         self.btn_start.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.btn_start.clicked.connect(self._toggle_ping)
         target_row.addWidget(self.btn_start)
@@ -238,10 +248,7 @@ class LatencyOverlayWidget(QWidget):
         if self._running:
             self._running = False
             self.btn_start.setText("START")
-            self.btn_start.setStyleSheet("""
-                QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 4px 16px; border-radius: 4px; }
-                QPushButton:hover { background: #00cc6a; }
-            """)
+            self.btn_start.setStyleSheet(_NT_GREEN_BTN)
         else:
             target = self.target_input.text().strip()
             if not target:
@@ -250,45 +257,27 @@ class LatencyOverlayWidget(QWidget):
             self._running = True
             self._history.clear()
             self.btn_start.setText("STOP")
-            self.btn_start.setStyleSheet("""
-                QPushButton { background: #ff4444; color: white; font-weight: bold; border: none; padding: 4px 16px; border-radius: 4px; }
-                QPushButton:hover { background: #cc3333; }
-            """)
+            self.btn_start.setStyleSheet(_NT_RED_BTN)
             self._thread = threading.Thread(target=self._ping_loop, daemon=True)
             self._thread.start()
 
     def _ping_loop(self):
         """Continuously ping the target and emit results."""
         while self._running:
-            try:
-                flag = "-n" if sys.platform == "win32" else "-c"
-                creation = 0x08000000 if sys.platform == "win32" else 0
-                result = subprocess.run(
-                    ["ping", flag, "1", "-w", "1000", self._target_ip],
-                    capture_output=True, text=True, timeout=5,
-                    creationflags=creation
-                )
-                output = result.stdout
+            rtt = _run_ping(self._target_ip)
+            if rtt >= 0:
+                self._history.append(rtt)
+                if len(self._history) > 60:
+                    self._history = self._history[-60:]
 
-                # Parse RTT
-                rtt_match = re.search(r'time[=<](\d+\.?\d*)', output)
-                if rtt_match:
-                    rtt = float(rtt_match.group(1))
-                    self._history.append(rtt)
-                    if len(self._history) > 60:
-                        self._history = self._history[-60:]
+                avg = sum(self._history) / len(self._history)
+                jitter = 0.0
+                if len(self._history) > 1:
+                    diffs = [abs(self._history[i] - self._history[i-1]) for i in range(1, len(self._history))]
+                    jitter = sum(diffs) / len(diffs)
 
-                    avg = sum(self._history) / len(self._history)
-                    jitter = 0.0
-                    if len(self._history) > 1:
-                        diffs = [abs(self._history[i] - self._history[i-1]) for i in range(1, len(self._history))]
-                        jitter = sum(diffs) / len(diffs)
-
-                    self._ping_result.emit(avg, jitter, 0.0)
-                else:
-                    self._ping_result.emit(-1, 0, 100.0)
-
-            except Exception:
+                self._ping_result.emit(avg, jitter, 0.0)
+            else:
                 self._ping_result.emit(-1, 0, 100.0)
 
             time.sleep(1)
@@ -330,7 +319,6 @@ class LatencyOverlayWidget(QWidget):
     def cleanup(self):
         """Stop ping thread when widget is destroyed."""
         self._running = False
-
 
 class _FloatingLatency(QWidget):
     """Tiny always-on-top transparent latency overlay."""
@@ -375,18 +363,7 @@ class _FloatingLatency(QWidget):
 
     def _ping_loop(self):
         while self._running:
-            try:
-                flag = "-n" if sys.platform == "win32" else "-c"
-                creation = 0x08000000 if sys.platform == "win32" else 0
-                result = subprocess.run(
-                    ["ping", flag, "1", "-w", "1000", self._target],
-                    capture_output=True, text=True, timeout=5,
-                    creationflags=creation
-                )
-                m = re.search(r'time[=<](\d+\.?\d*)', result.stdout)
-                self._ping_result.emit(float(m.group(1)) if m else -1)
-            except Exception:
-                self._ping_result.emit(-1)
+            self._ping_result.emit(_run_ping(self._target))
             time.sleep(1)
 
     @pyqtSlot(float)
@@ -417,11 +394,6 @@ class _FloatingLatency(QWidget):
     def mouseMoveEvent(self, event):
         if hasattr(self, '_drag_pos') and self._drag_pos:
             self.move(event.globalPosition().toPoint() - self._drag_pos)
-
-
-# ======================================================================
-# Port Scanner
-# ======================================================================
 class PortScannerWidget(QWidget):
     """Quick port scanner for discovered devices."""
 
@@ -436,7 +408,7 @@ class PortScannerWidget(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
 
         title = QLabel("PORT SCANNER")
-        title.setStyleSheet("color: #00d9ff; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
+        title.setStyleSheet(_NT_TITLE_QSS)
         layout.addWidget(title)
 
         # Target input
@@ -444,7 +416,7 @@ class PortScannerWidget(QWidget):
         row.addWidget(QLabel("Target:"))
         self.target_input = QLineEdit()
         self.target_input.setPlaceholderText("IP address")
-        self.target_input.setStyleSheet("QLineEdit { background: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; padding: 4px; }")
+        self.target_input.setStyleSheet(_NT_INPUT_QSS)
         row.addWidget(self.target_input, 1)
 
         row.addWidget(QLabel("Ports:"))
@@ -486,12 +458,7 @@ class PortScannerWidget(QWidget):
         hdr.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         self.result_table.setAlternatingRowColors(True)
         self.result_table.verticalHeader().setVisible(False)
-        self.result_table.setStyleSheet("""
-            QTableWidget { background-color: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }
-            QTableWidget::item:selected { background-color: rgba(0,217,255,0.2); }
-            QTableWidget::item:alternate { background-color: #0a1628; }
-            QHeaderView::section { background-color: #16213e; color: #00d9ff; padding: 6px; border: 1px solid #1a2a3a; font-weight: bold; }
-        """)
+        self.result_table.setStyleSheet(_NT_TABLE_QSS)
         layout.addWidget(self.result_table)
 
         self.status_label = QLabel("Ready")
@@ -527,16 +494,9 @@ class PortScannerWidget(QWidget):
 
     def _get_ports(self) -> List[int]:
         choice = self.port_combo.currentText()
-        if "Gaming" in choice:
-            return self.GAMING_PORTS
-        elif "Web" in choice:
-            return self.WEB_PORTS
-        elif "All" in choice:
-            return list(range(1, 1025))
-        elif "Full" in choice:
-            return list(range(1, 65536))
-        else:
-            return self.COMMON_PORTS
+        _PORT_MAP = {"Gaming": self.GAMING_PORTS, "Web": self.WEB_PORTS,
+                     "All": list(range(1, 1025)), "Full": list(range(1, 65536))}
+        return next((v for k, v in _PORT_MAP.items() if k in choice), self.COMMON_PORTS)
 
     def _start_scan(self):
         target = self.target_input.text().strip()
@@ -563,17 +523,14 @@ class PortScannerWidget(QWidget):
         try:
             for i, port in enumerate(ports):
                 try:
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    sock.settimeout(0.5)
-                    result = sock.connect_ex((ip, port))
-                    sock.close()
-                    if result == 0:
-                        service = self.SERVICE_MAP.get(port, "Unknown")
-                        open_ports.append((port, service))
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                        sock.settimeout(0.5)
+                        if sock.connect_ex((ip, port)) == 0:
+                            service = self.SERVICE_MAP.get(port, "Unknown")
+                            open_ports.append((port, service))
                 except Exception:
                     pass
 
-                # Update progress periodically
                 if i % max(1, total // 100) == 0:
                     pct = int((i / total) * 100)
                     try:
@@ -611,11 +568,6 @@ class PortScannerWidget(QWidget):
 
         self.status_label.setText(f"Scan complete: {len(open_ports)} open ports on {ip}")
         self.status_label.setStyleSheet("color: #00ff88; font-size: 11px;")
-
-
-# ======================================================================
-# Connection Mapper
-# ======================================================================
 class ConnectionMapperWidget(QWidget):
     """Visual topology of active network connections.
 
@@ -632,21 +584,19 @@ class ConnectionMapperWidget(QWidget):
         self._running = False
         self._thread = None
         self._resolve_cache: Dict[str, str] = {}
+        self._MAX_RESOLVE_CACHE = 512  # cap to prevent unbounded growth
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
 
         title = QLabel("CONNECTION MAPPER")
-        title.setStyleSheet("color: #00d9ff; font-size: 14px; font-weight: bold; letter-spacing: 1px;")
+        title.setStyleSheet(_NT_TITLE_QSS)
         layout.addWidget(title)
 
         # Controls
         ctrl_row = QHBoxLayout()
         self.btn_start = QPushButton("START MAPPING")
-        self.btn_start.setStyleSheet("""
-            QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 6px 18px; border-radius: 4px; }
-            QPushButton:hover { background: #00cc6a; }
-        """)
+        self.btn_start.setStyleSheet(_NT_GREEN_BTN_LG)
         self.btn_start.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.btn_start.clicked.connect(self._toggle_mapping)
         ctrl_row.addWidget(self.btn_start)
@@ -693,12 +643,7 @@ class ConnectionMapperWidget(QWidget):
             hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.Stretch)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().setVisible(False)
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #0f1923; color: #e0e0e0; border: 1px solid #1a2a3a; }
-            QTableWidget::item:selected { background-color: rgba(0,217,255,0.2); }
-            QTableWidget::item:alternate { background-color: #0a1628; }
-            QHeaderView::section { background-color: #16213e; color: #00d9ff; padding: 6px; border: 1px solid #1a2a3a; font-weight: bold; }
-        """)
+        self.table.setStyleSheet(_NT_TABLE_QSS)
         layout.addWidget(self.table, 1)
 
         # Summary row
@@ -718,18 +663,12 @@ class ConnectionMapperWidget(QWidget):
         if self._running:
             self._running = False
             self.btn_start.setText("START MAPPING")
-            self.btn_start.setStyleSheet("""
-                QPushButton { background: #00ff88; color: #0a0e1a; font-weight: bold; border: none; padding: 6px 18px; border-radius: 4px; }
-                QPushButton:hover { background: #00cc6a; }
-            """)
+            self.btn_start.setStyleSheet(_NT_GREEN_BTN_LG)
             self.status_label.setText("Stopped")
         else:
             self._running = True
             self.btn_start.setText("STOP")
-            self.btn_start.setStyleSheet("""
-                QPushButton { background: #ff4444; color: white; font-weight: bold; border: none; padding: 6px 18px; border-radius: 4px; }
-                QPushButton:hover { background: #cc3333; }
-            """)
+            self.btn_start.setStyleSheet(_NT_RED_BTN_LG)
             self.status_label.setText("Mapping...")
             self._thread = threading.Thread(target=self._map_loop, daemon=True)
             self._thread.start()
@@ -767,6 +706,8 @@ class ConnectionMapperWidget(QWidget):
                                     hostname = ""
                             except Exception:
                                 hostname = ""
+                            if len(self._resolve_cache) >= self._MAX_RESOLVE_CACHE:
+                                self._resolve_cache.clear()
                             self._resolve_cache[rip] = hostname
 
                     connections.append({
@@ -792,16 +733,14 @@ class ConnectionMapperWidget(QWidget):
         """Update table and topology from collected connection data."""
         # Apply filter
         filt = self.filter_combo.currentText()
-        filtered = connections
-        if filt == "TCP Only":
-            filtered = [c for c in connections if c["proto"] == "TCP"]
-        elif filt == "UDP Only":
-            filtered = [c for c in connections if c["proto"] == "UDP"]
-        elif filt == "Established Only":
-            filtered = [c for c in connections if c["state"] == "ESTABLISHED"]
-        elif filt == "Gaming Ports":
-            filtered = [c for c in connections
-                        if c["rport"] in self.GAMING_PORTS or c["lport"] in self.GAMING_PORTS]
+        _FILTERS = {
+            "TCP Only": lambda c: c["proto"] == "TCP",
+            "UDP Only": lambda c: c["proto"] == "UDP",
+            "Established Only": lambda c: c["state"] == "ESTABLISHED",
+            "Gaming Ports": lambda c: c["rport"] in self.GAMING_PORTS or c["lport"] in self.GAMING_PORTS,
+        }
+        fn = _FILTERS.get(filt)
+        filtered = [c for c in connections if fn(c)] if fn else connections
 
         # Build topology summary — group by remote IP
         ip_map: Dict[str, list] = {}
@@ -838,14 +777,7 @@ class ConnectionMapperWidget(QWidget):
             self.table.setItem(row, 3, QTableWidgetItem(str(c["rport"])))
 
             state_item = QTableWidgetItem(c["state"])
-            if c["state"] == "ESTABLISHED":
-                state_item.setForeground(QColor("#00ff88"))
-            elif c["state"] in ("TIME_WAIT", "CLOSE_WAIT"):
-                state_item.setForeground(QColor("#fbbf24"))
-            elif c["state"] in ("SYN_SENT", "SYN_RECV"):
-                state_item.setForeground(QColor("#a855f7"))
-            else:
-                state_item.setForeground(QColor("#6b7280"))
+            state_item.setForeground(QColor(_STATE_COLORS.get(c["state"], "#6b7280")))
             self.table.setItem(row, 4, state_item)
 
             self.table.setItem(row, 5, QTableWidgetItem(str(c["pid"]) if c["pid"] else "—"))
@@ -866,11 +798,6 @@ class ConnectionMapperWidget(QWidget):
     def cleanup(self):
         """Stop mapping thread when widget is destroyed."""
         self._running = False
-
-
-# ======================================================================
-# Combined Network Tools View
-# ======================================================================
 class NetworkToolsView(QWidget):
     """Tabbed container for all network intelligence tools."""
 
@@ -911,3 +838,4 @@ class NetworkToolsView(QWidget):
         self.traffic_tab.cleanup()
         self.latency_tab.cleanup()
         self.mapper_tab.cleanup()
+

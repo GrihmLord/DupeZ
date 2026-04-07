@@ -29,10 +29,10 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | Custom | Set your own parameters |
 
 ### AI Smart Mode (v3.1.0+)
-Network profiler + ML-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 6 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
+Network profiler + rule-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 7 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode, Auto. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning ("desync a PS5 on my hotspot" → full config).
 
-### God Mode (v3.4.0+)
-Directional lag engine — inbound packets are delayed while outbound passes through untouched. The target's game client stops receiving your position updates (you freeze on their screen), but your actions register on the server in real time. Configurable inbound lag (0-5000ms) and optional inbound packet drop for harder freeze. Most effective on ICS/hotspot where your machine is the gateway.
+### God Mode (v3.4.0+, overhauled v4.0.0)
+Directional lag engine tuned for DayZ's UDP 2302 Enfusion netcode. Inbound packets (server state replication) are delayed while outbound (target's inputs) pass through untouched. The target's game client freezes your position while your actions register on the server in real time. Built-in NAT keepalive (1 packet per 800ms) prevents Windows ICS NAT table timeout during long delays. Burst-controlled flush on deactivation prevents packet storms. Configurable inbound lag (0-5000ms), optional inbound drop, and keepalive interval. Most effective on ICS/hotspot where your machine is the gateway.
 
 ### Voice Control (v3.4.0+)
 Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Hold the PTT button, speak a command like "heavy lag on the PS5" or "god mode", and the LLM advisor interprets it into a disruption config. Supports model selection (tiny/base/small), mic selection, and simple start/stop voice commands. Requires `sounddevice` and `openai-whisper` packages (optional — DupeZ runs without them).
@@ -53,7 +53,7 @@ In-app update checker queries GitHub Releases for the latest version. One-click 
 Four-tab network intelligence toolkit: Live Traffic Monitor (per-interface bandwidth), Latency Overlay (floating transparent ping/jitter widget), Port Scanner (Common/Gaming/Web/Full presets), and Connection Mapper (real-time topology with gaming port detection and hostname resolution).
 
 ### iZurvive Map
-Ad-free embedded iZurvive with map selector dropdown. MutationObserver-based ad blocker catches dynamically injected ads.
+Ad-free embedded iZurvive with two-layer ad blocking: network-level domain interception via `QWebEngineUrlRequestInterceptor` (blocks ~28 ad domains before requests leave the browser) and DOM-level CSS/JS cleanup as backup. Login/OAuth fully functional.
 
 **Supported Maps:** Chernarus+ (Satellite), Chernarus+ (Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, Takistan
 
@@ -268,13 +268,15 @@ DupeZ uses a three-tier fallback for packet disruption:
 
 All three produce the same result: targeted packet manipulation on the selected device for the configured duration.
 
-**God Mode** uses the Native WinDivert Engine exclusively. It inspects the `Outbound` bit (position 17 in the WinDivert address bitfield) to classify each packet's direction, then applies lag/drop only to inbound packets. On ICS/hotspot setups, the `NETWORK_FORWARD` layer is used so forwarded traffic is intercepted at the gateway.
+**Desync/Dupe System:** When lag is stacked with duplicate or out-of-order modules, the engine auto-enables passthrough mode. Lag queues a delayed copy of each packet but lets the original continue through the module chain to duplicate/ood. The target receives real-time duplicated/reordered packets AND delayed echoes — compounding the desync window that enables inventory duplication in DayZ's Enfusion engine.
+
+**God Mode** uses the Native WinDivert Engine exclusively. It inspects the `Outbound` bit (position 17 in the WinDivert address bitfield) to classify each packet's direction, then applies lag/drop only to inbound packets. On ICS/hotspot setups, the `NETWORK_FORWARD` layer intercepts forwarded traffic at the gateway. Built-in NAT keepalive (configurable, default 800ms) prevents Windows NAT table timeout during long freeze cycles. Flush-on-stop uses burst-controlled release (50 packets per 5ms burst) to prevent packet storms.
 
 ---
 
 ## Version History
 
-**v4.0.0** — Platform & Extensibility. Plugin API with 4 plugin types (disruption, scanner, ui_panel, generic), manifest-based discovery, and auto-loading. CLI mode with subcommands, interactive REPL, and scriptable disruptions. Auto-updater via GitHub Releases API with in-app one-click download.
+**v4.0.0** — Platform & Extensibility. Plugin API with 4 plugin types (disruption, scanner, ui_panel, generic), manifest-based discovery, and auto-loading. CLI mode with subcommands, interactive REPL, and scriptable disruptions. Auto-updater via GitHub Releases API with in-app one-click download. God Mode overhaul with NAT keepalive and burst-controlled flush. Desync engine rewrite: lag passthrough mode enables true lag+duplicate+ood stacking. Fixed duplicate count (N+1 delivery). Thread-safe LLM advisor. Full opsec audit — all target IPs masked in logs. Two-layer iZurvive ad blocker with working OAuth login. Scheduler/macro timing fixes. Custom menu bar rendering.
 
 **v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling.
 

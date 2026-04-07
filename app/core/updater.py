@@ -5,8 +5,6 @@ Checks GitHub releases for new versions and offers one-click download.
 API: https://api.github.com/repos/GrihmLord/DupeZ/releases/latest
 """
 
-import os
-import sys
 import json
 import threading
 import webbrowser
@@ -19,7 +17,6 @@ CURRENT_VERSION = "4.0.0"
 GITHUB_REPO = "GrihmLord/DupeZ"
 RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
-
 
 def _parse_version(v: str) -> Tuple[int, ...]:
     """Parse version string like '4.0.0' or 'v4.0.0' into a comparable tuple."""
@@ -35,7 +32,6 @@ def _parse_version(v: str) -> Tuple[int, ...]:
                 break
         parts.append(int(num) if num else 0)
     return tuple(parts)
-
 
 class UpdateChecker:
     """Checks GitHub for new DupeZ releases."""
@@ -123,6 +119,6 @@ class UpdateChecker:
     def last_result(self) -> Optional[Dict]:
         return self._result
 
-
 # Module-level singleton
 updater = UpdateChecker()
+

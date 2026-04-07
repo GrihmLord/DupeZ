@@ -8,9 +8,9 @@ import webbrowser
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QStatusBar, QStackedWidget, QDialog, QMessageBox,
-    QGraphicsDropShadowEffect, QSystemTrayIcon, QMenu
+    QSystemTrayIcon, QMenu, QMenuBar
 )
-from PyQt6.QtGui import QIcon, QAction, QFont, QCursor, QColor
+from PyQt6.QtGui import QIcon, QAction, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSlot
 
 from app.gui.clumsy_control import ClumsyControlView
@@ -18,7 +18,7 @@ from app.gui.dayz_map_gui_new import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
 from app.gui.network_tools import NetworkToolsView
 from app.gui.settings_dialog import SettingsDialog
-from app.logs.logger import log_info, log_error, log_warning
+from app.logs.logger import log_info, log_error
 
 try:
     from app.gui.hotkey import hotkey_manager, KEYBOARD_AVAILABLE
@@ -29,7 +29,11 @@ except ImportError:
 IS_ADMIN = os.name != 'nt' or (
     hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
 )
+_ICON_PATHS = ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]
 
+def _find_icon() -> str:
+    """Return first existing icon path, or empty string."""
+    return next((p for p in _ICON_PATHS if os.path.exists(p)), "")
 
 class DupeZDashboard(QMainWindow):
     """DupeZ main window — 3-view architecture: Clumsy | Map | Accounts"""
@@ -62,17 +66,13 @@ class DupeZDashboard(QMainWindow):
         self.tray_timer.timeout.connect(self._update_tray_tooltip)
         self.tray_timer.start(5000)
 
-    # ------------------------------------------------------------------
     # UI Setup
-    # ------------------------------------------------------------------
     def setup_ui(self):
         admin_text = "ADMIN " if IS_ADMIN else ""
-        self.setWindowTitle(f"DupeZ {admin_text}v4.0.0")
-        # App icon — try resources first, fall back to assets
-        for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
-            if os.path.exists(icon_path):
-                self.setWindowIcon(QIcon(icon_path))
-                break
+        self.setWindowTitle(f"{admin_text}DupeZ v4.0.0")
+        icon = _find_icon()
+        if icon:
+            self.setWindowIcon(QIcon(icon))
 
         # --- Borderless frameless window ---
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
@@ -118,15 +118,15 @@ class DupeZDashboard(QMainWindow):
         tb_layout.setContentsMargins(12, 0, 8, 0)
         tb_layout.setSpacing(8)
 
-        # Icon + title
-        title_label = QLabel("DupeZ v4.0.0")
-        title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
-        tb_layout.addWidget(title_label)
-
+        # Icon + title — ADMIN badge first, then app name
         if IS_ADMIN:
             admin_tag = QLabel("ADMIN")
             admin_tag.setStyleSheet("color: #fbbf24; font-size: 10px; font-weight: bold; background: transparent;")
             tb_layout.addWidget(admin_tag)
+
+        title_label = QLabel("DupeZ v4.0.0")
+        title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
+        tb_layout.addWidget(title_label)
 
         tb_layout.addStretch()
 
@@ -149,26 +149,51 @@ class DupeZDashboard(QMainWindow):
             }}
         """
 
-        self.btn_minimize = QPushButton("\u2014")  # em dash
-        self.btn_minimize.setStyleSheet(btn_style_base.format(color="#64748b", size="14px", hover_bg="rgba(255,255,255,0.08)"))
-        self.btn_minimize.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_minimize.clicked.connect(self.showMinimized)
-
-        self.btn_maximize = QPushButton("\u25a1")  # white square
-        self.btn_maximize.setStyleSheet(btn_style_base.format(color="#64748b", size="14px", hover_bg="rgba(255,255,255,0.08)"))
-        self.btn_maximize.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_maximize.clicked.connect(self._toggle_maximize)
-
-        self.btn_close = QPushButton("\u2715")  # multiplication x
-        self.btn_close.setStyleSheet(btn_style_base.format(color="#64748b", size="14px", hover_bg="rgba(255,50,50,0.6)"))
-        self.btn_close.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_close.clicked.connect(self.close)
+        for attr, char, hover_bg, handler in [
+            ("btn_minimize", "\u2014", "rgba(255,255,255,0.08)", self.showMinimized),
+            ("btn_maximize", "\u25a1", "rgba(255,255,255,0.08)", self._toggle_maximize),
+            ("btn_close", "\u2715", "rgba(255,50,50,0.6)", self.close),
+        ]:
+            btn = QPushButton(char)
+            btn.setStyleSheet(btn_style_base.format(color="#64748b", size="14px", hover_bg=hover_bg))
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.clicked.connect(handler)
+            setattr(self, attr, btn)
 
         tb_layout.addWidget(self.btn_minimize)
         tb_layout.addWidget(self.btn_maximize)
         tb_layout.addWidget(self.btn_close)
 
         main_layout.addWidget(self.title_bar)
+
+        # === MENU BAR (embedded below title bar, not native) ===
+        self._custom_menubar = QMenuBar()
+        self._custom_menubar.setStyleSheet("""
+            QMenuBar {
+                background-color: #0a0e1a;
+                color: #94a3b8;
+                border-bottom: 1px solid #0f1a2e;
+                padding: 2px 8px;
+                font-size: 12px;
+            }
+            QMenuBar::item {
+                padding: 4px 10px;
+                background: transparent;
+            }
+            QMenuBar::item:selected {
+                background: rgba(0, 217, 255, 0.15);
+                color: #e0e0e0;
+            }
+            QMenu {
+                background-color: #0f1923;
+                color: #e0e0e0;
+                border: 1px solid #1a2a3a;
+            }
+            QMenu::item:selected {
+                background: rgba(0, 217, 255, 0.25);
+            }
+        """)
+        main_layout.addWidget(self._custom_menubar)
 
         # === HEADER ===
         header = QWidget()
@@ -186,13 +211,10 @@ class DupeZDashboard(QMainWindow):
         hl.addWidget(self.status_indicator)
         hl.addStretch()
 
-        self.cpu_label = QLabel("CPU: 0%")
-        self.cpu_label.setStyleSheet("color: #94a3b8;")
-        self.ram_label = QLabel("RAM: 0%")
-        self.ram_label.setStyleSheet("color: #94a3b8;")
-        hl.addWidget(self.cpu_label)
-        hl.addSpacing(20)
-        hl.addWidget(self.ram_label)
+        _SYS_QSS = "color: #94a3b8;"
+        self.cpu_label = QLabel("CPU: 0%"); self.cpu_label.setStyleSheet(_SYS_QSS)
+        self.ram_label = QLabel("RAM: 0%"); self.ram_label.setStyleSheet(_SYS_QSS)
+        hl.addWidget(self.cpu_label); hl.addSpacing(20); hl.addWidget(self.ram_label)
 
         main_layout.addWidget(header)
 
@@ -226,21 +248,12 @@ class DupeZDashboard(QMainWindow):
         # --- Stacked Views ---
         self.view_stack = QStackedWidget()
 
-        # View 0: Clumsy Control (main)
         self.clumsy_view = ClumsyControlView(controller=self.controller)
-        self.view_stack.addWidget(self.clumsy_view)
-
-        # View 1: Map
         self.map_view = DayZMapGUI()
-        self.view_stack.addWidget(self.map_view)
-
-        # View 2: Accounts
         self.accounts_view = DayZAccountTracker()
-        self.view_stack.addWidget(self.accounts_view)
-
-        # View 3: Network Tools
         self.nettools_view = NetworkToolsView(controller=self.controller)
-        self.view_stack.addWidget(self.nettools_view)
+        for view in (self.clumsy_view, self.map_view, self.accounts_view, self.nettools_view):
+            self.view_stack.addWidget(view)
 
         # --- Plugin UI Panels ---
         self._load_plugin_panels(sl)
@@ -248,7 +261,6 @@ class DupeZDashboard(QMainWindow):
         cl.addWidget(self.view_stack, 1)
         main_layout.addWidget(content, 1)
 
-        # Default to Clumsy view
         self.switch_view(0)
 
     def _nav_btn(self, icon: str, tooltip: str) -> QPushButton:
@@ -279,9 +291,7 @@ class DupeZDashboard(QMainWindow):
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
 
-    # ------------------------------------------------------------------
     # Plugin UI Panels
-    # ------------------------------------------------------------------
     def _load_plugin_panels(self, sidebar_layout):
         """Load UI panel plugins into the sidebar and view stack."""
         if not self.controller or not hasattr(self.controller, 'plugin_loader'):
@@ -291,7 +301,6 @@ class DupeZDashboard(QMainWindow):
             if not ui_plugins:
                 return
 
-            # Add a separator before plugin panels
             separator = QLabel("─" * 4)
             separator.setStyleSheet("color: #1e293b; font-size: 8px;")
             separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -304,11 +313,9 @@ class DupeZDashboard(QMainWindow):
                     if widget is None:
                         continue
 
-                    # Add to view stack
                     view_index = self.view_stack.count()
                     self.view_stack.addWidget(widget)
 
-                    # Add nav button
                     btn = self._nav_btn(
                         info.get("icon", "🔌"),
                         info.get("tooltip", loaded.name)
@@ -323,20 +330,16 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Plugin panel loading error: {e}")
 
-    # ------------------------------------------------------------------
     # Header Stats
-    # ------------------------------------------------------------------
     def _update_header_stats(self):
         try:
             import psutil
             self.cpu_label.setText(f"CPU: {psutil.cpu_percent():.0f}%")
             self.ram_label.setText(f"RAM: {psutil.virtual_memory().percent:.0f}%")
-        except:
+        except Exception:
             pass
 
-    # ------------------------------------------------------------------
     # System Tray
-    # ------------------------------------------------------------------
     def setup_tray(self):
         """Initialize system tray icon with context menu."""
         self.tray_icon = None
@@ -347,13 +350,8 @@ class DupeZDashboard(QMainWindow):
 
         self.tray_icon = QSystemTrayIcon(self)
 
-        # Icon — reuse app icon
-        for icon_path in ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]:
-            if os.path.exists(icon_path):
-                self.tray_icon.setIcon(QIcon(icon_path))
-                break
-        else:
-            self.tray_icon.setIcon(self.windowIcon())
+        icon = _find_icon()
+        self.tray_icon.setIcon(QIcon(icon) if icon else self.windowIcon())
 
         self.tray_icon.setToolTip("DupeZ — No active disruptions")
 
@@ -485,15 +483,13 @@ class DupeZDashboard(QMainWindow):
         except Exception:
             pass
 
-    # ------------------------------------------------------------------
     # Theme
-    # ------------------------------------------------------------------
     def apply_default_theme(self):
         try:
             from app.themes.theme_manager import theme_manager
             if theme_manager.apply_theme("dark"):
                 return
-        except:
+        except Exception:
             pass
         self._apply_fallback_theme()
 
@@ -501,18 +497,18 @@ class DupeZDashboard(QMainWindow):
         try:
             with open("app/themes/dark.qss", 'r') as f:
                 self.setStyleSheet(f.read())
-        except:
+        except Exception:
             self.setStyleSheet("""
                 QMainWindow, QWidget { background-color: #1a1a2e; color: #e0e0e0; }
                 QPushButton { background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; padding: 6px 12px; border-radius: 4px; }
                 QPushButton:hover { background: #0f3460; }
             """)
 
-    # ------------------------------------------------------------------
     # Menu
-    # ------------------------------------------------------------------
     def setup_menu(self):
-        menubar = self.menuBar()
+        # Hide native menubar, use the custom embedded one below title bar
+        self.menuBar().setVisible(False)
+        menubar = self._custom_menubar
 
         # File
         file_menu = menubar.addMenu('&File')
@@ -548,9 +544,7 @@ class DupeZDashboard(QMainWindow):
         action.triggered.connect(callback)
         menu.addAction(action)
 
-    # ------------------------------------------------------------------
     # Status Bar
-    # ------------------------------------------------------------------
     def setup_status_bar(self):
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -573,9 +567,7 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Status bar update error: {e}")
 
-    # ------------------------------------------------------------------
     # Signals
-    # ------------------------------------------------------------------
     def connect_signals(self):
         try:
             if hasattr(self, 'clumsy_view'):
@@ -586,9 +578,7 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Signal connection error: {e}")
 
-    # ------------------------------------------------------------------
     # Actions
-    # ------------------------------------------------------------------
     def open_settings(self):
         try:
             if self.controller:
@@ -738,19 +728,18 @@ class DupeZDashboard(QMainWindow):
             row.addStretch()
             layout.addLayout(row)
 
-        layout.addSpacing(12)
+        _sec_qss = "color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;"
+        _sep_qss = "background: rgba(51, 65, 85, 0.5);"
+        _body_qss = "font-size: 12px; line-height: 1.6;"
 
-        # Separator
-        sep2 = QLabel()
-        sep2.setFixedHeight(1)
-        sep2.setStyleSheet("background: rgba(51, 65, 85, 0.5);")
-        layout.addWidget(sep2)
+        def _add_sep(spacing_before=12, spacing_after=8):
+            layout.addSpacing(spacing_before)
+            s = QLabel(); s.setFixedHeight(1); s.setStyleSheet(_sep_qss)
+            layout.addWidget(s); layout.addSpacing(spacing_after)
 
-        layout.addSpacing(8)
-
-        # Credits
+        _add_sep()
         credits_title = QLabel("CREDITS")
-        credits_title.setStyleSheet("color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;")
+        credits_title.setStyleSheet(_sec_qss)
         layout.addWidget(credits_title)
 
         credits_text = QLabel(
@@ -764,22 +753,12 @@ class DupeZDashboard(QMainWindow):
         )
         credits_text.setOpenExternalLinks(True)
         credits_text.setWordWrap(True)
-        credits_text.setStyleSheet("font-size: 12px; line-height: 1.6;")
+        credits_text.setStyleSheet(_body_qss)
         layout.addWidget(credits_text)
 
-        layout.addSpacing(12)
-
-        # Separator
-        sep3 = QLabel()
-        sep3.setFixedHeight(1)
-        sep3.setStyleSheet("background: rgba(51, 65, 85, 0.5);")
-        layout.addWidget(sep3)
-
-        layout.addSpacing(8)
-
-        # Support section
+        _add_sep()
         support_title = QLabel("SUPPORT THE PROJECT")
-        support_title.setStyleSheet("color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;")
+        support_title.setStyleSheet(_sec_qss)
         layout.addWidget(support_title)
 
         support_text = QLabel(
@@ -787,7 +766,7 @@ class DupeZDashboard(QMainWindow):
             '<span style="color:#00ff88; font-size:14px; font-weight:bold;">CashApp: $YngTycoon</span>'
         )
         support_text.setWordWrap(True)
-        support_text.setStyleSheet("font-size: 12px; line-height: 1.6;")
+        support_text.setStyleSheet(_body_qss)
         layout.addWidget(support_text)
 
         layout.addStretch()
@@ -819,9 +798,7 @@ class DupeZDashboard(QMainWindow):
 
         dlg.exec()
 
-    # ------------------------------------------------------------------
     # Frameless Window — Drag, Resize, Maximize
-    # ------------------------------------------------------------------
     def _toggle_maximize(self):
         if self.isMaximized():
             self.showNormal()
@@ -887,18 +864,14 @@ class DupeZDashboard(QMainWindow):
                 self._drag_pos = QPoint(self.width() // 2, 18)
             self.move(event.globalPosition().toPoint() - self._drag_pos)
         else:
-            # Update cursor shape for resize hints
+            _CURSOR_MAP = {
+                "left": Qt.CursorShape.SizeHorCursor, "right": Qt.CursorShape.SizeHorCursor,
+                "top": Qt.CursorShape.SizeVerCursor, "bottom": Qt.CursorShape.SizeVerCursor,
+                "left+top": Qt.CursorShape.SizeFDiagCursor, "right+bottom": Qt.CursorShape.SizeFDiagCursor,
+                "right+top": Qt.CursorShape.SizeBDiagCursor, "left+bottom": Qt.CursorShape.SizeBDiagCursor,
+            }
             edge = self._get_resize_edge(event.position().toPoint())
-            if edge in ("left", "right"):
-                self.setCursor(Qt.CursorShape.SizeHorCursor)
-            elif edge in ("top", "bottom"):
-                self.setCursor(Qt.CursorShape.SizeVerCursor)
-            elif edge in ("left+top", "right+bottom"):
-                self.setCursor(Qt.CursorShape.SizeFDiagCursor)
-            elif edge in ("right+top", "left+bottom"):
-                self.setCursor(Qt.CursorShape.SizeBDiagCursor)
-            else:
-                self.setCursor(Qt.CursorShape.ArrowCursor)
+            self.setCursor(_CURSOR_MAP.get(edge, Qt.CursorShape.ArrowCursor))
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
@@ -913,9 +886,7 @@ class DupeZDashboard(QMainWindow):
             self._toggle_maximize()
         super().mouseDoubleClickEvent(event)
 
-    # ------------------------------------------------------------------
     # Lifecycle
-    # ------------------------------------------------------------------
     def closeEvent(self, event):
         # Minimize to tray instead of quitting (unless force quit)
         if self._minimize_to_tray and self.tray_icon and not self._force_quit:
@@ -942,3 +913,4 @@ class DupeZDashboard(QMainWindow):
         except Exception as e:
             log_error(f"Close error: {e}")
         event.accept()
+

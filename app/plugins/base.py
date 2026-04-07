@@ -12,8 +12,7 @@ All plugins receive a reference to AppController on activation.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
-
+from typing import Dict, List
 
 class PluginBase(ABC):
     """Base class all plugins must inherit from."""
@@ -35,7 +34,6 @@ class PluginBase(ABC):
     @property
     def enabled(self) -> bool:
         return self._enabled
-
 
 class DisruptionPlugin(PluginBase):
     """Plugin that adds new disruption methods to the engine.
@@ -61,7 +59,6 @@ class DisruptionPlugin(PluginBase):
         """Remove a disruption method from a target IP. Return True on success."""
         ...
 
-
 class ScannerPlugin(PluginBase):
     """Plugin that adds new network scanning capabilities.
 
@@ -79,7 +76,6 @@ class ScannerPlugin(PluginBase):
     def scan(self, scan_type: str, params: Dict = None) -> List[Dict]:
         """Run a scan and return list of result dicts."""
         ...
-
 
 class UIPanelPlugin(PluginBase):
     """Plugin that adds a new sidebar view to the dashboard.
@@ -99,7 +95,6 @@ class UIPanelPlugin(PluginBase):
         """Return a QWidget instance to be added to the dashboard view stack."""
         ...
 
-
 class GenericPlugin(PluginBase):
     """Plugin that runs background logic with access to the controller.
 
@@ -114,3 +109,4 @@ class GenericPlugin(PluginBase):
     def deactivate(self) -> bool:
         self._enabled = False
         return True
+

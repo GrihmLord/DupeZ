@@ -17,7 +17,6 @@ Usage:
 import os
 import sys
 import json
-import time
 import argparse
 import ctypes
 
@@ -25,14 +24,12 @@ import ctypes
 if getattr(sys, 'frozen', False):
     os.chdir(os.path.dirname(sys.executable))
 
-from app.logs.logger import log_info, log_error, log_startup, log_shutdown
-
+from app.logs.logger import log_info, log_startup, log_shutdown
 
 def _check_admin() -> bool:
     if os.name != 'nt':
         return os.geteuid() == 0 if hasattr(os, 'geteuid') else True
     return hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
-
 
 def _print_banner():
     print("""
@@ -44,7 +41,6 @@ def _print_banner():
  ╚═════╝  ╚═════╝ ╚═╝     ╚══════╝╚══════╝
  v4.0.0 — CLI Mode
 """)
-
 
 def cmd_scan(controller, args):
     """Scan network for devices."""
@@ -64,7 +60,6 @@ def cmd_scan(controller, args):
         hostname = d.get('hostname', 'Unknown') if isinstance(d, dict) else d.hostname
         vendor = d.get('vendor', '') if isinstance(d, dict) else d.vendor
         print(f"  {ip:<18} {mac:<20} {hostname:<25} {vendor}")
-
 
 def cmd_disrupt(controller, args):
     """Start disruption on a target IP."""
@@ -87,7 +82,6 @@ def cmd_disrupt(controller, args):
     else:
         print(f"[!] Failed to start disruption on {args.ip}")
 
-
 def cmd_stop(controller, args):
     """Stop disruption."""
     if args.all:
@@ -103,7 +97,6 @@ def cmd_stop(controller, args):
             print(f"[!] Failed to stop disruption on {args.ip}")
     else:
         print("[!] Usage: dupez cli stop <ip> or dupez cli stop --all")
-
 
 def cmd_status(controller, args):
     """Show engine status."""
@@ -128,7 +121,6 @@ def cmd_status(controller, args):
         for key, val in stats.items():
             print(f"    {key}: {val}")
 
-
 def cmd_devices(controller, args):
     """List known devices."""
     devices = controller.get_devices()
@@ -144,7 +136,6 @@ def cmd_devices(controller, args):
         status = "BLOCKED" if blocked else "ok"
         print(f"  {ip:<18} {hostname or 'Unknown':<25} [{status}]")
 
-
 def cmd_plugins(controller, args):
     """List plugins."""
     info = controller.get_plugin_info()
@@ -158,7 +149,6 @@ def cmd_plugins(controller, args):
     for p in info:
         status = "active" if p['active'] else ("error" if p.get('error') else "inactive")
         print(f"  {p['name']:<20} {p['version']:<10} {p['type']:<12} {status:<10} {p['description'][:40]}")
-
 
 def cmd_interactive(controller, args):
     """Interactive REPL mode."""
@@ -213,7 +203,6 @@ def cmd_interactive(controller, args):
         else:
             print(f"[!] Unknown command: {subcmd}. Type 'help' for commands.")
 
-
 def main():
     parser = argparse.ArgumentParser(
         prog="dupez-cli",
@@ -266,27 +255,16 @@ def main():
     log_info("DupeZ CLI mode started")
 
     try:
-        if args.command == "scan":
-            cmd_scan(controller, args)
-        elif args.command == "disrupt":
-            cmd_disrupt(controller, args)
-        elif args.command == "stop":
-            cmd_stop(controller, args)
-        elif args.command == "status":
-            cmd_status(controller, args)
-        elif args.command == "devices":
-            cmd_devices(controller, args)
-        elif args.command == "plugins":
-            cmd_plugins(controller, args)
-        elif args.command in ("interactive", "shell", "repl"):
-            cmd_interactive(controller, args)
-        else:
-            # No subcommand — drop into interactive mode
-            cmd_interactive(controller, args)
+        _CMD_MAP = {
+            "scan": cmd_scan, "disrupt": cmd_disrupt, "stop": cmd_stop,
+            "status": cmd_status, "devices": cmd_devices, "plugins": cmd_plugins,
+            "interactive": cmd_interactive, "shell": cmd_interactive, "repl": cmd_interactive,
+        }
+        _CMD_MAP.get(args.command, cmd_interactive)(controller, args)
     finally:
         controller.shutdown()
         log_shutdown()
 
-
 if __name__ == "__main__":
     main()
+

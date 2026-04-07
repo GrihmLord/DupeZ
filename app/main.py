@@ -5,7 +5,6 @@ import os
 import ctypes
 import traceback
 
-
 def _get_pythonw() -> str:
     """Return path to pythonw.exe (no-console Python) next to current interpreter."""
     if getattr(sys, 'frozen', False):
@@ -13,7 +12,6 @@ def _get_pythonw() -> str:
     d = os.path.dirname(sys.executable)
     pythonw = os.path.join(d, "pythonw.exe")
     return pythonw if os.path.exists(pythonw) else sys.executable
-
 
 def dump_crash(exctype, value, tb):
     try:
@@ -23,10 +21,9 @@ def dump_crash(exctype, value, tb):
         )
         with open(crash_file, "w") as f:
             f.write("".join(traceback.format_exception(exctype, value, tb)))
-    except:
+    except Exception:
         pass
     sys.__excepthook__(exctype, value, tb)
-
 
 sys.excepthook = dump_crash
 
@@ -47,7 +44,6 @@ from app.logs.logger import log_error, log_info, log_warning, log_startup, log_s
 IS_ADMIN = os.name != 'nt' or (
     hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
 )
-
 
 def main():
     # --- Phase 1: UAC Elevation (always re-launch as pythonw.exe for zero-flash) ---
@@ -120,6 +116,6 @@ def main():
         QMessageBox.critical(None, "Critical Error", f"An error occurred:\n{e}")
         sys.exit(1)
 
-
 if __name__ == "__main__":
     main()
+

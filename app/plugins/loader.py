@@ -6,7 +6,7 @@ import json
 import importlib
 import importlib.util
 import traceback
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional
 from app.plugins.base import PluginBase, DisruptionPlugin, ScannerPlugin, UIPanelPlugin, GenericPlugin
 from app.logs.logger import log_info, log_error, log_warning
 
@@ -24,7 +24,6 @@ TYPE_CLASS_MAP = {
     "ui_panel": UIPanelPlugin,
     "generic": GenericPlugin,
 }
-
 
 class PluginManifest:
     """Parsed and validated plugin manifest."""
@@ -44,13 +43,13 @@ class PluginManifest:
     def __repr__(self):
         return f"<PluginManifest {self.name} v{self.version} ({self.plugin_type})>"
 
-
 class LoadedPlugin:
     """Container for a loaded plugin instance + its manifest."""
 
-    def __init__(self, manifest: PluginManifest, instance: PluginBase):
+    def __init__(self, manifest: PluginManifest, instance: PluginBase, module_name: str = ""):
         self.manifest = manifest
         self.instance = instance
+        self.module_name = module_name  # For cleanup on unload
         self.active = False
         self.error: Optional[str] = None
 
@@ -65,7 +64,6 @@ class LoadedPlugin:
     def __repr__(self):
         state = "active" if self.active else "inactive"
         return f"<LoadedPlugin {self.name} [{state}]>"
-
 
 class PluginLoader:
     """Discovers, loads, validates, and manages plugins.
@@ -90,9 +88,7 @@ class PluginLoader:
         self.plugins: Dict[str, LoadedPlugin] = {}        # name -> loaded plugin
         self._controller = None
 
-    # ------------------------------------------------------------------
     # Discovery
-    # ------------------------------------------------------------------
     def discover(self) -> List[PluginManifest]:
         """Scan plugins directory for valid plugin folders with manifest.json."""
         self.manifests.clear()
@@ -142,17 +138,25 @@ class PluginLoader:
             log_error(f"Manifest at {path} has invalid type '{data['type']}' — must be one of {VALID_TYPES}")
             return None
 
-        # Validate entry_point file exists
-        entry_file = os.path.join(plugin_dir, data["entry_point"])
+        # Validate entry_point — prevent path traversal attacks
+        entry_point = data["entry_point"]
+        if ".." in entry_point or os.path.isabs(entry_point):
+            log_error(f"Manifest at {path} has suspicious entry_point: {entry_point}")
+            return None
+        entry_file = os.path.join(plugin_dir, entry_point)
+        # Resolve and verify it's still inside the plugin dir
+        real_entry = os.path.realpath(entry_file)
+        real_plugin_dir = os.path.realpath(plugin_dir)
+        if not real_entry.startswith(real_plugin_dir + os.sep):
+            log_error(f"Plugin entry_point escapes plugin directory: {entry_point}")
+            return None
         if not os.path.isfile(entry_file):
-            log_error(f"Manifest at {path} references missing entry_point: {data['entry_point']}")
+            log_error(f"Manifest at {path} references missing entry_point: {entry_point}")
             return None
 
         return PluginManifest(data, plugin_dir)
 
-    # ------------------------------------------------------------------
     # Loading
-    # ------------------------------------------------------------------
     def load_all(self, controller) -> List[LoadedPlugin]:
         """Load and activate all discovered plugins."""
         self._controller = controller
@@ -198,37 +202,41 @@ class PluginLoader:
             sys.modules[module_name] = module
 
             # Add plugin dir to sys.path temporarily for relative imports
+            added_to_path = False
             if manifest.plugin_dir not in sys.path:
                 sys.path.insert(0, manifest.plugin_dir)
+                added_to_path = True
 
-            spec.loader.exec_module(module)
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                # Remove from sys.path immediately — only needed during exec_module
+                if added_to_path and manifest.plugin_dir in sys.path:
+                    sys.path.remove(manifest.plugin_dir)
 
             # Find the plugin class — look for a class that inherits from PluginBase
             expected_base = TYPE_CLASS_MAP.get(manifest.plugin_type, PluginBase)
             plugin_class = None
 
+            _base_classes = {PluginBase, DisruptionPlugin, ScannerPlugin, UIPanelPlugin, GenericPlugin}
             for attr_name in dir(module):
                 attr = getattr(module, attr_name)
-                if (isinstance(attr, type)
-                        and issubclass(attr, expected_base)
-                        and attr is not expected_base
-                        and attr is not PluginBase
-                        and attr is not DisruptionPlugin
-                        and attr is not ScannerPlugin
-                        and attr is not UIPanelPlugin
-                        and attr is not GenericPlugin):
+                if (isinstance(attr, type) and issubclass(attr, expected_base)
+                        and attr not in _base_classes):
                     plugin_class = attr
                     break
 
             if plugin_class is None:
                 log_error(f"Plugin '{manifest.name}' has no class inheriting from {expected_base.__name__}")
+                # Clean up sys.modules on failure
+                sys.modules.pop(module_name, None)
                 return None
 
             # Instantiate and activate
             instance = plugin_class()
             success = instance.activate(self._controller)
 
-            loaded = LoadedPlugin(manifest, instance)
+            loaded = LoadedPlugin(manifest, instance, module_name=module_name)
             loaded.active = success
 
             if success:
@@ -243,9 +251,7 @@ class PluginLoader:
             log_error(f"Failed to load plugin '{manifest.name}': {e}\n{traceback.format_exc()}")
             return None
 
-    # ------------------------------------------------------------------
     # Unloading
-    # ------------------------------------------------------------------
     def unload_plugin(self, name: str) -> bool:
         """Deactivate and unload a plugin by name."""
         plugin = self.plugins.get(name)
@@ -257,6 +263,9 @@ class PluginLoader:
             if plugin.active:
                 plugin.instance.deactivate()
                 plugin.active = False
+            # Clean up module from sys.modules to allow re-import
+            if plugin.module_name:
+                sys.modules.pop(plugin.module_name, None)
             del self.plugins[name]
             log_info(f"Plugin '{name}' unloaded")
             return True
@@ -269,28 +278,13 @@ class PluginLoader:
         for name in list(self.plugins.keys()):
             self.unload_plugin(name)
 
-    # ------------------------------------------------------------------
     # Queries
-    # ------------------------------------------------------------------
-    def get_active_plugins(self) -> List[LoadedPlugin]:
-        """Return all currently active plugins."""
-        return [p for p in self.plugins.values() if p.active]
-
-    def get_plugins_by_type(self, plugin_type: str) -> List[LoadedPlugin]:
-        """Return all active plugins of a given type."""
-        return [p for p in self.plugins.values() if p.active and p.plugin_type == plugin_type]
-
-    def get_disruption_plugins(self) -> List[LoadedPlugin]:
-        return self.get_plugins_by_type("disruption")
-
-    def get_scanner_plugins(self) -> List[LoadedPlugin]:
-        return self.get_plugins_by_type("scanner")
-
-    def get_ui_panel_plugins(self) -> List[LoadedPlugin]:
-        return self.get_plugins_by_type("ui_panel")
-
-    def get_plugin(self, name: str) -> Optional[LoadedPlugin]:
-        return self.plugins.get(name)
+    def get_active_plugins(self): return [p for p in self.plugins.values() if p.active]
+    def get_plugins_by_type(self, t): return [p for p in self.plugins.values() if p.active and p.plugin_type == t]
+    def get_disruption_plugins(self): return self.get_plugins_by_type("disruption")
+    def get_scanner_plugins(self): return self.get_plugins_by_type("scanner")
+    def get_ui_panel_plugins(self): return self.get_plugins_by_type("ui_panel")
+    def get_plugin(self, name): return self.plugins.get(name)
 
     def get_plugin_info(self) -> List[Dict]:
         """Return summary info for all discovered plugins."""
@@ -308,3 +302,4 @@ class PluginLoader:
                 "error": loaded.error if loaded else None,
             })
         return info
+

@@ -10,3 +10,4 @@ def load_config():
 def save_config(config):
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f, indent=4)
+
