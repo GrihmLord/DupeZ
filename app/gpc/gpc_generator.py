@@ -24,10 +24,7 @@ from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from app.logs.logger import log_info, log_error
 
-
-# ---------------------------------------------------------------------------
 # Controller button map
-# ---------------------------------------------------------------------------
 BUTTON_MAP = {
     "A": "XB1_A", "B": "XB1_B", "X": "XB1_X", "Y": "XB1_Y",
     "LB": "XB1_LB", "RB": "XB1_RB", "LT": "XB1_LT", "RT": "XB1_RT",
@@ -46,10 +43,7 @@ PS4_TO_XB1 = {
     "PS4_L2": "XB1_LT", "PS4_R2": "XB1_RT",
 }
 
-
-# ---------------------------------------------------------------------------
 # Combo step definition
-# ---------------------------------------------------------------------------
 @dataclass
 class ComboStep:
     """A single action in a combo sequence."""
@@ -57,7 +51,6 @@ class ComboStep:
     value: int = 100       # Button value (0-100, 100 = fully pressed)
     hold_ms: int = 50      # How long to hold
     wait_after_ms: int = 50  # Wait after releasing
-
 
 @dataclass
 class ComboSequence:
@@ -71,10 +64,7 @@ class ComboSequence:
     def total_duration_ms(self) -> int:
         return sum(s.hold_ms + s.wait_after_ms for s in self.steps)
 
-
-# ---------------------------------------------------------------------------
 # Script templates
-# ---------------------------------------------------------------------------
 @dataclass
 class GPCTemplate:
     """A complete GPC script template."""
@@ -87,10 +77,7 @@ class GPCTemplate:
     defines: Dict[str, int] = field(default_factory=dict)
     dupez_sync: bool = True    # Whether script is designed to sync with DupeZ
 
-
-# ---------------------------------------------------------------------------
 # Built-in templates
-# ---------------------------------------------------------------------------
 def _template_dayz_dupe() -> GPCTemplate:
     """DayZ inventory dupe — rapid drop + pick up during lag window."""
     return GPCTemplate(
@@ -126,7 +113,6 @@ def _template_dayz_dupe() -> GPCTemplate:
         ],
     )
 
-
 def _template_rapid_fire() -> GPCTemplate:
     """Universal rapid-fire on RT/R2."""
     return GPCTemplate(
@@ -148,7 +134,6 @@ def _template_rapid_fire() -> GPCTemplate:
             ),
         ],
     )
-
 
 def _template_godmode_sync() -> GPCTemplate:
     """Script synced with DupeZ God Mode — actions during lag window."""
@@ -178,7 +163,6 @@ def _template_godmode_sync() -> GPCTemplate:
         ],
     )
 
-
 def _template_anti_recoil() -> GPCTemplate:
     """Anti-recoil for shooters."""
     return GPCTemplate(
@@ -201,10 +185,8 @@ def _template_anti_recoil() -> GPCTemplate:
         ],
     )
 
-
 # Registry of all built-in templates
 TEMPLATES: Dict[str, GPCTemplate] = {}
-
 
 def _register_templates():
     global TEMPLATES
@@ -213,13 +195,9 @@ def _register_templates():
         t = fn()
         TEMPLATES[t.name] = t
 
-
 _register_templates()
 
-
-# ---------------------------------------------------------------------------
 # GPC Code Generator
-# ---------------------------------------------------------------------------
 class GPCGenerator:
     """Generate valid .gpc source code from templates or custom configs."""
 
@@ -368,10 +346,7 @@ class GPCGenerator:
                 pass
             return False
 
-
-# ---------------------------------------------------------------------------
 # Script modifier — adjust timing in existing scripts
-# ---------------------------------------------------------------------------
 def adjust_combo_timing(script_source: str, multiplier: float) -> str:
     """Scale all wait() values in a GPC script by a multiplier.
 
@@ -387,27 +362,16 @@ def adjust_combo_timing(script_source: str, multiplier: float) -> str:
 
     return re.sub(r'wait\(\s*(\d+)\s*\)', replace_wait, script_source)
 
-
-def get_template_names() -> List[str]:
-    """Return names of all built-in templates."""
-    return list(TEMPLATES.keys())
-
+def list_templates() -> List[dict]:
+    """Return all registered templates as dicts."""
+    return [{"name": t.name, "game": t.game, "description": t.description}
+            for t in TEMPLATES.values()]
 
 def get_template(name: str) -> Optional[GPCTemplate]:
-    """Get a built-in template by name."""
+    """Get a template by name."""
     return TEMPLATES.get(name)
 
+def get_template_names() -> List[str]:
+    """Return all registered template names."""
+    return list(TEMPLATES.keys())
 
-def list_templates() -> List[Dict]:
-    """Return template metadata for UI display."""
-    return [
-        {
-            "name": t.name,
-            "description": t.description,
-            "game": t.game,
-            "platform": t.platform,
-            "dupez_sync": t.dupez_sync,
-            "combo_count": len(t.combos),
-        }
-        for t in TEMPLATES.values()
-    ]

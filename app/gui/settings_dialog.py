@@ -6,15 +6,12 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
                               QTextEdit, QSlider, QMessageBox, QScrollArea,
                               QFrame)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QCursor
+from PyQt6.QtGui import QCursor
 from app.logs.logger import log_info, log_error
 from app.core.state import AppSettings
 
-
-# ---------------------------------------------------------------------------
 # Inline stylesheet — applied directly to the dialog so it always matches
 # the DupeZ cyber‑HUD look regardless of the active app theme.
-# ---------------------------------------------------------------------------
 SETTINGS_STYLE = """
 SettingsDialog {
     background-color: #060913;
@@ -316,7 +313,6 @@ QMessageBox QPushButton {
 }
 """
 
-
 class SettingsDialog(QDialog):
     """DupeZ Settings — cyber HUD styled dialog"""
 
@@ -337,9 +333,7 @@ class SettingsDialog(QDialog):
         self._load_settings()
         self.update_theme_info()
 
-    # ------------------------------------------------------------------
     # UI Construction
-    # ------------------------------------------------------------------
     def _build_ui(self):
         root = QVBoxLayout()
         root.setSpacing(10)
@@ -576,17 +570,13 @@ class SettingsDialog(QDialog):
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(8)
-        self.start_rainbow_btn = QPushButton("Start Rainbow")
-        self.start_rainbow_btn.setObjectName("start_rainbow_btn")
-        self.start_rainbow_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.start_rainbow_btn.clicked.connect(self.start_rainbow_mode)
-        btn_row.addWidget(self.start_rainbow_btn)
-
-        self.stop_rainbow_btn = QPushButton("Stop Rainbow")
-        self.stop_rainbow_btn.setObjectName("stop_rainbow_btn")
-        self.stop_rainbow_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.stop_rainbow_btn.clicked.connect(self.stop_rainbow_mode)
-        btn_row.addWidget(self.stop_rainbow_btn)
+        for attr, text, handler in [
+            ("start_rainbow_btn", "Start Rainbow", self.start_rainbow_mode),
+            ("stop_rainbow_btn", "Stop Rainbow", self.stop_rainbow_mode),
+        ]:
+            btn = QPushButton(text); btn.setObjectName(attr)
+            btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+            btn.clicked.connect(handler); setattr(self, attr, btn); btn_row.addWidget(btn)
         r_lay.addLayout(btn_row)
 
         self.theme_info_label = QLabel("Current Theme: Dark")
@@ -600,34 +590,30 @@ class SettingsDialog(QDialog):
         g3 = QGroupBox("Display")
         fl3 = QFormLayout()
 
-        self.auto_refresh_checkbox = QCheckBox("Auto-refresh device list")
-        fl3.addRow("Auto-Refresh:", self.auto_refresh_checkbox)
+        for attr, label, row_label in [
+            ("auto_refresh_checkbox", "Auto-refresh device list", "Auto-Refresh:"),
+            ("show_device_icons_checkbox", "Show device type icons", "Device Icons:"),
+            ("show_status_indicators_checkbox", "Show status indicators", "Status Indicators:"),
+            ("compact_view_checkbox", "Compact row height", "Compact View:"),
+        ]:
+            cb = QCheckBox(label); setattr(self, attr, cb); fl3.addRow(row_label, cb)
 
         self.refresh_interval_spinbox = QSpinBox()
         self.refresh_interval_spinbox.setRange(10, 300)
         self.refresh_interval_spinbox.setSuffix(" sec")
         fl3.addRow("Refresh Interval:", self.refresh_interval_spinbox)
-
-        self.show_device_icons_checkbox = QCheckBox("Show device type icons")
-        fl3.addRow("Device Icons:", self.show_device_icons_checkbox)
-
-        self.show_status_indicators_checkbox = QCheckBox("Show status indicators")
-        fl3.addRow("Status Indicators:", self.show_status_indicators_checkbox)
-
-        self.compact_view_checkbox = QCheckBox("Compact row height")
-        fl3.addRow("Compact View:", self.compact_view_checkbox)
         g3.setLayout(fl3)
         lay.addWidget(g3)
 
         # Notifications
         g4 = QGroupBox("Notifications")
         fl4 = QFormLayout()
-        self.show_notifications_checkbox = QCheckBox("Desktop notifications")
-        fl4.addRow("Notifications:", self.show_notifications_checkbox)
-        self.sound_alerts_checkbox = QCheckBox("Sound alerts")
-        fl4.addRow("Sound:", self.sound_alerts_checkbox)
-        g4.setLayout(fl4)
-        lay.addWidget(g4)
+        for attr, label, row_label in [
+            ("show_notifications_checkbox", "Desktop notifications", "Notifications:"),
+            ("sound_alerts_checkbox", "Sound alerts", "Sound:"),
+        ]:
+            cb = QCheckBox(label); setattr(self, attr, cb); fl4.addRow(row_label, cb)
+        g4.setLayout(fl4); lay.addWidget(g4)
 
         lay.addStretch()
         w.setLayout(lay)
@@ -676,115 +662,78 @@ class SettingsDialog(QDialog):
         w.setLayout(lay)
         return w
 
-    # ------------------------------------------------------------------
-    # Load / Save / Reset
-    # ------------------------------------------------------------------
+    def _widget_map(self):
+        """Return (widget, setting_key) pairs for all settings controls."""
+        return [
+            (self.auto_scan_checkbox, 'auto_scan'), (self.scan_interval_spinbox, 'scan_interval'),
+            (self.max_devices_spinbox, 'max_devices'), (self.log_level_combo, 'log_level'),
+            (self.ping_timeout_spinbox, 'ping_timeout'), (self.max_threads_spinbox, 'max_threads'),
+            (self.quick_scan_checkbox, 'quick_scan'), (self.smart_mode_checkbox, 'smart_mode'),
+            (self.auto_block_checkbox, 'auto_block'), (self.high_traffic_threshold, 'high_traffic_threshold'),
+            (self.connection_limit, 'connection_limit'),
+            (self.suspicious_activity_threshold, 'suspicious_activity_threshold'),
+            (self.block_duration_spinbox, 'block_duration'), (self.theme_combo, 'theme'),
+            (self.auto_refresh_checkbox, 'auto_refresh'), (self.refresh_interval_spinbox, 'refresh_interval'),
+            (self.show_device_icons_checkbox, 'show_device_icons'),
+            (self.show_status_indicators_checkbox, 'show_status_indicators'),
+            (self.compact_view_checkbox, 'compact_view'),
+            (self.show_notifications_checkbox, 'show_notifications'),
+            (self.sound_alerts_checkbox, 'sound_alerts'), (self.cache_duration_spinbox, 'cache_duration'),
+            (self.memory_limit_spinbox, 'memory_limit'), (self.require_admin_checkbox, 'require_admin'),
+            (self.encrypt_logs_checkbox, 'encrypt_logs'), (self.debug_mode_checkbox, 'debug_mode'),
+            (self.verbose_logging_checkbox, 'verbose_logging'),
+        ]
+
+    def _apply_settings_to_widgets(self, s):
+        """Set widget values from an AppSettings object."""
+        for widget, key in self._widget_map():
+            val = getattr(s, key, None)
+            if val is None:
+                continue
+            if isinstance(widget, QCheckBox):
+                widget.setChecked(val)
+            elif isinstance(widget, QSpinBox):
+                widget.setValue(val)
+            elif isinstance(widget, QComboBox):
+                widget.setCurrentText(str(val))
+        if hasattr(s, 'whitelist') and s.whitelist:
+            self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
+
+    def _read_widgets_to_dict(self):
+        """Read all widget values into a dict keyed by setting name."""
+        d = {}
+        for widget, key in self._widget_map():
+            if isinstance(widget, QCheckBox):
+                d[key] = widget.isChecked()
+            elif isinstance(widget, QSpinBox):
+                d[key] = widget.value()
+            elif isinstance(widget, QComboBox):
+                d[key] = widget.currentText()
+        d['whitelist'] = (self.whitelist_edit.toPlainText().split('\n')
+                          if self.whitelist_edit.toPlainText() else [])
+        return d
+
     def _load_settings(self):
         """Populate all controls from current_settings."""
         try:
-            s = self.current_settings
-
-            # General
-            self.auto_scan_checkbox.setChecked(s.auto_scan)
-            self.scan_interval_spinbox.setValue(s.scan_interval)
-            self.max_devices_spinbox.setValue(s.max_devices)
-            self.log_level_combo.setCurrentText(s.log_level)
-
-            # Network
-            self.ping_timeout_spinbox.setValue(s.ping_timeout)
-            self.max_threads_spinbox.setValue(s.max_threads)
-            self.quick_scan_checkbox.setChecked(s.quick_scan)
-
-            # Smart Mode
-            self.smart_mode_checkbox.setChecked(s.smart_mode)
-            self.auto_block_checkbox.setChecked(s.auto_block)
-            self.high_traffic_threshold.setValue(s.high_traffic_threshold)
-            self.connection_limit.setValue(s.connection_limit)
-            self.suspicious_activity_threshold.setValue(s.suspicious_activity_threshold)
-            self.block_duration_spinbox.setValue(s.block_duration)
-            if hasattr(s, 'whitelist') and s.whitelist:
-                self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
-
-            # Interface
-            self.theme_combo.setCurrentText(s.theme)
-            self.auto_refresh_checkbox.setChecked(s.auto_refresh)
-            self.refresh_interval_spinbox.setValue(s.refresh_interval)
-            self.show_device_icons_checkbox.setChecked(s.show_device_icons)
-            self.show_status_indicators_checkbox.setChecked(s.show_status_indicators)
-            self.compact_view_checkbox.setChecked(s.compact_view)
-            self.show_notifications_checkbox.setChecked(s.show_notifications)
-            self.sound_alerts_checkbox.setChecked(s.sound_alerts)
-
-            # Advanced
-            self.cache_duration_spinbox.setValue(s.cache_duration)
-            self.memory_limit_spinbox.setValue(s.memory_limit)
-            self.require_admin_checkbox.setChecked(s.require_admin)
-            self.encrypt_logs_checkbox.setChecked(s.encrypt_logs)
-            self.debug_mode_checkbox.setChecked(s.debug_mode)
-            self.verbose_logging_checkbox.setChecked(s.verbose_logging)
-
+            self._apply_settings_to_widgets(self.current_settings)
         except Exception as e:
             log_error(f"Error loading settings: {e}")
 
     def save_settings(self):
         """Collect all controls → AppSettings → emit → accept."""
         try:
-            new_settings = AppSettings(
-                smart_mode=self.smart_mode_checkbox.isChecked(),
-                auto_scan=self.auto_scan_checkbox.isChecked(),
-                scan_interval=self.scan_interval_spinbox.value(),
-                max_devices=self.max_devices_spinbox.value(),
-                log_level=self.log_level_combo.currentText(),
-
-                ping_timeout=self.ping_timeout_spinbox.value(),
-                max_threads=self.max_threads_spinbox.value(),
-                quick_scan=self.quick_scan_checkbox.isChecked(),
-                auto_block=self.auto_block_checkbox.isChecked(),
-                high_traffic_threshold=self.high_traffic_threshold.value(),
-                connection_limit=self.connection_limit.value(),
-                suspicious_activity_threshold=self.suspicious_activity_threshold.value(),
-                block_duration=self.block_duration_spinbox.value(),
-
-                theme=self.theme_combo.currentText(),
-                auto_refresh=self.auto_refresh_checkbox.isChecked(),
-                refresh_interval=self.refresh_interval_spinbox.value(),
-                show_device_icons=self.show_device_icons_checkbox.isChecked(),
-                show_status_indicators=self.show_status_indicators_checkbox.isChecked(),
-                compact_view=self.compact_view_checkbox.isChecked(),
-                show_notifications=self.show_notifications_checkbox.isChecked(),
-                sound_alerts=self.sound_alerts_checkbox.isChecked(),
-
-                cache_duration=self.cache_duration_spinbox.value(),
-                memory_limit=self.memory_limit_spinbox.value(),
-                require_admin=self.require_admin_checkbox.isChecked(),
-                encrypt_logs=self.encrypt_logs_checkbox.isChecked(),
-                debug_mode=self.debug_mode_checkbox.isChecked(),
-                verbose_logging=self.verbose_logging_checkbox.isChecked(),
-
-                whitelist=(self.whitelist_edit.toPlainText().split('\n')
-                           if self.whitelist_edit.toPlainText() else []),
-            )
-
+            d = self._read_widgets_to_dict()
+            new_settings = AppSettings(**d)
             self.new_settings = new_settings
-
-            self.settings_changed.emit({
-                "theme": self.theme_combo.currentText(),
-                "auto_refresh": self.auto_refresh_checkbox.isChecked(),
-                "refresh_interval": self.refresh_interval_spinbox.value(),
-                "show_device_icons": self.show_device_icons_checkbox.isChecked(),
-                "show_status_indicators": self.show_status_indicators_checkbox.isChecked(),
-                "compact_view": self.compact_view_checkbox.isChecked(),
-                "show_notifications": self.show_notifications_checkbox.isChecked(),
-                "sound_alerts": self.sound_alerts_checkbox.isChecked(),
-            })
-
+            self.settings_changed.emit({k: d[k] for k in (
+                'theme', 'auto_refresh', 'refresh_interval', 'show_device_icons',
+                'show_status_indicators', 'compact_view', 'show_notifications', 'sound_alerts')})
             if hasattr(self, 'controller') and self.controller:
                 self.controller.update_settings(new_settings)
-
             log_info("Settings saved")
             QMessageBox.information(self, "Settings", "Settings saved successfully.")
             self.accept()
-
         except Exception as e:
             log_error(f"Error saving settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to save settings:\n{e}")
@@ -793,50 +742,13 @@ class SettingsDialog(QDialog):
         """Reset all controls to AppSettings() defaults."""
         try:
             reply = QMessageBox.question(
-                self, "Reset Settings",
-                "Reset all settings to factory defaults?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            )
+                self, "Reset Settings", "Reset all settings to factory defaults?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply != QMessageBox.StandardButton.Yes:
                 return
-
-            d = AppSettings()
-
-            self.auto_scan_checkbox.setChecked(d.auto_scan)
-            self.scan_interval_spinbox.setValue(d.scan_interval)
-            self.max_devices_spinbox.setValue(d.max_devices)
-            self.log_level_combo.setCurrentText(d.log_level)
-
-            self.ping_timeout_spinbox.setValue(d.ping_timeout)
-            self.max_threads_spinbox.setValue(d.max_threads)
-            self.quick_scan_checkbox.setChecked(d.quick_scan)
-
-            self.smart_mode_checkbox.setChecked(d.smart_mode)
-            self.auto_block_checkbox.setChecked(d.auto_block)
-            self.high_traffic_threshold.setValue(d.high_traffic_threshold)
-            self.connection_limit.setValue(d.connection_limit)
-            self.suspicious_activity_threshold.setValue(d.suspicious_activity_threshold)
-            self.block_duration_spinbox.setValue(d.block_duration)
+            self._apply_settings_to_widgets(AppSettings())
             self.whitelist_edit.clear()
-
-            self.theme_combo.setCurrentText(d.theme)
-            self.auto_refresh_checkbox.setChecked(d.auto_refresh)
-            self.refresh_interval_spinbox.setValue(d.refresh_interval)
-            self.show_device_icons_checkbox.setChecked(d.show_device_icons)
-            self.show_status_indicators_checkbox.setChecked(d.show_status_indicators)
-            self.compact_view_checkbox.setChecked(d.compact_view)
-            self.show_notifications_checkbox.setChecked(d.show_notifications)
-            self.sound_alerts_checkbox.setChecked(d.sound_alerts)
-
-            self.cache_duration_spinbox.setValue(d.cache_duration)
-            self.memory_limit_spinbox.setValue(d.memory_limit)
-            self.require_admin_checkbox.setChecked(d.require_admin)
-            self.encrypt_logs_checkbox.setChecked(d.encrypt_logs)
-            self.debug_mode_checkbox.setChecked(d.debug_mode)
-            self.verbose_logging_checkbox.setChecked(d.verbose_logging)
-
             log_info("Settings reset to defaults")
-
         except Exception as e:
             log_error(f"Error resetting settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to reset:\n{e}")
@@ -844,9 +756,14 @@ class SettingsDialog(QDialog):
     def get_new_settings(self) -> AppSettings:
         return self.new_settings
 
-    # ------------------------------------------------------------------
     # Theme controls
-    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _tm():
+        """Lazy-import the theme manager singleton."""
+        from app.themes.theme_manager import theme_manager
+        return theme_manager
+
     def on_theme_selected(self, theme_name: str):
         try:
             self.update_theme_info()
@@ -861,17 +778,13 @@ class SettingsDialog(QDialog):
 
     def apply_theme(self, theme_name: str):
         try:
-            from app.themes.theme_manager import theme_manager
-
-            if theme_manager.get_current_theme() == theme_name:
+            tm = self._tm()
+            if tm.get_current_theme() == theme_name:
                 return
-
-            success = theme_manager.apply_theme(theme_name)
-            if success:
+            if tm.apply_theme(theme_name):
                 self.theme_combo.blockSignals(True)
                 self.theme_combo.setCurrentText(theme_name)
                 self.theme_combo.blockSignals(False)
-                # Re-apply our own stylesheet so the dialog stays styled
                 self.setStyleSheet(SETTINGS_STYLE)
                 self.update_theme_info()
                 log_info(f"Theme applied: {theme_name}")
@@ -882,16 +795,13 @@ class SettingsDialog(QDialog):
         try:
             speed = value / 10.0
             self.speed_label.setText(f"{speed:.1f}")
-            from app.themes.theme_manager import theme_manager
-            theme_manager.set_rainbow_speed(speed)
+            self._tm().set_rainbow_speed(speed)
         except Exception as e:
             log_error(f"Error changing rainbow speed: {e}")
 
     def start_rainbow_mode(self):
         try:
-            from app.themes.theme_manager import theme_manager
-            theme_manager.start_rainbow_mode()
-            # Re-apply dialog style since rainbow overwrites app stylesheet
+            self._tm().start_rainbow_mode()
             self.setStyleSheet(SETTINGS_STYLE)
             self.update_theme_info()
         except Exception as e:
@@ -899,9 +809,9 @@ class SettingsDialog(QDialog):
 
     def stop_rainbow_mode(self):
         try:
-            from app.themes.theme_manager import theme_manager
-            theme_manager.stop_rainbow_mode()
-            theme_manager.apply_theme("dark")
+            tm = self._tm()
+            tm.stop_rainbow_mode()
+            tm.apply_theme("dark")
             self.theme_combo.setCurrentText("dark")
             self.setStyleSheet(SETTINGS_STYLE)
             self.update_theme_info()
@@ -910,17 +820,17 @@ class SettingsDialog(QDialog):
 
     def update_theme_info(self):
         try:
-            from app.themes.theme_manager import theme_manager
-            current = theme_manager.get_current_theme()
-            rainbow = theme_manager.is_rainbow_active()
-            speed = theme_manager.get_rainbow_speed()
+            tm = self._tm()
+            current = tm.get_current_theme()
+            rainbow = tm.is_rainbow_active()
 
             text = f"Current Theme: {current.title()}"
             if rainbow:
-                text += f"  •  Rainbow Active (Speed {speed:.1f})"
+                text += f"  •  Rainbow Active (Speed {tm.get_rainbow_speed():.1f})"
 
             self.theme_info_label.setText(text)
             self.start_rainbow_btn.setEnabled(not rainbow)
             self.stop_rainbow_btn.setEnabled(rainbow)
         except Exception as e:
             log_error(f"Error updating theme info: {e}")
+

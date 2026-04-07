@@ -15,11 +15,11 @@ different connection types and device profiles.
 
 import json
 import os
+import threading
 import time
 from dataclasses import dataclass, asdict, field
-from typing import Dict, List, Optional
+from typing import Dict, List
 from app.logs.logger import log_info, log_error
-
 
 @dataclass
 class SessionRecord:
@@ -58,7 +58,6 @@ class SessionRecord:
     # Notes
     notes: str = ""
 
-
 class SessionTracker:
     """Tracks disruption sessions and maintains history for learning.
 
@@ -77,7 +76,7 @@ class SessionTracker:
         self.history_path = history_path
         self._active_sessions: Dict[str, SessionRecord] = {}
         self._history: List[dict] = []
-        self._lock = __import__('threading').Lock()
+        self._lock = threading.Lock()
         self._load_history()
 
     def _load_history(self):
@@ -141,7 +140,7 @@ class SessionTracker:
         with self._lock:
             self._active_sessions[session_id] = record
         log_info(f"SessionTracker: started session {session_id} "
-                 f"({recommendation.name} → {profile.target_ip})")
+                 f"({recommendation.name} → {record.target_ip})")
         return session_id
 
     def end_session(self, session_id: str, user_rating: int = 0,
@@ -170,10 +169,13 @@ class SessionTracker:
             # If it ran for a while, assume it was somewhat effective
             record.auto_effectiveness = min(80, 30 + record.duration_seconds * 0.5)
 
-        # Append to history (thread-safe)
+        # Append to history (thread-safe), cap at 500 entries
         with self._lock:
             self._history.append(asdict(record))
-        self._save_history()
+            if len(self._history) > 500:
+                self._history = self._history[-400:]
+            # Save while still holding lock to prevent concurrent mutation
+            self._save_history()
 
         log_info(f"SessionTracker: ended session {session_id} "
                  f"(duration={record.duration_seconds:.0f}s, "
@@ -194,28 +196,6 @@ class SessionTracker:
         results = sorted(results, key=lambda r: r.get("timestamp", 0),
                          reverse=True)
         return results[:limit]
-
-    def get_best_config_for(self, device_type: str = None,
-                            connection_type: str = None) -> Optional[dict]:
-        """Find the highest-rated configuration for similar targets."""
-        candidates = self.get_history(
-            limit=100, device_type=device_type,
-            connection_type=connection_type
-        )
-        # Filter to rated sessions
-        rated = [r for r in candidates if r.get("user_rating", 0) >= 4]
-        if not rated:
-            return None
-
-        # Return the highest rated
-        best = max(rated, key=lambda r: (r.get("user_rating", 0),
-                                          r.get("auto_effectiveness", 0)))
-        return {
-            "methods": best.get("methods", []),
-            "params": best.get("params", {}),
-            "rating": best.get("user_rating", 0),
-            "effectiveness": best.get("auto_effectiveness", 0),
-        }
 
     def get_stats(self) -> dict:
         """Get aggregate statistics about session history."""
@@ -253,3 +233,4 @@ class SessionTracker:
             return "unknown"
         from collections import Counter
         return Counter(items).most_common(1)[0][0]
+

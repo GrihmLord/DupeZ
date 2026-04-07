@@ -1,6 +1,5 @@
 # send incrementing packets containing numbers to given host
 # start up a server by using ncat
-# the static 5.59BETA1 version would work
 # http://nmap.org/dist/ncat-portable-5.59BETA1.zip
 # the server should be started with CRLF as EOF
 # eg: ncat -u -l -C localhost 9111
@@ -27,13 +26,10 @@ if __name__ == '__main__':
 
     cnt = 1
     while True: # send till die
-        ncat.stdin.write( ('%s\r\n' % ('-' * (1 + (cnt % 8)))).encode() ) 
+        ncat.stdin.write( ('%s\r\n' % ('-' * (1 + (cnt % 8)))).encode() )
         ncat.stdin.flush()
         cnt += 1
         print(cnt)
         if not args.nosleep:
             sleep(args.sleep/1000.0)
-
-
-
 

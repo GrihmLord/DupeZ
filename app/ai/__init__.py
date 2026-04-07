@@ -7,7 +7,7 @@
 #   4. SessionTracker    — logs outcomes to improve future recommendations
 #   5. VoiceController   — push-to-talk voice commands via Whisper STT
 
-from app.ai.network_profiler import NetworkProfiler
+from app.ai.network_profiler import NetworkProfile, NetworkProfiler
 from app.ai.smart_engine import SmartDisruptionEngine
 from app.ai.llm_advisor import LLMAdvisor
 from app.ai.session_tracker import SessionTracker
@@ -21,6 +21,7 @@ except ImportError:
     is_voice_available = lambda: False
 
 __all__ = [
+    "NetworkProfile",
     "NetworkProfiler",
     "SmartDisruptionEngine",
     "LLMAdvisor",
@@ -29,3 +30,4 @@ __all__ = [
     "VoiceConfig",
     "is_voice_available",
 ]
+

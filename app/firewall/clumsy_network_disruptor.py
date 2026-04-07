@@ -39,6 +39,7 @@ import ctypes
 from ctypes import wintypes
 from typing import Dict, List, Optional
 from app.logs.logger import log_info, log_error
+from app.utils.helpers import mask_ip
 
 # Native WinDivert engine — primary engine (no GUI, no window)
 try:
@@ -48,11 +49,6 @@ try:
 except ImportError as e:
     NATIVE_ENGINE_AVAILABLE = False
     log_info(f"Native WinDivert engine not available: {e} (falling back to clumsy.exe)")
-
-
-# ======================================================================
-# Win32 Constants
-# ======================================================================
 CREATE_NO_WINDOW   = 0x08000000
 
 # Window style constants
@@ -123,11 +119,6 @@ EDIT_INDEX_MAP = {
 
 # EnumWindows callback type
 WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-
-# ======================================================================
-# Window management
-# ======================================================================
 def _find_window_by_pid(pid: int, timeout: float = 5.0) -> Optional[int]:
     """Poll for a visible window belonging to `pid`. Returns HWND or None."""
     user32 = ctypes.windll.user32
@@ -152,7 +143,6 @@ def _find_window_by_pid(pid: int, timeout: float = 5.0) -> Optional[int]:
 
     return None
 
-
 def _get_window_text(hwnd) -> str:
     """Get the text/title of a window handle."""
     try:
@@ -165,7 +155,6 @@ def _get_window_text(hwnd) -> str:
         return buf.value
     except Exception:
         return ""
-
 
 def _find_child_by_text(parent_hwnd, target_text: str) -> Optional[int]:
     """Find a child window whose text matches `target_text` (case-insensitive)."""
@@ -183,7 +172,6 @@ def _find_child_by_text(parent_hwnd, target_text: str) -> Optional[int]:
     user32.EnumChildWindows(parent_hwnd, WNDENUMPROC(_cb), 0)
     return result[0]
 
-
 def _find_children_by_class(parent_hwnd, class_name: str) -> list:
     """Find all child windows matching a window class name."""
     user32 = ctypes.windll.user32
@@ -200,7 +188,6 @@ def _find_children_by_class(parent_hwnd, class_name: str) -> list:
     user32.EnumChildWindows(parent_hwnd, WNDENUMPROC(_cb), 0)
     return results
 
-
 def _click_button(hwnd) -> bool:
     """Click a button via SendMessageW(BM_CLICK). Works cross-process."""
     try:
@@ -210,7 +197,6 @@ def _click_button(hwnd) -> bool:
     except Exception as e:
         log_error(f"Failed to click button hwnd={hwnd}: {e}")
         return False
-
 
 def _get_edit_controls_sorted(parent_hwnd) -> list:
     """Find all EDIT-class child windows, sorted by Y position (top to bottom).
@@ -237,7 +223,6 @@ def _get_edit_controls_sorted(parent_hwnd) -> list:
     edit_rects.sort(key=lambda x: (x[1], x[2]))
     return [hwnd for hwnd, _y, _x in edit_rects]
 
-
 def _type_into_edit(hwnd, value_str: str):
     """Clear an EDIT control and type a new value character by character.
 
@@ -257,10 +242,8 @@ def _type_into_edit(hwnd, value_str: str):
     for ch in str(value_str):
         user32.SendMessageW(hwnd, WM_CHAR, ord(ch), 0)
 
-    # Verify what was typed
     final = _get_window_text(hwnd)
     return final
-
 
 def _hide_window(hwnd) -> bool:
     """Make a window completely invisible: transparent + no taskbar + hidden."""
@@ -268,7 +251,6 @@ def _hide_window(hwnd) -> bool:
         user32 = ctypes.windll.user32
 
         # 1. Add WS_EX_TOOLWINDOW (removes from taskbar / Alt+Tab)
-        #    Add WS_EX_LAYERED (allows transparency)
         ex_style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
         user32.SetWindowLongW(hwnd, GWL_EXSTYLE,
                               ex_style | WS_EX_TOOLWINDOW | WS_EX_LAYERED)
@@ -288,9 +270,6 @@ def _hide_window(hwnd) -> bool:
         log_error(f"Failed to hide window hwnd={hwnd}: {e}")
         return False
 
-
-
-
 def _kill_all_clumsy():
     """Kill every running clumsy.exe — only one can hold the WinDivert handle."""
     try:
@@ -307,11 +286,6 @@ def _kill_all_clumsy():
             log_info("No existing clumsy.exe to kill")
     except Exception as e:
         log_info(f"taskkill clumsy.exe: {e} (probably not running)")
-
-
-# ======================================================================
-# Clumsy Engine — GUI automation (fallback if native WinDivert fails)
-# ======================================================================
 class ClumsyEngine:
     """Launch clumsy.exe and click its Start button via Win32 GUI automation.
 
@@ -335,6 +309,40 @@ class ClumsyEngine:
         self._proc = None
         self._hwnd = None
 
+    # ---- helpers ----
+
+    def _click_and_verify(self, cb_hwnd, cb_text: str,
+                          expected_state=BST_CHECKED) -> bool:
+        """Click a checkbox and verify it reached expected_state.
+        Retries once on failure. Returns True if verified."""
+        user32 = ctypes.windll.user32
+        _click_button(cb_hwnd)
+        time.sleep(0.05)
+        state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
+        if state == expected_state:
+            log_info(f"  '{cb_text}': CONFIRMED "
+                     f"{'checked' if expected_state == BST_CHECKED else 'unchecked'}")
+            return True
+        # Retry once
+        log_error(f"  '{cb_text}': state={state}, expected={expected_state} — retrying")
+        _click_button(cb_hwnd)
+        time.sleep(0.05)
+        state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
+        if state == expected_state:
+            log_info(f"  '{cb_text}': CONFIRMED on retry")
+            return True
+        log_error(f"  '{cb_text}': STILL wrong after retry (state={state})")
+        return False
+
+    def _find_checkbox(self, text: str):
+        """Find a checkbox by text, with fallback class search."""
+        cb_hwnd = _find_child_by_text(self._hwnd, text)
+        if not cb_hwnd:
+            for btn in _find_children_by_class(self._hwnd, "BUTTON"):
+                if _get_window_text(btn).lower() == text.lower():
+                    return btn
+        return cb_hwnd
+
     # ---- lifecycle ----
 
     def start(self) -> bool:
@@ -348,24 +356,16 @@ class ClumsyEngine:
             self._write_presets()
 
             # Verify both files exist and have content
-            presets_path = os.path.join(self.clumsy_dir, "presets.ini")
-            config_path = os.path.join(self.clumsy_dir, "config.txt")
-            if not os.path.isfile(presets_path):
-                log_error(f"FATAL: presets.ini NOT FOUND at {presets_path}")
-                return False
-            if not os.path.isfile(config_path):
-                log_error(f"FATAL: config.txt NOT FOUND at {config_path}")
-                return False
-            presets_size = os.path.getsize(presets_path)
-            config_size = os.path.getsize(config_path)
-            log_info(f"presets.ini: {presets_path} ({presets_size} bytes)")
-            log_info(f"config.txt: {config_path} ({config_size} bytes)")
-            if presets_size < 100:
-                log_error(f"FATAL: presets.ini too small ({presets_size} bytes)")
-                return False
-            if config_size < 10:
-                log_error(f"FATAL: config.txt too small ({config_size} bytes)")
-                return False
+            for fname, min_size in [("presets.ini", 100), ("config.txt", 10)]:
+                fpath = os.path.join(self.clumsy_dir, fname)
+                if not os.path.isfile(fpath):
+                    log_error(f"FATAL: {fname} NOT FOUND at {fpath}")
+                    return False
+                fsize = os.path.getsize(fpath)
+                log_info(f"{fname}: {fpath} ({fsize} bytes)")
+                if fsize < min_size:
+                    log_error(f"FATAL: {fname} too small ({fsize} bytes)")
+                    return False
 
             # Step 2: Launch clumsy.exe
             exe = os.path.abspath(self.clumsy_exe)
@@ -470,23 +470,12 @@ class ClumsyEngine:
             title = _get_window_text(self._hwnd)
             log_info(f"ClumsyEngine GUI: found window hwnd={self._hwnd} title='{title}'")
 
-            # Enable modules via checkbox clicks
-            try:
-                self._enable_modules()
-            except Exception as e:
-                log_error(f"ClumsyEngine GUI: _enable_modules error: {e}")
-
-            # Click sub-checkboxes
-            try:
-                self._click_sub_checkboxes()
-            except Exception as e:
-                log_error(f"ClumsyEngine GUI: _click_sub_checkboxes error: {e}")
-
-            # Type numeric values into input fields
-            try:
-                self._set_input_values()
-            except Exception as e:
-                log_error(f"ClumsyEngine GUI: _set_input_values error: {e}")
+            # Enable modules, click sub-checkboxes, type input values
+            for step in (self._enable_modules, self._click_sub_checkboxes, self._set_input_values):
+                try:
+                    step()
+                except Exception as e:
+                    log_error(f"ClumsyEngine GUI: {step.__name__} error: {e}")
 
             # Click the Start button
             started = self._click_start_button()
@@ -497,7 +486,6 @@ class ClumsyEngine:
                 log_error("ClumsyEngine GUI: could not start filtering")
                 return False
 
-            # Verify process is alive
             time.sleep(0.1)
             if self._proc.poll() is not None:
                 log_error(f"ClumsyEngine GUI: process died (rc={self._proc.returncode})")
@@ -579,117 +567,50 @@ class ClumsyEngine:
         checkboxes start UNCHECKED after preset1_config() runs. We then
         click each needed checkbox ONCE → fires ACTION callback with ON
         → properly sets the C enabledFlag = 1.
-
-        This is exactly what the user does manually in standalone clumsy.
         """
-        user32 = ctypes.windll.user32
         enabled_count = 0
-
         for module_name in self.methods:
             cb_text = MODULE_CHECKBOX_TEXT.get(module_name)
             if not cb_text:
                 log_info(f"  Module '{module_name}' has no checkbox mapping — skip")
                 continue
-
-            # Find the checkbox by its label text
-            cb_hwnd = _find_child_by_text(self._hwnd, cb_text)
-            if not cb_hwnd:
-                # Also try searching all BUTTON-class children for partial match
-                all_buttons = _find_children_by_class(self._hwnd, "BUTTON")
-                for btn in all_buttons:
-                    text = _get_window_text(btn)
-                    if text.lower() == cb_text.lower():
-                        cb_hwnd = btn
-                        break
+            cb_hwnd = self._find_checkbox(cb_text)
             if not cb_hwnd:
                 log_error(f"  Could not find '{cb_text}' checkbox in window")
                 continue
-
             log_info(f"  Clicking '{cb_text}' checkbox (hwnd={cb_hwnd})")
-
-            # Single click — checkbox starts UNCHECKED (presets set all to false)
-            # BM_CLICK toggles it ON and fires ACTION callback → enabledFlag = 1
-            _click_button(cb_hwnd)
-            time.sleep(0.05)  # give IUP time to process the callback
-
-            # Verify it's now checked
-            state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
-            if state == BST_CHECKED:
+            if self._click_and_verify(cb_hwnd, cb_text):
                 enabled_count += 1
-                log_info(f"  '{cb_text}': CONFIRMED enabled (checked)")
-            else:
-                log_error(f"  '{cb_text}': click may have failed "
-                          f"(state={state}), retrying...")
-                # Retry once
-                _click_button(cb_hwnd)
-                time.sleep(0.05)
-                state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
-                if state == BST_CHECKED:
-                    enabled_count += 1
-                    log_info(f"  '{cb_text}': CONFIRMED enabled on retry")
-                else:
-                    log_error(f"  '{cb_text}': STILL not checked after retry")
 
         log_info(f"_enable_modules: {enabled_count}/{len(self.methods)} "
                  "modules physically enabled")
         return enabled_count > 0
 
     def _click_sub_checkboxes(self):
-        """Click sub-checkboxes inside module controls that need explicit toggling.
+        """Click sub-checkboxes that need explicit toggling for C variable sync.
 
-        CRITICAL BUG FIX: preset1_config() uses IupSetAttribute to set
-        sub-checkboxes like "Drop Throttled" and "Redo Checksum". This
-        changes the VISUAL state but does NOT fire their ACTION callbacks.
-        The ACTION callback calls uiSyncToggle → InterlockedExchange16 to
-        set the C variable (dropThrottled, doChecksum).
+        preset1_config() uses IupSetAttribute which does NOT fire ACTION
+        callbacks. We must click to fire uiSyncToggle → InterlockedExchange16.
 
-        Default C values:
-          - dropThrottled = 0 (OFF) ← MUST CLICK if user wants throttle+drop
-          - doChecksum = 1 (ON) ← defaults ON, only click if user wants OFF
-
-        These sub-checkboxes are BUTTON-class children inside the module's
-        controls HBox. They become ACTIVE only after _enable_modules clicks
-        the module's main enable checkbox (uiToggleControls sets ACTIVE="YES").
+        Sub-checks: (param_key, checkbox_text, c_default)
+          - dropThrottled = 0 (OFF) ← click if user wants throttle+drop
+          - doChecksum = 1 (ON) ← click only if user wants OFF
         """
-        user32 = ctypes.windll.user32
         p = self.params
-
-        # Map: (param_key, checkbox_text, default_c_value, desired_when_true)
-        # We click if the param is True and default is 0 (OFF → ON)
-        # or if the param is False and default is 1 (ON → OFF)
         sub_checks = [
-            # throttle_drop: C default dropThrottled=0. Click once → ON.
             ("throttle_drop", "Drop Throttled", 0),
-            # tamper_checksum: C default doChecksum=1. Already ON.
-            # Only click if user explicitly set it to False (toggle OFF).
             ("tamper_checksum", "Redo Checksum", 1),
         ]
 
         for param_key, cb_text, c_default in sub_checks:
             desired = bool(p.get(param_key, False))
-
-            # Determine if we need to click:
-            # If c_default=0 (OFF) and desired=True → click once to turn ON
-            # If c_default=1 (ON) and desired=False → click once to turn OFF
-            # If c_default matches desired → no click needed
             need_click = (c_default == 0 and desired) or (c_default == 1 and not desired)
-
             if not need_click:
                 log_info(f"  Sub-checkbox '{cb_text}': no click needed "
                          f"(default={c_default}, desired={desired})")
                 continue
 
-            # Find the checkbox by text
-            cb_hwnd = _find_child_by_text(self._hwnd, cb_text)
-            if not cb_hwnd:
-                # Fallback: search all BUTTON children for partial match
-                all_buttons = _find_children_by_class(self._hwnd, "BUTTON")
-                for btn in all_buttons:
-                    text = _get_window_text(btn)
-                    if text.lower() == cb_text.lower():
-                        cb_hwnd = btn
-                        break
-
+            cb_hwnd = self._find_checkbox(cb_text)
             if not cb_hwnd:
                 log_error(f"  Sub-checkbox '{cb_text}' NOT FOUND — "
                           f"C variable stays at default ({c_default})")
@@ -697,23 +618,8 @@ class ClumsyEngine:
 
             log_info(f"  Clicking sub-checkbox '{cb_text}' "
                      f"(hwnd={cb_hwnd}, default={c_default}→desired={desired})")
-            _click_button(cb_hwnd)
-            time.sleep(0.05)
-
-            # Verify
-            state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
             expected = BST_CHECKED if desired else 0
-            if state == expected:
-                log_info(f"  '{cb_text}': CONFIRMED {'checked' if desired else 'unchecked'}")
-            else:
-                log_error(f"  '{cb_text}': state={state}, expected={expected} — retrying")
-                _click_button(cb_hwnd)
-                time.sleep(0.05)
-                state = user32.SendMessageW(cb_hwnd, BM_GETCHECK, 0, 0)
-                if state == expected:
-                    log_info(f"  '{cb_text}': CONFIRMED on retry")
-                else:
-                    log_error(f"  '{cb_text}': STILL wrong after retry (state={state})")
+            self._click_and_verify(cb_hwnd, cb_text, expected_state=expected)
 
     def _set_input_values(self):
         """Type numeric values into clumsy's EDIT controls via WM_CHAR.
@@ -743,7 +649,6 @@ class ClumsyEngine:
                           f"(only {len(edits)} EDITs found)")
                 continue
 
-            # Get the value from GUI params
             value = p.get(param_key)
             if value is None:
                 continue  # param not set by GUI, leave default
@@ -907,116 +812,51 @@ class ClumsyEngine:
             outb = "true" if (active and want_out) else "false"
             return inb, outb
 
-        lag_in, lag_out   = flag("lag")
-        drop_in, drop_out = flag("drop")
-        disc_in, disc_out = flag("disconnect")
-        bw_in, bw_out     = flag("bandwidth")
-        thr_in, thr_out   = flag("throttle")
-        dup_in, dup_out   = flag("duplicate")
-        ood_in, ood_out   = flag("ood")
-        tam_in, tam_out   = flag("corrupt") if "corrupt" in methods else flag("tamper")
-        rst_in, rst_out   = flag("rst")
+        _f = {k: flag(k) for k in ("lag","drop","disconnect","bandwidth","throttle","duplicate","ood","rst")}
+        _f["tamper"] = flag("corrupt") if "corrupt" in methods else flag("tamper")
 
-        log_info(f"presets.ini Preset1: methods={methods}, direction={direction}")
-        log_info(f"  Lag delay={lag_del}, Drop chance={drop_ch}, RST chance={rst_ch}")
-        log_info(f"  Throttle chance={thr_ch}, frame={thr_fr}, drop_throttled={thr_dr}")
-        log_info(f"  Duplicate count={dup_ct}, chance={dup_ch}, OOD chance={ood_ch}")
-        log_info(f"  Inbound/outbound flags set per direction={direction}")
+        log_info(f"presets.ini Preset1: methods={methods}, dir={direction}, "
+                 f"lag={lag_del}, drop={drop_ch}%, rst={rst_ch}%, "
+                 f"thr={thr_ch}%/{thr_fr}ms, dup={dup_ct}x/{dup_ch}%, ood={ood_ch}%")
 
-        content = f"""\
-[General]
-Keybind = [
-
-[Preset1]
-PresetName = DupeZ
-Lag_Inbound = {lag_in}
-Lag_Outbound = {lag_out}
-Lag_Delay = {lag_del}
-Drop_Inbound = {drop_in}
-Drop_Outbound = {drop_out}
-Drop_Chance = {drop_ch}
-Disconnect_Inbound = {disc_in}
-Disconnect_Outbound = {disc_out}
-BandwidthLimiter_QueueSize = {bw_q}
-BandwidthLimiter_Size = {bw_sz}
-BandwidthLimiter_Inbound = {bw_in}
-BandwidthLimiter_Outbound = {bw_out}
-BandwidthLimiter_Limit = {bw_lim}
-Throttle_DropThrottled = {thr_dr}
-Throttle_Timeframe = {thr_fr}
-Throttle_Inbound = {thr_in}
-Throttle_Outbound = {thr_out}
-Throttle_Chance = {thr_ch}
-Duplicate_Count = {dup_ct}
-Duplicate_Inbound = {dup_in}
-Duplicate_Outbound = {dup_out}
-Duplicate_Chance = {dup_ch}
-OutOfOrder_Inbound = {ood_in}
-OutOfOrder_Outbound = {ood_out}
-OutOfOrder_Chance = {ood_ch}
-Tamper_RedoChecksum = {tam_cs}
-Tamper_Inbound = {tam_in}
-Tamper_Outbound = {tam_out}
-Tamper_Chance = {tam_ch}
-SetTCPRST_Inbound = {rst_in}
-SetTCPRST_Outbound = {rst_out}
-SetTCPRST_Chance = {rst_ch}
-"""
-        # Empty presets 2-5 (ALL must be present or ini_parse fails → exit 1)
+        content = (f"[General]\nKeybind = [\n\n[Preset1]\nPresetName = DupeZ\n"
+                   f"Lag_Inbound = {_f['lag'][0]}\nLag_Outbound = {_f['lag'][1]}\nLag_Delay = {lag_del}\n"
+                   f"Drop_Inbound = {_f['drop'][0]}\nDrop_Outbound = {_f['drop'][1]}\nDrop_Chance = {drop_ch}\n"
+                   f"Disconnect_Inbound = {_f['disconnect'][0]}\nDisconnect_Outbound = {_f['disconnect'][1]}\n"
+                   f"BandwidthLimiter_QueueSize = {bw_q}\nBandwidthLimiter_Size = {bw_sz}\n"
+                   f"BandwidthLimiter_Inbound = {_f['bandwidth'][0]}\nBandwidthLimiter_Outbound = {_f['bandwidth'][1]}\n"
+                   f"BandwidthLimiter_Limit = {bw_lim}\nThrottle_DropThrottled = {thr_dr}\n"
+                   f"Throttle_Timeframe = {thr_fr}\nThrottle_Inbound = {_f['throttle'][0]}\n"
+                   f"Throttle_Outbound = {_f['throttle'][1]}\nThrottle_Chance = {thr_ch}\n"
+                   f"Duplicate_Count = {dup_ct}\nDuplicate_Inbound = {_f['duplicate'][0]}\n"
+                   f"Duplicate_Outbound = {_f['duplicate'][1]}\nDuplicate_Chance = {dup_ch}\n"
+                   f"OutOfOrder_Inbound = {_f['ood'][0]}\nOutOfOrder_Outbound = {_f['ood'][1]}\n"
+                   f"OutOfOrder_Chance = {ood_ch}\nTamper_RedoChecksum = {tam_cs}\n"
+                   f"Tamper_Inbound = {_f['tamper'][0]}\nTamper_Outbound = {_f['tamper'][1]}\n"
+                   f"Tamper_Chance = {tam_ch}\nSetTCPRST_Inbound = {_f['rst'][0]}\n"
+                   f"SetTCPRST_Outbound = {_f['rst'][1]}\nSetTCPRST_Chance = {rst_ch}\n")
+        # Empty presets 2-5 (ALL must be present or ini_parse → exit 1)
+        _EMPTY = ("Lag_Inbound = false\nLag_Outbound = false\nLag_Delay = 0\n"
+                  "Drop_Inbound = false\nDrop_Outbound = false\nDrop_Chance = 0\n"
+                  "Disconnect_Inbound = false\nDisconnect_Outbound = false\n"
+                  "BandwidthLimiter_QueueSize = 0\nBandwidthLimiter_Size = kb\n"
+                  "BandwidthLimiter_Inbound = false\nBandwidthLimiter_Outbound = false\n"
+                  "BandwidthLimiter_Limit = 0\nThrottle_DropThrottled = false\n"
+                  "Throttle_Timeframe = 0\nThrottle_Inbound = false\n"
+                  "Throttle_Outbound = false\nThrottle_Chance = 0\n"
+                  "Duplicate_Count = 0\nDuplicate_Inbound = false\n"
+                  "Duplicate_Outbound = false\nDuplicate_Chance = 0\n"
+                  "OutOfOrder_Inbound = false\nOutOfOrder_Outbound = false\n"
+                  "OutOfOrder_Chance = 0\nTamper_RedoChecksum = false\n"
+                  "Tamper_Inbound = false\nTamper_Outbound = false\nTamper_Chance = 0\n"
+                  "SetTCPRST_Inbound = false\nSetTCPRST_Outbound = false\n"
+                  "SetTCPRST_Chance = 0\n")
         for i in range(2, 6):
-            content += f"""
-[Preset{i}]
-PresetName = Preset_{i}
-Lag_Inbound = false
-Lag_Outbound = false
-Lag_Delay = 0
-Drop_Inbound = false
-Drop_Outbound = false
-Drop_Chance = 0
-Disconnect_Inbound = false
-Disconnect_Outbound = false
-BandwidthLimiter_QueueSize = 0
-BandwidthLimiter_Size = kb
-BandwidthLimiter_Inbound = false
-BandwidthLimiter_Outbound = false
-BandwidthLimiter_Limit = 0
-Throttle_DropThrottled = false
-Throttle_Timeframe = 0
-Throttle_Inbound = false
-Throttle_Outbound = false
-Throttle_Chance = 0
-Duplicate_Count = 0
-Duplicate_Inbound = false
-Duplicate_Outbound = false
-Duplicate_Chance = 0
-OutOfOrder_Inbound = false
-OutOfOrder_Outbound = false
-OutOfOrder_Chance = 0
-Tamper_RedoChecksum = false
-Tamper_Inbound = false
-Tamper_Outbound = false
-Tamper_Chance = 0
-SetTCPRST_Inbound = false
-SetTCPRST_Outbound = false
-SetTCPRST_Chance = 0
-"""
+            content += f"\n[Preset{i}]\nPresetName = Preset_{i}\n{_EMPTY}"
         path = os.path.join(self.clumsy_dir, "presets.ini")
         with open(path, "w") as f:
             f.write(content)
         log_info(f"presets.ini written: {path} ({len(content)} chars)")
-
-        # Read back to verify
-        try:
-            with open(path, "r") as f:
-                head = f.read(200)
-            log_info(f"presets.ini readback: {head[:200]}")
-        except Exception as e:
-            log_error(f"presets.ini readback failed: {e}")
-
-
-# ======================================================================
-# Public API — same interface the controller and GUI expect
-# ======================================================================
 class ClumsyNetworkDisruptor:
     def __init__(self):
         self.is_running = False
@@ -1077,31 +917,45 @@ class ClumsyNetworkDisruptor:
     def _get_clumsy_dir(self):
         return os.path.dirname(os.path.abspath(self.clumsy_exe))
 
-    # ------------------------------------------------------------------
     # Core disruption
-    # ------------------------------------------------------------------
     def disconnect_device_clumsy(self, target_ip: str,
                                   methods: Optional[List[str]] = None,
                                   params: Optional[Dict] = None) -> bool:
         if methods is None:
             methods = ["disconnect", "drop", "lag", "bandwidth", "throttle"]
         if params is None:
+            # DayZ-tuned defaults: UDP 2302 at ~60 tick, Enfusion engine
+            # with deterministic rollback networking.
             params = {
                 "lag_delay": 1500, "drop_chance": 95,
+                "disconnect_chance": 100,  # 100% = true hard disconnect
                 "bandwidth_limit": 1, "bandwidth_queue": 0,
                 "throttle_chance": 100, "throttle_frame": 400,
                 "throttle_drop": True, "direction": "both",
+                "godmode_lag_ms": 3000,  # 3s freeze — enough for DayZ's tick to desync visibly
+                "godmode_drop_inbound_pct": 0,
+                "godmode_keepalive_interval_ms": 800,  # NAT keepalive: 1 pkt/800ms
             }
 
         try:
             if target_ip in self.disrupted_devices:
-                log_info(f"{target_ip} already disrupted — restarting")
+                log_info(f"{mask_ip(target_ip)} already disrupted — restarting")
                 self.reconnect_device_clumsy(target_ip)
 
             if not self._initialized:
                 if not self.initialize():
                     log_error("Cannot disrupt: initialization failed")
                     return False
+
+            # Guard: "true" filter + WinDivert only allows one handle per
+            # layer/priority — warn and stop existing engine before starting new one.
+            with self._device_lock:
+                existing = list(self.disrupted_devices.keys())
+            if existing:
+                log_info(f"Active disruption on {[mask_ip(ip) for ip in existing]} — stopping before new target "
+                         f"(single-handle WinDivert limitation)")
+                for ip in existing:
+                    self.reconnect_device_clumsy(ip)
 
             # Use "true" filter — captures ALL packets on the WinDivert layer.
             # This matches the user's proven working standalone config.
@@ -1110,12 +964,9 @@ class ClumsyNetworkDisruptor:
             # and what actually produces disruption on the 192.168.137.x subnet.
             filt_expr = "true"
 
-            log_info(f"{'='*50}")
-            log_info(f"DISRUPTION START: {target_ip}")
-            log_info(f"  methods={methods}")
-            log_info(f"  direction={params.get('direction', 'both')}")
-            log_info(f"  filter={filt_expr}")
-            log_info(f"{'='*50}")
+            log_info(f"{'='*50}\nDISRUPTION START: {mask_ip(target_ip)}\n"
+                     f"  methods={methods}  direction={params.get('direction', 'both')}"
+                     f"  filter={filt_expr}\n{'='*50}")
 
             clumsy_dir = self._get_clumsy_dir()
             eng_params = dict(params)
@@ -1163,11 +1014,11 @@ class ClumsyNetworkDisruptor:
                     "params": params,
                     "start_time": time.time(),
                 }
-            log_info(f"DISRUPTION ACTIVE: {target_ip} (PID={engine._proc.pid})")
+            log_info(f"DISRUPTION ACTIVE: {mask_ip(target_ip)} (PID={engine._proc.pid})")
             return True
 
         except Exception as e:
-            log_error(f"DISRUPTION FAILED for {target_ip}: {e}")
+            log_error(f"DISRUPTION FAILED for {mask_ip(target_ip)}: {e}")
             log_error(traceback.format_exc())
             return False
 
@@ -1180,10 +1031,10 @@ class ClumsyNetworkDisruptor:
             engine = info.get("engine")
             if engine:
                 engine.stop()
-            log_info(f"Disruption stopped: {target_ip}")
+            log_info(f"Disruption stopped: {mask_ip(target_ip)}")
             return True
         except Exception as e:
-            log_error(f"Error stopping {target_ip}: {e}")
+            log_error(f"Error stopping {mask_ip(target_ip)}: {e}")
             with self._device_lock:
                 self.disrupted_devices.pop(target_ip, None)
             return False
@@ -1207,9 +1058,10 @@ class ClumsyNetworkDisruptor:
             return list(self.disrupted_devices.keys())
 
     def get_device_status_clumsy(self, target_ip: str) -> Dict:
-        if target_ip not in self.disrupted_devices:
-            return {"disrupted": False}
-        info = self.disrupted_devices[target_ip]
+        with self._device_lock:
+            if target_ip not in self.disrupted_devices:
+                return {"disrupted": False}
+            info = self.disrupted_devices[target_ip]
         eng = info.get("engine")
         return {
             "disrupted": True,
@@ -1221,35 +1073,35 @@ class ClumsyNetworkDisruptor:
         }
 
     def get_clumsy_status(self) -> Dict:
+        _exists = lambda p: bool(p and os.path.exists(p))
+        with self._device_lock:
+            dev_count = len(self.disrupted_devices)
+            dev_list = list(self.disrupted_devices.keys())
         return {
             "is_running": self.is_running,
-            "clumsy_exe_exists": bool(self.clumsy_exe and os.path.exists(self.clumsy_exe)),
-            "windivert_dll_exists": bool(self.windivert_dll and os.path.exists(self.windivert_dll)),
-            "windivert_sys_exists": bool(self.windivert_sys and os.path.exists(self.windivert_sys)),
-            "disrupted_devices_count": len(self.disrupted_devices),
-            "disrupted_devices": list(self.disrupted_devices.keys()),
+            "clumsy_exe_exists": _exists(self.clumsy_exe),
+            "windivert_dll_exists": _exists(self.windivert_dll),
+            "windivert_sys_exists": _exists(self.windivert_sys),
+            "disrupted_devices_count": dev_count,
+            "disrupted_devices": dev_list,
             "is_admin": self._is_admin(),
             "initialized": self._initialized,
         }
 
+    _STAT_KEYS = ("packets_processed", "packets_dropped", "packets_inbound",
+                   "packets_outbound", "packets_passed")
+
     def get_all_engine_stats(self) -> Dict:
         """Aggregate stats from all active disruption engines."""
-        totals = {
-            "packets_processed": 0, "packets_dropped": 0,
-            "packets_inbound": 0, "packets_outbound": 0,
-            "packets_passed": 0, "active_engines": 0,
-            "per_device": {},
-        }
+        totals = {k: 0 for k in self._STAT_KEYS}
+        totals.update(active_engines=0, per_device={})
         with self._device_lock:
             for ip, info in self.disrupted_devices.items():
                 eng = info.get("engine")
                 if eng and hasattr(eng, 'get_stats'):
                     stats = eng.get_stats()
-                    totals["packets_processed"] += stats.get("packets_processed", 0)
-                    totals["packets_dropped"] += stats.get("packets_dropped", 0)
-                    totals["packets_inbound"] += stats.get("packets_inbound", 0)
-                    totals["packets_outbound"] += stats.get("packets_outbound", 0)
-                    totals["packets_passed"] += stats.get("packets_passed", 0)
+                    for k in self._STAT_KEYS:
+                        totals[k] += stats.get(k, 0)
                     totals["active_engines"] += 1 if stats.get("alive") else 0
                     totals["per_device"][ip] = stats
         return totals
@@ -1264,6 +1116,6 @@ class ClumsyNetworkDisruptor:
         self.clear_all_disruptions_clumsy()
         log_info("Disruptor stopped")
 
-
 # Global instance
 clumsy_network_disruptor = ClumsyNetworkDisruptor()
+

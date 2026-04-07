@@ -15,16 +15,13 @@ import json
 import os
 import time
 import threading
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, fields
 from typing import Dict, List, Optional, Callable
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.logs.logger import log_info, log_error
+from app.utils.helpers import mask_ip
 
-
-# ======================================================================
-# Scheduled Disruption
-# ======================================================================
 @dataclass
 class ScheduledRule:
     """A timer-based disruption rule."""
@@ -44,13 +41,8 @@ class ScheduledRule:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'ScheduledRule':
-        known = {f.name for f in __import__('dataclasses').fields(cls)}
+        known = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in data.items() if k in known})
-
-
-# ======================================================================
-# Disruption Macro
-# ======================================================================
 @dataclass
 class MacroStep:
     """A single step in a disruption macro."""
@@ -64,9 +56,8 @@ class MacroStep:
 
     @classmethod
     def from_dict(cls, data: dict) -> 'MacroStep':
-        known = {f.name for f in __import__('dataclasses').fields(cls)}
+        known = {f.name for f in fields(cls)}
         return cls(**{k: v for k, v in data.items() if k in known})
-
 
 @dataclass
 class DisruptionMacro:
@@ -86,15 +77,10 @@ class DisruptionMacro:
     @classmethod
     def from_dict(cls, data: dict) -> 'DisruptionMacro':
         steps_data = data.pop('steps', [])
-        known = {f.name for f in __import__('dataclasses').fields(cls)}
+        known = {f.name for f in fields(cls)}
         obj = cls(**{k: v for k, v in data.items() if k in known and k != 'steps'})
         obj.steps = [MacroStep.from_dict(s) if isinstance(s, dict) else s for s in steps_data]
         return obj
-
-
-# ======================================================================
-# Scheduler Engine
-# ======================================================================
 class DisruptionScheduler:
     """Background scheduler for timed disruptions and macros.
 
@@ -108,12 +94,21 @@ class DisruptionScheduler:
     """
 
     def __init__(self, disrupt_fn: Callable, stop_fn: Callable,
-                 data_dir: str = ""):
+                 data_dir: str = "",
+                 on_macro_step: Callable = None):
+        """
+        Args:
+            disrupt_fn: (ip, methods, params) -> bool
+            stop_fn: (ip) -> bool
+            on_macro_step: optional (event, ip, step_info) callback for GUI updates
+                           event is 'start', 'stop', or 'done'
+        """
         if not data_dir:
             from app.core.data_persistence import _resolve_data_directory
             data_dir = _resolve_data_directory()
-        self._disrupt_fn = disrupt_fn   # (ip, methods, params) -> bool
-        self._stop_fn = stop_fn         # (ip) -> bool
+        self._disrupt_fn = disrupt_fn
+        self._stop_fn = stop_fn
+        self._on_macro_step = on_macro_step
         self._data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
 
@@ -126,13 +121,11 @@ class DisruptionScheduler:
 
         self._running = False
         self._thread: Optional[threading.Thread] = None
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()  # reentrant — _save() nests inside callers
 
         self._load()
 
-    # ------------------------------------------------------------------
     # Rule Management
-    # ------------------------------------------------------------------
     def add_rule(self, rule: ScheduledRule) -> str:
         if not rule.rule_id:
             rule.rule_id = f"rule_{int(time.time() * 1000)}"
@@ -149,7 +142,8 @@ class DisruptionScheduler:
         self._save()
 
     def get_rules(self) -> List[ScheduledRule]:
-        return list(self._rules.values())
+        with self._lock:
+            return list(self._rules.values())
 
     def toggle_rule(self, rule_id: str) -> bool:
         with self._lock:
@@ -160,9 +154,7 @@ class DisruptionScheduler:
                 return rule.enabled
         return False
 
-    # ------------------------------------------------------------------
     # Macro Management
-    # ------------------------------------------------------------------
     def add_macro(self, macro: DisruptionMacro) -> str:
         if not macro.macro_id:
             macro.macro_id = f"macro_{int(time.time() * 1000)}"
@@ -180,24 +172,26 @@ class DisruptionScheduler:
         self._save()
 
     def get_macros(self) -> List[DisruptionMacro]:
-        return list(self._macros.values())
+        with self._lock:
+            return list(self._macros.values())
 
     def run_macro(self, macro_id: str, target_ip: str = None):
         """Start executing a macro in a background thread."""
-        macro = self._macros.get(macro_id)
-        if not macro:
-            log_error(f"Scheduler: macro {macro_id} not found")
-            return
-        ip = target_ip or macro.target_ip
-        if not ip:
-            log_error("Scheduler: no target IP for macro")
-            return
+        with self._lock:
+            macro = self._macros.get(macro_id)
+            if not macro:
+                log_error(f"Scheduler: macro {macro_id} not found")
+                return
+            ip = target_ip or macro.target_ip
+            if not ip:
+                log_error("Scheduler: no target IP for macro")
+                return
 
-        self._stop_macro_flag.clear()
-        self._active_macro = macro_id
-        self._macro_thread = threading.Thread(
-            target=self._run_macro_loop, args=(macro, ip), daemon=True)
-        self._macro_thread.start()
+            self._stop_macro_flag.clear()
+            self._active_macro = macro_id
+            self._macro_thread = threading.Thread(
+                target=self._run_macro_loop, args=(macro, ip), daemon=True)
+            self._macro_thread.start()
 
     def stop_macro(self):
         """Stop the currently running macro."""
@@ -219,20 +213,33 @@ class DisruptionScheduler:
                         break
                     methods = step.methods
                     params = step.params
+                    step_info = {"macro": macro.name, "step": i + 1,
+                                  "total_steps": len(macro.steps), "cycle": cycle + 1,
+                                  "methods": methods, "duration": step.duration_seconds}
                     log_info(f"Macro '{macro.name}' step {i+1}/{len(macro.steps)} "
                              f"(cycle {cycle+1}): {methods} for {step.duration_seconds}s")
 
                     self._disrupt_fn(ip, methods, params)
+                    if self._on_macro_step:
+                        try:
+                            self._on_macro_step("start", ip, step_info)
+                        except Exception:
+                            pass
 
-                    # Wait for step duration, checking stop flag every 0.5s
-                    elapsed = 0.0
-                    while elapsed < step.duration_seconds:
+                    # Wait for step duration using wall-clock to avoid drift
+                    deadline = time.monotonic() + step.duration_seconds
+                    while time.monotonic() < deadline:
                         if self._stop_macro_flag.is_set():
                             break
-                        time.sleep(min(0.5, step.duration_seconds - elapsed))
-                        elapsed += 0.5
+                        remaining = deadline - time.monotonic()
+                        time.sleep(min(0.5, max(0, remaining)))
 
                     self._stop_fn(ip)
+                    if self._on_macro_step:
+                        try:
+                            self._on_macro_step("stop", ip, step_info)
+                        except Exception:
+                            pass
 
                     # Brief pause between steps
                     if not self._stop_macro_flag.is_set():
@@ -243,11 +250,14 @@ class DisruptionScheduler:
         finally:
             self._stop_fn(ip)
             self._active_macro = None
+            if self._on_macro_step:
+                try:
+                    self._on_macro_step("done", ip, {"macro": macro.name})
+                except Exception:
+                    pass
             log_info(f"Macro '{macro.name}' finished")
 
-    # ------------------------------------------------------------------
     # Scheduler Loop
-    # ------------------------------------------------------------------
     def start(self):
         if self._running:
             return
@@ -278,7 +288,6 @@ class DisruptionScheduler:
                 current_time = datetime.now().strftime("%H:%M")
 
                 with self._lock:
-                    # Check active rules for expiry
                     expired = []
                     for rule_id, stop_at in self._active_rules.items():
                         if now >= stop_at:
@@ -290,7 +299,6 @@ class DisruptionScheduler:
                     for rid in expired:
                         del self._active_rules[rid]
 
-                    # Check rules for trigger
                     for rule_id, rule in self._rules.items():
                         if not rule.enabled or rule_id in self._active_rules:
                             continue
@@ -304,9 +312,21 @@ class DisruptionScheduler:
                                 if now - rule.last_run > 65:
                                     should_trigger = True
 
+                        # Epoch-based delayed start (start_time is a float string)
+                        if rule.start_time and ':' not in rule.start_time:
+                            try:
+                                start_epoch = float(rule.start_time)
+                                if now >= start_epoch and rule.last_run == 0.0:
+                                    should_trigger = True
+                            except (ValueError, TypeError):
+                                pass
+
                         # Repeat interval trigger
-                        if rule.repeat_interval > 0 and rule.last_run > 0:
-                            if now - rule.last_run >= rule.repeat_interval:
+                        if rule.repeat_interval > 0:
+                            if rule.last_run == 0.0:
+                                # First fire — trigger immediately so repeats can begin
+                                should_trigger = True
+                            elif now - rule.last_run >= rule.repeat_interval:
                                 should_trigger = True
 
                         if should_trigger:
@@ -314,7 +334,7 @@ class DisruptionScheduler:
                             stop_at = now + rule.duration_seconds
                             self._active_rules[rule_id] = stop_at
                             rule.last_run = now
-                            log_info(f"Scheduler: triggered rule '{rule.name}' on {rule.target_ip} "
+                            log_info(f"Scheduler: triggered rule '{rule.name}' on {mask_ip(rule.target_ip)} "
                                      f"for {rule.duration_seconds}s")
 
             except Exception as e:
@@ -322,9 +342,7 @@ class DisruptionScheduler:
 
             time.sleep(1)
 
-    # ------------------------------------------------------------------
     # Persistence
-    # ------------------------------------------------------------------
     def _save(self):
         try:
             with self._lock:
@@ -356,3 +374,4 @@ class DisruptionScheduler:
             log_info(f"Scheduler: loaded {len(self._rules)} rules, {len(self._macros)} macros")
         except Exception as e:
             log_error(f"Scheduler load error: {e}")
+
