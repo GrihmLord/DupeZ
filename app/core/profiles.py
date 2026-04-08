@@ -2,26 +2,27 @@
 """
 Disruption Profile System — save/load/share named disruption configs.
 
-Profiles are stored as JSON files in app/data/profiles/.
+Profiles are stored as JSON files in ``app/data/profiles/``.
 Each profile contains:
   - name, description, author
   - methods list + params dict (same format as PRESETS)
   - optional: target device type, connection type hints
   - metadata: created, modified, use_count
 
-Profiles can be:
-  - Created from current slider/module state
-  - Created from SmartEngine recommendations
-  - Imported/exported as standalone JSON files
-  - Shared with the community
+Profiles can be created from the current UI state, from SmartEngine
+recommendations, or imported/exported as standalone JSON files.
 """
 
 import json
 import os
 import time
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Optional
-from app.logs.logger import log_info, log_error
+
+from app.logs.logger import log_error, log_info
+
+
+# ── Data model ────────────────────────────────────────────────────────
 
 @dataclass
 class DisruptionProfile:
@@ -35,7 +36,7 @@ class DisruptionProfile:
     methods: List[str] = field(default_factory=list)
     params: Dict = field(default_factory=dict)
 
-    # Hints (for smart matching)
+    # Hints for smart matching
     target_device_type: str = ""      # console, pc, mobile, etc.
     target_connection_type: str = ""  # hotspot, lan, wan
     game_hint: str = ""              # DayZ, Fortnite, etc.
@@ -49,15 +50,18 @@ class DisruptionProfile:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'DisruptionProfile':
-        known_fields = {f.name for f in fields(cls)}
-        filtered = {k: v for k, v in data.items() if k in known_fields}
-        return cls(**filtered)
+    def from_dict(cls, data: dict) -> "DisruptionProfile":
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in known})
+
+
+# ── Profile manager ──────────────────────────────────────────────────
 
 class ProfileManager:
-    """Manages disruption profiles — CRUD + import/export.
+    """CRUD + import/export for disruption profiles.
 
-    Usage:
+    Usage::
+
         pm = ProfileManager()
         pm.save("my_preset", methods=["lag", "drop"], params={...})
         profile = pm.load("my_preset")
@@ -66,26 +70,36 @@ class ProfileManager:
         pm.import_profile("/path/to/share.json")
     """
 
-    def __init__(self, profiles_dir: str = ""):
+    def __init__(self, profiles_dir: str = "") -> None:
         if not profiles_dir:
             from app.core.data_persistence import _resolve_data_directory
             profiles_dir = os.path.join(_resolve_data_directory(), "profiles")
         self.profiles_dir = profiles_dir
         os.makedirs(profiles_dir, exist_ok=True)
 
+    # ── Path helpers ──────────────────────────────────────────────
+
     def _profile_path(self, name: str) -> str:
-        """Get file path for a profile name."""
-        safe_name = "".join(c if c.isalnum() or c in "-_ " else "" for c in name)
-        safe_name = safe_name.strip().replace(" ", "_")
-        return os.path.join(self.profiles_dir, f"{safe_name}.json")
+        """Return the filesystem path for a profile name."""
+        safe = "".join(c if c.isalnum() or c in "-_ " else "" for c in name)
+        safe = safe.strip().replace(" ", "_")
+        return os.path.join(self.profiles_dir, f"{safe}.json")
 
-    def save(self, name: str, methods: List[str], params: Dict,
-             description: str = "", author: str = "",
-             device_type: str = "", connection_type: str = "",
-             game_hint: str = "") -> DisruptionProfile:
-        """Save a new or updated profile."""
+    # ── CRUD ──────────────────────────────────────────────────────
+
+    def save(
+        self,
+        name: str,
+        methods: List[str],
+        params: Dict,
+        description: str = "",
+        author: str = "",
+        device_type: str = "",
+        connection_type: str = "",
+        game_hint: str = "",
+    ) -> DisruptionProfile:
+        """Save or update a profile.  Returns the persisted profile."""
         path = self._profile_path(name)
-
         existing = self._load_file(path)
         now = time.time()
 
@@ -108,17 +122,17 @@ class ProfileManager:
         return profile
 
     def load(self, name: str) -> Optional[DisruptionProfile]:
-        """Load a profile by name."""
+        """Load a profile by name and increment its use count."""
         path = self._profile_path(name)
         profile = self._load_file(path)
         if profile:
             profile.use_count += 1
-            self._save_file(path, profile)  # update use count
+            self._save_file(path, profile)
             log_info(f"ProfileManager: loaded profile '{name}' (uses: {profile.use_count})")
         return profile
 
     def delete(self, name: str) -> bool:
-        """Delete a profile."""
+        """Delete a profile by name.  Returns True on success."""
         path = self._profile_path(name)
         try:
             if os.path.exists(path):
@@ -130,8 +144,8 @@ class ProfileManager:
         return False
 
     def list_profiles(self) -> List[DisruptionProfile]:
-        """List all saved profiles."""
-        profiles = []
+        """Return all profiles sorted by most recently modified."""
+        profiles: List[DisruptionProfile] = []
         try:
             for filename in os.listdir(self.profiles_dir):
                 if filename.endswith(".json"):
@@ -142,17 +156,18 @@ class ProfileManager:
         except Exception as e:
             log_error(f"ProfileManager: failed to list profiles: {e}")
 
-        # Sort by most recently used
         profiles.sort(key=lambda p: p.modified, reverse=True)
         return profiles
 
+    # ── Import / export ───────────────────────────────────────────
+
     def export_profile(self, name: str, export_path: str) -> bool:
-        """Export a profile to a standalone JSON file for sharing."""
+        """Export a profile to a standalone JSON file."""
         profile = self.load(name)
         if not profile:
             return False
         try:
-            with open(export_path, 'w') as f:
+            with open(export_path, "w", encoding="utf-8") as f:
                 json.dump(profile.to_dict(), f, indent=2)
             log_info(f"ProfileManager: exported '{name}' to {export_path}")
             return True
@@ -163,7 +178,7 @@ class ProfileManager:
     def import_profile(self, import_path: str) -> Optional[DisruptionProfile]:
         """Import a profile from a JSON file."""
         try:
-            with open(import_path, 'r') as f:
+            with open(import_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             profile = DisruptionProfile.from_dict(data)
             if not profile.name:
@@ -175,11 +190,13 @@ class ProfileManager:
             log_error(f"ProfileManager: import failed: {e}")
             return None
 
-    def _save_file(self, path: str, profile: DisruptionProfile):
-        """Atomic write profile to disk."""
+    # ── File I/O (atomic write) ───────────────────────────────────
+
+    def _save_file(self, path: str, profile: DisruptionProfile) -> None:
+        """Atomic write: tmp -> fsync -> replace."""
+        tmp_path = path + ".tmp"
         try:
-            tmp_path = path + ".tmp"
-            with open(tmp_path, 'w') as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(profile.to_dict(), f, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
@@ -187,19 +204,17 @@ class ProfileManager:
         except Exception as e:
             log_error(f"ProfileManager: save failed: {e}")
             try:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            except Exception:
+                os.unlink(tmp_path)
+            except OSError:
                 pass
 
     def _load_file(self, path: str) -> Optional[DisruptionProfile]:
-        """Load profile from disk."""
+        """Load a profile from disk.  Returns None on any failure."""
         try:
             if os.path.exists(path):
-                with open(path, 'r') as f:
+                with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 return DisruptionProfile.from_dict(data)
         except Exception as e:
             log_error(f"ProfileManager: load failed ({path}): {e}")
         return None
-

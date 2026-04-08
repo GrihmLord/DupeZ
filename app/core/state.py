@@ -1,19 +1,35 @@
 # app/core/state.py
+"""
+Application state management for DupeZ.
+
+Provides:
+  - ``Device`` and ``AppSettings`` dataclasses
+  - ``AppState`` — the central mutable state object with observer pattern
+    and Qt thread marshaling for safe background → GUI notifications.
+"""
 
 import json
 import os
 import threading
-from typing import List, Dict, Optional, Callable
-from dataclasses import dataclass, asdict, fields
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime
-from app.logs.logger import log_info, log_error
+from typing import Any, Callable, Dict, List, Optional
+
+from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip
 
+
 def _is_main_thread() -> bool:
+    """Return True when called from the main thread."""
     return threading.current_thread() is threading.main_thread()
+
+
+# ── Data models ───────────────────────────────────────────────────────
 
 @dataclass
 class Device:
+    """A single discovered network device."""
+
     ip: str
     mac: str
     vendor: str
@@ -23,15 +39,23 @@ class Device:
     last_seen: str
     blocked: bool = False
 
+
 @dataclass
 class AppSettings:
+    """Persisted application settings.
+
+    ``whitelist`` uses a mutable default (``None`` → ``[]`` in
+    ``__post_init__``) to avoid the shared-list pitfall.
+    """
+
+    # Core
     smart_mode: bool = False
-    auto_scan: bool = True  # Enabled for better functionality
-    scan_interval: int = 60  # seconds (faster updates)
+    auto_scan: bool = True
+    scan_interval: int = 60
     max_devices: int = 100
     log_level: str = "INFO"
 
-    # Network settings
+    # Network
     ping_timeout: int = 2
     max_threads: int = 20
     quick_scan: bool = True
@@ -41,7 +65,7 @@ class AppSettings:
     suspicious_activity_threshold: int = 20
     block_duration: int = 30
 
-    # UI settings
+    # UI
     theme: str = "dark"
     auto_refresh: bool = True
     refresh_interval: int = 120
@@ -51,7 +75,7 @@ class AppSettings:
     show_notifications: bool = True
     sound_alerts: bool = False
 
-    # Advanced settings
+    # Advanced
     cache_duration: int = 60
     memory_limit: int = 200
     require_admin: bool = True
@@ -59,49 +83,66 @@ class AppSettings:
     debug_mode: bool = False
     verbose_logging: bool = False
 
-    # Security settings
-    whitelist: list = None
+    # Security
+    whitelist: Optional[list] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.whitelist is None:
             self.whitelist = []
 
+
+# ── Application state ─────────────────────────────────────────────────
+
 class AppState:
-    def __init__(self, config_file: str = ""):
+    """Central mutable state with observer notifications.
+
+    Observers are called on the Qt main thread when possible, falling
+    back to direct dispatch when Qt is unavailable.
+    """
+
+    def __init__(self, config_file: str = "") -> None:
         if not config_file:
             import sys
-            if getattr(sys, 'frozen', False):
+            if getattr(sys, "frozen", False):
                 base = os.path.dirname(sys.executable)
             else:
-                base = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                base = os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                )
             config_file = os.path.join(base, "app", "config", "settings.json")
-        self.config_file = config_file
+
+        self.config_file: str = config_file
         self.devices: List[Device] = []
         self.selected_ip: Optional[str] = None
         self.blocking: bool = False
-        self.settings = AppSettings()
-        self.network_info: Dict = {}
+        self.settings: AppSettings = AppSettings()
+        self.network_info: Dict[str, Any] = {}
         self.scan_in_progress: bool = False
+
         self._observers: List[Callable] = []
         self._lock = threading.Lock()
 
         self.load_settings()
 
-    def add_observer(self, callback: Callable):
-        """Add an observer to be notified of state changes"""
+    # ── Observer pattern ──────────────────────────────────────────
+
+    def add_observer(self, callback: Callable) -> None:
+        """Register *callback(event, data)* to be notified of state changes."""
         with self._lock:
             self._observers.append(callback)
 
-    def notify_observers(self, event: str, data: any = None):
+    def notify_observers(self, event: str, data: Any = None) -> None:
         """Notify all observers of a state change.
 
-        If called from a background thread, marshals the call to the
-        Qt main thread via QTimer.singleShot to prevent GUI crashes.
+        A snapshot of the observer list is taken under the lock, then
+        dispatch happens outside the lock to avoid deadlocks in
+        callbacks that touch state.  If called from a background
+        thread, marshals to the Qt event loop via ``QTimer.singleShot``.
         """
         with self._lock:
             observers = list(self._observers)
 
-        def _dispatch():
+        def _dispatch() -> None:
             for observer in observers:
                 try:
                     observer(event, data)
@@ -111,29 +152,29 @@ class AppState:
         if _is_main_thread():
             _dispatch()
         else:
-            # Marshal to Qt event loop — safe even if Qt isn't running
             try:
                 from PyQt6.QtCore import QTimer
                 QTimer.singleShot(0, _dispatch)
             except (ImportError, RuntimeError):
-                # Qt not available or no event loop — dispatch directly
                 _dispatch()
 
-    def update_devices(self, devices: List[Dict]):
-        """Update the device list"""
-        new_devices = []
-        for device_data in devices:
-            device = Device(
-                ip=device_data.get("ip", ""),
-                mac=device_data.get("mac", "Unknown"),
-                vendor=device_data.get("vendor", "Unknown"),
-                hostname=device_data.get("hostname", ""),
-                local=device_data.get("local", False),
-                traffic=device_data.get("traffic", 0),
+    # ── Device management ─────────────────────────────────────────
+
+    def update_devices(self, devices: List[Dict[str, Any]]) -> None:
+        """Replace the device list from scan results."""
+        new_devices = [
+            Device(
+                ip=d.get("ip", ""),
+                mac=d.get("mac", "Unknown"),
+                vendor=d.get("vendor", "Unknown"),
+                hostname=d.get("hostname", ""),
+                local=d.get("local", False),
+                traffic=d.get("traffic", 0),
                 last_seen=datetime.now().isoformat(),
-                blocked=device_data.get("blocked", False)
+                blocked=d.get("blocked", False),
             )
-            new_devices.append(device)
+            for d in devices
+        ]
 
         with self._lock:
             self.devices = new_devices
@@ -141,18 +182,26 @@ class AppState:
         self.notify_observers("devices_updated", self.devices)
         log_info(f"Updated device list: {len(self.devices)} devices")
 
-    def select_device(self, ip: str):
-        """Select a device by IP"""
+    def select_device(self, ip: str) -> None:
+        """Select a device by IP for subsequent operations."""
         self.selected_ip = ip
         self.notify_observers("device_selected", ip)
-        log_info(f"Selected device: {ip}")
+        log_info(f"Selected device: {mask_ip(ip)}")
 
     def get_selected_device(self) -> Optional[Device]:
-        """Get the currently selected device"""
+        """Return the currently selected device, or None."""
         return self.get_device_by_ip(self.selected_ip) if self.selected_ip else None
 
-    def toggle_blocking(self, ip: str = None) -> bool:
-        """Toggle blocking for a device"""
+    def get_device_by_ip(self, ip: str) -> Optional[Device]:
+        """Return the device matching *ip*, or None."""
+        with self._lock:
+            for device in self.devices:
+                if device.ip == ip:
+                    return device
+        return None
+
+    def toggle_blocking(self, ip: Optional[str] = None) -> bool:
+        """Toggle the blocked flag on a device.  Returns the new state."""
         target_ip = ip or self.selected_ip
         if not target_ip:
             log_error("No device selected to toggle blocking")
@@ -163,7 +212,6 @@ class AppState:
                 if device.ip == target_ip:
                     device.blocked = not device.blocked
                     blocked = device.blocked
-                    # Reflect aggregate: True if ANY device is blocked
                     self.blocking = any(d.blocked for d in self.devices)
                     break
             else:
@@ -172,83 +220,70 @@ class AppState:
 
         self.notify_observers("blocking_toggled", {
             "ip": target_ip,
-            "blocked": blocked
+            "blocked": blocked,
         })
         log_info(f"Blocking {'enabled' if blocked else 'disabled'} for {mask_ip(target_ip)}")
         return blocked
 
-    def update_network_info(self, info: Dict):
-        """Update network information"""
+    # ── Network info ──────────────────────────────────────────────
+
+    def update_network_info(self, info: Dict[str, Any]) -> None:
+        """Store latest network information and notify observers."""
         self.network_info = info
         self.notify_observers("network_updated", info)
 
-    def set_scan_status(self, in_progress: bool):
-        """Set scan status"""
+    def set_scan_status(self, in_progress: bool) -> None:
+        """Update scan-in-progress flag and notify observers."""
         self.scan_in_progress = in_progress
         self.notify_observers("scan_status_changed", in_progress)
 
-    def load_settings(self):
-        """Load settings from file — resilient to corrupt/partial JSON"""
+    # ── Settings persistence ──────────────────────────────────────
+
+    def load_settings(self) -> None:
+        """Load settings from JSON file, resilient to corrupt/partial data."""
         try:
             if os.path.exists(self.config_file):
-                with open(self.config_file, 'r') as f:
+                with open(self.config_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
 
-                # Filter to only known AppSettings fields to avoid
-                # TypeError on unknown keys from older config versions
-                known = {f.name for f in fields(AppSettings)}
+                known = {fld.name for fld in fields(AppSettings)}
                 filtered = {k: v for k, v in data.items() if k in known}
                 self.settings = AppSettings(**filtered)
                 log_info("Settings loaded successfully")
         except (json.JSONDecodeError, TypeError) as e:
             log_error(f"Corrupt settings file, using defaults: {e}")
             self.settings = AppSettings()
-            self.save_settings()  # Overwrite corrupt file with clean defaults
+            self.save_settings()
         except Exception as e:
             log_error(f"Failed to load settings: {e}")
             self.settings = AppSettings()
 
-    def save_settings(self):
-        """Save settings to file (atomic write to prevent corruption)"""
+    def save_settings(self) -> None:
+        """Persist settings via atomic write (tmp → fsync → replace)."""
+        tmp_path = self.config_file + ".tmp"
         try:
             config_dir = os.path.dirname(self.config_file)
             if config_dir:
                 os.makedirs(config_dir, exist_ok=True)
 
-            # Write to temp file first, then rename — prevents truncation
-            # if the app crashes mid-write
-            tmp_path = self.config_file + ".tmp"
-            with open(tmp_path, 'w') as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(asdict(self.settings), f, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
 
             os.replace(tmp_path, self.config_file)
-
             log_info("Settings saved successfully")
         except Exception as e:
             log_error(f"Failed to save settings: {e}")
-            # Clean up temp file if it exists
             try:
-                tmp_path = self.config_file + ".tmp"
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            except Exception:
+                os.unlink(tmp_path)
+            except OSError:
                 pass
 
-    def update_setting(self, key: str, value: any):
-        """Update a specific setting"""
+    def update_setting(self, key: str, value: Any) -> None:
+        """Update a single setting by name and persist."""
         if hasattr(self.settings, key):
             setattr(self.settings, key, value)
             self.save_settings()
             self.notify_observers("setting_updated", {key: value})
             log_info(f"Setting updated: {key} = {value}")
-
-    def get_device_by_ip(self, ip: str) -> Optional[Device]:
-        """Get device by IP address"""
-        with self._lock:
-            for device in self.devices:
-                if device.ip == ip:
-                    return device
-        return None
-
