@@ -1,38 +1,54 @@
 #!/usr/bin/env python3
 """
-Enhanced Network Scanner for DupeZ
-Provides advanced network scanning with device identification and error handling
+Enhanced Network Scanner for DupeZ.
+
+Provides ARP-first device discovery with MAC deduplication, console
+detection (PlayStation, Xbox, Nintendo), and Qt signal integration
+for real-time GUI updates.
+
+NOTE: ``EnhancedNetworkScanner`` inherits ``QObject`` to expose Qt
+signals.  This means it cannot be instantiated without a running
+``QApplication``.  For headless/test use, call the module-level
+scanning functions in ``device_scan.py`` instead.
 """
 
-import subprocess
-import sys
-import socket
-import threading
-import time
 import ipaddress
-from typing import List, Dict, Optional, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
 import platform
 import re
+import socket
+import subprocess
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
 
-# Suppress console window flash on Windows
-_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
-
-from app.logs.logger import log_info, log_error, log_network_scan, log_device_detection
-from app.network.shared import VENDOR_OUIS, lookup_vendor
 from PyQt6.QtCore import QObject, pyqtSignal
+
+from app.logs.logger import (
+    log_device_detection,
+    log_error,
+    log_info,
+    log_network_scan,
+)
+from app.network.shared import lookup_vendor
+from app.utils.helpers import _NO_WINDOW
 
 # RFC 1918 private ranges — module-level to avoid recreation per call
 _PRIVATE_RANGES = [
-    ipaddress.IPv4Network('192.168.0.0/16'),
-    ipaddress.IPv4Network('10.0.0.0/8'),
-    ipaddress.IPv4Network('172.16.0.0/12'),
+    ipaddress.IPv4Network("192.168.0.0/16"),
+    ipaddress.IPv4Network("10.0.0.0/8"),
+    ipaddress.IPv4Network("172.16.0.0/12"),
 ]
+
+_MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+
 
 @dataclass
 class NetworkDevice:
-    """Enhanced network device information"""
+    """Rich network device descriptor."""
+
     ip: str
     mac: str
     hostname: str
@@ -48,296 +64,304 @@ class NetworkDevice:
     connection_count: int
     status: str  # online, offline, blocked, suspicious
 
-class EnhancedNetworkScanner(QObject):
-    """Enhanced network scanner with device identification and error handling"""
 
-    # Signals for GUI compatibility
+# ── Console / device-type lookup tables ───────────────────────────────
+
+_CONSOLE_MAC_PREFIXES = [
+    "b4:0a:d8", "b4:0a:d9", "b4:0a:da", "b4:0a:db",  # Sony PlayStation
+    "0c:fe:45", "f8:d0:ac",                              # Sony PlayStation
+    "7c:ed:8d", "98:de:d0", "60:45:bd",                  # Microsoft Xbox
+]
+_HOSTNAME_PATTERNS = [
+    re.compile(p, re.IGNORECASE)
+    for p in [r"ps5", r"ps4", r"playstation", r"sony", r"psn",
+              r"xbox", r"xboxone", r"nintendo", r"switch"]
+]
+_VENDOR_PATTERNS = [
+    re.compile(p, re.IGNORECASE)
+    for p in [r"sony", r"playstation", r"microsoft.*xbox", r"nintendo"]
+]
+
+_CONSOLE_KW: Dict[str, str] = {
+    "ps5": "PlayStation", "ps4": "PlayStation", "playstation": "PlayStation",
+    "sony": "PlayStation", "xbox": "Xbox", "nintendo": "Nintendo",
+    "switch": "Nintendo",
+}
+
+_DEVICE_KW: List[Tuple[List[str], str]] = [
+    (["router", "gateway", "modem"], "Router/Gateway"),
+    (["phone", "mobile", "android", "iphone"], "Mobile Device"),
+    (["laptop", "desktop", "pc", "computer"], "Computer"),
+    (["tv", "television", "smarttv"], "Smart TV"),
+    (["xbox", "playstation", "nintendo", "switch"], "Gaming Console"),
+    (["printer", "scanner"], "Printer/Scanner"),
+    (["camera", "webcam"], "Camera"),
+]
+
+_SERVICE_NAMES: Dict[int, str] = {
+    21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+    53: "DNS", 80: "HTTP", 110: "POP3", 143: "IMAP",
+    443: "HTTPS", 993: "IMAPS", 995: "POP3S", 8080: "HTTP-Alt",
+}
+
+
+class EnhancedNetworkScanner(QObject):
+    """ARP-first network scanner with Qt signal integration.
+
+    Inherits QObject to expose pyqtSignals for GUI progress updates.
+    """
+
+    # Qt signals
     device_found = pyqtSignal(dict)
     scan_progress = pyqtSignal(int, int)
     scan_complete = pyqtSignal(list)
     scan_error = pyqtSignal(str)
     status_update = pyqtSignal(str)
 
-    def __init__(self, max_threads: int = 20, timeout: int = 1):
+    def __init__(self, max_threads: int = 20, timeout: int = 1) -> None:
         super().__init__()
-        self.max_threads = max_threads  # Reduced from 50 to 20 for better performance
-        self.timeout = timeout  # Reduced from 3 to 1 second for faster scanning
-        self.console_indicators = {
-            'mac_prefixes': [
-                'b4:0a:d8', 'b4:0a:d9', 'b4:0a:da', 'b4:0a:db',  # Sony PlayStation
-                '0c:fe:45', 'f8:d0:ac',                              # Sony PlayStation
-                '7c:ed:8d', '98:de:d0', '60:45:bd',                  # Microsoft Xbox
-            ],
-            'hostname_patterns': [
-                r'ps5', r'ps4', r'playstation', r'sony', r'psn',
-                r'xbox', r'xboxone', r'nintendo', r'switch'
-            ],
-            'vendor_patterns': [
-                r'sony', r'playstation', r'microsoft.*xbox', r'nintendo'
-            ]
-        }
-        self.scan_results = []
-        self._scan_event = threading.Event()  # Thread-safe scan-in-progress flag
-        self.last_scan_time = 0
+        self.max_threads = max_threads
+        self.timeout = timeout
+        self.scan_results: List[Dict] = []
+        self._scan_event = threading.Event()
+        self.last_scan_time: float = 0.0
+
+    # ── Scan-in-progress flag (thread-safe) ───────────────────────
 
     @property
     def scan_in_progress(self) -> bool:
         return self._scan_event.is_set()
 
     @scan_in_progress.setter
-    def scan_in_progress(self, value: bool):
-        if value:
-            self._scan_event.set()
-        else:
-            self._scan_event.clear()
+    def scan_in_progress(self, value: bool) -> None:
+        self._scan_event.set() if value else self._scan_event.clear()
 
-    def scan_network(self, network_range: str = "192.168.1.0/24",
-                    quick_scan: bool = True) -> List[Dict]:
-        """Scan network for devices with enhanced discovery - OPTIMIZED FOR SPEED"""
+    # ── Main scan entry point ─────────────────────────────────────
+
+    def scan_network(
+        self,
+        network_range: str = "192.168.1.0/24",
+        quick_scan: bool = True,
+    ) -> List[Dict]:
+        """Scan network for devices with ARP-first strategy."""
         try:
-            import sys
             if sys.is_finalizing():
-                log_error("Cannot scan network during interpreter shutdown")
+                log_error("Cannot scan during interpreter shutdown")
                 return []
 
             self.scan_in_progress = True
             start_time = time.time()
+            log_info("Starting enhanced network scan",
+                     network_range=network_range, quick_scan=quick_scan)
 
-            log_info("Starting FAST enhanced network scan", network_range=network_range, quick_scan=quick_scan)
-
-            # Method 1: ARP table — authoritative, instant, already deduped by MAC
+            # ARP table is authoritative and instant
             arp_devices = self._scan_arp_table()
             log_info(f"ARP table: {len(arp_devices)} unique devices")
 
-            # Method 2: IP sweep — ONLY if ARP found zero devices
-            # The ARP table is the source of truth for local-subnet devices.
-            # Running a /24 ping sweep on hotspot subnets (192.168.137.x) causes
-            # the adapter to respond for all IPs, flooding the list with ghosts.
-            if len(arp_devices) == 0:
+            # IP sweep only if ARP found nothing (avoids hotspot ghost IPs)
+            if not arp_devices:
                 log_info("ARP empty — falling back to IP sweep")
-                ip_addresses = self._generate_ip_list(network_range)
-                ip_devices = self._scan_ips_fast(ip_addresses)
-                log_info(f"IP sweep found {len(ip_devices)} devices")
+                ip_list = self._generate_ip_list(network_range)
+                ip_devices = self._scan_ips(ip_list, quick_scan=True)
                 all_devices = self._combine_device_lists([], ip_devices)
             else:
                 all_devices = arp_devices
 
-            # Final MAC dedup safety net
             all_devices = self._deduplicate_by_mac(all_devices)
+            self._detect_console_devices(all_devices)
 
-            # Console/device type detection (fast)
-            console_devices = self._detect_console_devices(all_devices)
-
-            # Calculate scan statistics
             scan_duration = time.time() - start_time
-            console_count = len([d for d in all_devices if d.get('is_console', False)])
+            console_count = sum(1 for d in all_devices if d.get("is_console"))
 
-            # Log scan results
-            log_network_scan(
-                devices_found=len(all_devices),
-                scan_duration=scan_duration,
-                network_range=network_range,
-                quick_scan=quick_scan
-            )
-
-            log_device_detection(
-                detected_count=console_count,
-                total_devices=len(all_devices),
-                scan_duration=scan_duration
-            )
+            log_network_scan(len(all_devices), scan_duration,
+                             network_range=network_range, quick_scan=quick_scan)
+            log_device_detection(console_count, len(all_devices),
+                                 scan_duration=scan_duration)
 
             self.scan_results = all_devices
             self.last_scan_time = time.time()
             self.scan_in_progress = False
 
-            # Emit final scan complete signal
             try:
-                if hasattr(self, 'scan_complete'):
-                    self.scan_complete.emit(all_devices)
-                    log_info(f"Scan complete signal emitted with {len(all_devices)} devices")
-            except RuntimeError as e:
-                log_error("Failed to emit scan complete signal", exception=e)
+                self.scan_complete.emit(all_devices)
+            except RuntimeError:
+                pass
 
             return all_devices
 
         except Exception as e:
             self.scan_in_progress = False
-            log_error("Network scan failed", exception=e, network_range=network_range)
+            log_error("Network scan failed", exception=e,
+                      network_range=network_range)
             try:
-                if hasattr(self, 'scan_error'):
-                    self.scan_error.emit(str(e))
+                self.scan_error.emit(str(e))
             except RuntimeError:
                 pass
             return []
 
+    # ── IP generation ─────────────────────────────────────────────
+
     def _get_local_ip(self) -> Optional[str]:
-        """Get the local IP address dynamically"""
+        """Return the local IPv4 address."""
         try:
-            import socket
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                 s.connect(("8.8.8.8", 80))
-                local_ip = s.getsockname()[0]
-                return local_ip
+                return s.getsockname()[0]
         except Exception as e:
             log_error("Failed to get local IP", exception=e)
             return None
 
     def _generate_ip_list(self, network_range: str) -> List[str]:
-        """Generate list of IP addresses to scan"""
+        """Generate host IPs from a CIDR range."""
         try:
             network = ipaddress.IPv4Network(network_range, strict=False)
             return [str(ip) for ip in network.hosts()]
         except Exception as e:
-            log_error("Failed to generate IP list", exception=e, network_range=network_range)
-            # Fallback to dynamic network detection
-            try:
-                local_ip = self._get_local_ip()
-                if local_ip:
-                    network_base = '.'.join(local_ip.split('.')[:-1])
-                    return [f"{network_base}.{i}" for i in range(1, 255)]
-                else:
-                    return []
-            except Exception as fallback_error:
-                log_error("Failed to generate fallback IP list", exception=fallback_error)
-                return []
+            log_error("Failed to generate IP list", exception=e)
+            local_ip = self._get_local_ip()
+            if local_ip:
+                base = ".".join(local_ip.split(".")[:-1])
+                return [f"{base}.{i}" for i in range(1, 255)]
+            return []
+
+    # ── IP scanning ───────────────────────────────────────────────
 
     def _scan_ips(self, ip_addresses: List[str], quick_scan: bool) -> List[Dict]:
-        """Scan IP addresses using thread pool"""
-        devices = []
-
+        """Scan IPs via thread pool."""
+        devices: List[Dict] = []
         try:
-            import sys
             if sys.is_finalizing():
-                log_error("Cannot start thread pool during interpreter shutdown")
                 return devices
 
             with ThreadPoolExecutor(max_workers=self.max_threads) as executor:
-                # Submit scan tasks
                 future_to_ip = {
                     executor.submit(self._scan_single_ip, ip, quick_scan): ip
                     for ip in ip_addresses
                 }
-
-                # Collect results
                 for future in as_completed(future_to_ip):
-                    ip = future_to_ip[future]
                     try:
                         result = future.result()
                         if result:
                             devices.append(result)
                     except Exception as e:
-                        log_error(f"Failed to scan IP {ip}", exception=e)
-
+                        log_error(f"IP scan error: {e}")
         except RuntimeError as e:
-            if "cannot schedule new futures after interpreter shutdown" in str(e):
-                log_error("Thread pool failed due to interpreter shutdown")
+            if "interpreter shutdown" in str(e):
+                log_error("Thread pool failed: interpreter shutting down")
             else:
-                log_error("Thread pool execution failed", exception=e)
+                log_error("Thread pool failed", exception=e)
         except Exception as e:
-            log_error("Thread pool execution failed", exception=e)
+            log_error("Thread pool failed", exception=e)
 
         return devices
 
-    def _make_device_info(self, ip: str, mac: str = "Unknown",
-                          hostname: str = "Unknown",
-                          detection_method: str = "unknown") -> Dict:
-        """Build a standard device info dict and enrich with vendor/type detection."""
-        device_info = {
-            'ip': ip, 'mac': mac, 'hostname': hostname,
-            'vendor': self._get_vendor_info(mac),
-            'device_type': 'Unknown', 'is_console': False,
-            'is_local': self._is_local_device(ip),
-            'response_time': 0.0, 'ports': [], 'services': [],
-            'last_seen': time.time(), 'traffic_level': 0,
-            'connection_count': 0, 'status': 'online',
-            'detection_method': detection_method,
-        }
-        device_info['is_console'] = self._is_console_device(device_info)
-        device_info['device_type'] = self._determine_device_type(device_info)
-        return device_info
-
     def _scan_single_ip(self, ip: str, quick_scan: bool) -> Optional[Dict]:
-        """Scan a single IP address with enhanced detection using multiple methods"""
+        """Probe a single IP using multiple detection methods."""
         try:
-            # Try detection methods in order of speed
-            if not (self._ping_host(ip) or self._check_arp_table_for_ip(ip) or
-                    self._quick_port_scan(ip) or self._check_dns_resolution(ip)):
+            if not (self._ping_host(ip) or self._check_arp_table_for_ip(ip)
+                    or self._quick_port_scan(ip) or self._check_dns_resolution(ip)):
                 return None
 
             mac, hostname = self._get_device_info(ip)
-            device_info = self._make_device_info(ip, mac, hostname, "multi_method")
+            device = self._make_device_info(ip, mac, hostname, "multi_method")
 
             if not quick_scan:
                 ports, services = self._scan_ports(ip)
-                device_info['ports'] = ports
-                device_info['services'] = services
-                device_info['traffic_level'], device_info['connection_count'] = self._get_traffic_info(ip)
+                device["ports"] = ports
+                device["services"] = services
 
-            return device_info
+            return device
         except Exception as e:
-            log_error(f"Failed to scan IP {ip}", exception=e)
+            log_error(f"Single IP scan error for {ip}", exception=e)
             return None
 
+    # ── Device info construction ──────────────────────────────────
+
+    def _make_device_info(
+        self, ip: str, mac: str = "Unknown",
+        hostname: str = "Unknown", detection_method: str = "unknown",
+    ) -> Dict:
+        """Build a standard device-info dict with vendor/type enrichment."""
+        info: Dict = {
+            "ip": ip,
+            "mac": mac,
+            "hostname": hostname,
+            "vendor": lookup_vendor(mac),
+            "device_type": "Unknown",
+            "is_console": False,
+            "is_local": self._is_local_device(ip),
+            "response_time": 0.0,
+            "ports": [],
+            "services": [],
+            "last_seen": time.time(),
+            "traffic_level": 0,
+            "connection_count": 0,
+            "status": "online",
+            "detection_method": detection_method,
+        }
+        info["is_console"] = self._is_console_device(info)
+        info["device_type"] = self._determine_device_type(info)
+        return info
+
+    # ── Host detection helpers ────────────────────────────────────
+
     def _ping_host(self, ip: str) -> bool:
-        """Ping a host to check if it's online"""
+        """Ping *ip* using the system ping command."""
         try:
             if platform.system().lower() == "windows":
+                cmd = ["ping", "-n", "1", "-w", str(self.timeout * 1000), ip]
                 result = subprocess.run(
-                    ['ping', '-n', '1', '-w', str(self.timeout * 1000), ip],
-                    capture_output=True, text=True, timeout=self.timeout + 1,
-                    creationflags=_NO_WINDOW
+                    cmd, capture_output=True, text=True,
+                    timeout=self.timeout + 1, creationflags=_NO_WINDOW,
                 )
             else:
+                cmd = ["ping", "-c", "1", "-W", str(self.timeout), ip]
                 result = subprocess.run(
-                    ['ping', '-c', '1', '-W', str(self.timeout), ip],
-                    capture_output=True, text=True, timeout=self.timeout + 1
+                    cmd, capture_output=True, text=True,
+                    timeout=self.timeout + 1,
                 )
-
             return result.returncode == 0
-
-        except Exception as e:
-            log_error(f"Ping failed for {ip}", exception=e)
+        except Exception:
             return False
 
     def _get_device_info(self, ip: str) -> Tuple[str, str]:
-        """Get MAC address and hostname for an IP"""
+        """Return (mac, hostname) for *ip*."""
         mac = "Unknown"
         hostname = "Unknown"
 
         try:
+            # ARP lookup
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ['arp', '-a', ip], capture_output=True, text=True, timeout=5,
-                    creationflags=_NO_WINDOW
+                    ["arp", "-a", ip], capture_output=True, text=True,
+                    timeout=5, creationflags=_NO_WINDOW,
                 )
             else:
                 result = subprocess.run(
-                    ['arp', '-n', ip], capture_output=True, text=True, timeout=5
+                    ["arp", "-n", ip], capture_output=True, text=True, timeout=5,
                 )
-
             if result.returncode == 0:
-                mac_match = re.search(r'([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})', result.stdout)
-                if mac_match:
-                    mac = mac_match.group(0)
+                m = re.search(r"([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}", result.stdout)
+                if m:
+                    mac = m.group(0)
 
-            # 1) Reverse DNS
+            # Reverse DNS
             try:
                 hostname = socket.gethostbyaddr(ip)[0]
             except Exception:
                 pass
 
-            # 2) NetBIOS fallback (Windows only)
+            # NetBIOS fallback (Windows)
             if hostname == "Unknown" and platform.system().lower() == "windows":
                 try:
                     nbt = subprocess.run(
-                        ['nbtstat', '-a', ip],
-                        capture_output=True, text=True, timeout=3,
-                        creationflags=_NO_WINDOW
+                        ["nbtstat", "-a", ip], capture_output=True, text=True,
+                        timeout=3, creationflags=_NO_WINDOW,
                     )
                     if nbt.returncode == 0:
                         for line in nbt.stdout.splitlines():
                             line = line.strip()
-                            if '<00>' in line and 'UNIQUE' in line:
+                            if "<00>" in line and "UNIQUE" in line:
                                 name = line.split()[0].strip()
                                 if name and name != ip:
                                     hostname = name
@@ -346,190 +370,126 @@ class EnhancedNetworkScanner(QObject):
                     pass
 
         except Exception as e:
-            log_error(f"Failed to get device info for {ip}", exception=e)
+            log_error(f"Device info lookup failed for {ip}", exception=e)
 
         return mac, hostname
 
-    def _get_vendor_info(self, mac: str) -> str:
-        """Get vendor information from MAC address — delegates to shared OUI table."""
-        return lookup_vendor(mac)
+    # ── Console detection ─────────────────────────────────────────
 
     def _is_console_device(self, device_info: Dict) -> bool:
-        """Detect gaming consoles using MAC OUI, hostname, and vendor indicators"""
+        """Detect gaming consoles via MAC OUI, hostname, and vendor patterns."""
         try:
-            ip = device_info.get('ip', 'Unknown')
-            checks = [
-                ("mac", "mac_prefixes", lambda val, pat: val.startswith(pat.lower())),
-                ("hostname", "hostname_patterns", lambda val, pat: bool(re.search(pat, val))),
-                ("vendor", "vendor_patterns", lambda val, pat: bool(re.search(pat, val))),
-            ]
-            for field, indicator_key, match_fn in checks:
-                val = device_info.get(field, '').lower()
-                for pat in self.console_indicators[indicator_key]:
-                    if match_fn(val, pat):
-                        log_info(f"Console detected by {field}: {ip}", **{field: val})
-                        return True
-            return False
-        except Exception as e:
-            log_error("Console detection failed", exception=e, device_info=device_info)
-            return False
+            mac_lower = device_info.get("mac", "").lower()
+            hostname_lower = device_info.get("hostname", "").lower()
+            vendor_lower = device_info.get("vendor", "").lower()
 
-    _CONSOLE_KW = {'ps5': 'PlayStation', 'ps4': 'PlayStation', 'playstation': 'PlayStation',
-                    'sony': 'PlayStation', 'xbox': 'Xbox', 'nintendo': 'Nintendo', 'switch': 'Nintendo'}
-    _DEVICE_KW = [
-        (['router', 'gateway', 'modem'], "Router/Gateway"),
-        (['phone', 'mobile', 'android', 'iphone'], "Mobile Device"),
-        (['laptop', 'desktop', 'pc', 'computer'], "Computer"),
-        (['tv', 'television', 'smarttv'], "Smart TV"),
-        (['xbox', 'playstation', 'nintendo', 'switch'], "Gaming Console"),
-        (['printer', 'scanner'], "Printer/Scanner"),
-        (['camera', 'webcam'], "Camera"),
-    ]
+            for prefix in _CONSOLE_MAC_PREFIXES:
+                if mac_lower.startswith(prefix):
+                    return True
+            for pat in _HOSTNAME_PATTERNS:
+                if pat.search(hostname_lower):
+                    return True
+            for pat in _VENDOR_PATTERNS:
+                if pat.search(vendor_lower):
+                    return True
+            return False
+        except Exception:
+            return False
 
     def _determine_device_type(self, device_info: Dict) -> str:
-        """Determine device type from hostname/vendor keywords."""
+        """Classify device type from hostname/vendor keywords."""
         try:
-            hostname = device_info.get('hostname', '').lower()
-            vendor = device_info.get('vendor', '').lower()
-            combined = hostname + ' ' + vendor
-            if device_info.get('is_console', False):
-                for kw, dtype in self._CONSOLE_KW.items():
+            hostname = device_info.get("hostname", "").lower()
+            vendor = device_info.get("vendor", "").lower()
+            combined = hostname + " " + vendor
+
+            if device_info.get("is_console"):
+                for kw, dtype in _CONSOLE_KW.items():
                     if kw in combined:
                         return dtype
                 return "Gaming Console"
-            for words, dtype in self._DEVICE_KW:
+
+            for words, dtype in _DEVICE_KW:
                 if any(w in hostname for w in words):
                     return dtype
+
             return "Unknown Device"
-        except Exception as e:
-            log_error("Device type determination failed", exception=e, device_info=device_info)
+        except Exception:
             return "Unknown Device"
 
     def _is_local_device(self, ip: str) -> bool:
-        """Check if device is local to the network"""
+        """Return True if *ip* is in a private RFC 1918 range."""
         try:
-            ip_obj = ipaddress.IPv4Address(ip)
-            return any(ip_obj in net for net in _PRIVATE_RANGES)
-        except Exception as e:
-            log_error(f"Failed to check if {ip} is local", exception=e)
+            return any(ipaddress.IPv4Address(ip) in net for net in _PRIVATE_RANGES)
+        except Exception:
             return False
 
+    def _detect_console_devices(self, devices: List[Dict]) -> List[Dict]:
+        """Tag console devices in-place and return the console subset."""
+        consoles: List[Dict] = []
+        for d in devices:
+            if self._is_console_device(d):
+                d["is_console"] = True
+                d["device_type"] = self._determine_device_type(d)
+                consoles.append(d)
+        return consoles
+
+    # ── Port scanning ─────────────────────────────────────────────
+
     def _scan_ports(self, ip: str) -> Tuple[List[int], List[str]]:
-        """Scan common ports on the device"""
-        ports = []
-        services = []
-
-        try:
-            common_ports = [21, 22, 23, 25, 53, 80, 110, 143, 443, 993, 995, 8080]
-
-            for port in common_ports:
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                        sock.settimeout(1)
-                        if sock.connect_ex((ip, port)) == 0:
-                            ports.append(port)
-                            service = self._get_service_name(port)
-                            if service:
-                                services.append(service)
-                except Exception:
-                    pass
-
-        except Exception as e:
-            log_error(f"Port scan failed for {ip}", exception=e)
-
+        """Probe common ports on *ip*."""
+        ports: List[int] = []
+        services: List[str] = []
+        for port in [21, 22, 23, 25, 53, 80, 110, 143, 443, 993, 995, 8080]:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(1)
+                    if sock.connect_ex((ip, port)) == 0:
+                        ports.append(port)
+                        services.append(_SERVICE_NAMES.get(port, f"Unknown-{port}"))
+            except Exception:
+                pass
         return ports, services
 
-    def _get_service_name(self, port: int) -> str:
-        """Get service name for a port"""
-        services = {
-            21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
-            53: "DNS", 80: "HTTP", 110: "POP3", 143: "IMAP",
-            443: "HTTPS", 993: "IMAPS", 995: "POP3S", 8080: "HTTP-Alt"
-        }
-        return services.get(port, f"Unknown-{port}")
+    def _quick_port_scan(self, ip: str) -> bool:
+        """Return True if any common port is open on *ip*."""
+        for port in [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995, 8080, 8443]:
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(1)
+                    if sock.connect_ex((ip, port)) == 0:
+                        return True
+            except Exception:
+                continue
+        return False
 
-    def _get_traffic_info(self, ip: str) -> Tuple[int, int]:
-        """Get traffic information for a device (simplified)"""
-        # This would typically involve more complex network monitoring
-        # For now, return placeholder values
+    def _check_dns_resolution(self, ip: str) -> bool:
+        """Return True if *ip* has a reverse DNS entry."""
+        try:
+            return socket.gethostbyaddr(ip)[0] != ip
+        except Exception:
+            return False
+
+    @staticmethod
+    def _get_traffic_info(ip: str) -> Tuple[int, int]:
+        """Placeholder for traffic monitoring (not yet implemented)."""
         return 0, 0
 
-    def _detect_console_devices(self, devices: List[Dict]) -> List[Dict]:
-        """Detect gaming consoles from scanned devices"""
-        console_devices = []
-
-        for device in devices:
-            if self._is_console_device(device):
-                device['is_console'] = True
-                device['device_type'] = self._determine_device_type(device)
-                console_devices.append(device)
-                log_info(f"Console detected: {device.get('ip')} | {device.get('mac')} | {device.get('hostname')}")
-
-        return console_devices
-
-    def get_console_devices(self):
-        return [d for d in self.scan_results if d.get('is_console', False)]
-    get_ps5_devices = get_console_devices  # backward compat
-
-    def get_device_by_ip(self, ip):
-        return next((d for d in self.scan_results if d.get('ip') == ip), None)
-    def is_scanning(self): return self.scan_in_progress
-    def get_scan_stats(self):
-        return {'total_devices': len(self.scan_results),
-                'console_devices': len(self.get_console_devices()),
-                'local_devices': len([d for d in self.scan_results if d.get('is_local', False)]),
-                'last_scan_time': self.last_scan_time,
-                'scan_in_progress': self.scan_in_progress}
-
-    def start(self):
-        """Start the network scan (GUI compatibility method)"""
-        try:
-            self.scan_in_progress = True
-            self.status_update.emit("Starting network scan...")
-            scan_thread = threading.Thread(target=self._run_scan)
-            scan_thread.daemon = True
-            scan_thread.start()
-            log_info("Network scan started")
-        except Exception as e:
-            log_error(f"Error starting scan: {e}")
-            self.scan_error.emit(f"Error starting scan: {e}")
-
-    def stop_scan(self):
-        """Stop the network scan"""
-        try:
-            self.scan_in_progress = False
-            self.status_update.emit("Scan stopped")
-            log_info("Network scan stopped")
-        except Exception as e:
-            log_error(f"Error stopping scan: {e}")
-
-    def _run_scan(self):
-        """Run the actual scan in a separate thread"""
-        try:
-            devices = self.scan_network()
-            if self.scan_in_progress:
-                self.scan_complete.emit(devices)
-                self.status_update.emit(f"Scan completed: {len(devices)} devices found")
-        except Exception as e:
-            log_error(f"Error during scan: {e}")
-            self.scan_error.emit(f"Scan error: {e}")
-        finally:
-            self.scan_in_progress = False
+    # ── ARP table scanning ────────────────────────────────────────
 
     def _scan_arp_table(self) -> List[Dict]:
-        """Scan ARP table — dedup by MAC, no slow pings, keeps highest IP per MAC."""
-        # mac_lower -> (ip, mac_raw, last_octet)
-        mac_best = {}
+        """Parse ARP table, deduplicate by MAC (keep highest last-octet)."""
+        mac_best: Dict[str, Tuple[str, str, int]] = {}  # mac_lower -> (ip, mac_raw, last_octet)
 
         try:
             if platform.system().lower() == "windows":
                 result = subprocess.run(
-                    ['arp', '-a'], capture_output=True, text=True, timeout=5,
-                    creationflags=_NO_WINDOW
+                    ["arp", "-a"], capture_output=True, text=True,
+                    timeout=5, creationflags=_NO_WINDOW,
                 )
             else:
                 result = subprocess.run(
-                    ['arp', '-n'], capture_output=True, text=True, timeout=5
+                    ["arp", "-n"], capture_output=True, text=True, timeout=5,
                 )
 
             if result.returncode != 0:
@@ -537,10 +497,9 @@ class EnhancedNetworkScanner(QObject):
 
             for line in result.stdout.splitlines():
                 stripped = line.strip()
-                # Skip non-data lines in Windows arp -a output
-                if not stripped or stripped.startswith('Interface:') or '---' in stripped:
+                if not stripped or stripped.startswith("Interface:") or "---" in stripped:
                     continue
-                if 'Internet' in stripped or 'Physical' in stripped or 'Address' in stripped:
+                if any(kw in stripped for kw in ("Internet", "Physical", "Address")):
                     continue
 
                 parts = stripped.split()
@@ -556,36 +515,30 @@ class EnhancedNetworkScanner(QObject):
                 if not self._is_valid_ip(ip) or not self._is_valid_mac(mac_raw):
                     continue
 
-                mac_lower = mac_raw.replace('-', ':').lower()
-
-                # Skip broadcast / multicast
-                if mac_lower == 'ff:ff:ff:ff:ff:ff':
+                mac_lower = mac_raw.replace("-", ":").lower()
+                if mac_lower == "ff:ff:ff:ff:ff:ff":
                     continue
+                # Skip multicast MACs
                 try:
-                    if int(mac_lower.split(':')[0], 16) & 1:
+                    if int(mac_lower.split(":")[0], 16) & 1:
                         continue
                 except (ValueError, IndexError):
                     pass
 
-                # Keep the highest last-octet per MAC (most recent DHCP lease)
                 try:
-                    last_octet = int(ip.rsplit('.', 1)[1])
+                    last_octet = int(ip.rsplit(".", 1)[1])
                 except (ValueError, IndexError):
                     last_octet = 0
 
-                if mac_lower in mac_best:
-                    if last_octet > mac_best[mac_lower][2]:
-                        mac_best[mac_lower] = (ip, mac_raw, last_octet)
-                else:
+                if mac_lower not in mac_best or last_octet > mac_best[mac_lower][2]:
                     mac_best[mac_lower] = (ip, mac_raw, last_octet)
 
         except Exception as e:
             log_error("ARP table scan failed", exception=e)
             return []
 
-        # Build device list from deduped entries
-        devices = []
-        for mac_lower, (ip, mac_raw, _) in mac_best.items():
+        devices: List[Dict] = []
+        for ip, mac_raw, _ in mac_best.values():
             try:
                 dev = self._make_device_info(ip, mac_raw, detection_method="arp_table_fast")
                 if dev:
@@ -596,138 +549,158 @@ class EnhancedNetworkScanner(QObject):
         log_info(f"ARP scan: {len(devices)} unique devices (deduped by MAC)")
         return devices
 
-    def _deduplicate_by_mac(self, devices: List[Dict]) -> List[Dict]:
-        """Final safety-net dedup: one entry per physical MAC address.
+    # ── Deduplication ─────────────────────────────────────────────
 
-        When multiple IPs share the same MAC (stale DHCP leases), keep only
-        the first one encountered (ARP-sourced devices come first and are
-        already ping-verified).
-        """
-        seen_macs = set()
-        result = []
+    def _deduplicate_by_mac(self, devices: List[Dict]) -> List[Dict]:
+        """Keep one entry per physical MAC address."""
+        seen: set[str] = set()
+        result: List[Dict] = []
         for d in devices:
-            mac_raw = d.get('mac', 'Unknown')
-            if mac_raw == 'Unknown':
+            mac_raw = d.get("mac", "Unknown")
+            if mac_raw == "Unknown":
                 result.append(d)
                 continue
-            mac_lower = mac_raw.replace('-', ':').lower()
-            if mac_lower in seen_macs:
-                log_info(f"Final dedup: dropping {d.get('ip')} (duplicate MAC {mac_lower})")
+            mac_lower = mac_raw.replace("-", ":").lower()
+            if mac_lower in seen:
                 continue
-            seen_macs.add(mac_lower)
+            seen.add(mac_lower)
             result.append(d)
         return result
 
-    def _is_valid_ip(self, ip: str) -> bool:
-        """Check if string is a valid IP address"""
+    def _combine_device_lists(
+        self, arp_devices: List[Dict], ip_devices: List[Dict],
+    ) -> List[Dict]:
+        """Merge two device lists, deduplicating by IP and MAC."""
+        by_ip: Dict[str, Dict] = {}
+        seen_macs: Dict[str, str] = {}
+
+        def _add(device: Dict) -> None:
+            ip = device.get("ip")
+            if not ip:
+                return
+            mac_raw = device.get("mac", "Unknown")
+            mac_lower = mac_raw.replace("-", ":").lower() if mac_raw != "Unknown" else None
+
+            if mac_lower and mac_lower != "unknown" and mac_lower in seen_macs:
+                if seen_macs[mac_lower] != ip:
+                    return  # duplicate MAC under a different IP
+
+            if ip not in by_ip:
+                by_ip[ip] = device
+                if mac_lower and mac_lower != "unknown":
+                    seen_macs[mac_lower] = ip
+            else:
+                existing = by_ip[ip]
+                for key, val in device.items():
+                    if val != "Unknown" and existing.get(key) == "Unknown":
+                        existing[key] = val
+
+        for d in arp_devices:
+            _add(d)
+        for d in ip_devices:
+            _add(d)
+        return list(by_ip.values())
+
+    # ── Validation helpers ────────────────────────────────────────
+
+    @staticmethod
+    def _is_valid_ip(ip: str) -> bool:
         try:
             socket.inet_aton(ip)
             return True
         except Exception:
             return False
 
-    _MAC_RE = re.compile(r'^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$')
+    @staticmethod
+    def _is_valid_mac(mac: str) -> bool:
+        return bool(_MAC_RE.match(mac))
 
-    def _is_valid_mac(self, mac: str) -> bool:
-        """Check if string is a valid MAC address"""
-        return bool(self._MAC_RE.match(mac))
-
-    def _combine_device_lists(self, arp_devices: List[Dict], ip_devices: List[Dict]) -> List[Dict]:
-        """Combine and deduplicate device lists by IP AND by MAC"""
-        combined_by_ip = {}
-        seen_macs = {}  # mac_lower -> ip (track which IP owns each MAC)
-
-        def _add_device(device):
-            ip = device.get('ip')
-            if not ip:
-                return
-            mac_raw = device.get('mac', 'Unknown')
-            mac_lower = mac_raw.replace('-', ':').lower() if mac_raw != 'Unknown' else None
-
-            # MAC dedup: if we already have a device with this MAC, skip
-            if mac_lower and mac_lower != 'unknown' and mac_lower in seen_macs:
-                existing_ip = seen_macs[mac_lower]
-                if existing_ip != ip:
-                    log_info(f"Combine dedup: skipping {ip} (same MAC {mac_lower} as {existing_ip})")
-                    return
-
-            if ip not in combined_by_ip:
-                combined_by_ip[ip] = device
-                if mac_lower and mac_lower != 'unknown':
-                    seen_macs[mac_lower] = ip
-            else:
-                # Merge information, preferring non-Unknown values
-                existing = combined_by_ip[ip]
-                for key, value in device.items():
-                    if value != 'Unknown' and existing.get(key) == 'Unknown':
-                        existing[key] = value
-
-        # Add ARP devices first (they have MAC addresses)
-        for device in arp_devices:
-            _add_device(device)
-
-        for device in ip_devices:
-            _add_device(device)
-
-        return list(combined_by_ip.values())
+    # ── ARP cache (avoids per-IP subprocess) ──────────────────────
 
     _arp_cache_output: str = ""
     _arp_cache_time: float = 0.0
     _arp_cache_lock = threading.Lock()
-    _ARP_CACHE_TTL = 10.0  # seconds
+    _ARP_CACHE_TTL: float = 10.0
 
     def _check_arp_table_for_ip(self, ip: str) -> bool:
-        """Check if specific IP exists in ARP table (cached to avoid per-IP subprocess)."""
+        """Check if *ip* appears in the cached ARP output."""
         try:
             now = time.time()
             with self._arp_cache_lock:
                 if now - self._arp_cache_time > self._ARP_CACHE_TTL or not self._arp_cache_output:
-                    # Refresh cache
                     if platform.system().lower() == "windows":
                         result = subprocess.run(
-                            ['arp', '-a'], capture_output=True, text=True, timeout=5,
-                            creationflags=_NO_WINDOW
+                            ["arp", "-a"], capture_output=True, text=True,
+                            timeout=5, creationflags=_NO_WINDOW,
                         )
                     else:
                         result = subprocess.run(
-                            ['arp', '-n'], capture_output=True, text=True, timeout=5
+                            ["arp", "-n"], capture_output=True, text=True, timeout=5,
                         )
                     self._arp_cache_output = result.stdout if result.returncode == 0 else ""
                     self._arp_cache_time = now
                 return ip in self._arp_cache_output
-        except Exception as e:
-            log_error(f"ARP table check failed for {ip}", exception=e)
-            return False
-
-    def _quick_port_scan(self, ip: str) -> bool:
-        """Quick port scan for common ports"""
-        try:
-            common_ports = [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995, 8080, 8443]
-
-            for port in common_ports:
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                        sock.settimeout(1)
-                        if sock.connect_ex((ip, port)) == 0:
-                            return True
-                except Exception:
-                    continue
-
-            return False
-
-        except Exception as e:
-            log_error(f"Quick port scan failed for {ip}", exception=e)
-            return False
-
-    def _check_dns_resolution(self, ip: str) -> bool:
-        """Check if IP resolves to a hostname"""
-        try:
-            hostname = socket.gethostbyaddr(ip)
-            return hostname[0] != ip
         except Exception:
             return False
 
-    def _scan_ips_fast(self, ip_addresses: List[str]) -> List[Dict]:
-        """Fast IP scan — delegates to _scan_ips with quick_scan=True."""
-        return self._scan_ips(ip_addresses, quick_scan=True)
+    # ── GUI compatibility methods ─────────────────────────────────
 
+    def start(self) -> None:
+        """Start a scan in a background thread (GUI compat)."""
+        try:
+            self.scan_in_progress = True
+            self.status_update.emit("Starting network scan...")
+            t = threading.Thread(target=self._run_scan, daemon=True)
+            t.start()
+        except Exception as e:
+            log_error(f"Error starting scan: {e}")
+            self.scan_error.emit(f"Error starting scan: {e}")
+
+    def stop_scan(self) -> None:
+        """Stop the current scan."""
+        self.scan_in_progress = False
+        try:
+            self.status_update.emit("Scan stopped")
+        except RuntimeError:
+            pass
+
+    def _run_scan(self) -> None:
+        """Background thread target for ``start()``."""
+        try:
+            devices = self.scan_network()
+            if self.scan_in_progress:
+                self.scan_complete.emit(devices)
+                self.status_update.emit(f"Scan completed: {len(devices)} devices found")
+        except Exception as e:
+            log_error(f"Scan thread error: {e}")
+            try:
+                self.scan_error.emit(f"Scan error: {e}")
+            except RuntimeError:
+                pass
+        finally:
+            self.scan_in_progress = False
+
+    # ── Query methods ─────────────────────────────────────────────
+
+    def get_console_devices(self) -> List[Dict]:
+        """Return console devices from last scan."""
+        return [d for d in self.scan_results if d.get("is_console")]
+
+    get_ps5_devices = get_console_devices  # legacy alias
+
+    def get_device_by_ip(self, ip: str) -> Optional[Dict]:
+        """Look up a device from last scan results."""
+        return next((d for d in self.scan_results if d.get("ip") == ip), None)
+
+    def is_scanning(self) -> bool:
+        return self.scan_in_progress
+
+    def get_scan_stats(self) -> Dict:
+        """Return a stats summary of the last scan."""
+        return {
+            "total_devices": len(self.scan_results),
+            "console_devices": len(self.get_console_devices()),
+            "local_devices": sum(1 for d in self.scan_results if d.get("is_local")),
+            "last_scan_time": self.last_scan_time,
+            "scan_in_progress": self.scan_in_progress,
+        }

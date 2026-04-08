@@ -1,11 +1,16 @@
 # app/network/shared.py
 """
 Shared OUI / vendor-lookup tables used by device_scan and enhanced_scanner.
+
+The ``VENDOR_OUIS`` dict maps the first three octets of a MAC address
+(lowercase, colon-separated) to a vendor name.  ``HOSTNAME_VENDORS``
+maps known hostnames (lowercase) to a vendor override.
 """
 
-# Common MAC OUI prefixes → vendor name
-# Format: first 3 octets (lowercase, colon-separated) → vendor string
-VENDOR_OUIS: dict[str, str] = {
+from typing import Dict
+
+# Common MAC OUI prefixes -> vendor name
+VENDOR_OUIS: Dict[str, str] = {
     # Sony / PlayStation
     "b4:0a:d8": "Sony Interactive Entertainment",
     "b4:0a:d9": "Sony Interactive Entertainment",
@@ -117,32 +122,32 @@ VENDOR_OUIS: dict[str, str] = {
     "78:28:ca": "Sonos, Inc.",
 }
 
-# Hostname patterns → vendor override (lowercase keys)
-HOSTNAME_VENDORS: dict[str, str] = {
-    "ps5":          "Sony Interactive Entertainment",
-    "ps4":          "Sony Interactive Entertainment",
-    "playstation":  "Sony Interactive Entertainment",
-    "xbox":         "Microsoft Corporation",
-    "xboxone":      "Microsoft Corporation",
-    "nintendo":     "Nintendo Co., Ltd.",
-    "switch":       "Nintendo Co., Ltd.",
+# Hostname patterns -> vendor override (lowercase keys)
+HOSTNAME_VENDORS: Dict[str, str] = {
+    "ps5":         "Sony Interactive Entertainment",
+    "ps4":         "Sony Interactive Entertainment",
+    "playstation": "Sony Interactive Entertainment",
+    "xbox":        "Microsoft Corporation",
+    "xboxone":     "Microsoft Corporation",
+    "nintendo":    "Nintendo Co., Ltd.",
+    "switch":      "Nintendo Co., Ltd.",
 }
 
 
 def lookup_vendor(mac: str) -> str:
-    """
-    Return the vendor string for *mac*, or ``'Unknown'`` if not found.
+    """Return the vendor string for *mac*, or ``'Unknown'``.
 
-    Accepts any common MAC format (colon, hyphen, or dot-separated).
+    Accepts any common MAC format: colon, hyphen, or dot-separated.
     """
     if not mac or mac.lower() in ("unknown", ""):
         return "Unknown"
 
     # Normalise to lowercase colon-separated
     cleaned = mac.replace("-", ":").replace(".", "").lower()
-    # Handle Cisco-style aabb.ccdd.eeff
+
+    # Handle Cisco-style aabb.ccdd.eeff (12 hex chars, no colons)
     if ":" not in cleaned and len(cleaned) == 12:
-        cleaned = ":".join(cleaned[i:i+2] for i in range(0, 12, 2))
+        cleaned = ":".join(cleaned[i : i + 2] for i in range(0, 12, 2))
 
     prefix = ":".join(cleaned.split(":")[:3])
     return VENDOR_OUIS.get(prefix, "Unknown")
