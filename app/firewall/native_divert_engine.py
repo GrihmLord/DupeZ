@@ -502,6 +502,21 @@ class NativeWinDivertEngine:
         # Target IP for stats reporting
         self.target_ip = params.get("_target_ip", "unknown")
 
+        # Precomputed u32 form of target_ip for zero-allocation hot-path
+        # direction detection on the FORWARD layer. Recomputed on every
+        # start() so hot-reloads pick up a new target. 0 means "unset".
+        self._target_ip_u32: int = 0
+        try:
+            if self.target_ip and self.target_ip != "unknown":
+                self._target_ip_u32 = int.from_bytes(
+                    socket.inet_aton(self.target_ip), "big")
+        except OSError:
+            self._target_ip_u32 = 0
+
+        # Precompute layer mode flag so the hot path skips a dict lookup
+        # per packet. Updated in start() if params mutate.
+        self._use_local_layer: bool = bool(params.get("_network_local", False))
+
         # Emulate subprocess-like interface for compatibility
         self._proc = self  # self acts as the "process"
 
@@ -606,6 +621,14 @@ class NativeWinDivertEngine:
             # Only use NETWORK layer if explicitly targeting local machine.
             direction = self.params.get("direction", "both")
             use_local = self.params.get("_network_local", False)
+            # Refresh hot-path cache in case params mutated since __init__
+            self._use_local_layer = bool(use_local)
+            try:
+                if self.target_ip and self.target_ip != "unknown":
+                    self._target_ip_u32 = int.from_bytes(
+                        socket.inet_aton(self.target_ip), "big")
+            except OSError:
+                self._target_ip_u32 = 0
             layer = WINDIVERT_LAYER_NETWORK if use_local else WINDIVERT_LAYER_NETWORK_FORWARD
             layer_name = "NETWORK" if layer == WINDIVERT_LAYER_NETWORK else "NETWORK_FORWARD"
             log_info(f"NativeEngine: opening handle with filter='{self.filter_str}', layer={layer_name}")
@@ -957,24 +980,34 @@ class NativeWinDivertEngine:
                 #   target_ip = device IP (PS5/Xbox/remote PC).
                 #   src == target → outbound (device → server)
                 #   dst == target → inbound  (server → device)
-                use_local = self.params.get("_network_local", False)
-
-                if use_local:
+                # Zero-allocation direction detection:
+                #   _use_local_layer and _target_ip_u32 are precomputed once
+                #   in __init__/start(), so the hot path does no dict lookups
+                #   and no string allocations per packet. On the FORWARD
+                #   layer we unpack src/dst into u32 via bit-shifts and
+                #   compare ints — no inet_ntoa() allocation churn.
+                if self._use_local_layer:
                     # PC-local: addr.Outbound is reliable
                     is_outbound = bool(addr.Outbound)
-                elif self.target_ip and self.target_ip != "unknown" and len(packet_data) >= 20:
-                    _ver = (packet_data[0] >> 4) & 0xF
-                    if _ver == 4:
-                        _src = socket.inet_ntoa(packet_data[12:16])
-                        _dst = socket.inet_ntoa(packet_data[16:20])
-                        if _src == self.target_ip:
-                            is_outbound = True
-                            addr.Outbound = True
-                        elif _dst == self.target_ip:
-                            is_outbound = False
-                            addr.Outbound = False
-                        else:
-                            is_outbound = bool(addr.Outbound)
+                elif self._target_ip_u32 and len(packet_data) >= 20 and (packet_data[0] >> 4) & 0xF == 4:
+                    _src_u32 = (
+                        (packet_data[12] << 24)
+                        | (packet_data[13] << 16)
+                        | (packet_data[14] << 8)
+                        | packet_data[15]
+                    )
+                    _dst_u32 = (
+                        (packet_data[16] << 24)
+                        | (packet_data[17] << 16)
+                        | (packet_data[18] << 8)
+                        | packet_data[19]
+                    )
+                    if _src_u32 == self._target_ip_u32:
+                        is_outbound = True
+                        addr.Outbound = True
+                    elif _dst_u32 == self._target_ip_u32:
+                        is_outbound = False
+                        addr.Outbound = False
                     else:
                         is_outbound = bool(addr.Outbound)
                 else:
