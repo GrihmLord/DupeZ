@@ -24,6 +24,13 @@ from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from app.logs.logger import log_error, log_info
 
 # Graceful degradation when WebEngine is not installed.
+#
+# NOTE: we catch Exception (not just ImportError) because on Windows a
+# missing/mismatched Qt DLL surfaces as OSError ("DLL load failed while
+# importing QtWebEngineCore") rather than ImportError. We also log the
+# real exception type + message so failures are diagnosable instead of
+# silently degrading to a placeholder.
+_WEBENGINE_IMPORT_ERROR: Optional[str] = None
 try:
     from PyQt6.QtWebEngineCore import (
         QWebEngineProfile,
@@ -32,9 +39,13 @@ try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 
     _WEBENGINE_AVAILABLE: bool = True
-except ImportError:
+except Exception as _webengine_exc:  # noqa: BLE001 — we really do want everything
     _WEBENGINE_AVAILABLE = False
-    log_error("QtWebEngine not available — DayZ map will show a placeholder")
+    _WEBENGINE_IMPORT_ERROR = f"{type(_webengine_exc).__name__}: {_webengine_exc}"
+    log_error(
+        "QtWebEngine not available — DayZ map will show a placeholder "
+        f"(reason: {_WEBENGINE_IMPORT_ERROR})"
+    )
 
 __all__ = ["DayZMapGUI"]
 
@@ -239,9 +250,11 @@ class DayZMapGUI(QWidget):
             self.map_view.loadFinished.connect(self._inject_dom_adblocker)
             layout.addWidget(self.map_view)
         else:
+            reason = _WEBENGINE_IMPORT_ERROR or "PyQt6-WebEngine not installed"
             placeholder = QLabel(
-                "Map unavailable — install PyQt6-WebEngine to enable.\n\n"
-                "pip install PyQt6-WebEngine"
+                "Map unavailable — QtWebEngine failed to load.\n\n"
+                f"Reason: {reason}\n\n"
+                "Fix: pip install --upgrade PyQt6 PyQt6-WebEngine"
             )
             placeholder.setStyleSheet(_PLACEHOLDER_QSS)
             placeholder.setWordWrap(True)

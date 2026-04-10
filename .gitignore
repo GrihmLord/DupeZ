@@ -38,6 +38,7 @@ logs/
 test_report.json
 .coverage
 htmlcov/
+.pytest_cache/
 
 # Build artifacts
 build/
@@ -96,11 +97,4 @@ app/firewall/presets.ini
 # WinDivert external sample/test executables (not needed for DupeZ)
 app/firewall/clumsy_src/external/**/*.exe
 
-# Settings temp file (atomic write)
-app/config/settings.json.tmp
-
-# Code signing artifacts
-*.pfx
-*.p12
-*.cer
-signtool.log
+# Settings temp file (at
