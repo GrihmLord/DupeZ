@@ -18,11 +18,11 @@
 ; BUILD:
 ;   1. Build dupez.exe first:   pyinstaller dupez.spec --noconfirm
 ;   2. Then compile installer:  iscc installer.iss
-;   Output: dist\DupeZ_v5.2.3_Setup.exe
+;   Output: dist\DupeZ_v5.2.4_Setup.exe
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.2.3"
+#define MyAppVersion   "5.2.4"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -41,6 +41,13 @@ AppUpdatesURL={#MyAppURL}/releases
 AppContact=https://github.com/GrihmLord
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
+; 64-bit install mode — dupez.exe is a 64-bit PyInstaller bundle, so {autopf}
+; must resolve to C:\Program Files (not C:\Program Files (x86)) and the
+; 64-bit registry hive must be used for uninstall entries. Without these
+; directives, Inno Setup defaults to 32-bit mode and installs a 64-bit
+; binary into the x86 Program Files path — latent bug in v5.2.0–v5.2.3.
+ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64
 DisableProgramGroupPage=yes
 ; Allow user to upgrade without uninstalling first
 UsePreviousAppDir=yes
