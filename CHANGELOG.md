@@ -4,6 +4,24 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.2.4 — 2026-04-10 (Installer Architecture Fix + Manifest Sync)
+
+Patch release fixing a latent installer misconfiguration where a 64-bit binary was being installed into the 32-bit `C:\Program Files (x86)` path, and bringing the Windows side-by-side manifest in sync with the release version.
+
+### Fixed
+- **Installer now lands in `C:\Program Files\DupeZ`** on 64-bit Windows (previously `C:\Program Files (x86)\DupeZ`). Root cause: `installer.iss` had no `ArchitecturesInstallIn64BitMode` directive, so Inno Setup defaulted to 32-bit install mode and resolved `{autopf}` to the x86 Program Files path. The bundled `dupez.exe` has been 64-bit since v5.2.0, so this was wrong from day one of the installer pipeline. Added `ArchitecturesInstallIn64BitMode=x64` and `ArchitecturesAllowed=x64`. The 64-bit registry hive is now used for uninstall entries, and Add/Remove Programs reports the architecture correctly.
+- **`dupez.manifest` `assemblyIdentity` version now matches the release.** It was stuck at `5.2.0.0` across every v5.2.x patch because the manifest wasn't in the per-release bump checklist. Now tracked in `app/__version__.py`'s docstring so it won't drift again.
+
+### Changed
+- **`app/__version__.py` docstring** now lists `dupez.manifest` and `ROADMAP.md` alongside `version_info.py`, `installer.iss`, `build.bat`, `README.md`, and `CHANGELOG.md` as files that must be bumped in lockstep each release.
+- **`ROADMAP.md` Completed section** now reflects v5.2.1, v5.2.2, v5.2.3, and v5.2.4 shipping dates and summaries. Previously only v5.2.0 was listed.
+
+### Migration Notes
+- **Existing v5.2.0–v5.2.3 installs living in `C:\Program Files (x86)\DupeZ`:** the v5.2.4 installer will NOT upgrade them in place because the install path moved. Uninstall the old version from Add/Remove Programs first, then install v5.2.4. Your user settings in `%APPDATA%\DupeZ` are preserved across uninstall/reinstall.
+- **No functional changes** to network, map, voice, firewall, or auto-updater paths. Pure packaging fix.
+
+---
+
 ## v5.2.3 — 2026-04-10 (Version Display Fix + Single Source of Truth)
 
 Patch release fixing a latent bug where the dashboard title bar and HTTP `User-Agent` header still reported `5.2.0` regardless of the actual build version. The PyInstaller `VS_VERSION_INFO` resource on the .exe was correct (Windows Properties dialog showed 5.2.2), but the in-app title was hardcoded.
