@@ -21,6 +21,7 @@ from typing import Callable, Dict, Optional, Tuple
 from urllib.error import URLError
 from urllib.request import Request, urlopen, urlretrieve
 
+from app.__version__ import __version__
 from app.logs.logger import log_error, log_info, log_warning
 
 __all__ = [
@@ -32,7 +33,11 @@ __all__ = [
     "updater",
 ]
 
-CURRENT_VERSION = "5.2.0"
+# Re-exported from app.__version__ for backwards compatibility with the
+# many call sites (dashboard title, About dialog, update checker) that
+# already import CURRENT_VERSION from this module. The single source of
+# truth is app/__version__.py — do NOT hardcode the version here.
+CURRENT_VERSION = __version__
 GITHUB_REPO = "GrihmLord/DupeZ"
 RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"

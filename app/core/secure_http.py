@@ -24,6 +24,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, Optional
 
+from app.__version__ import __version__ as _DUPEZ_VERSION
 from app.core.validation import validate_url
 from app.logs.logger import log_error, log_info
 
@@ -34,7 +35,7 @@ __all__ = ["secure_get", "secure_post_json", "secure_get_json"]
 
 DEFAULT_TIMEOUT_S: int = 15
 MAX_RESPONSE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
-USER_AGENT: str = "DupeZ/5.2.0"
+USER_AGENT: str = f"DupeZ/{_DUPEZ_VERSION}"
 
 # ── TLS Context ──────────────────────────────────────────────────────
 
