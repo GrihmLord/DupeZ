@@ -4,6 +4,22 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.2.3 — 2026-04-10 (Version Display Fix + Single Source of Truth)
+
+Patch release fixing a latent bug where the dashboard title bar and HTTP `User-Agent` header still reported `5.2.0` regardless of the actual build version. The PyInstaller `VS_VERSION_INFO` resource on the .exe was correct (Windows Properties dialog showed 5.2.2), but the in-app title was hardcoded.
+
+### Fixed
+- **Dashboard title bar now reports the actual build version.** Root cause: `app/core/updater.py` hardcoded `CURRENT_VERSION = "5.2.0"`, and `app/gui/dashboard.py` read from it for the window title. Fixed by pointing `CURRENT_VERSION` at a single source of truth.
+- **HTTP `User-Agent` header now reports the actual build version.** `app/core/secure_http.py` hardcoded `"DupeZ/5.2.0"`. Same fix.
+
+### Added
+- **`app/__version__.py`** — Single source of truth for the runtime version string. All in-code references (dashboard title, update checker baseline, HTTP User-Agent, future telemetry) now import `__version__` from this module. Hardcoding version strings elsewhere in `app/` is now explicitly forbidden in the module docstring. `version_info.py`, `installer.iss`, `build.bat`, `README.md`, and `CHANGELOG.md` still carry their own copies (PyInstaller version resource, Inno Setup macro, build pipeline var, user-facing docs) and are kept in sync by convention per release.
+
+### Notes
+- No functional changes to network, map, voice, or firewall paths. Pure version-reporting fix.
+
+---
+
 ## v5.2.2 — 2026-04-10 (Build Hardening: Torch/Whisper Isolation)
 
 Patch release that stops PyInstaller's isolated analyzer child from crashing on `torch\lib\c10.dll` (WinError 1114 / access violation) during every build, and shrinks the portable exe by excluding the unused torch runtime.
