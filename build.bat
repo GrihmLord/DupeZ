@@ -107,6 +107,21 @@ if errorlevel 1 (
 )
 echo       Installer built: dist\%DUPEZ_INSTALLER%
 
+:: Emit versionless installer alias for stable download URLs.
+:: This lets the landing page (and any external link) point at
+:: https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe
+:: forever without needing to re-edit the link every release. The versioned
+:: copy (DupeZ_v%DUPEZ_VERSION%_Setup.exe) is still shipped for auditability
+:: and as the canonical download in release notes.
+if exist "dist\%DUPEZ_INSTALLER%" (
+    copy /Y "dist\%DUPEZ_INSTALLER%" "dist\DupeZ_Setup.exe" >nul
+    if errorlevel 1 (
+        echo       WARNING: Failed to create versionless alias dist\DupeZ_Setup.exe
+    ) else (
+        echo       Versionless alias: dist\DupeZ_Setup.exe
+    )
+)
+
 :: Sign the installer too (flattened — batch can't handle triple-nested if-not blocks)
 if not defined DUPEZ_SIGN_CERT goto :skip_installer
 where signtool >nul 2>&1
@@ -114,8 +129,10 @@ if errorlevel 1 goto :skip_installer
 echo       Signing installer...
 if defined DUPEZ_SIGN_PASS (
     signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\%DUPEZ_INSTALLER%
+    if exist "dist\DupeZ_Setup.exe" signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\DupeZ_Setup.exe
 ) else (
     signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\%DUPEZ_INSTALLER%
+    if exist "dist\DupeZ_Setup.exe" signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\DupeZ_Setup.exe
 )
 
 :skip_installer
@@ -136,6 +153,9 @@ echo ============================================
 echo.
 if exist "dist\%DUPEZ_INSTALLER%" (
     echo  Installer:  dist\%DUPEZ_INSTALLER%  [RECOMMENDED]
+)
+if exist "dist\DupeZ_Setup.exe" (
+    echo  Alias:      dist\DupeZ_Setup.exe   [stable URL target]
 )
 echo  Portable:   dist\dupez.exe
 echo.
