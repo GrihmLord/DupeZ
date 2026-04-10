@@ -56,12 +56,16 @@ try:
 except ImportError:
     PROFILES_AVAILABLE = False
 
-# Voice control
+# Voice control — do NOT call is_voice_available() at module import time.
+# It walks into whisper → torch, and torch's c10.dll crashes the interpreter
+# with an access violation (WinError 1114) on broken installs — uncatchable
+# from Python. The probe happens lazily inside ClumsyControlView instead.
 try:
-    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available
-    VOICE_AVAILABLE = is_voice_available()
-except ImportError:
-    VOICE_AVAILABLE = False
+    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available  # noqa: F401
+    _VOICE_IMPORTABLE = True
+except Exception:  # noqa: BLE001
+    _VOICE_IMPORTABLE = False
+VOICE_AVAILABLE: bool = False  # populated lazily on first view instantiation
 
 # GPC / CronusZEN integration
 try:
@@ -421,6 +425,16 @@ class ClumsyControlView(QWidget):
         self._gpc_generator: Any = None
         self._gpc_last_source: str = ""
         self._gpc_monitor: Any = None
+
+        # Lazy voice availability probe — first view instantiation.
+        # Wrapped broadly because whisper/torch can crash with WinError 1114.
+        global VOICE_AVAILABLE
+        if _VOICE_IMPORTABLE and not VOICE_AVAILABLE:
+            try:
+                VOICE_AVAILABLE = bool(is_voice_available())
+            except Exception as _exc:  # noqa: BLE001
+                log_error(f"ClumsyControlView: is_voice_available() raised {type(_exc).__name__}: {_exc}")
+                VOICE_AVAILABLE = False
 
         self._build_ui()
         self._connect_signals()

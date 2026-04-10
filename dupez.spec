@@ -24,8 +24,11 @@ hidden = (
         'pyqtgraph', 'psutil', 'keyboard', 'PIL',
         'scapy', 'scapy.all',
         'cryptography', 'numpy', 'pandas', 'openpyxl',
-        # Voice control (optional)
-        'sounddevice', 'whisper',
+        # Voice control (optional) — whisper is EXCLUDED (see excludes below)
+        # because it pulls in torch, which crashes PyInstaller's isolated
+        # analyzer with WinError 1114 on c10.dll. voice_control.py gracefully
+        # degrades when whisper is missing at runtime.
+        'sounddevice',
         # GPC / CronusZEN (optional)
         'serial', 'serial.tools', 'serial.tools.list_ports',
     ]
@@ -62,7 +65,12 @@ a = Analysis(
     runtime_hooks=[],
     excludes=[
         # ── ML / heavy libs not used ──
-        'tensorflow', 'torch', 'matplotlib', 'scipy',
+        # whisper excluded because it imports torch at module load time;
+        # torch's c10.dll crashes PyInstaller's isolated analyzer with
+        # WinError 1114 / access violation on Windows. voice_control.py
+        # catches the missing dep and disables voice features gracefully.
+        'tensorflow', 'torch', 'whisper', 'openai-whisper',
+        'matplotlib', 'scipy',
         'Twisted', 'stem', 'PycURL', 'pymongo', 'redis',
         'logging-loki', 'prometheus-client',
         # ── Dev tools ──
