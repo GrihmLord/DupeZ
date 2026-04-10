@@ -54,10 +54,17 @@ VOICE_AVAILABLE: bool = False
 
 
 def _try_import(name: str) -> Any:
-    """Import *name* or return ``None`` if unavailable."""
+    """Import *name* or return ``None`` if unavailable.
+
+    Catches ``Exception`` (not just ``ImportError``) because optional deps
+    like ``whisper`` pull in ``torch``, which on Windows raises
+    ``OSError [WinError 1114]`` (DLL init failed) when its CUDA/C++
+    runtime is broken. That must not crash DupeZ — voice is optional.
+    """
     try:
         return __import__(name)
-    except ImportError:
+    except Exception as exc:  # noqa: BLE001 — deliberately broad
+        log_info(f"VoiceControl: optional import '{name}' failed ({type(exc).__name__}: {exc})")
         return None
 
 

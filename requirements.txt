@@ -1,7 +1,10 @@
 # DupeZ Runtime Dependencies
 
 # GUI
-PyQt6>=6.4.0
+# NOTE: PyQt6 and PyQt6-WebEngine MUST be the same minor version or
+# QtWebEngineCore.dll fails to load at import time. Pin them together.
+PyQt6>=6.6.0,<6.12
+PyQt6-WebEngine>=6.6.0,<6.12
 PyQtGraph>=0.13.0
 Pillow>=9.5.0
 
