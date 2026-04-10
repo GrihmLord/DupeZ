@@ -4,6 +4,8 @@ Central orchestrator for DupeZ: device scanning, disruption delegation,
 auto-scan loop, plugin lifecycle, and settings management.
 """
 
+from __future__ import annotations
+
 import socket
 import threading
 import time
@@ -15,10 +17,13 @@ from app.core.data_persistence import device_cache_manager, save_all_data
 from app.core.scheduler import DisruptionScheduler
 from app.core.state import AppSettings, AppState, Device
 from app.firewall import blocker
-from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
+from app.firewall.clumsy_network_disruptor import disruption_manager
 from app.logs.logger import log_error, log_info, log_network_scan
 from app.network import device_scan
 from app.plugins.loader import PluginLoader
+from app.utils.helpers import mask_ip
+
+__all__ = ["AppController"]
 
 
 class AppController:
@@ -33,7 +38,7 @@ class AppController:
         self._scan_lock = threading.Lock()
 
         self._load_device_cache()
-        self._init_clumsy()
+        self._init_engine()
 
         # Disruption scheduler + macro engine
         self.scheduler = DisruptionScheduler(
@@ -49,49 +54,49 @@ class AppController:
         if self.state.settings.auto_scan:
             self.start_auto_scan()
 
-    # ── Clumsy integration ────────────────────────────────────────
+    # ── Disruption engine ───────────────────────────────────────
 
-    def _init_clumsy(self) -> None:
-        """Initialise the WinDivert / Clumsy disruption engine."""
+    def _init_engine(self) -> None:
+        """Initialise the disruption engine (NativeWinDivert or clumsy.exe fallback)."""
         try:
-            if clumsy_network_disruptor.initialize():
-                clumsy_network_disruptor.start_clumsy()
-                log_info("Clumsy network disruptor initialized")
+            if disruption_manager.initialize():
+                disruption_manager.start()
+                log_info("Disruption engine initialized")
             else:
-                log_error("Clumsy initialization failed — check admin privileges and WinDivert files")
+                log_error("Disruption engine init failed — check admin privileges and WinDivert files")
         except Exception as e:
-            log_error(f"Clumsy init error: {e}")
+            log_error(f"Disruption engine init error: {e}")
 
     # ── Disruption delegation ─────────────────────────────────────
 
     def disrupt_device(self, ip: str, methods: Optional[List[str]] = None,
                        params: Optional[Dict] = None) -> bool:
         """Start disruption on *ip* with optional methods/params."""
-        return clumsy_network_disruptor.disconnect_device_clumsy(ip, methods, params)
+        return disruption_manager.disrupt_device(ip, methods, params)
 
     def stop_disruption(self, ip: str) -> bool:
         """Stop disruption on *ip*."""
-        return clumsy_network_disruptor.reconnect_device_clumsy(ip)
+        return disruption_manager.stop_device(ip)
 
     def stop_all_disruptions(self) -> bool:
         """Stop all active disruptions."""
-        return clumsy_network_disruptor.clear_all_disruptions_clumsy()
+        return disruption_manager.stop_all_devices()
 
     def get_disrupted_devices(self) -> List[str]:
         """Return list of currently disrupted IPs."""
-        return clumsy_network_disruptor.get_disrupted_devices_clumsy()
+        return disruption_manager.get_disrupted_devices()
 
     def get_disruption_status(self, ip: str) -> Dict:
         """Return disruption status for *ip*."""
-        return clumsy_network_disruptor.get_device_status_clumsy(ip)
+        return disruption_manager.get_device_status(ip)
 
     def get_clumsy_status(self) -> Dict:
         """Return overall engine status."""
-        return clumsy_network_disruptor.get_clumsy_status()
+        return disruption_manager.get_status()
 
     def get_engine_stats(self) -> Dict:
         """Return packet processing stats from all engines."""
-        return clumsy_network_disruptor.get_all_engine_stats()
+        return disruption_manager.get_engine_stats()
 
     # ── Device cache ──────────────────────────────────────────────
 
@@ -147,7 +152,7 @@ class AppController:
 
             real_devices = [d for d in devices if self._is_real_device(d)]
             for d in real_devices:
-                log_info(f"Found device: {d['ip']} — {d.get('hostname', 'Unknown')}")
+                log_info(f"Found device: {mask_ip(d['ip'])} — {d.get('hostname', 'Unknown')}")
 
             self.state.update_devices(real_devices)
             self._save_device_cache(real_devices)
@@ -334,7 +339,7 @@ class AppController:
             self.plugin_loader.unload_all()
             self.stop_auto_scan()
             self.scheduler.stop()
-            clumsy_network_disruptor.stop_clumsy()
+            disruption_manager.stop()
             save_all_data()
             log_info("Controller shutdown complete")
         except Exception as e:

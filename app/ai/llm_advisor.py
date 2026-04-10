@@ -15,28 +15,92 @@ It also explains WHY certain settings work and can answer questions
 about network disruption theory.
 """
 
+from __future__ import annotations
+
 import json
 import re
 import threading
 import urllib.request
-from typing import Optional, Callable
 from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional
+
 from app.logs.logger import log_info, log_error
 from app.utils.helpers import mask_ip
 
+__all__ = ["LLMConfig", "SYSTEM_PROMPT", "LLMAdvisor"]
+
+
+# Secret name used in SecretsManager for the LLM API key
+_LLM_SECRET_NAME: str = "llm_api_key"
+
+
 @dataclass
 class LLMConfig:
-    """Configuration for LLM connection."""
+    """Configuration for LLM connection.
+
+    The ``api_key`` field is intentionally **not stored in plaintext**.
+    When ``api_key`` is set directly, it is transparently migrated into
+    the encrypted SecretsManager on first use.  Subsequent loads retrieve
+    the key from the encrypted store.
+    """
     provider: str = "ollama"          # ollama, openai, none
     base_url: str = "http://localhost:11434"  # Ollama default
     model: str = "mistral"            # model name
-    api_key: str = ""                 # for remote APIs
+    api_key: str = ""                 # DEPRECATED — use secrets manager
     temperature: float = 0.3          # low = more deterministic
     max_tokens: int = 1024
     timeout: int = 30
 
-# System prompt that teaches the LLM about DupeZ's disruption system
-SYSTEM_PROMPT = """You are the DupeZ Smart Disruption Advisor. You help users configure optimal network disruption parameters for DayZ (UDP 2302, Enfusion engine, ~60 tick).
+    def __post_init__(self) -> None:
+        """Migrate plaintext api_key into encrypted secrets store."""
+        if self.api_key:
+            try:
+                from app.core.secrets_manager import get_secrets_manager, _LLM_SECRET_NAME
+                sm = get_secrets_manager()
+                sm.store(_LLM_SECRET_NAME, self.api_key)
+                self.api_key = ""  # clear plaintext
+                log_info("LLMConfig: migrated api_key to encrypted secrets store")
+            except Exception as e:
+                log_error(f"LLMConfig: failed to migrate api_key to secrets: {e}")
+
+    def get_api_key(self) -> str:
+        """Retrieve the API key from the encrypted secrets store.
+
+        Returns empty string if no key is stored or it has expired.
+        """
+        try:
+            from app.core.secrets_manager import get_secrets_manager, _LLM_SECRET_NAME
+            sm = get_secrets_manager()
+            return sm.retrieve(_LLM_SECRET_NAME) or ""
+        except Exception:
+            # Fallback to plaintext field (backwards compat during migration)
+            return self.api_key
+
+def _build_system_prompt() -> str:
+    """Build the system prompt dynamically from game profile data.
+
+    v5.1: No hardcoded game-specific values. Port, tick rate, and
+    platform info are loaded from the profile at runtime so the advisor
+    stays accurate across game updates.
+    """
+    try:
+        from app.config.game_profiles import get as gp_get, get_default_port, get_tick_model
+        port = get_default_port("dayz")
+        tm = get_tick_model("dayz")
+        tick_range = "{}-{}".format(
+            tm.get("expected_range_hz", [20, 120])[0],
+            tm.get("expected_range_hz", [20, 120])[1])
+        ack_bits = gp_get("dayz", "reliable_udp", "ack_bitfield_bits", default=32)
+        engine = gp_get("dayz", "engine", default="Enfusion")
+        game_intro = (
+            "You help users configure optimal network disruption parameters "
+            "for DayZ (UDP {port}, {engine} engine, {tick} Hz variable tick, "
+            "{ack}-bit ack bitfield reliable UDP).".format(
+                port=port, engine=engine, tick=tick_range, ack=ack_bits))
+    except Exception:
+        game_intro = ("You help users configure optimal network disruption parameters "
+                      "for DayZ (UDP, Enfusion engine, variable tick rate).")
+    return """You are the DupeZ Smart Disruption Advisor. """ + game_intro + """
 
 Disruption modules (processed in chain order — first consumer wins):
 - godmode: Directional lag — inbound packets lagged so target freezes, outbound pass through for real-time actions. Params: godmode_lag_ms (0-5000), godmode_drop_inbound_pct (0-100), godmode_keepalive_interval_ms (0-5000, default 800 — NAT keepalive)
@@ -84,6 +148,11 @@ Respond ONLY with a valid JSON object:
 
 Always include "direction": "both" in params. Be precise with numbers."""
 
+
+# Build once at import; rebuild on demand via _build_system_prompt()
+SYSTEM_PROMPT = _build_system_prompt()
+
+
 class LLMAdvisor:
     """Natural-language disruption advisor powered by LLM.
 
@@ -97,7 +166,7 @@ class LLMAdvisor:
         advisor.ask_async("heavy lag on xbox", callback=on_result)
     """
 
-    def __init__(self, config: LLMConfig = None):
+    def __init__(self, config: LLMConfig = None) -> None:
         self.config = config or LLMConfig()
         self._available = None  # lazy check
         self._conversation_history = []
@@ -117,12 +186,14 @@ class LLMAdvisor:
             if self.config.provider == "openai":
                 url = f"{self.config.base_url}/v1/models"
 
-            req = urllib.request.Request(url, method="GET")
-            if self.config.api_key:
-                req.add_header("Authorization", f"Bearer {self.config.api_key}")
+            _key = self.config.get_api_key()
+            hdrs = {}
+            if _key:
+                hdrs["Authorization"] = f"Bearer {_key}"
 
-            resp = urllib.request.urlopen(req, timeout=5)
-            self._available = resp.status == 200
+            from app.core.secure_http import secure_get
+            secure_get(url, headers=hdrs, timeout=5)
+            self._available = True
             if self._available:
                 log_info(f"LLMAdvisor: connected to {self.config.provider} "
                          f"at {self.config.base_url}")
@@ -176,8 +247,15 @@ class LLMAdvisor:
             if not response_text:
                 return self._fallback_interpret(prompt)
 
-            # Parse JSON from response
+            # Parse and validate JSON from LLM response
             result = self._extract_json(response_text)
+            if result:
+                # Run through centralized validation
+                try:
+                    from app.core.validation import validate_disruption_config
+                    result = validate_disruption_config(result)
+                except ImportError:
+                    pass
             if result:
                 # Store in conversation history (thread-safe for ask_async)
                 with self._history_lock:
@@ -199,7 +277,7 @@ class LLMAdvisor:
             return self._fallback_interpret(prompt)
 
     def ask_async(self, prompt: str, callback: Callable,
-                  profile_context: dict = None):
+                  profile_context: dict = None) -> None:
         """Ask in background thread."""
         def _run():
             result = self.ask(prompt, profile_context)
@@ -229,23 +307,24 @@ class LLMAdvisor:
             log_error(f"LLMAdvisor: explanation error: {e}")
             return self._fallback_explanation(config)
 
-    def reset_conversation(self):
+    def reset_conversation(self) -> None:
         """Clear conversation history."""
         with self._history_lock:
             self._conversation_history = []
 
     # LLM API calls
     def _post_json(self, url: str, payload: dict, headers: dict = None) -> Optional[dict]:
-        """POST JSON to a URL and return the parsed response dict, or None."""
-        hdrs = {"Content-Type": "application/json"}
-        if headers:
-            hdrs.update(headers)
-        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"),
-                                     method="POST", headers=hdrs)
+        """POST JSON to a URL and return the parsed response dict, or None.
+
+        Uses the secure HTTP client with TLS enforcement and URL validation.
+        """
         try:
-            resp = urllib.request.urlopen(req, timeout=self.config.timeout)
-            return json.loads(resp.read().decode("utf-8"))
-        except Exception as e:
+            from app.core.secure_http import secure_post_json
+            return secure_post_json(
+                url, payload, headers=headers,
+                timeout=self.config.timeout,
+            )
+        except (ValueError, Exception) as e:
             log_error(f"LLMAdvisor: API call to {url} failed: {e}")
             return None
 
@@ -260,7 +339,8 @@ class LLMAdvisor:
             return data.get("message", {}).get("content", "") if data else None
 
         if self.config.provider == "openai":
-            hdrs = {"Authorization": f"Bearer {self.config.api_key}"} if self.config.api_key else {}
+            _api_key = self.config.get_api_key()
+            hdrs = {"Authorization": f"Bearer {_api_key}"} if _api_key else {}
             data = self._post_json(f"{self.config.base_url}/v1/chat/completions", {
                 "model": self.config.model, "messages": messages,
                 "temperature": self.config.temperature, "max_tokens": self.config.max_tokens,

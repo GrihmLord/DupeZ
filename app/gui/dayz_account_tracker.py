@@ -1,21 +1,44 @@
-# app/gui/dayz_account_tracker.py
+# app/gui/dayz_account_tracker.py — DayZ Account Tracker
+"""DayZ multi-account tracker with CSV/XLSX import/export.
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                             QPushButton, QTableWidget, QTableWidgetItem,
-                             QLineEdit, QComboBox, QTextEdit, QGroupBox,
-                             QMessageBox,
-                             QFormLayout, QDialog)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont, QColor
-import os
+``DayZAccountTracker`` presents a searchable, sortable table of game
+accounts with per-row status colouring, bulk operations, and full
+CRUD via a modal dialog.  Persistence is delegated to
+``app.core.data_persistence.account_manager``.
+"""
+
+from __future__ import annotations
+
 import csv
-from typing import Dict, Optional
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
 
-from app.logs.logger import log_info, log_error, log_warning
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
+
 from app.core.data_persistence import account_manager
+from app.logs.logger import log_error, log_info, log_warning
 
-# Shared constants
+__all__ = ["DayZAccountTracker"]
+
+# ── Shared constants ───────────────────────────────────────────────
 ACCOUNT_FIELDS = ['account', 'email', 'location', 'value', 'status',
                   'station', 'gear', 'holding', 'loadout', 'needs']
 TABLE_HEADERS = ['Account', 'Email', 'Location', 'Value', 'Status',
@@ -27,28 +50,104 @@ STATUS_COLORS = {
     'Dead':            QColor(158, 158, 158),
     'Offline':         QColor(96, 125, 139),
 }
-STATUS_LABEL_STYLES = {k: f"color: #{c.red():02X}{c.green():02X}{c.blue():02X};"
-                       for k, c in STATUS_COLORS.items()}
+STATUS_LABEL_STYLES: Dict[str, str] = {
+    k: f"color: #{c.red():02X}{c.green():02X}{c.blue():02X};"
+    for k, c in STATUS_COLORS.items()
+}
+
+#: Known header synonyms for XLSX column auto-detection.
+_XLSX_KNOWN_HEADERS: Dict[str, str] = {
+    "account": "account", "name": "account", "player": "account",
+    "email": "email", "e-mail": "email",
+    "location": "location", "loc": "location",
+    "status": "status",
+    "station": "station", "kit": "station",
+    "gear": "gear", "equipment": "gear",
+    "holding": "holding", "inventory": "holding",
+    "loadout": "loadout", "weapons": "loadout",
+    "needs": "needs", "need": "needs",
+    "value": "value",
+}
+
+#: Default column order when no header row is detected.
+_XLSX_DEFAULT_FIELDS: List[str] = [
+    "account", "email", "location", "status", "station",
+    "gear", "holding", "loadout", "needs",
+]
+
+# ── QSS constants ──────────────────────────────────────────────────
+
+_TRACKER_QSS: str = """
+    QWidget { background-color: #0f1923; color: #e0e0e0; }
+    QGroupBox {
+        color: #00d9ff; font-weight: bold; font-size: 12px;
+        border: 1px solid #1a2a3a; border-radius: 6px;
+        margin-top: 10px; padding: 12px 8px 8px 8px;
+        background: #0f1923;
+    }
+    QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
+    QPushButton {
+        background: #16213e; color: #e0e0e0; border: 1px solid #0f3460;
+        padding: 6px 12px; border-radius: 4px; font-size: 11px;
+    }
+    QPushButton:hover { background: #0f3460; color: #00d9ff; }
+    QPushButton:pressed { background: #00d9ff; color: #0a0a0a; }
+    QLineEdit {
+        background: #0a1628; color: #e0e0e0; border: 1px solid #1a2a3a;
+        border-radius: 4px; padding: 6px 10px; font-size: 12px;
+    }
+    QLineEdit:focus { border: 1px solid #00d9ff; }
+    QTableWidget {
+        background-color: #0f1923; color: #e0e0e0;
+        border: 1px solid #1a2a3a; gridline-color: #1a2a3a; font-size: 12px;
+    }
+    QTableWidget::item:selected { background-color: rgba(0, 217, 255, 0.2); color: #fff; }
+    QTableWidget::item:alternate { background-color: #0a1628; }
+    QHeaderView::section {
+        background-color: #16213e; color: #00d9ff; padding: 6px;
+        border: 1px solid #1a2a3a; font-weight: bold; font-size: 11px;
+    }
+    QLabel { color: #e0e0e0; }
+    QComboBox {
+        background: #0a1628; color: #e0e0e0; border: 1px solid #1a2a3a;
+        border-radius: 4px; padding: 4px 10px;
+    }
+    QComboBox QAbstractItemView {
+        background: #0f1923; color: #e0e0e0;
+        selection-background-color: rgba(0, 217, 255, 0.3);
+    }
+"""
+
+_HEADER_QSS: str = "color: #00d9ff; letter-spacing: 2px; padding: 4px;"
+
+_STAT_QSS: str = "font-weight: bold; font-size: 12px; padding: 4px 8px;"
+
+
+# ── DayZAccountTracker ─────────────────────────────────────────────
 
 class DayZAccountTracker(QWidget):
-    """Comprehensive DayZ account tracker with enhanced features"""
+    """Searchable, sortable account table with CRUD, CSV/XLSX I/O, and bulk ops.
 
-    def __init__(self, controller=None):
+    Falls back to a minimal error label when initialisation fails so the
+    rest of the dashboard remains usable.
+    """
+
+    def __init__(self, controller: Any = None) -> None:
         super().__init__()
-        self.controller = controller
-        self.accounts = []
-        self.current_account = None
-        self.selected_accounts = set()  # Track multiple selections
+        self.controller: Any = controller
+        self.accounts: List[Dict[str, Any]] = []
+        self.current_account: Optional[Dict[str, Any]] = None
+        self.selected_accounts: Set[str] = set()
 
         try:
-            self.setup_ui()
-            self.load_accounts()
+            self._build_ui()
+            self._load_accounts()
         except Exception as e:
             log_error(f"Failed to initialize DayZ Account Tracker: {e}")
             self._create_fallback_ui()
 
-    def _create_fallback_ui(self):
-        """Create a minimal fallback UI if initialization fails"""
+    def _create_fallback_ui(self) -> None:
+        """Create a minimal fallback UI if initialisation fails."""
         try:
             layout = QVBoxLayout()
 
@@ -62,67 +161,26 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to create fallback UI: {e}")
 
-    def setup_ui(self):
-        """Setup the account tracker UI"""
-        # Apply cascading dark theme to entire widget
-        self.setStyleSheet("""
-            QWidget { background-color: #0f1923; color: #e0e0e0; }
-            QGroupBox {
-                color: #00d9ff; font-weight: bold; font-size: 12px;
-                border: 1px solid #1a2a3a; border-radius: 6px;
-                margin-top: 10px; padding: 12px 8px 8px 8px;
-                background: #0f1923;
-            }
-            QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }
-            QPushButton {
-                background: #16213e; color: #e0e0e0; border: 1px solid #0f3460;
-                padding: 6px 12px; border-radius: 4px; font-size: 11px;
-            }
-            QPushButton:hover { background: #0f3460; color: #00d9ff; }
-            QPushButton:pressed { background: #00d9ff; color: #0a0a0a; }
-            QLineEdit {
-                background: #0a1628; color: #e0e0e0; border: 1px solid #1a2a3a;
-                border-radius: 4px; padding: 6px 10px; font-size: 12px;
-            }
-            QLineEdit:focus { border: 1px solid #00d9ff; }
-            QTableWidget {
-                background-color: #0f1923; color: #e0e0e0;
-                border: 1px solid #1a2a3a; gridline-color: #1a2a3a; font-size: 12px;
-            }
-            QTableWidget::item:selected { background-color: rgba(0, 217, 255, 0.2); color: #fff; }
-            QTableWidget::item:alternate { background-color: #0a1628; }
-            QHeaderView::section {
-                background-color: #16213e; color: #00d9ff; padding: 6px;
-                border: 1px solid #1a2a3a; font-weight: bold; font-size: 11px;
-            }
-            QLabel { color: #e0e0e0; }
-            QComboBox {
-                background: #0a1628; color: #e0e0e0; border: 1px solid #1a2a3a;
-                border-radius: 4px; padding: 4px 10px;
-            }
-            QComboBox QAbstractItemView {
-                background: #0f1923; color: #e0e0e0;
-                selection-background-color: rgba(0, 217, 255, 0.3);
-            }
-        """)
+    # ── UI construction ─────────────────────────────────────────────
+
+    def _build_ui(self) -> None:
+        """Assemble the tracker: header + management panel."""
+        self.setStyleSheet(_TRACKER_QSS)
 
         layout = QVBoxLayout()
         layout.setSpacing(10)
         layout.setContentsMargins(12, 12, 12, 12)
         self.setLayout(layout)
 
-        # Header
         header = QLabel("ACCOUNT TRACKER")
         header.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        header.setStyleSheet("color: #00d9ff; letter-spacing: 2px; padding: 4px;")
+        header.setStyleSheet(_HEADER_QSS)
         layout.addWidget(header)
 
-        # Account management panel (full width)
-        account_panel = self.create_account_panel()
-        layout.addWidget(account_panel)
+        layout.addWidget(self._create_account_panel())
 
-    def create_account_panel(self) -> QWidget:
-        """Create the account management panel"""
+    def _create_account_panel(self) -> QWidget:
+        """Build the account management panel (controls + stats + table)."""
         panel = QWidget()
         layout = QVBoxLayout()
 
@@ -133,14 +191,14 @@ class DayZAccountTracker(QWidget):
         controls_layout.setSpacing(5)  # Reduce spacing between buttons
 
         for attr, text, handler in [
-            ("add_account_btn", "➕ Add", self.add_account),
-            ("edit_account_btn", "✏️ Edit", self.edit_account),
-            ("delete_account_btn", "🗑️ Delete", self.delete_account),
-            ("bulk_ops_btn", "⚡ Bulk Ops", self.show_bulk_operations),
-            ("upload_btn", "📁 Upload", self.upload_accounts),
-            ("export_csv_btn", "💾 Export", self.export_csv_accounts),
-            ("clear_table_btn", "🗑️ Clear All", self.clear_account_table),
-            ("refresh_btn", "🔄 Refresh", self.refresh_account_table),
+            ("add_account_btn", "➕ Add", self._add_account),
+            ("edit_account_btn", "✏️ Edit", self._edit_account),
+            ("delete_account_btn", "🗑️ Delete", self._delete_account),
+            ("bulk_ops_btn", "⚡ Bulk Ops", self._show_bulk_operations),
+            ("upload_btn", "📁 Upload", self._upload_accounts),
+            ("export_csv_btn", "💾 Export", self._export_csv_accounts),
+            ("clear_table_btn", "🗑️ Clear All", self._clear_account_table),
+            ("refresh_btn", "🔄 Refresh", self._refresh_account_table),
         ]:
             btn = QPushButton(text)
             btn.clicked.connect(handler)
@@ -150,7 +208,7 @@ class DayZAccountTracker(QWidget):
         # Search functionality
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("🔍 Search accounts...")
-        self.search_input.textChanged.connect(self.filter_accounts)
+        self.search_input.textChanged.connect(self._filter_accounts)
         controls_layout.addWidget(self.search_input)
 
         controls_group.setLayout(controls_layout)
@@ -160,7 +218,6 @@ class DayZAccountTracker(QWidget):
         stats_group = QGroupBox("📊 Account Statistics")
 
         stats_layout = QHBoxLayout()
-        _stat_qss = "font-weight: bold; font-size: 12px; padding: 4px 8px;"
         stat_defs = [
             ("total_accounts_label", "Total: 0", "#00d9ff"),
             ("ready_accounts_label", "Ready: 0", "#4CAF50"),
@@ -171,7 +228,7 @@ class DayZAccountTracker(QWidget):
         ]
         for attr, text, color in stat_defs:
             lbl = QLabel(text)
-            lbl.setStyleSheet(f"color: {color}; {_stat_qss}")
+            lbl.setStyleSheet(f"color: {color}; {_STAT_QSS}")
             setattr(self, attr, lbl)
             stats_layout.addWidget(lbl)
 
@@ -184,7 +241,7 @@ class DayZAccountTracker(QWidget):
         table_layout = QVBoxLayout()
 
         self.account_table = QTableWidget()
-        self.setup_account_table()
+        self._setup_account_table()
         table_layout.addWidget(self.account_table)
 
         table_group.setLayout(table_layout)
@@ -200,8 +257,8 @@ class DayZAccountTracker(QWidget):
         panel.setLayout(layout)
         return panel
 
-    def setup_account_table(self, accounts_to_show=None):
-        """Setup the account table with data"""
+    def _setup_account_table(self, accounts_to_show: Optional[List[Dict[str, Any]]] = None) -> None:
+        """Populate the account table, optionally with a filtered subset."""
         try:
             accounts = accounts_to_show if accounts_to_show is not None else self.accounts
 
@@ -226,7 +283,7 @@ class DayZAccountTracker(QWidget):
                     status_item.setBackground(STATUS_COLORS[status_item.text()])
 
             # Connect selection change
-            self.account_table.itemSelectionChanged.connect(self.on_account_selected)
+            self.account_table.itemSelectionChanged.connect(self._on_account_selected)
 
             # Auto-resize columns
             self.account_table.resizeColumnsToContents()
@@ -234,10 +291,12 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to setup account table: {e}")
 
-    def add_account(self):
-        """Add a new account"""
+    # ── Account CRUD ─────────────────────────────────────────────────
+
+    def _add_account(self) -> None:
+        """Open the account dialog and persist a new record."""
         try:
-            account_data = self.show_account_dialog()
+            account_data = self._show_account_dialog()
             if account_data:
                 # Add unique ID and use consistent field names
                 account_data['id'] = len(account_manager.accounts) + 1
@@ -248,7 +307,7 @@ class DayZAccountTracker(QWidget):
 
                 # Refresh local accounts list and UI
                 self.accounts = account_manager.accounts
-                self.refresh_account_table()
+                self._refresh_account_table()
 
                 self.status_label.setText(f"Added account: {account_data.get('account', '')}")
                 log_info(f"Added new account: {account_data.get('account', '')}")
@@ -257,14 +316,14 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to add account: {e}")
             QMessageBox.critical(self, "Error", f"Failed to add account: {e}")
 
-    def edit_account(self):
-        """Edit the selected account"""
+    def _edit_account(self) -> None:
+        """Edit the currently selected account via dialog."""
         try:
             if not self.current_account:
                 QMessageBox.information(self, "No Selection", "Please select an account to edit.")
                 return
 
-            account_data = self.show_account_dialog(self.current_account)
+            account_data = self._show_account_dialog(self.current_account)
             if account_data:
                 # Update the account with consistent field names
                 self.current_account.update(account_data)
@@ -275,7 +334,7 @@ class DayZAccountTracker(QWidget):
 
                 # Refresh local accounts list and UI
                 self.accounts = account_manager.accounts
-                self.refresh_account_table()
+                self._refresh_account_table()
 
                 self.status_label.setText(f"Updated account: {self.current_account.get('account', '')}")
                 log_info(f"Updated account: {self.current_account.get('account', '')}")
@@ -284,8 +343,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to edit account: {e}")
             QMessageBox.critical(self, "Error", f"Failed to edit account: {e}")
 
-    def delete_account(self):
-        """Delete the selected account"""
+    def _delete_account(self) -> None:
+        """Delete the currently selected account after confirmation."""
         try:
             if not self.current_account:
                 QMessageBox.information(self, "No Selection", "Please select an account to delete.")
@@ -306,8 +365,8 @@ class DayZAccountTracker(QWidget):
 
                 # Refresh local accounts list and UI
                 self.accounts = account_manager.accounts
-                self.refresh_account_table()
-                self.clear_account_details()
+                self._refresh_account_table()
+                self._clear_account_details()
 
                 self.status_label.setText(f"Deleted account: {account_name}")
                 log_info(f"Deleted account: {account_name}")
@@ -316,8 +375,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to delete account: {e}")
             QMessageBox.critical(self, "Error", f"Failed to delete account: {e}")
 
-    def show_account_dialog(self, account_data=None) -> Optional[Dict]:
-        """Show account input dialog"""
+    def _show_account_dialog(self, account_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, str]]:
+        """Present a modal form for creating or editing an account."""
         try:
             dialog = QDialog(self)
             dialog.setWindowTitle("Account Details")
@@ -410,8 +469,10 @@ class DayZAccountTracker(QWidget):
             log_error(f"Account dialog error: {e}")
             return None
 
-    def on_account_selected(self):
-        """Handle account selection change"""
+    # ── Selection and state ──────────────────────────────────────────
+
+    def _on_account_selected(self) -> None:
+        """Handle account selection change in the table."""
         try:
             current_row = self.account_table.currentRow()
             if current_row >= 0:
@@ -428,26 +489,33 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to handle account selection: {e}")
 
-    def load_accounts(self):
-        """Load accounts from storage"""
+    def _clear_account_details(self) -> None:
+        """Reset the current selection state."""
+        self.current_account = None
+        self.status_label.setText("Ready to manage DayZ accounts")
+
+    # ── Persistence ─────────────────────────────────────────────────
+
+    def _load_accounts(self) -> None:
+        """Load accounts from the persistence layer."""
         try:
             self.accounts = account_manager.accounts.copy()
-            self.refresh_account_table()
-            self.update_statistics()
+            self._refresh_account_table()
+            self._update_statistics()
             log_info(f"Loaded {len(self.accounts)} accounts")
         except Exception as e:
             log_error(f"Failed to load accounts: {e}")
             self.accounts = []
 
-    def save_accounts(self):
-        """Save accounts to storage"""
+    def _save_accounts(self) -> None:
+        """Flush the local account list back to the persistence layer."""
         try:
             account_manager.accounts = self.accounts.copy()
             account_manager.save_changes(account_manager.accounts)
         except Exception as e:
             log_error(f"Failed to save accounts: {e}")
 
-    def _refresh_after_import(self):
+    def _refresh_after_import(self) -> None:
         """Common post-import refresh: save, rebuild table, update stats."""
         try:
             account_manager.save_changes(account_manager.accounts)
@@ -456,20 +524,22 @@ class DayZAccountTracker(QWidget):
         self.account_table.clearContents()
         self.account_table.setRowCount(0)
         self.accounts = account_manager.accounts.copy()
-        self.setup_account_table(self.accounts)
-        self.update_statistics()
+        self._setup_account_table(self.accounts)
+        self._update_statistics()
         self.account_table.resizeColumnsToContents()
 
-    def refresh_account_table(self):
-        """Refresh the account table display"""
+    # ── Table refresh / filter ────────────────────────────────────────
+
+    def _refresh_account_table(self) -> None:
+        """Rebuild the table from the current account list."""
         try:
-            self.setup_account_table()
-            self.update_statistics()
+            self._setup_account_table()
+            self._update_statistics()
         except Exception as e:
             log_error(f"Failed to refresh account table: {e}")
 
-    def clear_account_table(self):
-        """Clear all accounts from the table"""
+    def _clear_account_table(self) -> None:
+        """Clear all accounts after user confirmation."""
         try:
             reply = QMessageBox.question(
                 self,
@@ -486,29 +556,31 @@ class DayZAccountTracker(QWidget):
 
                 # Refresh local accounts list and UI
                 self.accounts = account_manager.accounts
-                self.refresh_account_table()
+                self._refresh_account_table()
                 self.status_label.setText("All accounts cleared")
                 log_info("All accounts cleared")
         except Exception as e:
             log_error(f"Failed to clear accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to clear accounts: {e}")
 
-    def filter_accounts(self, search_text: str):
-        """Filter accounts based on search text"""
+    def _filter_accounts(self, search_text: str) -> None:
+        """Filter the table rows by a case-insensitive search term."""
         try:
             if not search_text:
-                self.refresh_account_table()
+                self._refresh_account_table()
                 return
             search_lower = search_text.lower()
             filtered = [a for a in self.accounts
                         if any(search_lower in a.get(f, '').lower()
                                for f in ACCOUNT_FIELDS)]
-            self.setup_account_table(filtered)
+            self._setup_account_table(filtered)
         except Exception as e:
             log_error(f"Failed to filter accounts: {e}")
 
-    def update_statistics(self):
-        """Update the account statistics display"""
+    # ── Statistics ──────────────────────────────────────────────────
+
+    def _update_statistics(self) -> None:
+        """Recompute and display account status counts."""
         try:
             from collections import Counter
             counts = Counter(a.get('status', '') for a in self.accounts)
@@ -521,8 +593,10 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to update statistics: {e}")
 
-    def upload_accounts(self):
-        """Upload accounts from CSV or XLSX file"""
+    # ── Import / Export ─────────────────────────────────────────────
+
+    def _upload_accounts(self) -> None:
+        """Prompt for a CSV or XLSX file and import its rows."""
         try:
             from PyQt6.QtWidgets import QFileDialog
 
@@ -546,8 +620,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to upload accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to upload accounts: {e}")
 
-    def _process_xlsx_file(self, file_path: str):
-        """Process XLSX file and import accounts, handling dual-section format (accounts + bases)"""
+    def _process_xlsx_file(self, file_path: str) -> None:
+        """Import accounts from an XLSX workbook with auto-detected headers."""
         try:
             import openpyxl
 
@@ -556,20 +630,8 @@ class DayZAccountTracker(QWidget):
 
             # --- Detect header row and column mapping ---
             # Scan first 5 rows to find a row with recognizable header keywords
-            header_row_idx = None
-            header_map = {}  # col_index -> normalized_field_name
-            known_headers = {
-                'account': 'account', 'name': 'account', 'player': 'account',
-                'email': 'email', 'e-mail': 'email',
-                'location': 'location', 'loc': 'location',
-                'status': 'status',
-                'station': 'station', 'kit': 'station',
-                'gear': 'gear', 'equipment': 'gear',
-                'holding': 'holding', 'inventory': 'holding',
-                'loadout': 'loadout', 'weapons': 'loadout',
-                'needs': 'needs', 'need': 'needs',
-                'value': 'value',
-            }
+            header_row_idx: Optional[int] = None
+            header_map: Dict[int, str] = {}  # col_index -> normalised field name
 
             for row_idx in range(1, min(6, sheet.max_row + 1)):
                 row_vals = []
@@ -581,8 +643,8 @@ class DayZAccountTracker(QWidget):
                 # Check if this row looks like a header (2+ recognized keywords)
                 matches = {}
                 for col_idx, val in row_vals:
-                    if val in known_headers:
-                        matches[col_idx] = known_headers[val]
+                    if val in _XLSX_KNOWN_HEADERS:
+                        matches[col_idx] = _XLSX_KNOWN_HEADERS[val]
 
                 if len(matches) >= 2:
                     header_row_idx = row_idx
@@ -592,10 +654,8 @@ class DayZAccountTracker(QWidget):
             if header_row_idx is None:
                 # Fallback: assume row 1 is header with positional mapping
                 header_row_idx = 1
-                # Default column order matching common XLSX layout
-                default_fields = ['account', 'email', 'location', 'status', 'station', 'gear', 'holding', 'loadout', 'needs']
-                for col_idx in range(1, min(len(default_fields) + 1, sheet.max_column + 1)):
-                    header_map[col_idx] = default_fields[col_idx - 1]
+                for col_idx in range(1, min(len(_XLSX_DEFAULT_FIELDS) + 1, sheet.max_column + 1)):
+                    header_map[col_idx] = _XLSX_DEFAULT_FIELDS[col_idx - 1]
 
             log_info(f"XLSX header detected at row {header_row_idx}: {header_map}")
 
@@ -612,7 +672,7 @@ class DayZAccountTracker(QWidget):
                     # Check if this looks like a section header (not an account name with "base" in it)
                     cell_b = sheet.cell(row=row_idx, column=2).value
                     # If column B is empty or also contains a header-like word, it's a section break
-                    if cell_b is None or str(cell_b).strip().lower() in known_headers:
+                    if cell_b is None or str(cell_b).strip().lower() in _XLSX_KNOWN_HEADERS:
                         bases_start_row = row_idx
                         log_info(f"XLSX bases section detected at row {bases_start_row}")
                         break
@@ -714,8 +774,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to process XLSX file: {e}")
             QMessageBox.critical(self, "Error", f"Failed to process XLSX file:\n{e}")
 
-    def _process_csv_file(self, file_path: str):
-        """Process CSV file and import accounts"""
+    def _process_csv_file(self, file_path: str) -> None:
+        """Import accounts from a CSV file with header-based column mapping."""
         try:
             accounts_imported = 0
             accounts_skipped = 0
@@ -783,8 +843,10 @@ class DayZAccountTracker(QWidget):
         log_info(f"Imported account: {account_data['account']}")
         return True
 
+    # ── Validation helpers ──────────────────────────────────────────
+
     def _validate_account_data(self, data: Dict[str, str]) -> bool:
-        """Enhanced validation for account data"""
+        """Return *True* if *data* contains a valid account name and email."""
         try:
             # Check if account field has meaningful content
             account = data.get('account', '').strip()
@@ -810,8 +872,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Error in account validation: {e}")
             return False
 
-    def _is_duplicate_account(self, account_data: Dict) -> bool:
-        """Check if account is a duplicate using account manager"""
+    def _is_duplicate_account(self, account_data: Dict[str, Any]) -> bool:
+        """Return *True* if an account with the same name+email already exists."""
         try:
             for account in account_manager.accounts:
                 if (account.get('account') == account_data.get('account') and
@@ -822,8 +884,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to check for duplicate account: {e}")
             return False
 
-    def export_csv_accounts(self):
-        """Export accounts to CSV or XLSX file"""
+    def _export_csv_accounts(self) -> None:
+        """Export accounts to a CSV or XLSX file chosen via a save dialog."""
         try:
             from PyQt6.QtWidgets import QFileDialog
             import csv
@@ -865,8 +927,8 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to export CSV accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to export CSV accounts: {e}")
 
-    def _export_xlsx(self, file_path: str):
-        """Export accounts to a formatted XLSX file"""
+    def _export_xlsx(self, file_path: str) -> None:
+        """Write accounts to a styled XLSX workbook with frozen header row."""
         try:
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -938,8 +1000,10 @@ class DayZAccountTracker(QWidget):
             log_error(f"XLSX export failed: {e}")
             raise
 
-    def show_bulk_operations(self):
-        """Show bulk operations dialog"""
+    # ── Bulk operations ─────────────────────────────────────────────
+
+    def _show_bulk_operations(self) -> None:
+        """Present a dialog for batch status changes or deletion."""
         try:
             if not self.accounts:
                 QMessageBox.information(self, "No Accounts", "No accounts available for bulk operations.")
@@ -1003,15 +1067,15 @@ class DayZAccountTracker(QWidget):
                 operation = operation_combo.currentText()
 
                 if operation == "Delete All Accounts":
-                    self.clear_account_table()
+                    self._clear_account_table()
                 elif operation == "Change Status for All Accounts":
                     new_status = status_combo.currentText()
                     for account in self.accounts:
                         account['status'] = new_status
                         account['modified_date'] = datetime.now().isoformat()
 
-                    self.save_accounts()
-                    self.refresh_account_table()
+                    self._save_accounts()
+                    self._refresh_account_table()
                     self.status_label.setText(f"Changed status to '{new_status}' for all accounts")
                     QMessageBox.information(
                         self,
@@ -1019,7 +1083,7 @@ class DayZAccountTracker(QWidget):
                         f"Changed status to '{new_status}' for all accounts."
                     )
                 elif operation == "Export Selected Accounts":
-                    self.export_csv_accounts()
+                    self._export_csv_accounts()
 
         except Exception as e:
             log_error(f"Failed to show bulk operations: {e}")

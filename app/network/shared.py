@@ -7,7 +7,11 @@ The ``VENDOR_OUIS`` dict maps the first three octets of a MAC address
 maps known hostnames (lowercase) to a vendor override.
 """
 
+from __future__ import annotations
+
 from typing import Dict
+
+__all__ = ["lookup_vendor"]
 
 # Common MAC OUI prefixes -> vendor name
 VENDOR_OUIS: Dict[str, str] = {

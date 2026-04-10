@@ -1,0 +1,178 @@
+{
+  "game": "DayZ",
+  "engine": "Enfusion",
+  "version_notes": "Calibrated for DayZ 1.29+ (April 2026). All values are defaults that can be overridden by auto-calibration.",
+
+  "network": {
+    "protocol": "udp",
+    "default_port": 2302,
+    "port_range": [2302, 2305],
+    "steam_ports": [27015, 27016, 27017],
+    "auxiliary_ports": [9306, 9308],
+    "all_known_ports": [2302, 2303, 2304, 2305, 9306, 9308, 27015, 27016, 27017],
+    "port_auto_detect": true,
+    "port_auto_detect_method": "highest_pps_udp_flow"
+  },
+
+  "tick_model": {
+    "expected_range_hz": [20, 120],
+    "default_estimate_hz": 60,
+    "iat_min_sec": 0.001,
+    "iat_max_sec": 0.500,
+    "packets_per_second_max": 30,
+    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically."
+  },
+
+  "reliable_udp": {
+    "protocol_style": "gafferon_games",
+    "header_size_bytes": 16,
+    "ack_bitfield_bits": 32,
+    "ack_redundancy_count": 32,
+    "ack_timeout_sec": 1.0,
+    "notes": "Each ack is sent 32 times via bitfield. Need burst >32 packets to cause genuine desync."
+  },
+
+  "packet_classification": {
+    "auto_calibrate": true,
+    "calibration_duration_sec": 10,
+    "size_thresholds": {
+      "keepalive_max_bytes": 60,
+      "movement_max_bytes": 150,
+      "state_max_bytes": 500,
+      "bulk_min_bytes": 500,
+      "notes": "Defaults used until auto-calibration completes. Based on pre-1.29 traffic captures."
+    },
+    "frequency_thresholds": {
+      "high_pps": 25,
+      "medium_pps": 5,
+      "low_pps": 5,
+      "notes": "Defaults. Auto-calibration derives from detected tick rate."
+    },
+    "size_percentiles": {
+      "keepalive": "P10",
+      "movement": "P40",
+      "state": "P75",
+      "bulk": "P90",
+      "notes": "During calibration, thresholds are set to these percentiles of observed packet sizes."
+    }
+  },
+
+  "game_state_detection": {
+    "auto_calibrate": true,
+    "thresholds": {
+      "disconnected_pps": 2,
+      "menu_pps": 10,
+      "menu_avg_size": 200,
+      "loading_bps": 50000,
+      "loading_avg_size": 500,
+      "combat_pps": 40,
+      "combat_outbound_ratio": 0.8,
+      "notes": "Absolute defaults. With auto_calibrate=true, these become multipliers against baseline."
+    },
+    "baseline_multipliers": {
+      "disconnected": 0.05,
+      "menu": 0.25,
+      "loading_bps": 3.0,
+      "combat_pps": 1.5,
+      "notes": "When auto-calibrating: disconnected = baseline * 0.05, menu = baseline * 0.25, etc."
+    }
+  },
+
+  "disruption_defaults": {
+    "lag_delay_ms": 1500,
+    "drop_chance_pct": 95,
+    "disconnect_chance_pct": 100,
+    "bandwidth_limit_kbps": 1,
+    "bandwidth_queue": 0,
+    "throttle_chance_pct": 100,
+    "throttle_frame_ms": 400,
+    "throttle_drop": true,
+    "direction": "both",
+    "godmode_lag_ms": 3000,
+    "godmode_drop_inbound_pct": 0,
+    "godmode_keepalive_interval_ms": 800,
+    "godmode_keepalive_auto_calibrate": true,
+    "godmode_lag_queue_maxlen": 10000,
+    "notes": "3s god mode lag is enough for state desync at any tick rate."
+  },
+
+  "burst_strategy": {
+    "pulse_burst_ticks": 3,
+    "pulse_rest_ticks": 5,
+    "notes": "3 burst / 5 rest stays below DayZ 1.27+ freeze detection sliding window."
+  },
+
+  "nat_keepalive": {
+    "default_interval_ms": 800,
+    "auto_calibrate": true,
+    "min_interval_ms": 200,
+    "max_interval_ms": 5000,
+    "probe_method": "observe_minimum_stable_interval",
+    "notes": "Auto-calibrate by observing the minimum packet interval that maintains NAT mapping."
+  },
+
+  "network_bubble": {
+    "radius_meters": 900,
+    "batch_send_create": 10,
+    "notes": "networkObjectBatchSendCreate = 10 objects/frame default."
+  },
+
+  "anti_cheat": {
+    "name": "BattlEye",
+    "kernel_mode": true,
+    "detection_vectors": [
+      "PiDDBCache driver signature scan",
+      "MmUnloadedDrivers scan",
+      "WFP filter enumeration (FwpmFilterEnum0)",
+      "Process/DLL module scanning",
+      "Sigma rule 679085d5 (WinDivert filename + IMPHASH)"
+    ],
+    "stealth_recommendations": {
+      "avoid_windivert_default_names": true,
+      "prefer_ndis_backend": true,
+      "behavioral_stealth": true,
+      "timing_randomization": true
+    }
+  },
+
+  "platform_support": {
+    "ps5": {
+      "connection_method": "ics_hotspot",
+      "gateway_subnet": "192.168.137.0/24",
+      "interception_layer": "NETWORK_FORWARD",
+      "nat_sensitivity": "high",
+      "keepalive_interval_ms": 800,
+      "notes": "PS5 via ICS hotspot. Laptop is gateway. WinDivert NETWORK_FORWARD layer."
+    },
+    "ps4": {
+      "connection_method": "ics_hotspot",
+      "gateway_subnet": "192.168.137.0/24",
+      "interception_layer": "NETWORK_FORWARD",
+      "nat_sensitivity": "high",
+      "keepalive_interval_ms": 800
+    },
+    "xbox_series": {
+      "connection_method": "ics_hotspot",
+      "gateway_subnet": "192.168.137.0/24",
+      "interception_layer": "NETWORK_FORWARD",
+      "nat_sensitivity": "medium",
+      "keepalive_interval_ms": 1000,
+      "notes": "Xbox Series X/S. Similar ICS setup. Xbox NAT is slightly more tolerant."
+    },
+    "xbox_one": {
+      "connection_method": "ics_hotspot",
+      "gateway_subnet": "192.168.137.0/24",
+      "interception_layer": "NETWORK_FORWARD",
+      "nat_sensitivity": "medium",
+      "keepalive_interval_ms": 1000
+    },
+    "pc": {
+      "connection_method": "local",
+      "gateway_subnet": null,
+      "interception_layer": "NETWORK",
+      "nat_sensitivity": "low",
+      "keepalive_interval_ms": 2000,
+      "notes": "PC target on same machine or LAN. Use NETWORK layer (not FORWARD). No NAT concerns if local."
+    }
+  }
+}

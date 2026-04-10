@@ -8,6 +8,8 @@ Provides:
     and Qt thread marshaling for safe background → GUI notifications.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import threading
@@ -17,6 +19,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip
+
+__all__ = ["Device", "AppSettings", "AppState"]
 
 
 def _is_main_thread() -> bool:
@@ -283,7 +287,18 @@ class AppState:
     def update_setting(self, key: str, value: Any) -> None:
         """Update a single setting by name and persist."""
         if hasattr(self.settings, key):
+            old_value = getattr(self.settings, key)
             setattr(self.settings, key, value)
             self.save_settings()
             self.notify_observers("setting_updated", {key: value})
             log_info(f"Setting updated: {key} = {value}")
+            # Audit trail for settings changes
+            try:
+                from app.logs.audit import audit_event
+                audit_event("setting_changed", {
+                    "key": key,
+                    "old_value": str(old_value)[:100],
+                    "new_value": str(value)[:100],
+                })
+            except Exception:
+                pass

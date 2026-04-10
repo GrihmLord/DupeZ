@@ -1,13 +1,18 @@
 # app/main.py — DupeZ Entry Point
 """
 Launches the DupeZ GUI application with automatic UAC elevation,
-crash dump handler, and graceful shutdown coordination.
+splash screen initialization, crash dump handler, and graceful
+shutdown coordination.
 """
+
+from __future__ import annotations
 
 import ctypes
 import os
 import sys
 import traceback
+
+__all__ = ["dump_crash", "main"]
 
 
 def _get_pythonw() -> str:
@@ -19,7 +24,7 @@ def _get_pythonw() -> str:
     return pythonw if os.path.exists(pythonw) else sys.executable
 
 
-def dump_crash(exctype, value, tb):
+def dump_crash(exctype, value, tb) -> None:
     """Write unhandled exception to FATAL_CRASH.txt for post-mortem."""
     try:
         crash_dir = (
@@ -46,9 +51,7 @@ os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
-from app.core.controller import AppController
-from app.gui.dashboard import DupeZDashboard
-from app.gui.hotkey import HotkeyListener
+from app.core.updater import CURRENT_VERSION
 from app.logs.logger import log_error, log_info, log_shutdown, log_startup, log_warning
 from app.utils.helpers import is_admin
 
@@ -87,20 +90,11 @@ def main() -> None:
         )
         sys.exit(1)
 
-    # --- Phase 2: App Initialization ---
+    # --- Phase 2: QApplication + Splash Screen ---
     try:
-        log_startup()
-
-        if os.name == "nt":
-            try:
-                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-                    "com.dupez.app.4.0"
-                )
-            except Exception as e:
-                log_error(f"Failed to set AppUserModelID: {e}")
-
         app = QApplication(sys.argv)
 
+        # Set app icon
         for icon_path in [
             "app/resources/dupez.ico",
             "app/resources/dupez.png",
@@ -110,11 +104,44 @@ def main() -> None:
                 app.setWindowIcon(QIcon(icon_path))
                 break
 
-        log_info("Initializing DupeZ...")
-        log_info(f"Admin privileges: {'Yes' if IS_ADMIN else 'No'}")
-        log_info("DupeZ version: 4.0.0")
+        # --- Show splash screen and run init pipeline ---
+        from app.gui.splash import DupeZSplash
+        splash = DupeZSplash()
+        splash.show()
+        app.processEvents()
 
-        controller = AppController()
+        # State container for the completion callback
+        _init_done = {"ready": False}
+
+        def _on_splash_complete() -> None:
+            """Called on main thread when splash pipeline finishes."""
+            _init_done["ready"] = True
+
+        splash.run_init_pipeline(on_complete=_on_splash_complete)
+
+        # Process events while init runs (keeps splash animated)
+        while not _init_done["ready"]:
+            app.processEvents()
+
+        # Grab the controller created by splash
+        controller = splash.controller
+        init_error = splash.init_error
+
+        # Close splash
+        splash.close()
+        splash.deleteLater()
+
+        if init_error and controller is None:
+            QMessageBox.critical(
+                None, "Initialization Failed",
+                f"DupeZ could not start:\n{init_error}"
+            )
+            sys.exit(1)
+
+        # --- Phase 3: Main Window ---
+        from app.gui.dashboard import DupeZDashboard
+        from app.gui.hotkey import HotkeyListener
+
         window = DupeZDashboard(controller=controller)
 
         hotkey = HotkeyListener(callback=controller.toggle_lag)
@@ -123,11 +150,25 @@ def main() -> None:
         window.show()
         log_info("DupeZ started successfully")
 
+        # --- Phase 4: Background Services ---
+        try:
+            from app.core.patch_monitor import start_background_monitoring
+            start_background_monitoring()
+            log_info("Patch monitor started")
+        except Exception as e:
+            log_warning(f"Patch monitor failed to start (non-fatal): {e}")
+
         def _shutdown_cleanup() -> None:
             try:
-                from app.firewall.clumsy_network_disruptor import clumsy_network_disruptor
-                clumsy_network_disruptor.stop_clumsy()
-                log_info("Clumsy disruptor stopped")
+                from app.core.patch_monitor import stop_background_monitoring
+                stop_background_monitoring()
+                log_info("Patch monitor stopped")
+            except Exception:
+                pass
+            try:
+                from app.firewall.clumsy_network_disruptor import disruption_manager
+                disruption_manager.stop()
+                log_info("Disruption engine stopped")
             except Exception as e:
                 log_error(f"Error stopping clumsy on exit: {e}")
             controller.shutdown()

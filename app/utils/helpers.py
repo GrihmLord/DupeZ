@@ -1,4 +1,7 @@
 # app/utils/helpers.py
+"""Shared utility functions: IP masking, system info, ping, file ops, formatting."""
+
+from __future__ import annotations
 
 import os
 import re
@@ -8,6 +11,28 @@ import subprocess
 import socket
 import psutil
 from typing import Dict, List, Optional, Tuple
+
+__all__ = [
+    "mask_ip",
+    "is_admin",
+    "get_system_info",
+    "get_network_interfaces",
+    "format_bytes",
+    "format_duration",
+    "ping_host",
+    "get_process_info",
+    "get_network_connections",
+    "validate_ip_address",
+    "validate_mac_address",
+    "get_file_size",
+    "ensure_directory",
+    "get_application_path",
+    "get_resource_path",
+    "is_port_open",
+    "get_common_ports",
+    "safe_console_message",
+    "std_dev",
+]
 
 
 def _log_error(msg: str) -> None:
@@ -269,3 +294,19 @@ def safe_console_message(message: str) -> str:
         except Exception:
             pass
     return message
+
+
+# ── Math helpers ────────────────────────────────────────────────────
+
+def std_dev(data) -> float:
+    """Sample standard deviation without numpy.
+
+    Returns 0.0 for sequences with fewer than 2 elements.
+    """
+    import math
+    n = len(data)
+    if n < 2:
+        return 0.0
+    mean = sum(data) / n
+    variance = sum((x - mean) ** 2 for x in data) / (n - 1)
+    return math.sqrt(variance)
