@@ -26,11 +26,20 @@ pip install -r requirements.txt
 :: ── 3. Build executable ─────────────────────────────────────────────
 echo.
 echo [1/4] Building dupez.exe ...
-pyinstaller dupez.spec --noconfirm
+:: Remove stale exe so a failed build can't masquerade as success
+if exist "dist\dupez.exe" del /q "dist\dupez.exe"
+:: Invoke via `python -m` to avoid PATH issues with user-site Scripts dir
+python -m PyInstaller dupez.spec --noconfirm
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED — PyInstaller returned an error.
+    pause
+    exit /b 1
+)
 
 if not exist "dist\dupez.exe" (
     echo.
-    echo BUILD FAILED — check output above for errors.
+    echo BUILD FAILED — dist\dupez.exe not produced.
     pause
     exit /b 1
 )
@@ -53,7 +62,7 @@ if errorlevel 1 (
 if "%DUPEZ_SIGN_CERT%"=="" (
     echo       DUPEZ_SIGN_CERT not set — skipping code signing.
     echo       To enable: set DUPEZ_SIGN_CERT=path\to\certificate.pfx
-    echo                  set DUPEZ_SIGN_PASS=your_password  (optional)
+    echo                  set DUPEZ_SIGN_PASS=your_password  ^(optional^)
     goto :skip_sign
 )
 
@@ -78,7 +87,7 @@ echo [3/4] Building installer...
 
 where iscc >nul 2>&1
 if errorlevel 1 (
-    echo       Inno Setup (iscc) not found — skipping installer build.
+    echo       Inno Setup ^(iscc^) not found -- skipping installer build.
     echo       To enable: install Inno Setup and add to PATH.
     goto :skip_installer
 )
@@ -86,21 +95,19 @@ if errorlevel 1 (
 iscc installer.iss
 if errorlevel 1 (
     echo       WARNING: Installer build failed.
-) else (
-    echo       Installer built: dist\DupeZ_v5.2.0_Setup.exe
+    goto :skip_installer
+)
+echo       Installer built: dist\DupeZ_v5.2.0_Setup.exe
 
-    :: Sign the installer too
-    if not "%DUPEZ_SIGN_CERT%"=="" (
-        where signtool >nul 2>&1
-        if not errorlevel 1 (
-            echo       Signing installer...
-            if "%DUPEZ_SIGN_PASS%"=="" (
-                signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\DupeZ_v5.2.0_Setup.exe
-            ) else (
-                signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\DupeZ_v5.2.0_Setup.exe
-            )
-        )
-    )
+:: Sign the installer too (flattened — batch can't handle triple-nested if-not blocks)
+if not defined DUPEZ_SIGN_CERT goto :skip_installer
+where signtool >nul 2>&1
+if errorlevel 1 goto :skip_installer
+echo       Signing installer...
+if defined DUPEZ_SIGN_PASS (
+    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\DupeZ_v5.2.0_Setup.exe
+) else (
+    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\DupeZ_v5.2.0_Setup.exe
 )
 
 :skip_installer
@@ -130,9 +137,4 @@ echo  The installer strips MOTW and installs to Program Files,
 echo  which avoids Application Control / SmartScreen blocks.
 echo.
 echo  For zero SmartScreen warnings, code-sign with:
-echo    set DUPEZ_SIGN_CERT=path\to\your.pfx
-echo    set DUPEZ_SIGN_PASS=password
-echo    build.bat
-echo ============================================
-
-pause
+echo    set DUPEZ_SIGN_CE
