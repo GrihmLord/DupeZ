@@ -79,8 +79,8 @@ RestartApplications=no
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checked
-Name: "startmenu";   Description: "Create Start Menu shortcut"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
+Name: "startmenu";   Description: "Create Start Menu shortcut"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 ; Main executable (built by PyInstaller)
@@ -157,9 +157,10 @@ begin
   end;
 end;
 
+// Post-install hook: strip MOTW from everything we just wrote to {app}.
+// Runs after all files are copied but before the "Finished" page.
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssPostInstall then begin
+  if CurStep = ssPostInstall then
     RemoveMOTW(ExpandConstant('{app}'));
-  end;
 end;

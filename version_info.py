@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
-"""
-PyInstaller version info for DupeZ Windows executable.
-
-This file is referenced by dupez.spec to embed VS_VERSION_INFO
-into the .exe, which Windows uses for:
-  - Properties dialog (right-click → Properties → Details)
-  - SmartScreen / WDAC trust scoring (signed + versioned > unsigned)
-  - Application compatibility database lookups
-
-Usage in spec:  exe = EXE(..., version='version_info.py')
-"""
+#
+# PyInstaller version info for DupeZ Windows executable.
+#
+# This file is referenced by dupez.spec to embed VS_VERSION_INFO
+# into the .exe, which Windows uses for:
+#   - Properties dialog (right-click -> Properties -> Details)
+#   - SmartScreen / WDAC trust scoring (signed + versioned > unsigned)
+#   - Application compatibility database lookups
+#
+# Usage in spec:  exe = EXE(..., version='version_info.py')
+#
+# NOTE: PyInstaller parses this file with eval(), which accepts exactly
+# one expression. Do NOT add a module docstring, imports, or assignments
+# above the VSVersionInfo(...) call — eval() will reject multi-statement
+# input with SyntaxError.
 
 VSVersionInfo(
     ffi=FixedFileInfo(
