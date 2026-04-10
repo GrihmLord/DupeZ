@@ -7,13 +7,27 @@ All DupeZ rules use the naming convention ``DupeZBlock_<ip>_(In|Out)``
 so they can be enumerated and cleaned up reliably.
 """
 
+from __future__ import annotations
+
 import subprocess
 import threading
 import time
 from typing import Dict, List
 
 from app.logs.logger import log_error, log_info, log_warning
-from app.utils.helpers import _NO_WINDOW, is_admin
+from app.utils.helpers import _NO_WINDOW, is_admin, mask_ip
+
+__all__ = [
+    "block_device",
+    "unblock_device",
+    "is_ip_blocked",
+    "clear_all_dupez_blocks",
+    "get_blocked_ips",
+    "block_ip",
+    "unblock_ip",
+    "is_blocking",
+    "NetworkBlocker",
+]
 
 
 # ── netsh helper ──────────────────────────────────────────────────────
@@ -87,9 +101,9 @@ def block_device(ip: str, block: bool = True) -> bool:
                            "action=block", f"remoteip={ip}", "enable=yes")
             )
             if ok:
-                _throttled_log(f"Blocked device: {ip} (TEMPORARY)")
+                _throttled_log(f"Blocked device: {mask_ip(ip)} (TEMPORARY)")
             else:
-                log_error(f"Failed to create firewall rules for {ip}")
+                log_error(f"Failed to create firewall rules for {mask_ip(ip)}")
             return ok
         else:
             ok = (
@@ -97,13 +111,13 @@ def block_device(ip: str, block: bool = True) -> bool:
                 and _netsh("delete", "rule", f"name={base}_Out")
             )
             if ok:
-                _throttled_log(f"Unblocked device: {ip}")
+                _throttled_log(f"Unblocked device: {mask_ip(ip)}")
             else:
-                log_error(f"Failed to delete firewall rules for {ip}")
+                log_error(f"Failed to delete firewall rules for {mask_ip(ip)}")
             return ok
 
     except Exception as e:
-        log_error(f"Error blocking device {ip}: {e}", exception=e)
+        log_error(f"Error blocking device {mask_ip(ip)}: {e}", exception=e)
         return False
 
 
@@ -236,7 +250,7 @@ class NetworkBlocker:
                 with self._lock:
                     self._blocked_ips.add(ip)
                     self.is_active = True
-                log_info(f"NetworkBlocker blocked IP: {ip}")
+                log_info(f"NetworkBlocker blocked IP: {mask_ip(ip)}")
             return success
         except Exception as e:
             log_error(f"NetworkBlocker block error: {e}", exception=e)
@@ -250,7 +264,7 @@ class NetworkBlocker:
                 with self._lock:
                     self._blocked_ips.discard(ip)
                     self.is_active = bool(self._blocked_ips)
-                log_info(f"NetworkBlocker unblocked IP: {ip}")
+                log_info(f"NetworkBlocker unblocked IP: {mask_ip(ip)}")
             return success
         except Exception as e:
             log_error(f"NetworkBlocker unblock error: {e}", exception=e)

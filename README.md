@@ -1,8 +1,8 @@
-# DupeZ v4.0.0
+# DupeZ v5.2.0
 
-Network disruption toolkit for DayZ. Wraps Clumsy + WinDivert for per-device packet manipulation through a clean PyQt6 dashboard. Now with a plugin API, CLI mode, and auto-updater.
+Network disruption toolkit for DayZ. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
-Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, and more. Includes AI auto-tuning, scheduled disruptions, macro chains, live traffic monitoring, a connection mapper, and a plugin system for community extensions.
+Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, directional freezing, and inventory duplication. Includes AI auto-tuning, voice commands, scheduled disruptions, macro chains, live traffic monitoring, and a plugin system for community extensions.
 
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![Python](https://img.shields.io/badge/python-3.10%2B-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
 
@@ -10,12 +10,111 @@ Built for the DayZ community — scan your local network, target specific device
 
 ## Features
 
-### Clumsy Control (Main View)
-ARP/TCP network scanner with per-device disruption controls. Select a device, pick your disruption methods, dial in parameters with sliders, and go. Includes preset profiles, session timers, live status feedback, multi-device targeting, scheduled disruptions, and macro chains.
+### Disruption Engine
 
-**Disruption Methods:** Drop, Lag, Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order, God Mode
+DupeZ uses a three-tier fallback for packet disruption:
 
-**Presets:**
+1. **Native WinDivert Engine** — Pure Python, loads WinDivert.dll directly via ctypes. No GUI window, no external process. Batch API (RecvEx/SendEx) for up to 255 packets per syscall. Fastest startup, lowest overhead.
+2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
+3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation.
+
+**12 Disruption Modules:** Drop, Lag (with connection preservation), Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order, God Mode (pulse cycling), Dupe Engine, Tick-Sync
+
+**Statistical Models:** Gilbert-Elliott bursty loss, Pareto heavy-tail jitter, Token Bucket rate limiting, Correlated drop with temporal autocorrelation. All produce patterns statistically indistinguishable from real network degradation.
+
+**Stealth Layer:** Timing randomization (Gaussian jitter), 4 natural degradation patterns (wifi interference, congestion, ISP throttle, distance), session fingerprint rotation. Behavioral camouflage to avoid detection.
+
+### God Mode (v5.2.0)
+
+Asymmetric directional disruption with pulse-cycling for indefinite duration. Inbound packets (server → target) are managed by a block/flush cycle while outbound (target → server) always passes through untouched.
+
+**Three modes:**
+
+| Mode | Block | Flush | Effect |
+|------|-------|-------|--------|
+| Classic | Continuous delay | Timed release | Original behavior, subject to ~10s kick limit |
+| Pulse (default) | 3000ms | 400ms | Indefinite red chain — quality monitor resets during flush windows |
+| Infinite | 5000ms | 300ms | Maximum disruption — aggressive preset with 2s keepalive |
+
+Pulse cycling keeps the sliding-window average below DayZ's kick threshold indefinitely. The target experiences freeze→micro-unfreeze→freeze cycles where the unfreeze window is too short to react but long enough to reset quality metrics.
+
+**Packet classification:** Small inbound packets (<100 bytes) are identified as server keepalive probes and preferentially passed during NAT keepalive windows — maximum connection health signal with minimum game state leakage.
+
+**Teleportation:** During extended block phases, your outbound movement reaches the server continuously. When the flush phase hits, the target's client reconciles the entire position delta at once — visual teleport from the target's perspective.
+
+### Dupe Engine (v5.2.0)
+
+Precise timed disconnect-reconnect for inventory duplication. Three-phase state machine:
+
+1. **PREP** — Normal traffic. Perform the inventory action (drop, swap, transfer).
+2. **CUT** — Hard network cut. All traffic both directions dropped for configurable duration (1-25s, default 5s).
+3. **RESTORE** — Network restored. Player reconnects, server reconciles partial state.
+
+Timer-based or manual trigger via UI/voice (`trigger_cut()`). Multi-cycle support for automated retry. Configurable action delay to let the inventory RPC reach the server before cutting.
+
+### Extended Lag (v5.2.0)
+
+Connection-preserving lag for durations beyond 5 seconds. Auto-activates when lag delay exceeds 5000ms. Periodically passes small keepalive-sized packets while holding large game state packets in the delay queue. Enables 30s+ lag without server timeout.
+
+### Tick-Synchronized Disruption (v5.0.0)
+
+Aligns disruption bursts with server tick boundaries for maximum impact with minimum total packet manipulation. TickEstimator detects server tick rate from packet inter-arrival times. PulseDisruptionModule implements burst/rest cycles that stay below DayZ's 1.27+ freeze system threshold.
+
+### Packet Classification (v5.0.0)
+
+Real-time packet classifier with UDP size/port heuristics, TCP flag analysis, and per-flow frequency tracking. Categories: KEEPALIVE, MOVEMENT, STATE, BULK, VOICE, CONNECTION, UNKNOWN. SelectiveDisruptionFilter wraps any module to target specific categories.
+
+### Asymmetric Direction Presets (v5.0.0)
+
+14 named presets across 5 families: God Mode (standard/stealth/aggressive), Ghost Mode (standard/soft), Desync (standard/heavy), Phantom (standard/aggressive), Combo (chaos/surgical). Independent inbound/outbound tuning per module.
+
+### AI Smart Mode (v3.1.0+)
+
+Network profiler + rule-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 7 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode, Auto. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
+
+### Voice Control (v3.4.0+)
+
+Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Speak a command like "heavy lag on the PS5" or "god mode" and the LLM advisor interprets it into a disruption config. Supports model selection (tiny/base/small) and mic selection.
+
+### GPC / CronusZEN Support (v3.4.0+)
+
+Native GPC script integration for CronusZEN and CronusMAX devices. Parse .gpc files, generate scripts synced with DupeZ disruption timing, export to Zen Studio. 4 built-in templates: Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil.
+
+### Plugin API (v4.0.0+)
+
+Lightweight plugin system for community-built extensions. Four plugin types: **DisruptionPlugin**, **ScannerPlugin**, **UIPanelPlugin**, **GenericPlugin**. JSON manifest + Python entry point in `plugins/`. Hot-reload via Tools menu or CLI.
+
+### CLI Mode (v4.0.0+)
+
+Run DupeZ headless from the terminal. Subcommands: `scan`, `disrupt`, `stop`, `status`, `devices`, `plugins`. Interactive REPL with `dupez-cli interactive`. Script disruptions with `--methods` and `--params` flags for automation pipelines.
+
+### Network Tools (v3.3.0+)
+
+Four-tab network intelligence toolkit: Live Traffic Monitor, Latency Overlay (floating transparent widget), Port Scanner, and Connection Mapper with gaming port detection and hostname resolution.
+
+### iZurvive Map
+
+Ad-free embedded iZurvive with two-layer ad blocking. Supports Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan.
+
+### Account Tracker
+
+Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search and filter, bulk operations, and per-account status tracking.
+
+### Getting Started Guide (v5.2.0)
+
+Built-in interactive guide with 10+ collapsible sections covering every feature: Clumsy Control, iZurvive Map, Account Tracker, Network Tools, Settings & Themes, Voice Control, GPC/Cronus, Troubleshooting, and Keyboard Shortcuts. Accessible from the sidebar rocket icon (🚀).
+
+### Collapsible & Reorderable Sections (v5.2.0)
+
+All control sections in Clumsy Control (Preset, Auto-Tune, Platform, Direction, Modules, Scheduler/Macros, Live Stats, Voice Control, GPC/Cronus) are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow.
+
+### Windows Installer & Auto-Update (v5.2.0)
+
+Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uninstall support. Windows application manifest and VS_VERSION_INFO resource for SmartScreen trust. In-app auto-updater checks GitHub Releases and can download + silently install new versions with progress feedback.
+
+---
+
+## Presets
 
 | Preset | Effect |
 |--------|--------|
@@ -23,46 +122,12 @@ ARP/TCP network scanner with per-device disruption controls. Select a device, pi
 | DupeZ Default | Disconnect + 95% drop + 1500ms lag + 1KB/s cap + throttle |
 | Heavy Lag | 3000ms delay + 95% drop + 1KB/s cap |
 | Light Lag | 800ms delay + 60% drop |
-| God Mode | Directional lag — others freeze, you keep moving. 2000ms inbound lag |
+| God Mode | Pulse-cycling inbound lag — indefinite red chain |
+| God Mode Infinite | 5s block / 300ms flush — maximum freeze duration |
 | God Mode Aggressive | God Mode + 30% inbound drop for harder freeze |
+| Dupe Mode | Timed network cut (5s) for inventory duplication |
 | Total Chaos | All modules maxed — complete network destruction |
 | Custom | Set your own parameters |
-
-### AI Smart Mode (v3.1.0+)
-Network profiler + rule-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 7 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode, Auto. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning ("desync a PS5 on my hotspot" → full config).
-
-### God Mode (v3.4.0+, overhauled v4.0.0)
-Directional lag engine tuned for DayZ's UDP 2302 Enfusion netcode. Inbound packets (server state replication) are delayed while outbound (target's inputs) pass through untouched. The target's game client freezes your position while your actions register on the server in real time. Built-in NAT keepalive (1 packet per 800ms) prevents Windows ICS NAT table timeout during long delays. Burst-controlled flush on deactivation prevents packet storms. Configurable inbound lag (0-5000ms), optional inbound drop, and keepalive interval. Most effective on ICS/hotspot where your machine is the gateway.
-
-### Voice Control (v3.4.0+)
-Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Hold the PTT button, speak a command like "heavy lag on the PS5" or "god mode", and the LLM advisor interprets it into a disruption config. Supports model selection (tiny/base/small), mic selection, and simple start/stop voice commands. Requires `sounddevice` and `openai-whisper` packages (optional — DupeZ runs without them).
-
-### GPC / CronusZEN Support (v3.4.0+)
-Native GPC script integration for CronusZEN and CronusMAX devices. Parse existing .gpc files, generate new scripts synced with DupeZ disruption timing, and export directly to Zen Studio's library folder. Built-in templates: DayZ Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil. Auto-detects connected Cronus devices via USB. Requires `pyserial` for device detection (optional).
-
-### Plugin API (v4.0.0+)
-Lightweight plugin system for community-built extensions. Drop a folder with a `manifest.json` + Python entry point into `plugins/` and DupeZ auto-discovers it on startup. Four plugin types: **DisruptionPlugin** (new packet manipulation methods), **ScannerPlugin** (new network scanners), **UIPanelPlugin** (new sidebar views), and **GenericPlugin** (background automation). Plugins receive full access to `AppController`. Hot-reload via Tools menu or CLI.
-
-### CLI Mode (v4.0.0+)
-Run DupeZ headless from the terminal. Subcommands: `scan`, `disrupt`, `stop`, `status`, `devices`, `plugins`. Interactive REPL with `dupez-cli interactive`. Script disruptions with `--methods` and `--params` flags for automation pipelines.
-
-### Auto-Updater (v4.0.0+)
-In-app update checker queries GitHub Releases for the latest version. One-click download via Help > Check for Updates. Semver comparison, release notes display, and direct download link to the latest `.exe` or `.zip` asset.
-
-### Network Tools (v3.3.0+)
-Four-tab network intelligence toolkit: Live Traffic Monitor (per-interface bandwidth), Latency Overlay (floating transparent ping/jitter widget), Port Scanner (Common/Gaming/Web/Full presets), and Connection Mapper (real-time topology with gaming port detection and hostname resolution).
-
-### iZurvive Map
-Ad-free embedded iZurvive with two-layer ad blocking: network-level domain interception via `QWebEngineUrlRequestInterceptor` (blocks ~28 ad domains before requests leave the browser) and DOM-level CSS/JS cleanup as backup. Login/OAuth fully functional.
-
-**Supported Maps:** Chernarus+ (Satellite), Chernarus+ (Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, Takistan
-
-### Account Tracker
-Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search and filter, bulk operations, and per-account status tracking. Formatted XLSX export with status color-coding. Data persists across sessions via atomic JSON writes.
-
-**Statuses:** Ready, Blood Infection, Storage, Dead, Offline
-
-**Fields:** Account, Email, Location, Value, Status, Station, Gear, Holding, Loadout, Needs
 
 ---
 
@@ -72,15 +137,18 @@ Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search an
 - Python 3.10+
 - Administrator privileges (required for WinDivert kernel driver)
 
+### Build Dependencies (optional)
+
+- [Inno Setup 6+](https://jrsoftware.org/isinfo.php) — Required only to compile the installer (`iscc` must be on PATH)
+- Code signing certificate — Optional; set `DUPEZ_SIGN_CERT` and `DUPEZ_SIGN_PASS` environment variables to enable signing in `build.bat`
+
 ### Firewall Binaries
 
 The following must be present in `app/firewall/`:
 
-- `clumsy.exe` — Packet manipulation engine
 - `WinDivert.dll` — Kernel packet interception library
 - `WinDivert64.sys` — WinDivert kernel driver
-
-These are included in this repository. If missing, download Clumsy from [its official source](https://jagt.github.io/clumsy/) and place the binaries in `app/firewall/`.
+- `clumsy.exe` — Packet manipulation engine (fallback only)
 
 ---
 
@@ -107,68 +175,127 @@ python -m app.cli interactive
 ```powershell
 pip install pyinstaller
 build.bat
-# Output: dist\dupez.exe
+# Output: dist\dupez.exe + dist\DupeZ_v5.2.0_Setup.exe (installer)
 ```
+
+### Install via Installer (Recommended)
+
+Download `DupeZ_v5.2.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
+
+1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
+2. Registers in **Add/Remove Programs** with version, publisher, and icon
+3. Creates Start Menu and Desktop shortcuts
+4. Strips Mark-of-the-Web (MOTW) from all files — prevents Windows Application Control blocking
+5. Supports upgrade-in-place — re-run a newer installer without uninstalling first
+6. **In-app auto-update** — DupeZ checks GitHub Releases on launch and can download + install updates directly
 
 ---
 
 ## Project Structure
 
 ```
-dupez.py                             # Entry point — run this (GUI mode)
+dupez.py                             # Entry point (GUI mode)
 dupez.spec                           # PyInstaller build spec
-build.bat                            # One-click build script
+dupez.manifest                       # Windows application manifest (UAC, DPI, OS compat)
+version_info.py                      # VS_VERSION_INFO resource for exe metadata
+installer.iss                        # Inno Setup installer script
+build.bat                            # 4-stage build pipeline (PyInstaller → sign → installer → MOTW strip)
+requirements.txt                     # Dependencies
+requirements-locked.txt              # Pinned dependency versions
+
 app/
 ├── main.py                          # UAC elevation, crash handler, Qt init
 ├── cli.py                           # CLI mode — headless terminal interface + REPL
 ├── core/
-│   ├── controller.py                # Scan, disrupt, block — main app logic + plugin management
+│   ├── controller.py                # Scan, disrupt, block — main app logic
 │   ├── state.py                     # Observable state + device model
-│   ├── data_persistence.py          # JSON persistence for accounts/settings
+│   ├── data_persistence.py          # Atomic JSON persistence
 │   ├── scheduler.py                 # Disruption scheduler + macro engine
 │   ├── profiles.py                  # Named disruption profile system
-│   └── updater.py                   # Auto-updater via GitHub Releases API
+│   ├── updater.py                   # Auto-updater via GitHub Releases API
+│   ├── crypto.py                    # CNSA 2.0 cryptographic primitives
+│   ├── secrets_manager.py           # AES-256-GCM envelope encryption
+│   ├── secure_http.py               # TLS 1.3 hardened HTTP client
+│   ├── validation.py                # Strict allowlist input validation
+│   └── patch_monitor.py             # DayZ patch monitoring with HMAC integrity
 ├── plugins/
-│   ├── base.py                      # Plugin base classes (Disruption, Scanner, UIPanel, Generic)
-│   └── loader.py                    # Plugin discovery, validation, lifecycle management
+│   ├── base.py                      # Plugin base classes (4 types)
+│   └── loader.py                    # Plugin discovery + lifecycle management
 ├── ai/
 │   ├── smart_engine.py              # ML-based disruption parameter optimizer
-│   ├── network_profiler.py          # Target connection profiler (RTT/jitter/loss)
-│   ├── llm_advisor.py               # Natural-language disruption tuning (Ollama/OpenAI)
-│   ├── session_tracker.py           # Session history + feedback learning
-│   └── voice_control.py             # Push-to-talk voice commands via Whisper STT
+│   ├── network_profiler.py          # Target connection profiler
+│   ├── llm_advisor.py               # Natural-language disruption tuning
+│   ├── session_tracker.py           # Session history + HMAC-verified persistence
+│   └── voice_control.py             # Push-to-talk voice commands via Whisper
 ├── gpc/
-│   ├── gpc_parser.py                # CronusZEN .gpc script tokenizer + parser
-│   ├── gpc_generator.py             # Generate .gpc scripts synced with DupeZ
-│   └── device_bridge.py             # Cronus USB device detection + Zen Studio export
+│   ├── gpc_parser.py                # CronusZEN .gpc script parser
+│   ├── gpc_generator.py             # .gpc script generator (4 templates)
+│   └── device_bridge.py             # Cronus USB device detection
 ├── firewall/
-│   ├── clumsy_network_disruptor.py  # Clumsy.exe + native WinDivert engine
-│   ├── native_divert_engine.py      # Pure Python WinDivert packet interception
+│   ├── native_divert_engine.py      # WinDivert packet engine (ctypes, batch API)
+│   ├── clumsy_network_disruptor.py  # Dual-engine orchestrator (native + clumsy)
+│   ├── engine_base.py               # DisruptionManagerBase ABC
+│   ├── packet_classifier.py         # Real-time packet classification engine
+│   ├── tick_sync.py                 # Tick-synchronized disruption + pulse mode
+│   ├── statistical_models.py        # Gilbert-Elliott, Pareto, token bucket, correlated
+│   ├── stealth.py                   # Behavioral stealth + natural patterns
+│   ├── asymmetric_presets.py        # 14 named directional presets
 │   ├── blocker.py                   # netsh firewall rules (fallback)
-│   ├── clumsy.exe                   # Clumsy binary
-│   ├── WinDivert.dll / .sys         # WinDivert driver
-│   └── clumsy_src/                  # Clumsy C source (with --silent patch)
+│   └── modules/                     # Extracted disruption modules
+│       ├── godmode.py               # Pulse-cycling god mode (v5.2)
+│       ├── dupe_engine.py           # Timed disconnect dupe engine (v5.2)
+│       ├── lag.py                   # Connection-preserving lag (v5.2)
+│       ├── drop.py                  # Random packet drop
+│       ├── disconnect.py            # Hard disconnect (100% drop)
+│       ├── duplicate.py             # Packet flooding (N+1 copies)
+│       ├── ood.py                   # Out-of-order reordering
+│       ├── corrupt.py               # Payload bit-flip corruption
+│       ├── bandwidth.py             # Token-bucket bandwidth cap
+│       ├── throttle.py              # Time-gated packet flow
+│       └── rst.py                   # TCP RST injection
 ├── gui/
-│   ├── dashboard.py                 # Sidebar rail + view stack + plugin panel loader
-│   ├── clumsy_control.py            # Device list + disruption controls + presets + AI panel
-│   ├── network_tools.py             # Traffic monitor, latency overlay, port scanner, connection mapper
+│   ├── dashboard.py                 # Sidebar rail + view stack
+│   ├── clumsy_control.py            # Device list + disruption controls
+│   ├── network_tools.py             # Traffic monitor, latency, port scanner
 │   ├── dayz_map_gui_new.py          # Ad-free iZurvive + map selector
-│   ├── dayz_account_tracker.py      # Multi-account tracker with XLSX support
+│   ├── dayz_account_tracker.py      # Multi-account tracker
 │   ├── hotkey.py                    # Global hotkey listener
-│   └── settings_dialog.py           # App settings
+│   ├── settings_dialog.py           # App settings
+│   └── panels/                      # Modular UI panels
+│       ├── help_panel.py            # Getting Started guide (collapsible sections)
+│       ├── smart_mode_panel.py      # AI auto-tune panel
+│       ├── stats_panel.py           # Live packet stats
+│       ├── voice_panel.py           # Voice control panel
+│       └── gpc_panel.py             # GPC/Cronus panel
 ├── network/
 │   ├── device_scan.py               # ARP/TCP device discovery
 │   └── enhanced_scanner.py          # Threaded scanner with signals
 ├── themes/                          # QSS stylesheets (dark, hacker, light, rainbow)
-├── logs/                            # Rotating log files (auto-managed)
+├── logs/                            # Rotating log files + tamper-evident audit trail
 ├── utils/                           # Helpers and system utilities
-├── resources/                       # App icons
-└── config/                          # JSON config files
+├── config/                          # JSON config + game profiles
+│   └── game_profiles/               # Per-game tuning (ports, tick rates, defaults)
+│       └── dayz.json
+└── resources/                       # App icons
+
 plugins/                             # Community plugins (each folder = one plugin)
-└── example_ping_monitor/            # Example: live ping monitor UI panel
-    ├── manifest.json
-    └── plugin.py
+└── example_ping_monitor/
+tests/                               # Test suite (216+ tests)
+docs/                                # Documentation
 ```
+
+---
+
+## Security Architecture
+
+DupeZ v5.0.0+ implements defense-in-depth security hardening:
+
+- **Cryptography:** AES-256-GCM envelope encryption with machine-bound KEK, HMAC-SHA384 data integrity, SHA-384/512 hashing, PBKDF2-SHA-512 key derivation (600K iterations). CNSA 2.0 compliant. No MD5/SHA-1/RC4.
+- **Input Validation:** Strict allowlist validation at every trust boundary. WinDivert filter strings tokenized and checked against an allowlist. All parameters range-validated.
+- **Network Hardening:** TLS 1.3 minimum for all outbound HTTP. Certificate verification always enabled. URL scheme/host validation.
+- **Data Persistence:** Atomic writes (tmp → fsync → replace). HMAC companion files for integrity verification. Hash-chained JSONL audit logging (tamper-evident).
+- **Secrets Management:** Encrypted at-rest storage with machine-bound keys. No plaintext secrets in config files.
+- **IP Masking:** All target IPs masked via `mask_ip()` in every log statement. Zero raw IPs in any log output.
 
 ---
 
@@ -178,147 +305,24 @@ plugins/                             # Community plugins (each folder = one plug
 |-----|--------|
 | Ctrl+S | Scan network |
 | Ctrl+D | Stop all disruptions |
-| Ctrl+1 / 2 / 3 | Switch views (Clumsy / Map / Accounts) |
+| Ctrl+1 / 2 / 3 / 4 | Switch views |
 | Ctrl+, | Settings |
 | Ctrl+E | Export device data |
 | Ctrl+Q | Exit |
-
----
-
-## Settings
-
-All settings persist to `app/config/settings.json` and can be configured via **Tools → Settings** (`Ctrl+,`). Reset to Defaults restores every field to its factory value.
-
-### General
-
-Controls automatic network scanning behavior and logging.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Auto-Scan | On | Continuously scan the network on a timer |
-| Scan Interval | 60s | Seconds between automatic scans (30–3600) |
-| Max Devices | 100 | Maximum devices to track per scan (10–500) |
-| Log Level | INFO | Logging verbosity: DEBUG, INFO, WARNING, ERROR |
-
-### Network
-
-Tunes the scanner's speed, parallelism, and timeout behavior.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Ping Timeout | 2s | How long to wait for a device response (1–10) |
-| Max Threads | 20 | Concurrent scan threads (5–50) |
-| Quick Scan | On | Use fast ARP-only scanning mode |
-
-### Smart Mode
-
-Automated threat detection and blocking rules.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Smart Mode | Off | Enable automatic traffic analysis |
-| Auto-Block | Off | Automatically block suspicious devices |
-| High Traffic Threshold | 1000 KB/s | Flag devices exceeding this rate (100–10000) |
-| Connection Limit | 100 | Max connections before flagging (10–1000) |
-| Suspicious Activity | 20 events/min | Threshold for suspicious event detection (5–100) |
-| Block Duration | 30 min | How long auto-blocked devices stay blocked (1–1440) |
-| Whitelist | Empty | IPs that are never auto-blocked (one per line) |
-
-### Interface
-
-Theme selection, rainbow mode, display preferences, and notifications.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Theme | Dark | Visual theme: Dark, Light, Hacker, Rainbow |
-| Rainbow Mode | Off | Animated HSV color cycling across the entire UI |
-| Rainbow Speed | 2.0 | Animation speed for rainbow mode (0.1–10.0) |
-| Auto-Refresh | On | Automatically refresh device list display |
-| Refresh Interval | 120s | Seconds between UI refreshes (10–300) |
-| Device Icons | On | Show device type icons in the device list |
-| Status Indicators | On | Show connection status badges |
-| Compact View | Off | Reduce row height for denser device list |
-| Desktop Notifications | On | Show system tray notifications on events |
-| Sound Alerts | Off | Play audio on scan/block events |
-
-**Themes:** Dark (default cyber-dark), Light (clean light mode), Hacker (green-on-black terminal), Rainbow (animated color cycling). Quick-switch buttons or dropdown in the Interface tab. Rainbow mode runs at configurable speed with start/stop controls.
-
-### Advanced
-
-Performance tuning, security, and debug controls.
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Cache Duration | 60s | How long to cache scan results (30–600) |
-| Memory Limit | 200 MB | Max memory before garbage collection (50–1000) |
-| Require Admin | On | Enforce administrator privileges on startup |
-| Encrypt Logs | Off | Encrypt log files at rest |
-| Debug Mode | Off | Enable debug output and developer features |
-| Verbose Logging | Off | Log all internal operations (noisy) |
-
----
-
-## Disruption Engine
-
-DupeZ uses a three-tier fallback for packet disruption:
-
-1. **Native WinDivert Engine** — Pure Python, loads WinDivert.dll directly via ctypes. No GUI window, no external process. Fastest startup.
-2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
-3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation to click buttons and hide the window.
-
-All three produce the same result: targeted packet manipulation on the selected device for the configured duration.
-
-**Desync/Dupe System:** When lag is stacked with duplicate or out-of-order modules, the engine auto-enables passthrough mode. Lag queues a delayed copy of each packet but lets the original continue through the module chain to duplicate/ood. The target receives real-time duplicated/reordered packets AND delayed echoes — compounding the desync window that enables inventory duplication in DayZ's Enfusion engine.
-
-**God Mode** uses the Native WinDivert Engine exclusively. It inspects the `Outbound` bit (position 17 in the WinDivert address bitfield) to classify each packet's direction, then applies lag/drop only to inbound packets. On ICS/hotspot setups, the `NETWORK_FORWARD` layer intercepts forwarded traffic at the gateway. Built-in NAT keepalive (configurable, default 800ms) prevents Windows NAT table timeout during long freeze cycles. Flush-on-stop uses burst-controlled release (50 packets per 5ms burst) to prevent packet storms.
+| Ctrl+Shift+D | Toggle tray visibility |
 
 ---
 
 ## Version History
 
-**v4.0.0** — Platform & Extensibility. Plugin API with 4 plugin types (disruption, scanner, ui_panel, generic), manifest-based discovery, and auto-loading. CLI mode with subcommands, interactive REPL, and scriptable disruptions. Auto-updater via GitHub Releases API with in-app one-click download. God Mode overhaul with NAT keepalive and burst-controlled flush. Desync engine rewrite: lag passthrough mode enables true lag+duplicate+ood stacking. Fixed duplicate count (N+1 delivery). Thread-safe LLM advisor. Full opsec audit — all target IPs masked in logs. Two-layer iZurvive ad blocker with working OAuth login. Scheduler/macro timing fixes. Custom menu bar rendering.
-
-**v3.5.0** — Live Stats Dashboard with real-time packet counters, drop rate visualization, and per-device breakdown. PyInstaller spec updated for voice/GPC optional dependency bundling.
-
-**v3.4.0** — God Mode directional lag engine. Push-to-talk voice control via OpenAI Whisper. CronusZEN/MAX GPC script integration. 100% drop fidelity. Direction-aware packet filtering.
-
-**v3.3.0** — Network Intelligence toolkit. Live traffic monitor, connection mapper, latency overlay, port scanner. 4-view dashboard. Codebase hardening pass.
-
-**v3.2.0** — Multi-device simultaneous disruption. Scheduled/timed disruptions. Disruption macro chains. Profile import/export.
-
-**v3.1.0** — AI Smart Mode. ML-based disruption optimizer. Network profiler. LLM advisor. Session tracking. Profile system. System tray mode.
-
-**v3.0.0** — Complete architectural overhaul. 89% code reduction. 3-view dashboard. Native WinDivert engine.
-
-**v2.0.0** — Major UI optimization. 5-view dashboard, iZurvive integration.
-
-**v1.0.0** — Basic network scanner with device blocking.
-
 See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) for what's coming next.
 
 ---
 
-## Roadmap
-
-**v4.1.0** — Linux support (`tc`/`iptables` backend).
-
-**Stretch Goals** — Steam integration, DayZ server browser, replay system, mobile companion, community hub, voice macro chains.
-
-Full roadmap with details: [ROADMAP.md](ROADMAP.md)
-
----
-
-## Contributing
-
-Issues and pull requests welcome. If you're building something on top of DupeZ or have feature requests, open an issue.
-
 ## Acknowledgments
 
-DupeZ stands on the shoulders of two projects:
-
-- **[Clumsy](https://github.com/jagt/clumsy)** by [jagt (Chen Tao)](https://github.com/jagt) — The original network condition simulator for Windows. Clumsy uses WinDivert to intercept and manipulate network packets in real time. This is the core engine that makes everything possible. ([Official site](https://jagt.github.io/clumsy/))
-
-- **[Clumsy Keybind Edition](https://github.com/kalirenegade-dev/clumsy)** (v0.3.4) by [Kalirenegade](https://github.com/kalirenegade-dev) — Fork of Clumsy that added keybind support, timer, and disconnect modules. DupeZ is built directly on top of this fork.
+- **[Clumsy](https://github.com/jagt/clumsy)** by [jagt (Chen Tao)](https://github.com/jagt) — The original network condition simulator for Windows using WinDivert.
+- **[Clumsy Keybind Edition](https://github.com/kalirenegade-dev/clumsy)** (v0.3.4) by [Kalirenegade](https://github.com/kalirenegade-dev) — Fork with keybind support, timer, and disconnect modules.
 
 ## License
 

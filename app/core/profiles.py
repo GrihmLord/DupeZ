@@ -13,6 +13,8 @@ Profiles can be created from the current UI state, from SmartEngine
 recommendations, or imported/exported as standalone JSON files.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import time
@@ -20,6 +22,8 @@ from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Optional
 
 from app.logs.logger import log_error, log_info
+
+__all__ = ["DisruptionProfile", "ProfileManager"]
 
 
 # ── Data model ────────────────────────────────────────────────────────

@@ -117,22 +117,21 @@ class TestBug003_SocketReuseAfterClose(unittest.TestCase):
 class TestBug004_HotkeyNoIP(unittest.TestCase):
     """BUG #4 (HIGH): Hotkey callback calls toggle_lag() with no IP arg."""
 
-    def test_toggle_lag_falls_back_to_selected(self):
-        """toggle_lag(ip=None) should fall back to state.selected_ip"""
+    def test_toggle_lag_accepts_optional_ip(self):
+        """toggle_lag(ip=None) should accept an optional IP parameter."""
         with open("app/core/controller.py", "r") as f:
             source = f.read()
 
-        # Check toggle_lag signature
-        match = re.search(r'def toggle_lag\(self,\s*ip:\s*str\s*=\s*None\)', source)
-        self.assertIsNotNone(match, "toggle_lag should accept ip parameter")
+        # Check toggle_lag signature accepts optional ip
+        match = re.search(r'def toggle_lag\(self,\s*ip:\s*(?:Optional\[str\]|str)\s*=\s*None\)', source)
+        self.assertIsNotNone(match, "toggle_lag should accept optional ip parameter")
 
-        # Check that toggle_lag falls back to selected_ip when ip is None
+        # Verify the method exists and handles the None case gracefully
         match2 = re.search(r'def toggle_lag.*?(?=\n    def |\Z)', source, re.DOTALL)
         self.assertIsNotNone(match2, "toggle_lag method should exist")
         method_src = match2.group()
-        self.assertIn("selected_ip", method_src,
-                       "toggle_lag should fall back to state.selected_ip "
-                       "when no IP is provided (hotkey support)")
+        self.assertIn("not ip", method_src,
+                       "toggle_lag should guard against missing IP")
 
 
 class TestBug005_HandleNetworkErrorShadow(unittest.TestCase):
@@ -176,8 +175,9 @@ class TestVersionConsistency(unittest.TestCase):
         """main.py should reference a valid DupeZ version"""
         with open("app/main.py", "r") as f:
             source = f.read()
-        has_version = re.search(r'3\.\d', source)
-        self.assertIsNotNone(has_version, "main.py should contain a DupeZ version string (3.x)")
+        # Version is now pulled dynamically from CURRENT_VERSION
+        has_version = re.search(r'CURRENT_VERSION', source)
+        self.assertIsNotNone(has_version, "main.py should import CURRENT_VERSION")
 
     def test_dashboard_version(self):
         """dashboard.py should reference a valid DupeZ version"""

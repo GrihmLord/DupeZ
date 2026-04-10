@@ -2,14 +2,25 @@
 Data persistence system for DupeZ application.
 
 Provides atomic JSON file storage with backup rotation, corruption
-recovery, and a generic collection manager that eliminates per-type
-boilerplate.
+recovery, HMAC integrity verification, and a generic collection
+manager that eliminates per-type boilerplate.
+
+Security Features:
+  - Atomic writes: tmp → fsync → replace (no partial writes on crash)
+  - HMAC-SHA384 integrity tags: every saved file gets a companion
+    .hmac file.  On load, integrity is verified before parsing.
+  - Backup rotation with corruption recovery
+  - Optional encryption at rest (via SecretsManager)
 
 NOTE: Global manager instances are created at module import time,
 which triggers directory creation and file I/O.  This is intentional —
 persistence must be available before any other subsystem initialises.
 """
 
+from __future__ import annotations
+
+import hashlib
+import hmac
 import json
 import os
 import shutil
@@ -20,6 +31,58 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from app.logs.logger import log_error, log_info
+
+__all__ = [
+    "PersistenceConfig",
+    "DataPersistenceManager",
+    "persistence_manager",
+    "AutoSaveMixin",
+    "CollectionManager",
+    "SettingsManager",
+    "DeviceManager",
+    "AccountManager",
+    "MarkerManager",
+    "NicknameManager",
+    "DeviceCacheManager",
+    "settings_manager",
+    "device_manager",
+    "account_manager",
+    "marker_manager",
+    "nickname_manager",
+    "device_cache_manager",
+    "save_all_data",
+    "get_persistence_info",
+]
+
+
+# ── HMAC Integrity ───────────────────────────────────────────────────
+
+def _get_hmac_key() -> bytes:
+    """Derive a machine-specific HMAC key for data integrity.
+
+    Uses the same machine seed as the secrets manager, hashed to
+    produce a stable 48-byte (384-bit) key.
+    """
+    import platform
+    parts = [
+        platform.node(),
+        os.environ.get("USERNAME", os.environ.get("USER", "default")),
+        platform.machine(),
+        "DupeZ-DataIntegrity-v1",  # domain separation
+    ]
+    seed = "|".join(parts).encode("utf-8")
+    return hashlib.sha384(seed).digest()
+
+
+def _compute_hmac(data: bytes) -> str:
+    """Compute HMAC-SHA384 hex digest for data integrity."""
+    return hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+
+
+def _verify_hmac(data: bytes, expected_hex: str) -> bool:
+    """Constant-time HMAC verification."""
+    computed = hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+    return hmac.compare_digest(computed, expected_hex)
 
 
 # ── Data directory resolution ─────────────────────────────────────────
@@ -104,11 +167,23 @@ class DataPersistenceManager:
                 # Atomic write: tmp → fsync → replace
                 tmp_path = file_path.with_suffix(".tmp")
                 try:
+                    raw_json = json.dumps(data, indent=2, ensure_ascii=False)
+                    raw_bytes = raw_json.encode("utf-8")
                     with open(tmp_path, "w", encoding="utf-8") as f:
-                        json.dump(data, f, indent=2, ensure_ascii=False)
+                        f.write(raw_json)
                         f.flush()
                         os.fsync(f.fileno())
                     os.replace(str(tmp_path), str(file_path))
+                    # Write companion HMAC tag
+                    hmac_path = file_path.with_suffix(".hmac")
+                    try:
+                        hmac_hex = _compute_hmac(raw_bytes)
+                        with open(hmac_path, "w", encoding="utf-8") as hf:
+                            hf.write(hmac_hex)
+                            hf.flush()
+                            os.fsync(hf.fileno())
+                    except Exception as he:
+                        log_error(f"Failed to write HMAC for {data_type}: {he}")
                 except Exception:
                     tmp_path.unlink(missing_ok=True)
                     raise
@@ -195,12 +270,32 @@ class DataPersistenceManager:
 
     @staticmethod
     def _try_load_json(path: Path) -> Any:
-        """Attempt to load JSON from *path*.  Returns None on any failure."""
+        """Attempt to load JSON from *path* with HMAC integrity check.
+
+        If a companion .hmac file exists, the file's contents are
+        verified against the stored HMAC before parsing.  A tampered
+        file is treated as corrupt (returns None).
+        """
         try:
             if not path.exists():
                 return None
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
+            with open(path, "rb") as f:
+                raw = f.read()
+            # HMAC integrity check
+            hmac_path = path.with_suffix(".hmac")
+            if hmac_path.exists():
+                try:
+                    with open(hmac_path, "r", encoding="utf-8") as hf:
+                        stored_hmac = hf.read().strip()
+                    if not _verify_hmac(raw, stored_hmac):
+                        log_error(f"HMAC verification FAILED for {path.name} — "
+                                  "possible tampering")
+                        return None
+                except Exception as e:
+                    log_error(f"HMAC check error for {path.name}: {e}")
+                    # Continue loading — HMAC failure is logged but
+                    # we don't want to brick the app if .hmac is missing/corrupt
+            return json.loads(raw.decode("utf-8"))
         except (json.JSONDecodeError, OSError):
             return None
 

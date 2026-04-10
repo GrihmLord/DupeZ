@@ -15,11 +15,13 @@ Usage::
     python -m app.cli interactive                   # Interactive REPL
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import sys
-from typing import Any
+from typing import Any, Callable, Dict
 
 # Ensure we can import app modules when running frozen
 if getattr(sys, "frozen", False):
@@ -27,16 +29,28 @@ if getattr(sys, "frozen", False):
 
 from app.logs.logger import log_info, log_shutdown, log_startup
 from app.utils.helpers import is_admin
+from app.core.updater import CURRENT_VERSION
 
-_BANNER = r"""
+_BANNER = rf"""
  ██████╗ ██╗   ██╗██████╗ ███████╗███████╗
  ██╔══██╗██║   ██║██╔══██╗██╔════╝╚══███╔╝
  ██║  ██║██║   ██║██████╔╝█████╗    ███╔╝
  ██║  ██║██║   ██║██╔═══╝ ██╔══╝   ███╔╝
  ██████╔╝╚██████╔╝██║     ███████╗███████╗
  ╚═════╝  ╚═════╝ ╚═╝     ╚══════╝╚══════╝
- v4.0.0 — CLI Mode
+ v{CURRENT_VERSION} — CLI Mode
 """
+
+__all__ = [
+    "cmd_scan",
+    "cmd_disrupt",
+    "cmd_stop",
+    "cmd_status",
+    "cmd_devices",
+    "cmd_plugins",
+    "cmd_interactive",
+    "main",
+]
 
 
 def _print_banner() -> None:
@@ -71,8 +85,14 @@ def cmd_disrupt(controller: Any, args: argparse.Namespace) -> None:
         print("[!] Usage: dupez cli disrupt <ip> [--methods drop,lag] [--params '{...}']")
         return
 
-    methods = args.methods.split(",") if args.methods else None
-    params = json.loads(args.params) if args.params else None
+    from app.core.validation import validate_methods, validate_params, safe_json_loads
+    methods = validate_methods(args.methods.split(",")) if args.methods else None
+    try:
+        raw_params = safe_json_loads(args.params, context="CLI --params") if args.params else None
+    except ValueError as e:
+        print(f"[!] Invalid --params JSON: {e}")
+        return
+    params = validate_params(raw_params) if raw_params else None
 
     print(f"[*] Starting disruption on {args.ip}...")
     if methods:

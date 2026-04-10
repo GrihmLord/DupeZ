@@ -13,13 +13,44 @@ recommendations. Over time, the system learns what works against
 different connection types and device profiles.
 """
 
+from __future__ import annotations
+
+import hashlib
+import hmac as _hmac
 import json
 import os
 import threading
 import time
 from dataclasses import dataclass, asdict, field
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
+
 from app.logs.logger import log_info, log_error
+from app.utils.helpers import mask_ip
+
+__all__ = ["SessionRecord", "SessionTracker"]
+
+
+# ── HMAC integrity for history file ──────────────────────────────────
+
+def _get_hmac_key() -> bytes:
+    """Machine-bound HMAC key with domain separation."""
+    import platform
+    parts = [
+        platform.node(),
+        os.environ.get("USERNAME", os.environ.get("USER", "default")),
+        platform.machine(),
+        "DupeZ-SessionTracker-v1",
+    ]
+    return hashlib.sha384("|".join(parts).encode("utf-8")).digest()
+
+
+def _compute_hmac(data: bytes) -> str:
+    return _hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+
+
+def _verify_hmac(data: bytes, expected_hex: str) -> bool:
+    computed = _hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+    return _hmac.compare_digest(computed, expected_hex)
 
 @dataclass
 class SessionRecord:
@@ -69,7 +100,7 @@ class SessionTracker:
         history = tracker.get_history(limit=50)
     """
 
-    def __init__(self, history_path: str = ""):
+    def __init__(self, history_path: str = "") -> None:
         if not history_path:
             from app.core.data_persistence import _resolve_data_directory
             history_path = os.path.join(_resolve_data_directory(), "session_history.json")
@@ -79,27 +110,66 @@ class SessionTracker:
         self._lock = threading.Lock()
         self._load_history()
 
-    def _load_history(self):
-        """Load session history from disk."""
+    def _load_history(self) -> None:
+        """Load session history from disk with HMAC integrity check."""
         try:
-            if os.path.exists(self.history_path):
-                with open(self.history_path, 'r') as f:
-                    self._history = json.load(f)
-                log_info(f"SessionTracker: loaded {len(self._history)} historical sessions")
+            if not os.path.exists(self.history_path):
+                return
+
+            with open(self.history_path, "rb") as f:
+                raw = f.read()
+
+            # HMAC verification
+            hmac_path = self.history_path + ".hmac"
+            if os.path.exists(hmac_path):
+                try:
+                    with open(hmac_path, "r", encoding="utf-8") as hf:
+                        stored = hf.read().strip()
+                    if not _verify_hmac(raw, stored):
+                        log_error("SessionTracker: HMAC verification FAILED — "
+                                  "possible tampering, resetting history")
+                        self._history = []
+                        return
+                except Exception as e:
+                    log_error(f"SessionTracker: HMAC check error: {e}")
+
+            self._history = json.loads(raw.decode("utf-8"))
+            log_info(f"SessionTracker: loaded {len(self._history)} historical sessions")
         except Exception as e:
             log_error(f"SessionTracker: failed to load history: {e}")
             self._history = []
 
-    def _save_history(self):
-        """Persist history to disk (atomic write)."""
+    def _save_history(self) -> None:
+        """Persist history to disk (atomic write). Uses current _history under no lock."""
+        self._save_history_snapshot(self._history)
+
+    def _save_history_snapshot(self, snapshot: list) -> None:
+        """Persist a history snapshot to disk (atomic write + HMAC, lock-free)."""
         try:
             os.makedirs(os.path.dirname(self.history_path) or ".", exist_ok=True)
+            raw_json = json.dumps(snapshot, indent=2)
+            raw_bytes = raw_json.encode("utf-8")
+
+            # Atomic write: tmp -> fsync -> replace
             tmp_path = self.history_path + ".tmp"
-            with open(tmp_path, 'w') as f:
-                json.dump(self._history, f, indent=2)
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                f.write(raw_json)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, self.history_path)
+
+            # Write companion HMAC
+            hmac_path = self.history_path + ".hmac"
+            hmac_tmp = hmac_path + ".tmp"
+            try:
+                with open(hmac_tmp, "w", encoding="utf-8") as hf:
+                    hf.write(_compute_hmac(raw_bytes))
+                    hf.flush()
+                    os.fsync(hf.fileno())
+                os.replace(hmac_tmp, hmac_path)
+            except Exception as he:
+                log_error(f"SessionTracker: HMAC write failed: {he}")
+
         except Exception as e:
             log_error(f"SessionTracker: failed to save history: {e}")
 
@@ -114,13 +184,13 @@ class SessionTracker:
         Returns:
             session_id (string)
         """
-        import uuid
-        session_id = str(uuid.uuid4())[:8]
+        from app.core.crypto import generate_token
+        session_id = generate_token(8)  # 64-bit CSPRNG hex token
 
         record = SessionRecord(
             session_id=session_id,
             timestamp=time.time(),
-            target_ip=self._mask_ip(profile.target_ip),
+            target_ip=mask_ip(profile.target_ip),
             device_type=profile.device_type,
             device_hint=profile.device_hint,
             connection_type=profile.connection_type,
@@ -144,7 +214,7 @@ class SessionTracker:
         return session_id
 
     def end_session(self, session_id: str, user_rating: int = 0,
-                    notes: str = ""):
+                    notes: str = "") -> None:
         """Record the end of a disruption session.
 
         Args:
@@ -169,13 +239,15 @@ class SessionTracker:
             # If it ran for a while, assume it was somewhat effective
             record.auto_effectiveness = min(80, 30 + record.duration_seconds * 0.5)
 
-        # Append to history (thread-safe), cap at 500 entries
+        # Append to history (thread-safe), cap at 500 entries.
+        # Copy history snapshot under lock, then save outside lock to avoid
+        # blocking callers during disk I/O.
         with self._lock:
             self._history.append(asdict(record))
             if len(self._history) > 500:
                 self._history = self._history[-400:]
-            # Save while still holding lock to prevent concurrent mutation
-            self._save_history()
+            history_snapshot = list(self._history)
+        self._save_history_snapshot(history_snapshot)
 
         log_info(f"SessionTracker: ended session {session_id} "
                  f"(duration={record.duration_seconds:.0f}s, "
@@ -217,14 +289,6 @@ class SessionTracker:
                 if rated else "unknown"
             ),
         }
-
-    @staticmethod
-    def _mask_ip(ip: str) -> str:
-        """Mask the last octet for privacy in logs."""
-        parts = ip.split(".")
-        if len(parts) == 4:
-            return f"{parts[0]}.{parts[1]}.{parts[2]}.x"
-        return ip
 
     @staticmethod
     def _mode(items: list) -> str:

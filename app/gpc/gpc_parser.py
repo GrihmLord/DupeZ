@@ -20,10 +20,28 @@ This parser extracts:
   4. Enough structure to modify timing values for DupeZ sync
 """
 
+from __future__ import annotations
+
 import re
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from app.logs.logger import log_info, log_error
+
+__all__ = [
+    "TokenType",
+    "Token",
+    "GPCDefine",
+    "GPCVariable",
+    "GPCComboStep",
+    "GPCCombo",
+    "GPCScript",
+    "KEYWORDS",
+    "TOKEN_PATTERNS",
+    "tokenize",
+    "GPCParser",
+    "parse_gpc",
+    "parse_gpc_file",
+]
 
 # Token types
 class TokenType:
@@ -184,7 +202,7 @@ def tokenize(source: str) -> List[Token]:
 class GPCParser:
     """Parse tokenized GPC into a GPCScript structure."""
 
-    def __init__(self, tokens: List[Token], source: str = ""):
+    def __init__(self, tokens: List[Token], source: str = "") -> None:
         self._tokens = tokens
         self._pos = 0
         self._source = source
@@ -202,7 +220,7 @@ class GPCParser:
                 self._advance()  # skip past error
         return self.script
 
-    def _parse_top_level(self):
+    def _parse_top_level(self) -> None:
         tok = self._peek()
 
         if tok.type == TokenType.PREPROCESSOR:
@@ -215,7 +233,7 @@ class GPCParser:
         else:
             self._advance()
 
-    def _parse_preprocessor(self):
+    def _parse_preprocessor(self) -> None:
         tok = self._advance()
         text = tok.value.strip()
 
@@ -228,7 +246,7 @@ class GPCParser:
                 line=tok.line,
             ))
 
-    def _parse_variable(self):
+    def _parse_variable(self) -> None:
         type_tok = self._advance()  # int or data
         name_tok = self._advance()  # variable name
 
@@ -255,12 +273,12 @@ class GPCParser:
         self._skip_to_semicolon()
         self.script.variables.append(var)
 
-    def _parse_main(self):
+    def _parse_main(self) -> None:
         self._advance()  # 'main'
         body = self._extract_block()
         self.script.main_body = body
 
-    def _parse_combo(self):
+    def _parse_combo(self) -> None:
         self._advance()  # 'combo'
         name_tok = self._advance()  # combo name
         combo = GPCCombo(name=name_tok.value, line=name_tok.line)
@@ -297,7 +315,7 @@ class GPCParser:
 
         self.script.combos.append(combo)
 
-    def _parse_function(self):
+    def _parse_function(self) -> None:
         self._advance()  # 'function'
         name_tok = self._advance()
         # Just record function name, skip body
@@ -383,7 +401,7 @@ class GPCParser:
     def _at_end(self) -> bool:
         return self._pos >= len(self._tokens) or self._peek().type == TokenType.EOF
 
-    def _skip_to_semicolon(self):
+    def _skip_to_semicolon(self) -> None:
         while not self._at_end() and not self._check(TokenType.SEMICOLON):
             self._advance()
         if self._check(TokenType.SEMICOLON):

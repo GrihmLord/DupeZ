@@ -12,6 +12,8 @@ signals.  This means it cannot be instantiated without a running
 scanning functions in ``device_scan.py`` instead.
 """
 
+from __future__ import annotations
+
 import ipaddress
 import platform
 import re
@@ -33,7 +35,7 @@ from app.logs.logger import (
     log_network_scan,
 )
 from app.network.shared import lookup_vendor
-from app.utils.helpers import _NO_WINDOW
+from app.utils.helpers import _NO_WINDOW, mask_ip
 
 # RFC 1918 private ranges — module-level to avoid recreation per call
 _PRIVATE_RANGES = [
@@ -43,6 +45,8 @@ _PRIVATE_RANGES = [
 ]
 
 _MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
+
+__all__ = ["NetworkDevice", "EnhancedNetworkScanner"]
 
 
 @dataclass
@@ -272,7 +276,7 @@ class EnhancedNetworkScanner(QObject):
 
             return device
         except Exception as e:
-            log_error(f"Single IP scan error for {ip}", exception=e)
+            log_error(f"Single IP scan error for {mask_ip(ip)}", exception=e)
             return None
 
     # ── Device info construction ──────────────────────────────────
@@ -370,7 +374,7 @@ class EnhancedNetworkScanner(QObject):
                     pass
 
         except Exception as e:
-            log_error(f"Device info lookup failed for {ip}", exception=e)
+            log_error(f"Device info lookup failed for {mask_ip(ip)}", exception=e)
 
         return mac, hostname
 
@@ -544,7 +548,7 @@ class EnhancedNetworkScanner(QObject):
                 if dev:
                     devices.append(dev)
             except Exception as e:
-                log_error(f"Failed to create device info for {ip}", exception=e)
+                log_error(f"Failed to create device info for {mask_ip(ip)}", exception=e)
 
         log_info(f"ARP scan: {len(devices)} unique devices (deduped by MAC)")
         return devices

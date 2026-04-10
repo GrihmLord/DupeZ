@@ -11,6 +11,8 @@ Macros — Sequential profile chains with timing:
 Both are driven by a single background scheduler thread.
 """
 
+from __future__ import annotations
+
 import json
 import os
 import time
@@ -21,6 +23,13 @@ from typing import Callable, Dict, List, Optional
 
 from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip
+
+__all__ = [
+    "ScheduledRule",
+    "MacroStep",
+    "DisruptionMacro",
+    "DisruptionScheduler",
+]
 
 
 # ── Data models ───────────────────────────────────────────────────────

@@ -7,6 +7,9 @@ device discovery on the local /24 subnet.  A thread pool handles
 concurrent scanning with conservative resource limits.
 """
 
+from __future__ import annotations
+
+import functools
 import platform
 import re
 import socket
@@ -17,24 +20,67 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from contextlib import contextmanager
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from app.logs.logger import log_error, log_info
 from app.network.shared import HOSTNAME_VENDORS, lookup_vendor
-from app.utils.helpers import _NO_WINDOW
+from app.utils.helpers import _NO_WINDOW, mask_ip
 
+__all__ = [
+    "F",
+    "handle_network_error",
+    "NativeNetworkScanner",
+    "ResourceManager",
+    "get_executor",
+    "cleanup_executor",
+    "get_local_ip",
+    "ping_host_advanced",
+    "get_mac_address_safe",
+    "get_vendor_info",
+    "scan_arp_table_safe",
+    "scan_ip_batch",
+    "get_device_info_safe",
+    "scan_network_range_advanced",
+    "scan_devices",
+    "scan_devices_full",
+    "get_network_info",
+    "clear_cache",
+    "cleanup_resources",
+    "DeviceScanner",
+]
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+# ── Constants ────────────────────────────────────────────────────────
+# Common TCP ports probed during host detection.
+_PROBE_PORTS: List[int] = [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995]
+# Duration (seconds) that cached scan results remain valid.
+CACHE_DURATION_S: int = 60
+# Concurrent scanning limits.
+_MAX_SCAN_WORKERS: int = 5
+_MAX_CONCURRENT_SOCKETS: int = 10
+# Batch size for IP sweep.
+_SCAN_BATCH_SIZE: int = 10
+# Pause between scan batches (seconds).
+_SCAN_BATCH_PAUSE_S: float = 0.2
+# ARP-table ping-then-retry delay (seconds).
+_ARP_RETRY_DELAY_S: float = 0.1
 
 # ── Error decorator ───────────────────────────────────────────────────
 
-def handle_network_error(func):
-    """Decorator: catch exceptions in network scanning functions."""
-    def wrapper(*args, **kwargs):
+def handle_network_error(func: F) -> F:
+    """Decorator: catch exceptions in network scanning functions.
+
+    Logs the error with the function name and returns ``None``.
+    """
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return func(*args, **kwargs)
         except Exception as e:
             log_error(f"Network scan error in {func.__name__}: {e}")
             return None
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
 # ── Native network scanner ────────────────────────────────────────────
@@ -52,8 +98,7 @@ class NativeNetworkScanner:
     def ping_host_native(self, ip: str) -> bool:
         """Detect host via TCP port probing, with ICMP fallback on Windows."""
         try:
-            common_ports = [80, 443, 22, 21, 23, 25, 53, 110, 143, 993, 995]
-            for port in common_ports:
+            for port in _PROBE_PORTS:
                 try:
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                         sock.settimeout(self.port_timeout)
@@ -67,7 +112,7 @@ class NativeNetworkScanner:
 
             return False
         except Exception as e:
-            log_error(f"Native ping error for {ip}: {e}")
+            log_error(f"Native ping error for {mask_ip(ip)}: {e}")
             return False
 
     def _icmp_ping_windows(self, ip: str) -> bool:
@@ -88,7 +133,7 @@ class NativeNetworkScanner:
         except socket.timeout:
             return False
         except Exception as e:
-            log_error(f"ICMP ping error for {ip}: {e}")
+            log_error(f"ICMP ping error for {mask_ip(ip)}: {e}")
             return False
         finally:
             if sock:
@@ -117,12 +162,12 @@ class NativeNetworkScanner:
 
             # Ping to populate ARP table, then retry
             if self.ping_host_native(ip):
-                time.sleep(0.1)
+                time.sleep(_ARP_RETRY_DELAY_S)
                 return self._get_mac_from_arp_cache(ip)
 
             return None
         except Exception as e:
-            log_error(f"Native MAC lookup error for {ip}: {e}")
+            log_error(f"Native MAC lookup error for {mask_ip(ip)}: {e}")
             return None
 
     def _get_mac_from_arp_cache(self, ip: str) -> Optional[str]:
@@ -132,7 +177,7 @@ class NativeNetworkScanner:
                 return self._get_mac_from_windows_arp(ip)
             return self._get_mac_from_linux_arp(ip)
         except Exception as e:
-            log_error(f"ARP cache read error for {ip}: {e}")
+            log_error(f"ARP cache read error for {mask_ip(ip)}: {e}")
             return None
 
     def _get_mac_from_windows_arp(self, ip: str) -> Optional[str]:
@@ -151,7 +196,7 @@ class NativeNetworkScanner:
                             return mac
             return None
         except Exception as e:
-            log_error(f"Linux ARP lookup error for {ip}: {e}")
+            log_error(f"Linux ARP lookup error for {mask_ip(ip)}: {e}")
             return None
 
     # ── ARP table IP enumeration ──────────────────────────────────
@@ -199,14 +244,22 @@ _native_scanner = NativeNetworkScanner()
 # ── Resource manager ──────────────────────────────────────────────────
 
 class ResourceManager:
-    """Manages TCP sockets to prevent resource exhaustion."""
+    """Manages TCP sockets to prevent resource exhaustion.
 
-    def __init__(self) -> None:
-        self._semaphore = threading.Semaphore(10)
+    Uses a semaphore to cap concurrent open sockets at *max_concurrent*,
+    preventing file-descriptor exhaustion during large subnet scans.
+    """
+
+    def __init__(self, max_concurrent: int = 10) -> None:
+        self._semaphore = threading.Semaphore(max_concurrent)
 
     @contextmanager
-    def get_socket(self):
-        """Yield a TCP socket, ensuring cleanup."""
+    def get_socket(self) -> None:
+        """Yield a TCP socket, ensuring cleanup.
+
+        Blocks if *max_concurrent* sockets are already open.
+        """
+        self._semaphore.acquire()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             yield sock
@@ -215,6 +268,7 @@ class ResourceManager:
                 sock.close()
             except Exception:
                 pass
+            self._semaphore.release()
 
 
 _resource_manager = ResourceManager()
@@ -224,7 +278,6 @@ _resource_manager = ResourceManager()
 
 _device_cache: Dict[str, Dict] = {}
 _cache_timestamp: float = 0.0
-CACHE_DURATION: int = 60
 _cache_lock = threading.RLock()
 
 
@@ -232,7 +285,6 @@ _cache_lock = threading.RLock()
 
 _executor: Optional[ThreadPoolExecutor] = None
 _executor_lock = threading.Lock()
-_max_workers: int = 5
 
 
 def get_executor() -> ThreadPoolExecutor:
@@ -242,7 +294,7 @@ def get_executor() -> ThreadPoolExecutor:
         with _executor_lock:
             if _executor is None:
                 _executor = ThreadPoolExecutor(
-                    max_workers=_max_workers,
+                    max_workers=_MAX_SCAN_WORKERS,
                     thread_name_prefix="NetworkScanner",
                 )
     return _executor
@@ -317,7 +369,7 @@ def scan_ip_batch(ip_list: List[str]) -> List[str]:
                 if future.result():
                     found.append(ip)
             except (TimeoutError, Exception) as e:
-                log_error(f"Error scanning {ip}: {e}")
+                log_error(f"Error scanning {mask_ip(ip)}: {e}")
     except Exception as e:
         log_error(f"Batch scan error: {e}")
 
@@ -351,10 +403,10 @@ def get_device_info_safe(ip: str, local_ip: str) -> Optional[Dict]:
             "last_seen": time.strftime("%H:%M:%S"),
         }
 
-        log_info(f"Found device: {ip} ({vendor})")
+        log_info(f"Found device: {mask_ip(ip)} ({vendor})")
         return device
     except Exception as e:
-        log_error(f"Device info error for {ip}: {e}")
+        log_error(f"Device info error for {mask_ip(ip)}: {e}")
         return None
 
 
@@ -371,12 +423,11 @@ def scan_network_range_advanced(
         scan_range = list(range(1, 255)) if quick_scan else list(range(start, end + 1))
 
         # Scan in small batches
-        batch_size = 10
-        for i in range(0, len(scan_range), batch_size):
-            batch = scan_range[i : i + batch_size]
+        for i in range(0, len(scan_range), _SCAN_BATCH_SIZE):
+            batch = scan_range[i : i + _SCAN_BATCH_SIZE]
             batch_ips = [f"{network}.{n}" for n in batch]
             found_ips.extend(scan_ip_batch(batch_ips))
-            time.sleep(0.2)
+            time.sleep(_SCAN_BATCH_PAUSE_S)
 
         # Supplement with ARP table
         try:
@@ -417,7 +468,7 @@ def scan_devices(quick: bool = True) -> List[Dict]:
     try:
         current_time = time.time()
         with _cache_lock:
-            if current_time - _cache_timestamp < CACHE_DURATION and _device_cache:
+            if current_time - _cache_timestamp < CACHE_DURATION_S and _device_cache:
                 log_info(f"Using cached device list ({len(_device_cache)} devices)")
                 return list(_device_cache.values())
 
@@ -494,7 +545,7 @@ class DeviceScanner:
             log_error(f"DeviceScanner scan error: {e}", exception=e)
             return []
 
-    def _safe(self, label: str, fn, *args, default=None):
+    def _safe(self, label: str, fn, *args, default=None) -> Any:
         try:
             return fn(*args)
         except Exception as e:

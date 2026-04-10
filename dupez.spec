@@ -19,7 +19,8 @@ hidden = (
     collect_submodules('app') +
     [
         'PyQt6.QtWidgets', 'PyQt6.QtGui', 'PyQt6.QtCore',
-        'PyQt6.QtWebEngineWidgets', 'PyQt6.QtWebChannel',
+        'PyQt6.QtWebEngineWidgets', 'PyQt6.QtWebEngineCore',
+        'PyQt6.QtWebChannel',
         'pyqtgraph', 'psutil', 'keyboard', 'PIL',
         'scapy', 'scapy.all',
         'cryptography', 'numpy', 'pandas', 'openpyxl',
@@ -60,16 +61,33 @@ a = Analysis(
     hooksconfig={},
     runtime_hooks=[],
     excludes=[
+        # ── ML / heavy libs not used ──
         'tensorflow', 'torch', 'matplotlib', 'scipy',
         'Twisted', 'stem', 'PycURL', 'pymongo', 'redis',
         'logging-loki', 'prometheus-client',
+        # ── Dev tools ──
         'pytest', 'black', 'flake8', 'mypy', 'Sphinx',
+        # NOTE: QtWebEngine re-included — protected from UPX corruption
+        # via upx_exclude list. Needed for DayZ interactive map.
+        # ── Tcl/Tk — not used, pulls in _tcl_data/tzdata that fails ──
+        'tkinter', '_tkinter', 'tcl',
+        # ── Other unused stdlib that drags in large data ──
+        'test', 'unittest', 'pydoc',
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
+
+# ── Strip tcl/tk timezone data that sneaks in via stdlib ────────────────
+# These cause "Failed to extract _tcl_data\tzdata\..." on low-spec machines
+a.datas = [
+    d for d in a.datas
+    if not d[0].startswith(('_tcl_data', 'tcl', 'tk'))
+]
+
+# ── QtWebEngine binaries kept — protected from UPX via upx_exclude ──────
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -85,7 +103,33 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    upx_exclude=[],
+    # ── Exclude large Qt DLLs from UPX compression ──────────────────
+    # UPX can corrupt large DLLs during decompression, causing
+    # "decompression resulted in return code -1" on extraction.
+    upx_exclude=[
+        # Qt core DLLs — UPX corrupts these large binaries
+        'Qt6Core.dll',
+        'Qt6Gui.dll',
+        'Qt6Widgets.dll',
+        'Qt6Network.dll',
+        'Qt6Svg.dll',
+        'Qt6OpenGL.dll',
+        # QtWebEngine — largest DLLs (~200 MB), most prone to corruption
+        'Qt6WebEngineCore.dll',
+        'Qt6WebEngineWidgets.dll',
+        'Qt6WebChannel.dll',
+        'QtWebEngineProcess.exe',
+        # System / runtime
+        'python3*.dll',
+        'vcruntime*.dll',
+        'msvcp*.dll',
+        'ucrtbase.dll',
+        'libcrypto*.dll',
+        'libssl*.dll',
+        # WinDivert driver — must not be compressed
+        'WinDivert.dll',
+        'WinDivert64.sys',
+    ],
     runtime_tmpdir=None,
     console=False,              # windowed (no terminal)
     disable_windowed_traceback=False,
@@ -94,5 +138,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=os.path.join(ROOT, 'app', 'resources', 'dupez.ico'),
+    version=os.path.join(ROOT, 'version_info.py'),       # embed VS_VERSION_INFO
+    manifest=os.path.join(ROOT, 'dupez.manifest'),        # embed app manifest
     uac_admin=True,             # request admin on launch
 )

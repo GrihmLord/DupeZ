@@ -18,11 +18,26 @@ Controller button constants follow XB1 naming (CronusZEN default):
   XB1_LX=17, XB1_LY=18, XB1_RX=19, XB1_RY=20
 """
 
+from __future__ import annotations
+
 import time
 import os
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from app.logs.logger import log_info, log_error
+
+__all__ = [
+    "BUTTON_MAP",
+    "PS4_TO_XB1",
+    "ComboStep",
+    "ComboSequence",
+    "GPCTemplate",
+    "GPCGenerator",
+    "adjust_combo_timing",
+    "list_templates",
+    "get_template",
+    "get_template_names",
+]
 
 # Controller button map
 BUTTON_MAP = {
@@ -188,7 +203,7 @@ def _template_anti_recoil() -> GPCTemplate:
 # Registry of all built-in templates
 TEMPLATES: Dict[str, GPCTemplate] = {}
 
-def _register_templates():
+def _register_templates() -> None:
     global TEMPLATES
     for fn in [_template_dayz_dupe, _template_rapid_fire,
                _template_godmode_sync, _template_anti_recoil]:
@@ -201,7 +216,7 @@ _register_templates()
 class GPCGenerator:
     """Generate valid .gpc source code from templates or custom configs."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._indent = "    "
 
     def generate(self, template: GPCTemplate,

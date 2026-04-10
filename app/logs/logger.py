@@ -7,6 +7,8 @@ log), a Windows-safe console handler, and module-level convenience
 functions that form the public logging API.
 """
 
+from __future__ import annotations
+
 import logging
 import logging.handlers
 import os
@@ -17,6 +19,38 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from app.utils.helpers import safe_console_message
+
+__all__ = [
+    "SafeConsoleHandler",
+    "DupeZLogger",
+    "logger",
+    "log_info",
+    "log_warning",
+    "log_debug",
+    "log_error",
+    "log_critical",
+    "log_performance",
+    "log_network_scan",
+    "log_device_detection",
+    "log_blocking_event",
+    "log_settings_event",
+    "log_ps5_detection",
+    "log_startup",
+    "log_shutdown",
+]
+
+
+def _scrub_log_message(message: str) -> str:
+    """Pass message through the secrets scrubber if available.
+
+    Lazy import to avoid circular dependency — the secrets manager
+    imports from logger, so we only resolve it at call time.
+    """
+    try:
+        from app.core.secrets_manager import scrub_message
+        return scrub_message(message)
+    except Exception:
+        return message
 
 
 class SafeConsoleHandler(logging.StreamHandler):
@@ -163,12 +197,18 @@ class DupeZLogger:
             self._log_with_context(logging.CRITICAL, message, **kwargs)
 
     def _log_with_context(self, level: int, message: str, **kwargs: Any) -> None:
-        """Log *message*, appending keyword context if provided."""
+        """Log *message*, appending keyword context if provided.
+
+        All output is passed through the secret scrubber to prevent
+        accidental leakage of API keys, tokens, or credentials.
+        """
         if kwargs:
             ctx = " | ".join(f"{k}={v}" for k, v in kwargs.items())
             full_message = f"{message} | Context: {ctx}"
         else:
             full_message = message
+        # Scrub secrets before writing to any log sink
+        full_message = _scrub_log_message(full_message)
         self.logger.log(level, full_message)
 
     # ── Structured event logging ──────────────────────────────────
