@@ -22,6 +22,8 @@ try:
 except ImportError:
     HAS_QT = False
 
+__all__ = ["PingSignals", "PingMonitorWidget", "PingMonitorPlugin"]
+
 
 class PingSignals(QObject):
     """Thread-safe signal bridge for ping results."""
@@ -31,7 +33,7 @@ class PingSignals(QObject):
 class PingMonitorWidget(QWidget):
     """Dashboard widget showing live ping results."""
 
-    def __init__(self, controller=None, parent=None):
+    def __init__(self, controller=None, parent=None) -> None:
         super().__init__(parent)
         self.controller = controller
         self.signals = PingSignals()
@@ -41,7 +43,7 @@ class PingMonitorWidget(QWidget):
         self._thread = None
         self._setup_ui()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
@@ -113,7 +115,7 @@ class PingMonitorWidget(QWidget):
         self.status_label.setStyleSheet("color: #64748b; font-size: 11px;")
         layout.addWidget(self.status_label)
 
-    def _refresh_targets(self):
+    def _refresh_targets(self) -> None:
         """Pull devices from the controller's device list."""
         if not self.controller:
             return
@@ -130,7 +132,7 @@ class PingMonitorWidget(QWidget):
             self.table.setItem(i, 3, QTableWidgetItem("Waiting"))
         self.status_label.setText(f"Loaded {len(devices)} target(s)")
 
-    def _toggle_monitoring(self):
+    def _toggle_monitoring(self) -> None:
         if self._running:
             self._running = False
             self.btn_toggle.setText("Start")
@@ -148,7 +150,7 @@ class PingMonitorWidget(QWidget):
             self._thread = threading.Thread(target=self._ping_loop, daemon=True)
             self._thread.start()
 
-    def _ping_loop(self):
+    def _ping_loop(self) -> None:
         """Background thread that pings all targets in a loop."""
         while self._running:
             for ip in list(self._targets.keys()):
@@ -177,7 +179,7 @@ class PingMonitorWidget(QWidget):
             pass
         return -1.0
 
-    def _on_ping_result(self, ip: str, latency: float):
+    def _on_ping_result(self, ip: str, latency: float) -> None:
         """Update table with ping result (runs on GUI thread via signal)."""
         self._targets[ip] = latency
         for row in range(self.table.rowCount()):
@@ -203,14 +205,14 @@ class PingMonitorWidget(QWidget):
                     self.table.setItem(row, 3, status_item)
                 break
 
-    def stop(self):
+    def stop(self) -> None:
         self._running = False
 
 
 class PingMonitorPlugin(UIPanelPlugin):
     """Ping Monitor plugin — adds a live latency panel to the dashboard."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._widget = None
 
@@ -232,6 +234,6 @@ class PingMonitorPlugin(UIPanelPlugin):
             "title": "Ping Monitor",
         }
 
-    def create_widget(self, parent=None):
+    def create_widget(self, parent=None) -> Any:
         self._widget = PingMonitorWidget(controller=self.controller, parent=parent)
         return self._widget

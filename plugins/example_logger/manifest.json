@@ -1,0 +1,11 @@
+{
+    "name": "Example Logger",
+    "version": "1.0.0",
+    "description": "Sample plugin that logs disruption lifecycle events — demonstrates the GenericPlugin API for community developers.",
+    "type": "generic",
+    "entry_point": "plugin.py",
+    "author": "DupeZ Team",
+    "url": "https://github.com/GrihmLord/DupeZ",
+    "min_dupez_version": "4.0.0",
+    "dependencies": []
+}

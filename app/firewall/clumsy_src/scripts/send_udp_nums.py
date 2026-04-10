@@ -1,12 +1,14 @@
-# send incrementing packets containing numbers to given host
-# start up a server by using ncat
+"""Send incrementing UDP packets for WinDivert testing.
+
+Start a receiver with ncat: ``ncat -u -l -C localhost 9111``
+"""
 # http://nmap.org/dist/ncat-portable-5.59BETA1.zip
-# the server should be started with CRLF as EOF
-# eg: ncat -u -l -C localhost 9111
 import subprocess
 import argparse
 from time import sleep
 from sys import argv, exit
+
+__all__ = ["NCAT_EXE"]
 
 NCAT_EXE = r'C:\Bin\nmap-7.91\ncat'
 

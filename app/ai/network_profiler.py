@@ -16,6 +16,8 @@ The profile is the input to SmartDisruptionEngine — it decides
 what settings will be most effective against THIS specific connection.
 """
 
+from __future__ import annotations
+
 import re
 import sys
 import time
@@ -26,7 +28,9 @@ import subprocess
 from dataclasses import dataclass, field, asdict
 from typing import List
 from app.logs.logger import log_info, log_error
-from app.utils.helpers import mask_ip
+from app.utils.helpers import mask_ip, _NO_WINDOW
+
+__all__ = ["NetworkProfile", "NetworkProfiler"]
 
 @dataclass
 class NetworkProfile:
@@ -60,6 +64,11 @@ class NetworkProfile:
     device_hint: str = ""              # e.g. "PlayStation", "Xbox", "iPhone"
     open_ports: List[int] = field(default_factory=list)
 
+    # Platform identification (v5.1 — drives platform-specific config)
+    platform: str = "unknown"          # ps5, ps4, xbox_series, xbox_one, pc
+    interception_layer: str = "NETWORK_FORWARD"  # from game profile platform_support
+    recommended_keepalive_ms: int = 800           # NAT keepalive from platform config
+
     # Protocol mix (from brief traffic capture if available)
     tcp_pct: float = 50.0
     udp_pct: float = 50.0
@@ -87,7 +96,7 @@ class NetworkProfiler:
     _COMMON_PORTS = [80, 443, 22, 53, 8080, 3389, 5353]
 
     def __init__(self, ping_count: int = 10, ping_timeout: float = 2.0,
-                 port_scan_enabled: bool = True):
+                 port_scan_enabled: bool = True) -> None:
         self.ping_count = ping_count
         self.ping_timeout = ping_timeout
         self.port_scan_enabled = port_scan_enabled
@@ -132,7 +141,7 @@ class NetworkProfiler:
         return profile
 
     def profile_async(self, target_ip: str, callback=None,
-                      device_info: dict = None):
+                      device_info: dict = None) -> None:
         """Profile in background thread, call callback(profile) when done."""
         def _run():
             result = self.profile(target_ip, device_info)
@@ -143,7 +152,7 @@ class NetworkProfiler:
         return t
 
     # Probe: ICMP Ping
-    def _probe_ping(self, profile: NetworkProfile):
+    def _probe_ping(self, profile: NetworkProfile) -> None:
         """Send ICMP pings via system ping command and parse results."""
         try:
             # Windows ping: -n count, -w timeout_ms
@@ -152,7 +161,7 @@ class NetworkProfiler:
                    profile.target_ip]
             result = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=30,
-                creationflags=0x08000000 if sys.platform == "win32" else 0,
+                creationflags=_NO_WINDOW,
             )
             output = result.stdout
 
@@ -195,7 +204,7 @@ class NetworkProfiler:
             profile.packet_loss_pct = 100.0
 
     # Connection Type Detection
-    def _detect_connection_type(self, profile: NetworkProfile):
+    def _detect_connection_type(self, profile: NetworkProfile) -> None:
         """Determine if target is local, LAN, hotspot, or WAN."""
         ip = profile.target_ip
         if ip.startswith("127.") or ip == "::1":
@@ -221,14 +230,14 @@ class NetworkProfiler:
             return False
 
     # Hop Count Estimation
-    def _estimate_hops(self, profile: NetworkProfile):
+    def _estimate_hops(self, profile: NetworkProfile) -> None:
         """Already extracted from ping TTL. Add traceroute if needed."""
         # hop_count was set in _probe_ping from TTL
         if profile.hop_count == 0 and profile.connection_type in ("lan", "hotspot"):
             profile.hop_count = 1  # reasonable default for local devices
 
     # Port Scanning
-    def _scan_ports(self, profile: NetworkProfile):
+    def _scan_ports(self, profile: NetworkProfile) -> None:
         """Quick TCP connect scan on gaming + common ports."""
         ports_to_scan = self._GAME_PORTS + self._COMMON_PORTS
         open_ports = []
@@ -257,49 +266,96 @@ class NetworkProfiler:
 
     # Device Type Inference
     def _infer_device_type(self, profile: NetworkProfile,
-                           device_info: dict = None):
-        """Infer device type from ports, TTL, and scanner info."""
-        # If the scanner already identified the device, use that
+                           device_info: dict = None) -> None:
+        """Infer device type from ports, TTL, and scanner info.
+
+        v5.1: Also sets platform identifier (ps5, xbox_series, pc, etc.)
+        and loads platform-specific config from the game profile.
+        """
+        # Map keywords → (device_type, hint, platform_key)
         _DTYPE_MAP = {
-            'playstation': ('console', 'PlayStation'), 'ps5': ('console', 'PlayStation'),
-            'ps4': ('console', 'PlayStation'), 'xbox': ('console', 'Xbox'),
-            'nintendo': ('console', 'Nintendo'), 'switch': ('console', 'Nintendo'),
-            'iphone': ('mobile', None), 'android': ('mobile', None), 'mobile': ('mobile', None),
+            'ps5': ('console', 'PlayStation 5', 'ps5'),
+            'playstation 5': ('console', 'PlayStation 5', 'ps5'),
+            'ps4': ('console', 'PlayStation 4', 'ps4'),
+            'playstation 4': ('console', 'PlayStation 4', 'ps4'),
+            'playstation': ('console', 'PlayStation', 'ps5'),  # assume PS5 if ambiguous
+            'xbox series': ('console', 'Xbox Series X|S', 'xbox_series'),
+            'xbox one': ('console', 'Xbox One', 'xbox_one'),
+            'xbox': ('console', 'Xbox', 'xbox_series'),  # assume Series if ambiguous
+            'nintendo': ('console', 'Nintendo', 'pc'),  # no DayZ on Nintendo, treat as generic
+            'switch': ('console', 'Nintendo', 'pc'),
+            'iphone': ('mobile', 'iPhone', 'pc'),
+            'android': ('mobile', 'Android', 'pc'),
+            'mobile': ('mobile', 'Mobile', 'pc'),
+            'pc': ('pc', 'PC', 'pc'),
+            'windows': ('pc', 'Windows PC', 'pc'),
+            'computer': ('pc', 'PC', 'pc'),
         }
         if device_info:
             dtype = device_info.get("device_type", "").lower()
-            for kw, (dev_type, hint) in _DTYPE_MAP.items():
+            for kw, (dev_type, hint, plat) in _DTYPE_MAP.items():
                 if kw in dtype:
                     profile.device_type = dev_type
-                    profile.device_hint = hint or dtype.title()
+                    profile.device_hint = hint
+                    profile.platform = plat
+                    self._apply_platform_config(profile)
                     return
 
         # Port-based heuristics
         gaming_ports_open = set(profile.open_ports) & set(self._GAME_PORTS)
         if gaming_ports_open:
-            # PSN ports
-            if {3074, 3478, 3479, 3480} & set(profile.open_ports):
+            # PSN / XBL distinction
+            psn_ports = {3478, 3479, 3480}
+            xbl_ports = {3074}
+            if psn_ports & set(profile.open_ports):
                 profile.device_type = "console"
-                profile.device_hint = "PlayStation/Xbox (PSN/XBL ports)"
+                profile.device_hint = "PlayStation (PSN ports detected)"
+                profile.platform = "ps5"
+            elif xbl_ports & set(profile.open_ports) and not (psn_ports & set(profile.open_ports)):
+                profile.device_type = "console"
+                profile.device_hint = "Xbox (XBL port 3074 detected)"
+                profile.platform = "xbox_series"
             else:
                 profile.device_type = "pc"
                 profile.device_hint = "Gaming PC (game server ports open)"
+                profile.platform = "pc"
         elif 3389 in profile.open_ports:
             profile.device_type = "pc"
             profile.device_hint = "Windows PC (RDP open)"
+            profile.platform = "pc"
         elif 80 in profile.open_ports and 443 not in profile.open_ports:
             profile.device_type = "iot"
             profile.device_hint = "IoT/Router (HTTP only)"
+            profile.platform = "pc"
         else:
-            # TTL-based guess
-            if profile.hop_count >= 0:
-                # Low TTL start = Linux/PS (64), High = Windows/Xbox (128)
-                # This is already normalized to hops, so use raw for inference
-                pass
             profile.device_type = "unknown"
+            # Default to console on hotspot (most common DupeZ use case)
+            if profile.connection_type == "hotspot":
+                profile.platform = "ps5"
+            else:
+                profile.platform = "pc"
+
+        self._apply_platform_config(profile)
+
+    def _apply_platform_config(self, profile: NetworkProfile) -> None:
+        """Load platform-specific settings from game profile."""
+        try:
+            from app.config.game_profiles import get_platform_config
+            plat_cfg = get_platform_config("dayz", profile.platform)
+            if plat_cfg:
+                profile.interception_layer = plat_cfg.get(
+                    "interception_layer", "NETWORK_FORWARD")
+                profile.recommended_keepalive_ms = plat_cfg.get(
+                    "keepalive_interval_ms", 800)
+                log_info(f"NetworkProfiler: platform={profile.platform} — "
+                         f"layer={profile.interception_layer}, "
+                         f"keepalive={profile.recommended_keepalive_ms}ms")
+        except Exception:
+            # Fall back to defaults already set on NetworkProfile
+            pass
 
     # Bandwidth Estimation
-    def _estimate_bandwidth(self, profile: NetworkProfile):
+    def _estimate_bandwidth(self, profile: NetworkProfile) -> None:
         """Lightweight bandwidth estimate based on RTT and connection type."""
         # Full bandwidth probing would require a cooperative endpoint.
         # Instead, estimate from connection type and RTT characteristics.
@@ -316,7 +372,7 @@ class NetworkProfiler:
                 break
 
     # Quality Score
-    def _compute_quality_score(self, profile: NetworkProfile):
+    def _compute_quality_score(self, profile: NetworkProfile) -> None:
         """Compute connection quality 0-100 (higher = better = harder to disrupt)."""
         score = 100.0
 

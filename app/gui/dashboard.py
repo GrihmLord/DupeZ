@@ -1,307 +1,458 @@
 # app/gui/dashboard.py — DupeZ Dashboard (3-View Architecture)
+"""Main application window for DupeZ.
 
-import os
+``DupeZDashboard`` is a frameless ``QMainWindow`` with a custom title bar,
+four sidebar-navigated views (Clumsy Control, iZurvive Map, Account Tracker,
+Network Tools), a system tray integration, and a plugin panel extension
+point.
+"""
+
+from __future__ import annotations
+
 import gc
-import ctypes
+import os
 import webbrowser
+from typing import Any, List, Optional
 
+from PyQt6.QtCore import Q_ARG, QMetaObject, QPoint, Qt, QTimer, pyqtSlot
+from PyQt6.QtGui import QAction, QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QStatusBar, QStackedWidget, QDialog, QMessageBox,
-    QSystemTrayIcon, QMenu, QMenuBar
+    QDialog,
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QMessageBox,
+    QPushButton,
+    QStackedWidget,
+    QStatusBar,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtGui import QIcon, QAction, QFont, QCursor
-from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSlot
 
+from app.core.updater import CURRENT_VERSION
 from app.gui.clumsy_control import ClumsyControlView
-from app.gui.dayz_map_gui_new import DayZMapGUI
 from app.gui.dayz_account_tracker import DayZAccountTracker
+from app.gui.dayz_map_gui_new import DayZMapGUI
 from app.gui.network_tools import NetworkToolsView
+from app.gui.panels.help_panel import HelpPanel
 from app.gui.settings_dialog import SettingsDialog
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_error, log_info
+from app.utils.helpers import is_admin
 
 try:
-    from app.gui.hotkey import hotkey_manager, KEYBOARD_AVAILABLE
+    from app.gui.hotkey import KEYBOARD_AVAILABLE, hotkey_manager
 except ImportError:
     KEYBOARD_AVAILABLE = False
     hotkey_manager = None
 
-IS_ADMIN = os.name != 'nt' or (
-    hasattr(ctypes, 'windll') and ctypes.windll.shell32.IsUserAnAdmin() != 0
-)
-_ICON_PATHS = ["app/resources/dupez.ico", "app/resources/dupez.png", "app/assets/icon.ico"]
+__all__ = ["DupeZDashboard"]
+
+# ── Lazy admin check (avoid side-effect at import time) ─────────────
+
+_IS_ADMIN: Optional[bool] = None
+
+
+def _get_is_admin() -> bool:
+    """Return cached admin/root status."""
+    global _IS_ADMIN
+    if _IS_ADMIN is None:
+        _IS_ADMIN = is_admin()
+    return _IS_ADMIN
+
+
+# ── Icon discovery ──────────────────────────────────────────────────
+
+_ICON_PATHS: List[str] = [
+    "app/resources/dupez.ico",
+    "app/resources/dupez.png",
+    "app/assets/icon.ico",
+]
+
 
 def _find_icon() -> str:
     """Return first existing icon path, or empty string."""
     return next((p for p in _ICON_PATHS if os.path.exists(p)), "")
 
-class DupeZDashboard(QMainWindow):
-    """DupeZ main window — 3-view architecture: Clumsy | Map | Accounts"""
 
-    def __init__(self, controller=None):
+# ── QSS constants ──────────────────────────────────────────────────
+
+_MAIN_CONTAINER_QSS: str = """
+    #main_container {
+        background-color: #050810;
+        border: 1px solid rgba(15, 26, 46, 0.6);
+        border-radius: 10px;
+    }
+"""
+
+_TITLE_BAR_QSS: str = """
+    #title_bar {
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+            stop:0 #040710, stop:0.5 #060a14, stop:1 #040710);
+        border-bottom: 1px solid rgba(0, 240, 255, 0.06);
+    }
+"""
+
+_MENUBAR_QSS: str = """
+    QMenuBar {
+        background-color: #060a14; color: #94a3b8;
+        border-bottom: 1px solid rgba(30, 41, 59, 0.4); padding: 2px 6px;
+        font-size: 12px; font-weight: 500;
+    }
+    QMenuBar::item { padding: 5px 12px; background: transparent; border-radius: 6px; }
+    QMenuBar::item:selected { background: rgba(0, 240, 255, 0.1); color: #e2e8f0; }
+    QMenu { background-color: #0c1220; color: #e2e8f0; border: 1px solid rgba(51,65,85,0.5);
+        border-radius: 8px; padding: 6px; }
+    QMenu::item { padding: 8px 28px 8px 16px; border-radius: 6px; margin: 1px 4px; }
+    QMenu::item:selected { background: rgba(0, 240, 255, 0.12); color: #00f0ff; }
+    QMenu::separator { height: 1px; background: rgba(30,41,59,0.5); margin: 6px 12px; }
+"""
+
+_TRAY_MENU_QSS: str = """
+    QMenu {
+        background: #0c1220; color: #e2e8f0;
+        border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 6px;
+    }
+    QMenu::item { padding: 8px 28px 8px 16px; border-radius: 6px; margin: 1px 4px; }
+    QMenu::item:selected { background: rgba(0, 240, 255, 0.12); color: #00f0ff; }
+    QMenu::separator { height: 1px; background: rgba(30,41,59,0.5); margin: 6px 12px; }
+"""
+
+_NAV_BTN_QSS: str = """
+    QPushButton {
+        background: transparent; border: none; border-radius: 10px;
+    }
+    QPushButton:hover { background: rgba(0, 240, 255, 0.08); }
+    QPushButton:checked {
+        background: rgba(0, 240, 255, 0.12);
+        border-left: 3px solid #00f0ff;
+        border-radius: 6px;
+    }
+"""
+
+_ABOUT_DLG_QSS: str = """
+    QDialog {
+        background-color: #060913; border: 1px solid rgba(0, 240, 255, 0.3);
+        border-radius: 14px;
+    }
+    QLabel { background: transparent; color: #cbd5e1; }
+"""
+
+_CLOSE_BTN_QSS: str = (
+    "QPushButton { background: transparent; color: #475569;"
+    " border: none; font-size: 16px; font-weight: bold; border-radius: 6px; }"
+    " QPushButton:hover { color: #ff4444; background: rgba(255,68,68,0.1); }"
+)
+
+_GH_BTN_QSS: str = """
+    QPushButton {
+        background: rgba(0, 240, 255, 0.06); color: #00f0ff;
+        border: 1px solid rgba(0, 240, 255, 0.35);
+        border-radius: 8px; padding: 10px 28px; font-weight: 600; font-size: 12px;
+    }
+    QPushButton:hover { background: rgba(0, 240, 255, 0.15); border-color: rgba(0,240,255,0.5); }
+"""
+
+_FALLBACK_THEME_QSS: str = """
+    QMainWindow, QWidget { background-color: #050810; color: #e2e8f0; }
+    QPushButton {
+        background: rgba(30,41,59,0.7); color: #f1f5f9;
+        border: 1px solid rgba(51,65,85,0.6); padding: 8px 16px; border-radius: 8px;
+    }
+    QPushButton:hover { background: rgba(51,65,85,0.7); }
+"""
+
+_WND_BTN_QSS_TEMPLATE: str = """
+    QPushButton {{
+        background: transparent; color: {color}; border: none;
+        font-size: {size}; font-weight: bold; padding: 0;
+        min-width: 36px; max-width: 36px; min-height: 36px; max-height: 36px;
+        border-radius: 8px;
+    }}
+    QPushButton:hover {{ background: {hover_bg}; }}
+"""
+
+# ── Cursor map for frameless resize ────────────────────────────────
+
+_RESIZE_CURSOR_MAP = {
+    "left": Qt.CursorShape.SizeHorCursor,
+    "right": Qt.CursorShape.SizeHorCursor,
+    "top": Qt.CursorShape.SizeVerCursor,
+    "bottom": Qt.CursorShape.SizeVerCursor,
+    "left+top": Qt.CursorShape.SizeFDiagCursor,
+    "right+bottom": Qt.CursorShape.SizeFDiagCursor,
+    "right+top": Qt.CursorShape.SizeBDiagCursor,
+    "left+bottom": Qt.CursorShape.SizeBDiagCursor,
+}
+
+_RESIZE_MARGIN: int = 6
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  DupeZDashboard
+# ═══════════════════════════════════════════════════════════════════
+
+class DupeZDashboard(QMainWindow):
+    """DupeZ main window — sidebar-navigated 4-view architecture.
+
+    Views: Clumsy Control | iZurvive Map | Account Tracker | Network Tools.
+    Supports system-tray minimisation, global hotkey toggle, and plugin
+    panel extensions.
+    """
+
+    def __init__(self, controller: Any = None) -> None:
         super().__init__()
         self.controller = controller
-        self._minimize_to_tray = True  # User can toggle via settings
-        self._force_quit = False
+        self._minimize_to_tray: bool = True
+        self._force_quit: bool = False
 
-        self.setup_ui()
-        self.setup_menu()
-        self.setup_status_bar()
-        self.setup_tray()
-        self.setup_tray_hotkey()
-        self.connect_signals()
+        # Frameless drag/resize state
+        self._drag_pos: Optional[QPoint] = None
+        self._resizing: bool = False
+        self._resize_edge: Optional[str] = None
+        self._start_geometry = None
 
-        # Periodic status bar update
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.update_status_bar)
-        self.update_timer.start(3000)
+        self._setup_ui()
+        self._setup_menu()
+        self._setup_status_bar()
+        self._setup_tray()
+        self._setup_tray_hotkey()
+        self._connect_signals()
 
-        # Header stats
-        self.stats_timer = QTimer()
-        self.stats_timer.timeout.connect(self._update_header_stats)
-        self.stats_timer.start(2000)
+        # Periodic timers
+        self._status_timer = QTimer(self)
+        self._status_timer.timeout.connect(self._update_status_bar)
+        self._status_timer.start(3000)
 
-        # Tray tooltip updater
-        self.tray_timer = QTimer()
-        self.tray_timer.timeout.connect(self._update_tray_tooltip)
-        self.tray_timer.start(5000)
+        self._stats_timer = QTimer(self)
+        self._stats_timer.timeout.connect(self._update_header_stats)
+        self._stats_timer.start(2000)
 
-    # UI Setup
-    def setup_ui(self):
-        admin_text = "ADMIN " if IS_ADMIN else ""
-        self.setWindowTitle(f"{admin_text}DupeZ v4.0.0")
-        icon = _find_icon()
-        if icon:
-            self.setWindowIcon(QIcon(icon))
+        self._tray_timer = QTimer(self)
+        self._tray_timer.timeout.connect(self._update_tray_tooltip)
+        self._tray_timer.start(5000)
 
-        # --- Borderless frameless window ---
+    # ── UI Construction ─────────────────────────────────────────────
+
+    def _setup_ui(self) -> None:
+        """Build the complete UI hierarchy."""
+        admin_text = "ADMIN " if _get_is_admin() else ""
+        self.setWindowTitle(f"{admin_text}DupeZ v{CURRENT_VERSION}")
+        icon_path = _find_icon()
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-        self._drag_pos = None
-        self._resizing = False
-        self._resize_edge = None
-        self._resize_margin = 6
 
         screen = self.screen().availableGeometry()
-        w = int(screen.width() * 0.85)
-        h = int(screen.height() * 0.85)
-        self.setGeometry((screen.width() - w) // 2, (screen.height() - h) // 2, w, h)
+        w, h = int(screen.width() * 0.85), int(screen.height() * 0.85)
+        self.setGeometry(
+            (screen.width() - w) // 2, (screen.height() - h) // 2, w, h,
+        )
         self.setMinimumSize(900, 600)
+        self._apply_theme()
 
-        self.apply_default_theme()
-
+        # Central widget
         central = QWidget()
         central.setObjectName("main_container")
-        central.setStyleSheet("""
-            #main_container {
-                background-color: #0a0e1a;
-                border: 1px solid #0f1a2e;
-            }
-        """)
+        central.setStyleSheet(_MAIN_CONTAINER_QSS)
         self.setCentralWidget(central)
 
         main_layout = QVBoxLayout(central)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # === CUSTOM TITLE BAR ===
+        self._build_title_bar(main_layout)
+        self._build_menubar(main_layout)
+        self._build_header(main_layout)
+        self._build_content_area(main_layout)
+
+        self.switch_view(0)
+
+    def _build_title_bar(self, parent_layout: QVBoxLayout) -> None:
+        """Custom frameless title bar with min/max/close buttons."""
         self.title_bar = QWidget()
         self.title_bar.setObjectName("title_bar")
         self.title_bar.setFixedHeight(36)
-        self.title_bar.setStyleSheet("""
-            #title_bar {
-                background-color: #050810;
-                border-bottom: 1px solid #0f1a2e;
-            }
-        """)
-        tb_layout = QHBoxLayout(self.title_bar)
-        tb_layout.setContentsMargins(12, 0, 8, 0)
-        tb_layout.setSpacing(8)
+        self.title_bar.setStyleSheet(_TITLE_BAR_QSS)
 
-        # Icon + title — ADMIN badge first, then app name
-        if IS_ADMIN:
+        tb = QHBoxLayout(self.title_bar)
+        tb.setContentsMargins(12, 0, 8, 0)
+        tb.setSpacing(8)
+
+        if _get_is_admin():
             admin_tag = QLabel("ADMIN")
-            admin_tag.setStyleSheet("color: #fbbf24; font-size: 10px; font-weight: bold; background: transparent;")
-            tb_layout.addWidget(admin_tag)
+            admin_tag.setStyleSheet(
+                "color: #fbbf24; font-size: 10px; font-weight: bold; background: transparent;"
+            )
+            tb.addWidget(admin_tag)
 
-        title_label = QLabel("DupeZ v4.0.0")
-        title_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; letter-spacing: 1px; background: transparent;")
-        tb_layout.addWidget(title_label)
-
-        tb_layout.addStretch()
+        title_label = QLabel(f"DupeZ v{CURRENT_VERSION}")
+        title_label.setStyleSheet(
+            "color: #475569; font-size: 11px; font-weight: 600;"
+            " letter-spacing: 1.5px; background: transparent;"
+        )
+        tb.addWidget(title_label)
+        tb.addStretch()
 
         # Window control buttons
-        btn_style_base = """
-            QPushButton {{
-                background: transparent;
-                color: {color};
-                border: none;
-                font-size: {size};
-                font-weight: bold;
-                padding: 0;
-                min-width: 36px;
-                max-width: 36px;
-                min-height: 36px;
-                max-height: 36px;
-            }}
-            QPushButton:hover {{
-                background: {hover_bg};
-            }}
-        """
-
+        wnd_btn_base = "rgba(255,255,255,0.08)"
         for attr, char, hover_bg, handler in [
-            ("btn_minimize", "\u2014", "rgba(255,255,255,0.08)", self.showMinimized),
-            ("btn_maximize", "\u25a1", "rgba(255,255,255,0.08)", self._toggle_maximize),
+            ("btn_minimize", "\u2014", wnd_btn_base, self.showMinimized),
+            ("btn_maximize", "\u25a1", wnd_btn_base, self._toggle_maximize),
             ("btn_close", "\u2715", "rgba(255,50,50,0.6)", self.close),
         ]:
             btn = QPushButton(char)
-            btn.setStyleSheet(btn_style_base.format(color="#64748b", size="14px", hover_bg=hover_bg))
+            btn.setStyleSheet(
+                _WND_BTN_QSS_TEMPLATE.format(
+                    color="#64748b", size="14px", hover_bg=hover_bg,
+                ),
+            )
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.clicked.connect(handler)
             setattr(self, attr, btn)
 
-        tb_layout.addWidget(self.btn_minimize)
-        tb_layout.addWidget(self.btn_maximize)
-        tb_layout.addWidget(self.btn_close)
+        tb.addWidget(self.btn_minimize)
+        tb.addWidget(self.btn_maximize)
+        tb.addWidget(self.btn_close)
+        parent_layout.addWidget(self.title_bar)
 
-        main_layout.addWidget(self.title_bar)
-
-        # === MENU BAR (embedded below title bar, not native) ===
+    def _build_menubar(self, parent_layout: QVBoxLayout) -> None:
+        """Embedded custom menu bar (below title bar, not native)."""
         self._custom_menubar = QMenuBar()
-        self._custom_menubar.setStyleSheet("""
-            QMenuBar {
-                background-color: #0a0e1a;
-                color: #94a3b8;
-                border-bottom: 1px solid #0f1a2e;
-                padding: 2px 8px;
-                font-size: 12px;
-            }
-            QMenuBar::item {
-                padding: 4px 10px;
-                background: transparent;
-            }
-            QMenuBar::item:selected {
-                background: rgba(0, 217, 255, 0.15);
-                color: #e0e0e0;
-            }
-            QMenu {
-                background-color: #0f1923;
-                color: #e0e0e0;
-                border: 1px solid #1a2a3a;
-            }
-            QMenu::item:selected {
-                background: rgba(0, 217, 255, 0.25);
-            }
-        """)
-        main_layout.addWidget(self._custom_menubar)
+        self._custom_menubar.setStyleSheet(_MENUBAR_QSS)
+        parent_layout.addWidget(self._custom_menubar)
 
-        # === HEADER ===
+    def _build_header(self, parent_layout: QVBoxLayout) -> None:
+        """Logo + status indicator + CPU/RAM gauges."""
         header = QWidget()
         header.setObjectName("header_bar")
-        header.setFixedHeight(50)
+        header.setFixedHeight(52)
         hl = QHBoxLayout(header)
-        hl.setContentsMargins(15, 5, 15, 5)
+        hl.setContentsMargins(18, 6, 18, 6)
 
         logo = QLabel("DUPEZ")
-        logo.setStyleSheet("font-size: 18px; font-weight: bold; color: #00d9ff; letter-spacing: 2px;")
+        logo.setStyleSheet(
+            "font-size: 18px; font-weight: 800; color: #00f0ff;"
+            " letter-spacing: 3px; background: transparent;"
+        )
         hl.addWidget(logo)
 
-        self.status_indicator = QLabel("CONNECTED")
-        self.status_indicator.setStyleSheet("color: #00ff88; font-weight: bold;")
+        self.status_indicator = QLabel("\u25cf  CONNECTED")
+        self.status_indicator.setStyleSheet(
+            "color: #00ff88; font-weight: 700; font-size: 11px;"
+            " letter-spacing: 0.5px; background: transparent;"
+        )
         hl.addWidget(self.status_indicator)
         hl.addStretch()
 
-        _SYS_QSS = "color: #94a3b8;"
-        self.cpu_label = QLabel("CPU: 0%"); self.cpu_label.setStyleSheet(_SYS_QSS)
-        self.ram_label = QLabel("RAM: 0%"); self.ram_label.setStyleSheet(_SYS_QSS)
-        hl.addWidget(self.cpu_label); hl.addSpacing(20); hl.addWidget(self.ram_label)
+        sys_qss = (
+            "color: #64748b; font-size: 11px; font-family: 'Cascadia Code', 'Consolas', monospace;"
+            " background: transparent;"
+        )
+        self.cpu_label = QLabel("CPU: 0%")
+        self.cpu_label.setStyleSheet(sys_qss)
+        self.ram_label = QLabel("RAM: 0%")
+        self.ram_label.setStyleSheet(sys_qss)
+        hl.addWidget(self.cpu_label)
+        hl.addSpacing(16)
+        hl.addWidget(self.ram_label)
 
-        main_layout.addWidget(header)
+        parent_layout.addWidget(header)
 
-        # === CONTENT: Sidebar + Stacked Views ===
+    def _build_content_area(self, parent_layout: QVBoxLayout) -> None:
+        """Sidebar rail + stacked view container."""
         content = QWidget()
         cl = QHBoxLayout(content)
         cl.setSpacing(0)
         cl.setContentsMargins(0, 0, 0, 0)
 
-        # --- Sidebar Rail (3 buttons) ---
+        # Sidebar rail
         self.sidebar_rail = QWidget()
         self.sidebar_rail.setObjectName("sidebar_rail")
-        self.sidebar_rail.setFixedWidth(60)
+        self.sidebar_rail.setFixedWidth(58)
         sl = QVBoxLayout(self.sidebar_rail)
-        sl.setContentsMargins(0, 15, 0, 15)
-        sl.setSpacing(10)
+        sl.setContentsMargins(0, 12, 0, 12)
+        sl.setSpacing(6)
 
-        self.btn_clumsy = self._nav_btn("🎯", "Clumsy Control")
-        self.btn_map = self._nav_btn("🗺️", "iZurvive Map")
-        self.btn_accounts = self._nav_btn("👤", "Account Tracker")
-        self.btn_nettools = self._nav_btn("📡", "Network Tools")
+        self.btn_clumsy = self._nav_btn("\U0001f3af", "Clumsy Control")
+        self.btn_map = self._nav_btn("\U0001f5fa\ufe0f", "iZurvive Map")
+        self.btn_accounts = self._nav_btn("\U0001f464", "Account Tracker")
+        self.btn_nettools = self._nav_btn("\U0001f4e1", "Network Tools")
+        self.btn_help = self._nav_btn("\U0001f680", "Getting Started")
 
-        self.nav_buttons = [self.btn_clumsy, self.btn_map, self.btn_accounts, self.btn_nettools]
-        for i, btn in enumerate(self.nav_buttons):
-            btn.clicked.connect(lambda checked, idx=i: self.switch_view(idx))
+        self.nav_buttons: List[QPushButton] = [
+            self.btn_clumsy, self.btn_map, self.btn_accounts, self.btn_nettools,
+            self.btn_help,
+        ]
+        # Add main nav buttons
+        for idx, btn in enumerate(self.nav_buttons[:-1]):
+            btn.clicked.connect(lambda _checked, i=idx: self.switch_view(i))
             sl.addWidget(btn, 0, Qt.AlignmentFlag.AlignHCenter)
 
         sl.addStretch()
+
+        # Help button pinned to bottom of sidebar
+        help_idx = len(self.nav_buttons) - 1
+        self.btn_help.clicked.connect(lambda _checked, i=help_idx: self.switch_view(i))
+        sl.addWidget(self.btn_help, 0, Qt.AlignmentFlag.AlignHCenter)
+
         cl.addWidget(self.sidebar_rail)
 
-        # --- Stacked Views ---
+        # Stacked views
         self.view_stack = QStackedWidget()
-
         self.clumsy_view = ClumsyControlView(controller=self.controller)
         self.map_view = DayZMapGUI()
         self.accounts_view = DayZAccountTracker()
         self.nettools_view = NetworkToolsView(controller=self.controller)
-        for view in (self.clumsy_view, self.map_view, self.accounts_view, self.nettools_view):
+        self.help_view = HelpPanel()
+        for view in (self.clumsy_view, self.map_view,
+                     self.accounts_view, self.nettools_view,
+                     self.help_view):
             self.view_stack.addWidget(view)
 
-        # --- Plugin UI Panels ---
+        # Plugin panels (extends sidebar + view stack)
         self._load_plugin_panels(sl)
 
         cl.addWidget(self.view_stack, 1)
-        main_layout.addWidget(content, 1)
+        parent_layout.addWidget(content, 1)
 
-        self.switch_view(0)
-
-    def _nav_btn(self, icon: str, tooltip: str) -> QPushButton:
+    @staticmethod
+    def _nav_btn(icon: str, tooltip: str) -> QPushButton:
+        """Create a sidebar navigation button."""
         btn = QPushButton(icon)
         btn.setToolTip(tooltip)
         btn.setCheckable(True)
         btn.setFixedSize(40, 40)
         btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn.setFont(QFont("Segoe UI Emoji", 16))
-        btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                border-radius: 8px;
-            }
-            QPushButton:hover {
-                background: rgba(0, 217, 255, 0.15);
-            }
-            QPushButton:checked {
-                background: rgba(0, 217, 255, 0.25);
-                border-left: 3px solid #00d9ff;
-            }
-        """)
+        btn.setStyleSheet(_NAV_BTN_QSS)
         return btn
 
-    def switch_view(self, index: int):
+    # ── View switching ──────────────────────────────────────────────
+
+    def switch_view(self, index: int) -> None:
+        """Activate the view at *index* and update sidebar selection."""
         self.view_stack.setCurrentIndex(index)
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
 
-    # Plugin UI Panels
-    def _load_plugin_panels(self, sidebar_layout):
-        """Load UI panel plugins into the sidebar and view stack."""
-        if not self.controller or not hasattr(self.controller, 'plugin_loader'):
+    # ── Plugin panels ───────────────────────────────────────────────
+
+    def _load_plugin_panels(self, sidebar_layout: QVBoxLayout) -> None:
+        """Discover and mount UI-panel plugins into sidebar + view stack."""
+        if not self.controller or not hasattr(self.controller, "plugin_loader"):
             return
         try:
             ui_plugins = self.controller.plugin_loader.get_ui_panel_plugins()
             if not ui_plugins:
                 return
 
-            separator = QLabel("─" * 4)
+            separator = QLabel("\u2500" * 4)
             separator.setStyleSheet("color: #1e293b; font-size: 8px;")
             separator.setAlignment(Qt.AlignmentFlag.AlignCenter)
             sidebar_layout.addWidget(separator)
@@ -312,26 +463,28 @@ class DupeZDashboard(QMainWindow):
                     widget = loaded.instance.create_widget(parent=self.view_stack)
                     if widget is None:
                         continue
-
-                    view_index = self.view_stack.count()
+                    view_idx = self.view_stack.count()
                     self.view_stack.addWidget(widget)
 
                     btn = self._nav_btn(
-                        info.get("icon", "🔌"),
-                        info.get("tooltip", loaded.name)
+                        info.get("icon", "\U0001f50c"),
+                        info.get("tooltip", loaded.name),
                     )
-                    btn.clicked.connect(lambda checked, idx=view_index: self.switch_view(idx))
+                    btn.clicked.connect(
+                        lambda _checked, i=view_idx: self.switch_view(i),
+                    )
                     self.nav_buttons.append(btn)
                     sidebar_layout.addWidget(btn, 0, Qt.AlignmentFlag.AlignHCenter)
-
                     log_info(f"Plugin UI panel loaded: {loaded.name}")
-                except Exception as e:
-                    log_error(f"Failed to load plugin UI panel '{loaded.name}': {e}")
-        except Exception as e:
-            log_error(f"Plugin panel loading error: {e}")
+                except Exception as exc:
+                    log_error(f"Failed to load plugin UI panel '{loaded.name}': {exc}")
+        except Exception as exc:
+            log_error(f"Plugin panel loading error: {exc}")
 
-    # Header Stats
-    def _update_header_stats(self):
+    # ── Header stats ────────────────────────────────────────────────
+
+    def _update_header_stats(self) -> None:
+        """Refresh CPU / RAM labels from psutil."""
         try:
             import psutil
             self.cpu_label.setText(f"CPU: {psutil.cpu_percent():.0f}%")
@@ -339,48 +492,27 @@ class DupeZDashboard(QMainWindow):
         except Exception:
             pass
 
-    # System Tray
-    def setup_tray(self):
-        """Initialize system tray icon with context menu."""
-        self.tray_icon = None
+    # ── System tray ─────────────────────────────────────────────────
+
+    def _setup_tray(self) -> None:
+        """Initialise system-tray icon with context menu."""
+        self.tray_icon: Optional[QSystemTrayIcon] = None
         if not QSystemTrayIcon.isSystemTrayAvailable():
             log_info("System tray not available on this platform")
             self._minimize_to_tray = False
             return
 
         self.tray_icon = QSystemTrayIcon(self)
+        icon_path = _find_icon()
+        self.tray_icon.setIcon(QIcon(icon_path) if icon_path else self.windowIcon())
+        self.tray_icon.setToolTip("DupeZ \u2014 No active disruptions")
 
-        icon = _find_icon()
-        self.tray_icon.setIcon(QIcon(icon) if icon else self.windowIcon())
-
-        self.tray_icon.setToolTip("DupeZ — No active disruptions")
-
-        # Context menu
         tray_menu = QMenu()
-        tray_menu.setStyleSheet("""
-            QMenu {
-                background: #0a0e1a;
-                color: #e2e8f0;
-                border: 1px solid #1e293b;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 6px 24px;
-            }
-            QMenu::item:selected {
-                background: rgba(0, 217, 255, 0.2);
-            }
-            QMenu::separator {
-                height: 1px;
-                background: #1e293b;
-                margin: 4px 8px;
-            }
-        """)
+        tray_menu.setStyleSheet(_TRAY_MENU_QSS)
 
         self.tray_action_show = QAction("Show DupeZ", self)
         self.tray_action_show.triggered.connect(self._tray_show_window)
         tray_menu.addAction(self.tray_action_show)
-
         tray_menu.addSeparator()
 
         self.tray_action_status = QAction("Disruptions: 0", self)
@@ -390,7 +522,6 @@ class DupeZDashboard(QMainWindow):
         self.tray_action_stop_all = QAction("Stop All Disruptions", self)
         self.tray_action_stop_all.triggered.connect(self._stop_all_disruptions)
         tray_menu.addAction(self.tray_action_stop_all)
-
         tray_menu.addSeparator()
 
         tray_action_quit = QAction("Quit", self)
@@ -402,8 +533,8 @@ class DupeZDashboard(QMainWindow):
         self.tray_icon.show()
         log_info("System tray icon initialized")
 
-    def setup_tray_hotkey(self):
-        """Register a global hotkey to toggle window visibility (Ctrl+Shift+D)."""
+    def _setup_tray_hotkey(self) -> None:
+        """Register Ctrl+Shift+D to toggle window visibility."""
         if not KEYBOARD_AVAILABLE or hotkey_manager is None:
             return
         try:
@@ -411,36 +542,38 @@ class DupeZDashboard(QMainWindow):
                 "tray_toggle",
                 callback=self._hotkey_toggle_visibility,
                 keys=["ctrl+shift+d"],
-                config={"cooldown": 0.5, "enabled": True}
+                config={"cooldown": 0.5, "enabled": True},
             )
             hotkey_manager.start_all()
             log_info("Tray hotkey registered: Ctrl+Shift+D")
-        except Exception as e:
-            log_error(f"Failed to register tray hotkey: {e}")
+        except Exception as exc:
+            log_error(f"Failed to register tray hotkey: {exc}")
 
-    def _hotkey_toggle_visibility(self):
-        """Toggle window visibility from hotkey (thread-safe)."""
+    def _hotkey_toggle_visibility(self) -> None:
+        """Thread-safe visibility toggle triggered from hotkey."""
         try:
-            from PyQt6.QtCore import QMetaObject, Qt as QtConst
-            QMetaObject.invokeMethod(self, "_toggle_visibility_slot",
-                                     QtConst.ConnectionType.QueuedConnection)
-        except Exception as e:
-            log_error(f"Hotkey toggle error: {e}")
+            from PyQt6.QtCore import QMetaObject
+            QMetaObject.invokeMethod(
+                self, "_toggle_visibility_slot",
+                Qt.ConnectionType.QueuedConnection,
+            )
+        except Exception as exc:
+            log_error(f"Hotkey toggle error: {exc}")
 
     @pyqtSlot()
-    def _toggle_visibility_slot(self):
+    def _toggle_visibility_slot(self) -> None:
         """Slot for thread-safe visibility toggle."""
         if self.isVisible() and not self.isMinimized():
             self._minimize_to_tray_action()
         else:
             self._tray_show_window()
 
-    def _tray_activated(self, reason):
+    def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         """Handle tray icon activation (double-click to show)."""
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
             self._tray_show_window()
 
-    def _tray_show_window(self):
+    def _tray_show_window(self) -> None:
         """Restore window from tray."""
         self.showNormal()
         self.activateWindow()
@@ -448,8 +581,8 @@ class DupeZDashboard(QMainWindow):
         if self.tray_icon:
             self.tray_action_show.setText("Hide DupeZ")
 
-    def _minimize_to_tray_action(self):
-        """Minimize the window to system tray."""
+    def _minimize_to_tray_action(self) -> None:
+        """Minimise the window to system tray."""
         self.hide()
         if self.tray_icon:
             self.tray_action_show.setText("Show DupeZ")
@@ -457,95 +590,102 @@ class DupeZDashboard(QMainWindow):
                 "DupeZ",
                 "Running in background. Ctrl+Shift+D to toggle.",
                 QSystemTrayIcon.MessageIcon.Information,
-                2000
+                2000,
             )
 
-    def _tray_quit(self):
+    def _tray_quit(self) -> None:
         """Fully quit from tray context menu."""
         self._force_quit = True
         self.close()
 
-    def _update_tray_tooltip(self):
-        """Update tray icon tooltip with disruption count."""
+    def _update_tray_tooltip(self) -> None:
+        """Refresh tray tooltip with current disruption count."""
         if not self.tray_icon:
             return
         try:
             count = 0
             if self.controller:
                 count = len(self.controller.get_disrupted_devices())
-            if count > 0:
-                tip = f"DupeZ — {count} active disruption{'s' if count != 1 else ''}"
-            else:
-                tip = "DupeZ — No active disruptions"
+            tip = (
+                f"DupeZ \u2014 {count} active disruption{'s' if count != 1 else ''}"
+                if count > 0
+                else "DupeZ \u2014 No active disruptions"
+            )
             self.tray_icon.setToolTip(tip)
-            if hasattr(self, 'tray_action_status'):
+            if hasattr(self, "tray_action_status"):
                 self.tray_action_status.setText(f"Disruptions: {count}")
         except Exception:
             pass
 
-    # Theme
-    def apply_default_theme(self):
+    # ── Theme ───────────────────────────────────────────────────────
+
+    def _apply_theme(self) -> None:
+        """Load the dark theme, falling back to embedded QSS."""
         try:
-            from app.themes.theme_manager import theme_manager
-            if theme_manager.apply_theme("dark"):
+            from app.themes.theme_manager import get_theme_manager
+            if get_theme_manager().apply_theme("dark"):
                 return
         except Exception:
             pass
-        self._apply_fallback_theme()
-
-    def _apply_fallback_theme(self):
         try:
-            with open("app/themes/dark.qss", 'r') as f:
-                self.setStyleSheet(f.read())
+            with open("app/themes/dark.qss", "r", encoding="utf-8") as fh:
+                self.setStyleSheet(fh.read())
         except Exception:
-            self.setStyleSheet("""
-                QMainWindow, QWidget { background-color: #1a1a2e; color: #e0e0e0; }
-                QPushButton { background: #16213e; color: #e0e0e0; border: 1px solid #0f3460; padding: 6px 12px; border-radius: 4px; }
-                QPushButton:hover { background: #0f3460; }
-            """)
+            self.setStyleSheet(_FALLBACK_THEME_QSS)
 
-    # Menu
-    def setup_menu(self):
-        # Hide native menubar, use the custom embedded one below title bar
+    # ── Menu bar ────────────────────────────────────────────────────
+
+    def _setup_menu(self) -> None:
+        """Populate the custom embedded menu bar."""
         self.menuBar().setVisible(False)
         menubar = self._custom_menubar
 
         # File
-        file_menu = menubar.addMenu('&File')
-        self._add_action(file_menu, '&Scan Network', 'Ctrl+S', lambda: self.clumsy_view.start_scan())
-        self._add_action(file_menu, '&Export Data', 'Ctrl+E', self.export_data)
+        file_menu = menubar.addMenu("&File")
+        self._add_action(file_menu, "&Scan Network", "Ctrl+S",
+                         lambda: self.clumsy_view.start_scan())
+        self._add_action(file_menu, "&Export Data", "Ctrl+E", self._export_data)
         file_menu.addSeparator()
-        self._add_action(file_menu, 'Minimize to &Tray', '', self._minimize_to_tray_action)
-        self._add_action(file_menu, 'E&xit', 'Ctrl+Q', self._tray_quit)
+        self._add_action(file_menu, "Minimize to &Tray", "", self._minimize_to_tray_action)
+        self._add_action(file_menu, "E&xit", "Ctrl+Q", self._tray_quit)
 
         # Tools
-        tools_menu = menubar.addMenu('&Tools')
-        self._add_action(tools_menu, '&Settings', 'Ctrl+,', self.open_settings)
-        self._add_action(tools_menu, 'Stop All &Disruptions', 'Ctrl+D', self._stop_all_disruptions)
+        tools_menu = menubar.addMenu("&Tools")
+        self._add_action(tools_menu, "&Settings", "Ctrl+,", self._open_settings)
+        self._add_action(tools_menu, "Stop All &Disruptions", "Ctrl+D",
+                         self._stop_all_disruptions)
 
         # View
-        view_menu = menubar.addMenu('&View')
-        self._add_action(view_menu, '&Clumsy Control', 'Ctrl+1', lambda: self.switch_view(0))
-        self._add_action(view_menu, '&Map', 'Ctrl+2', lambda: self.switch_view(1))
-        self._add_action(view_menu, '&Accounts', 'Ctrl+3', lambda: self.switch_view(2))
-        self._add_action(view_menu, '&Network Tools', 'Ctrl+4', lambda: self.switch_view(3))
+        view_menu = menubar.addMenu("&View")
+        self._add_action(view_menu, "&Clumsy Control", "Ctrl+1",
+                         lambda: self.switch_view(0))
+        self._add_action(view_menu, "&Map", "Ctrl+2",
+                         lambda: self.switch_view(1))
+        self._add_action(view_menu, "&Accounts", "Ctrl+3",
+                         lambda: self.switch_view(2))
+        self._add_action(view_menu, "&Network Tools", "Ctrl+4",
+                         lambda: self.switch_view(3))
 
         # Help
-        help_menu = menubar.addMenu('&Help')
-        self._add_action(help_menu, 'Check for &Updates', '', self._check_for_updates)
+        help_menu = menubar.addMenu("&Help")
+        self._add_action(help_menu, "Check for &Updates", "", self._check_for_updates)
         help_menu.addSeparator()
-        self._add_action(help_menu, '&Hotkeys', 'F1', self.show_hotkeys)
-        self._add_action(help_menu, '&About', '', self.show_about)
+        self._add_action(help_menu, "&Hotkeys", "F1", self._show_hotkeys)
+        self._add_action(help_menu, "&About", "", self._show_about)
 
-    def _add_action(self, menu, text, shortcut, callback):
+    def _add_action(self, menu: QMenu, text: str, shortcut: str,
+                    callback: Any) -> None:
+        """Helper: add a ``QAction`` to *menu*."""
         action = QAction(text, self)
         if shortcut:
             action.setShortcut(shortcut)
         action.triggered.connect(callback)
         menu.addAction(action)
 
-    # Status Bar
-    def setup_status_bar(self):
+    # ── Status bar ──────────────────────────────────────────────────
+
+    def _setup_status_bar(self) -> None:
+        """Create the bottom status bar with device/disruption counts."""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.device_status_label = QLabel("Devices: 0")
@@ -553,165 +693,265 @@ class DupeZDashboard(QMainWindow):
         self.status_bar.addWidget(self.device_status_label)
         self.status_bar.addPermanentWidget(self.disruption_status_label)
 
-    def update_status_bar(self):
+    def _update_status_bar(self) -> None:
+        """Refresh device/disruption counts."""
         try:
-            if self.controller:
-                devices = self.controller.get_devices()
-                self.device_status_label.setText(f"Devices: {len(devices)}")
-                disrupted = self.controller.get_disrupted_devices()
-                self.disruption_status_label.setText(f"Disruptions: {len(disrupted)}")
-                if disrupted:
-                    self.disruption_status_label.setStyleSheet("color: #ff4444; font-weight: bold;")
-                else:
-                    self.disruption_status_label.setStyleSheet("color: #94a3b8;")
-        except Exception as e:
-            log_error(f"Status bar update error: {e}")
+            if not self.controller:
+                return
+            devices = self.controller.get_devices()
+            self.device_status_label.setText(f"Devices: {len(devices)}")
+            disrupted = self.controller.get_disrupted_devices()
+            self.disruption_status_label.setText(f"Disruptions: {len(disrupted)}")
+            style = (
+                "color: #ff4444; font-weight: bold;" if disrupted
+                else "color: #94a3b8;"
+            )
+            self.disruption_status_label.setStyleSheet(style)
+        except Exception as exc:
+            log_error(f"Status bar update error: {exc}")
 
-    # Signals
-    def connect_signals(self):
+    # ── Signal wiring ───────────────────────────────────────────────
+
+    def _connect_signals(self) -> None:
+        """Wire up cross-widget signals."""
         try:
-            if hasattr(self, 'clumsy_view'):
+            if hasattr(self, "clumsy_view"):
                 self.clumsy_view.scan_started.connect(
-                    lambda: self.status_bar.showMessage("Scanning network...", 3000))
+                    lambda: self.status_bar.showMessage("Scanning network...", 3000),
+                )
                 self.clumsy_view.scan_finished.connect(
-                    lambda devs: self.status_bar.showMessage(f"Scan complete — {len(devs)} devices", 3000))
-        except Exception as e:
-            log_error(f"Signal connection error: {e}")
+                    lambda devs: self.status_bar.showMessage(
+                        f"Scan complete \u2014 {len(devs)} devices", 3000,
+                    ),
+                )
+        except Exception as exc:
+            log_error(f"Signal connection error: {exc}")
 
-    # Actions
-    def open_settings(self):
+    # ── User actions ────────────────────────────────────────────────
+
+    def _open_settings(self) -> None:
+        """Launch the settings dialog."""
         try:
-            if self.controller:
-                self.controller.state.load_settings()
-                dialog = SettingsDialog(self.controller.state.settings, self)
-                if dialog.exec() == QDialog.DialogCode.Accepted:
-                    self.controller.update_settings(dialog.get_new_settings())
-        except Exception as e:
-            log_error(f"Settings error: {e}")
+            if not self.controller:
+                return
+            self.controller.state.load_settings()
+            dialog = SettingsDialog(self.controller.state.settings, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.controller.update_settings(dialog.get_new_settings())
+        except Exception as exc:
+            log_error(f"Settings error: {exc}")
 
-    def _stop_all_disruptions(self):
+    def _stop_all_disruptions(self) -> None:
+        """Emergency-stop all active disruptions."""
         if self.controller:
             self.controller.stop_all_disruptions()
             self.status_bar.showMessage("All disruptions stopped", 3000)
 
-    def export_data(self):
+    def _export_data(self) -> None:
+        """Export device list to CSV."""
         try:
-            from PyQt6.QtWidgets import QFileDialog
-            filename, _ = QFileDialog.getSaveFileName(self, "Export", "dupez_devices.csv", "CSV (*.csv)")
+            filename, _ = QFileDialog.getSaveFileName(
+                self, "Export", "dupez_devices.csv", "CSV (*.csv)",
+            )
             if filename and self.controller:
                 devices = self.controller.get_devices()
-                with open(filename, 'w') as f:
-                    f.write("IP,MAC,Hostname,Vendor,Blocked\n")
+                with open(filename, "w", encoding="utf-8") as fh:
+                    fh.write("IP,MAC,Hostname,Vendor,Blocked\n")
                     for d in devices:
-                        f.write(f"{d.ip},{d.mac},{d.hostname},{d.vendor},{d.blocked}\n")
+                        fh.write(f"{d.ip},{d.mac},{d.hostname},{d.vendor},{d.blocked}\n")
                 self.status_bar.showMessage(f"Exported to {filename}", 3000)
-        except Exception as e:
-            log_error(f"Export error: {e}")
+        except Exception as exc:
+            log_error(f"Export error: {exc}")
 
-    def show_hotkeys(self):
-        QMessageBox.information(self, "Hotkeys", """
-        <h3>DupeZ Hotkeys</h3>
-        <p><b>Ctrl+S</b> — Scan Network</p>
-        <p><b>Ctrl+D</b> — Stop All Disruptions</p>
-        <p><b>Ctrl+1/2/3</b> — Switch Views</p>
-        <p><b>Ctrl+,</b> — Settings</p>
-        <p><b>Ctrl+E</b> — Export Data</p>
-        <p><b>Ctrl+Shift+D</b> — Toggle Window (Tray Mode)</p>
-        <p><b>Ctrl+Q</b> — Exit</p>
-        """)
+    def _show_hotkeys(self) -> None:
+        """Display the hotkey reference dialog."""
+        QMessageBox.information(self, "Hotkeys", (
+            "<h3>DupeZ Hotkeys</h3>"
+            "<p><b>Ctrl+S</b> \u2014 Scan Network</p>"
+            "<p><b>Ctrl+D</b> \u2014 Stop All Disruptions</p>"
+            "<p><b>Ctrl+1/2/3/4</b> \u2014 Switch Views</p>"
+            "<p><b>Ctrl+,</b> \u2014 Settings</p>"
+            "<p><b>Ctrl+E</b> \u2014 Export Data</p>"
+            "<p><b>Ctrl+Shift+D</b> \u2014 Toggle Window (Tray Mode)</p>"
+            "<p><b>Ctrl+Q</b> \u2014 Exit</p>"
+        ))
 
-    def _check_for_updates(self):
-        """Check GitHub for new releases and show result."""
+    def _check_for_updates(self) -> None:
+        """Query GitHub for new releases and offer direct install or browser."""
         try:
             from app.core.updater import updater
             result = updater.check_sync()
             if result.get("error"):
-                QMessageBox.warning(self, "Update Check", f"Could not check for updates:\n{result['error']}")
-            elif result.get("update_available"):
-                reply = QMessageBox.question(
-                    self, "Update Available",
-                    f"DupeZ {result['latest_version']} is available!\n"
-                    f"You're running {result['current_version']}.\n\n"
-                    f"Open download page?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                QMessageBox.warning(
+                    self, "Update Check",
+                    f"Could not check for updates:\n{result['error']}",
                 )
-                if reply == QMessageBox.StandardButton.Yes:
+            elif result.get("update_available"):
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Update Available")
+                msg.setIcon(QMessageBox.Icon.Information)
+                msg.setText(
+                    f"DupeZ v{result['latest_version']} is available!\n"
+                    f"You're running v{result['current_version']}."
+                )
+                notes = result.get("release_notes", "")
+                if notes:
+                    # Truncate very long release notes
+                    if len(notes) > 400:
+                        notes = notes[:400] + "..."
+                    msg.setInformativeText(notes)
+
+                btn_install = msg.addButton(
+                    "Download && Install", QMessageBox.ButtonRole.AcceptRole)
+                btn_browser = msg.addButton(
+                    "Open in Browser", QMessageBox.ButtonRole.ActionRole)
+                msg.addButton(QMessageBox.StandardButton.Cancel)
+
+                msg.exec()
+                clicked = msg.clickedButton()
+
+                if clicked is btn_install:
+                    self._do_auto_update()
+                elif clicked is btn_browser:
                     updater.open_download()
             else:
-                QMessageBox.information(self, "Up to Date", f"DupeZ {result['current_version']} is the latest version.")
-        except Exception as e:
-            log_error(f"Update check error: {e}")
-            QMessageBox.warning(self, "Update Check", f"Error checking for updates:\n{e}")
+                QMessageBox.information(
+                    self, "Up to Date",
+                    f"DupeZ v{result['current_version']} is the latest version.",
+                )
+        except Exception as exc:
+            log_error(f"Update check error: {exc}")
+            QMessageBox.warning(self, "Update Check",
+                                f"Error checking for updates:\n{exc}")
 
-    def show_about(self):
+    def _do_auto_update(self) -> None:
+        """Download the new installer and launch it for in-place upgrade."""
+        from app.core.updater import updater
+
+        # Show a simple progress message
+        self.statusBar().showMessage("Downloading update...", 0)
+
+        def on_progress(done: int, total: int) -> None:
+            if total > 0:
+                pct = int(done / total * 100)
+                QMetaObject.invokeMethod(
+                    self.statusBar(), "showMessage",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(str, f"Downloading update... {pct}%"),
+                    Q_ARG(int, 0),
+                )
+
+        def on_done(success: bool, message: str) -> None:
+            if success:
+                QMetaObject.invokeMethod(
+                    self.statusBar(), "showMessage",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(str, "Update downloaded — installing..."),
+                    Q_ARG(int, 3000),
+                )
+                # Close DupeZ so the installer can replace files
+                QTimer.singleShot(1500, self.close)
+            else:
+                QMetaObject.invokeMethod(
+                    self.statusBar(), "showMessage",
+                    Qt.ConnectionType.QueuedConnection,
+                    Q_ARG(str, f"Update failed: {message}"),
+                    Q_ARG(int, 5000),
+                )
+                log_error(f"Auto-update failed: {message}")
+
+        updater.download_and_install(on_progress=on_progress, on_done=on_done)
+
+    def _show_about(self) -> None:
+        """Display the About dialog with credits and support info."""
         dlg = QDialog(self)
         dlg.setWindowTitle("About DupeZ")
         dlg.setFixedSize(480, 520)
         dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.FramelessWindowHint)
-        dlg.setStyleSheet("""
-            QDialog {
-                background-color: #060913;
-                border: 1px solid #00d9ff;
-                border-radius: 12px;
-            }
-            QLabel {
-                background: transparent;
-                color: #cbd5e1;
-            }
-        """)
+        dlg.setStyleSheet(_ABOUT_DLG_QSS)
 
         layout = QVBoxLayout(dlg)
         layout.setSpacing(10)
         layout.setContentsMargins(30, 25, 30, 25)
 
-        # Close button top-right
+        self._about_build_header(layout)
+        self._about_build_info_block(layout)
+        self._about_build_credits(layout)
+        self._about_build_support(layout)
+
+        layout.addStretch()
+
+        # GitHub button
+        gh_btn = QPushButton("GitHub")
+        gh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        gh_btn.setStyleSheet(_GH_BTN_QSS)
+        gh_btn.clicked.connect(
+            lambda: webbrowser.open("https://github.com/GrihmLord/DupeZ"),
+        )
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(gh_btn)
+        btn_row.addStretch()
+        layout.addLayout(btn_row)
+
+        dlg.exec()
+
+    # ── About dialog helpers ────────────────────────────────────────
+
+    @staticmethod
+    def _about_build_header(layout: QVBoxLayout) -> None:
+        """Close button, title, version, and separator."""
         close_row = QHBoxLayout()
         close_row.addStretch()
         close_btn = QPushButton("\u2715")
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        close_btn.setStyleSheet("""
-            QPushButton { background: transparent; color: #64748b; border: none; font-size: 16px; font-weight: bold; }
-            QPushButton:hover { color: #ff4444; }
-        """)
-        close_btn.clicked.connect(dlg.close)
+        close_btn.setStyleSheet(_CLOSE_BTN_QSS)
+        # close_btn will be connected below once we have dlg reference
+        # — but we can't here because this is static; caller handles it
         close_row.addWidget(close_btn)
         layout.addLayout(close_row)
 
-        # Title
         title = QLabel("DUPEZ")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;")
+        title.setStyleSheet(
+            "color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;"
+        )
         layout.addWidget(title)
 
-        version = QLabel("v4.0.0")
+        version = QLabel(f"v{CURRENT_VERSION}")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
         layout.addWidget(version)
 
         layout.addSpacing(8)
-
-        # Separator
         sep = QLabel()
         sep.setFixedHeight(1)
-        sep.setStyleSheet("background: qlineargradient(x1:0, x2:1, stop:0 transparent, stop:0.5 #00d9ff, stop:1 transparent);")
+        sep.setStyleSheet(
+            "background: qlineargradient(x1:0, x2:1,"
+            " stop:0 transparent, stop:0.5 #00d9ff, stop:1 transparent);"
+        )
         layout.addWidget(sep)
-
         layout.addSpacing(8)
 
-        # Description
-        desc = QLabel("Network disruption toolkit for DayZ.\nScan, target, disrupt — per-device packet manipulation.")
+        desc = QLabel(
+            "Network disruption toolkit for DayZ.\n"
+            "Scan, target, disrupt \u2014 per-device packet manipulation."
+        )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.5;")
         layout.addWidget(desc)
-
         layout.addSpacing(12)
 
-        # Info block
-        info_style = "color: #64748b; font-size: 11px;"
-        val_style = "color: #e2e8f0; font-size: 11px; font-weight: 600;"
+        # Wire close button to parent dialog
+        close_btn.clicked.connect(layout.parentWidget().close)
 
+    @staticmethod
+    def _about_build_info_block(layout: QVBoxLayout) -> None:
+        """ENGINE / PLATFORM / RUNTIME rows."""
+        info_qss = "color: #64748b; font-size: 11px;"
+        val_qss = "color: #e2e8f0; font-size: 11px; font-weight: 600;"
         for label_text, value_text in [
             ("ENGINE", "Native WinDivert + Clumsy"),
             ("PLATFORM", "Windows 10/11 (64-bit)"),
@@ -719,36 +959,44 @@ class DupeZDashboard(QMainWindow):
         ]:
             row = QHBoxLayout()
             lbl = QLabel(label_text)
-            lbl.setStyleSheet(info_style)
+            lbl.setStyleSheet(info_qss)
             lbl.setFixedWidth(90)
             val = QLabel(value_text)
-            val.setStyleSheet(val_style)
+            val.setStyleSheet(val_qss)
             row.addWidget(lbl)
             row.addWidget(val)
             row.addStretch()
             layout.addLayout(row)
 
+    @staticmethod
+    def _about_build_credits(layout: QVBoxLayout) -> None:
+        """Credits section."""
         _sec_qss = "color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;"
         _sep_qss = "background: rgba(51, 65, 85, 0.5);"
         _body_qss = "font-size: 12px; line-height: 1.6;"
 
-        def _add_sep(spacing_before=12, spacing_after=8):
-            layout.addSpacing(spacing_before)
-            s = QLabel(); s.setFixedHeight(1); s.setStyleSheet(_sep_qss)
-            layout.addWidget(s); layout.addSpacing(spacing_after)
+        layout.addSpacing(12)
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(_sep_qss)
+        layout.addWidget(sep)
+        layout.addSpacing(8)
 
-        _add_sep()
         credits_title = QLabel("CREDITS")
         credits_title.setStyleSheet(_sec_qss)
         layout.addWidget(credits_title)
 
         credits_text = QLabel(
             '<span style="color:#e2e8f0;">Built by</span> '
-            '<a href="https://github.com/GrihmLord" style="color:#00d9ff; text-decoration:none; font-weight:bold;">GrihmLord</a><br><br>'
+            '<a href="https://github.com/GrihmLord" '
+            'style="color:#00d9ff; text-decoration:none; font-weight:bold;">GrihmLord</a>'
+            "<br><br>"
             '<span style="color:#94a3b8;">Standing on the shoulders of:</span><br>'
-            '<a href="https://github.com/jagt/clumsy" style="color:#00d9ff; text-decoration:none;">Clumsy</a>'
+            '<a href="https://github.com/jagt/clumsy" '
+            'style="color:#00d9ff; text-decoration:none;">Clumsy</a>'
             ' <span style="color:#64748b;">by jagt (Chen Tao)</span><br>'
-            '<a href="https://github.com/kalirenegade-dev/clumsy" style="color:#00d9ff; text-decoration:none;">Keybind Edition</a>'
+            '<a href="https://github.com/kalirenegade-dev/clumsy" '
+            'style="color:#00d9ff; text-decoration:none;">Keybind Edition</a>'
             ' <span style="color:#64748b;">by Kalirenegade</span>'
         )
         credits_text.setOpenExternalLinks(True)
@@ -756,7 +1004,20 @@ class DupeZDashboard(QMainWindow):
         credits_text.setStyleSheet(_body_qss)
         layout.addWidget(credits_text)
 
-        _add_sep()
+    @staticmethod
+    def _about_build_support(layout: QVBoxLayout) -> None:
+        """Support / donation section."""
+        _sec_qss = "color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;"
+        _sep_qss = "background: rgba(51, 65, 85, 0.5);"
+        _body_qss = "font-size: 12px; line-height: 1.6;"
+
+        layout.addSpacing(12)
+        sep = QLabel()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet(_sep_qss)
+        layout.addWidget(sep)
+        layout.addSpacing(8)
+
         support_title = QLabel("SUPPORT THE PROJECT")
         support_title.setStyleSheet(_sec_qss)
         layout.addWidget(support_title)
@@ -769,37 +1030,10 @@ class DupeZDashboard(QMainWindow):
         support_text.setStyleSheet(_body_qss)
         layout.addWidget(support_text)
 
-        layout.addStretch()
+    # ── Frameless window: drag & resize ─────────────────────────────
 
-        # GitHub button
-        gh_btn = QPushButton("GitHub")
-        gh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        gh_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                color: #00d9ff;
-                border: 1px solid #00d9ff;
-                border-radius: 6px;
-                padding: 8px 24px;
-                font-weight: 600;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background: rgba(0, 217, 255, 0.15);
-            }
-        """)
-        gh_btn.clicked.connect(lambda: webbrowser.open("https://github.com/GrihmLord/DupeZ"))
-
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_row.addWidget(gh_btn)
-        btn_row.addStretch()
-        layout.addLayout(btn_row)
-
-        dlg.exec()
-
-    # Frameless Window — Drag, Resize, Maximize
-    def _toggle_maximize(self):
+    def _toggle_maximize(self) -> None:
+        """Toggle between maximised and normal window state."""
         if self.isMaximized():
             self.showNormal()
             self.btn_maximize.setText("\u25a1")
@@ -807,110 +1041,116 @@ class DupeZDashboard(QMainWindow):
             self.showMaximized()
             self.btn_maximize.setText("\u25a3")
 
-    def _get_resize_edge(self, pos):
-        """Detect which edge/corner the mouse is near for resize."""
-        m = self._resize_margin
-        rect = self.rect()
-        edges = []
+    @staticmethod
+    def _detect_resize_edge(pos: QPoint, rect_width: int, rect_height: int) -> Optional[str]:
+        """Return the edge/corner string for the given position, or ``None``."""
+        m = _RESIZE_MARGIN
+        edges: List[str] = []
         if pos.x() <= m:
             edges.append("left")
-        elif pos.x() >= rect.width() - m:
+        elif pos.x() >= rect_width - m:
             edges.append("right")
         if pos.y() <= m:
             edges.append("top")
-        elif pos.y() >= rect.height() - m:
+        elif pos.y() >= rect_height - m:
             edges.append("bottom")
         return "+".join(edges) if edges else None
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: Any) -> None:  # noqa: N802
         if event.button() == Qt.MouseButton.LeftButton:
-            edge = self._get_resize_edge(event.position().toPoint())
+            point = event.position().toPoint()
+            rect = self.rect()
+            edge = self._detect_resize_edge(point, rect.width(), rect.height())
             if edge:
                 self._resizing = True
                 self._resize_edge = edge
                 self._drag_pos = event.globalPosition().toPoint()
                 self._start_geometry = self.geometry()
-            elif self.title_bar.geometry().contains(event.position().toPoint()):
-                self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            elif self.title_bar.geometry().contains(point):
+                self._drag_pos = (
+                    event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                )
             else:
                 self._drag_pos = None
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: Any) -> None:  # noqa: N802
         if self._resizing and self._drag_pos:
-            delta = event.globalPosition().toPoint() - self._drag_pos
-            geo = self._start_geometry
-            new_geo = self.geometry()
-            edge = self._resize_edge
-
-            if "right" in edge:
-                new_geo.setWidth(max(self.minimumWidth(), geo.width() + delta.x()))
-            if "bottom" in edge:
-                new_geo.setHeight(max(self.minimumHeight(), geo.height() + delta.y()))
-            if "left" in edge:
-                new_w = max(self.minimumWidth(), geo.width() - delta.x())
-                new_geo.setLeft(geo.left() + geo.width() - new_w)
-                new_geo.setWidth(new_w)
-            if "top" in edge:
-                new_h = max(self.minimumHeight(), geo.height() - delta.y())
-                new_geo.setTop(geo.top() + geo.height() - new_h)
-                new_geo.setHeight(new_h)
-
-            self.setGeometry(new_geo)
+            self._handle_resize(event)
         elif self._drag_pos and not self._resizing:
-            if self.isMaximized():
-                self.showNormal()
-                self.btn_maximize.setText("\u25a1")
-                self._drag_pos = QPoint(self.width() // 2, 18)
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
+            self._handle_drag(event)
         else:
-            _CURSOR_MAP = {
-                "left": Qt.CursorShape.SizeHorCursor, "right": Qt.CursorShape.SizeHorCursor,
-                "top": Qt.CursorShape.SizeVerCursor, "bottom": Qt.CursorShape.SizeVerCursor,
-                "left+top": Qt.CursorShape.SizeFDiagCursor, "right+bottom": Qt.CursorShape.SizeFDiagCursor,
-                "right+top": Qt.CursorShape.SizeBDiagCursor, "left+bottom": Qt.CursorShape.SizeBDiagCursor,
-            }
-            edge = self._get_resize_edge(event.position().toPoint())
-            self.setCursor(_CURSOR_MAP.get(edge, Qt.CursorShape.ArrowCursor))
+            point = event.position().toPoint()
+            rect = self.rect()
+            edge = self._detect_resize_edge(point, rect.width(), rect.height())
+            self.setCursor(
+                _RESIZE_CURSOR_MAP.get(edge, Qt.CursorShape.ArrowCursor),
+            )
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: Any) -> None:  # noqa: N802
         self._drag_pos = None
         self._resizing = False
         self._resize_edge = None
         self.setCursor(Qt.CursorShape.ArrowCursor)
         super().mouseReleaseEvent(event)
 
-    def mouseDoubleClickEvent(self, event):
+    def mouseDoubleClickEvent(self, event: Any) -> None:  # noqa: N802
         if self.title_bar.geometry().contains(event.position().toPoint()):
             self._toggle_maximize()
         super().mouseDoubleClickEvent(event)
 
-    # Lifecycle
-    def closeEvent(self, event):
-        # Minimize to tray instead of quitting (unless force quit)
+    def _handle_resize(self, event: Any) -> None:
+        """Apply resize delta based on the active edge."""
+        delta = event.globalPosition().toPoint() - self._drag_pos
+        geo = self._start_geometry
+        new_geo = self.geometry()
+        edge = self._resize_edge or ""
+
+        if "right" in edge:
+            new_geo.setWidth(max(self.minimumWidth(), geo.width() + delta.x()))
+        if "bottom" in edge:
+            new_geo.setHeight(max(self.minimumHeight(), geo.height() + delta.y()))
+        if "left" in edge:
+            new_w = max(self.minimumWidth(), geo.width() - delta.x())
+            new_geo.setLeft(geo.left() + geo.width() - new_w)
+            new_geo.setWidth(new_w)
+        if "top" in edge:
+            new_h = max(self.minimumHeight(), geo.height() - delta.y())
+            new_geo.setTop(geo.top() + geo.height() - new_h)
+            new_geo.setHeight(new_h)
+
+        self.setGeometry(new_geo)
+
+    def _handle_drag(self, event: Any) -> None:
+        """Drag the window (un-maximise on first move if maximised)."""
+        if self.isMaximized():
+            self.showNormal()
+            self.btn_maximize.setText("\u25a1")
+            self._drag_pos = QPoint(self.width() // 2, 18)
+        self.move(event.globalPosition().toPoint() - self._drag_pos)
+
+    # ── Lifecycle ───────────────────────────────────────────────────
+
+    def closeEvent(self, event: Any) -> None:  # noqa: N802
+        """Minimise to tray on close, unless force-quit is set."""
         if self._minimize_to_tray and self.tray_icon and not self._force_quit:
             event.ignore()
             self._minimize_to_tray_action()
             return
 
         try:
-            self.update_timer.stop()
-            self.stats_timer.stop()
-            self.tray_timer.stop()
+            self._status_timer.stop()
+            self._stats_timer.stop()
+            self._tray_timer.stop()
 
-            # Clean up tray
             if self.tray_icon:
                 self.tray_icon.hide()
-
-            # Clean up hotkeys
             if KEYBOARD_AVAILABLE and hotkey_manager:
                 hotkey_manager.stop_all()
-
             if self.controller:
                 self.controller.shutdown()
             gc.collect()
-        except Exception as e:
-            log_error(f"Close error: {e}")
+        except Exception as exc:
+            log_error(f"Close error: {exc}")
         event.accept()
-

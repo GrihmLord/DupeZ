@@ -42,6 +42,12 @@ htmlcov/
 # Build artifacts
 build/
 dist/
+*.exe
+!app/firewall/*.exe
+
+# Installer output
+dist/*.exe
+Output/
 
 # OS
 .DS_Store
@@ -51,11 +57,16 @@ Thumbs.db
 *.lock
 cleanup_*.py
 
-# User data — NEVER commit
+# User data — NEVER commit (contains real IPs, MACs, device fingerprints)
 app/data/*.json
+app/data/*.jsonl
+app/data/*.hmac
+*.hmac
 app/data/*.db
 app/data/*.db-journal
 app/data/*.backup.*
+app/data/profiles/
+dist/app/data/
 
 # Environment files
 .env
@@ -63,9 +74,21 @@ app/data/*.backup.*
 
 # Runtime caches
 device_cache.json
+session_history.json
+**/patch_monitor_state.json
+
+# Encrypted secrets store — NEVER commit
+secrets.enc.json
+app/data/secrets.enc.json
+
+# Runtime audit trail (contains masked but still sensitive event data)
+app/data/audit.jsonl
 
 # Crash dumps
 FATAL_CRASH.txt
+
+# Stale audit/debug artifacts
+AUDIT_*.md
 
 # Clumsy runtime files (generated at runtime)
 app/firewall/presets.ini
@@ -75,3 +98,9 @@ app/firewall/clumsy_src/external/**/*.exe
 
 # Settings temp file (atomic write)
 app/config/settings.json.tmp
+
+# Code signing artifacts
+*.pfx
+*.p12
+*.cer
+signtool.log

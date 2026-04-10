@@ -21,6 +21,8 @@ Dependencies:
   - No hard dependencies — device detection uses OS-level tools
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import threading
@@ -28,6 +30,19 @@ import time
 from typing import List, Dict, Optional, Callable
 from dataclasses import dataclass
 from app.logs.logger import log_info, log_error
+from app.utils.helpers import _NO_WINDOW
+
+__all__ = [
+    "CRONUS_VID",
+    "CRONUS_DEVICE_NAMES",
+    "CronusDevice",
+    "DeviceDetector",
+    "DeviceMonitor",
+    "find_zen_studio_library",
+    "get_default_export_path",
+    "scan_devices",
+    "is_device_connected",
+]
 
 # Cronus USB Vendor ID (community-identified)
 CRONUS_VID = "2508"
@@ -54,7 +69,7 @@ class CronusDevice:
 class DeviceDetector:
     """Detect CronusZEN/MAX devices connected via USB."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._last_scan: List[CronusDevice] = []
 
     def scan(self) -> List[CronusDevice]:
@@ -112,7 +127,7 @@ class DeviceDetector:
                  f"DeviceID like '%VID_{CRONUS_VID}%'",
                  "get", "Name,DeviceID", "/format:csv"],
                 capture_output=True, text=True, timeout=10,
-                creationflags=0x08000000,
+                creationflags=_NO_WINDOW,
             )
             for line in result.stdout.strip().split('\n'):
                 if CRONUS_VID.lower() in line.lower():
@@ -124,7 +139,10 @@ class DeviceDetector:
                             device_type="zen" if "zen" in name.lower() else "max",
                         ))
         except Exception as e:
-            log_error(f"DeviceDetector: WMI scan failed: {e}")
+            # Only log once — wmic is missing on many Windows installs
+            if not getattr(self, '_wmi_warned', False):
+                log_error(f"DeviceDetector: WMI scan failed (suppressing repeats): {e}")
+                self._wmi_warned = True
         return devices
 
     def _scan_unix(self) -> List[CronusDevice]:
@@ -141,7 +159,7 @@ class DeviceMonitor:
 
     def __init__(self, on_connect: Callable[[CronusDevice], None] = None,
                  on_disconnect: Callable[[CronusDevice], None] = None,
-                 poll_interval: float = 3.0):
+                 poll_interval: float = 3.0) -> None:
         self._detector = DeviceDetector()
         self._on_connect = on_connect
         self._on_disconnect = on_disconnect
@@ -152,7 +170,7 @@ class DeviceMonitor:
         self._lock = threading.Lock()
         self._consecutive_errors = 0
 
-    def start(self):
+    def start(self) -> None:
         """Start monitoring in background thread."""
         if self._running:
             return
@@ -163,7 +181,7 @@ class DeviceMonitor:
         self._thread.start()
         log_info("DeviceMonitor: started")
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop monitoring."""
         self._running = False
         if self._thread and self._thread.is_alive():
@@ -177,7 +195,7 @@ class DeviceMonitor:
         with self._lock:
             return list(self._known_devices.values())
 
-    def _poll_loop(self):
+    def _poll_loop(self) -> None:
         while self._running:
             try:
                 current = self._detector.scan()

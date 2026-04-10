@@ -305,7 +305,8 @@ class TestVersion:
     def test_main_version(self):
         with open(os.path.join(ROOT, "app", "main.py")) as f:
             content = f.read()
-        assert "3.5.0" in content
+        # Version is now pulled from CURRENT_VERSION; verify the import exists
+        assert "CURRENT_VERSION" in content
 
     def test_changelog_has_v350(self):
         with open(os.path.join(ROOT, "CHANGELOG.md")) as f:
@@ -317,10 +318,11 @@ class TestVersion:
             content = f.read()
         assert "v3.5.0" in content
 
-    def test_readme_has_v350(self):
+    def test_readme_has_current_version(self):
+        from app.core.updater import CURRENT_VERSION
         with open(os.path.join(ROOT, "README.md")) as f:
             content = f.read()
-        assert "v3.5.0" in content
+        assert CURRENT_VERSION in content
 
 
 if __name__ == "__main__":
