@@ -330,6 +330,55 @@ PRESETS: Dict[str, Dict[str, Any]] = {
     }
 }
 
+
+def _load_json_profile_presets() -> None:
+    """Merge JSON-backed disruption presets from the game profile into PRESETS.
+
+    The game profile (``app/config/game_profiles/dayz.json``) is the single
+    source of truth for platform-specific presets (``pc_local``,
+    ``ps5_hotspot``, ``xbox_hotspot``). They are merged into the GUI-level
+    PRESETS dict at module load so both the GUI dropdown and the backend
+    (``clumsy_network_disruptor.disconnect_device_clumsy(preset=...)``) see
+    the same values.
+
+    Load failures are non-fatal — the hardcoded Python presets above remain
+    available as a safe fallback.
+    """
+    try:
+        from app.config.game_profiles import (
+            list_disruption_presets, get_disruption_preset,
+        )
+    except Exception:
+        return
+
+    # Human-readable display names for JSON preset keys
+    display_names = {
+        "pc_local":     "PC Local (auto)",
+        "ps5_hotspot":  "PS5 Hotspot",
+        "xbox_hotspot": "Xbox Hotspot",
+    }
+
+    for preset_key in list_disruption_presets("dayz"):
+        try:
+            merged = get_disruption_preset("dayz", preset_key)
+        except Exception:
+            continue
+
+        # Pull methods list out of the merged params so the GUI can show it
+        methods = merged.pop("methods", []) if isinstance(merged, dict) else []
+        notes = merged.pop("notes", "") if isinstance(merged, dict) else ""
+
+        display_name = display_names.get(preset_key, preset_key)
+        PRESETS[display_name] = {
+            "description": notes or f"JSON profile preset: {preset_key}",
+            "methods": list(methods) if isinstance(methods, list) else [],
+            "params": dict(merged) if isinstance(merged, dict) else {},
+            "_json_preset_key": preset_key,
+        }
+
+
+_load_json_profile_presets()
+
 # ── Module definitions ──────────────────────────────────────────────
 # Each entry maps a disruption module key to its UI label, description,
 # and slider parameter specs: (label, param_key, min, max, default).
@@ -1687,6 +1736,15 @@ class ClumsyControlView(QWidget):
         direction = params.get("direction", "both")
         self.dir_inbound.setChecked(direction in ("inbound", "both"))
         self.dir_outbound.setChecked(direction in ("outbound", "both"))
+
+        # Platform mode — JSON-backed platform presets (pc_local, ps5_hotspot,
+        # xbox_hotspot) carry _network_local so the NETWORK vs NETWORK_FORWARD
+        # layer is locked to the preset's intent. Presets that don't specify
+        # it leave the checkbox untouched so user intent survives.
+        if hasattr(self, "pc_local_check") and "_network_local" in params:
+            self.pc_local_check.blockSignals(True)
+            self.pc_local_check.setChecked(bool(params["_network_local"]))
+            self.pc_local_check.blockSignals(False)
 
         # Extra checkboxes (tamper_checksum, throttle_drop, etc.)
         # Reset to False when preset doesn't specify them, so they don't bleed

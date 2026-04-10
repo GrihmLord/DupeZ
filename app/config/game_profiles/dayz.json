@@ -17,10 +17,10 @@
   "tick_model": {
     "expected_range_hz": [20, 120],
     "default_estimate_hz": 60,
-    "iat_min_sec": 0.001,
+    "iat_min_sec": 0.004,
     "iat_max_sec": 0.500,
     "packets_per_second_max": 30,
-    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically."
+    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically. iat_min raised to 4ms (250Hz ceiling) to filter hotspot WiFi sub-5ms jitter noise from the median without losing real signal."
   },
 
   "reliable_udp": {
@@ -88,18 +88,94 @@
     "throttle_frame_ms": 400,
     "throttle_drop": true,
     "direction": "both",
+    "tick_sync_direction": "inbound",
+    "pulse_direction": "inbound",
+    "stealth_drop_direction": "inbound",
+    "stealth_lag_direction": "inbound",
     "godmode_lag_ms": 3000,
     "godmode_drop_inbound_pct": 0,
     "godmode_keepalive_interval_ms": 800,
     "godmode_keepalive_auto_calibrate": true,
     "godmode_lag_queue_maxlen": 10000,
-    "notes": "3s god mode lag is enough for state desync at any tick rate."
+    "notes": "3s god mode lag is enough for state desync at any tick rate. tick_sync/pulse/stealth_drop default to inbound-only: dropping server->client state replication is what desyncs the ghost; dropping outbound wastes packets and raises BattlEye avg-loss counter."
   },
 
   "burst_strategy": {
-    "pulse_burst_ticks": 3,
-    "pulse_rest_ticks": 5,
-    "notes": "3 burst / 5 rest stays below DayZ 1.27+ freeze detection sliding window."
+    "pulse_burst_ticks": 40,
+    "pulse_rest_ticks": 260,
+    "notes": "burst=40 > 32-packet ack-redundancy ceiling so drops actually break state. rest=260 keeps burst/(burst+rest) = 13.3% below the ~15% 1.27+ freeze-detection sliding window threshold. See reliable_udp.ack_redundancy_count and anti_cheat.freeze_threshold_pct."
+  },
+
+  "disruption_presets": {
+    "pc_local": {
+      "_network_local": true,
+      "methods": ["pulse", "tick_sync", "stealth_drop", "drop", "lag"],
+      "pulse_burst_ticks": 35,
+      "pulse_rest_ticks": 230,
+      "pulse_drop_chance": 95,
+      "pulse_direction": "inbound",
+      "pulse_min_confidence": 0.35,
+      "pulse_learning": 80,
+      "ts_drop_window_pct": 0.4,
+      "ts_drop_chance": 90,
+      "ts_min_confidence": 0.35,
+      "ts_learning_packets": 80,
+      "tick_sync_direction": "inbound",
+      "stealth_pattern": "wifi_interference",
+      "stealth_base_drop": 5,
+      "stealth_cycle_sec": 12,
+      "stealth_drop_direction": "inbound",
+      "lag_delay": 1200,
+      "drop_chance": 95,
+      "direction": "inbound",
+      "notes": "PC-local preset. Tight confidence 0.35 for clean hardline timing. burst=35 > 32 ack ceiling. avg_loss = 35/265 = 13.2% < 15% freeze threshold."
+    },
+    "ps5_hotspot": {
+      "_network_local": false,
+      "methods": ["pulse", "tick_sync", "stealth_drop", "lag"],
+      "pulse_burst_ticks": 40,
+      "pulse_rest_ticks": 260,
+      "pulse_drop_chance": 98,
+      "pulse_direction": "inbound",
+      "pulse_min_confidence": 0.20,
+      "pulse_learning": 60,
+      "ts_drop_window_pct": 0.35,
+      "ts_drop_chance": 90,
+      "ts_min_confidence": 0.20,
+      "ts_learning_packets": 60,
+      "tick_sync_direction": "inbound",
+      "stealth_pattern": "wifi_interference",
+      "stealth_base_drop": 8,
+      "stealth_cycle_sec": 12,
+      "stealth_drop_direction": "inbound",
+      "lag_delay": 1200,
+      "direction": "inbound",
+      "iat_min_sec": 0.006,
+      "notes": "PS5 over Windows ICS/Mobile Hotspot. burst=40 > 32 ack ceiling. avg_loss = 40/300 = 13.3% < 15% freeze threshold. Confidence 0.20 tolerates hotspot double-hop jitter. INBOUND-only — PS5 NAT teardown risk if outbound is blocked >3s."
+    },
+    "xbox_hotspot": {
+      "_network_local": false,
+      "methods": ["pulse", "tick_sync", "stealth_drop", "lag"],
+      "pulse_burst_ticks": 40,
+      "pulse_rest_ticks": 300,
+      "pulse_drop_chance": 98,
+      "pulse_direction": "inbound",
+      "pulse_min_confidence": 0.20,
+      "pulse_learning": 60,
+      "ts_drop_window_pct": 0.35,
+      "ts_drop_chance": 90,
+      "ts_min_confidence": 0.20,
+      "ts_learning_packets": 60,
+      "tick_sync_direction": "inbound",
+      "stealth_pattern": "wifi_interference",
+      "stealth_base_drop": 6,
+      "stealth_cycle_sec": 12,
+      "stealth_drop_direction": "inbound",
+      "lag_delay": 1400,
+      "direction": "inbound",
+      "iat_min_sec": 0.006,
+      "notes": "Xbox NAT is slightly more tolerant than PS5 — rest=300 gives a larger safety margin. avg_loss = 40/340 = 11.8%."
+    }
   },
 
   "nat_keepalive": {
@@ -120,6 +196,9 @@
   "anti_cheat": {
     "name": "BattlEye",
     "kernel_mode": true,
+    "freeze_threshold_pct": 15,
+    "freeze_window_sec": 8,
+    "freeze_threshold_notes": "DayZ 1.27+ sliding-window connection quality monitor. Sustained avg loss >~15% over ~5-10s triggers the player-freeze system. Any shipped preset must keep burst/(burst+rest) below this ceiling.",
     "detection_vectors": [
       "PiDDBCache driver signature scan",
       "MmUnloadedDrivers scan",
