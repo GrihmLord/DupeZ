@@ -4,13 +4,17 @@ Theme Manager for DupeZ
 Handles light, dark, and rainbow themes with dynamic color generation
 """
 
+from __future__ import annotations
+
 import os
 import time
-from typing import Dict
+from typing import Dict, Optional
 from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication
 
 from app.logs.logger import log_info, log_error
+
+__all__ = ["ThemeManager", "get_theme_manager"]
 
 class ThemeManager(QObject):
     """Manages application themes with support for light, dark, and rainbow modes"""
@@ -19,7 +23,7 @@ class ThemeManager(QObject):
     theme_changed = pyqtSignal(str)  # Emit theme name when changed
     color_updated = pyqtSignal(str, str)  # Emit color name and value when updated
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.current_theme = "dark"
         self.themes_dir = "app/themes"
@@ -39,7 +43,7 @@ class ThemeManager(QObject):
 
         self.load_theme_files()
 
-    def load_theme_files(self):
+    def load_theme_files(self) -> None:
         """Load all theme files into memory"""
         self.theme_styles = {}
 
@@ -55,8 +59,8 @@ class ThemeManager(QObject):
             except Exception as e:
                 log_error(f"Error loading theme {theme_name}: {e}")
 
-    def get_available_themes(self): return list(self.theme_styles.keys())
-    def get_current_theme(self): return self.current_theme
+    def get_available_themes(self) -> list: return list(self.theme_styles.keys())
+    def get_current_theme(self) -> str: return self.current_theme
 
     def apply_theme(self, theme_name: str) -> bool:
         """Apply a theme to the application"""
@@ -90,7 +94,7 @@ class ThemeManager(QObject):
             log_error(f"Error applying theme {theme_name}: {e}")
             return False
 
-    def start_rainbow_mode(self):
+    def start_rainbow_mode(self) -> None:
         """Start rainbow mode with dynamic color changes"""
         try:
             if self.current_theme != "rainbow":
@@ -100,14 +104,14 @@ class ThemeManager(QObject):
             if not self.rainbow_timer:
                 self.rainbow_timer = QTimer()
                 self.rainbow_timer.timeout.connect(self.update_rainbow_colors)
-                self.rainbow_timer.start(50)  # Update every 50ms (20 FPS)
+                self.rainbow_timer.start(200)  # Update every 200ms (5 FPS) — sufficient for smooth color cycling without hammering Qt stylesheet engine
 
             log_info("Rainbow mode started")
 
         except Exception as e:
             log_error(f"Error starting rainbow mode: {e}")
 
-    def stop_rainbow_mode(self):
+    def stop_rainbow_mode(self) -> None:
         """Stop rainbow mode (does NOT auto-switch theme to avoid recursion)"""
         try:
             if self.rainbow_timer:
@@ -117,7 +121,7 @@ class ThemeManager(QObject):
         except Exception as e:
             log_error(f"Error stopping rainbow mode: {e}")
 
-    def update_rainbow_colors(self):
+    def update_rainbow_colors(self) -> None:
         """Update rainbow colors for animation"""
         try:
             current_time = time.time()
@@ -201,7 +205,7 @@ class ThemeManager(QObject):
             log_error(f"Error converting HSV to hex: {e}")
             return "#000000"
 
-    def apply_rainbow_colors(self, colors: Dict[str, str]):
+    def apply_rainbow_colors(self, colors: Dict[str, str]) -> None:
         """Apply rainbow colors to the application"""
         try:
             app = QApplication.instance()
@@ -424,19 +428,33 @@ QMessageBox QPushButton {{ min-width: 80px; min-height: 24px; }}
             log_error(f"Error creating rainbow stylesheet: {e}")
             return ""
 
-    def set_rainbow_speed(self, speed: float):
+    def set_rainbow_speed(self, speed: float) -> None:
         """Set rainbow animation speed (degrees per frame)"""
         self.rainbow_speed = max(0.1, min(10.0, speed))
         log_info(f"Rainbow speed set to: {self.rainbow_speed}")
 
-    def get_rainbow_speed(self): return self.rainbow_speed
-    def is_rainbow_active(self): return self.rainbow_timer is not None and self.rainbow_timer.isActive()
-    def get_theme_info(self):
+    def get_rainbow_speed(self) -> int: return self.rainbow_speed
+    def is_rainbow_active(self) -> bool: return self.rainbow_timer is not None and self.rainbow_timer.isActive()
+    def get_theme_info(self) -> dict:
         return {"current_theme": self.current_theme,
                 "available_themes": ", ".join(self.get_available_themes()),
                 "rainbow_active": str(self.is_rainbow_active()),
                 "rainbow_speed": str(self.get_rainbow_speed())}
 
-# Global theme manager instance
-theme_manager = ThemeManager()
+# Lazy singleton — ThemeManager requires QApplication to exist
+_theme_manager: Optional[ThemeManager] = None
+
+
+def get_theme_manager() -> ThemeManager:
+    """Get or create the singleton ThemeManager instance."""
+    global _theme_manager
+    if _theme_manager is None:
+        _theme_manager = ThemeManager()
+    return _theme_manager
+
+
+# Backwards compatibility alias — callers that import ``theme_manager``
+# directly will get None until get_theme_manager() is called, so the
+# preferred import is ``from app.themes.theme_manager import get_theme_manager``.
+theme_manager: Optional[ThemeManager] = None
 

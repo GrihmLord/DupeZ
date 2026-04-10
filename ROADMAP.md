@@ -80,13 +80,99 @@ What's coming next. Priorities shift based on community feedback — open an iss
 - ~~**Scheduler/Macro Fixes** — Repeat-only rule first-fire bug. Epoch-based delayed start. QTimer.singleShot for auto-stop (was threading.Thread race). Macro step callback for GUI timer sync.~~ ✅ Done
 - ~~**Thread Safety Pass** — Data persistence lock, network scanner executor lock, state observer Qt thread marshalling, GPC bridge callback-outside-lock pattern, enhanced scanner threading.Event.~~ ✅ Done
 - ~~**Custom Menu Bar** — Embedded QMenuBar below frameless title bar with dark theme styling. ADMIN badge repositioned before version string.~~ ✅ Done
-- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred to v4.1.0)*
+- **Linux Support** — Replace WinDivert dependency with `tc`/`iptables` backend for Linux. Same GUI via PyQt6. *(Deferred)*
+
+---
+
+## v5.0.0 — God Mode Engineering ✅
+
+**Released:** 2026-04-09
+
+The deep-research release. All 7 deep-research phases implemented: statistical disruption models, packet classification, tick-synchronized bursts, asymmetric direction presets, native WinDivert batch API, ML-enhanced traffic analysis, and stealth/detection avoidance.
+
+- ~~**Phase 1: Statistical Disruption Models**~~ ✅ Done
+- ~~**Phase 2: Packet Classification Engine**~~ ✅ Done
+- ~~**Phase 3: Tick-Synchronized Disruption**~~ ✅ Done
+- ~~**Phase 4: Asymmetric Direction Engine** — 14 named presets~~ ✅ Done
+- ~~**Phase 5: Native WinDivert Batch API**~~ ✅ Done
+- ~~**Phase 6: ML Network Profiler**~~ ✅ Done
+- ~~**Phase 7: Stealth & Detection Avoidance**~~ ✅ Done
+- ~~**Architecture: DisruptionManagerBase ABC + Module Extraction**~~ ✅ Done
+- ~~**Code Quality Audit + Test Suite (216 tests)**~~ ✅ Done
+
+---
+
+## v5.2.0 — Indefinite God Mode + Dupe Engine + Hardening ✅
+
+**Released:** 2026-04-09
+
+Breakthrough disruption release. Solved the red-chain kick limit, added precise inventory duplication, hardened the entire codebase to nation-state grade, and overhauled distribution with a proper Windows installer and in-app auto-update.
+
+- ~~**Pulse-Cycling God Mode** — Three modes (Classic/Pulse/Infinite). Block/flush cycling bypasses DayZ's connection quality monitor for indefinite red-chain duration. Packet classification passes keepalive probes while blocking state updates.~~ ✅ Done
+- ~~**Dupe Engine** — Dedicated `DupeEngineModule` with IDLE→PREP→CUT→RESTORE state machine. Precise timed disconnect-reconnect for inventory duplication. Timer or manual trigger. Multi-cycle support.~~ ✅ Done
+- ~~**Extended Lag** — Connection-preserving lag for 30s+ durations. Auto-activates keepalive pass-through for lag_delay ≥ 5s.~~ ✅ Done
+- ~~**Teleportation** — Extended block phases accumulate position desync. Flush phase reconciles entire delta at once — visual teleport from target's perspective.~~ ✅ Done
+- ~~**Security Hardening** — CNSA 2.0 crypto (AES-256-GCM, HMAC-SHA384, PBKDF2-SHA-512 600K). Atomic writes + HMAC companion files. TLS 1.3 minimum. Strict allowlist validation. Hash-chained audit logging. Machine-bound encrypted secrets.~~ ✅ Done
+- ~~**Codebase Audit** — Multi-pass principal-engineer audit. `from __future__ import annotations` across all files. Lazy singletons, lazy deps, public properties. All 49 non-GUI modules import cleanly.~~ ✅ Done
+- ~~**Validation Updates** — `dupe` and `pulse` methods registered. All v5.2 parameter ranges added. Lag/godmode caps raised to 120s.~~ ✅ Done
+- ~~**Windows Installer** — Inno Setup installer with Add/Remove Programs registration, MOTW stripping, upgrade-in-place, desktop/Start Menu shortcuts. Windows manifest + VS_VERSION_INFO for SmartScreen trust. 4-stage build pipeline with optional code signing.~~ ✅ Done
+- ~~**Auto-Update (Download & Install)** — Updater downloads installer directly from GitHub Releases with progress feedback, strips MOTW, launches silently. 3-button update dialog in dashboard.~~ ✅ Done
+- ~~**Getting Started Guide** — Built-in 10+ section collapsible guide accessible from sidebar (🚀). Covers every feature for new users.~~ ✅ Done
+- ~~**Collapsible & Reorderable Sections** — All 9 control sections in Clumsy Control wrapped in CollapsibleCard widgets with toggle headers and reorder buttons.~~ ✅ Done
+- ~~**Splash Screen Overhaul** — Enlarged, explicit pixel anchors (no overlap), slower cinematic animations.~~ ✅ Done
+- ~~**Extraction Fix** — UPX exclusions for large DLLs, tcl/tk data removal. Fixes decompression failures on low-spec Windows 10.~~ ✅ Done
+
+---
+
+## v5.3.0 — GUI Integration & Live Visualization
+
+**Status:** Next up
+
+Wire the v5.x engine features into the UI so users can use God Mode Pulse, Dupe Engine, and extended lag without hand-editing params. Plus code signing and distribution polish.
+
+- **God Mode Pulse UI** — Block/flush timing sliders, mode selector (Classic/Pulse/Infinite), live cycle visualization showing block/flush phases.
+- **Dupe Engine UI** — PREP/CUT/RESTORE button with phase indicator, cut duration slider, cycle count spinner, manual trigger button.
+- **Extended Lag UI** — Connection preservation toggle, keepalive interval slider, queue depth indicator.
+- **Statistical Model UI** — Sliders and distribution preview graphs for Gilbert-Elliott, Pareto, token bucket, correlation.
+- **Packet Classifier Dashboard** — Live packet category breakdown. Per-category disruption rule editor.
+- **Tick Rate Visualizer** — Real-time tick estimation display with confidence indicator.
+- **Asymmetric Preset Selector** — Dropdown/card UI for the 14 named presets with effectiveness ratings.
+- **Game State Indicator** — Live GameStateDetector output (MENU, LOADING, IN_GAME_IDLE, COMBAT, DISCONNECTED).
+- **Stealth Pattern Selector** — Natural pattern chooser with preview waveform.
+- **Code Signing** — Obtain EV code signing certificate, sign exe + installer for instant SmartScreen trust. Wire into `build.bat` Stage 2.
+- **Installer UX** — Custom installer banner/wizard images, license agreement page, optional portable mode checkbox.
+
+---
+
+## v5.4.0 — Data Collection & ML Training
+
+**Status:** Planned
+
+Build the infrastructure to collect real-world packet data and train the classifier beyond heuristics.
+
+- **Packet Capture Pipeline** — Record labeled packet traces during controlled DayZ sessions. Export as training datasets.
+- **ML Packet Classifier** — Replace rule-based heuristics with a lightweight trained model. Online learning.
+- **Disruption Effectiveness Database** — Systematic mapping of [params] → [desync duration, invulnerability window, freeze threshold]. Per-DayZ-version tracking.
+- **Server Behavior Catalog** — Document freeze system trigger thresholds, kick thresholds, modded vs official tolerance.
+- **Auto-Optimize Engine** — SessionLearner feeds back into SmartDisruptionEngine. Per-server/scenario preset recommendations.
+
+---
+
+## v6.0.0 — Stealth & Platform
+
+**Status:** Future
+
+Reduce detection surface and expand platform support.
+
+- **WinDivert Alternative Research** — NDIS filter driver or WFP callout driver to reduce signature exposure.
+- **Overlapped I/O** — Async packet processing with OVERLAPPED structures. Full batch pipeline.
+- **Custom Filter Compilation** — Optimized WinDivert filter bytecode for game traffic patterns.
+- **Linux Support** — `tc`/`iptables` backend implementing DisruptionEngineBase. Same PyQt6 GUI.
+- **BattlEye Monitoring** — Track detection rule updates. Automated behavioral pattern rotation.
 
 ---
 
 ## Stretch Goals (No Timeline)
-
-These are ideas worth exploring but not committed to a release.
 
 - **Steam Integration** — Pull player names from Steam for friendlier device identification.
 - **DayZ Server Browser** — Embedded server list with one-click connect and per-server disruption profiles.
@@ -99,15 +185,17 @@ These are ideas worth exploring but not committed to a release.
 
 ## Completed
 
-- [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Clumsy Control with presets and sliders. Map selector. Account tracker. Native WinDivert engine.
-- [x] **v3.0.1** — Production hardening. Atomic settings writes. Settings dialog overhaul. Full QSS coverage. Dead code purge. IP sanitization. Cross-platform line endings.
-- [x] **v3.1.0** — Smart Mode. AI auto-tune engine. Network profiler. LLM advisor (Ollama/Mistral). Session tracking with feedback learning. Profile system. Tray mode. Device nicknames. Scan caching.
-- [x] **v3.2.0** — Multi-target simultaneous disruption. Scheduled/timed disruptions. Disruption macros. Profile import/export.
-- [x] **v3.3.0** — Network Intelligence. Live traffic monitor. Latency overlay. Port scanner. 4-view dashboard.
-- [x] **v3.3.1** — Hardening pass. 11 fixes across thread safety, atomic writes, frozen-exe paths, RFC1918 validation, OOD buffer bounds.
-- [x] **v3.4.0** — God Mode + Voice + GPC. Directional lag engine. Push-to-talk voice control via Whisper. CronusZEN/MAX GPC integration. 100% drop fidelity. Direction-aware filtering. 6th smart engine strategy.
-- [x] **v3.5.0** — Live Stats Dashboard. Real-time packet counters with per-device breakdown. Engine stats API. PyInstaller spec update for optional deps. Version bump.
-- [x] **v4.0.0** — Platform & Extensibility. Plugin API with manifest schema, auto-discovery, and 4 plugin types (disruption, scanner, ui_panel, generic). CLI mode with scriptable disruptions and interactive REPL. Auto-updater via GitHub Releases API.
+- [x] **v3.0.0** — The Strip. 89% code reduction. 3-view dashboard. Native WinDivert engine.
+- [x] **v3.0.1** — Production hardening. Atomic settings writes. Full QSS coverage. IP sanitization.
+- [x] **v3.1.0** — Smart Mode. AI auto-tune. Network profiler. LLM advisor. Session tracking. Profile system. Tray mode.
+- [x] **v3.2.0** — Multi-target. Scheduled disruptions. Macro chains. Profile import/export.
+- [x] **v3.3.0** — Network Intelligence. Traffic monitor. Latency overlay. Port scanner.
+- [x] **v3.3.1** — Hardening pass. 11 fixes across thread safety, atomic writes, frozen-exe paths.
+- [x] **v3.4.0** — God Mode + Voice + GPC. Directional lag. Whisper STT. CronusZEN integration.
+- [x] **v3.5.0** — Live Stats Dashboard. Real-time packet counters. Engine stats API.
+- [x] **v4.0.0** — Platform & Extensibility. Plugin API. CLI mode. Auto-updater.
+- [x] **v5.0.0** — God Mode Engineering. 7 deep-research phases. Statistical models. Packet classification. Tick sync. 14 asymmetric presets. Batch API. ML traffic analysis. Stealth patterns. 216 tests.
+- [x] **v5.2.0** — Indefinite God Mode + Dupe Engine + Hardening. Pulse-cycling god mode. Dupe engine state machine. Extended lag. CNSA 2.0 security. Full codebase audit. Windows installer + auto-update. Getting Started guide. Collapsible/reorderable sections. Splash screen overhaul. Extraction fix for low-spec machines.
 
 ---
 

@@ -29,6 +29,8 @@ Architecture (clumsy.exe, from reading main.c):
     7. Hide window off-screen via SetWindowPos
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import time
@@ -39,7 +41,7 @@ import ctypes
 from ctypes import wintypes
 from typing import Dict, List, Optional
 from app.logs.logger import log_info, log_error
-from app.utils.helpers import mask_ip
+from app.utils.helpers import mask_ip, _NO_WINDOW, is_admin
 
 # Native WinDivert engine — primary engine (no GUI, no window)
 try:
@@ -49,7 +51,34 @@ try:
 except ImportError as e:
     NATIVE_ENGINE_AVAILABLE = False
     log_info(f"Native WinDivert engine not available: {e} (falling back to clumsy.exe)")
-CREATE_NO_WINDOW   = 0x08000000
+
+__all__ = [
+    "CREATE_NO_WINDOW",
+    "GWL_EXSTYLE",
+    "WS_EX_TOOLWINDOW",
+    "WS_EX_LAYERED",
+    "LWA_ALPHA",
+    "SW_HIDE",
+    "BM_CLICK",
+    "BM_GETCHECK",
+    "WM_GETTEXT",
+    "WM_GETTEXTLENGTH",
+    "WM_SETTEXT",
+    "WM_CHAR",
+    "WM_KEYDOWN",
+    "WM_KEYUP",
+    "EM_SETSEL",
+    "VK_DELETE",
+    "BST_CHECKED",
+    "MODULE_CHECKBOX_TEXT",
+    "EDIT_INDEX_MAP",
+    "WNDENUMPROC",
+    "ClumsyEngine",
+    "ClumsyNetworkDisruptor",
+    "clumsy_network_disruptor",
+    "disruption_manager",
+]
+CREATE_NO_WINDOW   = _NO_WINDOW  # re-exported alias for backward compat
 
 # Window style constants
 GWL_EXSTYLE        = -20
@@ -223,7 +252,7 @@ def _get_edit_controls_sorted(parent_hwnd) -> list:
     edit_rects.sort(key=lambda x: (x[1], x[2]))
     return [hwnd for hwnd, _y, _x in edit_rects]
 
-def _type_into_edit(hwnd, value_str: str):
+def _type_into_edit(hwnd, value_str: str) -> str:
     """Clear an EDIT control and type a new value character by character.
 
     This triggers IUP's VALUECHANGED_CB on each keystroke, which syncs
@@ -270,7 +299,7 @@ def _hide_window(hwnd) -> bool:
         log_error(f"Failed to hide window hwnd={hwnd}: {e}")
         return False
 
-def _kill_all_clumsy():
+def _kill_all_clumsy() -> None:
     """Kill every running clumsy.exe — only one can hold the WinDivert handle."""
     try:
         result = subprocess.run(
@@ -300,7 +329,7 @@ class ClumsyEngine:
     """
 
     def __init__(self, clumsy_exe: str, clumsy_dir: str,
-                 filter_str: str, methods: list, params: dict):
+                 filter_str: str, methods: list, params: dict) -> None:
         self.clumsy_exe = clumsy_exe
         self.clumsy_dir = clumsy_dir
         self.filter_str = filter_str
@@ -334,7 +363,7 @@ class ClumsyEngine:
         log_error(f"  '{cb_text}': STILL wrong after retry (state={state})")
         return False
 
-    def _find_checkbox(self, text: str):
+    def _find_checkbox(self, text: str) -> Any:
         """Find a checkbox by text, with fallback class search."""
         cb_hwnd = _find_child_by_text(self._hwnd, text)
         if not cb_hwnd:
@@ -586,7 +615,7 @@ class ClumsyEngine:
                  "modules physically enabled")
         return enabled_count > 0
 
-    def _click_sub_checkboxes(self):
+    def _click_sub_checkboxes(self) -> None:
         """Click sub-checkboxes that need explicit toggling for C variable sync.
 
         preset1_config() uses IupSetAttribute which does NOT fire ACTION
@@ -621,7 +650,7 @@ class ClumsyEngine:
             expected = BST_CHECKED if desired else 0
             self._click_and_verify(cb_hwnd, cb_text, expected_state=expected)
 
-    def _set_input_values(self):
+    def _set_input_values(self) -> None:
         """Type numeric values into clumsy's EDIT controls via WM_CHAR.
 
         CRITICAL: IupSetAttribute (used by preset1_config) changes the
@@ -707,7 +736,7 @@ class ClumsyEngine:
             log_error(f"ClumsyEngine: keybind fallback error: {e}")
             return False
 
-    def stop(self):
+    def stop(self) -> None:
         """Kill clumsy.exe and clean up."""
         if self._proc:
             try:
@@ -731,7 +760,7 @@ class ClumsyEngine:
 
     # ---- cleanup ----
 
-    def _cleanup(self):
+    def _cleanup(self) -> None:
         if self._proc:
             try:
                 self._proc.kill()
@@ -741,7 +770,7 @@ class ClumsyEngine:
 
     # ---- config file writers ----
 
-    def _write_config(self):
+    def _write_config(self) -> None:
         """Write config.txt next to clumsy.exe with filter expression.
 
         loadConfig() in clumsy uses GetModuleFileName() to find config.txt
@@ -753,12 +782,12 @@ class ClumsyEngine:
         path = os.path.join(self.clumsy_dir, "config.txt")
         content = f"DupeZ: {self.filter_str}\n"
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         log_info(f"config.txt written: {path}")
         log_info(f"  filter entry: DupeZ: {self.filter_str}")
 
-    def _write_presets(self):
+    def _write_presets(self) -> Any:
         """Write presets.ini with numeric values ONLY — all modules DISABLED.
 
         CRITICAL IUP BEHAVIOR:
@@ -854,11 +883,23 @@ class ClumsyEngine:
         for i in range(2, 6):
             content += f"\n[Preset{i}]\nPresetName = Preset_{i}\n{_EMPTY}"
         path = os.path.join(self.clumsy_dir, "presets.ini")
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(content)
         log_info(f"presets.ini written: {path} ({len(content)} chars)")
 class ClumsyNetworkDisruptor:
-    def __init__(self):
+    """Disruption manager that orchestrates NativeWinDivert and ClumsyEngine.
+
+    Implements the DisruptionManagerBase interface with clean method names.
+    Legacy ``_clumsy`` suffixed methods are preserved as aliases for backward
+    compatibility but new code should use the clean names.
+
+    Note: We don't formally inherit from DisruptionManagerBase at class
+    definition time to avoid an import-time circular dependency (engine_base
+    is lightweight but ClumsyNetworkDisruptor is imported very early). The
+    class satisfies the interface structurally (duck typing).
+    """
+
+    def __init__(self) -> None:
         self.is_running = False
         self.disrupted_devices: Dict[str, dict] = {}
         self._device_lock = threading.Lock()
@@ -868,7 +909,7 @@ class ClumsyNetworkDisruptor:
         self._initialized = False
         self._init_paths()
 
-    def _init_paths(self):
+    def _init_paths(self) -> None:
         try:
             if getattr(sys, 'frozen', False):
                 base = os.path.join(sys._MEIPASS, "app", "firewall")
@@ -909,12 +950,9 @@ class ClumsyNetworkDisruptor:
 
     @staticmethod
     def _is_admin() -> bool:
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        except Exception:
-            return False
+        return is_admin()
 
-    def _get_clumsy_dir(self):
+    def _get_clumsy_dir(self) -> dirname:
         return os.path.dirname(os.path.abspath(self.clumsy_exe))
 
     # Core disruption
@@ -924,18 +962,37 @@ class ClumsyNetworkDisruptor:
         if methods is None:
             methods = ["disconnect", "drop", "lag", "bandwidth", "throttle"]
         if params is None:
-            # DayZ-tuned defaults: UDP 2302 at ~60 tick, Enfusion engine
-            # with deterministic rollback networking.
-            params = {
-                "lag_delay": 1500, "drop_chance": 95,
-                "disconnect_chance": 100,  # 100% = true hard disconnect
-                "bandwidth_limit": 1, "bandwidth_queue": 0,
-                "throttle_chance": 100, "throttle_frame": 400,
-                "throttle_drop": True, "direction": "both",
-                "godmode_lag_ms": 3000,  # 3s freeze — enough for DayZ's tick to desync visibly
-                "godmode_drop_inbound_pct": 0,
-                "godmode_keepalive_interval_ms": 800,  # NAT keepalive: 1 pkt/800ms
-            }
+            # Load defaults from game profile config (eliminates hardcoded
+            # game-specific values). Falls back to inline defaults if the
+            # profile system is unavailable.
+            try:
+                from app.config.game_profiles import get_disruption_defaults
+                _profile = get_disruption_defaults("dayz")
+                params = {
+                    "lag_delay": _profile.get("lag_delay_ms", 1500),
+                    "drop_chance": _profile.get("drop_chance_pct", 95),
+                    "disconnect_chance": _profile.get("disconnect_chance_pct", 100),
+                    "bandwidth_limit": _profile.get("bandwidth_limit_kbps", 1),
+                    "bandwidth_queue": _profile.get("bandwidth_queue", 0),
+                    "throttle_chance": _profile.get("throttle_chance_pct", 100),
+                    "throttle_frame": _profile.get("throttle_frame_ms", 400),
+                    "throttle_drop": _profile.get("throttle_drop", True),
+                    "direction": _profile.get("direction", "both"),
+                    "godmode_lag_ms": _profile.get("godmode_lag_ms", 3000),
+                    "godmode_drop_inbound_pct": _profile.get("godmode_drop_inbound_pct", 0),
+                    "godmode_keepalive_interval_ms": _profile.get("godmode_keepalive_interval_ms", 800),
+                }
+            except Exception:
+                params = {
+                    "lag_delay": 1500, "drop_chance": 95,
+                    "disconnect_chance": 100,
+                    "bandwidth_limit": 1, "bandwidth_queue": 0,
+                    "throttle_chance": 100, "throttle_frame": 400,
+                    "throttle_drop": True, "direction": "both",
+                    "godmode_lag_ms": 3000,
+                    "godmode_drop_inbound_pct": 0,
+                    "godmode_keepalive_interval_ms": 800,
+                }
 
         try:
             if target_ip in self.disrupted_devices:
@@ -957,20 +1014,35 @@ class ClumsyNetworkDisruptor:
                 for ip in existing:
                     self.reconnect_device_clumsy(ip)
 
-            # Use "true" filter — captures ALL packets on the WinDivert layer.
-            # This matches the user's proven working standalone config.
-            # IP-specific filters fail on NETWORK_FORWARD (ICS/hotspot) due
-            # to NAT translation timing. "true" is what clumsy uses by default
-            # and what actually produces disruption on the 192.168.137.x subnet.
-            filt_expr = "true"
+            # ── Platform detection & layer selection ────────────────
+            # PC-local mode: DayZ running on the SAME machine as DupeZ.
+            #   - Uses NETWORK layer (not NETWORK_FORWARD)
+            #   - addr.Outbound works correctly on NETWORK layer
+            #   - Filter by game server IP (target_ip IS the server)
+            # Console/remote-PC mode (PS5, Xbox, PC-over-hotspot):
+            #   - Uses NETWORK_FORWARD layer (ICS/hotspot forwarding)
+            #   - addr.Outbound is always TRUE — use IP header parsing
+            #   - Filter by device IP (target_ip IS the console/PC)
+            is_local = params.get("_network_local", False)
 
+            if target_ip and target_ip != "unknown":
+                filt_expr = (
+                    f"ip.SrcAddr == {target_ip} or "
+                    f"ip.DstAddr == {target_ip}"
+                )
+            else:
+                filt_expr = "true"
+
+            mode_label = "PC-LOCAL (NETWORK)" if is_local else "REMOTE (NETWORK_FORWARD)"
             log_info(f"{'='*50}\nDISRUPTION START: {mask_ip(target_ip)}\n"
-                     f"  methods={methods}  direction={params.get('direction', 'both')}"
+                     f"  mode={mode_label}  methods={methods}"
+                     f"  direction={params.get('direction', 'both')}"
                      f"  filter={filt_expr}\n{'='*50}")
 
             clumsy_dir = self._get_clumsy_dir()
             eng_params = dict(params)
             eng_params["_target_ip"] = target_ip
+            eng_params["_network_local"] = is_local
 
             engine = None
 
@@ -1106,16 +1178,59 @@ class ClumsyNetworkDisruptor:
                     totals["per_device"][ip] = stats
         return totals
 
-    def start_clumsy(self):
+    def start_clumsy(self) -> None:
         self.is_running = True
         engine_name = "native WinDivert" if NATIVE_ENGINE_AVAILABLE else "clumsy.exe"
         log_info(f"Disruptor started (engine={engine_name})")
 
-    def stop_clumsy(self):
+    def stop_clumsy(self) -> None:
         self.is_running = False
         self.clear_all_disruptions_clumsy()
         log_info("Disruptor stopped")
 
-# Global instance
+    # ── Clean interface (DisruptionManagerBase contract) ─────────────
+    # New code should use these names. The _clumsy suffixed methods above
+    # are preserved for backward compatibility.
+
+    def start(self) -> None:
+        """Activate the manager."""
+        self.start_clumsy()
+
+    def stop(self) -> None:
+        """Deactivate the manager, stopping all disruptions."""
+        self.stop_clumsy()
+
+    def disrupt_device(self, ip, methods=None, params=None) -> disconnect_device_clumsy:
+        """Start disruption on *ip*."""
+        return self.disconnect_device_clumsy(ip, methods, params)
+
+    def stop_device(self, ip) -> reconnect_device_clumsy:
+        """Stop disruption on *ip*."""
+        return self.reconnect_device_clumsy(ip)
+
+    def stop_all_devices(self) -> clear_all_disruptions_clumsy:
+        """Stop all active disruptions."""
+        return self.clear_all_disruptions_clumsy()
+
+    def get_disrupted_devices(self) -> get_disrupted_devices_clumsy:
+        """Return IPs currently under disruption."""
+        return self.get_disrupted_devices_clumsy()
+
+    def get_device_status(self, ip) -> get_device_status_clumsy:
+        """Return status for a specific target."""
+        return self.get_device_status_clumsy(ip)
+
+    def get_status(self) -> get_clumsy_status:
+        """Return overall manager status."""
+        return self.get_clumsy_status()
+
+    def get_engine_stats(self) -> get_all_engine_stats:
+        """Return aggregated packet stats from all engines."""
+        return self.get_all_engine_stats()
+
+
+# Global instance — the primary import target for all consumers.
+# Legacy name preserved; prefer ``disruption_manager`` in new code.
 clumsy_network_disruptor = ClumsyNetworkDisruptor()
+disruption_manager = clumsy_network_disruptor
 

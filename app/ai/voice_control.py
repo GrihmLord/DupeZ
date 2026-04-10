@@ -23,28 +23,62 @@ The module is fully optional — DupeZ runs fine without it.  All imports
 are lazy so missing packages only surface when voice is actually activated.
 """
 
+from __future__ import annotations
+
 import threading
 import time
+from typing import Any, Callable, Optional
+
 import numpy as np
-from typing import Callable, Optional
 from dataclasses import dataclass
+
 from app.logs.logger import log_info, log_error
 
-# Lazy dependency checks
-def _try_import(name):
+__all__ = [
+    "VoiceConfig",
+    "VoiceEngine",
+    "VoiceController",
+    "is_voice_available",
+    "get_missing_packages",
+]
+
+
+# ── Lazy dependency resolution ────────────────────────────────────────
+# Defer the actual import + log until first use so that importing this
+# module has zero side effects (no I/O, no log output at import time).
+
+_voice_deps_resolved: bool = False
+SOUNDDEVICE: Any = None
+WHISPER: Any = None
+VOICE_AVAILABLE: bool = False
+
+
+def _try_import(name: str) -> Any:
+    """Import *name* or return ``None`` if unavailable."""
     try:
         return __import__(name)
     except ImportError:
         return None
 
-SOUNDDEVICE = _try_import("sounddevice")
-WHISPER = _try_import("whisper")
 
-_DEPS = [(SOUNDDEVICE, "sounddevice"), (WHISPER, "openai-whisper")]
-VOICE_AVAILABLE = SOUNDDEVICE is not None and WHISPER is not None
-if not VOICE_AVAILABLE:
-    log_info(f"VoiceControl: disabled — missing packages: "
-             f"{', '.join(pkg for mod, pkg in _DEPS if mod is None)}")
+def _resolve_voice_deps() -> None:
+    """Resolve optional voice dependencies on first use."""
+    global _voice_deps_resolved, SOUNDDEVICE, WHISPER, VOICE_AVAILABLE
+    if _voice_deps_resolved:
+        return
+    _voice_deps_resolved = True
+
+    SOUNDDEVICE = _try_import("sounddevice")
+    WHISPER = _try_import("whisper")
+    VOICE_AVAILABLE = SOUNDDEVICE is not None and WHISPER is not None
+
+    if not VOICE_AVAILABLE:
+        missing = []
+        if SOUNDDEVICE is None:
+            missing.append("sounddevice")
+        if WHISPER is None:
+            missing.append("openai-whisper")
+        log_info(f"VoiceControl: disabled — missing packages: {', '.join(missing)}")
 
 # Configuration
 @dataclass
@@ -90,7 +124,7 @@ class VoiceEngine:
 
     def __init__(self, on_text: Callable[[str], None] = None,
                  on_status: Callable[[str], None] = None,
-                 config: VoiceConfig = None):
+                 config: VoiceConfig = None) -> None:
         self.config = config or VoiceConfig()
         self._on_text = on_text        # called with transcribed string
         self._on_status = on_status    # called with status messages for UI
@@ -114,9 +148,10 @@ class VoiceEngine:
         self._transcribing = False     # True while a transcription is in progress
 
     # Model management
-    def load_model(self, model_name: str = None):
+    def load_model(self, model_name: str = None) -> bool:
         """Load the Whisper model. Blocks on first call (downloads weights).
         Call from a background thread if you want non-blocking init."""
+        _resolve_voice_deps()
         if not VOICE_AVAILABLE:
             log_error("VoiceEngine: cannot load model — dependencies missing")
             return False
@@ -145,7 +180,7 @@ class VoiceEngine:
             self._model_loading = False
 
     def load_model_async(self, model_name: str = None,
-                         callback: Callable[[bool], None] = None):
+                         callback: Callable[[bool], None] = None) -> None:
         """Load model in background thread."""
         def _run():
             ok = self.load_model(model_name)
@@ -155,10 +190,12 @@ class VoiceEngine:
         t.start()
         return t
 
-    def is_ready(self): return VOICE_AVAILABLE and self._model is not None
+    def is_ready(self) -> Any:
+        _resolve_voice_deps()
+        return VOICE_AVAILABLE and self._model is not None
 
     # Audio capture — push-to-talk
-    def start_recording(self):
+    def start_recording(self) -> bool:
         """Begin capturing audio from the microphone.
         Call this on hotkey PRESS."""
         if not self.is_ready():
@@ -198,7 +235,7 @@ class VoiceEngine:
                 self._recording = False
             return False
 
-    def stop_recording(self):
+    def stop_recording(self) -> None:
         """Stop capturing and transcribe the audio.
         Call this on hotkey RELEASE.  Transcription runs in a background thread."""
         with self._lock:
@@ -293,7 +330,7 @@ class VoiceEngine:
                 self._continuous_event.clear()
             return False
 
-    def stop_continuous(self):
+    def stop_continuous(self) -> None:
         """Stop continuous listening."""
         with self._lock:
             if not self._continuous:
@@ -322,7 +359,7 @@ class VoiceEngine:
 
     def is_continuous(self): return self._continuous
 
-    def _flush_and_transcribe(self, min_duration: bool = True):
+    def _flush_and_transcribe(self, min_duration: bool = True) -> None:
         """Concatenate buffer, reset speech state, and spawn transcription thread.
         Must be called while holding self._lock."""
         audio = np.concatenate(self._continuous_buffer, axis=0)
@@ -339,7 +376,7 @@ class VoiceEngine:
                          args=(audio,), daemon=True,
                          name="VoiceTranscribeCont").start()
 
-    def _continuous_callback(self, indata, frames, time_info, status):
+    def _continuous_callback(self, indata, frames, time_info, status) -> None:
         """Sounddevice callback for continuous mode — detects speech boundaries."""
         if status:
             log_error(f"VoiceEngine: continuous callback status: {status}")
@@ -373,7 +410,7 @@ class VoiceEngine:
                     elif now - self._silence_start >= self.config.silence_timeout:
                         self._flush_and_transcribe()
 
-    def _transcribe_continuous(self, audio: np.ndarray):
+    def _transcribe_continuous(self, audio: np.ndarray) -> None:
         """Transcribe audio from continuous mode, then reset for next utterance."""
         try:
             self._emit_status("Processing...")
@@ -388,6 +425,7 @@ class VoiceEngine:
     @staticmethod
     def list_input_devices() -> list:
         """Return list of available audio input devices."""
+        _resolve_voice_deps()
         if not SOUNDDEVICE:
             return []
         devices = []
@@ -401,8 +439,9 @@ class VoiceEngine:
                 })
         return devices
 
-    def set_input_device(self, device_index: Optional[int]):
+    def set_input_device(self, device_index: Optional[int]) -> None:
         """Set the input device by index. None = system default."""
+        _resolve_voice_deps()
         self.config.input_device = device_index
         name = "default"
         if device_index is not None and SOUNDDEVICE:
@@ -414,7 +453,7 @@ class VoiceEngine:
         log_info(f"VoiceEngine: input device set to {name}")
 
     # Internal
-    def _audio_callback(self, indata, frames, time_info, status):
+    def _audio_callback(self, indata, frames, time_info, status) -> None:
         """Called by sounddevice InputStream for each audio chunk."""
         if status:
             log_error(f"VoiceEngine: audio callback status: {status}")
@@ -423,7 +462,7 @@ class VoiceEngine:
             with self._lock:
                 self._audio_buffer.append(indata.copy())
 
-    def _transcribe(self, audio: np.ndarray):
+    def _transcribe(self, audio: np.ndarray) -> None:
         """Run Whisper transcription on captured audio (background thread)."""
         try:
             # Whisper expects 1D float32 array at 16 kHz
@@ -454,7 +493,7 @@ class VoiceEngine:
             log_error(f"VoiceEngine: transcription error: {e}")
             self._emit_status(f"Transcription failed: {e}")
 
-    def _emit_status(self, msg: str):
+    def _emit_status(self, msg: str) -> None:
         """Send status message to UI callback."""
         if self._on_status:
             try:
@@ -503,7 +542,7 @@ class VoiceController:
     def __init__(self, advisor=None, on_command: Callable[[dict], None] = None,
                  on_status: Callable[[str], None] = None,
                  on_listening_changed: Callable[[bool], None] = None,
-                 config: VoiceConfig = None):
+                 config: VoiceConfig = None) -> None:
         self._advisor = advisor
         self._on_command = on_command
         self._on_status = on_status
@@ -518,8 +557,9 @@ class VoiceController:
         self._enabled = False
         self._hotkey_registered = False
 
-    def initialize(self, callback: Callable[[bool], None] = None):
+    def initialize(self, callback: Callable[[bool], None] = None) -> None:
         """Load the Whisper model in background. Call once at startup."""
+        _resolve_voice_deps()
         if not VOICE_AVAILABLE:
             self._emit_status("Voice control unavailable — install sounddevice + openai-whisper")
             if callback:
@@ -545,7 +585,7 @@ class VoiceController:
         else:
             return self.start_listening()
 
-    def _notify_listening(self, state: bool):
+    def _notify_listening(self, state: bool) -> None:
         if self._on_listening_changed:
             try:
                 self._on_listening_changed(state)
@@ -561,18 +601,18 @@ class VoiceController:
             self._notify_listening(True)
         return ok
 
-    def stop_listening(self):
+    def stop_listening(self) -> None:
         """Stop continuous listening mode."""
         self._engine.stop_continuous()
         self._notify_listening(False)
 
-    def push_to_talk_press(self):
+    def push_to_talk_press(self) -> None:
         """Call on hotkey press — starts recording."""
         if not self._enabled:
             return
         self._engine.start_recording()
 
-    def push_to_talk_release(self):
+    def push_to_talk_release(self) -> None:
         """Call on hotkey release — stops recording, triggers transcription."""
         if not self._enabled:
             return
@@ -586,20 +626,20 @@ class VoiceController:
     def is_recording(self) -> bool:
         return self._engine.is_recording()
 
-    def set_input_device(self, device_index: Optional[int]):
+    def set_input_device(self, device_index: Optional[int]) -> None:
         """Change microphone."""
         self._engine.set_input_device(device_index)
 
     def list_input_devices(self) -> list:
         return VoiceEngine.list_input_devices()
 
-    def enable(self):
+    def enable(self) -> None:
         """Enable voice control."""
         if self._engine.is_ready():
             self._enabled = True
             log_info("VoiceController: enabled")
 
-    def disable(self):
+    def disable(self) -> None:
         """Disable voice control and stop all audio."""
         self._enabled = False
         if self._engine.is_recording():
@@ -609,7 +649,7 @@ class VoiceController:
         log_info("VoiceController: disabled")
 
     # Hotkey integration
-    def _handle_transcription(self, text: str):
+    def _handle_transcription(self, text: str) -> None:
         """Route transcribed text through LLM advisor to get a disruption config."""
         log_info(f"VoiceController: processing command: '{text}'")
 
@@ -659,7 +699,7 @@ class VoiceController:
 
         self._advisor.ask_async(text, callback=_on_result)
 
-    def _emit_status(self, msg: str):
+    def _emit_status(self, msg: str) -> None:
         if self._on_status:
             try:
                 self._on_status(msg)
@@ -669,9 +709,16 @@ class VoiceController:
 # Module-level convenience
 def is_voice_available() -> bool:
     """Check if voice control dependencies are installed."""
+    _resolve_voice_deps()
     return VOICE_AVAILABLE
 
 def get_missing_packages() -> list:
     """Return list of missing packages needed for voice control."""
-    return [pkg for mod, pkg in _DEPS if mod is None]
+    _resolve_voice_deps()
+    missing = []
+    if SOUNDDEVICE is None:
+        missing.append("sounddevice")
+    if WHISPER is None:
+        missing.append("openai-whisper")
+    return missing
 

@@ -4,6 +4,113 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.2.0 — 2026-04-09 (Indefinite God Mode + Dupe Engine + Hardening)
+
+Breakthrough disruption release. Pulse-cycling god mode bypasses DayZ's connection quality monitor for indefinite red-chain. Dedicated dupe engine with precise timed disconnect-reconnect. Extended lag with connection preservation. Nation-state-grade security hardening across the entire codebase. Windows installer with Add/Remove Programs registration, auto-update from within the app, Getting Started guide, collapsible/reorderable UI sections, and splash screen overhaul.
+
+### Added — Windows Installer & Distribution
+- **`installer.iss`** — Inno Setup installer script. Installs to Program Files, registers in Add/Remove Programs (DisplayIcon, URLInfoAbout, URLUpdateInfo, HelpLink, EstimatedSize). App Paths registration so Windows finds `dupez.exe` by name. Desktop + Start Menu shortcuts. MOTW stripping via `RemoveMOTW()` Pascal procedure. `UsePreviousAppDir=yes` for upgrade-in-place. `CloseApplications=yes` to close running instances before upgrading. MinVersion=10.0.
+- **`dupez.manifest`** — Windows application manifest declaring `requireAdministrator` execution level, OS compatibility for Windows 7–11, Per-Monitor DPI v2 awareness. Prevents Windows from applying compatibility shims.
+- **`version_info.py`** — PyInstaller `VS_VERSION_INFO` resource embedding version 5.2.0.0, CompanyName, FileDescription, Copyright into the exe. Windows uses this for Properties dialog and SmartScreen trust scoring.
+- **`build.bat`** — Rewritten as 4-stage pipeline: (1) PyInstaller build, (2) optional code signing via `DUPEZ_SIGN_CERT`/`DUPEZ_SIGN_PASS` env vars, (3) Inno Setup installer compilation, (4) PowerShell MOTW strip from `dist/`.
+
+### Added — Auto-Update (Download & Install)
+- **`app/core/updater.py`** — Upgraded from browser-open to direct download + silent install. `download_and_install()` downloads installer to temp dir with progress callback (64KB chunks), strips MOTW, launches with `/SILENT /CLOSEAPPLICATIONS`. `_get_install_dir()` reads InstallPath from `HKLM\SOFTWARE\DupeZ\DupeZ` registry. Prefers `*Setup*.exe` assets from GitHub Releases.
+- **`app/gui/dashboard.py`** — Update dialog upgraded to 3-button: "Download & Install" (direct update), "Open in Browser" (manual), Cancel. Progress feedback via `_do_auto_update()` with auto-close after download.
+
+### Added — Getting Started Guide
+- **`app/gui/panels/help_panel.py`** — New sidebar view (🚀 icon, pinned to bottom). 10+ collapsible sections: Welcome (open by default), Getting Started, Clumsy Control, iZurvive Map, Account Tracker, Network Tools, Settings & Themes, Voice Control, GPC/Cronus, Troubleshooting, Keyboard Shortcuts. Dark glassmorphism styling matching `dark.qss`.
+
+### Added — Collapsible & Reorderable Sections
+- **`app/gui/clumsy_control.py`** — New `CollapsibleCard` widget with clickable ▶/▼ header toggle, ▲/▼ reorder buttons, `_swap_with()` layout manipulation. 9 sections wrapped: Preset, Auto-Tune/Smart Mode, Platform, Direction, Modules, Scheduler/Macros, Live Stats, Voice Control, GPC/Cronus Zen. Preset and Modules expanded by default, others collapsed.
+
+### Changed — Splash Screen
+- **`app/gui/splash.py`** — Window enlarged from 620×400 to 680×440. Explicit pixel anchors for title/version/tagline to prevent overlap. Pipeline slowed: 12 micro-steps at 45ms (was 6 at 40ms), 250ms holds (was 120ms), 2s final hold (was 1.2s). Glow and scan animations slowed for cinematic feel.
+
+### Changed — Build Spec
+- **`dupez.spec`** — Added `version=` and `manifest=` parameters. Excluded tkinter/tcl/_tcl_data to eliminate timezone data bloat. Expanded `upx_exclude` to prevent UPX corruption of large DLLs: Qt6Core, Qt6Gui, Qt6Widgets, Qt6Network, Qt6WebEngineCore (~200MB), Qt6WebEngineWidgets, QtWebEngineProcess.exe, python3*.dll, vcruntime*.dll, WinDivert.dll, WinDivert64.sys, and more.
+
+### Fixed — Extraction Failures on Low-Spec Machines
+- UPX compression of Qt6WebEngineCore.dll (~200MB) caused decompression failures on low-RAM Windows 10 machines. Fixed by adding all large DLLs to `upx_exclude`.
+- Unnecessary `_tcl_data/tzdata` bundle (~7MB compressed) caused "Failed to extract" errors. Fixed by excluding tkinter/tcl from Analysis and filtering `_tcl_data` from datas.
+
+### Removed
+- `AUDIT_PASS_1.md`, `AUDIT_REPORT_TRIPLE_CHECK.md`, `FATAL_CRASH.txt` — Stale root-level debug artifacts.
+
+### Added — God Mode v5.2 (Pulse Cycling)
+- **Three operating modes:** Classic (original behavior), Pulse (default — block/flush cycling), Infinite (aggressive preset).
+- **Pulse cycling:** Configurable block phase (default 3000ms) followed by flush phase (default 400ms). During BLOCK, all inbound queued — target sees red chain. During FLUSH, queued packets burst-release — quality monitor resets, sliding-window average stays below kick threshold indefinitely.
+- **Infinite mode preset:** `godmode_infinite=True` → 5s block, 300ms flush, 2s keepalive, 200-packet flush cap. Maximum disruption while staying alive.
+- **Packet classification:** Small inbound packets (<100 bytes) identified as server keepalive probes, preferentially passed during NAT keepalive windows. Maximum connection health signal with minimum game state leakage.
+- **Teleportation effect:** During extended block phases, outbound movement reaches server continuously. Flush phase forces target's client to reconcile entire position delta at once — visual teleport.
+- **Queue expanded:** 10K → 50K packets. Lag cap raised from 30s → 120s.
+
+### Added — Dupe Engine
+- **`app/firewall/modules/dupe_engine.py`** — New `DupeEngineModule` with three-phase state machine: IDLE → PREP → CUT → RESTORE → IDLE.
+- **CUT phase:** Hard network cut — ALL traffic BOTH directions silently dropped. Configurable duration (1-25s, default 5s, safety clamped).
+- **Trigger methods:** Timer-based (auto-transition after prep delay) or manual (`trigger_cut()` from UI/voice). Auto-restore or manual restore.
+- **Multi-cycle support:** `dupe_cycle_count` for automated retry with configurable inter-cycle delay.
+- **Action delay:** `dupe_action_delay_ms` parameter lets the inventory RPC reach the server before cutting.
+- **Registered as `"dupe"` method** in CORE_MODULE_MAP with highest priority in module chain.
+
+### Added — Extended Lag with Connection Preservation
+- **`lag_preserve_connection`** — Auto-activates when `lag_delay` ≥ 5000ms. Periodically passes small keepalive-sized packets (<100 bytes) while holding large game state packets in the delay queue.
+- **`lag_keepalive_interval_ms`** — Configurable keepalive pass-through interval (default 1500ms).
+- **Enables 30s+ lag** without server timeout or NAT table expiry.
+
+### Changed — Security Hardening (Nation-State Grade)
+- **`app/core/crypto.py`** — CNSA 2.0 compliant cryptographic inventory. AES-256-GCM envelope encryption, HMAC-SHA384 integrity, SHA-384/512 hashing, PBKDF2-SHA-512 (600K iterations). Banned primitives enforced (no MD5, SHA-1, RC4).
+- **`app/core/secrets_manager.py`** — Machine-bound KEK with encrypted at-rest storage for all secrets.
+- **`app/core/secure_http.py`** — TLS 1.3 minimum for all outbound HTTP. Certificate verification always on. URL validation.
+- **`app/core/validation.py`** — Strict allowlist input validation at every trust boundary. WinDivert filter tokenization. Updated with `dupe`, `pulse` methods and all v5.2 parameter ranges.
+- **`app/core/patch_monitor.py`** — Full rewrite. Raw `urllib.request.urlopen` → `secure_get_json`. Atomic state persistence with HMAC-SHA384 companion files.
+- **`app/ai/session_tracker.py`** — HMAC-SHA384 integrity verification on history file load/save.
+- **`app/ai/smart_engine.py`** — HMAC-verified history loading.
+- **`app/logs/audit.py`** — Hash-chained JSONL audit logging (tamper-evident).
+
+### Changed — Architecture
+- **`from __future__ import annotations`** added to all 36 non-`__init__` Python files for forward-compatible type hints.
+- **Lazy singletons:** `theme_manager` → `get_theme_manager()`, `IS_ADMIN` → `_get_is_admin()`.
+- **Lazy dependency resolution:** `voice_control.py` dependencies resolved on first use, not import time.
+- **Lazy defaults:** `packet_classifier.py` defaults loaded lazily to break circular imports.
+- **Public properties:** `tick_sync.py` TickEstimator `last_arrival` exposed via `@property`.
+
+### Changed — Validation
+- **`VALID_DISRUPTION_METHODS`** — Added `dupe` and `pulse`.
+- **`VALID_PARAM_RANGES`** — Added: `godmode_pulse_block_ms` (500-30000), `godmode_pulse_flush_ms` (100-5000), `godmode_pulse_flush_max` (10-5000), `lag_keepalive_interval_ms` (0-10000), `dupe_prep_duration_ms` (0-30000), `dupe_cut_duration_ms` (1000-25000), `dupe_cycle_count` (1-10), `dupe_cycle_delay_ms` (0-30000), `dupe_action_delay_ms` (0-5000).
+- **`lag_delay` cap** raised from 30000 → 120000ms. `godmode_lag_ms` cap raised from 30000 → 120000ms.
+
+### Fixed
+- **`app/core/updater.py`** — Removed dead import (`from urllib.request import Request, urlopen`) that was stale since migration to `secure_get_json`.
+- **`app/gui/settings_dialog.py`** — Fixed theme manager backward compat break from lazy singleton refactor.
+- **`app/gui/dashboard.py`** — Fixed `IS_ADMIN` and theme_manager imports for lazy singleton pattern.
+- **`app/ai/voice_control.py`** — Fixed `_DEPS` NameError in `get_missing_packages()` after lazy refactor. Fixed incomplete lazy wiring in `list_input_devices()`, `set_input_device()`, `VoiceController.initialize()`.
+
+### Stats
+- **49/49 non-GUI modules** compile cleanly on import verification.
+- **12 disruption modules** in CORE_MODULE_MAP + 2 tick-sync modules.
+- **All unit tests pass** for god mode pulse cycling, dupe engine state machine, and lag connection preservation.
+
+---
+
+## v5.0.0 — 2026-04-09 (God Mode Engineering)
+
+The deep-research release. Every phase from the DupeZ Deep Research & Next-Gen Roadmap implemented: statistical disruption models, packet classification, tick-synchronized bursts, asymmetric direction presets, native WinDivert batch API, ML-enhanced traffic analysis, and stealth/detection avoidance. Full codebase audit with zero rewrites on final pass. Architecture debt resolved — engine ABC, modules extracted.
+
+### Added
+- **Phase 1: Statistical Disruption Models** — Gilbert-Elliott two-state Markov chain, Pareto heavy-tail jitter, Token Bucket rate limiter, Correlated drop with temporal autocorrelation.
+- **Phase 2: Packet Classification Engine** — UDP size/port heuristics, TCP flag analysis, per-flow frequency tracking. PacketCategory enum with SelectiveDisruptionFilter.
+- **Phase 3: Tick-Synchronized Disruption** — TickEstimator, TickSyncDropModule, PulseDisruptionModule.
+- **Phase 4: Asymmetric Direction Engine** — 14 named presets across 5 families. AsymmetricConfigBuilder fluent API.
+- **Phase 5: Native WinDivert Batch API** — RecvEx/SendEx for up to 255 packets per syscall.
+- **Phase 6: ML Network Profiler** — TrafficPatternAnalyzer, GameStateDetector (6 game states), AdaptiveTuner, SessionLearner.
+- **Phase 7: Stealth & Detection Avoidance** — TimingRandomizer, NaturalPatternGenerator (4 patterns), StealthDrop/StealthLag, SessionFingerprintRotator.
+- **Architecture: DisruptionManagerBase ABC** — Clean interface contract. Legacy aliases preserved.
+- **Architecture: Module Extraction** — 10 core modules extracted from native_divert_engine.py into app/firewall/modules/ package.
+- **Test Suite** — 216 tests across 6 test files, all passing.
+
+---
+
 ## v4.0.0 — 2026-04-06 (Platform & Extensibility)
 
 Major platform release. Plugin API, CLI mode, auto-updater, desync engine rewrite, God Mode overhaul with NAT keepalive, full opsec audit, and thread safety pass across the entire codebase.

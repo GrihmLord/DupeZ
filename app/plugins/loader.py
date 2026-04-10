@@ -1,14 +1,37 @@
 # app/plugins/loader.py — Plugin Discovery, Validation, and Lifecycle
+"""Plugin discovery, manifest validation, and lifecycle management.
 
-import os
-import sys
-import json
+Discovers plugins in the ``plugins/`` directory, validates each against
+a manifest schema, and provides load/unload lifecycle hooks.
+"""
+
+from __future__ import annotations
+
 import importlib
 import importlib.util
+import json
+import os
+import sys
 import traceback
-from typing import Dict, List, Optional
-from app.plugins.base import PluginBase, DisruptionPlugin, ScannerPlugin, UIPanelPlugin, GenericPlugin
+from typing import Any, Dict, List, Optional, Type
+
 from app.logs.logger import log_info, log_error, log_warning
+from app.plugins.base import (
+    DisruptionPlugin,
+    GenericPlugin,
+    PluginBase,
+    ScannerPlugin,
+    UIPanelPlugin,
+)
+
+__all__ = [
+    "MANIFEST_VERSION",
+    "REQUIRED_FIELDS",
+    "VALID_TYPES",
+    "PluginManifest",
+    "LoadedPlugin",
+    "PluginLoader",
+]
 
 # Manifest schema version this loader supports
 MANIFEST_VERSION = "1.0"
@@ -18,7 +41,7 @@ REQUIRED_FIELDS = {"name", "version", "description", "type", "entry_point"}
 VALID_TYPES = {"disruption", "scanner", "ui_panel", "generic"}
 
 # Type -> expected base class
-TYPE_CLASS_MAP = {
+TYPE_CLASS_MAP: Dict[str, Type[PluginBase]] = {
     "disruption": DisruptionPlugin,
     "scanner": ScannerPlugin,
     "ui_panel": UIPanelPlugin,
@@ -28,7 +51,7 @@ TYPE_CLASS_MAP = {
 class PluginManifest:
     """Parsed and validated plugin manifest."""
 
-    def __init__(self, data: Dict, plugin_dir: str):
+    def __init__(self, data: Dict, plugin_dir: str) -> None:
         self.name: str = data["name"]
         self.version: str = data["version"]
         self.description: str = data["description"]
@@ -40,13 +63,13 @@ class PluginManifest:
         self.dependencies: List[str] = data.get("dependencies", [])
         self.plugin_dir: str = plugin_dir
 
-    def __repr__(self):
+    def __repr__(self) -> Any:
         return f"<PluginManifest {self.name} v{self.version} ({self.plugin_type})>"
 
 class LoadedPlugin:
     """Container for a loaded plugin instance + its manifest."""
 
-    def __init__(self, manifest: PluginManifest, instance: PluginBase, module_name: str = ""):
+    def __init__(self, manifest: PluginManifest, instance: PluginBase, module_name: str = "") -> None:
         self.manifest = manifest
         self.instance = instance
         self.module_name = module_name  # For cleanup on unload
@@ -61,7 +84,7 @@ class LoadedPlugin:
     def plugin_type(self) -> str:
         return self.manifest.plugin_type
 
-    def __repr__(self):
+    def __repr__(self) -> Any:
         state = "active" if self.active else "inactive"
         return f"<LoadedPlugin {self.name} [{state}]>"
 
@@ -74,7 +97,7 @@ class PluginLoader:
         loader.load_all(controller)
     """
 
-    def __init__(self, plugins_dir: str = None):
+    def __init__(self, plugins_dir: str = None) -> None:
         if plugins_dir is None:
             # Default: <project_root>/plugins
             if getattr(sys, 'frozen', False):
@@ -133,7 +156,25 @@ class PluginLoader:
             log_error(f"Manifest at {path} missing fields: {missing}")
             return None
 
-        # Validate type
+        # Validate through centralized validation module
+        try:
+            from app.core.validation import (
+                validate_plugin_name, validate_version_string,
+                validate_entry_point, VALID_PLUGIN_TYPES,
+            )
+            validate_plugin_name(data["name"])
+            validate_version_string(data["version"])
+            if data["type"] not in VALID_PLUGIN_TYPES:
+                log_error(f"Manifest at {path} has invalid type '{data['type']}'")
+                return None
+            validate_entry_point(data["entry_point"], plugin_dir)
+        except ValueError as e:
+            log_error(f"Manifest validation failed at {path}: {e}")
+            return None
+        except ImportError:
+            pass  # fallback to legacy validation below
+
+        # Validate type (legacy fallback)
         if data["type"] not in VALID_TYPES:
             log_error(f"Manifest at {path} has invalid type '{data['type']}' — must be one of {VALID_TYPES}")
             return None
@@ -187,10 +228,33 @@ class PluginLoader:
         return plugin
 
     def _load_plugin(self, manifest: PluginManifest) -> Optional[LoadedPlugin]:
-        """Import the plugin module, instantiate the class, and activate it."""
+        """Import the plugin module, instantiate the class, and activate it.
+
+        Security: validates entry path containment, audits load events,
+        and restricts the plugin's module namespace.
+        """
         entry_path = os.path.join(manifest.plugin_dir, manifest.entry_point)
 
+        # Final path traversal guard (defense-in-depth)
+        real_entry = os.path.realpath(entry_path)
+        real_plugins = os.path.realpath(self.plugins_dir)
+        if not real_entry.startswith(real_plugins + os.sep):
+            log_error(f"Plugin entry path escapes plugins directory: {real_entry}")
+            return None
+
         try:
+            # Audit trail
+            try:
+                from app.logs.audit import audit_event
+                audit_event("plugin_load_attempt", {
+                    "name": manifest.name,
+                    "version": manifest.version,
+                    "type": manifest.plugin_type,
+                    "entry_point": manifest.entry_point,
+                })
+            except Exception:
+                pass
+
             # Dynamic import from file path
             module_name = f"dupez_plugin_{manifest.name.replace(' ', '_').replace('-', '_')}"
             spec = importlib.util.spec_from_file_location(module_name, entry_path)
@@ -273,18 +337,36 @@ class PluginLoader:
             log_error(f"Error unloading plugin '{name}': {e}")
             return False
 
-    def unload_all(self):
+    def unload_all(self) -> None:
         """Deactivate and unload all plugins."""
         for name in list(self.plugins.keys()):
             self.unload_plugin(name)
 
-    # Queries
-    def get_active_plugins(self): return [p for p in self.plugins.values() if p.active]
-    def get_plugins_by_type(self, t): return [p for p in self.plugins.values() if p.active and p.plugin_type == t]
-    def get_disruption_plugins(self): return self.get_plugins_by_type("disruption")
-    def get_scanner_plugins(self): return self.get_plugins_by_type("scanner")
-    def get_ui_panel_plugins(self): return self.get_plugins_by_type("ui_panel")
-    def get_plugin(self, name): return self.plugins.get(name)
+    # ── Queries ────────────────────────────────────────────────────
+
+    def get_active_plugins(self) -> List[LoadedPlugin]:
+        """Return all currently active plugins."""
+        return [p for p in self.plugins.values() if p.active]
+
+    def get_plugins_by_type(self, plugin_type: str) -> List[LoadedPlugin]:
+        """Return active plugins matching *plugin_type*."""
+        return [
+            p for p in self.plugins.values()
+            if p.active and p.plugin_type == plugin_type
+        ]
+
+    def get_disruption_plugins(self) -> List[LoadedPlugin]:
+        return self.get_plugins_by_type("disruption")
+
+    def get_scanner_plugins(self) -> List[LoadedPlugin]:
+        return self.get_plugins_by_type("scanner")
+
+    def get_ui_panel_plugins(self) -> List[LoadedPlugin]:
+        return self.get_plugins_by_type("ui_panel")
+
+    def get_plugin(self, name: str) -> Optional[LoadedPlugin]:
+        """Return a loaded plugin by name, or ``None``."""
+        return self.plugins.get(name)
 
     def get_plugin_info(self) -> List[Dict]:
         """Return summary info for all discovered plugins."""

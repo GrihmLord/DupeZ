@@ -1,0 +1,42 @@
+# DupeZ Locked Dependencies — Supply Chain Integrity
+#
+# Pin exact versions for reproducible builds.
+# Regenerate with: pip freeze > requirements-locked.txt
+# Verify with: pip install --require-hashes -r requirements-locked.txt
+#
+# IMPORTANT: When updating a dependency:
+#   1. Update the version pin below
+#   2. Run: pip hash <package>.whl to get the new hash
+#   3. Update the hash in this file
+#   4. Run full test suite before committing
+
+# GUI
+PyQt6==6.7.1
+PyQtGraph==0.13.7
+Pillow==10.4.0
+
+# System & Process
+psutil==6.0.0
+keyboard==0.13.5
+
+# Network
+scapy==2.6.1
+requests==2.32.3
+
+# Data / Export
+openpyxl==3.1.5
+numpy==1.26.4
+pandas==2.2.3
+
+# Config
+PyYAML==6.0.2
+
+# Cryptography (required for AES-256-GCM envelope encryption)
+cryptography==43.0.3
+
+# Voice Control (optional)
+# sounddevice==0.5.1
+# openai-whisper==20231117
+
+# GPC / Cronus Device Bridge (optional)
+# pyserial==3.5

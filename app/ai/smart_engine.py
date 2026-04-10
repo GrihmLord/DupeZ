@@ -25,12 +25,40 @@ Disruption Goals (user-selectable):
   - "chaos"       → maximum unpredictable disruption
 """
 
+from __future__ import annotations
+
+import hashlib
+import hmac as _hmac
 import json
 import os
 from dataclasses import dataclass, asdict, field
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
+
 from app.logs.logger import log_info, log_error
 from app.utils.helpers import mask_ip
+
+__all__ = ["DisruptionRecommendation", "SmartDisruptionEngine"]
+
+
+# ── HMAC integrity for history file ──────────────────────────────────
+
+def _get_hmac_key() -> bytes:
+    """Machine-bound HMAC key with domain separation."""
+    import platform
+    parts = [
+        platform.node(),
+        os.environ.get("USERNAME", os.environ.get("USER", "default")),
+        platform.machine(),
+        "DupeZ-SessionTracker-v1",  # shared with session_tracker.py
+    ]
+    return hashlib.sha384("|".join(parts).encode("utf-8")).digest()
+
+
+def _verify_hmac(data: bytes, expected_hex: str) -> bool:
+    computed = _hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+    return _hmac.compare_digest(computed, expected_hex)
+
+
 @dataclass
 class DisruptionRecommendation:
     """Output of the smart engine — a complete disruption configuration."""
@@ -61,6 +89,8 @@ class DisruptionRecommendation:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
 class SmartDisruptionEngine:
     """Maps network profiles to optimal disruption parameters.
 
@@ -74,7 +104,7 @@ class SmartDisruptionEngine:
     # Disruption goals
     GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "godmode", "auto"]
 
-    def __init__(self, history_path: str = ""):
+    def __init__(self, history_path: str = "") -> None:
         if not history_path:
             from app.core.data_persistence import _resolve_data_directory
             history_path = os.path.join(_resolve_data_directory(), "session_history.json")
@@ -82,14 +112,31 @@ class SmartDisruptionEngine:
         self._model = None  # Future: trained model
         self._load_history()
 
-    def _load_history(self):
-        """Load past session outcomes for feedback learning."""
+    def _load_history(self) -> None:
+        """Load past session outcomes for feedback learning (HMAC-verified)."""
         self._history = []
         try:
-            if os.path.exists(self.history_path):
-                with open(self.history_path, 'r') as f:
-                    self._history = json.load(f)
-        except Exception as e:
+            if not os.path.exists(self.history_path):
+                return
+
+            with open(self.history_path, "rb") as f:
+                raw = f.read()
+
+            # HMAC verification (shared key with session_tracker)
+            hmac_path = self.history_path + ".hmac"
+            if os.path.exists(hmac_path):
+                try:
+                    with open(hmac_path, "r", encoding="utf-8") as hf:
+                        stored = hf.read().strip()
+                    if not _verify_hmac(raw, stored):
+                        log_error("SmartEngine: HMAC verification FAILED — "
+                                  "history may be tampered, ignoring")
+                        return
+                except Exception as e:
+                    log_error(f"SmartEngine: HMAC check error: {e}")
+
+            self._history = json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
             log_error(f"SmartEngine: failed to load history: {e}")
 
     def recommend(self, profile, goal: str = "auto",
@@ -297,9 +344,9 @@ class SmartDisruptionEngine:
         ]
 
         # Desync is more effective on UDP-heavy connections
-        if profile.udp_pct > 60:
+        if getattr(profile, 'udp_pct', 0) > 60:
             rec.estimated_effectiveness = self._scale(80, 98, intensity)
-            rec.reasoning.append(f"Target is {profile.udp_pct:.0f}% UDP — desync will be highly effective")
+            rec.reasoning.append(f"Target is {getattr(profile, 'udp_pct', 0):.0f}% UDP — desync will be highly effective")
         else:
             rec.estimated_effectiveness = self._scale(60, 85, intensity)
 
@@ -463,7 +510,7 @@ class SmartDisruptionEngine:
     _HOTSPOT_SCALE = {"lag_delay": 0.7, "godmode_lag_ms": 0.8}
 
     def _adjust_for_connection(self, rec: DisruptionRecommendation,
-                               profile, intensity: float):
+                               profile, intensity: float) -> None:
         """Tune recommendation based on connection type."""
         if profile.connection_type == "hotspot":
             for key, factor in self._HOTSPOT_SCALE.items():
@@ -487,7 +534,7 @@ class SmartDisruptionEngine:
                 "WAN connection detected — natural latency variability works in our favor")
 
     # Device-specific adjustments
-    def _adjust_for_device(self, rec: DisruptionRecommendation, profile):
+    def _adjust_for_device(self, rec: DisruptionRecommendation, profile) -> None:
         """Tune recommendation based on device type."""
         if profile.device_type == "console":
             # Consoles have limited network stack recovery
