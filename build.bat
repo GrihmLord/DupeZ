@@ -1,7 +1,15 @@
 @echo off
 setlocal
+
+:: ── Version ─────────────────────────────────────────────────────────
+:: Bump this ONE place per release. installer.iss and version_info.py
+:: also carry their own copies (Inno Setup macro + PyInstaller version
+:: resource respectively) — keep all three in sync.
+set "DUPEZ_VERSION=5.2.1"
+set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
+
 echo ============================================
-echo  DupeZ v5.2 — Build Pipeline
+echo  DupeZ v%DUPEZ_VERSION% -- Build Pipeline
 echo ============================================
 echo.
 
@@ -97,7 +105,7 @@ if errorlevel 1 (
     echo       WARNING: Installer build failed.
     goto :skip_installer
 )
-echo       Installer built: dist\DupeZ_v5.2.0_Setup.exe
+echo       Installer built: dist\%DUPEZ_INSTALLER%
 
 :: Sign the installer too (flattened — batch can't handle triple-nested if-not blocks)
 if not defined DUPEZ_SIGN_CERT goto :skip_installer
@@ -105,9 +113,9 @@ where signtool >nul 2>&1
 if errorlevel 1 goto :skip_installer
 echo       Signing installer...
 if defined DUPEZ_SIGN_PASS (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\DupeZ_v5.2.0_Setup.exe
+    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\%DUPEZ_INSTALLER%
 ) else (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\DupeZ_v5.2.0_Setup.exe
+    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\%DUPEZ_INSTALLER%
 )
 
 :skip_installer
@@ -126,8 +134,8 @@ echo ============================================
 echo  BUILD COMPLETE
 echo ============================================
 echo.
-if exist "dist\DupeZ_v5.2.0_Setup.exe" (
-    echo  Installer:  dist\DupeZ_v5.2.0_Setup.exe  [RECOMMENDED]
+if exist "dist\%DUPEZ_INSTALLER%" (
+    echo  Installer:  dist\%DUPEZ_INSTALLER%  [RECOMMENDED]
 )
 echo  Portable:   dist\dupez.exe
 echo.

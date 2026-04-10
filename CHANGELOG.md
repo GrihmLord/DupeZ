@@ -4,6 +4,30 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.2.1 — 2026-04-10 (Map Fix + Resilient Optional Deps)
+
+Patch release fixing the blank iZurvive map tab under DupeZ's elevated token and hardening optional-dependency import handling so broken installs (torch/whisper) can't crash startup.
+
+### Fixed
+- **iZurvive map now loads.** Root cause was Chromium's sandbox refusing to initialize under DupeZ's elevated (admin) token, killing the render process and producing a blank map tab. `dupez.py` now sets `QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox --disable-gpu --disable-gpu-compositing` and `QT_OPENGL=software` at process entry before any PyQt6 import.
+- **Broken optional dependencies no longer crash startup.** `app/ai/voice_control.py::_try_import` now catches `Exception` (not just `ImportError`) so a corrupted `torch` install (WinError 1114, DLL init failure) silently disables voice control instead of hard-crashing DupeZ.
+- **QtWebEngine DLL load failures now surface.** `app/gui/dayz_map_gui_new.py` widened its exception handler around the QtWebEngine import from `ImportError` to `Exception` (Windows DLL failures raise `OSError`, not `ImportError`), and the placeholder widget now shows the real reason instead of a generic "not installed" message.
+
+### Changed
+- **`requirements.txt`** — `PyQt6-WebEngine` is now a declared dependency, pinned to match the `PyQt6` minor (`>=6.6.0,<6.12`). The two packages must resolve in a single pip pass or their Qt6 runtime wheels drift and `QtWebEngineCore.dll` fails to load.
+- **`build.bat`** — Version is now defined once at the top via `DUPEZ_VERSION` / `DUPEZ_INSTALLER` variables instead of hardcoded in multiple places.
+
+### Added — Dev Tools (`scripts/`)
+- **`scripts/fix_webengine.bat`** — One-shot repair if PyQt6 / PyQt6-WebEngine wheels drift. Wipes every PyQt6/Qt6 wheel, clears the pip cache, reinstalls the package set in a single resolver pass, verifies `QWebEngineView` imports before exiting.
+- **`scripts/diagnose_webengine.py`** — Minimal smoke test that bypasses DupeZ entirely and opens iZurvive in a bare `QWebEngineView`. Prints every load event, renderer-process crash, and JS console message. Use to isolate whether a map failure is in QtWebEngine itself or in DupeZ's wiring.
+- **`scripts/README.md`** — Documents both tools.
+
+### Housekeeping
+- `.gitignore` — added `.pytest_cache/`.
+- Moved `fix_webengine.bat` and `test_webengine.py` out of repo root into `scripts/`.
+
+---
+
 ## v5.2.0 — 2026-04-09 (Indefinite God Mode + Dupe Engine + Hardening)
 
 Breakthrough disruption release. Pulse-cycling god mode bypasses DayZ's connection quality monitor for indefinite red-chain. Dedicated dupe engine with precise timed disconnect-reconnect. Extended lag with connection preservation. Nation-state-grade security hardening across the entire codebase. Windows installer with Add/Remove Programs registration, auto-update from within the app, Getting Started guide, collapsible/reorderable UI sections, and splash screen overhaul.

@@ -18,11 +18,11 @@
 ; BUILD:
 ;   1. Build dupez.exe first:   pyinstaller dupez.spec --noconfirm
 ;   2. Then compile installer:  iscc installer.iss
-;   Output: dist\DupeZ_v5.2.0_Setup.exe
+;   Output: dist\DupeZ_v5.2.1_Setup.exe
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.2.0"
+#define MyAppVersion   "5.2.1"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
