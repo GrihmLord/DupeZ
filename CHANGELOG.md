@@ -4,6 +4,22 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.2.2 — 2026-04-10 (Build Hardening: Torch/Whisper Isolation)
+
+Patch release that stops PyInstaller's isolated analyzer child from crashing on `torch\lib\c10.dll` (WinError 1114 / access violation) during every build, and shrinks the portable exe by excluding the unused torch runtime.
+
+### Fixed
+- **PyInstaller builds no longer crash the isolated analyzer on whisper/torch.** Root cause: `voice_panel.py` and `clumsy_control.py` called `is_voice_available()` at module import time, which walked into `whisper → torch → _load_dll_libraries`, and a broken `c10.dll` raised an unrecoverable access violation (not a catchable Python `OSError`) inside PyInstaller's isolated child process. Both call sites are now deferred until view/panel instantiation and wrapped in a broad `except Exception` so even a C-level fault path degrades cleanly.
+- **`dupez.spec`** — Added `whisper` and `openai-whisper` to `excludes` alongside the existing `torch`. Removed `whisper` from `hiddenimports`. Modulegraph now prunes the entire torch/whisper subtree during analysis.
+
+### Changed
+- **Portable `dupez.exe` is ~200 MB smaller** because torch and whisper are no longer dragged in through the voice-control import chain.
+
+### Notes
+- Voice control (`openai-whisper`) remains an optional runtime dependency. When installed alongside DupeZ, `voice_control.py` will still detect and enable it lazily on first panel instantiation. It is simply no longer bundled into the PyInstaller build or imported at module load time.
+
+---
+
 ## v5.2.1 — 2026-04-10 (Map Fix + Resilient Optional Deps)
 
 Patch release fixing the blank iZurvive map tab under DupeZ's elevated token and hardening optional-dependency import handling so broken installs (torch/whisper) can't crash startup.

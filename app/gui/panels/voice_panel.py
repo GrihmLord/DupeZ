@@ -12,12 +12,36 @@ from PyQt6.QtCore import pyqtSlot
 
 from app.logs.logger import log_info, log_error
 
-# Voice control — optional dependency
+# Voice control — optional dependency.
+#
+# IMPORTANT: do NOT call is_voice_available() at module import time.
+# It triggers an import chain into whisper → torch, and torch's c10.dll
+# can crash the interpreter with an unrecoverable access violation
+# (WinError 1114) on broken installs. That also breaks PyInstaller's
+# isolated analyzer. Keep this import cheap; the real probe happens
+# inside VoicePanel.__init__ (and is wrapped in try/except Exception).
 try:
-    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available
-    VOICE_AVAILABLE = is_voice_available()
-except ImportError:
-    VOICE_AVAILABLE = False
+    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available  # noqa: F401
+    _VOICE_IMPORTABLE = True
+except Exception:  # noqa: BLE001 — optional dep, any failure → disabled
+    _VOICE_IMPORTABLE = False
+
+# Deferred flag — populated on first VoicePanel instantiation.
+VOICE_AVAILABLE: bool = False
+
+
+def _probe_voice_available() -> bool:
+    """Lazy, crash-safe probe of voice availability."""
+    global VOICE_AVAILABLE
+    if not _VOICE_IMPORTABLE:
+        VOICE_AVAILABLE = False
+        return False
+    try:
+        VOICE_AVAILABLE = bool(is_voice_available())
+    except Exception as exc:  # noqa: BLE001
+        log_error(f"voice_panel: is_voice_available() raised {type(exc).__name__}: {exc}")
+        VOICE_AVAILABLE = False
+    return VOICE_AVAILABLE
 
 # LLM advisor for voice commands — optional
 try:
@@ -36,6 +60,8 @@ class VoicePanel(QWidget):
         super().__init__(parent)
         self._view = parent_view
         self._voice_controller = None
+        # Lazy probe — first panel instantiation. Crash-safe.
+        _probe_voice_available()
         self._setup_ui()
 
     @property
