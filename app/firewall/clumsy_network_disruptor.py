@@ -958,15 +958,30 @@ class ClumsyNetworkDisruptor:
     # Core disruption
     def disconnect_device_clumsy(self, target_ip: str,
                                   methods: Optional[List[str]] = None,
-                                  params: Optional[Dict] = None) -> bool:
-        if methods is None:
-            methods = ["disconnect", "drop", "lag", "bandwidth", "throttle"]
+                                  params: Optional[Dict] = None,
+                                  preset: Optional[str] = None) -> bool:
+        """Start disruption against a target IP.
+
+        Args:
+            target_ip: Game server IP (PC-local) or device IP (FORWARD).
+            methods: Disruption methods to activate. If ``None``, the
+                default list is derived from ``preset`` (if given) or
+                falls back to the PC-local/FORWARD default method set.
+            params: Disruption parameter dict. If ``None``, built from
+                ``get_disruption_defaults("dayz")`` and — if ``preset``
+                is set — merged with that preset's values.
+            preset: Named preset from ``disruption_presets`` in the game
+                profile (``pc_local``, ``ps5_hotspot``, ``xbox_hotspot``).
+                Preset values override defaults and — when ``params`` is
+                supplied explicitly — are merged *under* user params so
+                explicit caller values still win.
+        """
+        # ── Resolve params from preset/defaults ─────────────────────────
         if params is None:
-            # Load defaults from game profile config (eliminates hardcoded
-            # game-specific values). Falls back to inline defaults if the
-            # profile system is unavailable.
             try:
-                from app.config.game_profiles import get_disruption_defaults
+                from app.config.game_profiles import (
+                    get_disruption_defaults, get_disruption_preset,
+                )
                 _profile = get_disruption_defaults("dayz")
                 params = {
                     "lag_delay": _profile.get("lag_delay_ms", 1500),
@@ -978,10 +993,23 @@ class ClumsyNetworkDisruptor:
                     "throttle_frame": _profile.get("throttle_frame_ms", 400),
                     "throttle_drop": _profile.get("throttle_drop", True),
                     "direction": _profile.get("direction", "both"),
+                    "tick_sync_direction": _profile.get("tick_sync_direction", "inbound"),
+                    "pulse_direction": _profile.get("pulse_direction", "inbound"),
+                    "stealth_drop_direction": _profile.get("stealth_drop_direction", "inbound"),
+                    "stealth_lag_direction": _profile.get("stealth_lag_direction", "inbound"),
                     "godmode_lag_ms": _profile.get("godmode_lag_ms", 3000),
                     "godmode_drop_inbound_pct": _profile.get("godmode_drop_inbound_pct", 0),
                     "godmode_keepalive_interval_ms": _profile.get("godmode_keepalive_interval_ms", 800),
                 }
+                if preset:
+                    try:
+                        preset_params = get_disruption_preset("dayz", preset)
+                        params.update(preset_params)
+                        log_info(f"Applied disruption preset '{preset}' "
+                                 f"({len(preset_params)} keys)")
+                    except Exception as pe:
+                        log_error(f"Preset '{preset}' load failed: {pe} — "
+                                  f"using profile defaults")
             except Exception:
                 params = {
                     "lag_delay": 1500, "drop_chance": 95,
@@ -989,10 +1017,33 @@ class ClumsyNetworkDisruptor:
                     "bandwidth_limit": 1, "bandwidth_queue": 0,
                     "throttle_chance": 100, "throttle_frame": 400,
                     "throttle_drop": True, "direction": "both",
+                    "tick_sync_direction": "inbound",
+                    "pulse_direction": "inbound",
+                    "stealth_drop_direction": "inbound",
+                    "stealth_lag_direction": "inbound",
                     "godmode_lag_ms": 3000,
                     "godmode_drop_inbound_pct": 0,
                     "godmode_keepalive_interval_ms": 800,
                 }
+
+        # ── Resolve methods list ───────────────────────────────────────
+        # Preset-supplied methods win if the caller didn't pass any.
+        if methods is None:
+            preset_methods = params.get("methods")
+            if isinstance(preset_methods, list) and preset_methods:
+                methods = list(preset_methods)
+            else:
+                # Default method set depends on whether we're running
+                # PC-local or on the FORWARD layer. FORWARD-layer (PS5/Xbox
+                # over ICS hotspot) benefits from pulse+tick_sync+stealth
+                # because the 32-packet ack-redundancy ceiling means the
+                # original drop/lag/bandwidth/throttle combo can't reliably
+                # desync state without triggering the 1.27+ freeze system.
+                is_local_default = bool(params.get("_network_local", False))
+                if is_local_default:
+                    methods = ["drop", "lag", "bandwidth", "throttle"]
+                else:
+                    methods = ["pulse", "tick_sync", "stealth_drop", "lag"]
 
         try:
             if target_ip in self.disrupted_devices:
@@ -1038,6 +1089,18 @@ class ClumsyNetworkDisruptor:
                      f"  mode={mode_label}  methods={methods}"
                      f"  direction={params.get('direction', 'both')}"
                      f"  filter={filt_expr}\n{'='*50}")
+
+            # FORWARD-layer cannot originate keepalives on the device's
+            # behalf — the local Windows stack can't forge the device's
+            # NAT binding without ICS cooperation. Surface this once so
+            # nobody wastes time tuning godmode_keepalive_interval_ms on
+            # PS5/Xbox targets.
+            if not is_local and "godmode" in methods:
+                log_info(
+                    "FORWARD-layer keepalive injection is a no-op — "
+                    "local stack cannot forge device NAT bindings. "
+                    "godmode_keepalive_interval_ms ignored in this mode."
+                )
 
             clumsy_dir = self._get_clumsy_dir()
             eng_params = dict(params)
