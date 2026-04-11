@@ -16,6 +16,7 @@ WebEngine package), the widget degrades to a placeholder label.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, List, Optional, Set
 
 from PyQt6.QtCore import QUrl
@@ -86,11 +87,24 @@ _PERF_CSS: str = """
     .leaflet-fade-anim .leaflet-tile { transition: none !important; }
     .leaflet-fade-anim .leaflet-tile-loaded { opacity: 1 !important; }
 
-    /* Pixelated rendering skips bilinear filtering during CSS transforms —
-       small but real win on software raster. The map tiles are already
-       pre-rasterized so we don't need filtering anyway. */
+    /* Pixelated rendering skips bilinear filtering during CSS transforms.
+       On software raster this is a real win because the filter runs per
+       pixel per frame; tiles are already pre-rasterized so we don't need
+       filtering anyway. */
     .leaflet-tile {
+        image-rendering: pixelated !important;
         image-rendering: -webkit-optimize-contrast !important;
+    }
+
+    /* During active drag, temporarily isolate the marker + overlay panes
+       as their own composited layers so they blit instead of rerender.
+       The 'dupez-dragging' class is added/removed by our JS. */
+    .leaflet-container.dupez-dragging .leaflet-marker-pane,
+    .leaflet-container.dupez-dragging .leaflet-overlay-pane,
+    .leaflet-container.dupez-dragging .leaflet-shadow-pane,
+    .leaflet-container.dupez-dragging .leaflet-tooltip-pane,
+    .leaflet-container.dupez-dragging .leaflet-popup-pane {
+        visibility: hidden !important;
     }
 
     /* Remove will-change hints — on software raster these force full
@@ -380,6 +394,7 @@ class DayZMapGUI(QWidget):
             self._apply_perf_settings()
             self.map_view.loadFinished.connect(self._inject_dom_adblocker)
             self.map_view.loadFinished.connect(self._inject_perf_tweaks)
+            self.map_view.loadFinished.connect(self._boost_renderer_priority)
             layout.addWidget(self.map_view)
         else:
             reason = _WEBENGINE_IMPORT_ERROR or "PyQt6-WebEngine not installed"
@@ -596,25 +611,100 @@ class DayZMapGUI(QWidget):
                         map._fadeAnimated = false;
                         map._zoomAnimated = false;
 
-                        // Tile layer tuning: don't update while dragging
-                        // or zooming; render from the keep-buffer. This
-                        // is the single biggest fluidity lever on
-                        // software raster — stops the browser from
-                        // decoding new tiles mid-drag.
+                        // ── Tile layer tuning ──
+                        // Big keepBuffer (12) gives the drag a large
+                        // cushion of pre-loaded tiles. updateWhenIdle
+                        // defers any tile refresh until the drag ends.
+                        const tileLayers = [];
                         map.eachLayer && map.eachLayer(function(layer) {
-                            if (layer.options) {
+                            if (layer.options && layer._update) {
                                 layer.options.updateWhenIdle = true;
                                 layer.options.updateWhenZooming = false;
-                                layer.options.updateInterval = 400;
-                                layer.options.keepBuffer = 6;
+                                layer.options.updateInterval = 500;
+                                layer.options.keepBuffer = 12;
+                                tileLayers.push(layer);
                             }
                         });
 
-                        // Force an immediate invalidate so the new
-                        // options take effect without needing a pan.
+                        // ── HARD FREEZE: monkey-patch _update ──
+                        // updateWhenIdle is a Leaflet option but some
+                        // code paths still call _update mid-move. We
+                        // wrap _update to hard no-op when dragging or
+                        // zooming is in progress. This is THE biggest
+                        // software-raster win — it completely stops
+                        // tile decode/paint/composite during drags.
+                        tileLayers.forEach(function(layer) {
+                            if (layer.__dupezPatched) return;
+                            const origUpdate = layer._update.bind(layer);
+                            layer._update = function(center) {
+                                const dragging = map.dragging && map.dragging._draggable && map.dragging._draggable._moving;
+                                if (dragging || map._animatingZoom) return;
+                                return origUpdate(center);
+                            };
+                            layer.__dupezPatched = true;
+                        });
+
+                        // ── Pane-hiding during drag ──
+                        // Marker/overlay panes are composited every
+                        // frame during a drag on software raster.
+                        // Hide them entirely while dragging and
+                        // restore on dragend. Done via a CSS class
+                        // toggle so the CSS rules pick it up.
+                        if (!map.__dupezDragHide) {
+                            const container = map.getContainer();
+                            const onStart = function() {
+                                container.classList.add('dupez-dragging');
+                            };
+                            const onEnd = function() {
+                                container.classList.remove('dupez-dragging');
+                                // Trigger a deferred tile refresh now
+                                // that the drag is over.
+                                tileLayers.forEach(function(layer) {
+                                    try { layer._update(); } catch(e) {}
+                                });
+                            };
+                            map.on('movestart dragstart zoomstart', onStart);
+                            map.on('moveend dragend zoomend', onEnd);
+                            map.__dupezDragHide = true;
+                        }
+
+                        // ── Tile prefetch ──
+                        // Warm the tile cache by preloading 2 rings
+                        // of tiles around the current viewport, at
+                        // the current zoom level only. Deferred with
+                        // setTimeout so it doesn't compete with the
+                        // initial render.
+                        setTimeout(function() {
+                            try {
+                                if (tileLayers.length === 0) return;
+                                const layer = tileLayers[0];
+                                const bounds = map.getPixelBounds();
+                                const tileSize = layer.getTileSize();
+                                const zoom = map.getZoom();
+                                const minX = Math.floor(bounds.min.x / tileSize.x) - 2;
+                                const maxX = Math.floor(bounds.max.x / tileSize.x) + 2;
+                                const minY = Math.floor(bounds.min.y / tileSize.y) - 2;
+                                const maxY = Math.floor(bounds.max.y / tileSize.y) + 2;
+                                let prefetched = 0;
+                                for (let x = minX; x <= maxX; x++) {
+                                    for (let y = minY; y <= maxY; y++) {
+                                        try {
+                                            const url = layer.getTileUrl({x: x, y: y, z: zoom});
+                                            const img = new Image();
+                                            img.src = url;
+                                            prefetched++;
+                                        } catch(e) {}
+                                    }
+                                }
+                                console.log('DupeZ: prefetched ' + prefetched + ' tiles');
+                            } catch(e) {
+                                console.warn('DupeZ: prefetch failed', e);
+                            }
+                        }, 1500);
+
                         try { map.invalidateSize(false); } catch(e) {}
 
-                        console.log('DupeZ: Leaflet perf tune applied');
+                        console.log('DupeZ: Leaflet perf tune applied (hard freeze on drag)');
                         return true;
                     } catch (e) {
                         console.error('DupeZ: tune failed', e);
@@ -641,6 +731,62 @@ class DayZMapGUI(QWidget):
         """
         page.runJavaScript(tune_js)
         log_info("Map: perf tweaks injected (CSS + Leaflet tune)")
+
+    def _boost_renderer_priority(self, success: bool) -> None:
+        """Raise QtWebEngineProcess renderer to HIGH_PRIORITY_CLASS.
+
+        QtWebEngine runs the Chromium renderer in a child process
+        named ``QtWebEngineProcess.exe``. By default it runs at
+        NORMAL priority, which means it competes for CPU with
+        DupeZ's WinDivert packet workers, the network scanner, and
+        the ML classifier. On a software-raster pipeline every
+        stolen slice is a dropped frame.
+
+        Finds all child ``QtWebEngineProcess`` descendants of the
+        current process and bumps them to ``HIGH_PRIORITY_CLASS``.
+        Failure is non-fatal (requires psutil + Windows ctypes).
+        """
+        if not success or os.name != "nt":
+            return
+        try:
+            import psutil  # noqa: PLC0415 — optional dep
+        except ImportError:
+            log_info("Map: renderer priority boost skipped (psutil not installed)")
+            return
+        try:
+            import ctypes  # noqa: PLC0415
+
+            HIGH_PRIORITY_CLASS = 0x00000080
+            PROCESS_SET_INFORMATION = 0x0200
+
+            me = psutil.Process()
+            boosted = 0
+            for child in me.children(recursive=True):
+                try:
+                    if "QtWebEngineProcess" not in child.name():
+                        continue
+                    hp = ctypes.windll.kernel32.OpenProcess(
+                        PROCESS_SET_INFORMATION, False, child.pid
+                    )
+                    if not hp:
+                        continue
+                    try:
+                        ok = ctypes.windll.kernel32.SetPriorityClass(
+                            hp, HIGH_PRIORITY_CLASS
+                        )
+                        if ok:
+                            boosted += 1
+                    finally:
+                        ctypes.windll.kernel32.CloseHandle(hp)
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            if boosted:
+                log_info(
+                    f"Map: boosted {boosted} QtWebEngineProcess renderer(s) "
+                    "to HIGH_PRIORITY_CLASS"
+                )
+        except Exception as exc:
+            log_error(f"Map: renderer priority boost failed: {exc}")
 
     # ── Map loading ─────────────────────────────────────────────────
 
