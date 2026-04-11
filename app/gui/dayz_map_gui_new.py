@@ -481,16 +481,30 @@ class DayZMapGUI(QWidget):
         bar_layout.addWidget(self.map_combo)
         bar_layout.addStretch()
 
-        # Escape-valve — opens the current map in the system browser
-        # at native Chrome performance. Embedded view is CPU-raster
-        # bound by the admin-token elevation WinDivert needs, so this
-        # is the fallback when embedded fluidity isn't enough.
+        # Escape-valve — opens the current map in the system browser.
+        # Under ADR-0001 split mode we now pick the best Chromium raster
+        # tier automatically (hardware / SwiftShader / CPU); the browser
+        # button stays as a final fallback for users on very old GPUs.
+        _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
+        if _tier == "tier1_hw":
+            _btn_tip = (
+                "Open the current map in your system browser.\n"
+                "The embedded view is GPU-accelerated (hardware raster)."
+            )
+        elif _tier == "tier2_swiftshader":
+            _btn_tip = (
+                "Open the current map in your system browser for full\n"
+                "hardware performance. The embedded view is running in\n"
+                "compatibility mode (SwiftShader GL) on this machine."
+            )
+        else:
+            _btn_tip = (
+                "Open the current map in your system browser for full\n"
+                "hardware-accelerated performance. The embedded view is\n"
+                "running in CPU-raster compatibility mode."
+            )
         self.browser_btn = QPushButton("Open in Browser ↗")
-        self.browser_btn.setToolTip(
-            "Open the current map in your system browser for full\n"
-            "hardware-accelerated performance. The embedded view is\n"
-            "CPU-rendered because DupeZ runs elevated for WinDivert."
-        )
+        self.browser_btn.setToolTip(_btn_tip)
         self.browser_btn.setStyleSheet(_BROWSER_BTN_QSS)
         self.browser_btn.clicked.connect(self._open_in_browser)
         bar_layout.addWidget(self.browser_btn)

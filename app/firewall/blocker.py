@@ -80,8 +80,20 @@ def block_device(ip: str, block: bool = True) -> bool:
 
     Creates paired inbound + outbound rules when *block* is True,
     deletes them when False.  Returns True on success.
+
+    ADR-0001: when `DUPEZ_ARCH=split`, this call is forwarded to the
+    elevated helper via IPC because `netsh advfirewall` requires admin
+    and the main GUI no longer has an admin token. Under the default
+    `inproc` mode, the function body below runs unchanged.
     """
     try:
+        # Feature-flag routing — see ADR-0001 §11. The lazy import keeps
+        # the inproc path from touching any helper module at import time.
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return get_proxy_manager().block_device(ip, block=block)
+
         if not is_admin():
             log_error("Firewall blocking requires administrator privileges")
             return False
@@ -127,8 +139,16 @@ def unblock_device(ip: str) -> bool:
 
 
 def is_ip_blocked(ip: str) -> bool:
-    """Return True if a DupeZ inbound block rule exists for *ip*."""
+    """Return True if a DupeZ inbound block rule exists for *ip*.
+
+    ADR-0001: forwarded to helper under `DUPEZ_ARCH=split`.
+    """
     try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return get_proxy_manager().is_ip_blocked(ip)
+
         import platform
         if platform.system() != "Windows":
             return False
@@ -149,8 +169,15 @@ def clear_all_dupez_blocks() -> bool:
 
     ``netsh`` does NOT support wildcards in the ``name=`` parameter, so
     we enumerate all rules first and delete each by exact name.
+
+    ADR-0001: forwarded to helper under `DUPEZ_ARCH=split`.
     """
     try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return get_proxy_manager().clear_all_dupez_blocks()
+
         if not is_admin():
             log_error("Clearing firewall blocks requires administrator privileges")
             return False
@@ -193,8 +220,15 @@ def get_blocked_ips() -> List[str]:
 
     Enumerates all firewall rules (netsh does not support wildcards)
     and extracts IPs from inbound DupeZBlock rule names.
+
+    ADR-0001: forwarded to helper under `DUPEZ_ARCH=split`.
     """
     try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return get_proxy_manager().get_blocked_ips()
+
         import platform
         if platform.system() != "Windows":
             return []

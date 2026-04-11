@@ -2,17 +2,23 @@
 """
 PyInstaller spec for DupeZ — single-file Windows executable.
 
-Build command:
-    pyinstaller dupez.spec
+Build command (run from repo root):
+    pyinstaller packaging/dupez.spec
 
 Produces:  dist/dupez.exe
+
+Path layout:
+    HERE = packaging/ dir (this spec's dir). Sibling files:
+           dupez.manifest, version_info.py.
+    ROOT = repo root (one level up from HERE). Holds dupez.py, app/.
 """
 
 import os, sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 block_cipher = None
-ROOT = os.path.abspath('.')
+HERE = os.path.abspath(os.path.dirname(SPEC))
+ROOT = os.path.abspath(os.path.join(HERE, '..'))
 
 # ── hidden imports that PyInstaller often misses ────────────────────────
 hidden = (
@@ -55,7 +61,7 @@ for fname in os.listdir(firewall_dir):
 
 # ── analysis ────────────────────────────────────────────────────────────
 a = Analysis(
-    ['dupez.py'],
+    [os.path.join(ROOT, 'dupez.py')],
     pathex=[ROOT],
     binaries=binaries,
     datas=datas,
@@ -146,7 +152,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=os.path.join(ROOT, 'app', 'resources', 'dupez.ico'),
-    version=os.path.join(ROOT, 'version_info.py'),       # embed VS_VERSION_INFO
-    manifest=os.path.join(ROOT, 'dupez.manifest'),        # embed app manifest
+    version=os.path.join(HERE, 'version_info.py'),       # embed VS_VERSION_INFO
+    manifest=os.path.join(HERE, 'dupez.manifest'),        # embed app manifest
     uac_admin=True,             # request admin on launch
 )

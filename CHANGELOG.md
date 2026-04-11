@@ -4,6 +4,48 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.3.0 — 2026-04-11 (Split-Elevation Architecture + Hardware Map + Preset Collapse)
+
+Minor release landing the ADR-0001 split-elevation architecture end-to-end, collapsing the preset taxonomy from 8 entries to 5, reorganizing packaging files into a dedicated `packaging/` subtree, beefing up hostname resolution in the scanner, and bundling zeroconf for real mDNS discovery. This is the first DupeZ release that ships **two user-facing binaries** from one codebase: `DupeZ-GPU.exe` (asInvoker, split-arch, hardware-rasterized map) and `DupeZ-Compat.exe` (requireAdministrator, legacy inproc, CPU-raster fallback).
+
+### Added
+- **`DupeZ-GPU.exe` + `DupeZ-Compat.exe` dual-variant builds.** `packaging/build_variants.bat` is the new canonical release driver. Both specs share `packaging/build_common.py`, which writes a per-variant `app/firewall_helper/_build_default.py` before Analysis so the compiled-in `DUPEZ_ARCH` default (`split` for GPU, `inproc` for Compat) is baked in at freeze time. No env var required at runtime. See ADR-0001 §11.
+- **Split-elevation helper process (`dupez_helper.py`) reachable via helper-role dispatch.** Under `DUPEZ_ARCH=split`, the elevated helper is the same frozen exe re-invoked with `--role helper --parent-pid N`. The dispatch runs before any `app.*` / PyQt6 import so the helper never boots the GUI, which previously caused an infinite admin-spawn loop.
+- **Hardware raster tier resolver (`app/gui/map_host/renderer_tier.py`).** Picks tier1_hw / tier2_swiftshader / tier3_cpu based on `DUPEZ_MAP_RENDERER` and a best-effort GPU probe, then applies the matching `QTWEBENGINE_CHROMIUM_FLAGS` before any PyQt6 import. Under split mode, the embedded iZurvive map runs GPU-accelerated for the first time. The "Open in Browser ↗" escape hatch tooltip now reports which tier is active.
+- **Multi-stage hostname resolution chain in `app/network/enhanced_scanner.py`.** Order: `gethostbyaddr` → `getfqdn` → NetBIOS (`nbtstat -a`) → mDNS (zeroconf) → synthesized (`<vendor>-<mac_suffix>` or `device-<ip>`). The GUI Hostname column is never blank or "Unknown" again. `app/network/device_scan.py` and `app/core/state.py` now also defensively synthesize on input dicts that arrive with missing hostnames.
+- **`zeroconf>=0.130.0` added to `requirements.txt`** and hiddenimports so mDNS discovery works out of the box in frozen builds. Previously soft-imported and silently skipped even when installed in dev.
+- **`packaging/` subtree.** All build artifacts (`build.bat`, `build_variants.bat`, `build_common.py`, `dupez.spec`, `dupez_gpu.spec`, `dupez_compat.spec`, `dupez.manifest`, `dupez_compat.manifest`, `installer.iss`, `version_info.py`) now live under `packaging/`. Spec files use `HERE = os.path.dirname(SPEC)` + `ROOT = HERE/..` to resolve paths correctly from the subdirectory. Inno Setup uses `SourceDir=..` to keep the existing `Source:` path layout working unchanged.
+- **ADR-0001 compat shim for legacy inproc mode.** On `DUPEZ-Compat.exe`, if the launcher detects non-admin + inproc, it self-elevates via `ShellExecuteW runas` before any Qt import. UAC decline (ERROR_CANCELLED 1223) surfaces a readable stderr message instead of silent exit.
+
+### Changed
+- **Preset taxonomy collapsed 8 → 5.** `app/gui/clumsy_control.py`'s `PRESETS` dict now ships only `Red Disconnect`, `Lag`, `God Mode`, `Dupe Mode`, `Custom`. Removed: `Heavy Lag`, `Light Lag` (merged into `Lag` — tune via the Lag Delay / Drop % sliders; Light ≈ 800ms/60%, Heavy ≈ 3000ms/95%), `God Mode Aggressive` (redundant with sliders), `Desync` (rarely used, covered by Custom).
+- **`app/firewall/blocker.py` routes through the helper under split mode.** `block_device`, `unblock_device`, `is_ip_blocked`, `clear_all_dupez_blocks`, `get_blocked_ips` all check `is_split_mode()` first and forward to `get_proxy_manager()` IPC when split. Inproc path is untouched.
+- **`app/core/controller.py` obtains `disruption_manager` via `get_disruption_manager()` factory** instead of direct import. Under inproc, returns the same singleton (zero behavioural change). Under split, returns the IPC proxy. Fully transparent to downstream code.
+- **`app/gui/splash.py` defers WinDivert engine check under split mode.** Previously polluted the splash log with scary red "WinDivert engine: unavailable" lines because the GUI at Medium IL can't initialize the DLL. Now reports `WinDivert engine: deferred (split mode — helper owns engine)` and moves on.
+- **`AA_ShareOpenGLContexts` application attribute** now set on `QCoreApplication` before `QApplication` instantiation in `app/main.py`. Qt 6 requires this for WebEngine + any OpenGL-adjacent widget to coexist on the same thread.
+- **Manifest execution level flipped to `asInvoker`** on `dupez.manifest` and `dupez_compat.manifest`. See compat shim note above — `Compat` variant still self-elevates at startup, so end-user experience is unchanged there.
+- **Build pipeline runs from repo root** regardless of where the `.bat` lives. Both `build.bat` and `build_variants.bat` now `pushd "%~dp0.."` at the top and use explicit `packaging\<spec>.spec` paths.
+- **README project tree + build section** updated for the new `packaging/` layout and dual-variant commands.
+- **`app/__version__.py` lockstep docstring** updated to reference the new `packaging/` paths.
+
+### Fixed
+- **Infinite admin-spawn loop** when `DupeZ-GPU.exe --role helper` re-launched the GUI instead of dispatching to the helper module. Root cause: `_maybe_dispatch_helper_role()` ran too late. Fixed by dispatching at the top of `dupez.py` before any other import.
+- **Chromium GPU init deadlock under admin token** (legacy inproc). Pre-existing workaround (`--no-sandbox --disable-gpu`) now only applied when the tier resolver reports `tier3_cpu`; split mode gets real hardware raster.
+- **`plugins/example_ping_monitor/plugin.py`** missing `typing.Any` import (was `from typing import Dict` only, but used `Dict[str, Any]`).
+- **`packaging/build.bat` final line truncation** (pre-existing). Was cut off mid-word at `set DUPEZ_SIGN_CE` with no newline, no `popd`, no `endlocal`, no `pause`. Fixed.
+
+### Packaging / Repo Hygiene
+- Root cleanup: deleted `FATAL_CRASH.txt`, `crash-trace.txt`, `launch_error.txt`, stray `query` file, `__pycache__/`, `.pytest_cache/`. `.gitignore` now covers the transient crash-dump patterns so they don't sneak back in.
+- `packaging/installer.iss` gains `SourceDir=..` so all existing `Source:` paths resolve from repo root despite the `.iss` file living in `packaging/`.
+
+### Migration Notes
+- **Two binaries now ship per release.** `DupeZ-GPU.exe` is the recommended default and gives the smoothest map experience. `DupeZ-Compat.exe` is the fallback for machines where split-mode IPC or WebEngine hardware raster misbehaves. Installer bundles both.
+- **Preset UI shows 5 entries instead of 8** — if you had muscle memory for `Heavy Lag` / `Light Lag` / `God Mode Aggressive` / `Desync`, the equivalents are: `Lag` (with sliders for intensity), `God Mode` (with sliders), or `Custom`.
+- **No settings file migration required.** `%APPDATA%\DupeZ` schema is unchanged from v5.2.4.
+- **zeroconf is now a hard requirement** for `pip install -r requirements.txt`. If you pin dependencies in a virtualenv, `pip install zeroconf` is the only new line.
+
+---
+
 ## v5.2.4 — 2026-04-10 (Installer Architecture Fix + Manifest Sync)
 
 Patch release fixing a latent installer misconfiguration where a 64-bit binary was being installed into the 32-bit `C:\Program Files (x86)` path, and bringing the Windows side-by-side manifest in sync with the release version.

@@ -49,6 +49,7 @@ if getattr(sys, "frozen", False):
 os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 
 from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QCoreApplication, Qt
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
 from app.core.updater import CURRENT_VERSION
@@ -60,8 +61,22 @@ IS_ADMIN: bool = is_admin()
 
 def main() -> None:
     # --- Phase 1: UAC Elevation ---
+    # ADR-0001 split mode: the GUI process MUST stay at Medium IL so the
+    # embedded Chromium map can initialize its GPU sandbox. WinDivert ops
+    # are proxied through dupez_helper.py which runs separately at High
+    # IL (see app/firewall_helper/elevation.py). Under split mode we do
+    # NOT self-elevate here — doing so kills the GPU path and, worse,
+    # creates a UAC cascade when the already-elevated GUI then tries to
+    # spawn its own helper via runas. Inproc mode (the legacy code path
+    # and the DupeZ-Compat.exe variant) still self-elevates as before.
     try:
-        if not IS_ADMIN:
+        from app.firewall_helper.feature_flag import is_split_mode
+        _split = is_split_mode()
+    except Exception:
+        _split = (os.environ.get("DUPEZ_ARCH", "").strip().lower() == "split")
+
+    try:
+        if not IS_ADMIN and not _split:
             log_warning("Not running as admin — auto-elevating via UAC...")
             exe = _get_pythonw()
             arguments = " ".join(
@@ -80,6 +95,9 @@ def main() -> None:
                     "Admin Required", 0x10,
                 )
             sys.exit(0)
+        if _split and not IS_ADMIN:
+            log_info("split mode: running GUI at Medium IL; helper "
+                     "will elevate on first firewall op")
     except SystemExit:
         raise
     except Exception as e:
@@ -92,6 +110,14 @@ def main() -> None:
 
     # --- Phase 2: QApplication + Splash Screen ---
     try:
+        # QtWebEngine REQUIRES this attribute to be set on the
+        # QCoreApplication BEFORE the QApplication instance is
+        # constructed. Without it, Chromium prints a warning at
+        # startup and some contexts (embedded iZurvive map) can
+        # render with corrupted textures on multi-GPU machines.
+        # This MUST come before `QApplication(sys.argv)` below.
+        QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+
         app = QApplication(sys.argv)
 
         # Set app icon

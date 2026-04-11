@@ -124,7 +124,23 @@ Breakthrough disruption release. Solved the red-chain kick limit, added precise 
 
 ---
 
-## v5.3.0 — GUI Integration & Live Visualization
+## v5.3.0 — Split-Elevation Architecture + Hardware Map + Preset Collapse ✅
+
+**Released:** 2026-04-11
+
+First release shipping **two user-facing binaries from one codebase**: `DupeZ-GPU.exe` (asInvoker, split-arch, hardware-rasterized map) and `DupeZ-Compat.exe` (requireAdministrator, legacy inproc, CPU-raster fallback). Lands the ADR-0001 split-elevation architecture end-to-end, collapses the preset taxonomy from 8 entries to 5, reorganizes packaging files into a dedicated `packaging/` subtree, and beefs up hostname resolution in the scanner with a 4-stage fallback chain including bundled zeroconf mDNS.
+
+- ~~**Split-elevation architecture (ADR-0001)** — GUI runs at Medium IL for Chromium GPU init; firewall/WinDivert ops forwarded to an elevated helper (`dupez_helper.py`) over IPC. Helper is the same frozen exe re-invoked with `--role helper --parent-pid N`, dispatched before any `app.*` import so it never boots the GUI.~~ ✅ Done
+- ~~**Dual-variant PyInstaller build pipeline** — `packaging/build_variants.bat` drives both specs (`dupez_gpu.spec` + `dupez_compat.spec`) through a shared `build_common.py` factory that writes a per-variant `_build_default.py` before Analysis, baking in the compiled-in `DUPEZ_ARCH` default.~~ ✅ Done
+- ~~**Hardware raster tier resolver** — `app/gui/map_host/renderer_tier.py` picks tier1_hw / tier2_swiftshader / tier3_cpu based on env + GPU probe and applies the matching Chromium flags before any PyQt6 import. Embedded iZurvive map now runs GPU-accelerated under split mode.~~ ✅ Done
+- ~~**Preset taxonomy collapse 8 → 5** — Merged Heavy/Light Lag into a single `Lag` preset tuned by sliders; removed `God Mode Aggressive` and `Desync` as redundant. Final set: Red Disconnect, Lag, God Mode, Dupe Mode, Custom.~~ ✅ Done
+- ~~**4-stage hostname resolution chain** — `gethostbyaddr` → `getfqdn` → NetBIOS → mDNS (zeroconf) → synthesized `<vendor>-<mac_suffix>` fallback. Hostname column in the GUI is never blank. zeroconf is now a hard runtime dep and bundled into hiddenimports.~~ ✅ Done
+- ~~**Packaging reorganization** — All build artifacts moved under `packaging/`. Spec files use `HERE` / `ROOT` path split; Inno Setup uses `SourceDir=..`; batch drivers `pushd "%~dp0.."`. Cleaner repo root, existing `Source:` paths unchanged.~~ ✅ Done
+- ~~**Root cleanup + AA_ShareOpenGLContexts** — Deleted transient crash dumps / cache dirs; `.gitignore` covers them now. `AA_ShareOpenGLContexts` set on `QCoreApplication` before `QApplication` so Qt 6 WebEngine + GL-adjacent widgets coexist cleanly.~~ ✅ Done
+
+---
+
+## v5.5.0 — GUI Integration & Live Visualization
 
 **Status:** Next up
 
@@ -200,6 +216,7 @@ Reduce detection surface and expand platform support.
 - [x] **v5.2.2** — Build hardening: torch/whisper isolation. PyInstaller isolated analyzer no longer crashes on `torch\lib\c10.dll` (WinError 1114 / access violation) every build. `whisper` and `openai-whisper` added to `dupez.spec` excludes alongside `torch`. `is_voice_available()` probes in `voice_panel.py` and `clumsy_control.py` deferred from module import to first view instantiation, wrapped in broad exception handlers.
 - [x] **v5.2.3** — Version display fix + single source of truth. Dashboard title bar and HTTP `User-Agent` header now report the actual build version. `app/core/updater.py` and `app/core/secure_http.py` both had `"5.2.0"` hardcoded — fixed by pointing at a new `app/__version__.py` single-source-of-truth module. Hardcoding versions anywhere under `app/` is now explicitly forbidden.
 - [x] **v5.2.4** — Installer architecture fix + manifest sync. Installer now lands in `C:\Program Files\DupeZ` on 64-bit Windows instead of `C:\Program Files (x86)\DupeZ` — added missing `ArchitecturesInstallIn64BitMode=x64` / `ArchitecturesAllowed=x64` directives to `installer.iss`. `dupez.manifest` `assemblyIdentity` version bumped from the stale `5.2.0.0` it had been stuck at since v5.2.0, now tracked in the per-release bump checklist.
+- [x] **v5.3.0** — Split-elevation architecture + hardware-rasterized map + preset collapse. Dual-variant builds (`DupeZ-GPU.exe` + `DupeZ-Compat.exe`). ADR-0001 helper-role dispatch, feature-flag routing in blocker, renderer tier resolver, 4-stage hostname chain with bundled zeroconf, packaging subtree reorganization, preset taxonomy 8 → 5.
 
 ---
 

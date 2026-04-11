@@ -17,7 +17,13 @@ from app.core.data_persistence import device_cache_manager, save_all_data
 from app.core.scheduler import DisruptionScheduler
 from app.core.state import AppSettings, AppState, Device
 from app.firewall import blocker
-from app.firewall.clumsy_network_disruptor import disruption_manager
+# ADR-0001: disruption_manager is now obtained via the feature-flag factory
+# so that DUPEZ_ARCH=split can transparently swap in the IPC proxy without
+# changing any downstream code. Under DUPEZ_ARCH=inproc (default) this
+# returns the exact same singleton as a direct import — zero behavioural
+# change on the hot path.
+from app.firewall_helper.feature_flag import get_disruption_manager
+disruption_manager = get_disruption_manager()
 from app.logs.logger import log_error, log_info, log_network_scan
 from app.network import device_scan
 from app.plugins.loader import PluginLoader
