@@ -959,7 +959,11 @@ class ClumsyNetworkDisruptor:
     def disconnect_device_clumsy(self, target_ip: str,
                                   methods: Optional[List[str]] = None,
                                   params: Optional[Dict] = None,
-                                  preset: Optional[str] = None) -> bool:
+                                  preset: Optional[str] = None,
+                                  target_mac: Optional[str] = None,
+                                  target_hostname: Optional[str] = None,
+                                  target_device_type: Optional[str] = None
+                                  ) -> bool:
         """Start disruption against a target IP.
 
         Args:
@@ -972,10 +976,67 @@ class ClumsyNetworkDisruptor:
                 is set — merged with that preset's values.
             preset: Named preset from ``disruption_presets`` in the game
                 profile (``pc_local``, ``ps5_hotspot``, ``xbox_hotspot``).
-                Preset values override defaults and — when ``params`` is
-                supplied explicitly — are merged *under* user params so
-                explicit caller values still win.
+                If ``None`` and ``params`` is also ``None``, the profile
+                is auto-detected from ``target_ip`` + ``target_mac`` +
+                ``target_hostname`` + ``target_device_type`` via
+                ``target_profile.resolve_target_profile``. Explicit
+                values override everything.
+            target_mac: Optional MAC for auto-detection platform lookup.
+            target_hostname: Optional hostname fallback for detection.
+            target_device_type: Optional pre-tagged device type from
+                the network scanner (e.g. ``"PlayStation"``).
         """
+        # ── Auto-detect profile if caller didn't pick one explicitly ───
+        # Runs whenever ``preset`` was not supplied. The detection result
+        # drives the layer (NETWORK vs NETWORK_FORWARD) decision and any
+        # preset-level tuning the user did not override via ``params``.
+        _detection = None
+        if preset is None:
+            try:
+                from app.firewall.target_profile import resolve_target_profile
+                _detection = resolve_target_profile(
+                    target_ip=target_ip,
+                    mac=target_mac,
+                    hostname=target_hostname,
+                    device_type=target_device_type,
+                )
+                preset = _detection.profile
+                log_info(
+                    f"[auto-detect] profile={_detection.profile} "
+                    f"layer={_detection.layer} platform={_detection.platform}"
+                )
+                for reason in _detection.reasons:
+                    log_info(f"[auto-detect]   {reason}")
+            except Exception as det_err:
+                log_error(
+                    f"[auto-detect] failed: {det_err} — "
+                    f"falling back to profile defaults"
+                )
+
+        # If caller already supplied params (GUI slider path), merge the
+        # detected preset's tunings in as *base* values — caller keys
+        # always win, so user slider overrides remain authoritative.
+        if params is not None and preset is not None:
+            try:
+                from app.config.game_profiles import get_disruption_preset
+                _preset_base = get_disruption_preset("dayz", preset)
+                if isinstance(_preset_base, dict):
+                    # Only fill keys the caller did NOT specify
+                    merged = dict(_preset_base)
+                    merged.update(params)
+                    params = merged
+                    # Ensure layer flag reflects detection regardless of
+                    # stale GUI checkbox state — the auto-detect whole
+                    # point is to remove manual layer decisions.
+                    if _detection is not None:
+                        params["_network_local"] = (_detection.layer == "local")
+                    log_info(
+                        f"[auto-detect] merged preset '{preset}' "
+                        f"into caller params (layer={'local' if params.get('_network_local') else 'forward'})"
+                    )
+            except Exception as merge_err:
+                log_error(f"[auto-detect] preset merge failed: {merge_err}")
+
         # ── Resolve params from preset/defaults ─────────────────────────
         if params is None:
             try:
@@ -1263,9 +1324,14 @@ class ClumsyNetworkDisruptor:
         """Deactivate the manager, stopping all disruptions."""
         self.stop_clumsy()
 
-    def disrupt_device(self, ip, methods=None, params=None) -> disconnect_device_clumsy:
-        """Start disruption on *ip*."""
-        return self.disconnect_device_clumsy(ip, methods, params)
+    def disrupt_device(self, ip, methods=None, params=None, **kwargs) -> disconnect_device_clumsy:
+        """Start disruption on *ip*.
+
+        ``**kwargs`` are forwarded to ``disconnect_device_clumsy`` and may
+        include ``target_mac``, ``target_hostname``, ``target_device_type``
+        for profile auto-detection, or ``preset`` for explicit override.
+        """
+        return self.disconnect_device_clumsy(ip, methods, params, **kwargs)
 
     def stop_device(self, ip) -> reconnect_device_clumsy:
         """Stop disruption on *ip*."""
