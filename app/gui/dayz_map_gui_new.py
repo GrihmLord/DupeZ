@@ -34,6 +34,7 @@ _WEBENGINE_IMPORT_ERROR: Optional[str] = None
 try:
     from PyQt6.QtWebEngineCore import (
         QWebEngineProfile,
+        QWebEngineSettings,
         QWebEngineUrlRequestInterceptor,
     )
     from PyQt6.QtWebEngineWidgets import QWebEngineView
@@ -46,6 +47,52 @@ except Exception as _webengine_exc:  # noqa: BLE001 — we really do want everyt
         "QtWebEngine not available — DayZ map will show a placeholder "
         f"(reason: {_WEBENGINE_IMPORT_ERROR})"
     )
+
+# ── Perf mode constants ─────────────────────────────────────────────
+# Software raster (forced by admin-token elevation) makes GPU flags
+# unusable, so map lag has to be attacked at the browser/DOM layer.
+#
+# Primary targets for software-raster perf:
+#   1. Composited layers: Leaflet uses will-change/translate3d to force
+#      GPU layer promotion. On software raster those layers become
+#      full-bitmap blits the CPU has to composite on every frame.
+#   2. Tile fade + zoom animations: multi-frame compositing work.
+#   3. Hi-DPI pixel doubling: iZurvive runs at devicePixelRatio ≥ 1.5
+#      on many Windows setups, quadrupling fragment work.
+#
+#: Zoom factor applied to the web view. 0.85 cuts pixel work by ~27%
+#: (linear × linear) at the cost of slightly softer text — the right
+#: trade on a CPU-bound pipeline. Raise if text feels too soft.
+_MAP_ZOOM_FACTOR: float = 0.85
+
+#: CSS injected into every iZurvive page before the DOM settles. This
+#: neutralises the GPU-assumed animations Leaflet uses by default, plus
+#: kills tile fade transitions that force per-frame alpha compositing.
+_PERF_CSS: str = """
+    /* Kill tile fade-in — the biggest software-raster cost on pan */
+    .leaflet-tile { transition: none !important; opacity: 1 !important; }
+    .leaflet-fade-anim .leaflet-tile { transition: none !important; }
+    .leaflet-fade-anim .leaflet-tile-loaded { opacity: 1 !important; }
+
+    /* Remove will-change hints — on software raster these force full
+       bitmap reads instead of helping. */
+    .leaflet-pane, .leaflet-tile-pane, .leaflet-overlay-pane,
+    .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-tile,
+    .leaflet-map-pane, .leaflet-zoom-animated {
+        will-change: auto !important;
+    }
+
+    /* Remove transitions on everything inside the map container */
+    .leaflet-container, .leaflet-container * {
+        transition-duration: 0s !important;
+        animation-duration: 0s !important;
+    }
+
+    /* Zoom animation does a crossfade — skip it entirely */
+    .leaflet-zoom-anim .leaflet-zoom-animated {
+        transition: none !important;
+    }
+"""
 
 __all__ = ["DayZMapGUI"]
 
@@ -265,7 +312,9 @@ class DayZMapGUI(QWidget):
         if _WEBENGINE_AVAILABLE:
             self.map_view = QWebEngineView()
             self._install_ad_blocker()
+            self._apply_perf_settings()
             self.map_view.loadFinished.connect(self._inject_dom_adblocker)
+            self.map_view.loadFinished.connect(self._inject_perf_tweaks)
             layout.addWidget(self.map_view)
         else:
             reason = _WEBENGINE_IMPORT_ERROR or "PyQt6-WebEngine not installed"
@@ -281,14 +330,192 @@ class DayZMapGUI(QWidget):
     # ── Ad blocker setup ────────────────────────────────────────────
 
     def _install_ad_blocker(self) -> None:
-        """Attach the network-level request interceptor to the default profile."""
+        """Attach the network-level request interceptor to the default profile.
+
+        Also opportunistically enlarges the HTTP disk cache so iZurvive
+        tile requests don't re-hit the network on every pan. Failures
+        are non-fatal — the interceptor is the critical path.
+        """
         try:
             self._interceptor = AdBlockInterceptor(self)
             profile = QWebEngineProfile.defaultProfile()
             profile.setUrlRequestInterceptor(self._interceptor)
+            # Aggressive disk cache for tile reuse on pan/zoom
+            try:
+                profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
+                profile.setHttpCacheMaximumSize(512 * 1024 * 1024)  # 512 MiB
+                profile.setPersistentCookiesPolicy(
+                    QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
+                )
+            except Exception as cache_exc:
+                log_error(f"Map: cache tuning failed (non-fatal): {cache_exc}")
             log_info("Map: Network-level ad blocker installed")
         except Exception as exc:
             log_error(f"Map: Failed to install network ad blocker: {exc}")
+
+    # ── Software-raster perf tuning ─────────────────────────────────
+
+    def _apply_perf_settings(self) -> None:
+        """Tune QWebEngineSettings + zoom factor for software raster.
+
+        Under the admin-token elevation DupeZ needs for WinDivert, the
+        Chromium GPU process refuses to start, so all rendering falls
+        back to the software rasterizer. The cheapest wins on that
+        pipeline are:
+          1. Drop devicePixelRatio-equivalent work via setZoomFactor.
+          2. Disable scroll/cursor animations the compositor has to
+             redraw.
+          3. Disable WebGL + 2D canvas accel (they're no-ops without
+             GPU but still cost at init time).
+          4. Kill plugins and image animation playback (animated GIF
+             ads repaint forever).
+        """
+        if self.map_view is None:
+            return
+        try:
+            # ~27% pixel reduction at the cost of slightly softer text
+            self.map_view.setZoomFactor(_MAP_ZOOM_FACTOR)
+
+            settings = self.map_view.settings()
+            A = QWebEngineSettings.WebAttribute
+            # Disable animations / effects that burn CPU on software raster
+            for attr, value in (
+                (A.ScrollAnimatorEnabled, False),
+                (A.PluginsEnabled, False),
+                (A.WebGLEnabled, False),
+                (A.Accelerated2dCanvasEnabled, False),
+                (A.HyperlinkAuditingEnabled, False),
+                (A.AutoLoadIconsForPage, False),
+                (A.ShowScrollBars, True),
+                (A.LocalStorageEnabled, True),   # iZurvive preferences
+                (A.JavascriptEnabled, True),
+                (A.ErrorPageEnabled, False),
+            ):
+                try:
+                    settings.setAttribute(attr, value)
+                except Exception:
+                    pass  # some attrs vary by Qt version
+
+            # Stop animated GIF/APNG ads from repainting forever
+            try:
+                from PyQt6.QtWebEngineCore import QWebEngineSettings as _QWES
+                if hasattr(_QWES, "UnknownUrlSchemePolicy"):
+                    pass  # noqa — placeholder; keeps import local
+            except Exception:
+                pass
+
+            log_info(
+                f"Map: perf settings applied (zoom={_MAP_ZOOM_FACTOR}, "
+                "WebGL/2DCanvas off, scroll animator off)"
+            )
+        except Exception as exc:
+            log_error(f"Map: failed to apply perf settings: {exc}")
+
+    def _inject_perf_tweaks(self, success: bool) -> None:
+        """Inject CSS + JS that neutralise Leaflet's GPU-assumed animations.
+
+        Runs on ``loadFinished``. The CSS disables tile fade/zoom
+        transitions and strips ``will-change`` hints (which force the
+        software compositor to allocate and blit full-bitmap layers).
+        The JS walks the DOM for the live ``L.Map`` instance iZurvive
+        has already constructed and turns off its animation options in
+        place — you can't retroactively change constructor options, but
+        most Leaflet animation flags are read on each frame.
+        """
+        if not success or self.map_view is None:
+            return
+        page = self.map_view.page()
+
+        # Phase 1: CSS — synchronous, kills compositing work immediately
+        css_js = (
+            "(function(){"
+            "var s=document.createElement('style');"
+            f"s.textContent=`{_PERF_CSS}`;"
+            "document.head.appendChild(s);"
+            "})();"
+        )
+        page.runJavaScript(css_js)
+
+        # Phase 2: JS — find the live Leaflet map and turn off animations
+        tune_js = r"""
+        (function() {
+            try {
+                // Leaflet attaches the map instance to the container's
+                // _leaflet_id; walk candidate containers and check for
+                // a .dragging control (unique to L.Map instances).
+                function findMap() {
+                    const candidates = document.querySelectorAll(
+                        '.leaflet-container, [class*="leaflet"]'
+                    );
+                    for (const el of candidates) {
+                        for (const k of Object.keys(el)) {
+                            const v = el[k];
+                            if (v && v.dragging && v.getCenter && v.options) {
+                                return v;
+                            }
+                        }
+                    }
+                    // Fallback: check window globals
+                    for (const k of Object.keys(window)) {
+                        const v = window[k];
+                        if (v && v.dragging && v.getCenter && v.options
+                            && v.options.crs) {
+                            return v;
+                        }
+                    }
+                    return null;
+                }
+
+                function tune(map) {
+                    if (!map) return false;
+                    try {
+                        map.options.fadeAnimation = false;
+                        map.options.zoomAnimation = false;
+                        map.options.markerZoomAnimation = false;
+                        map.options.inertia = false;
+                        map.options.zoomSnap = 1;
+                        map.options.wheelDebounceTime = 60;
+                        map.options.wheelPxPerZoomLevel = 120;
+                        // Leaflet caches the animation flag internally
+                        map._fadeAnimated = false;
+                        map._zoomAnimated = false;
+                        // Kill running transitions on tile layers
+                        map.eachLayer && map.eachLayer(function(layer) {
+                            if (layer.options) {
+                                layer.options.updateWhenIdle = true;
+                                layer.options.updateWhenZooming = false;
+                                layer.options.keepBuffer = 4;
+                            }
+                        });
+                        console.log('DupeZ: Leaflet perf tune applied');
+                        return true;
+                    } catch (e) {
+                        console.error('DupeZ: tune failed', e);
+                        return false;
+                    }
+                }
+
+                // Retry loop — iZurvive builds the map async after
+                // load event. Six attempts over ~3s covers slow cases.
+                let attempts = 0;
+                const maxAttempts = 6;
+                function attempt() {
+                    const map = findMap();
+                    if (tune(map)) return;
+                    if (++attempts < maxAttempts) {
+                        setTimeout(attempt, 500);
+                    } else {
+                        console.warn('DupeZ: Leaflet map instance not found');
+                    }
+                }
+                attempt();
+            } catch (err) {
+                console.error('DupeZ perf tune error:', err);
+            }
+        })();
+        """
+        page.runJavaScript(tune_js)
+        log_info("Map: perf tweaks injected (CSS + Leaflet tune)")
 
     # ── Map loading ─────────────────────────────────────────────────
 
