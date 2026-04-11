@@ -20,9 +20,10 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Set
 
-from PyQt6.QtCore import QUrl
-from PyQt6.QtGui import QDesktopServices, QWindow
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -31,7 +32,12 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.gui.map_host.launcher import MapHostClient
+from app.gui.map_host.launcher import (
+    MapHostClient,
+    consume_prewarmed_client,
+    reparent_hwnd_into_container,
+    resize_child_hwnd,
+)
 from app.logs.logger import log_error, log_info
 
 #: Embed mode — "inproc" keeps the current software-rastered
@@ -333,6 +339,43 @@ if _WEBENGINE_AVAILABLE:
         def blocked_count(self) -> int:
             """Total number of requests blocked this session."""
             return self._blocked
+
+
+# ── HWND container ──────────────────────────────────────────────────
+
+
+class _HwndContainer(QWidget):
+    """A native QWidget that hosts a reparented foreign HWND.
+
+    Owns its own native HWND (via ``WA_NativeWindow``) so Win32
+    ``SetParent`` has a concrete parent handle to target. When Qt
+    resizes this widget, its ``resizeEvent`` forwards the new size
+    to the embedded child HWND via ``MoveWindow`` so the map tracks
+    the dashboard layout.
+    """
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        # Force a real native HWND — SetParent needs something real
+        # on both sides of the call.
+        self.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors, True)
+        # Dark background so nothing flashes white before the child
+        # HWND becomes visible inside us.
+        self.setStyleSheet("background: #0a0e1a;")
+        self._child_hwnd: int = 0
+
+    def set_child_hwnd(self, hwnd: int) -> None:
+        self._child_hwnd = int(hwnd)
+        # Immediately size-match so the initial render fills us.
+        resize_child_hwnd(self._child_hwnd, self.width(), self.height())
+
+    def resizeEvent(self, event: Any) -> None:  # noqa: N802 — Qt override
+        super().resizeEvent(event)
+        if self._child_hwnd:
+            resize_child_hwnd(
+                self._child_hwnd, event.size().width(), event.size().height()
+            )
 
 
 # ── DayZMapGUI ──────────────────────────────────────────────────────
@@ -817,72 +860,124 @@ class DayZMapGUI(QWidget):
     # ── Child-host embed mode ───────────────────────────────────────
 
     def _build_child_embed(self, layout: QVBoxLayout) -> None:
-        """Spawn the unelevated WebEngine host and prep a container slot.
+        """Spawn (or adopt) the unelevated WebEngine host and prep the slot.
 
-        A ``Loading map host…`` placeholder is shown immediately so the
-        layout has something in the webview slot. When the child sends
-        its HWND (``hwndReceived``), we reparent its native window into
-        the container via ``QWindow.fromWinId`` +
-        ``createWindowContainer`` and drop the placeholder.
+        Placeholder + plain QWidget container go into the layout
+        immediately. The container has ``WA_NativeWindow`` so it owns
+        a real HWND that we can pass to Win32 ``SetParent`` as soon
+        as the child reports its own HWND.
 
-        On spawn failure or connect timeout, ``connectionFailed`` fires
-        and we fall back to the in-process ``QWebEngineView`` path so
-        the map always loads *something*.
+        If a prewarmed client already exists (from splash), it is
+        adopted here and its signals are rewired — saving 2-5s of
+        child spawn + Chromium init + initial tile load. Otherwise a
+        fresh ``MapHostClient`` is started on demand.
+
+        On any spawn / connect / reparent failure, ``_on_host_failed``
+        tears down the child-mode state and falls back to the
+        in-process ``QWebEngineView`` so the map always renders.
         """
-        # Placeholder shown while the child is booting.
+        # Placeholder shown while the child is booting. It will be
+        # removed (and the native container revealed) on hwndReceived.
         self._host_placeholder = QLabel(
-            "Starting unelevated map host…\n\n"
-            "The map will appear here once Chromium's GPU process is up."
+            "Starting map host…\n\n"
+            "The map will appear here once Chromium is ready."
         )
         self._host_placeholder.setStyleSheet(_PLACEHOLDER_QSS)
         self._host_placeholder.setWordWrap(True)
         layout.addWidget(self._host_placeholder, stretch=1)
 
-        # Spin up the IPC client + spawn.
+        # Container that will host the reparented HWND. Must own a
+        # real native HWND (WA_NativeWindow) so we have something to
+        # pass as the second arg of Win32 SetParent.
+        container = _HwndContainer(self)
+        container.setMinimumSize(320, 240)
+        container.hide()  # revealed after reparent succeeds
+        layout.addWidget(container, stretch=1)
+        self._host_container = container
+
+        # Try to adopt a prewarmed client before starting a new one.
+        prewarmed = consume_prewarmed_client()
+        if prewarmed is not None:
+            log_info("Map: adopting prewarmed map host client")
+            self._host_client = prewarmed
+            prewarmed.setParent(self)
+            prewarmed.hwndReceived.connect(self._on_host_hwnd_received)
+            prewarmed.connectionFailed.connect(self._on_host_failed)
+            prewarmed.disconnected.connect(self._on_host_disconnected)
+            # If the child already reported its HWND before we got
+            # here, fire the handler synchronously now.
+            if prewarmed.hwnd is not None:
+                self._on_host_hwnd_received(prewarmed.hwnd)
+            return
+
+        # Cold start path — spawn a fresh child.
         self._host_client = MapHostClient(self)
         self._host_client.hwndReceived.connect(self._on_host_hwnd_received)
         self._host_client.connectionFailed.connect(self._on_host_failed)
         self._host_client.disconnected.connect(self._on_host_disconnected)
 
         if not self._host_client.start():
-            # Immediate failure — fall through to inproc now.
             self._on_host_failed("spawn failed")
 
     def _on_host_hwnd_received(self, hwnd: int) -> None:
-        """Reparent the child's native HWND into our layout."""
-        if self._host_layout is None:
+        """Reparent the child's HWND into our native container.
+
+        Uses Win32 ``SetParent`` (via the launcher helper) instead of
+        Qt's ``QWindow.fromWinId`` + ``createWindowContainer`` path,
+        which proved unreliable for foreign HWNDs across process
+        boundaries — on our first test the child's frameless window
+        escaped the reparent and ended up covering the screen.
+        """
+        if self._host_layout is None or self._host_container is None:
             return
         try:
-            foreign = QWindow.fromWinId(hwnd)
-            if foreign is None:
-                raise RuntimeError(f"QWindow.fromWinId returned None for hwnd=0x{hwnd:x}")
-            # Tell Qt this handle is foreign so it doesn't try to
-            # destroy the underlying native window on cleanup.
-            try:
-                foreign.setFlags(foreign.flags())
-            except Exception:
-                pass
-            container = QWidget.createWindowContainer(foreign, self)
-            container.setFocusPolicy(container.focusPolicy())
-            container.setMinimumSize(320, 240)
-            self._host_container = container
+            container = self._host_container
 
-            # Drop placeholder, insert container in its place.
+            # Make sure the container has a real native HWND before
+            # we reparent into it. processEvents flushes the pending
+            # native window creation from the preceding layout add.
+            container.show()
+            # Flush pending events so the container's native HWND
+            # is fully realized before SetParent touches it.
+            QApplication.processEvents()
+
+            parent_hwnd = int(container.winId())
+            if not parent_hwnd:
+                raise RuntimeError("container has no native HWND")
+
+            width = max(container.width(), 320)
+            height = max(container.height(), 240)
+
+            ok = reparent_hwnd_into_container(hwnd, parent_hwnd, width, height)
+            if not ok:
+                raise RuntimeError("reparent_hwnd_into_container returned False")
+
+            # Remember the child HWND so container resize events can
+            # MoveWindow it to track the layout.
+            container.set_child_hwnd(hwnd)
+
+            # Drop the placeholder now that the native child is in.
             if self._host_placeholder is not None:
                 self._host_layout.removeWidget(self._host_placeholder)
                 self._host_placeholder.deleteLater()
                 self._host_placeholder = None
-            self._host_layout.addWidget(container, stretch=1)
 
-            # Now that the HWND is embedded, push the current map URL.
+            # If prewarm already loaded the current map this is a
+            # no-op at the browser level (same URL), but it's cheap
+            # and guarantees we're showing what DayZMapGUI thinks.
             url = MAP_OPTIONS.get(
                 self.current_map, MAP_OPTIONS["Chernarus+ (Satellite)"]
             )
             if self._host_client is not None:
                 self._host_client.load(url)
-            log_info(f"Map: embedded host hwnd=0x{hwnd:x}, loaded {self.current_map}")
+            log_info(
+                f"Map: reparented child hwnd=0x{hwnd:x} into container, "
+                f"loaded {self.current_map}"
+            )
         except Exception as exc:
-            log_error(f"Map: HWND reparent failed ({exc!r}) — falling back to inproc")
+            log_error(
+                f"Map: HWND reparent failed ({exc!r}) — falling back to inproc"
+            )
             self._on_host_failed(f"reparent failed: {exc}")
 
     def _on_host_failed(self, reason: str) -> None:

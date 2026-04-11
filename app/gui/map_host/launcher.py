@@ -30,13 +30,153 @@ from typing import Optional
 from PyQt6.QtCore import QByteArray, QObject, pyqtSignal
 from PyQt6.QtNetwork import QHostAddress, QTcpServer, QTcpSocket
 
-from app.logs.logger import log_error, log_info
+from app.logs.logger import log_error, log_info, log_warning
 
 
 # Resolve the child script path once at import time.
 _HOST_SCRIPT: str = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "host.py"
 )
+
+
+# ── Win32 HWND reparenting ──────────────────────────────────────────
+
+
+def reparent_hwnd_into_container(
+    child_hwnd: int,
+    parent_hwnd: int,
+    width: int,
+    height: int,
+) -> bool:
+    """Embed a foreign top-level HWND inside a parent HWND (Windows).
+
+    Qt's ``QWindow.fromWinId`` + ``createWindowContainer`` path is
+    unreliable for foreign HWNDs from another process: it creates a
+    Qt-side container widget but does not always call the Win32
+    ``SetParent`` that actually moves the native window into our
+    client area. The result is that the child's frameless QMainWindow
+    stays a floating top-level and covers the screen.
+
+    This helper does the reparent the Windows-native way:
+
+    1. Strip top-level window styles (WS_POPUP / WS_CAPTION /
+       WS_THICKFRAME / WS_SYSMENU) and add WS_CHILD.
+    2. Call ``SetParent`` to move the HWND under the container.
+    3. Call ``SetWindowPos`` with SWP_FRAMECHANGED so the new style
+       takes effect.
+    4. ``ShowWindow(SW_SHOW)`` so the now-child HWND is visible
+       inside the container's client area.
+
+    Returns True on success. Non-Windows platforms return False.
+    """
+    if sys.platform != "win32":
+        return False
+
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+
+        # Windows style bits
+        GWL_STYLE = -16
+        WS_CHILD = 0x40000000
+        WS_POPUP = 0x80000000
+        WS_CAPTION = 0x00C00000
+        WS_THICKFRAME = 0x00040000
+        WS_SYSMENU = 0x00080000
+        WS_MINIMIZEBOX = 0x00020000
+        WS_MAXIMIZEBOX = 0x00010000
+
+        # SetWindowPos flags
+        SWP_NOZORDER = 0x0004
+        SWP_FRAMECHANGED = 0x0020
+        SWP_NOACTIVATE = 0x0010
+
+        # ShowWindow
+        SW_SHOW = 5
+
+        # Pick the 64/32-bit GetWindowLongPtr variant
+        if ctypes.sizeof(ctypes.c_void_p) == 8:
+            get_long = user32.GetWindowLongPtrW
+            set_long = user32.SetWindowLongPtrW
+            get_long.restype = ctypes.c_ssize_t
+            set_long.restype = ctypes.c_ssize_t
+            get_long.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            set_long.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
+        else:
+            get_long = user32.GetWindowLongW
+            set_long = user32.SetWindowLongW
+            get_long.restype = ctypes.c_long
+            set_long.restype = ctypes.c_long
+            get_long.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            set_long.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
+
+        child = ctypes.c_void_p(child_hwnd)
+        parent = ctypes.c_void_p(parent_hwnd)
+
+        # 1. Fix up window style
+        style = get_long(child, GWL_STYLE)
+        style &= ~(
+            WS_POPUP
+            | WS_CAPTION
+            | WS_THICKFRAME
+            | WS_SYSMENU
+            | WS_MINIMIZEBOX
+            | WS_MAXIMIZEBOX
+        )
+        style |= WS_CHILD
+        set_long(child, GWL_STYLE, style)
+
+        # 2. SetParent — move the native HWND into container's client area
+        prev_parent = user32.SetParent(child, parent)
+        if prev_parent == 0:
+            err = ctypes.windll.kernel32.GetLastError()
+            log_error(f"map-host: SetParent failed, GetLastError={err}")
+            return False
+
+        # 3. Apply style change + resize to container size
+        user32.SetWindowPos(
+            child,
+            0,
+            0,
+            0,
+            int(width),
+            int(height),
+            SWP_NOZORDER | SWP_FRAMECHANGED | SWP_NOACTIVATE,
+        )
+
+        # 4. Show the now-child HWND inside its new parent
+        user32.ShowWindow(child, SW_SHOW)
+
+        log_info(
+            f"map-host: reparented hwnd=0x{child_hwnd:x} into "
+            f"parent=0x{parent_hwnd:x} at {width}x{height}"
+        )
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log_error(f"map-host: reparent_hwnd_into_container failed: {exc!r}")
+        return False
+
+
+def resize_child_hwnd(child_hwnd: int, width: int, height: int) -> None:
+    """Resize an embedded child HWND to match its container (Windows)."""
+    if sys.platform != "win32" or not child_hwnd:
+        return
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        # MoveWindow(hWnd, X, Y, nWidth, nHeight, bRepaint)
+        user32.MoveWindow(
+            ctypes.c_void_p(child_hwnd),
+            0,
+            0,
+            int(width),
+            int(height),
+            True,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log_warning(f"map-host: resize_child_hwnd failed: {exc!r}")
 
 
 # ── Explorer COM trick ──────────────────────────────────────────────
@@ -257,3 +397,74 @@ class MapHostClient(QObject):
 
     def quit(self) -> None:
         self._send({"type": "quit"})
+
+
+# ── Prewarm singleton ───────────────────────────────────────────────
+#
+# DayZMapGUI is created eagerly by the dashboard when the main window
+# builds, but that happens *after* the splash pipeline finishes — so
+# the map host spawn and iZurvive load time are both on the critical
+# path before the user sees the map. prewarm_map_host() spins the
+# client up during the splash pipeline, on the main thread, so that
+# Chromium, the child process, and the initial tile load all happen
+# in parallel with the rest of DupeZ's boot. When DayZMapGUI is
+# finally constructed it consumes the prewarmed client instead of
+# starting a fresh one.
+
+_PREWARMED_CLIENT: Optional[MapHostClient] = None
+
+
+def prewarm_map_host(initial_url: str) -> bool:
+    """Start the unelevated map host early and begin loading a map.
+
+    Must be called on the main thread (``QTcpServer`` / ``QTcpSocket``
+    are thread-affine to their owning thread, and Dashboard will want
+    to adopt the client from the main thread later).
+
+    Returns ``True`` if a prewarm was started (or was already
+    running). Returns ``False`` on immediate spawn failure — callers
+    should fall back to on-demand start inside DayZMapGUI.
+    """
+    global _PREWARMED_CLIENT
+    if _PREWARMED_CLIENT is not None:
+        return True
+
+    client = MapHostClient(parent=None)
+
+    def _on_hwnd(_hwnd: int) -> None:
+        # Child is up — kick off the initial map load so tiles are
+        # downloading while the user watches the splash finish.
+        try:
+            client.load(initial_url)
+            log_info(f"map-host: prewarm load -> {initial_url}")
+        except Exception as exc:  # noqa: BLE001
+            log_warning(f"map-host: prewarm load failed: {exc}")
+
+    def _on_failed(reason: str) -> None:
+        global _PREWARMED_CLIENT
+        log_warning(f"map-host: prewarm failed ({reason})")
+        _PREWARMED_CLIENT = None
+
+    client.hwndReceived.connect(_on_hwnd)
+    client.connectionFailed.connect(_on_failed)
+
+    if not client.start():
+        log_warning("map-host: prewarm start() returned False")
+        return False
+
+    _PREWARMED_CLIENT = client
+    log_info("map-host: prewarm dispatched")
+    return True
+
+
+def consume_prewarmed_client() -> Optional[MapHostClient]:
+    """Hand off the prewarmed client to its final owner (DayZMapGUI).
+
+    Returns ``None`` if no prewarm was active or it already failed.
+    The caller becomes responsible for the client's lifecycle and
+    must re-parent it (``setParent``) so Qt ownership is correct.
+    """
+    global _PREWARMED_CLIENT
+    client = _PREWARMED_CLIENT
+    _PREWARMED_CLIENT = None
+    return client
