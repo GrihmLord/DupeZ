@@ -110,6 +110,24 @@ def main() -> None:
         splash.show()
         app.processEvents()
 
+        # --- Prewarm the unelevated map host (opt-in) ---------------
+        # When DUPEZ_MAP_EMBED=child, spawn the WebEngine child
+        # process in parallel with the splash init pipeline so
+        # Chromium boot + initial iZurvive tile load are off the
+        # critical path. Dashboard will adopt the prewarmed client
+        # when DayZMapGUI is built.
+        if os.environ.get("DUPEZ_MAP_EMBED", "inproc").lower() == "child":
+            try:
+                from app.gui.map_host.launcher import prewarm_map_host
+                # Hard-coded default map URL avoids importing the
+                # full DayZMapGUI module (and its WebEngine deps)
+                # here in the hot splash path. Must stay in sync
+                # with MAP_OPTIONS["Chernarus+ (Satellite)"].
+                _default_map_url = "https://izurvive.com/chernarusplussatmap"
+                prewarm_map_host(_default_map_url)
+            except Exception as _prewarm_exc:
+                log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+
         # State container for the completion callback
         _init_done = {"ready": False}
 

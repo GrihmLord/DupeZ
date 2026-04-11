@@ -52,13 +52,14 @@ class MapHostWindow(QMainWindow):
     """
 
     def __init__(self, parent_port: int) -> None:
-        # Frameless + no system menu: the window is going to be
-        # reparented into a QWidget container, where the native frame
-        # would otherwise show up as ugly chrome.
+        # Frameless + no system menu: the window is about to be
+        # reparented into a QWidget container via Win32 SetParent, so
+        # we don't want any native chrome to flash on screen first.
         super().__init__(flags=Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("DupeZ Map Host")
-        # Initial size is irrelevant — parent resizes the container.
-        self.resize(1280, 720)
+        # Initial size doesn't matter — the parent will MoveWindow us
+        # to match its container as soon as reparenting completes.
+        self.resize(1, 1)
 
         self.view = QWebEngineView(self)
         self.setCentralWidget(self.view)
@@ -78,8 +79,24 @@ class MapHostWindow(QMainWindow):
         except Exception:
             pass
 
-        # Show first so winId() materializes a real native HWND.
-        self.show()
+        # CRITICAL: do NOT call self.show(). We need the native HWND
+        # to exist (so winId() is valid and SetParent has something
+        # to reparent), but we must NOT present it as a top-level
+        # window — otherwise it flashes as a frameless floating
+        # window before the parent reparents it, and on a prior
+        # launch it got stuck covering the entire screen.
+        #
+        # WA_NativeWindow + create() forces Qt to allocate the
+        # underlying native window without calling ShowWindow. The
+        # parent process will ShowWindow() it after SetParent moves
+        # it into the container's client area.
+        self.setAttribute(Qt.WidgetAttribute.WA_NativeWindow, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_DontCreateNativeAncestors, True)
+        # Position far off-screen as a belt-and-suspenders in case
+        # some Windows configuration still presents the native window
+        # before SetParent completes.
+        self.move(-32000, -32000)
+        self.create()
 
         self._buf: bytes = b""
         self.sock: QTcpSocket = QTcpSocket(self)
