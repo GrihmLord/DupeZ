@@ -331,53 +331,11 @@ PRESETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _load_json_profile_presets() -> None:
-    """Merge JSON-backed disruption presets from the game profile into PRESETS.
-
-    The game profile (``app/config/game_profiles/dayz.json``) is the single
-    source of truth for platform-specific presets (``pc_local``,
-    ``ps5_hotspot``, ``xbox_hotspot``). They are merged into the GUI-level
-    PRESETS dict at module load so both the GUI dropdown and the backend
-    (``clumsy_network_disruptor.disconnect_device_clumsy(preset=...)``) see
-    the same values.
-
-    Load failures are non-fatal — the hardcoded Python presets above remain
-    available as a safe fallback.
-    """
-    try:
-        from app.config.game_profiles import (
-            list_disruption_presets, get_disruption_preset,
-        )
-    except Exception:
-        return
-
-    # Human-readable display names for JSON preset keys
-    display_names = {
-        "pc_local":     "PC Local (auto)",
-        "ps5_hotspot":  "PS5 Hotspot",
-        "xbox_hotspot": "Xbox Hotspot",
-    }
-
-    for preset_key in list_disruption_presets("dayz"):
-        try:
-            merged = get_disruption_preset("dayz", preset_key)
-        except Exception:
-            continue
-
-        # Pull methods list out of the merged params so the GUI can show it
-        methods = merged.pop("methods", []) if isinstance(merged, dict) else []
-        notes = merged.pop("notes", "") if isinstance(merged, dict) else ""
-
-        display_name = display_names.get(preset_key, preset_key)
-        PRESETS[display_name] = {
-            "description": notes or f"JSON profile preset: {preset_key}",
-            "methods": list(methods) if isinstance(methods, list) else [],
-            "params": dict(merged) if isinstance(merged, dict) else {},
-            "_json_preset_key": preset_key,
-        }
-
-
-_load_json_profile_presets()
+# NOTE: Platform-specific presets (pc_local / ps5_hotspot / xbox_hotspot)
+# are no longer exposed in the GUI dropdown. They live in the game profile
+# JSON as internal tunings, and the backend auto-selects the correct one at
+# disrupt time based on target subnet, MAC OUI, hostname, and device_type.
+# See app/firewall/target_profile.py::resolve_target_profile.
 
 # ── Module definitions ──────────────────────────────────────────────
 # Each entry maps a disruption module key to its UI label, description,
@@ -1268,6 +1226,31 @@ class ClumsyControlView(QWidget):
             return list(self.selected_ips)
         return [self.selected_ip] if self.selected_ip else []
 
+    def _lookup_device_meta(self, ip: str) -> Dict[str, Optional[str]]:
+        """Return {mac, hostname, device_type} for *ip* from self.devices.
+
+        Used to thread auto-detection signals into the disrupt call so the
+        engine can resolve the correct platform profile. All fields default
+        to ``None`` when the device is not found or lacks the attribute.
+        """
+        for d in self.devices:
+            d_ip = d.ip if hasattr(d, "ip") else d.get("ip", "")
+            if d_ip != ip:
+                continue
+            def _field(key: str) -> Optional[str]:
+                if hasattr(d, key):
+                    v = getattr(d, key)
+                    return v if v else None
+                if isinstance(d, dict):
+                    return d.get(key) or None
+                return None
+            return {
+                "target_mac": _field("mac"),
+                "target_hostname": _field("hostname"),
+                "target_device_type": _field("device_type") or _field("vendor"),
+            }
+        return {"target_mac": None, "target_hostname": None, "target_device_type": None}
+
     def _get_active_methods(self) -> list:
         """Return checked module keys plus any preset-only methods.
 
@@ -1418,7 +1401,8 @@ class ClumsyControlView(QWidget):
         if self.controller:
             failed = []
             for ip in targets:
-                success = self.controller.disrupt_device(ip, methods, params)
+                meta = self._lookup_device_meta(ip)
+                success = self.controller.disrupt_device(ip, methods, params, **meta)
                 if success:
                     self._disruption_timers[ip] = time.time()
                     log_info(f"Disruption started on {_log_mask_ip(ip)}: methods={methods}")
@@ -1473,7 +1457,8 @@ class ClumsyControlView(QWidget):
 
         if delay == 0:
             for ip in targets:
-                self.controller.disrupt_device(ip, methods, params)
+                meta = self._lookup_device_meta(ip)
+                self.controller.disrupt_device(ip, methods, params, **meta)
                 self._disruption_timers[ip] = time.time()
 
             # Schedule auto-stop — use QTimer to stay on the GUI thread

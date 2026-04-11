@@ -70,9 +70,14 @@ class AppController:
     # ── Disruption delegation ─────────────────────────────────────
 
     def disrupt_device(self, ip: str, methods: Optional[List[str]] = None,
-                       params: Optional[Dict] = None) -> bool:
-        """Start disruption on *ip* with optional methods/params."""
-        return disruption_manager.disrupt_device(ip, methods, params)
+                       params: Optional[Dict] = None, **kwargs: Any) -> bool:
+        """Start disruption on *ip* with optional methods/params.
+
+        Additional ``**kwargs`` (e.g. ``target_mac``, ``target_hostname``,
+        ``target_device_type``) are forwarded to the underlying engine to
+        enable auto-detection of the appropriate disruption profile.
+        """
+        return disruption_manager.disrupt_device(ip, methods, params, **kwargs)
 
     def stop_disruption(self, ip: str) -> bool:
         """Stop disruption on *ip*."""
