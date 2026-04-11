@@ -9,15 +9,25 @@ import sys, os
 # DupeZ runs elevated (required by WinDivert). Chromium's sandbox refuses
 # to initialize under an admin token, which causes the render process to
 # die silently and the iZurvive map tab shows blank. Force --no-sandbox
-# and software rendering BEFORE any PyQt6 import or Qt picks up the
-# default flags and the renderer crashes. These flags are safe: the
-# sandbox is only a defense-in-depth layer for untrusted web content,
-# and DupeZ's map view only ever loads izurvive.com.
+# BEFORE any PyQt6 import or Qt picks up the default flags and the
+# renderer crashes.
+#
+# GPU rendering is re-enabled (hardware accel is critical for iZurvive's
+# Leaflet tile map — software raster makes pan/zoom unusably laggy).
+# Under an admin token the GPU *process* sandbox is what fails, not GPU
+# itself; --no-sandbox already disables all sandbox layers, and
+# --disable-gpu-sandbox + --ignore-gpu-blocklist forces the GPU process
+# to start cleanly. --in-process-gpu is the fallback if the GPU process
+# still refuses (runs the GPU on the main thread).
+#
+# If the map tab goes blank again, revert to:
+#   "--no-sandbox --disable-gpu --disable-gpu-compositing"
+# and set QT_OPENGL=software.
 os.environ.setdefault(
     "QTWEBENGINE_CHROMIUM_FLAGS",
-    "--no-sandbox --disable-gpu --disable-gpu-compositing",
+    "--no-sandbox --disable-gpu-sandbox --ignore-gpu-blocklist "
+    "--enable-gpu-rasterization --enable-zero-copy",
 )
-os.environ.setdefault("QT_OPENGL", "software")
 
 # Ensure the project root is on sys.path so "app.*" imports resolve
 _root = os.path.dirname(os.path.abspath(__file__))

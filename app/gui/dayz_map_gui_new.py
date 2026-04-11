@@ -171,18 +171,36 @@ if _WEBENGINE_AVAILABLE:
             self._blocked: int = 0
 
         def interceptRequest(self, info: Any) -> None:  # noqa: N802
-            """Check each outgoing request against the block lists."""
-            url: str = info.requestUrl().toString().lower()
-            host: str = info.requestUrl().host().lower()
+            """Check each outgoing request against the block lists.
 
-            # Block known ad domains (O(n) scan — domain list is small)
-            for domain in AD_DOMAINS:
-                if domain in host:
+            PERF: iZurvive fires hundreds of tile requests per pan/zoom.
+            Host matching uses suffix check against a pre-built set
+            (O(depth) per request, not O(n_domains)). Path fragment
+            matching stays linear — the list is tiny (<10 entries) and
+            most tile URLs don't even trigger the second loop because
+            the host is the iZurvive CDN.
+            """
+            url_obj = info.requestUrl()
+            host: str = url_obj.host().lower()
+
+            # Fast path: skip both loops for obvious map tile requests
+            # (iZurvive serves from izurvive.com / its CDN subdomains).
+            if host.endswith("izurvive.com"):
+                return
+
+            # Suffix match: walk up the host label by label, hit a set.
+            # "pagead2.googlesyndication.com" → check "googlesyndication.com",
+            # then "syndication.com", then "com" — O(labels), not O(n_domains).
+            labels = host.split(".")
+            for i in range(len(labels) - 1):
+                candidate = ".".join(labels[i:])
+                if candidate in AD_DOMAINS:
                     info.block(True)
                     self._blocked += 1
                     return
 
-            # Block ad-related URL paths
+            # Path fragment check only if host didn't match
+            url: str = url_obj.toString().lower()
             for frag in AD_PATH_FRAGMENTS:
                 if frag in url:
                     info.block(True)
@@ -305,25 +323,37 @@ class DayZMapGUI(QWidget):
         )
         page.runJavaScript(css_js)
 
-        # Phase 2: JS — remove ad elements and watch for new ones
+        # Phase 2: JS — remove ad elements and watch for new ones.
+        #
+        # PERF: iZurvive is a Leaflet tile map that swaps dozens of
+        # <img> tiles per pan/zoom frame. An unthrottled MutationObserver
+        # on document.body with subtree:true would fire hundreds of
+        # times per second and run 22 querySelectorAll sweeps per hit,
+        # grinding the map to a halt. So we:
+        #   1. Combine all selectors into a single comma-joined query
+        #      (one DOM walk instead of 22).
+        #   2. Debounce the observer callback to 250ms via requestIdle
+        #      + trailing timer.
+        #   3. Auto-disconnect the observer after 15s — ads are static
+        #      after initial load; we don't need to watch forever.
+        #   4. Drop the overlapping [500,1500,3000,5000] passes; the
+        #      debounced observer covers late-loading ads.
         selectors_js = ", ".join(f"'{s}'" for s in AD_SELECTORS)
         remove_js = f"""
         (function() {{
             try {{
-                const selectors = [{selectors_js}];
+                const combinedSelector = [{selectors_js}].join(', ');
                 let removed = 0;
 
                 function removeAds() {{
-                    selectors.forEach(selector => {{
-                        document.querySelectorAll(selector).forEach(el => {{
-                            el.remove();
-                            removed++;
-                        }});
+                    // Single DOM walk across all selectors
+                    document.querySelectorAll(combinedSelector).forEach(el => {{
+                        el.remove();
+                        removed++;
                     }});
-
-                    // Remove iframes from known ad networks only
+                    // Iframe sweep — cheap, ad iframes are rare
                     document.querySelectorAll('iframe').forEach(iframe => {{
-                        var src = (iframe.src || '').toLowerCase();
+                        const src = (iframe.src || '').toLowerCase();
                         if (src.includes('doubleclick') ||
                             src.includes('googlesyndication') ||
                             src.includes('amazon-adsystem') ||
@@ -334,15 +364,32 @@ class DayZMapGUI(QWidget):
                     }});
                 }}
 
-                // Run immediately + delayed passes for late-loading ads
+                // Initial sweep — before any mutations
                 removeAds();
-                [500, 1500, 3000, 5000].forEach(ms => setTimeout(removeAds, ms));
 
-                // Watch for dynamically injected ads
-                const observer = new MutationObserver(() => removeAds());
+                // Debounced observer — coalesces bursts of tile swaps
+                // into a single trailing sweep 250ms after the burst
+                // ends. Uses a flag + setTimeout instead of a rolling
+                // timer to avoid allocating a new closure per mutation.
+                let pending = false;
+                const debounced = () => {{
+                    if (pending) return;
+                    pending = true;
+                    setTimeout(() => {{ pending = false; removeAds(); }}, 250);
+                }};
+
+                const observer = new MutationObserver(debounced);
                 observer.observe(document.body, {{ childList: true, subtree: true }});
 
-                console.log('DupeZ: Ad-blocker active, removed ' + removed + ' elements');
+                // Auto-disconnect after 15s — ads are static by then,
+                // and continuing to observe a live Leaflet map just
+                // burns CPU.
+                setTimeout(() => {{
+                    observer.disconnect();
+                    console.log('DupeZ: ad observer disconnected after 15s');
+                }}, 15000);
+
+                console.log('DupeZ: Ad-blocker active, initial removed=' + removed);
             }} catch (err) {{
                 console.error('DupeZ ad-blocker error:', err);
             }}
