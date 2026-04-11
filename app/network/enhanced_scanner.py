@@ -49,6 +49,74 @@ _MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
 __all__ = ["NetworkDevice", "EnhancedNetworkScanner"]
 
 
+# ── Hostname enrichment helpers ─────────────────────────────────────
+#
+# These fire as the last-resort fallbacks when reverse DNS, getfqdn,
+# and NetBIOS have all failed to return a usable name for a device.
+# The goal is that the GUI "Hostname" column is NEVER blank or the
+# literal string "Unknown" — every device shows SOMETHING the user
+# can visually disambiguate, even if the label is synthesized.
+
+def _mdns_lookup(ip: str, timeout: float = 0.6) -> str:
+    """Best-effort mDNS / zeroconf reverse lookup.
+
+    Many modern consumer devices — PS5, Xbox Series, Apple TV, HomePod,
+    Chromecast, smart TVs — never answer traditional reverse DNS but
+    DO answer mDNS on a local hotspot. If the optional ``zeroconf``
+    library isn't installed, this returns "" silently so scans still
+    work on minimal installs.
+    """
+    try:
+        from zeroconf import Zeroconf  # type: ignore
+    except Exception:
+        return ""
+
+    try:
+        zc = Zeroconf()
+        try:
+            # Reverse PTR via zeroconf's address resolver
+            info = zc.get_service_info("_services._dns-sd._udp.local.", ip)
+            if info and info.server:
+                name = info.server.rstrip(".")
+                if name and name != ip:
+                    return name
+        finally:
+            zc.close()
+    except Exception:
+        pass
+    return ""
+
+
+def _synthesize_hostname(ip: str, mac: str, vendor: str) -> str:
+    """Build a readable fallback label when no real hostname resolved.
+
+    Prefers ``<vendor-slug>-<mac-suffix>`` (e.g. ``Sony-abcdef`` for a
+    PS5), falls back to ``<vendor-slug>-<last-ip-octet>``, and only
+    uses a bare IP-derived label when vendor is also unknown. The
+    label is ASCII-safe and short enough for a table column.
+    """
+    vendor_slug = ""
+    if vendor and vendor.lower() not in ("unknown", ""):
+        # First word of the vendor string, alphanumeric only.
+        first = re.split(r"[\s,()./-]+", vendor.strip(), maxsplit=1)[0]
+        vendor_slug = re.sub(r"[^A-Za-z0-9]", "", first)[:16]
+
+    mac_suffix = ""
+    if mac and _MAC_RE.match(mac):
+        # Last 6 hex chars of the MAC, no separators.
+        mac_suffix = re.sub(r"[^0-9a-fA-F]", "", mac).lower()[-6:]
+
+    if vendor_slug and mac_suffix:
+        return f"{vendor_slug}-{mac_suffix}"
+    if vendor_slug:
+        last_octet = ip.rsplit(".", 1)[-1] if "." in ip else ip
+        return f"{vendor_slug}-{last_octet}"
+    if mac_suffix:
+        return f"device-{mac_suffix}"
+    # Last resort: derive from IP. Not ideal but beats an empty cell.
+    return f"device-{ip.replace('.', '-')}"
+
+
 @dataclass
 class NetworkDevice:
     """Rich network device descriptor."""
@@ -286,11 +354,22 @@ class EnhancedNetworkScanner(QObject):
         hostname: str = "Unknown", detection_method: str = "unknown",
     ) -> Dict:
         """Build a standard device-info dict with vendor/type enrichment."""
+        vendor = lookup_vendor(mac)
+
+        # Final hostname fallback: if reverse DNS, NetBIOS, and mDNS all
+        # came up empty, synthesize a readable label from vendor + MAC
+        # suffix (or IP as last resort) so the GUI Hostname column is
+        # never blank or "Unknown". This is what lets PS5/Xbox/random
+        # IoT boxes — which almost never answer reverse DNS on a
+        # hotspot subnet — still show something meaningful to the user.
+        if not hostname or hostname == "Unknown":
+            hostname = _synthesize_hostname(ip, mac, vendor)
+
         info: Dict = {
             "ip": ip,
             "mac": mac,
             "hostname": hostname,
-            "vendor": lookup_vendor(mac),
+            "vendor": vendor,
             "device_type": "Unknown",
             "is_console": False,
             "is_local": self._is_local_device(ip),
@@ -329,7 +408,20 @@ class EnhancedNetworkScanner(QObject):
             return False
 
     def _get_device_info(self, ip: str) -> Tuple[str, str]:
-        """Return (mac, hostname) for *ip*."""
+        """Return (mac, hostname) for *ip*.
+
+        Hostname resolution is attempted through multiple channels in
+        order; the first non-empty result wins. "" / "Unknown" / an IP
+        literal are all treated as misses so later fallbacks can fire.
+
+            1. ``socket.gethostbyaddr`` — reverse DNS via system resolver
+            2. ``socket.getfqdn``       — alternate resolver code path
+            3. NetBIOS (Windows)        — ``nbtstat -a`` <00> UNIQUE
+            4. mDNS / zeroconf          — answers PS5/Xbox/Apple hotspots
+
+        If all four miss, ``_make_device_info`` will synthesize a label
+        from vendor + MAC suffix so the GUI column is never empty.
+        """
         mac = "Unknown"
         hostname = "Unknown"
 
@@ -349,13 +441,25 @@ class EnhancedNetworkScanner(QObject):
                 if m:
                     mac = m.group(0)
 
-            # Reverse DNS
+            # 1. Reverse DNS
             try:
-                hostname = socket.gethostbyaddr(ip)[0]
+                name = socket.gethostbyaddr(ip)[0]
+                if name and name != ip:
+                    hostname = name
             except Exception:
                 pass
 
-            # NetBIOS fallback (Windows)
+            # 2. getfqdn (different resolver path — sometimes succeeds
+            #    when gethostbyaddr fails on captive / hotspot subnets).
+            if hostname == "Unknown":
+                try:
+                    name = socket.getfqdn(ip)
+                    if name and name != ip and "." in name:
+                        hostname = name
+                except Exception:
+                    pass
+
+            # 3. NetBIOS fallback (Windows)
             if hostname == "Unknown" and platform.system().lower() == "windows":
                 try:
                     nbt = subprocess.run(
@@ -372,6 +476,15 @@ class EnhancedNetworkScanner(QObject):
                                     break
                 except Exception:
                     pass
+
+            # 4. mDNS / zeroconf fallback — best effort, no-op if lib
+            #    isn't installed. Consoles on a hotspot subnet (PS5,
+            #    Xbox, Apple TV) announce themselves here even when
+            #    reverse DNS / NetBIOS are silent.
+            if hostname == "Unknown":
+                name = _mdns_lookup(ip)
+                if name:
+                    hostname = name
 
         except Exception as e:
             log_error(f"Device info lookup failed for {mask_ip(ip)}", exception=e)

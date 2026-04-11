@@ -23,6 +23,14 @@ pywin32>=306; sys_platform == 'win32'
 scapy>=2.6.0
 requests>=2.28.0
 
+# mDNS hostname resolution — the enhanced scanner uses zeroconf as
+# the 4th-stage fallback in its hostname chain (gethostbyaddr →
+# getfqdn → NetBIOS → mDNS → synthesized). If missing, the chain
+# short-circuits to the synthesized fallback, so this is technically
+# optional — bundling it means the Hostname column populates with
+# real advertised names on Apple/Bonjour/Windows-discovery devices.
+zeroconf>=0.130.0
+
 # Data / Export
 openpyxl>=3.1.0
 numpy>=1.24.0

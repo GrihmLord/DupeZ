@@ -244,20 +244,14 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "throttle_drop": True, "direction": "both",
         }
     },
-    "Heavy Lag": {
-        "description": "3s lag + 95% drop + 1KB/s cap — brutal sustained delay",
+    "Lag": {
+        "description": "Sustained lag + drop — tune with the Lag Delay / Drop % sliders (Light ~800ms/60% · Heavy ~3000ms/95%)",
         "methods": ["lag", "drop", "bandwidth"],
         "params": {
-            "lag_delay": 3000, "drop_chance": 95,
-            "bandwidth_limit": 1, "bandwidth_queue": 0,
-            "direction": "both",
-        }
-    },
-    "Light Lag": {
-        "description": "800ms lag + 60% drop — moderate disruption",
-        "methods": ["lag", "drop"],
-        "params": {
-            "lag_delay": 800, "drop_chance": 60,
+            # Mid-strength default between old Light Lag and Heavy Lag.
+            # Adjust lag_delay / drop_chance sliders to taste after selecting.
+            "lag_delay": 1500, "drop_chance": 80,
+            "bandwidth_limit": 2, "bandwidth_queue": 0,
             "direction": "both",
         }
     },
@@ -280,27 +274,6 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "direction": "both",
         }
     },
-    "God Mode Aggressive": {
-        "description": "Longer block + outbound hit duplication — maximum lethality",
-        "methods": ["godmode", "duplicate"],
-        "params": {
-            # GodModeModule v6 BIDIR: longer block = longer ghost window.
-            # 30% extra inbound drop during flush for harder freeze.
-            # Stagger 150ms for more time to process fresh positions.
-            "godmode_pulse": True,
-            "godmode_pulse_block_ms": 4000,   # 4s block per cycle
-            "godmode_pulse_flush_ms": 300,    # 300ms flush window
-            "godmode_flush_stagger_ms": 150,  # longer stagger for accuracy
-            "godmode_keepalive_interval_ms": 800,
-            "godmode_drop_inbound_pct": 30,   # drop 30% extra inbound
-            "godmode_flush_gamestate_keep": 3, # aggressive culling
-            # Duplicate module: outbound only — floods hit reports to server.
-            # Engine-level IP direction fix makes this work correctly now.
-            "duplicate_chance": 80, "duplicate_count": 5,
-            "duplicate_direction": "outbound",
-            "direction": "both",
-        }
-    },
     "Dupe Mode": {
         "description": "Total network blackout for item duplication — 100% drop, zero bandwidth, disconnect",
         "methods": ["disconnect", "drop", "bandwidth"],
@@ -311,15 +284,6 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             # Pure hard cut for triggering DayZ inventory rollback.
             "drop_chance": 100,
             "bandwidth_limit": 0, "bandwidth_queue": 0,
-            "direction": "both",
-        }
-    },
-    "Desync": {
-        "description": "Packet flood + reorder — massive server desync",
-        "methods": ["lag", "duplicate", "ood"],
-        "params": {
-            "lag_delay": 800, "duplicate_chance": 90,
-            "duplicate_count": 15, "ood_chance": 80,
             "direction": "both",
         }
     },

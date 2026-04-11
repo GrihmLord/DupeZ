@@ -1,4 +1,4 @@
-# DupeZ v5.2.4
+# DupeZ v5.3.0
 
 Network disruption toolkit for DayZ. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
@@ -172,15 +172,24 @@ python -m app.cli interactive
 
 ### Build standalone exe
 
+Run from the repo root. All build scripts and PyInstaller specs live in `packaging\` but write output to repo-root `dist\`.
+
 ```powershell
 pip install pyinstaller
-build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.2.4_Setup.exe (installer)
+
+# Legacy single binary (requireAdministrator):
+packaging\build.bat
+# Output: dist\dupez.exe + dist\DupeZ_v5.3.0_Setup.exe (installer)
+
+# Modern dual-variant build (RECOMMENDED):
+packaging\build_variants.bat
+# Output: dist\DupeZ-GPU.exe (asInvoker, split-arch, GPU map)
+#         dist\DupeZ-Compat.exe (requireAdministrator, inproc, legacy fallback)
 ```
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.2.4_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
+Download `DupeZ_v5.3.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
@@ -195,13 +204,21 @@ Download `DupeZ_v5.2.4_Setup.exe` from [Releases](https://github.com/GrihmLord/D
 
 ```
 dupez.py                             # Entry point (GUI mode)
-dupez.spec                           # PyInstaller build spec
-dupez.manifest                       # Windows application manifest (UAC, DPI, OS compat)
-version_info.py                      # VS_VERSION_INFO resource for exe metadata
-installer.iss                        # Inno Setup installer script
-build.bat                            # 4-stage build pipeline (PyInstaller → sign → installer → MOTW strip)
+dupez_helper.py                      # Elevated helper entry point (split-arch)
 requirements.txt                     # Dependencies
 requirements-locked.txt              # Pinned dependency versions
+
+packaging/                           # All PyInstaller + Inno Setup build files
+├── dupez.spec                       # Legacy single-binary PyInstaller spec
+├── dupez_gpu.spec                   # DupeZ-GPU.exe spec (asInvoker, split)
+├── dupez_compat.spec                # DupeZ-Compat.exe spec (requireAdmin, inproc)
+├── build_common.py                  # Shared Analysis/PYZ/EXE factory
+├── dupez.manifest                   # Windows app manifest (GPU + legacy)
+├── dupez_compat.manifest            # Windows app manifest (Compat variant)
+├── version_info.py                  # VS_VERSION_INFO resource for exe metadata
+├── installer.iss                    # Inno Setup installer script
+├── build.bat                        # 4-stage legacy pipeline (single binary)
+└── build_variants.bat               # Modern dual-variant pipeline (RECOMMENDED)
 
 app/
 ├── main.py                          # UAC elevation, crash handler, Qt init
