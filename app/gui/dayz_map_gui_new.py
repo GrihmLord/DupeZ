@@ -40,13 +40,22 @@ from app.gui.map_host.launcher import (
 )
 from app.logs.logger import log_error, log_info
 
-#: Embed mode — "inproc" keeps the current software-rastered
-#: QWebEngineView in the main process (works everywhere, but lags
-#: under admin elevation). "child" spawns an unelevated WebEngine
-#: host via Explorer COM so Chromium gets real GPU rasterization,
-#: then reparents its HWND into our layout. "child" is Windows-only;
-#: elsewhere it transparently falls back to "inproc".
+#: Embed mode — "inproc" keeps the software-rastered QWebEngineView
+#: in the main process (the only mode that works reliably today).
+#:
+#: The "child-experimental" mode spawns an unelevated WebEngine host
+#: process via Explorer COM and tries to reparent its HWND into our
+#: layout for real GPU rasterization. It is currently broken: Win32
+#: SetParent fails with ERROR_INVALID_WINDOW_HANDLE across the
+#: admin/medium integrity boundary, and the child's top-level
+#: frameless window flashes briefly before the reparent attempt.
+#: Keeping the code path in-tree for future fixing, but gating it
+#: behind a different env value than plain "child" so existing
+#: ``$env:DUPEZ_MAP_EMBED = "child"`` shell settings silently fall
+#: through to the working inproc path.
 _EMBED_MODE: str = os.environ.get("DUPEZ_MAP_EMBED", "inproc").lower()
+if _EMBED_MODE not in ("inproc", "child-experimental"):
+    _EMBED_MODE = "inproc"
 
 # Graceful degradation when WebEngine is not installed.
 #
@@ -161,7 +170,49 @@ _PERF_CSS: str = """
     }
 """
 
-__all__ = ["DayZMapGUI"]
+__all__ = [
+    "DayZMapGUI",
+    "set_prewarmed_map_gui",
+    "consume_prewarmed_map_gui",
+]
+
+
+# ── In-proc prewarm singleton ───────────────────────────────────────
+#
+# Dashboard constructs DayZMapGUI when the main window is built, which
+# happens AFTER the splash init pipeline finishes. That means the
+# QWebEngineView spin-up and the initial iZurvive tile download are
+# both on the critical path between "splash closes" and "map is
+# interactive", and the user sees a blank map tab for several seconds
+# the first time they click it.
+#
+# The fix is to construct DayZMapGUI once, early, on the main thread
+# during splash boot. The widget's __init__ calls load_map() which
+# kicks the network load off immediately. While the splash pipeline
+# runs (WinDivert init, controller init, plugin discovery, etc.) the
+# widget is loading iZurvive in parallel. When Dashboard later calls
+# consume_prewarmed_map_gui() it gets a fully-loaded widget instead
+# of constructing a cold one.
+#
+# The widget is parented to None initially (top-level, hidden) and
+# is reparented into the QStackedWidget by Qt automatically when
+# Dashboard.addWidget() takes it.
+
+_PREWARMED_MAP_GUI: Optional["DayZMapGUI"] = None
+
+
+def set_prewarmed_map_gui(gui: "DayZMapGUI") -> None:
+    """Register a pre-constructed DayZMapGUI for Dashboard to adopt."""
+    global _PREWARMED_MAP_GUI
+    _PREWARMED_MAP_GUI = gui
+
+
+def consume_prewarmed_map_gui() -> Optional["DayZMapGUI"]:
+    """Hand off the prewarmed DayZMapGUI. Returns None if none exists."""
+    global _PREWARMED_MAP_GUI
+    gui = _PREWARMED_MAP_GUI
+    _PREWARMED_MAP_GUI = None
+    return gui
 
 # ── Map catalogue ───────────────────────────────────────────────────
 
@@ -453,7 +504,7 @@ class DayZMapGUI(QWidget):
         #              rasterization, no admin-token deadlock.
         #   * inproc — current in-process QWebEngineView (software
         #              raster under elevation).
-        if _EMBED_MODE == "child" and _WEBENGINE_AVAILABLE:
+        if _EMBED_MODE == "child-experimental" and _WEBENGINE_AVAILABLE:
             log_info("Map: embed mode = child (unelevated WebEngine host)")
             self._build_child_embed(layout)
         elif _WEBENGINE_AVAILABLE:
