@@ -17,10 +17,11 @@ WebEngine package), the widget degrades to a placeholder label.
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any, Dict, List, Optional, Set
 
 from PyQt6.QtCore import QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QWindow
 from PyQt6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -30,7 +31,16 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.gui.map_host.launcher import MapHostClient
 from app.logs.logger import log_error, log_info
+
+#: Embed mode — "inproc" keeps the current software-rastered
+#: QWebEngineView in the main process (works everywhere, but lags
+#: under admin elevation). "child" spawns an unelevated WebEngine
+#: host via Explorer COM so Chromium gets real GPU rasterization,
+#: then reparents its HWND into our layout. "child" is Windows-only;
+#: elsewhere it transparently falls back to "inproc".
+_EMBED_MODE: str = os.environ.get("DUPEZ_MAP_EMBED", "inproc").lower()
 
 # Graceful degradation when WebEngine is not installed.
 #
@@ -338,7 +348,13 @@ class DayZMapGUI(QWidget):
         super().__init__(parent)
         self.current_map: str = "Chernarus+ (Satellite)"
         self._interceptor: Any = None
-        self.map_view: Any = None  # QWebEngineView or None
+        self.map_view: Any = None  # QWebEngineView (inproc) or None
+
+        # Child-host mode state (only used when _EMBED_MODE == "child")
+        self._host_client: Optional[MapHostClient] = None
+        self._host_container: Optional[QWidget] = None
+        self._host_placeholder: Optional[QLabel] = None
+        self._host_layout: Optional[QVBoxLayout] = None
 
         self._build_ui()
         self.load_map(self.current_map)
@@ -386,9 +402,19 @@ class DayZMapGUI(QWidget):
         bar_layout.addWidget(self.browser_btn)
 
         layout.addWidget(selector_bar)
+        self._host_layout = layout
 
-        # WebEngine view (with fallback)
-        if _WEBENGINE_AVAILABLE:
+        # Embed mode selection:
+        #   * child  — spawn an unelevated WebEngine host process and
+        #              reparent its HWND into our layout. Real GPU
+        #              rasterization, no admin-token deadlock.
+        #   * inproc — current in-process QWebEngineView (software
+        #              raster under elevation).
+        if _EMBED_MODE == "child" and _WEBENGINE_AVAILABLE:
+            log_info("Map: embed mode = child (unelevated WebEngine host)")
+            self._build_child_embed(layout)
+        elif _WEBENGINE_AVAILABLE:
+            log_info("Map: embed mode = inproc (software raster)")
             self.map_view = QWebEngineView()
             self._install_ad_blocker()
             self._apply_perf_settings()
@@ -788,12 +814,136 @@ class DayZMapGUI(QWidget):
         except Exception as exc:
             log_error(f"Map: renderer priority boost failed: {exc}")
 
+    # ── Child-host embed mode ───────────────────────────────────────
+
+    def _build_child_embed(self, layout: QVBoxLayout) -> None:
+        """Spawn the unelevated WebEngine host and prep a container slot.
+
+        A ``Loading map host…`` placeholder is shown immediately so the
+        layout has something in the webview slot. When the child sends
+        its HWND (``hwndReceived``), we reparent its native window into
+        the container via ``QWindow.fromWinId`` +
+        ``createWindowContainer`` and drop the placeholder.
+
+        On spawn failure or connect timeout, ``connectionFailed`` fires
+        and we fall back to the in-process ``QWebEngineView`` path so
+        the map always loads *something*.
+        """
+        # Placeholder shown while the child is booting.
+        self._host_placeholder = QLabel(
+            "Starting unelevated map host…\n\n"
+            "The map will appear here once Chromium's GPU process is up."
+        )
+        self._host_placeholder.setStyleSheet(_PLACEHOLDER_QSS)
+        self._host_placeholder.setWordWrap(True)
+        layout.addWidget(self._host_placeholder, stretch=1)
+
+        # Spin up the IPC client + spawn.
+        self._host_client = MapHostClient(self)
+        self._host_client.hwndReceived.connect(self._on_host_hwnd_received)
+        self._host_client.connectionFailed.connect(self._on_host_failed)
+        self._host_client.disconnected.connect(self._on_host_disconnected)
+
+        if not self._host_client.start():
+            # Immediate failure — fall through to inproc now.
+            self._on_host_failed("spawn failed")
+
+    def _on_host_hwnd_received(self, hwnd: int) -> None:
+        """Reparent the child's native HWND into our layout."""
+        if self._host_layout is None:
+            return
+        try:
+            foreign = QWindow.fromWinId(hwnd)
+            if foreign is None:
+                raise RuntimeError(f"QWindow.fromWinId returned None for hwnd=0x{hwnd:x}")
+            # Tell Qt this handle is foreign so it doesn't try to
+            # destroy the underlying native window on cleanup.
+            try:
+                foreign.setFlags(foreign.flags())
+            except Exception:
+                pass
+            container = QWidget.createWindowContainer(foreign, self)
+            container.setFocusPolicy(container.focusPolicy())
+            container.setMinimumSize(320, 240)
+            self._host_container = container
+
+            # Drop placeholder, insert container in its place.
+            if self._host_placeholder is not None:
+                self._host_layout.removeWidget(self._host_placeholder)
+                self._host_placeholder.deleteLater()
+                self._host_placeholder = None
+            self._host_layout.addWidget(container, stretch=1)
+
+            # Now that the HWND is embedded, push the current map URL.
+            url = MAP_OPTIONS.get(
+                self.current_map, MAP_OPTIONS["Chernarus+ (Satellite)"]
+            )
+            if self._host_client is not None:
+                self._host_client.load(url)
+            log_info(f"Map: embedded host hwnd=0x{hwnd:x}, loaded {self.current_map}")
+        except Exception as exc:
+            log_error(f"Map: HWND reparent failed ({exc!r}) — falling back to inproc")
+            self._on_host_failed(f"reparent failed: {exc}")
+
+    def _on_host_failed(self, reason: str) -> None:
+        """Spawn/connect/reparent failed — fall back to inproc view.
+
+        Keeps the map path alive even when the child architecture
+        trips on COM, missing pywin32, HWND reparent glitches, etc.
+        """
+        log_error(f"Map: child host failed ({reason}) — falling back to inproc")
+        # Tear down any host state.
+        if self._host_client is not None:
+            try:
+                self._host_client.stop()
+            except Exception:
+                pass
+            self._host_client = None
+        if self._host_placeholder is not None and self._host_layout is not None:
+            self._host_layout.removeWidget(self._host_placeholder)
+            self._host_placeholder.deleteLater()
+            self._host_placeholder = None
+        if self._host_container is not None and self._host_layout is not None:
+            self._host_layout.removeWidget(self._host_container)
+            self._host_container.deleteLater()
+            self._host_container = None
+
+        # Build the in-proc view if we don't already have one.
+        if self.map_view is None and _WEBENGINE_AVAILABLE and self._host_layout is not None:
+            self.map_view = QWebEngineView()
+            self._install_ad_blocker()
+            self._apply_perf_settings()
+            self.map_view.loadFinished.connect(self._inject_dom_adblocker)
+            self.map_view.loadFinished.connect(self._inject_perf_tweaks)
+            self.map_view.loadFinished.connect(self._boost_renderer_priority)
+            self._host_layout.addWidget(self.map_view, stretch=1)
+            self.load_map(self.current_map)
+
+    def _on_host_disconnected(self) -> None:
+        """Child exited unexpectedly — fall back so the user keeps a map."""
+        # Only treat this as a failure if we hadn't already replaced
+        # the client (e.g. during shutdown self._host_client is None).
+        if self._host_client is not None:
+            self._on_host_failed("child disconnected")
+
     # ── Map loading ─────────────────────────────────────────────────
 
     def load_map(self, map_name: str) -> None:
-        """Navigate the web view to the selected iZurvive map."""
+        """Navigate the active view (inproc or child) to the selected map."""
         self.current_map = map_name
         url = MAP_OPTIONS.get(map_name, MAP_OPTIONS["Chernarus+ (Satellite)"])
+
+        # Child-host path: push the URL over IPC. If the child isn't
+        # connected yet, _on_host_hwnd_received will push the current
+        # URL once it's up, so we can safely no-op here.
+        if self._host_client is not None and self._host_container is not None:
+            try:
+                self._host_client.load(url)
+                log_info(f"Loading map (child): {map_name} -> {url}")
+            except Exception as exc:
+                log_error(f"Error loading map in child host: {exc}")
+            return
+
         if self.map_view is None:
             return
         try:
@@ -801,6 +951,18 @@ class DayZMapGUI(QWidget):
             log_info(f"Loading map: {map_name} -> {url}")
         except Exception as exc:
             log_error(f"Error loading map: {exc}")
+
+    # ── Cleanup ─────────────────────────────────────────────────────
+
+    def closeEvent(self, event: Any) -> None:  # noqa: N802 — Qt override
+        """Tear down the unelevated child host on widget close."""
+        try:
+            if self._host_client is not None:
+                self._host_client.stop()
+                self._host_client = None
+        except Exception as exc:
+            log_error(f"Map: host client cleanup failed: {exc}")
+        super().closeEvent(event)
 
     def _open_in_browser(self) -> None:
         """Open the current map in the system's default browser.

@@ -12,13 +12,16 @@ import sys, os
 # and software rendering BEFORE any PyQt6 import or Qt picks up the
 # default flags and the renderer crashes.
 #
-# NOTE: attempted to re-enable GPU rasterization for map perf
-# (--disable-gpu-sandbox --ignore-gpu-blocklist --enable-gpu-rasterization)
-# but it hung the splash at "Network scanner loaded" under an admin
-# token — the GPU process init blocks the main thread when WebEngine
-# tries to start the Chromium GPU process on an elevated token.
-# Keeping software raster; map perf is addressed via the debounced
-# MutationObserver and optimized AdBlockInterceptor instead.
+# Chromium GPU init deadlocks under an admin token. Confirmed twice:
+#  * Attempt #1: --no-sandbox --disable-gpu-sandbox --ignore-gpu-blocklist
+#    --enable-gpu-rasterization --enable-zero-copy → splash hung.
+#  * Attempt #2: --no-sandbox alone → splash hung.
+#
+# Conclusion: any code path that lets the Chromium GPU process start
+# under our elevated token blocks the main thread during init. The
+# only fix that keeps the embedded map is moving WebEngine out of the
+# elevated process entirely (child-process architecture, tracked
+# separately). Until then, force software raster and never touch it.
 os.environ.setdefault(
     "QTWEBENGINE_CHROMIUM_FLAGS",
     "--no-sandbox --disable-gpu --disable-gpu-compositing",
