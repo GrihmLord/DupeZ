@@ -25,16 +25,12 @@ os.environ.setdefault(
 )
 os.environ.setdefault("QT_OPENGL", "software")
 
-# Kill hi-DPI pixel doubling — on a 1440p/4K monitor with Windows display
-# scaling at 125-150%, QtWebEngine renders the iZurvive map at 1.25-1.5×
-# the native pixel count. On software raster that's a 1.5-2.25× CPU
-# multiplier on an already CPU-bound pipeline, and it's the single
-# biggest remaining fluidity win after all the DOM-layer fixes. Force
-# 1:1 DPR for the entire app — DupeZ's native Qt widgets look fine at
-# 1× because they're drawn from vector assets.
-os.environ.setdefault("QT_SCALE_FACTOR", "1")
-os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
-os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "0")
+# NOTE: we previously tried QT_SCALE_FACTOR=1 to kill hi-DPI pixel
+# doubling in the WebEngine, but it also shrunk the native Qt widgets
+# to an unusable size on high-DPI displays. Hi-DPI is now killed only
+# at the web page level (via the devicePixelRatio override in
+# app/gui/dayz_map_gui_new.py) so the rest of the app keeps its
+# normal scaling.
 
 # Ensure the project root is on sys.path so "app.*" imports resolve
 _root = os.path.dirname(os.path.abspath(__file__))

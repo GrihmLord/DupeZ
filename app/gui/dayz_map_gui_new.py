@@ -19,7 +19,15 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Set
 
 from PyQt6.QtCore import QUrl
-from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.logs.logger import log_error, log_info
 
@@ -60,10 +68,14 @@ except Exception as _webengine_exc:  # noqa: BLE001 — we really do want everyt
 #   3. Hi-DPI pixel doubling: iZurvive runs at devicePixelRatio ≥ 1.5
 #      on many Windows setups, quadrupling fragment work.
 #
-#: Zoom factor applied to the web view. 0.85 cuts pixel work by ~27%
-#: (linear × linear) at the cost of slightly softer text — the right
-#: trade on a CPU-bound pipeline. Raise if text feels too soft.
-_MAP_ZOOM_FACTOR: float = 0.85
+#: Zoom factor applied to the web view. 0.70 cuts pixel work by ~51%
+#: (linear × linear). Aggressive but necessary on software raster — a
+#: 1440p viewport rendering at 0.70 is ~1M pixels instead of 2M, which
+#: is the difference between tolerable and unusable on a CPU pipeline.
+#: Text becomes noticeably softer; the map tiles are pre-rasterized so
+#: they scale cleanly. Users who need sharper text can click the
+#: "Open in Browser" button for a full-native fallback.
+_MAP_ZOOM_FACTOR: float = 0.70
 
 #: CSS injected into every iZurvive page before the DOM settles. This
 #: neutralises the GPU-assumed animations Leaflet uses by default, plus
@@ -226,6 +238,20 @@ _COMBO_QSS: str = """
     }
 """
 
+_BROWSER_BTN_QSS: str = """
+    QPushButton {
+        background: #16213e; color: #00d9ff; border: 1px solid #00d9ff;
+        border-radius: 4px; padding: 4px 12px; font-size: 11px;
+        font-weight: bold;
+    }
+    QPushButton:hover {
+        background: rgba(0, 217, 255, 0.15);
+    }
+    QPushButton:pressed {
+        background: rgba(0, 217, 255, 0.3);
+    }
+"""
+
 _PLACEHOLDER_QSS: str = (
     "color: #64748b; font-size: 14px; background: #0a0e1a; padding: 40px;"
 )
@@ -330,6 +356,20 @@ class DayZMapGUI(QWidget):
         self.map_combo.currentTextChanged.connect(self.load_map)
         bar_layout.addWidget(self.map_combo)
         bar_layout.addStretch()
+
+        # Escape-valve — opens the current map in the system browser
+        # at native Chrome performance. Embedded view is CPU-raster
+        # bound by the admin-token elevation WinDivert needs, so this
+        # is the fallback when embedded fluidity isn't enough.
+        self.browser_btn = QPushButton("Open in Browser ↗")
+        self.browser_btn.setToolTip(
+            "Open the current map in your system browser for full\n"
+            "hardware-accelerated performance. The embedded view is\n"
+            "CPU-rendered because DupeZ runs elevated for WinDivert."
+        )
+        self.browser_btn.setStyleSheet(_BROWSER_BTN_QSS)
+        self.browser_btn.clicked.connect(self._open_in_browser)
+        bar_layout.addWidget(self.browser_btn)
 
         layout.addWidget(selector_bar)
 
@@ -615,6 +655,24 @@ class DayZMapGUI(QWidget):
             log_info(f"Loading map: {map_name} -> {url}")
         except Exception as exc:
             log_error(f"Error loading map: {exc}")
+
+    def _open_in_browser(self) -> None:
+        """Open the current map in the system's default browser.
+
+        Escape valve for users who need full hardware-accelerated
+        Leaflet performance — the embedded QWebEngineView is stuck on
+        Chromium's software rasterizer because DupeZ runs elevated
+        (required by WinDivert) and the Chromium GPU process refuses
+        to initialize under an admin token.
+        """
+        url = MAP_OPTIONS.get(self.current_map, MAP_OPTIONS["Chernarus+ (Satellite)"])
+        try:
+            if QDesktopServices.openUrl(QUrl(url)):
+                log_info(f"Opened map in system browser: {url}")
+            else:
+                log_error(f"QDesktopServices refused URL: {url}")
+        except Exception as exc:
+            log_error(f"Failed to open map in browser: {exc}")
 
     # ── DOM-level ad cleanup ────────────────────────────────────────
 
