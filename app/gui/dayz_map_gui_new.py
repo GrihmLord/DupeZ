@@ -74,12 +74,30 @@ _PERF_CSS: str = """
     .leaflet-fade-anim .leaflet-tile { transition: none !important; }
     .leaflet-fade-anim .leaflet-tile-loaded { opacity: 1 !important; }
 
+    /* Pixelated rendering skips bilinear filtering during CSS transforms —
+       small but real win on software raster. The map tiles are already
+       pre-rasterized so we don't need filtering anyway. */
+    .leaflet-tile {
+        image-rendering: -webkit-optimize-contrast !important;
+    }
+
     /* Remove will-change hints — on software raster these force full
        bitmap reads instead of helping. */
     .leaflet-pane, .leaflet-tile-pane, .leaflet-overlay-pane,
     .leaflet-marker-pane, .leaflet-popup-pane, .leaflet-tile,
     .leaflet-map-pane, .leaflet-zoom-animated {
         will-change: auto !important;
+        backface-visibility: visible !important;
+        perspective: none !important;
+    }
+
+    /* Paint containment — tells the renderer the map container is an
+       isolated paint context. Prevents invalidations in the map from
+       triggering repaints of the iZurvive chrome (sidebar, toolbar)
+       and vice versa. Huge win on software raster. */
+    .leaflet-container {
+        contain: layout paint style !important;
+        content-visibility: auto !important;
     }
 
     /* Remove transitions on everything inside the map container */
@@ -91,6 +109,13 @@ _PERF_CSS: str = """
     /* Zoom animation does a crossfade — skip it entirely */
     .leaflet-zoom-anim .leaflet-zoom-animated {
         transition: none !important;
+    }
+
+    /* Hide cursor coordinate trackers if iZurvive repaints one per
+       mousemove — these tiny updates cause full-container invalidations
+       on some versions of the page. */
+    .mouse-position, .leaflet-control-mouseposition {
+        display: none !important;
     }
 """
 
@@ -436,13 +461,65 @@ class DayZMapGUI(QWidget):
         )
         page.runJavaScript(css_js)
 
-        # Phase 2: JS — find the live Leaflet map and turn off animations
+        # Phase 2: JS — find the live Leaflet map, turn off animations,
+        # force devicePixelRatio=1 on the page, and install a
+        # requestAnimationFrame throttle that caps frame delivery at
+        # ~33fps. On software raster each frame costs roughly twice as
+        # much as on GPU, so halving the framerate roughly doubles the
+        # headroom without noticeably affecting pan/zoom feel (Leaflet
+        # drags still track the cursor because mousemove events are
+        # processed regardless of rAF rate).
         tune_js = r"""
         (function() {
             try {
-                // Leaflet attaches the map instance to the container's
-                // _leaflet_id; walk candidate containers and check for
-                // a .dragging control (unique to L.Map instances).
+                // ── rAF throttle: cap animation callbacks at ~33fps ──
+                // We don't monkey-patch requestAnimationFrame globally
+                // because iZurvive's non-map JS (menus, overlays) uses
+                // it too and we don't want to break those. Instead we
+                // wrap it so callbacks are coalesced to a 30ms window.
+                const origRaf = window.requestAnimationFrame;
+                const origCaf = window.cancelAnimationFrame;
+                const FRAME_MS = 30;  // ~33fps
+                let lastFrame = 0;
+                let pending = [];
+                let scheduled = false;
+                window.requestAnimationFrame = function(cb) {
+                    const id = Symbol('raf');
+                    pending.push({id: id, cb: cb});
+                    if (!scheduled) {
+                        scheduled = true;
+                        const now = performance.now();
+                        const wait = Math.max(0, FRAME_MS - (now - lastFrame));
+                        setTimeout(function() {
+                            lastFrame = performance.now();
+                            const batch = pending;
+                            pending = [];
+                            scheduled = false;
+                            origRaf.call(window, function(ts) {
+                                for (const item of batch) {
+                                    try { item.cb(ts); } catch(e) {}
+                                }
+                            });
+                        }, wait);
+                    }
+                    return id;
+                };
+                window.cancelAnimationFrame = function(id) {
+                    pending = pending.filter(function(p) { return p.id !== id; });
+                };
+
+                // ── devicePixelRatio override ──
+                // Force page-level DPR to 1. Leaflet uses this to pick
+                // tile sizes (retina 2× tiles vs 1× tiles); forcing 1
+                // halves the pixel work per tile.
+                try {
+                    Object.defineProperty(window, 'devicePixelRatio', {
+                        get: function() { return 1; },
+                        configurable: true
+                    });
+                } catch(e) {}
+
+                // ── Find + tune the live Leaflet map ──
                 function findMap() {
                     const candidates = document.querySelectorAll(
                         '.leaflet-container, [class*="leaflet"]'
@@ -455,7 +532,6 @@ class DayZMapGUI(QWidget):
                             }
                         }
                     }
-                    // Fallback: check window globals
                     for (const k of Object.keys(window)) {
                         const v = window[k];
                         if (v && v.dragging && v.getCenter && v.options
@@ -474,19 +550,30 @@ class DayZMapGUI(QWidget):
                         map.options.markerZoomAnimation = false;
                         map.options.inertia = false;
                         map.options.zoomSnap = 1;
-                        map.options.wheelDebounceTime = 60;
-                        map.options.wheelPxPerZoomLevel = 120;
-                        // Leaflet caches the animation flag internally
+                        map.options.wheelDebounceTime = 80;
+                        map.options.wheelPxPerZoomLevel = 140;
+                        map.options.preferCanvas = true;
                         map._fadeAnimated = false;
                         map._zoomAnimated = false;
-                        // Kill running transitions on tile layers
+
+                        // Tile layer tuning: don't update while dragging
+                        // or zooming; render from the keep-buffer. This
+                        // is the single biggest fluidity lever on
+                        // software raster — stops the browser from
+                        // decoding new tiles mid-drag.
                         map.eachLayer && map.eachLayer(function(layer) {
                             if (layer.options) {
                                 layer.options.updateWhenIdle = true;
                                 layer.options.updateWhenZooming = false;
-                                layer.options.keepBuffer = 4;
+                                layer.options.updateInterval = 400;
+                                layer.options.keepBuffer = 6;
                             }
                         });
+
+                        // Force an immediate invalidate so the new
+                        // options take effect without needing a pan.
+                        try { map.invalidateSize(false); } catch(e) {}
+
                         console.log('DupeZ: Leaflet perf tune applied');
                         return true;
                     } catch (e) {
@@ -495,15 +582,13 @@ class DayZMapGUI(QWidget):
                     }
                 }
 
-                // Retry loop — iZurvive builds the map async after
-                // load event. Six attempts over ~3s covers slow cases.
                 let attempts = 0;
-                const maxAttempts = 6;
+                const maxAttempts = 8;
                 function attempt() {
                     const map = findMap();
                     if (tune(map)) return;
                     if (++attempts < maxAttempts) {
-                        setTimeout(attempt, 500);
+                        setTimeout(attempt, 400);
                     } else {
                         console.warn('DupeZ: Leaflet map instance not found');
                     }
@@ -550,35 +635,30 @@ class DayZMapGUI(QWidget):
         )
         page.runJavaScript(css_js)
 
-        # Phase 2: JS — remove ad elements and watch for new ones.
+        # Phase 2: JS — remove ad elements via fixed-schedule sweeps.
         #
-        # PERF: iZurvive is a Leaflet tile map that swaps dozens of
-        # <img> tiles per pan/zoom frame. An unthrottled MutationObserver
-        # on document.body with subtree:true would fire hundreds of
-        # times per second and run 22 querySelectorAll sweeps per hit,
-        # grinding the map to a halt. So we:
-        #   1. Combine all selectors into a single comma-joined query
-        #      (one DOM walk instead of 22).
-        #   2. Debounce the observer callback to 250ms via requestIdle
-        #      + trailing timer.
-        #   3. Auto-disconnect the observer after 15s — ads are static
-        #      after initial load; we don't need to watch forever.
-        #   4. Drop the overlapping [500,1500,3000,5000] passes; the
-        #      debounced observer covers late-loading ads.
+        # PERF: we previously ran a debounced MutationObserver here.
+        # On software raster even a 250ms-debounced observer costs
+        # measurable CPU because each mutation event still allocates
+        # and runs through the JS dispatcher, and iZurvive's Leaflet
+        # can fire thousands of mutations per pan. Switched to a
+        # fixed schedule (initial + 1s + 3s + 8s) with no observer —
+        # iZurvive's ad layout is static after load, so watching
+        # forever just burns cycles. One combined-selector DOM walk
+        # per pass.
         selectors_js = ", ".join(f"'{s}'" for s in AD_SELECTORS)
         remove_js = f"""
         (function() {{
             try {{
                 const combinedSelector = [{selectors_js}].join(', ');
-                let removed = 0;
+                let totalRemoved = 0;
 
                 function removeAds() {{
-                    // Single DOM walk across all selectors
+                    let removed = 0;
                     document.querySelectorAll(combinedSelector).forEach(el => {{
                         el.remove();
                         removed++;
                     }});
-                    // Iframe sweep — cheap, ad iframes are rare
                     document.querySelectorAll('iframe').forEach(iframe => {{
                         const src = (iframe.src || '').toLowerCase();
                         if (src.includes('doubleclick') ||
@@ -589,34 +669,20 @@ class DayZMapGUI(QWidget):
                             removed++;
                         }}
                     }});
+                    totalRemoved += removed;
+                    return removed;
                 }}
 
-                // Initial sweep — before any mutations
+                // Fixed schedule: initial sweep then catches for
+                // late-loading ad scripts. No MutationObserver — the
+                // live pan/zoom work is too expensive to observe.
                 removeAds();
-
-                // Debounced observer — coalesces bursts of tile swaps
-                // into a single trailing sweep 250ms after the burst
-                // ends. Uses a flag + setTimeout instead of a rolling
-                // timer to avoid allocating a new closure per mutation.
-                let pending = false;
-                const debounced = () => {{
-                    if (pending) return;
-                    pending = true;
-                    setTimeout(() => {{ pending = false; removeAds(); }}, 250);
-                }};
-
-                const observer = new MutationObserver(debounced);
-                observer.observe(document.body, {{ childList: true, subtree: true }});
-
-                // Auto-disconnect after 15s — ads are static by then,
-                // and continuing to observe a live Leaflet map just
-                // burns CPU.
-                setTimeout(() => {{
-                    observer.disconnect();
-                    console.log('DupeZ: ad observer disconnected after 15s');
-                }}, 15000);
-
-                console.log('DupeZ: Ad-blocker active, initial removed=' + removed);
+                setTimeout(removeAds, 1000);
+                setTimeout(removeAds, 3000);
+                setTimeout(function() {{
+                    removeAds();
+                    console.log('DupeZ: ad-blocker complete, total removed=' + totalRemoved);
+                }}, 8000);
             }} catch (err) {{
                 console.error('DupeZ ad-blocker error:', err);
             }}
