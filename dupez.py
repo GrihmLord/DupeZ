@@ -25,6 +25,17 @@ os.environ.setdefault(
 )
 os.environ.setdefault("QT_OPENGL", "software")
 
+# Kill hi-DPI pixel doubling — on a 1440p/4K monitor with Windows display
+# scaling at 125-150%, QtWebEngine renders the iZurvive map at 1.25-1.5×
+# the native pixel count. On software raster that's a 1.5-2.25× CPU
+# multiplier on an already CPU-bound pipeline, and it's the single
+# biggest remaining fluidity win after all the DOM-layer fixes. Force
+# 1:1 DPR for the entire app — DupeZ's native Qt widgets look fine at
+# 1× because they're drawn from vector assets.
+os.environ.setdefault("QT_SCALE_FACTOR", "1")
+os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
+os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "0")
+
 # Ensure the project root is on sys.path so "app.*" imports resolve
 _root = os.path.dirname(os.path.abspath(__file__))
 if _root not in sys.path:
