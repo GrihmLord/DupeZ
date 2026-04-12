@@ -382,16 +382,35 @@ def get_device_info_safe(ip: str, local_ip: str) -> Optional[Dict]:
         mac = get_mac_address_safe(ip)
         vendor = get_vendor_info(mac) if mac else "Unknown"
 
+        # Resolve hostname through multiple channels. First real hit wins.
         hostname = "Unknown"
         try:
-            hostname = socket.getfqdn(ip)
-            if hostname == ip:
-                hostname = "Unknown"
+            name = socket.getfqdn(ip)
+            if name and name != ip and "." in name:
+                hostname = name
         except Exception:
             pass
+        if hostname == "Unknown":
+            try:
+                name = socket.gethostbyaddr(ip)[0]
+                if name and name != ip:
+                    hostname = name
+            except Exception:
+                pass
 
-        # Override vendor from hostname patterns
+        # Override vendor from hostname patterns BEFORE synthesizing a
+        # fallback, since HOSTNAME_VENDORS only matches real names.
         vendor = HOSTNAME_VENDORS.get(hostname.lower(), vendor)
+
+        # Final fallback: synthesize a readable label so the Hostname
+        # column is never blank/"Unknown" in the GUI. Uses the same
+        # helper as EnhancedNetworkScanner for consistent labels.
+        if not hostname or hostname == "Unknown":
+            try:
+                from app.network.enhanced_scanner import _synthesize_hostname
+                hostname = _synthesize_hostname(ip, mac or "", vendor or "")
+            except Exception:
+                hostname = f"device-{ip.replace('.', '-')}"
 
         device: Dict = {
             "ip": ip,

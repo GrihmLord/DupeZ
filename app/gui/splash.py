@@ -182,7 +182,25 @@ class DupeZSplash(QSplashScreen):
             pass  # Optional — profile may not exist yet
 
     def _init_windivert(self) -> None:
-        """Verify WinDivert DLL + SYS are present."""
+        """Verify WinDivert DLL + SYS are present.
+
+        In split mode, the GUI runs at Medium IL and MUST NOT try to
+        initialize the in-process disruption_manager — doing so will fail
+        because WinDivert requires admin, and failing here pollutes the
+        splash log with scary red "WinDivert engine: unavailable" lines
+        even though the helper (spawned later on first firewall op) will
+        actually own the engine. Just report "deferred" and move on.
+        """
+        try:
+            from app.firewall_helper.feature_flag import is_split_mode
+            if is_split_mode():
+                self._try_log_info(
+                    "WinDivert engine: deferred (split mode — helper owns engine)"
+                )
+                return
+        except Exception:
+            pass
+
         from app.firewall.clumsy_network_disruptor import disruption_manager
         if not disruption_manager._initialized:
             disruption_manager.initialize()

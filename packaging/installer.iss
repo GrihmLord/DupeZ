@@ -1,5 +1,5 @@
 ; ============================================================================
-; DupeZ v5.2 — Inno Setup Installer Script
+; DupeZ v5.3 — Inno Setup Installer Script
 ; ============================================================================
 ; This installer makes DupeZ show up in Windows "Installed Apps" / "Add or
 ; Remove Programs", supports clean uninstall, and creates Start Menu +
@@ -15,14 +15,20 @@
 ;     4. Registers in Add/Remove Programs with version, publisher, icon
 ;     5. When code-signed, passes SmartScreen immediately
 ;
-; BUILD:
-;   1. Build dupez.exe first:   pyinstaller dupez.spec --noconfirm
-;   2. Then compile installer:  iscc installer.iss
-;   Output: dist\DupeZ_v5.2.4_Setup.exe
+; BUILD (run from repo root):
+;   1. Build dupez.exe first:   pyinstaller packaging\dupez.spec --noconfirm
+;   2. Then compile installer:  iscc packaging\installer.iss
+;   Output: dist\DupeZ_v5.3.0_Setup.exe
+;
+; PATH NOTE:
+;   This .iss lives in packaging\, but every Source: path below
+;   (dist\dupez.exe, app\firewall\*.dll, etc.) is written relative to
+;   the repo root. SourceDir=.. tells Inno Setup to resolve all
+;   relative paths from packaging\..  = repo root.
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.2.4"
+#define MyAppVersion   "5.3.0"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -51,7 +57,10 @@ ArchitecturesAllowed=x64
 DisableProgramGroupPage=yes
 ; Allow user to upgrade without uninstalling first
 UsePreviousAppDir=yes
-; Output location and naming
+; Resolve all relative Source: paths from the repo root, even though
+; this .iss lives in packaging\. `..` = parent of the .iss file dir.
+SourceDir=..
+; Output location and naming (relative to SourceDir above)
 OutputDir=dist
 OutputBaseFilename=DupeZ_v{#MyAppVersion}_Setup
 ; Require admin (DupeZ needs admin for WinDivert)

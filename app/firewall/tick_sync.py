@@ -57,10 +57,10 @@ Modules:
 
 from __future__ import annotations
 
+import heapq
 import time
 import threading
-import statistics
-from collections import deque
+from collections import defaultdict, deque
 from typing import Dict
 
 from app.logs.logger import log_info
@@ -99,10 +99,29 @@ class TickEstimator:
         self._window_size = window_size
         self._min_samples = min_samples
 
-        # Sliding window of inter-arrival times (seconds)
-        self._iats: deque = deque(maxlen=window_size)
+        # Sliding window of inter-arrival times (seconds).
+        # Kept unbounded-by-deque to allow manual eviction so we can keep
+        # the streaming median heaps + running sums in sync.
+        self._iats: deque = deque()
         self._last_arrival: float = 0.0
         self._lock = threading.Lock()
+
+        # Streaming median state — two-heap with lazy deletion.
+        # _lo is a max-heap (values negated); _hi is a min-heap.
+        # Effective sizes exclude pending lazy deletions.
+        self._lo: list = []
+        self._hi: list = []
+        self._lo_size: int = 0
+        self._hi_size: int = 0
+        self._lo_delete: Dict[float, int] = defaultdict(int)
+        self._hi_delete: Dict[float, int] = defaultdict(int)
+
+        # Streaming variance state — running sum and sum-of-squares over
+        # the sliding window. variance = (sum_sq - n*mean^2) / (n-1).
+        # For IATs in [0.001, 0.5] and n<=120 the cancellation loss is
+        # ~2 decimal digits out of 15 — well within tolerance.
+        self._sum: float = 0.0
+        self._sum_sq: float = 0.0
 
         # Current estimate
         self.estimated_tick_hz: float = 0.0
@@ -126,38 +145,131 @@ class TickEstimator:
         """Last observed packet arrival timestamp (seconds)."""
         return self._last_arrival
 
+    # ── Streaming median helpers (two-heap, lazy deletion) ──────────────
+
+    def _median_prune_lo(self) -> None:
+        while self._lo:
+            top = -self._lo[0]
+            if self._lo_delete.get(top, 0) > 0:
+                heapq.heappop(self._lo)
+                self._lo_delete[top] -= 1
+                if self._lo_delete[top] == 0:
+                    del self._lo_delete[top]
+            else:
+                break
+
+    def _median_prune_hi(self) -> None:
+        while self._hi:
+            top = self._hi[0]
+            if self._hi_delete.get(top, 0) > 0:
+                heapq.heappop(self._hi)
+                self._hi_delete[top] -= 1
+                if self._hi_delete[top] == 0:
+                    del self._hi_delete[top]
+            else:
+                break
+
+    def _median_rebalance(self) -> None:
+        # |lo| must equal |hi| or |hi|+1
+        while self._lo_size > self._hi_size + 1:
+            self._median_prune_lo()
+            v = -heapq.heappop(self._lo)
+            self._lo_size -= 1
+            heapq.heappush(self._hi, v)
+            self._hi_size += 1
+        while self._hi_size > self._lo_size:
+            self._median_prune_hi()
+            v = heapq.heappop(self._hi)
+            self._hi_size -= 1
+            heapq.heappush(self._lo, -v)
+            self._lo_size += 1
+        self._median_prune_lo()
+        self._median_prune_hi()
+
+    def _median_add(self, v: float) -> None:
+        self._median_prune_lo()
+        if not self._lo or v <= -self._lo[0]:
+            heapq.heappush(self._lo, -v)
+            self._lo_size += 1
+        else:
+            heapq.heappush(self._hi, v)
+            self._hi_size += 1
+        self._median_rebalance()
+
+    def _median_remove(self, v: float) -> None:
+        self._median_prune_lo()
+        if self._lo and v <= -self._lo[0]:
+            self._lo_delete[v] += 1
+            self._lo_size -= 1
+        else:
+            self._hi_delete[v] += 1
+            self._hi_size -= 1
+        self._median_rebalance()
+
+    def _median_value(self) -> float:
+        total = self._lo_size + self._hi_size
+        if total == 0:
+            return 0.0
+        self._median_prune_lo()
+        if not self._lo:
+            return 0.0
+        if total % 2 == 1:
+            return -self._lo[0]
+        self._median_prune_hi()
+        if not self._hi:
+            return -self._lo[0]
+        return (-self._lo[0] + self._hi[0]) / 2.0
+
+    # ── Public API ─────────────────────────────────────────────────────
+
     def update(self, timestamp: float) -> None:
         """Record a packet arrival time and update the tick estimate."""
         with self._lock:
             if self._last_arrival > 0:
                 iat = timestamp - self._last_arrival
                 if self._iat_min <= iat <= self._iat_max:
+                    # Manual FIFO eviction so streaming state stays in sync
+                    if len(self._iats) >= self._window_size:
+                        old = self._iats.popleft()
+                        self._sum -= old
+                        self._sum_sq -= old * old
+                        self._median_remove(old)
                     self._iats.append(iat)
+                    self._sum += iat
+                    self._sum_sq += iat * iat
+                    self._median_add(iat)
             self._last_arrival = timestamp
 
             if len(self._iats) >= self._min_samples:
                 self._recompute()
 
     def _recompute(self) -> None:
-        """Recompute tick rate from current IAT window."""
-        iats = list(self._iats)
-        if len(iats) < self._min_samples:
+        """Recompute tick rate from current streaming window state.
+
+        O(1) amortized — median comes from the two-heap top, variance
+        from running sum and sum-of-squares. Lazy deletions may trigger
+        O(log n) heap prunes but those amortize away across the window.
+        """
+        n = len(self._iats)
+        if n < self._min_samples:
             return
 
-        median_iat = statistics.median(iats)
+        median_iat = self._median_value()
         if median_iat <= 0:
             return
 
-        # Tick rate = 1 / median_IAT
         hz = 1.0 / median_iat
         ms = median_iat * 1000.0
 
-        # Confidence based on coefficient of variation
-        # Low CV = consistent timing = high confidence
-        try:
-            stdev = statistics.stdev(iats)
-            cv = stdev / median_iat if median_iat > 0 else 1.0
-        except statistics.StatisticsError:
+        # Sample variance with Bessel's correction
+        if n >= 2:
+            mean = self._sum / n
+            var = (self._sum_sq - n * mean * mean) / (n - 1)
+            if var < 0.0:
+                var = 0.0  # clamp floating-point noise
+            stdev = var ** 0.5
+            cv = stdev / median_iat
+        else:
             cv = 1.0
 
         # Map CV to confidence: CV<0.3 → high, CV>1.0 → low

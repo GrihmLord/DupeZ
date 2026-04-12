@@ -244,20 +244,14 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "throttle_drop": True, "direction": "both",
         }
     },
-    "Heavy Lag": {
-        "description": "3s lag + 95% drop + 1KB/s cap — brutal sustained delay",
+    "Lag": {
+        "description": "Sustained lag + drop — tune with the Lag Delay / Drop % sliders (Light ~800ms/60% · Heavy ~3000ms/95%)",
         "methods": ["lag", "drop", "bandwidth"],
         "params": {
-            "lag_delay": 3000, "drop_chance": 95,
-            "bandwidth_limit": 1, "bandwidth_queue": 0,
-            "direction": "both",
-        }
-    },
-    "Light Lag": {
-        "description": "800ms lag + 60% drop — moderate disruption",
-        "methods": ["lag", "drop"],
-        "params": {
-            "lag_delay": 800, "drop_chance": 60,
+            # Mid-strength default between old Light Lag and Heavy Lag.
+            # Adjust lag_delay / drop_chance sliders to taste after selecting.
+            "lag_delay": 1500, "drop_chance": 80,
+            "bandwidth_limit": 2, "bandwidth_queue": 0,
             "direction": "both",
         }
     },
@@ -280,27 +274,6 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "direction": "both",
         }
     },
-    "God Mode Aggressive": {
-        "description": "Longer block + outbound hit duplication — maximum lethality",
-        "methods": ["godmode", "duplicate"],
-        "params": {
-            # GodModeModule v6 BIDIR: longer block = longer ghost window.
-            # 30% extra inbound drop during flush for harder freeze.
-            # Stagger 150ms for more time to process fresh positions.
-            "godmode_pulse": True,
-            "godmode_pulse_block_ms": 4000,   # 4s block per cycle
-            "godmode_pulse_flush_ms": 300,    # 300ms flush window
-            "godmode_flush_stagger_ms": 150,  # longer stagger for accuracy
-            "godmode_keepalive_interval_ms": 800,
-            "godmode_drop_inbound_pct": 30,   # drop 30% extra inbound
-            "godmode_flush_gamestate_keep": 3, # aggressive culling
-            # Duplicate module: outbound only — floods hit reports to server.
-            # Engine-level IP direction fix makes this work correctly now.
-            "duplicate_chance": 80, "duplicate_count": 5,
-            "duplicate_direction": "outbound",
-            "direction": "both",
-        }
-    },
     "Dupe Mode": {
         "description": "Total network blackout for item duplication — 100% drop, zero bandwidth, disconnect",
         "methods": ["disconnect", "drop", "bandwidth"],
@@ -314,21 +287,19 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "direction": "both",
         }
     },
-    "Desync": {
-        "description": "Packet flood + reorder — massive server desync",
-        "methods": ["lag", "duplicate", "ood"],
-        "params": {
-            "lag_delay": 800, "duplicate_chance": 90,
-            "duplicate_count": 15, "ood_chance": 80,
-            "direction": "both",
-        }
-    },
     "Custom": {
         "description": "Set your own parameters below",
         "methods": [],
         "params": {}
     }
 }
+
+
+# NOTE: Platform-specific presets (pc_local / ps5_hotspot / xbox_hotspot)
+# are no longer exposed in the GUI dropdown. They live in the game profile
+# JSON as internal tunings, and the backend auto-selects the correct one at
+# disrupt time based on target subnet, MAC OUI, hostname, and device_type.
+# See app/firewall/target_profile.py::resolve_target_profile.
 
 # ── Module definitions ──────────────────────────────────────────────
 # Each entry maps a disruption module key to its UI label, description,
@@ -1219,6 +1190,31 @@ class ClumsyControlView(QWidget):
             return list(self.selected_ips)
         return [self.selected_ip] if self.selected_ip else []
 
+    def _lookup_device_meta(self, ip: str) -> Dict[str, Optional[str]]:
+        """Return {mac, hostname, device_type} for *ip* from self.devices.
+
+        Used to thread auto-detection signals into the disrupt call so the
+        engine can resolve the correct platform profile. All fields default
+        to ``None`` when the device is not found or lacks the attribute.
+        """
+        for d in self.devices:
+            d_ip = d.ip if hasattr(d, "ip") else d.get("ip", "")
+            if d_ip != ip:
+                continue
+            def _field(key: str) -> Optional[str]:
+                if hasattr(d, key):
+                    v = getattr(d, key)
+                    return v if v else None
+                if isinstance(d, dict):
+                    return d.get(key) or None
+                return None
+            return {
+                "target_mac": _field("mac"),
+                "target_hostname": _field("hostname"),
+                "target_device_type": _field("device_type") or _field("vendor"),
+            }
+        return {"target_mac": None, "target_hostname": None, "target_device_type": None}
+
     def _get_active_methods(self) -> list:
         """Return checked module keys plus any preset-only methods.
 
@@ -1369,7 +1365,8 @@ class ClumsyControlView(QWidget):
         if self.controller:
             failed = []
             for ip in targets:
-                success = self.controller.disrupt_device(ip, methods, params)
+                meta = self._lookup_device_meta(ip)
+                success = self.controller.disrupt_device(ip, methods, params, **meta)
                 if success:
                     self._disruption_timers[ip] = time.time()
                     log_info(f"Disruption started on {_log_mask_ip(ip)}: methods={methods}")
@@ -1424,7 +1421,8 @@ class ClumsyControlView(QWidget):
 
         if delay == 0:
             for ip in targets:
-                self.controller.disrupt_device(ip, methods, params)
+                meta = self._lookup_device_meta(ip)
+                self.controller.disrupt_device(ip, methods, params, **meta)
                 self._disruption_timers[ip] = time.time()
 
             # Schedule auto-stop — use QTimer to stay on the GUI thread
@@ -1687,6 +1685,15 @@ class ClumsyControlView(QWidget):
         direction = params.get("direction", "both")
         self.dir_inbound.setChecked(direction in ("inbound", "both"))
         self.dir_outbound.setChecked(direction in ("outbound", "both"))
+
+        # Platform mode — JSON-backed platform presets (pc_local, ps5_hotspot,
+        # xbox_hotspot) carry _network_local so the NETWORK vs NETWORK_FORWARD
+        # layer is locked to the preset's intent. Presets that don't specify
+        # it leave the checkbox untouched so user intent survives.
+        if hasattr(self, "pc_local_check") and "_network_local" in params:
+            self.pc_local_check.blockSignals(True)
+            self.pc_local_check.setChecked(bool(params["_network_local"]))
+            self.pc_local_check.blockSignals(False)
 
         # Extra checkboxes (tamper_checksum, throttle_drop, etc.)
         # Reset to False when preset doesn't specify them, so they don't bleed

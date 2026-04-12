@@ -17,8 +17,8 @@
 
 VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=(5, 2, 4, 0),
-        prodvers=(5, 2, 4, 0),
+        filevers=(5, 3, 0, 0),
+        prodvers=(5, 3, 0, 0),
         mask=0x3F,
         flags=0x0,
         OS=0x40004,          # VOS_NT_WINDOWS32
@@ -33,12 +33,12 @@ VSVersionInfo(
                 [
                     StringStruct('CompanyName',      'DupeZ'),
                     StringStruct('FileDescription',  'DupeZ — Network Packet Interception Utility'),
-                    StringStruct('FileVersion',      '5.2.4.0'),
+                    StringStruct('FileVersion',      '5.3.0.0'),
                     StringStruct('InternalName',     'dupez'),
                     StringStruct('LegalCopyright',   'Copyright © 2024-2026 DupeZ. All rights reserved.'),
                     StringStruct('OriginalFilename', 'dupez.exe'),
                     StringStruct('ProductName',      'DupeZ'),
-                    StringStruct('ProductVersion',   '5.2.4.0'),
+                    StringStruct('ProductVersion',   '5.3.0.0'),
                 ],
             ),
         ]),
