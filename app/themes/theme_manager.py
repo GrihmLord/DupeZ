@@ -55,9 +55,17 @@ class ThemeManager(QObject):
                         self.theme_styles[theme_name] = f.read()
                     log_info(f"Loaded theme: {theme_name}")
                 else:
-                    log_error(f"Theme file not found: {filepath}")
+                    log_info(f"Theme file not found (will use dynamic): {filepath}")
             except Exception as e:
                 log_error(f"Error loading theme {theme_name}: {e}")
+
+        # Rainbow theme uses dynamic stylesheet generation — provide a
+        # minimal static fallback so apply_theme("rainbow") succeeds
+        # even when rainbow.qss doesn't exist on disk.
+        if "rainbow" not in self.theme_styles:
+            self.theme_styles["rainbow"] = self.create_rainbow_stylesheet(
+                self.generate_rainbow_colors()
+            )
 
     def get_available_themes(self) -> list: return list(self.theme_styles.keys())
     def get_current_theme(self) -> str: return self.current_theme
@@ -85,6 +93,11 @@ class ThemeManager(QObject):
                 self.current_theme = theme_name
                 log_info(f"Applied theme: {theme_name}")
                 self.theme_changed.emit(theme_name)
+
+                # Auto-start rainbow animation when rainbow theme is selected
+                if theme_name == "rainbow":
+                    self._ensure_rainbow_timer()
+
                 return True
             else:
                 log_error("No QApplication instance found")
@@ -94,6 +107,13 @@ class ThemeManager(QObject):
             log_error(f"Error applying theme {theme_name}: {e}")
             return False
 
+    def _ensure_rainbow_timer(self) -> None:
+        """Start the rainbow animation timer if not already running."""
+        if not self.rainbow_timer:
+            self.rainbow_timer = QTimer()
+            self.rainbow_timer.timeout.connect(self.update_rainbow_colors)
+            self.rainbow_timer.start(200)
+
     def start_rainbow_mode(self) -> None:
         """Start rainbow mode with dynamic color changes"""
         try:
@@ -101,10 +121,7 @@ class ThemeManager(QObject):
                 self.apply_theme("rainbow")
 
             # Start rainbow animation timer
-            if not self.rainbow_timer:
-                self.rainbow_timer = QTimer()
-                self.rainbow_timer.timeout.connect(self.update_rainbow_colors)
-                self.rainbow_timer.start(200)  # Update every 200ms (5 FPS) — sufficient for smooth color cycling without hammering Qt stylesheet engine
+            self._ensure_rainbow_timer()
 
             log_info("Rainbow mode started")
 
@@ -266,6 +283,20 @@ QPushButton {{
 QPushButton:hover {{ background-color: {bv}; border-color: {bh}; }}
 QPushButton:pressed {{ background-color: {bp}; }}
 QPushButton:disabled {{ background-color: {ba}; color: {ts}; border-color: {bd}; }}
+
+/* Sidebar nav buttons — keep fixed 40×40 transparent */
+QPushButton#nav_btn {{
+    background: transparent; border: none; border-radius: 10px;
+    padding: 0px; margin: 0px;
+    min-width: 40px; max-width: 40px; min-height: 40px; max-height: 40px;
+    font-size: 16px;
+}}
+QPushButton#nav_btn:hover {{ background: rgba(255, 255, 255, 0.08); }}
+QPushButton#nav_btn:checked {{
+    background: rgba(255, 255, 255, 0.12);
+    border-left: 3px solid {ap};
+    border-radius: 6px;
+}}
 
 /* Special Buttons */
 QPushButton#refresh_btn, QPushButton#smart_mode_btn {{ background-color: {ap}; border-color: {a2}; color: {bg}; }}

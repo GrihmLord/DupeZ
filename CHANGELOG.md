@@ -4,6 +4,45 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.4.0 — 2026-04-12 (Account Tracker Overhaul + UI Polish + Bug Fixes)
+
+Feature release focused on the Account Tracker, theme stability, and overall UI polish. The tracker is now a full-featured multi-account management tool with multi-select, context menus, status filter chips, notes, and improved bulk operations. Six bugs from v5.3.0 are fixed, and the Help panel and About dialog have been rewritten.
+
+### Added
+- **Account Tracker: Notes field.** New per-account `notes` column for private reminders, coordinates, or anything else. Stored, exported, and imported alongside all other fields.
+- **Account Tracker: Multi-select.** Ctrl+click and Shift+click to select multiple rows. Delete and status changes work on multi-selected rows.
+- **Account Tracker: Right-click context menu.** Edit, Duplicate, Set Status (submenu), and Delete — directly from the table. Works on single or multi-selected rows.
+- **Account Tracker: Quick-filter status chips.** One-click toggle buttons above the table to filter by Ready, Dead, Storage, Blood Infection, or Offline. Combines with the search bar.
+- **Account Tracker: Duplicate account.** Clone any account with auto-incrementing "(copy)" suffix.
+- **Account Tracker: Row numbering.** `#` column at position 0 for easy reference.
+- **Account Tracker: Last modified display.** Selecting an account shows its last-modified timestamp in the status bar.
+- **Account Tracker: Editable dropdowns.** Status and Station combos accept custom values beyond the preset list.
+- **Account Tracker: Upgraded bulk operations.** Scope by All / Selected / Filtered-by-Status. Operations: Change Status, Set Location, Clear Notes, Delete, Export Matching.
+- **Account Tracker: Export subset.** Bulk ops can export only the matching accounts to XLSX or CSV.
+- **GPU auto-detection fallback** in `feature_flag.py`. If no env var or compiled default is set, `get_arch()` probes for a discrete GPU and selects `split` or `inproc` accordingly.
+- **About dialog: ARCH row.** Dynamically displays whether the running build is Split or In-process.
+
+### Changed
+- **About dialog rewritten.** Broader tagline (no longer DayZ-specific), ARCH info row, condensed credits, "View on GitHub" + "Close" button pair, subtle cyan separators.
+- **Help panel rewritten.** All 11 sections updated with accurate content matching the actual codebase — keyboard shortcuts, troubleshooting messages, feature descriptions.
+- **Account dialog styled.** Dark-themed `_DIALOG_QSS`, better placeholder text, multi-line Notes input.
+- **Nav button layout hardened.** `_NAV_BTN_QSS` with explicit fixed 40×40 dimensions, `setObjectName("nav_btn")`, and `_reapply_nav_styles()` called after every theme switch.
+- **Rainbow theme auto-starts.** `apply_theme("rainbow")` now calls `_ensure_rainbow_timer()` so the animation begins immediately.
+- **Theme QSS files updated.** All four themes (dark, light, hacker, rainbow) include `QPushButton#nav_btn` rules with fixed dimensions.
+
+### Fixed
+- **"Engine unavailable no admin" status bar message.** `_BUILD_DEFAULT_ARCH` was `'inproc'` in the GPU variant; changed to `'split'`.
+- **Map slow despite GPU.** Same root cause — split arch wasn't defaulting correctly; GPU auto-detect fallback added.
+- **Theme switching breaks sidebar button layout.** App-level `QPushButton` stylesheet selectors were overriding widget-level inline styles. Fixed with `#nav_btn` object name and explicit re-application after theme change.
+- **Rainbow theme doesn't animate.** `apply_theme("rainbow")` loaded the static QSS but never started the animation timer. Now auto-starts.
+- **Overlapping sections in Clumsy Control.** Increased section spacing from 4px to 8px, added content margins.
+- **Settings dialog: return type annotation typo.** `_read_widgets_to_dict -> d` corrected to `-> dict`.
+- **Account Tracker: duplicate imports.** `_try_import_account` was appending to both `self.accounts` and `account_manager.accounts`. Now only appends to manager; local list refreshed after batch.
+- **Account Tracker: signal stacking.** `itemSelectionChanged.connect()` called every rebuild without disconnecting. Fixed with try/except disconnect-before-reconnect.
+- **Account Tracker: reference-sharing mutation.** `self.accounts = account_manager.accounts` shared the same list object. All assignments now use `.copy()`.
+
+---
+
 ## v5.3.0 — 2026-04-11 (Split-Elevation Architecture + Hardware Map + Preset Collapse)
 
 Minor release landing the ADR-0001 split-elevation architecture end-to-end, collapsing the preset taxonomy from 8 entries to 5, reorganizing packaging files into a dedicated `packaging/` subtree, beefing up hostname resolution in the scanner, and bundling zeroconf for real mDNS discovery. This is the first DupeZ release that ships **two user-facing binaries** from one codebase: `DupeZ-GPU.exe` (asInvoker, split-arch, hardware-rasterized map) and `DupeZ-Compat.exe` (requireAdministrator, legacy inproc, CPU-raster fallback).

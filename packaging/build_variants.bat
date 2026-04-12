@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.3.0"
+set "DUPEZ_VERSION=5.4.0"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build

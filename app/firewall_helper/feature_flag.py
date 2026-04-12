@@ -46,6 +46,26 @@ except Exception:
 _DEFAULT_ARCH = _COMPILED_DEFAULT
 
 
+def _detect_gpu_available() -> bool:
+    """Best-effort GPU detection — True if a discrete/integrated GPU is present.
+
+    Used to auto-select ``split`` mode when the build default is ambiguous,
+    so that QWebEngineView can use hardware rasterisation (which requires
+    the GUI process to run at Medium IL, not elevated).
+    """
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ["wmic", "path", "win32_videocontroller", "get", "name"],
+            timeout=5, stderr=subprocess.DEVNULL, text=True,
+        )
+        # Any line that isn't the header or blank means a GPU exists
+        lines = [l.strip() for l in out.splitlines() if l.strip() and l.strip().lower() != "name"]
+        return len(lines) > 0
+    except Exception:
+        return False
+
+
 def get_arch() -> str:
     """Return the active architecture mode, validated.
 
@@ -54,16 +74,32 @@ def get_arch() -> str:
       2. Compiled-in default from ``_build_default.py`` (set by
          build variant — split for DupeZ-GPU, inproc for
          DupeZ-Compat).
-      3. Hard fallback to ``inproc``.
+      3. GPU auto-detection: if a GPU is present, prefer ``split``
+         so the GUI runs at Medium IL and QWebEngineView can use
+         hardware rasterisation.
+      4. Hard fallback to ``inproc``.
 
     Never raises — feature-flag parsing must never prevent app
     startup.
     """
-    raw = os.environ.get(_ENV_VAR, _DEFAULT_ARCH).strip().lower()
-    if raw in _VALID_ARCHS:
-        return raw
-    # Silent fallback on bad input; controller can log if it cares.
-    return _DEFAULT_ARCH
+    # 1. Explicit environment override
+    env_val = os.environ.get(_ENV_VAR, "").strip().lower()
+    if env_val in _VALID_ARCHS:
+        return env_val
+
+    # 2. Compiled-in default
+    if _DEFAULT_ARCH in _VALID_ARCHS:
+        return _DEFAULT_ARCH
+
+    # 3. GPU auto-detection fallback
+    try:
+        if _detect_gpu_available():
+            return ARCH_SPLIT
+    except Exception:
+        pass
+
+    # 4. Hard fallback
+    return ARCH_INPROC
 
 
 def is_split_mode() -> bool:

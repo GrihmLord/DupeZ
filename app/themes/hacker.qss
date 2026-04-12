@@ -24,7 +24,15 @@ QLabel#logo_label { color: #00ffff; font-weight: 800; font-size: 17px; letter-sp
 
 /* ═══ SIDEBAR ═══ */
 QWidget#sidebar_rail { background-color: #111111; border-right: 1px solid #00ff00; }
-QPushButton.nav-button { background: transparent; border: none; border-radius: 0px; padding: 10px; margin: 4px 6px; }
+QPushButton#nav_btn {
+    background: transparent; border: none; border-radius: 0px;
+    padding: 0px; margin: 0px;
+    min-width: 40px; max-width: 40px; min-height: 40px; max-height: 40px;
+    font-size: 16px;
+}
+QPushButton#nav_btn:hover { background-color: rgba(0, 255, 0, 0.1); }
+QPushButton#nav_btn:checked { background-color: rgba(0, 255, 0, 0.15); border-left: 3px solid #00ff00; }
+QPushButton.nav-button { background: transparent; border: none; border-radius: 0px; padding: 0px; margin: 0px; min-width: 40px; max-width: 40px; min-height: 40px; max-height: 40px; }
 QPushButton.nav-button:hover { background-color: rgba(0, 255, 0, 0.1); }
 QPushButton.nav-button:checked { background-color: rgba(0, 255, 0, 0.15); border-left: 3px solid #00ff00; }
 

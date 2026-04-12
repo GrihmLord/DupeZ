@@ -725,7 +725,7 @@ class SettingsDialog(QDialog):
         if hasattr(s, 'whitelist') and s.whitelist:
             self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
 
-    def _read_widgets_to_dict(self) -> d:
+    def _read_widgets_to_dict(self) -> dict:
         """Read all widget values into a dict keyed by setting name."""
         d = {}
         for widget, key in self._widget_map():
@@ -791,8 +791,9 @@ class SettingsDialog(QDialog):
         return get_theme_manager()
 
     def on_theme_selected(self, theme_name: str) -> None:
+        """Apply theme immediately when the combo selection changes."""
         try:
-            self.update_theme_info()
+            self.apply_theme(theme_name)
         except Exception as e:
             log_error(f"Error handling theme selection: {e}")
 
