@@ -1,6 +1,6 @@
 # DupeZ v5.4.0
 
-Network disruption toolkit for DayZ. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
+Per-device network disruption toolkit. Scan your network, pick your targets, manipulate their packets. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
 Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, directional freezing, and inventory duplication. Includes AI auto-tuning, voice commands, scheduled disruptions, macro chains, live traffic monitoring, and a plugin system for community extensions.
 
@@ -96,9 +96,9 @@ Four-tab network intelligence toolkit: Live Traffic Monitor, Latency Overlay (fl
 
 Ad-free embedded iZurvive with two-layer ad blocking. Supports Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan.
 
-### Account Tracker
+### Account Tracker (v5.4.0)
 
-Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, search and filter, bulk operations, and per-account status tracking.
+Multi-account DayZ manager with full CRUD, XLSX/CSV import and export, and per-account status tracking. Features include: notes field per account, multi-select with right-click context menu (edit, duplicate, set status, delete), quick-filter status chips, duplicate account with auto-increment, row numbering, editable dropdown fields, last-modified timestamps, scoped bulk operations (all/selected/filtered), and filtered subset export.
 
 ### Getting Started Guide (v5.2.0)
 
@@ -302,6 +302,15 @@ docs/                                # Documentation
 ```
 
 ---
+
+## Architecture
+
+DupeZ supports two runtime architectures, selectable at build time:
+
+- **Split (GPU variant)** — Medium-integrity GUI process with an elevated helper subprocess for WinDivert operations. Launches via `asInvoker` manifest; UAC prompt only for the helper. Enables GPU-accelerated map rendering.
+- **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails.
+
+The active architecture is displayed in the About dialog as the ARCH field.
 
 ## Security Architecture
 
