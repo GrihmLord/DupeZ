@@ -300,6 +300,53 @@ changed in the status bar</li>
 </ul>
 """, False),
 
+    ("🔄 DUPE ENGINE v2 — SMART DUPLICATION", f"""
+<p style='color:{_TEXT}; font-size:12px;'>
+The Dupe Engine v2 replaces the old total-hard-cut approach with <b>selective
+packet filtering</b> designed for DayZ 1.29+ servers. Instead of dropping all
+traffic (which triggers freeze detection and disconnects), v2 classifies every
+packet and only blocks game-state replication while keeping your connection
+alive.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>How it works:</b> TCP, keepalives, and small acks
+always pass through. Only GAME_STATE and GAME_BULK packets (inventory/entity
+replication) are blocked. This creates a desync window where the server has
+applied your action but your client never receives the confirmation — the
+foundation for duplication.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Dupe Methods (presets in the dropdown):</b></p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b>Drop & Pick</b> — Drop an item, the outbound RPC reaches the server,
+then inbound state is blocked. Safest method, low detection risk</li>
+<li><b>Swap</b> — Initiate a swap between hands and container. Blocks state
+both directions to freeze the partial swap on the server</li>
+<li><b>Container</b> — Put item in a container. Inbound block prevents the
+client from seeing the server's confirmation of the transfer</li>
+<li><b>Rift</b> — Extended bidirectional state block with pulse cycling. Most
+aggressive — creates deep desync over multiple cycles</li>
+<li><b>Legacy</b> — Total hard cut (v1 fallback). Only for pre-1.27 servers.
+<b>Will disconnect you on modern servers</b></li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Graduated Restore:</b> When the cut ends, v2 doesn't
+just open the floodgates. It restores in 3 phases: keepalives first, then
+outbound game state in a drip-feed, then full open. This avoids reconnection
+spike detection.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Tick-Aligned Entry:</b> Optional — v2 can wait for
+the next server tick boundary before entering the cut, maximizing the chance
+that the RPC is processed before state replication is blocked.</p>
+
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
+<b style='color:{_AMBER};'>Tip:</b> Start with <b>Drop & Pick</b> — it has
+the highest success rate and lowest detection risk. If that doesn't work on
+your server, try <b>Rift</b> with 2 cycles.</p>
+""", False),
+
     ("📡 NETWORK TOOLS TAB", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
 A suite of diagnostic and monitoring tools for your connection:</p>

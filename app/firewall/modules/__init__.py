@@ -21,6 +21,7 @@ from app.firewall.modules.rst import RSTModule
 from app.firewall.modules.disconnect import DisconnectModule
 from app.firewall.modules.godmode import GodModeModule
 from app.firewall.modules.dupe_engine import DupeEngineModule
+from app.firewall.modules.dupe_engine_v2 import DupeEngineV2
 
 # Core module registry — maps method name strings to module classes.
 # Phase 1/3/7 modules (statistical_models, tick_sync, stealth) register
@@ -36,12 +37,13 @@ CORE_MODULE_MAP = {
     "rst":        RSTModule,
     "disconnect": DisconnectModule,
     "godmode":    GodModeModule,
-    "dupe":       DupeEngineModule,
+    "dupe":       DupeEngineV2,        # v2 is now the default dupe engine
+    "dupe_v1":    DupeEngineModule,    # legacy v1, deprecated
 }
 
 __all__ = [
     "DropModule", "LagModule", "DuplicateModule", "ThrottleModule",
     "CorruptModule", "BandwidthModule", "OODModule", "RSTModule",
-    "DisconnectModule", "GodModeModule", "DupeEngineModule",
+    "DisconnectModule", "GodModeModule", "DupeEngineModule", "DupeEngineV2",
     "CORE_MODULE_MAP",
 ]

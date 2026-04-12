@@ -1135,7 +1135,48 @@ class ClumsyNetworkDisruptor:
             #   - Uses NETWORK_FORWARD layer (ICS/hotspot forwarding)
             #   - addr.Outbound is always TRUE — use IP header parsing
             #   - Filter by device IP (target_ip IS the console/PC)
+            # WiFi same-network mode:
+            #   - Target is on same WiFi LAN but traffic doesn't route
+            #     through us. ARP spoof redirects traffic through us,
+            #     then NETWORK_FORWARD layer intercepts it.
             is_local = params.get("_network_local", False)
+
+            # ── ARP spoofing for WiFi same-network ────────────────
+            # If auto-detection says we need ARP spoofing, start it
+            # BEFORE opening WinDivert so traffic is already flowing
+            # through us when the FORWARD layer opens.
+            _arp_spoofer = None
+            needs_arp = (
+                _detection is not None
+                and getattr(_detection, "needs_arp_spoof", False)
+            )
+            if needs_arp:
+                try:
+                    from app.network.arp_spoof import ArpSpoofer
+                    log_info(
+                        f"[WiFi] Target {mask_ip(target_ip)} is on same "
+                        f"WiFi network — activating ARP spoofing to "
+                        f"redirect traffic through this machine"
+                    )
+                    _arp_spoofer = ArpSpoofer(target_ip=target_ip)
+                    if _arp_spoofer.start():
+                        log_info("[WiFi] ARP spoofing active — traffic "
+                                 "redirected, using NETWORK_FORWARD layer")
+                        # Force FORWARD layer — traffic now routes through us
+                        is_local = False
+                        params["_network_local"] = False
+                    else:
+                        log_error(
+                            "[WiFi] ARP spoofing failed to start. "
+                            "Falling back to NETWORK layer (limited "
+                            "effectiveness on WiFi same-network)."
+                        )
+                        _arp_spoofer = None
+                except ImportError:
+                    log_error("[WiFi] arp_spoof module not available")
+                except Exception as arp_err:
+                    log_error(f"[WiFi] ARP spoof error: {arp_err}")
+                    _arp_spoofer = None
 
             if target_ip and target_ip != "unknown":
                 filt_expr = (
@@ -1146,6 +1187,8 @@ class ClumsyNetworkDisruptor:
                 filt_expr = "true"
 
             mode_label = "PC-LOCAL (NETWORK)" if is_local else "REMOTE (NETWORK_FORWARD)"
+            if _arp_spoofer:
+                mode_label += " + ARP SPOOF"
             log_info(f"{'='*50}\nDISRUPTION START: {mask_ip(target_ip)}\n"
                      f"  mode={mode_label}  methods={methods}"
                      f"  direction={params.get('direction', 'both')}"
@@ -1209,6 +1252,7 @@ class ClumsyNetworkDisruptor:
                     "methods": methods,
                     "params": params,
                     "start_time": time.time(),
+                    "arp_spoofer": _arp_spoofer,
                 }
             log_info(f"DISRUPTION ACTIVE: {mask_ip(target_ip)} (PID={engine._proc.pid})")
             return True
@@ -1227,6 +1271,18 @@ class ClumsyNetworkDisruptor:
             engine = info.get("engine")
             if engine:
                 engine.stop()
+
+            # Stop ARP spoofing if active — restore real ARP entries
+            # and disable IP forwarding (if we enabled it).
+            arp_spoofer = info.get("arp_spoofer")
+            if arp_spoofer is not None:
+                try:
+                    arp_spoofer.stop()
+                    log_info(f"[WiFi] ARP spoofing stopped for "
+                             f"{mask_ip(target_ip)}")
+                except Exception as arp_err:
+                    log_error(f"[WiFi] ARP spoof cleanup error: {arp_err}")
+
             log_info(f"Disruption stopped: {mask_ip(target_ip)}")
             return True
         except Exception as e:

@@ -78,6 +78,43 @@
     }
   },
 
+  "dupe_engine_v2": {
+    "default_method": "drop_pick",
+    "cut_duration_ms": 5000,
+    "restore_duration_ms": 800,
+    "rpc_timeout_ms": 2000,
+    "keepalive_interval_ms": 800,
+    "cycle_count": 1,
+    "cycle_delay_ms": 3000,
+    "cooldown_ms": 1500,
+    "tick_align": true,
+    "stealth_jitter": true,
+    "rpc_burst_window_ms": 200,
+    "rpc_burst_min_packets": 2,
+    "graduated_restore_phases": {
+      "phase1_frac": 0.25,
+      "phase2_frac": 0.50,
+      "notes": "P1: keepalives+acks. P2: +outbound game drip-feed. P3: full open."
+    },
+    "outbound_queue_max": 10000,
+    "drip_per_tick": 5,
+    "method_overrides": {
+      "rift": {
+        "cut_duration_ms": 8000,
+        "keepalive_interval_ms": 600,
+        "restore_duration_ms": 1200,
+        "cycle_count": 2,
+        "cooldown_ms": 2000
+      },
+      "swap": {
+        "cut_duration_ms": 4000,
+        "rpc_timeout_ms": 1500,
+        "restore_duration_ms": 600
+      }
+    },
+    "notes": "DayZ 1.29+ dupe engine v2 defaults. Selective packet filtering keeps connection alive during cut. Tick-aligned entry for precision. Graduated restore prevents reconnection spike detection."
+  },
+
   "disruption_defaults": {
     "lag_delay_ms": 1500,
     "drop_chance_pct": 95,
@@ -252,6 +289,16 @@
       "nat_sensitivity": "low",
       "keepalive_interval_ms": 2000,
       "notes": "PC target on same machine or LAN. Use NETWORK layer (not FORWARD). No NAT concerns if local."
+    },
+    "wifi_same_network": {
+      "connection_method": "wifi_arp_spoof",
+      "gateway_subnet": null,
+      "interception_layer": "NETWORK_FORWARD",
+      "nat_sensitivity": "medium",
+      "keepalive_interval_ms": 800,
+      "requires_npcap": true,
+      "requires_arp_spoof": true,
+      "notes": "Target on same WiFi LAN (not hotspot). ARP spoofing redirects traffic through laptop, then NETWORK_FORWARD layer intercepts. Requires Npcap installed. IP forwarding enabled automatically."
     }
   }
 }

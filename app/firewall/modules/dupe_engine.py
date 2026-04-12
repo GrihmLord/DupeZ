@@ -1,4 +1,22 @@
-"""Dupe Engine — precise timed disconnect-reconnect for inventory duplication.
+"""Dupe Engine v1 — DEPRECATED.
+
+.. deprecated:: 5.5.0
+   Replaced by :mod:`app.firewall.modules.dupe_engine_v2` (DupeEngineV2).
+   V1 uses a total hard cut that drops ALL packets. This triggers DayZ
+   1.27+ freeze detection (sustained loss >15% over ~8s) and will
+   disconnect the player on modern servers. V2 uses selective packet
+   filtering that maintains connection health while blocking game-state
+   replication.
+
+   This module is retained only as the ``legacy`` fallback in V2's
+   ``DupeMethod.LEGACY`` profile for pre-1.27 servers.
+
+   **Do not use this module directly for DayZ 1.27+ servers.**
+
+Original docstring follows.
+─────────────────────────────
+
+Dupe Engine — precise timed disconnect-reconnect for inventory duplication.
 
 DayZ Inventory Duplication Mechanics
 ─────────────────────────────────────
@@ -73,6 +91,7 @@ from __future__ import annotations
 import enum
 import time
 import threading
+import warnings
 from typing import Callable, Dict, Optional
 
 from app.firewall.native_divert_engine import (
@@ -150,6 +169,13 @@ class DupeEngineModule(DisruptionModule):
     _direction_key: str = "dupe"
 
     def __init__(self, params: dict) -> None:
+        warnings.warn(
+            "DupeEngineModule (v1) is deprecated since DupeZ 5.5.0. "
+            "Use DupeEngineV2 for DayZ 1.27+ servers. V1 total hard cut "
+            "triggers freeze detection on modern servers.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(params)
         self.direction = DIR_BOTH
 

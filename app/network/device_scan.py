@@ -514,14 +514,31 @@ def scan_devices_full() -> List[Dict]:
 
 
 def get_network_info() -> Dict:
-    """Return basic local network information."""
+    """Return basic local network information.
+
+    Tries to resolve the real default gateway first (via ``arp_spoof``
+    module or system commands), falling back to ``.1`` assumption.
+    """
     try:
         local_ip = get_local_ip()
         network = ".".join(local_ip.split(".")[:-1])
+
+        # Try to get the real gateway instead of assuming .1
+        gateway = f"{network}.1"
+        try:
+            from app.network.arp_spoof import get_default_gateway
+            real_gw = get_default_gateway()
+            if real_gw:
+                gateway = real_gw
+        except ImportError:
+            pass  # arp_spoof module not installed — use .1 assumption
+        except Exception as gw_err:
+            log_error(f"Real gateway detection failed: {gw_err}")
+
         return {
             "local_ip": local_ip,
             "network": f"{network}.0/24",
-            "gateway": f"{network}.1",
+            "gateway": gateway,
         }
     except Exception as e:
         log_error(f"Failed to get network info: {e}")

@@ -99,9 +99,4 @@ echo   dist\DupeZ-Compat.exe  ^(requireAdministrator, inproc, legacy^)
 echo.
 echo  Ship BOTH on the release page. GPU is the default download;
 echo  Compat is the fallback for users whose Chromium GPU flags
-echo  don't survive even at Medium IL (blocklisted GPUs, ancient
-echo  drivers, locked-down corporate boxes).
-echo.
-
-popd
-endlocal
+echo  don't survive even at Me
