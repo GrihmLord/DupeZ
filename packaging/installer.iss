@@ -99,8 +99,12 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startmenu";   Description: "Create Start Menu shortcut"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-; Main executable (built by PyInstaller)
-Source: "dist\dupez.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Main executables (built by build_variants.bat)
+; GPU variant is the recommended default — installed as dupez.exe so
+; shortcuts, registry entries, and the updater all keep working.
+Source: "dist\DupeZ-GPU.exe"; DestDir: "{app}"; DestName: "dupez.exe"; Flags: ignoreversion
+; Compat variant ships alongside for users with blocklisted GPUs
+Source: "dist\DupeZ-Compat.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 ; Bundled firewall binaries (WinDivert, clumsy)
 Source: "app\firewall\*.dll"; DestDir: "{app}\app\firewall"; Flags: ignoreversion recursesubdirs
