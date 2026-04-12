@@ -64,13 +64,32 @@ QWidget#sidebar_rail {
     border-right: 1px solid rgba(30, 41, 59, 0.5);
 }
 
+QPushButton#nav_btn {
+    background-color: transparent;
+    border: none;
+    border-radius: 10px;
+    padding: 0px;
+    margin: 0px;
+    min-width: 40px; max-width: 40px;
+    min-height: 40px; max-height: 40px;
+    font-size: 16px;
+}
+QPushButton#nav_btn:hover {
+    background-color: rgba(0, 240, 255, 0.08);
+}
+QPushButton#nav_btn:checked {
+    background-color: rgba(0, 240, 255, 0.12);
+    border-left: 3px solid #00f0ff;
+    border-radius: 6px;
+}
 QPushButton.nav-button {
     background-color: transparent;
     border: none;
     border-radius: 10px;
-    padding: 10px;
-    margin: 4px 6px;
-    icon-size: 24px;
+    padding: 0px;
+    margin: 0px;
+    min-width: 40px; max-width: 40px;
+    min-height: 40px; max-height: 40px;
 }
 QPushButton.nav-button:hover {
     background-color: rgba(0, 240, 255, 0.08);

@@ -71,6 +71,20 @@ QPushButton:disabled {
     border-color: #404040;
 }
 
+/* Sidebar nav buttons — fixed size, transparent */
+QPushButton#nav_btn {
+    background: transparent; border: none; border-radius: 10px;
+    padding: 0px; margin: 0px;
+    min-width: 40px; max-width: 40px; min-height: 40px; max-height: 40px;
+    font-size: 16px;
+}
+QPushButton#nav_btn:hover { background: rgba(255, 255, 255, 0.08); }
+QPushButton#nav_btn:checked {
+    background: rgba(255, 255, 255, 0.12);
+    border-left: 3px solid #00ff00;
+    border-radius: 6px;
+}
+
 /* Special Button Styles */
 QPushButton#refresh_btn {
     background-color: #00ff00;
