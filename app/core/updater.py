@@ -9,17 +9,18 @@ API: https://api.github.com/repos/GrihmLord/DupeZ/releases/latest
 
 from __future__ import annotations
 
-import json
+import ctypes
 import os
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import webbrowser
 from pathlib import Path
-from typing import Callable, Dict, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 from urllib.error import URLError
-from urllib.request import Request, urlopen, urlretrieve
+from urllib.request import Request, urlopen
 
 from app.__version__ import __version__
 from app.logs.logger import log_error, log_info, log_warning
@@ -79,6 +80,83 @@ def _get_install_dir() -> Optional[Path]:
         return p if p.is_dir() else None
     except Exception:
         return None
+
+
+def _kill_dupez_processes(exclude_pid: Optional[int] = None) -> None:
+    """Kill all running DupeZ processes except *exclude_pid* (us).
+
+    DupeZ may be running elevated (High-IL) from the Compat variant or
+    the helper process.  A Medium-IL ``taskkill`` can't touch those, so
+    we first try a direct ``TerminateProcess`` via the Win32 API (which
+    works for same-elevation peers), then fall back to an elevated
+    ``taskkill /F`` via ShellExecuteW(runas) as a last resort.
+
+    This is intentionally best-effort: if a stray process can't be
+    killed, the Inno installer's ``/CLOSEAPPLICATIONS`` or a reboot
+    will mop it up.
+    """
+    if os.name != "nt":
+        return
+
+    my_pid = exclude_pid or os.getpid()
+    exe_names = {"dupez.exe", "dupez_helper.exe"}
+
+    # ── Collect target PIDs via tasklist ──────────────────────────
+    target_pids: List[int] = []
+    for exe in exe_names:
+        try:
+            out = subprocess.check_output(
+                ["tasklist", "/FI", f"IMAGENAME eq {exe}", "/FO", "CSV", "/NH"],
+                text=True, timeout=5, creationflags=0x08000000,  # CREATE_NO_WINDOW
+            )
+            for line in out.strip().splitlines():
+                parts = line.replace('"', "").split(",")
+                if len(parts) >= 2:
+                    try:
+                        pid = int(parts[1])
+                        if pid != my_pid:
+                            target_pids.append(pid)
+                    except ValueError:
+                        continue
+        except Exception:
+            continue
+
+    if not target_pids:
+        log_info("No other DupeZ processes found to kill before update.")
+        return
+
+    log_info(f"Killing DupeZ processes before update: {target_pids}")
+
+    # ── Phase 1: direct TerminateProcess (works for same-IL peers) ─
+    PROCESS_TERMINATE = 0x0001
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    remaining: List[int] = []
+    for pid in target_pids:
+        handle = kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
+        if handle:
+            ok = kernel32.TerminateProcess(handle, 1)
+            kernel32.CloseHandle(handle)
+            if ok:
+                log_info(f"  Terminated PID {pid} via TerminateProcess")
+                continue
+        remaining.append(pid)
+
+    if not remaining:
+        return
+
+    # ── Phase 2: elevated taskkill for High-IL processes ──────────
+    # Use ShellExecuteW(runas) so the UAC prompt fires only if needed.
+    pids_arg = " ".join(f"/PID {p}" for p in remaining)
+    try:
+        ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
+            None, "runas", "taskkill",
+            f"/F {pids_arg}", None, 0,  # SW_HIDE
+        )
+        # Give taskkill a moment to act
+        time.sleep(1.0)
+        log_info(f"  Elevated taskkill dispatched for PIDs {remaining}")
+    except Exception as exc:
+        log_warning(f"  Elevated taskkill failed: {exc} — installer will retry")
 
 
 class UpdateChecker:
@@ -271,6 +349,10 @@ class UpdateChecker:
                 except Exception:
                     pass  # ADS removal is best-effort
 
+                # Kill all other DupeZ processes so the installer can
+                # overwrite files without "Access is denied" errors.
+                _kill_dupez_processes(exclude_pid=os.getpid())
+
                 # Launch the installer (it will upgrade in-place thanks to
                 # same AppId and UsePreviousAppDir=yes in installer.iss)
                 log_info(f"Launching installer: {dest}")
@@ -281,6 +363,13 @@ class UpdateChecker:
 
                 if on_done:
                     on_done(True, dest)
+
+                # Give the callback a moment to fire (e.g. update UI),
+                # then exit this process so our own exe is unlocked for
+                # the installer to overwrite.
+                log_info("Exiting current process to release exe lock.")
+                time.sleep(0.5)
+                os._exit(0)
 
             except Exception as exc:
                 log_error(f"Update download failed: {exc}")
