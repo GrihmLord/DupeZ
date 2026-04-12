@@ -150,7 +150,38 @@ Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{{7E2F9
     ValueType: dword; ValueName: "EstimatedSize"; ValueData: "204800"; Flags: uninsdeletevalue
 
 [Code]
-// Strip Zone.Identifier (MOTW) from all files after extraction.
+// ── Force-kill DupeZ processes before file extraction ──────────────
+// PyInstaller one-file exes don't register with the Windows Restart
+// Manager, so CloseApplications=yes alone cannot close them. This
+// PrepareToInstall hook runs taskkill /F /IM to guarantee the exe is
+// unlocked before Inno tries to overwrite it.
+//
+// PrepareToInstall runs after the user clicks "Install" but before any
+// files are touched. Returning '' means "proceed"; returning a string
+// would abort with that error message.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Cmd: String;
+  ResultCode: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+
+  // Kill all dupez.exe instances (GPU, Compat, or legacy single-exe)
+  Cmd := ExpandConstant('{sys}\taskkill.exe');
+  Exec(Cmd, '/F /IM dupez.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // ResultCode 128 = "no such process" — that's fine
+  Log('PrepareToInstall: taskkill dupez.exe exited with code ' + IntToStr(ResultCode));
+
+  // Also kill the helper process if running
+  Exec(Cmd, '/F /IM dupez_helper.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('PrepareToInstall: taskkill dupez_helper.exe exited with code ' + IntToStr(ResultCode));
+
+  // Small delay to let Windows release file handles
+  Sleep(500);
+end;
+
+// ── Strip Zone.Identifier (MOTW) from all files after extraction ──
 procedure RemoveMOTW(const Dir: String);
 var
   FindRec: TFindRec;
