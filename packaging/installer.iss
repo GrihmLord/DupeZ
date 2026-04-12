@@ -121,8 +121,10 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Name: "{group}\Uninstall {#MyAppName}"; Filename: "{uninstallexe}"; Tasks: startmenu; Comment: "Remove DupeZ"
 
 [Run]
-; Option to launch after install
+; Launch after interactive install (checkbox on Finished page)
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent runascurrentuser
+; Launch after silent install (auto-update path) — no checkbox, just run
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait skipifdoesntexist runascurrentuser; Check: WizardSilent
 
 [Registry]
 ; ── App Paths — lets Windows find dupez.exe by name ──
