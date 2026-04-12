@@ -124,6 +124,10 @@ _TRAY_MENU_QSS: str = """
 _NAV_BTN_QSS: str = """
     QPushButton {
         background: transparent; border: none; border-radius: 10px;
+        padding: 0px; margin: 0px;
+        min-width: 40px; max-width: 40px;
+        min-height: 40px; max-height: 40px;
+        font-size: 16px;
     }
     QPushButton:hover { background: rgba(0, 240, 255, 0.08); }
     QPushButton:checked {
@@ -433,6 +437,8 @@ class DupeZDashboard(QMainWindow):
         btn.setFixedSize(40, 40)
         btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         btn.setFont(QFont("Segoe UI Emoji", 16))
+        btn.setObjectName("nav_btn")
+        btn.setProperty("class", "nav-button")
         btn.setStyleSheet(_NAV_BTN_QSS)
         return btn
 
@@ -622,11 +628,18 @@ class DupeZDashboard(QMainWindow):
 
     # ── Theme ───────────────────────────────────────────────────────
 
-    def _apply_theme(self) -> None:
-        """Load the dark theme, falling back to embedded QSS."""
+    def _apply_theme(self, theme_name: str = "dark") -> None:
+        """Load a theme by name, falling back to embedded QSS.
+
+        After applying the app-level stylesheet, re-applies the
+        sidebar nav button inline QSS so that broad ``QPushButton``
+        rules in theme files don't override the nav button layout.
+        """
         try:
             from app.themes.theme_manager import get_theme_manager
-            if get_theme_manager().apply_theme("dark"):
+            tm = get_theme_manager()
+            if tm.apply_theme(theme_name):
+                self._reapply_nav_styles()
                 return
         except Exception:
             pass
@@ -635,6 +648,17 @@ class DupeZDashboard(QMainWindow):
                 self.setStyleSheet(fh.read())
         except Exception:
             self.setStyleSheet(_FALLBACK_THEME_QSS)
+        self._reapply_nav_styles()
+
+    def _reapply_nav_styles(self) -> None:
+        """Re-apply inline QSS to sidebar nav buttons after a theme change.
+
+        This ensures that app-level QPushButton rules don't override
+        the fixed 40×40 transparent nav button styling.
+        """
+        if hasattr(self, "nav_buttons"):
+            for btn in self.nav_buttons:
+                btn.setStyleSheet(_NAV_BTN_QSS)
 
     # ── Menu bar ────────────────────────────────────────────────────
 
@@ -727,6 +751,14 @@ class DupeZDashboard(QMainWindow):
                         f"Scan complete \u2014 {len(devs)} devices", 3000,
                     ),
                 )
+            # Re-apply nav button styles whenever the global theme changes
+            try:
+                from app.themes.theme_manager import get_theme_manager
+                get_theme_manager().theme_changed.connect(
+                    lambda _name: self._reapply_nav_styles()
+                )
+            except Exception:
+                pass
         except Exception as exc:
             log_error(f"Signal connection error: {exc}")
 
@@ -869,13 +901,13 @@ class DupeZDashboard(QMainWindow):
         """Display the About dialog with credits and support info."""
         dlg = QDialog(self)
         dlg.setWindowTitle("About DupeZ")
-        dlg.setFixedSize(480, 520)
+        dlg.setFixedSize(480, 560)
         dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.FramelessWindowHint)
         dlg.setStyleSheet(_ABOUT_DLG_QSS)
 
         layout = QVBoxLayout(dlg)
-        layout.setSpacing(10)
-        layout.setContentsMargins(30, 25, 30, 25)
+        layout.setSpacing(8)
+        layout.setContentsMargins(30, 20, 30, 20)
 
         self._about_build_header(layout)
         self._about_build_info_block(layout)
@@ -884,16 +916,31 @@ class DupeZDashboard(QMainWindow):
 
         layout.addStretch()
 
-        # GitHub button
-        gh_btn = QPushButton("GitHub")
+        # ── Bottom button row: GitHub + Close ──
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        gh_btn = QPushButton("\u2728  View on GitHub")
         gh_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         gh_btn.setStyleSheet(_GH_BTN_QSS)
         gh_btn.clicked.connect(
             lambda: webbrowser.open("https://github.com/GrihmLord/DupeZ"),
         )
-        btn_row = QHBoxLayout()
+
+        done_btn = QPushButton("Close")
+        done_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        done_btn.setStyleSheet(
+            "QPushButton { background: rgba(255,255,255,0.06); color: #94a3b8;"
+            " border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;"
+            " padding: 10px 28px; font-weight: 600; font-size: 12px; }"
+            " QPushButton:hover { background: rgba(255,255,255,0.12);"
+            " color: #e2e8f0; }"
+        )
+        done_btn.clicked.connect(dlg.close)
+
         btn_row.addStretch()
         btn_row.addWidget(gh_btn)
+        btn_row.addWidget(done_btn)
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
@@ -903,31 +950,38 @@ class DupeZDashboard(QMainWindow):
 
     @staticmethod
     def _about_build_header(layout: QVBoxLayout) -> None:
-        """Close button, title, version, and separator."""
+        """Close button, title, version, tagline, and separator."""
+        # ── Close (×) button, top-right ──
         close_row = QHBoxLayout()
         close_row.addStretch()
         close_btn = QPushButton("\u2715")
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         close_btn.setStyleSheet(_CLOSE_BTN_QSS)
-        # close_btn will be connected below once we have dlg reference
-        # — but we can't here because this is static; caller handles it
         close_row.addWidget(close_btn)
         layout.addLayout(close_row)
 
+        # ── Title ──
         title = QLabel("DUPEZ")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
-            "color: #00d9ff; font-size: 28px; font-weight: 900; letter-spacing: 4px;"
+            "color: #00d9ff; font-size: 32px; font-weight: 900;"
+            " letter-spacing: 6px;"
         )
         layout.addWidget(title)
 
+        # ── Version pill ──
         version = QLabel(f"v{CURRENT_VERSION}")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        version.setStyleSheet("color: #64748b; font-size: 13px; font-weight: 600;")
+        version.setStyleSheet(
+            "color: #00d9ff; font-size: 11px; font-weight: 700;"
+            " letter-spacing: 2px;"
+        )
         layout.addWidget(version)
 
-        layout.addSpacing(8)
+        layout.addSpacing(6)
+
+        # ── Gradient separator ──
         sep = QLabel()
         sep.setFixedHeight(1)
         sep.setStyleSheet(
@@ -937,32 +991,43 @@ class DupeZDashboard(QMainWindow):
         layout.addWidget(sep)
         layout.addSpacing(8)
 
+        # ── Tagline ──
         desc = QLabel(
-            "Network disruption toolkit for DayZ.\n"
-            "Scan, target, disrupt \u2014 per-device packet manipulation."
+            "Per-device network disruption toolkit.\n"
+            "Scan your network, pick your targets, manipulate their packets."
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
         desc.setStyleSheet("color: #94a3b8; font-size: 12px; line-height: 1.5;")
         layout.addWidget(desc)
-        layout.addSpacing(12)
+        layout.addSpacing(10)
 
         # Wire close button to parent dialog
         close_btn.clicked.connect(layout.parentWidget().close)
 
     @staticmethod
     def _about_build_info_block(layout: QVBoxLayout) -> None:
-        """ENGINE / PLATFORM / RUNTIME rows."""
-        info_qss = "color: #64748b; font-size: 11px;"
+        """ENGINE / ARCH / PLATFORM / RUNTIME info rows."""
+        from app.firewall_helper.feature_flag import get_arch
+
+        arch = get_arch()
+        arch_label = (
+            "Split (GUI + elevated helper)"
+            if arch == "split"
+            else "In-process (single elevated)"
+        )
+
+        lbl_qss = "color: #475569; font-size: 10px; font-weight: 700; letter-spacing: 1px;"
         val_qss = "color: #e2e8f0; font-size: 11px; font-weight: 600;"
         for label_text, value_text in [
-            ("ENGINE", "Native WinDivert + Clumsy"),
-            ("PLATFORM", "Windows 10/11 (64-bit)"),
-            ("RUNTIME", "Python 3.10+ / PyQt6"),
+            ("ENGINE", "WinDivert + Clumsy core"),
+            ("ARCH", arch_label),
+            ("PLATFORM", "Windows 10 / 11 (x64)"),
+            ("RUNTIME", "Python 3.10+ \u00b7 PyQt6"),
         ]:
             row = QHBoxLayout()
             lbl = QLabel(label_text)
-            lbl.setStyleSheet(info_qss)
+            lbl.setStyleSheet(lbl_qss)
             lbl.setFixedWidth(90)
             val = QLabel(value_text)
             val.setStyleSheet(val_qss)
@@ -974,11 +1039,11 @@ class DupeZDashboard(QMainWindow):
     @staticmethod
     def _about_build_credits(layout: QVBoxLayout) -> None:
         """Credits section."""
-        _sec_qss = "color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;"
-        _sep_qss = "background: rgba(51, 65, 85, 0.5);"
+        _sec_qss = "color: #00d9ff; font-size: 10px; font-weight: 700; letter-spacing: 2px;"
+        _sep_qss = "background: rgba(0, 217, 255, 0.15);"
         _body_qss = "font-size: 12px; line-height: 1.6;"
 
-        layout.addSpacing(12)
+        layout.addSpacing(10)
         sep = QLabel()
         sep.setFixedHeight(1)
         sep.setStyleSheet(_sep_qss)
@@ -990,17 +1055,20 @@ class DupeZDashboard(QMainWindow):
         layout.addWidget(credits_title)
 
         credits_text = QLabel(
-            '<span style="color:#e2e8f0;">Built by</span> '
+            '<span style="color:#e2e8f0;">Created by</span> '
             '<a href="https://github.com/GrihmLord" '
-            'style="color:#00d9ff; text-decoration:none; font-weight:bold;">GrihmLord</a>'
-            "<br><br>"
-            '<span style="color:#94a3b8;">Standing on the shoulders of:</span><br>'
+            'style="color:#00d9ff; text-decoration:none; font-weight:bold;">'
+            "GrihmLord</a>"
+            "<br>"
+            '<span style="color:#64748b; font-size:11px;">'
+            "Built on the work of:</span><br>"
             '<a href="https://github.com/jagt/clumsy" '
             'style="color:#00d9ff; text-decoration:none;">Clumsy</a>'
-            ' <span style="color:#64748b;">by jagt (Chen Tao)</span><br>'
+            ' <span style="color:#475569;">\u2014 jagt (Chen Tao)</span>'
+            " &nbsp;\u00b7&nbsp; "
             '<a href="https://github.com/kalirenegade-dev/clumsy" '
             'style="color:#00d9ff; text-decoration:none;">Keybind Edition</a>'
-            ' <span style="color:#64748b;">by Kalirenegade</span>'
+            ' <span style="color:#475569;">\u2014 Kalirenegade</span>'
         )
         credits_text.setOpenExternalLinks(True)
         credits_text.setWordWrap(True)
@@ -1010,24 +1078,26 @@ class DupeZDashboard(QMainWindow):
     @staticmethod
     def _about_build_support(layout: QVBoxLayout) -> None:
         """Support / donation section."""
-        _sec_qss = "color: #00d9ff; font-size: 11px; font-weight: 700; letter-spacing: 2px;"
-        _sep_qss = "background: rgba(51, 65, 85, 0.5);"
+        _sec_qss = "color: #00d9ff; font-size: 10px; font-weight: 700; letter-spacing: 2px;"
+        _sep_qss = "background: rgba(0, 217, 255, 0.15);"
         _body_qss = "font-size: 12px; line-height: 1.6;"
 
-        layout.addSpacing(12)
+        layout.addSpacing(10)
         sep = QLabel()
         sep.setFixedHeight(1)
         sep.setStyleSheet(_sep_qss)
         layout.addWidget(sep)
         layout.addSpacing(8)
 
-        support_title = QLabel("SUPPORT THE PROJECT")
+        support_title = QLabel("SUPPORT")
         support_title.setStyleSheet(_sec_qss)
         layout.addWidget(support_title)
 
         support_text = QLabel(
-            '<span style="color:#94a3b8;">If you like DupeZ and want to show appreciation:</span><br>'
-            '<span style="color:#00ff88; font-size:14px; font-weight:bold;">CashApp: $YngTycoon</span>'
+            '<span style="color:#94a3b8;">DupeZ is free and open-source.</span><br>'
+            '<span style="color:#94a3b8;">If it saves you time, consider tipping:</span><br>'
+            '<span style="color:#00ff88; font-size:14px; font-weight:bold;">'
+            "CashApp: $YngTycoon</span>"
         )
         support_text.setWordWrap(True)
         support_text.setStyleSheet(_body_qss)

@@ -125,8 +125,8 @@ class CollapsibleCard(QWidget):
         self._parent_layout = parent_layout
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 4, 0, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(0, 2, 0, 2)
+        root.setSpacing(2)
 
         # Header row
         header_row = QHBoxLayout()
@@ -640,7 +640,8 @@ class ClumsyControlView(QWidget):
         # ── Collapsible sections container ──
         # All major sections go into this layout so they can be reordered.
         self._sections_layout = QVBoxLayout()
-        self._sections_layout.setSpacing(4)
+        self._sections_layout.setSpacing(8)
+        self._sections_layout.setContentsMargins(0, 4, 0, 4)
         right_layout.addLayout(self._sections_layout)
 
         self._section_preset = CollapsibleCard(
@@ -806,6 +807,7 @@ class ClumsyControlView(QWidget):
         # Action buttons
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(8)
+        btn_layout.setContentsMargins(0, 8, 0, 4)
 
         self.btn_disrupt = self._make_btn("DISRUPT", "#ff4444", "#1a0a0a", h=40)
         btn_layout.addWidget(self.btn_disrupt)

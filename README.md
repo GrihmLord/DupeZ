@@ -1,4 +1,4 @@
-# DupeZ v5.3.0
+# DupeZ v5.4.0
 
 Network disruption toolkit for DayZ. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
@@ -179,7 +179,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.3.0_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.4.0_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -189,7 +189,7 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.3.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
+Download `DupeZ_v5.4.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
