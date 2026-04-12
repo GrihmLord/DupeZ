@@ -958,15 +958,91 @@ class ClumsyNetworkDisruptor:
     # Core disruption
     def disconnect_device_clumsy(self, target_ip: str,
                                   methods: Optional[List[str]] = None,
-                                  params: Optional[Dict] = None) -> bool:
-        if methods is None:
-            methods = ["disconnect", "drop", "lag", "bandwidth", "throttle"]
-        if params is None:
-            # Load defaults from game profile config (eliminates hardcoded
-            # game-specific values). Falls back to inline defaults if the
-            # profile system is unavailable.
+                                  params: Optional[Dict] = None,
+                                  preset: Optional[str] = None,
+                                  target_mac: Optional[str] = None,
+                                  target_hostname: Optional[str] = None,
+                                  target_device_type: Optional[str] = None
+                                  ) -> bool:
+        """Start disruption against a target IP.
+
+        Args:
+            target_ip: Game server IP (PC-local) or device IP (FORWARD).
+            methods: Disruption methods to activate. If ``None``, the
+                default list is derived from ``preset`` (if given) or
+                falls back to the PC-local/FORWARD default method set.
+            params: Disruption parameter dict. If ``None``, built from
+                ``get_disruption_defaults("dayz")`` and — if ``preset``
+                is set — merged with that preset's values.
+            preset: Named preset from ``disruption_presets`` in the game
+                profile (``pc_local``, ``ps5_hotspot``, ``xbox_hotspot``).
+                If ``None`` and ``params`` is also ``None``, the profile
+                is auto-detected from ``target_ip`` + ``target_mac`` +
+                ``target_hostname`` + ``target_device_type`` via
+                ``target_profile.resolve_target_profile``. Explicit
+                values override everything.
+            target_mac: Optional MAC for auto-detection platform lookup.
+            target_hostname: Optional hostname fallback for detection.
+            target_device_type: Optional pre-tagged device type from
+                the network scanner (e.g. ``"PlayStation"``).
+        """
+        # ── Auto-detect profile if caller didn't pick one explicitly ───
+        # Runs whenever ``preset`` was not supplied. The detection result
+        # drives the layer (NETWORK vs NETWORK_FORWARD) decision and any
+        # preset-level tuning the user did not override via ``params``.
+        _detection = None
+        if preset is None:
             try:
-                from app.config.game_profiles import get_disruption_defaults
+                from app.firewall.target_profile import resolve_target_profile
+                _detection = resolve_target_profile(
+                    target_ip=target_ip,
+                    mac=target_mac,
+                    hostname=target_hostname,
+                    device_type=target_device_type,
+                )
+                preset = _detection.profile
+                log_info(
+                    f"[auto-detect] profile={_detection.profile} "
+                    f"layer={_detection.layer} platform={_detection.platform}"
+                )
+                for reason in _detection.reasons:
+                    log_info(f"[auto-detect]   {reason}")
+            except Exception as det_err:
+                log_error(
+                    f"[auto-detect] failed: {det_err} — "
+                    f"falling back to profile defaults"
+                )
+
+        # If caller already supplied params (GUI slider path), merge the
+        # detected preset's tunings in as *base* values — caller keys
+        # always win, so user slider overrides remain authoritative.
+        if params is not None and preset is not None:
+            try:
+                from app.config.game_profiles import get_disruption_preset
+                _preset_base = get_disruption_preset("dayz", preset)
+                if isinstance(_preset_base, dict):
+                    # Only fill keys the caller did NOT specify
+                    merged = dict(_preset_base)
+                    merged.update(params)
+                    params = merged
+                    # Ensure layer flag reflects detection regardless of
+                    # stale GUI checkbox state — the auto-detect whole
+                    # point is to remove manual layer decisions.
+                    if _detection is not None:
+                        params["_network_local"] = (_detection.layer == "local")
+                    log_info(
+                        f"[auto-detect] merged preset '{preset}' "
+                        f"into caller params (layer={'local' if params.get('_network_local') else 'forward'})"
+                    )
+            except Exception as merge_err:
+                log_error(f"[auto-detect] preset merge failed: {merge_err}")
+
+        # ── Resolve params from preset/defaults ─────────────────────────
+        if params is None:
+            try:
+                from app.config.game_profiles import (
+                    get_disruption_defaults, get_disruption_preset,
+                )
                 _profile = get_disruption_defaults("dayz")
                 params = {
                     "lag_delay": _profile.get("lag_delay_ms", 1500),
@@ -978,10 +1054,23 @@ class ClumsyNetworkDisruptor:
                     "throttle_frame": _profile.get("throttle_frame_ms", 400),
                     "throttle_drop": _profile.get("throttle_drop", True),
                     "direction": _profile.get("direction", "both"),
+                    "tick_sync_direction": _profile.get("tick_sync_direction", "inbound"),
+                    "pulse_direction": _profile.get("pulse_direction", "inbound"),
+                    "stealth_drop_direction": _profile.get("stealth_drop_direction", "inbound"),
+                    "stealth_lag_direction": _profile.get("stealth_lag_direction", "inbound"),
                     "godmode_lag_ms": _profile.get("godmode_lag_ms", 3000),
                     "godmode_drop_inbound_pct": _profile.get("godmode_drop_inbound_pct", 0),
                     "godmode_keepalive_interval_ms": _profile.get("godmode_keepalive_interval_ms", 800),
                 }
+                if preset:
+                    try:
+                        preset_params = get_disruption_preset("dayz", preset)
+                        params.update(preset_params)
+                        log_info(f"Applied disruption preset '{preset}' "
+                                 f"({len(preset_params)} keys)")
+                    except Exception as pe:
+                        log_error(f"Preset '{preset}' load failed: {pe} — "
+                                  f"using profile defaults")
             except Exception:
                 params = {
                     "lag_delay": 1500, "drop_chance": 95,
@@ -989,10 +1078,33 @@ class ClumsyNetworkDisruptor:
                     "bandwidth_limit": 1, "bandwidth_queue": 0,
                     "throttle_chance": 100, "throttle_frame": 400,
                     "throttle_drop": True, "direction": "both",
+                    "tick_sync_direction": "inbound",
+                    "pulse_direction": "inbound",
+                    "stealth_drop_direction": "inbound",
+                    "stealth_lag_direction": "inbound",
                     "godmode_lag_ms": 3000,
                     "godmode_drop_inbound_pct": 0,
                     "godmode_keepalive_interval_ms": 800,
                 }
+
+        # ── Resolve methods list ───────────────────────────────────────
+        # Preset-supplied methods win if the caller didn't pass any.
+        if methods is None:
+            preset_methods = params.get("methods")
+            if isinstance(preset_methods, list) and preset_methods:
+                methods = list(preset_methods)
+            else:
+                # Default method set depends on whether we're running
+                # PC-local or on the FORWARD layer. FORWARD-layer (PS5/Xbox
+                # over ICS hotspot) benefits from pulse+tick_sync+stealth
+                # because the 32-packet ack-redundancy ceiling means the
+                # original drop/lag/bandwidth/throttle combo can't reliably
+                # desync state without triggering the 1.27+ freeze system.
+                is_local_default = bool(params.get("_network_local", False))
+                if is_local_default:
+                    methods = ["drop", "lag", "bandwidth", "throttle"]
+                else:
+                    methods = ["pulse", "tick_sync", "stealth_drop", "lag"]
 
         try:
             if target_ip in self.disrupted_devices:
@@ -1038,6 +1150,18 @@ class ClumsyNetworkDisruptor:
                      f"  mode={mode_label}  methods={methods}"
                      f"  direction={params.get('direction', 'both')}"
                      f"  filter={filt_expr}\n{'='*50}")
+
+            # FORWARD-layer cannot originate keepalives on the device's
+            # behalf — the local Windows stack can't forge the device's
+            # NAT binding without ICS cooperation. Surface this once so
+            # nobody wastes time tuning godmode_keepalive_interval_ms on
+            # PS5/Xbox targets.
+            if not is_local and "godmode" in methods:
+                log_info(
+                    "FORWARD-layer keepalive injection is a no-op — "
+                    "local stack cannot forge device NAT bindings. "
+                    "godmode_keepalive_interval_ms ignored in this mode."
+                )
 
             clumsy_dir = self._get_clumsy_dir()
             eng_params = dict(params)
@@ -1200,9 +1324,14 @@ class ClumsyNetworkDisruptor:
         """Deactivate the manager, stopping all disruptions."""
         self.stop_clumsy()
 
-    def disrupt_device(self, ip, methods=None, params=None) -> disconnect_device_clumsy:
-        """Start disruption on *ip*."""
-        return self.disconnect_device_clumsy(ip, methods, params)
+    def disrupt_device(self, ip, methods=None, params=None, **kwargs) -> disconnect_device_clumsy:
+        """Start disruption on *ip*.
+
+        ``**kwargs`` are forwarded to ``disconnect_device_clumsy`` and may
+        include ``target_mac``, ``target_hostname``, ``target_device_type``
+        for profile auto-detection, or ``preset`` for explicit override.
+        """
+        return self.disconnect_device_clumsy(ip, methods, params, **kwargs)
 
     def stop_device(self, ip) -> reconnect_device_clumsy:
         """Stop disruption on *ip*."""

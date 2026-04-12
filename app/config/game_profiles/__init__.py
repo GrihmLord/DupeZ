@@ -19,11 +19,17 @@ __all__ = [
     "get_ports",
     "get_default_port",
     "get_disruption_defaults",
+    "get_disruption_preset",
+    "list_disruption_presets",
     "get_platform_config",
     "get_classification_config",
     "get_tick_model",
     "reload_profile",
 ]
+
+
+class PresetNotFoundError(KeyError):
+    """Raised when a named disruption preset is not defined in the game profile."""
 _cache: Dict[str, Dict] = {}
 
 
@@ -76,6 +82,41 @@ def get_default_port(game: str = "dayz") -> int:
 def get_disruption_defaults(game: str = "dayz") -> Dict[str, Any]:
     """Return the disruption parameter defaults for the game."""
     return dict(get(game, "disruption_defaults", default={}))
+
+
+def list_disruption_presets(game: str = "dayz") -> list:
+    """Return the names of all disruption presets defined in the profile.
+
+    Returns an empty list if no ``disruption_presets`` section exists.
+    """
+    presets = get(game, "disruption_presets", default={})
+    return list(presets.keys()) if isinstance(presets, dict) else []
+
+
+def get_disruption_preset(game: str, preset: str) -> Dict[str, Any]:
+    """Return a named disruption preset merged over ``disruption_defaults``.
+
+    The merge order is::
+
+        disruption_defaults  <  disruption_presets.<preset>
+
+    so preset values override defaults but inherit anything the preset
+    doesn't specify.
+
+    Raises:
+        PresetNotFoundError: the preset is not defined for this game.
+    """
+    defaults = get_disruption_defaults(game)
+    presets = get(game, "disruption_presets", default={})
+    if not isinstance(presets, dict) or preset not in presets:
+        available = list(presets.keys()) if isinstance(presets, dict) else []
+        raise PresetNotFoundError(
+            f"preset {preset!r} not found in {game} profile "
+            f"(available: {available})"
+        )
+    merged = dict(defaults)
+    merged.update(presets[preset])
+    return merged
 
 
 def get_platform_config(game: str, platform: str) -> Dict[str, Any]:

@@ -165,20 +165,37 @@ class AppState:
     # ── Device management ─────────────────────────────────────────
 
     def update_devices(self, devices: List[Dict[str, Any]]) -> None:
-        """Replace the device list from scan results."""
-        new_devices = [
-            Device(
-                ip=d.get("ip", ""),
-                mac=d.get("mac", "Unknown"),
-                vendor=d.get("vendor", "Unknown"),
-                hostname=d.get("hostname", ""),
+        """Replace the device list from scan results.
+
+        If a device dict arrives with a missing/blank/"Unknown" hostname
+        — e.g. from a cache loaded before the hostname-enrichment pass
+        landed, or from a third-party plugin that builds devices by
+        hand — we synthesize a readable fallback here so the GUI column
+        is never empty. The synthesis mirrors the scanner's fallback
+        rules (vendor slug + MAC suffix).
+        """
+        new_devices = []
+        for d in devices:
+            ip = d.get("ip", "")
+            mac = d.get("mac", "Unknown")
+            vendor = d.get("vendor", "Unknown")
+            hostname = d.get("hostname", "") or ""
+            if not hostname or hostname == "Unknown":
+                try:
+                    from app.network.enhanced_scanner import _synthesize_hostname
+                    hostname = _synthesize_hostname(ip, mac, vendor)
+                except Exception:
+                    hostname = f"device-{ip.replace('.', '-')}" if ip else "device-unknown"
+            new_devices.append(Device(
+                ip=ip,
+                mac=mac,
+                vendor=vendor,
+                hostname=hostname,
                 local=d.get("local", False),
                 traffic=d.get("traffic", 0),
                 last_seen=datetime.now().isoformat(),
                 blocked=d.get("blocked", False),
-            )
-            for d in devices
-        ]
+            ))
 
         with self._lock:
             self.devices = new_devices

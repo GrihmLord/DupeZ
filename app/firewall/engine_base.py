@@ -153,11 +153,17 @@ class DisruptionManagerBase(ABC):
     @abstractmethod
     def disrupt_device(self, ip: str,
                        methods: Optional[List[str]] = None,
-                       params: Optional[Dict] = None) -> bool:
+                       params: Optional[Dict] = None,
+                       **kwargs) -> bool:
         """Start disruption on a target IP.
 
         If the device is already disrupted, the existing disruption is
         stopped and replaced with the new configuration.
+
+        Additional ``**kwargs`` (``target_mac``, ``target_hostname``,
+        ``target_device_type``) may be supplied to support auto-detection
+        of the appropriate disruption profile at the engine layer.
+
         Returns True if disruption was started successfully.
         """
 

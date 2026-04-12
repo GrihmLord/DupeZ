@@ -3,12 +3,12 @@
           xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
 
   <assemblyIdentity
-      version="5.2.4.0"
+      version="5.3.0.0"
       processorArchitecture="amd64"
-      name="DupeZ.NetworkTool"
+      name="DupeZ.NetworkTool.Compat"
       type="win32" />
 
-  <description>DupeZ — Network Packet Interception Utility</description>
+  <description>DupeZ (Compat) — Network Packet Interception Utility</description>
 
   <!-- ── Common Controls v6 (modern themed widgets) ── -->
   <dependency>
@@ -23,7 +23,18 @@
     </dependentAssembly>
   </dependency>
 
-  <!-- ── Execution level: require administrator ── -->
+  <!-- ── Execution level: requireAdministrator (Compat build) ──
+       The Compat variant runs the entire application in a single
+       admin-elevated process, identical to shipping builds prior
+       to ADR-0001. WinDivert + netsh run directly in-process; the
+       embedded iZurvive map falls through to software raster
+       because Chromium's GPU process refuses to start under an
+       admin token. This build exists for users on blocklisted
+       GPUs or who cannot tolerate the helper auto-spawn flow.
+
+       Users who want the smooth GPU-accelerated map should run
+       DupeZ-GPU.exe instead, which ships with an asInvoker
+       manifest and spawns the elevated helper on demand. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
@@ -35,13 +46,9 @@
   <!-- ── OS compatibility — prevents Windows from applying shims ── -->
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
     <application>
-      <!-- Windows 11 / Windows Server 2022 -->
       <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
-      <!-- Windows 8.1 / Windows Server 2012 R2 -->
       <supportedOS Id="{1f676c76-80e1-4239-95bb-83d0f6d0da78}" />
-      <!-- Windows 8 / Windows Server 2012 -->
       <supportedOS Id="{4a2f28e3-53b9-4441-ba9c-d69d4a4a6e38}" />
-      <!-- Windows 7 / Windows Server 2008 R2 -->
       <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}" />
     </application>
   </compatibility>

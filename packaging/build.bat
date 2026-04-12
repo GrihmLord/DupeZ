@@ -1,11 +1,17 @@
 @echo off
 setlocal
 
+:: ── Run from repo root regardless of where this .bat lives ──────────
+:: This script lives in packaging\. All downstream commands
+:: (pip install -r requirements.txt, dist\dupez.exe paths, Inno Setup)
+:: expect the cwd to be the repo root, so pushd one level up.
+pushd "%~dp0.."
+
 :: ── Version ─────────────────────────────────────────────────────────
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.2.4"
+set "DUPEZ_VERSION=5.3.0"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
 
 echo ============================================
@@ -37,7 +43,7 @@ echo [1/4] Building dupez.exe ...
 :: Remove stale exe so a failed build can't masquerade as success
 if exist "dist\dupez.exe" del /q "dist\dupez.exe"
 :: Invoke via `python -m` to avoid PATH issues with user-site Scripts dir
-python -m PyInstaller dupez.spec --noconfirm
+python -m PyInstaller packaging\dupez.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — PyInstaller returned an error.
@@ -100,7 +106,7 @@ if errorlevel 1 (
     goto :skip_installer
 )
 
-iscc installer.iss
+iscc packaging\installer.iss
 if errorlevel 1 (
     echo       WARNING: Installer build failed.
     goto :skip_installer
@@ -165,4 +171,10 @@ echo  The installer strips MOTW and installs to Program Files,
 echo  which avoids Application Control / SmartScreen blocks.
 echo.
 echo  For zero SmartScreen warnings, code-sign with:
-echo    set DUPEZ_SIGN_CE
+echo    set DUPEZ_SIGN_CERT=path\to\cert.pfx
+echo    set DUPEZ_SIGN_PASS=your_password
+echo.
+
+popd
+endlocal
+pause

@@ -112,7 +112,11 @@ _GAME_STATE_PAYLOAD_MAX = 760    # Position, entity replication
 
 
 def _parse_ipv4_addrs(packet_data: bytearray) -> Tuple[str, str]:
-    """Extract (src_ip, dst_ip) from an IPv4 packet header."""
+    """Extract (src_ip, dst_ip) from an IPv4 packet header.
+
+    Retained for diagnostics/logging only. The hot path uses
+    :func:`_ipv4_addrs_u32` to avoid per-packet string allocations.
+    """
     if len(packet_data) < 20:
         return ("", "")
     version = (packet_data[0] >> 4) & 0xF
@@ -121,6 +125,30 @@ def _parse_ipv4_addrs(packet_data: bytearray) -> Tuple[str, str]:
     src = socket.inet_ntoa(packet_data[12:16])
     dst = socket.inet_ntoa(packet_data[16:20])
     return (src, dst)
+
+
+def _ipv4_addrs_u32(packet_data: bytearray) -> Tuple[int, int]:
+    """Zero-allocation extraction of IPv4 (src, dst) as u32 ints.
+
+    Returns ``(0, 0)`` for non-IPv4 or undersized packets so the caller
+    can treat "no match" the same as "unrelated traffic". This path runs
+    once per packet (100-400 pps for PS5 DayZ) so it must not allocate.
+    """
+    if len(packet_data) < 20 or (packet_data[0] >> 4) & 0xF != 4:
+        return (0, 0)
+    src_u32 = (
+        (packet_data[12] << 24)
+        | (packet_data[13] << 16)
+        | (packet_data[14] << 8)
+        | packet_data[15]
+    )
+    dst_u32 = (
+        (packet_data[16] << 24)
+        | (packet_data[17] << 16)
+        | (packet_data[18] << 8)
+        | packet_data[19]
+    )
+    return (src_u32, dst_u32)
 
 
 def _classify_packet(packet_data: bytearray, is_target: bool = False) -> Tuple[PktClass, int, int, int]:
@@ -272,6 +300,16 @@ class GodModeModule(DisruptionModule):
         if not self._target_ip:
             log_error("GodMode: _target_ip not set! Direction detection "
                       "will fail — all packets will pass through.")
+
+        # Precomputed u32 form of target for zero-allocation hot-path
+        # direction matching. 0 means "unset" → process() short-circuits.
+        self._target_ip_u32: int = 0
+        try:
+            if self._target_ip:
+                self._target_ip_u32 = int.from_bytes(
+                    socket.inet_aton(self._target_ip), "big")
+        except OSError:
+            self._target_ip_u32 = 0
 
         profile_defaults = self._load_profile_defaults()
 
@@ -589,20 +627,30 @@ class GodModeModule(DisruptionModule):
         TCP and keepalives pass through always. During FLUSH, both queues
         drain with GAME_STATE culling.
         """
-        src_ip, dst_ip = _parse_ipv4_addrs(packet_data)
+        # Zero-allocation direction detection — u32 int compare, no
+        # per-packet inet_ntoa string churn. At PS5 DayZ rates (100-400 pps)
+        # this eliminates ~400 string allocations/sec from the hot path,
+        # which directly helps tick-aligned drop timing precision.
+        src_u32, dst_u32 = _ipv4_addrs_u32(packet_data)
+        target_u32 = self._target_ip_u32
+
+        if target_u32 == 0:
+            # No target set → bail before classification
+            self._unrelated_passed += 1
+            return False
 
         if self._is_local:
             # PC-local: _target_ip is the game SERVER IP.
             #   dst == server → outbound (local → server)
             #   src == server → inbound  (server → local)
-            is_outbound = (dst_ip == self._target_ip)
-            is_inbound = (src_ip == self._target_ip)
+            is_outbound = (dst_u32 == target_u32)
+            is_inbound = (src_u32 == target_u32)
         else:
             # Remote (console/PC over hotspot): _target_ip is the DEVICE IP.
             #   src == device → outbound (device → server)
             #   dst == device → inbound  (server → device)
-            is_inbound = (dst_ip == self._target_ip)
-            is_outbound = (src_ip == self._target_ip)
+            is_inbound = (dst_u32 == target_u32)
+            is_outbound = (src_u32 == target_u32)
 
         # Not our target's traffic → pass through
         if not is_inbound and not is_outbound:

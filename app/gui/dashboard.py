@@ -36,7 +36,7 @@ from PyQt6.QtWidgets import (
 from app.core.updater import CURRENT_VERSION
 from app.gui.clumsy_control import ClumsyControlView
 from app.gui.dayz_account_tracker import DayZAccountTracker
-from app.gui.dayz_map_gui_new import DayZMapGUI
+from app.gui.dayz_map_gui_new import DayZMapGUI, consume_prewarmed_map_gui
 from app.gui.network_tools import NetworkToolsView
 from app.gui.panels.help_panel import HelpPanel
 from app.gui.settings_dialog import SettingsDialog
@@ -406,7 +406,10 @@ class DupeZDashboard(QMainWindow):
         # Stacked views
         self.view_stack = QStackedWidget()
         self.clumsy_view = ClumsyControlView(controller=self.controller)
-        self.map_view = DayZMapGUI()
+        # Adopt the splash-prewarmed map widget if main.py built one.
+        # Fallback to a cold construction so dashboard still builds
+        # cleanly when prewarm was skipped or failed.
+        self.map_view = consume_prewarmed_map_gui() or DayZMapGUI()
         self.accounts_view = DayZAccountTracker()
         self.nettools_view = NetworkToolsView(controller=self.controller)
         self.help_view = HelpPanel()

@@ -7,7 +7,7 @@ to devices on the network. Demonstrates the UIPanelPlugin API.
 import subprocess
 import threading
 import time
-from typing import Dict
+from typing import Any, Dict
 
 from app.plugins.base import UIPanelPlugin
 
