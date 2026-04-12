@@ -450,6 +450,7 @@ class ClumsyControlView(QWidget):
         # Header
         header = QHBoxLayout()
         title = QLabel("NETWORK DEVICES")
+        title.setMinimumWidth(120)
         title.setStyleSheet(
             "font-size: 13px; font-weight: 800; color: #00f0ff;"
             " letter-spacing: 2px;")
@@ -889,10 +890,15 @@ class ClumsyControlView(QWidget):
         right_layout.addStretch()
         right_scroll.setWidget(right)
 
-        # Splitter setup
+        # Splitter setup — enforce minimum widths so neither panel
+        # collapses into an unreadable sliver.
+        left.setMinimumWidth(320)
+        right_scroll.setMinimumWidth(300)
         splitter.addWidget(left)
         splitter.addWidget(right_scroll)
         splitter.setSizes([500, 400])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 1)
         splitter.setStyleSheet(
             "QSplitter::handle { background: rgba(0,240,255,0.06); width: 1px; }"
             " QSplitter::handle:hover { background: rgba(0,240,255,0.2); }"
