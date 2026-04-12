@@ -274,16 +274,70 @@ PRESETS: Dict[str, Dict[str, Any]] = {
             "direction": "both",
         }
     },
-    "Dupe Mode": {
-        "description": "Total network blackout for item duplication — 100% drop, zero bandwidth, disconnect",
-        "methods": ["disconnect", "drop", "bandwidth"],
+    "Dupe: Drop & Pick": {
+        "description": "Smart selective cut — drop item, RPC sends, inbound state blocked. Connection stays alive (v2)",
+        "methods": ["dupe"],
         "params": {
-            # Unlike Red Disconnect (95% drop + lag for combat), Dupe Mode
-            # is a TOTAL bidirectional blackout. No lag (pointless when
-            # dropping everything), no throttle (nothing to throttle).
-            # Pure hard cut for triggering DayZ inventory rollback.
-            "drop_chance": 100,
-            "bandwidth_limit": 0, "bandwidth_queue": 0,
+            # Dupe Engine v2 — selective packet filtering. Only blocks
+            # GAME_STATE/GAME_BULK inbound while keepalives + TCP pass.
+            # Replaces v1 total hard cut which triggers 1.27+ freeze detection.
+            "dupe_method": "drop_pick",
+            "dupe_cut_duration_ms": 5000,
+            "dupe_keepalive_interval_ms": 800,
+            "dupe_tick_align": True,
+            "dupe_stealth_jitter": True,
+            "dupe_auto_restore": True,
+            "direction": "both",
+        }
+    },
+    "Dupe: Swap": {
+        "description": "Swap items between hands/container — bidirectional state block freezes partial swap (v2)",
+        "methods": ["dupe"],
+        "params": {
+            "dupe_method": "swap",
+            "dupe_cut_duration_ms": 4000,
+            "dupe_keepalive_interval_ms": 800,
+            "dupe_tick_align": True,
+            "dupe_stealth_jitter": True,
+            "dupe_auto_restore": True,
+            "direction": "both",
+        }
+    },
+    "Dupe: Container": {
+        "description": "Put item in container — inbound state blocked, server applies transfer unseen (v2)",
+        "methods": ["dupe"],
+        "params": {
+            "dupe_method": "container",
+            "dupe_cut_duration_ms": 5000,
+            "dupe_keepalive_interval_ms": 800,
+            "dupe_tick_align": True,
+            "dupe_stealth_jitter": True,
+            "dupe_auto_restore": True,
+            "direction": "both",
+        }
+    },
+    "Dupe: Rift": {
+        "description": "Extended bidirectional desync — pulse-cycle state block with deep desync window (v2)",
+        "methods": ["dupe"],
+        "params": {
+            "dupe_method": "rift",
+            "dupe_cut_duration_ms": 8000,
+            "dupe_keepalive_interval_ms": 600,
+            "dupe_cycle_count": 2,
+            "dupe_cycle_delay_ms": 3000,
+            "dupe_tick_align": True,
+            "dupe_stealth_jitter": True,
+            "dupe_auto_restore": True,
+            "direction": "both",
+        }
+    },
+    "Dupe: Legacy": {
+        "description": "Total hard cut (v1) — for pre-1.27 servers ONLY. Will disconnect on modern servers",
+        "methods": ["dupe"],
+        "params": {
+            "dupe_method": "legacy",
+            "dupe_cut_duration_ms": 5000,
+            "dupe_auto_restore": True,
             "direction": "both",
         }
     },

@@ -121,7 +121,101 @@
       "packet_loss_threshold": 0.5
     }
   },
-  "duping_methods": {
+  "duping_methods_v2": {
+    "drop_pick": {
+      "description": "Drop item → outbound RPC → selective inbound cut. Blocks server state confirmation while keeping connection alive.",
+      "engine": "v2",
+      "cut_duration_ms": 5000,
+      "rpc_timeout_ms": 2000,
+      "keepalive_interval_ms": 800,
+      "restore_duration_ms": 800,
+      "cycle_count": 1,
+      "cooldown_ms": 1500,
+      "tick_align": true,
+      "stealth_jitter": true,
+      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
+      "drop_outbound": [],
+      "queue_outbound": ["GAME_STATE"],
+      "success_rate_estimate": 88.0,
+      "detection_risk": "low",
+      "notes": "Safest v2 method. Outbound RPC reaches server, inbound confirmation blocked. Works on 1.29+ servers."
+    },
+    "swap": {
+      "description": "Initiate swap → selective bidirectional state block. Freezes partial swap state on server.",
+      "engine": "v2",
+      "cut_duration_ms": 4000,
+      "rpc_timeout_ms": 1500,
+      "keepalive_interval_ms": 800,
+      "restore_duration_ms": 600,
+      "cycle_count": 1,
+      "cooldown_ms": 1500,
+      "tick_align": true,
+      "stealth_jitter": true,
+      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
+      "drop_outbound": ["GAME_STATE"],
+      "queue_outbound": [],
+      "success_rate_estimate": 82.0,
+      "detection_risk": "medium",
+      "notes": "Blocks state in both directions. Partial swap state persists on server side."
+    },
+    "container": {
+      "description": "Put item in container → selective inbound cut. Server applies transfer, client never sees confirmation.",
+      "engine": "v2",
+      "cut_duration_ms": 5000,
+      "rpc_timeout_ms": 2000,
+      "keepalive_interval_ms": 800,
+      "restore_duration_ms": 800,
+      "cycle_count": 1,
+      "cooldown_ms": 1500,
+      "tick_align": true,
+      "stealth_jitter": true,
+      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
+      "drop_outbound": [],
+      "queue_outbound": ["GAME_STATE"],
+      "success_rate_estimate": 85.0,
+      "detection_risk": "low",
+      "notes": "Similar to drop_pick but for container-based transfers. Inbound block only."
+    },
+    "rift": {
+      "description": "Extended bidirectional state block with pulse cycling. Deep desync via prolonged selective filtering.",
+      "engine": "v2",
+      "cut_duration_ms": 8000,
+      "rpc_timeout_ms": 2000,
+      "keepalive_interval_ms": 600,
+      "restore_duration_ms": 1200,
+      "cycle_count": 2,
+      "cycle_delay_ms": 3000,
+      "cooldown_ms": 2000,
+      "tick_align": true,
+      "stealth_jitter": true,
+      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
+      "drop_outbound": ["GAME_STATE", "GAME_BULK"],
+      "queue_outbound": [],
+      "success_rate_estimate": 90.0,
+      "detection_risk": "medium",
+      "notes": "Most aggressive v2 method. Full bidirectional state block with extended desync. Keepalive pass-through prevents kick."
+    },
+    "legacy": {
+      "description": "Total hard cut — v1 fallback for pre-1.29 servers. Drops ALL packets both directions.",
+      "engine": "v1_compat",
+      "cut_duration_ms": 5000,
+      "rpc_timeout_ms": 0,
+      "keepalive_interval_ms": 0,
+      "restore_duration_ms": 0,
+      "cycle_count": 1,
+      "cooldown_ms": 2000,
+      "tick_align": false,
+      "stealth_jitter": false,
+      "drop_inbound": ["ALL"],
+      "drop_outbound": ["ALL"],
+      "queue_outbound": [],
+      "success_rate_estimate": 65.0,
+      "detection_risk": "high",
+      "notes": "V1 total hard cut. Will trigger disconnect on 1.29+ servers with freeze detection. Only for pre-1.27 servers."
+    }
+  },
+  "duping_methods_v1_deprecated": {
+    "_notice": "Legacy v1 method definitions. Kept for backward compatibility. Use duping_methods_v2 instead.",
     "standard": {
       "description": "Standard duping method with balanced settings",
       "timing_precision": "medium",
@@ -168,6 +262,6 @@
       "auto_export": false
     }
   },
-  "last_updated": "2024-12-19T10:00:00Z",
-  "version": "1.0.0"
+  "last_updated": "2026-04-12T00:00:00Z",
+  "version": "2.0.0"
 }

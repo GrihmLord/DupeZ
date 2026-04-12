@@ -45,12 +45,9 @@ DayZ kick prevention:
 
 from __future__ import annotations
 
-import ctypes
-import socket
 import time
 import threading
 from collections import deque
-from enum import Enum, auto
 from typing import Callable, Dict, List, Optional, Tuple
 
 from app.firewall.native_divert_engine import (
@@ -76,144 +73,25 @@ except ImportError:
 
 __all__ = ["PktClass", "GodModeModule"]
 
-
 # ═══════════════════════════════════════════════════════════════════════
-#  Packet Classifier
+#  Packet Classifier — delegated to shared _packet_utils module.
+#  Local aliases retained for backward compatibility.
 # ═══════════════════════════════════════════════════════════════════════
 
-class PktClass(Enum):
-    """Packet classification categories."""
-    KEEPALIVE  = auto()   # Small UDP heartbeat/probe
-    CONTROL    = auto()   # TCP (auth, BattlEye, Steam session)
-    GAME_SMALL = auto()   # Small game UDP (acks, input echo)
-    GAME_STATE = auto()   # Medium game UDP (position, entity state)
-    GAME_BULK  = auto()   # Large game UDP (world/inventory sync)
-    OTHER      = auto()   # Anything else (ICMP, unknown)
-
-
-_PROTO_TCP = 6
-_PROTO_UDP = 17
-
-# DayZ game server port range (Enfusion engine default + common configs)
-_GAME_PORT_MIN = 2300
-_GAME_PORT_MAX = 2410
-
-# Steam port range
-_STEAM_PORT_MIN = 27015
-_STEAM_PORT_MAX = 27050
-
-# UDP payload size thresholds (payload = total - IP header - UDP 8B)
-# DayZ's smallest packets are ~77B payload (105B total).  The original 40B
-# threshold was too low — zero packets qualified as keepalive.  Raised to
-# 90B to capture DayZ heartbeat/ack packets while excluding game state.
-_KEEPALIVE_PAYLOAD_MAX = 90      # DayZ heartbeat/ack probes (≤90B payload)
-_GAME_SMALL_PAYLOAD_MAX = 200    # Small game UDP (acks, input, small state)
-_GAME_STATE_PAYLOAD_MAX = 760    # Position, entity replication
-
-
-def _parse_ipv4_addrs(packet_data: bytearray) -> Tuple[str, str]:
-    """Extract (src_ip, dst_ip) from an IPv4 packet header.
-
-    Retained for diagnostics/logging only. The hot path uses
-    :func:`_ipv4_addrs_u32` to avoid per-packet string allocations.
-    """
-    if len(packet_data) < 20:
-        return ("", "")
-    version = (packet_data[0] >> 4) & 0xF
-    if version != 4:
-        return ("", "")
-    src = socket.inet_ntoa(packet_data[12:16])
-    dst = socket.inet_ntoa(packet_data[16:20])
-    return (src, dst)
-
-
-def _ipv4_addrs_u32(packet_data: bytearray) -> Tuple[int, int]:
-    """Zero-allocation extraction of IPv4 (src, dst) as u32 ints.
-
-    Returns ``(0, 0)`` for non-IPv4 or undersized packets so the caller
-    can treat "no match" the same as "unrelated traffic". This path runs
-    once per packet (100-400 pps for PS5 DayZ) so it must not allocate.
-    """
-    if len(packet_data) < 20 or (packet_data[0] >> 4) & 0xF != 4:
-        return (0, 0)
-    src_u32 = (
-        (packet_data[12] << 24)
-        | (packet_data[13] << 16)
-        | (packet_data[14] << 8)
-        | packet_data[15]
-    )
-    dst_u32 = (
-        (packet_data[16] << 24)
-        | (packet_data[17] << 16)
-        | (packet_data[18] << 8)
-        | packet_data[19]
-    )
-    return (src_u32, dst_u32)
+from app.firewall.modules._packet_utils import (
+    PktClass,
+    classify_packet as _classify_packet_impl,
+    ipv4_addrs_u32 as _ipv4_addrs_u32,
+    ip_to_u32 as _ip_to_u32,
+    copy_windivert_addr as _copy_windivert_addr,
+    PROTO_TCP as _PROTO_TCP,
+    PROTO_UDP as _PROTO_UDP,
+)
 
 
 def _classify_packet(packet_data: bytearray, is_target: bool = False) -> Tuple[PktClass, int, int, int]:
-    """Classify an IPv4 packet by protocol and payload size.
-
-    When ``is_target`` is True, ALL UDP traffic is treated as game
-    traffic (classified by payload size).  This is the correct approach
-    for ICS/hotspot setups where the console's only traffic through the
-    hotspot is DayZ — no port detection needed.  Also works for PC-local
-    mode when the WinDivert filter already isolates game server traffic.
-
-    Returns (classification, protocol, src_port, dst_port).
-    """
-    if len(packet_data) < 20:
-        return (PktClass.OTHER, 0, 0, 0)
-
-    version = (packet_data[0] >> 4) & 0xF
-    if version != 4:
-        return (PktClass.OTHER, 0, 0, 0)
-
-    ihl = (packet_data[0] & 0xF) * 4
-    protocol = packet_data[9]
-    total_len = len(packet_data)
-
-    # TCP → CONTROL (BattlEye, Steam auth, session management)
-    if protocol == _PROTO_TCP:
-        src_port = dst_port = 0
-        if total_len >= ihl + 4:
-            src_port = (packet_data[ihl] << 8) | packet_data[ihl + 1]
-            dst_port = (packet_data[ihl + 2] << 8) | packet_data[ihl + 3]
-        return (PktClass.CONTROL, protocol, src_port, dst_port)
-
-    # UDP → classify by payload size
-    if protocol == _PROTO_UDP:
-        if total_len < ihl + 8:
-            return (PktClass.OTHER, protocol, 0, 0)
-
-        src_port = (packet_data[ihl] << 8) | packet_data[ihl + 1]
-        dst_port = (packet_data[ihl + 2] << 8) | packet_data[ihl + 3]
-        udp_payload = total_len - ihl - 8
-
-        # For target traffic: ALL UDP is game traffic — classify by size.
-        # Console only sends DayZ through the hotspot; PC-local is filtered.
-        if is_target:
-            if udp_payload <= _KEEPALIVE_PAYLOAD_MAX:
-                return (PktClass.KEEPALIVE, protocol, src_port, dst_port)
-            elif udp_payload <= _GAME_SMALL_PAYLOAD_MAX:
-                return (PktClass.GAME_SMALL, protocol, src_port, dst_port)
-            elif udp_payload <= _GAME_STATE_PAYLOAD_MAX:
-                return (PktClass.GAME_STATE, protocol, src_port, dst_port)
-            else:
-                return (PktClass.GAME_BULK, protocol, src_port, dst_port)
-
-        # Non-target UDP: use port heuristic
-        is_game_port = (
-            (_GAME_PORT_MIN <= src_port <= _GAME_PORT_MAX) or
-            (_GAME_PORT_MIN <= dst_port <= _GAME_PORT_MAX) or
-            (_STEAM_PORT_MIN <= src_port <= _STEAM_PORT_MAX) or
-            (_STEAM_PORT_MIN <= dst_port <= _STEAM_PORT_MAX)
-        )
-        if is_game_port and udp_payload <= _KEEPALIVE_PAYLOAD_MAX:
-            return (PktClass.KEEPALIVE, protocol, src_port, dst_port)
-        return (PktClass.OTHER, protocol, src_port, dst_port)
-
-    return (PktClass.OTHER, protocol, 0, 0)
+    """Classify an IPv4 packet — delegates to shared _packet_utils."""
+    return _classify_packet_impl(packet_data, is_target)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -303,13 +181,7 @@ class GodModeModule(DisruptionModule):
 
         # Precomputed u32 form of target for zero-allocation hot-path
         # direction matching. 0 means "unset" → process() short-circuits.
-        self._target_ip_u32: int = 0
-        try:
-            if self._target_ip:
-                self._target_ip_u32 = int.from_bytes(
-                    socket.inet_aton(self._target_ip), "big")
-        except OSError:
-            self._target_ip_u32 = 0
+        self._target_ip_u32: int = _ip_to_u32(self._target_ip)
 
         profile_defaults = self._load_profile_defaults()
 
@@ -788,12 +660,7 @@ class GodModeModule(DisruptionModule):
             delay_ms = max(0, min(_MAX_LAG_MS, delay_ms))
             release_time = now + (delay_ms / 1000.0)
 
-        addr_copy = WINDIVERT_ADDRESS()
-        ctypes.memmove(
-            ctypes.byref(addr_copy),
-            ctypes.byref(addr),
-            ctypes.sizeof(WINDIVERT_ADDRESS),
-        )
+        addr_copy = _copy_windivert_addr(addr)
         entry: _QEntry = (release_time, bytearray(packet_data), addr_copy, pkt_class)
 
         with self._lock:

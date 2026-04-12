@@ -25,8 +25,11 @@ Detection ladder:
       case for this tool, and the most conservative tuning for the
       DayZ 1.27+ freeze threshold).
 
-The function is pure — no network I/O, no side effects — so it is
-trivial to unit-test against synthetic inputs.
+The function is mostly pure. The ``_is_wifi_same_network`` helper
+performs a UDP socket connect to determine the local interface IP,
+but this is a local kernel operation (no actual traffic). All other
+helpers are pure — no network I/O, no side effects — so the module
+is trivial to unit-test against synthetic inputs.
 """
 
 from __future__ import annotations
@@ -39,7 +42,15 @@ __all__ = [
     "HOTSPOT_SUBNET",
     "resolve_target_profile",
     "DetectionResult",
+    "CONNECTION_MODE_HOTSPOT",
+    "CONNECTION_MODE_WIFI_SAME_NET",
+    "CONNECTION_MODE_LOCAL",
 ]
+
+# ── Connection modes ─────────────────────────────────────────────────
+CONNECTION_MODE_HOTSPOT = "hotspot"            # ICS/mobile hotspot — we ARE the gateway
+CONNECTION_MODE_WIFI_SAME_NET = "wifi_same_net"  # Same WiFi LAN — need ARP spoofing
+CONNECTION_MODE_LOCAL = "local"                 # Same machine — NETWORK layer
 
 
 # ── Subnet constants ──────────────────────────────────────────────────
@@ -58,7 +69,7 @@ HOTSPOT_SUBNET = HOTSPOT_SUBNETS[0]  # legacy single-subnet alias
 # Separated from enhanced_scanner's merged list so we can distinguish
 # Sony from Microsoft without a full regex pass.
 
-_SONY_OUI_PREFIXES: Tuple[str, ...] = (
+_SONY_OUI_PREFIXES: frozenset[str] = frozenset((
     # PlayStation family
     "b4:0a:d8", "b4:0a:d9", "b4:0a:da", "b4:0a:db",
     "0c:fe:45",
@@ -72,9 +83,9 @@ _SONY_OUI_PREFIXES: Tuple[str, ...] = (
     "00:15:c1",
     "00:1d:0d",
     "00:24:8d",
-)
+))
 
-_MICROSOFT_OUI_PREFIXES: Tuple[str, ...] = (
+_MICROSOFT_OUI_PREFIXES: frozenset[str] = frozenset((
     # Xbox family
     "7c:ed:8d", "98:de:d0", "60:45:bd",
     "58:82:a8",  # Microsoft Corporation (Xbox Series batches)
@@ -87,7 +98,7 @@ _MICROSOFT_OUI_PREFIXES: Tuple[str, ...] = (
     "00:1d:d8",
     "00:22:48",
     "00:25:ae",
-)
+))
 
 
 # ── Hostname regex fallback ───────────────────────────────────────────
@@ -108,30 +119,41 @@ class DetectionResult:
     """Lightweight container for profile-resolution output.
 
     Attributes:
-        profile: One of ``pc_local`` / ``ps5_hotspot`` / ``xbox_hotspot``.
+        profile: One of ``pc_local`` / ``ps5_hotspot`` / ``xbox_hotspot``
+            / ``ps5_wifi`` / ``xbox_wifi``.
         layer:   ``local`` or ``forward``.
         platform: ``pc`` / ``ps5`` / ``xbox`` / ``unknown``.
+        connection_mode: ``hotspot`` / ``wifi_same_net`` / ``local``.
+        needs_arp_spoof: True if ARP spoofing is required.
         reasons: Human-readable detection trace, suitable for logging.
     """
 
-    __slots__ = ("profile", "layer", "platform", "reasons")
+    __slots__ = ("profile", "layer", "platform", "connection_mode",
+                 "needs_arp_spoof", "reasons")
 
     def __init__(self, profile: str, layer: str, platform: str,
-                 reasons: List[str]) -> None:
+                 reasons: List[str],
+                 connection_mode: str = CONNECTION_MODE_LOCAL,
+                 needs_arp_spoof: bool = False) -> None:
         self.profile = profile
         self.layer = layer
         self.platform = platform
+        self.connection_mode = connection_mode
+        self.needs_arp_spoof = needs_arp_spoof
         self.reasons = reasons
 
     def __repr__(self) -> str:
         return (f"DetectionResult(profile={self.profile!r}, "
-                f"layer={self.layer!r}, platform={self.platform!r})")
+                f"layer={self.layer!r}, platform={self.platform!r}, "
+                f"connection_mode={self.connection_mode!r})")
 
     def as_dict(self) -> Dict[str, object]:
         return {
             "profile": self.profile,
             "layer": self.layer,
             "platform": self.platform,
+            "connection_mode": self.connection_mode,
+            "needs_arp_spoof": self.needs_arp_spoof,
             "reasons": list(self.reasons),
         }
 
@@ -167,6 +189,39 @@ def _is_in_hotspot_subnet(target_ip: str) -> bool:
     except (ipaddress.AddressValueError, ValueError):
         return False
     return any(addr in net for net in HOTSPOT_SUBNETS)
+
+
+def _is_wifi_same_network(target_ip: str) -> bool:
+    """Return True if *target_ip* is on the same /24 as our local IP.
+
+    This covers the case where the target device is on the same WiFi
+    network but NOT connected through our hotspot.  Traffic between the
+    target and the internet bypasses this machine entirely, so we need
+    ARP spoofing to redirect it through us.
+    """
+    try:
+        addr = ipaddress.IPv4Address(target_ip)
+    except (ipaddress.AddressValueError, ValueError):
+        return False
+
+    # Already a hotspot device — no ARP spoofing needed
+    if _is_in_hotspot_subnet(target_ip):
+        return False
+
+    # Loopback or link-local — not a WiFi device
+    if addr.is_loopback or addr.is_link_local:
+        return False
+
+    try:
+        import socket as _sock
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM) as s:
+            s.connect((target_ip, 80))
+            local_ip = s.getsockname()[0]
+        # Same /24 → same LAN segment
+        local_net = ipaddress.IPv4Network(f"{local_ip}/24", strict=False)
+        return addr in local_net
+    except Exception:
+        return False
 
 
 def _match_platform_by_mac(mac: str) -> Optional[str]:
@@ -226,17 +281,30 @@ def resolve_target_profile(
     """
     reasons: List[str] = []
 
-    # ── Layer decision ────────────────────────────────────────────
+    # ── Layer & connection-mode decision ──────────────────────────
     if _is_in_hotspot_subnet(target_ip):
         layer = "forward"
+        connection_mode = CONNECTION_MODE_HOTSPOT
+        needs_arp_spoof = False
         reasons.append(
             f"target {target_ip} in hotspot subnet {HOTSPOT_SUBNET} "
-            f"→ NETWORK_FORWARD"
+            f"→ NETWORK_FORWARD (hotspot, no ARP spoof needed)"
+        )
+    elif _is_wifi_same_network(target_ip):
+        layer = "forward"
+        connection_mode = CONNECTION_MODE_WIFI_SAME_NET
+        needs_arp_spoof = True
+        reasons.append(
+            f"target {target_ip} on same WiFi /24 but NOT hotspot "
+            f"→ NETWORK_FORWARD via ARP spoofing"
         )
     else:
         layer = "local"
+        connection_mode = CONNECTION_MODE_LOCAL
+        needs_arp_spoof = False
         reasons.append(
-            f"target {target_ip} outside hotspot subnet → NETWORK (local)"
+            f"target {target_ip} outside hotspot and local subnet "
+            f"→ NETWORK (local)"
         )
 
     # Local layer: platform is irrelevant — always pc_local.
@@ -246,9 +314,11 @@ def resolve_target_profile(
             layer="local",
             platform="pc",
             reasons=reasons,
+            connection_mode=connection_mode,
+            needs_arp_spoof=False,
         )
 
-    # ── Platform decision (forward layer only) ────────────────────
+    # ── Platform decision (forward layer — hotspot or WiFi) ──────
     normalized_mac = _normalize_mac(mac)
     platform: Optional[str] = None
 
@@ -275,22 +345,27 @@ def resolve_target_profile(
 
     if platform is None:
         platform = "unknown"
-        reasons.append(
-            "no MAC/hostname/device_type match — defaulting to "
-            "ps5_hotspot (most conservative forward-layer tuning)"
-        )
-        profile = "ps5_hotspot"
-    elif platform == "ps5":
-        profile = "ps5_hotspot"
-    elif platform == "xbox":
-        profile = "xbox_hotspot"
-    else:
-        # Unreachable but safe
-        profile = "ps5_hotspot"
+        if connection_mode == CONNECTION_MODE_WIFI_SAME_NET:
+            reasons.append(
+                "no MAC/hostname/device_type match — defaulting to "
+                "ps5_wifi (most conservative WiFi-same-net tuning)"
+            )
+        else:
+            reasons.append(
+                "no MAC/hostname/device_type match — defaulting to "
+                "ps5_hotspot (most conservative forward-layer tuning)"
+            )
+
+    # Build profile name.  Both hotspot and WiFi-same-net use the same
+    # preset tuning (WiFi triggers ARP spoofing but the disruption
+    # params are identical).  Map to the existing hotspot preset keys.
+    profile = "xbox_hotspot" if platform == "xbox" else "ps5_hotspot"
 
     return DetectionResult(
         profile=profile,
         layer=layer,
         platform=platform,
         reasons=reasons,
+        connection_mode=connection_mode,
+        needs_arp_spoof=needs_arp_spoof,
     )
