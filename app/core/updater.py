@@ -116,19 +116,42 @@ class UpdateChecker:
             self.latest_url = data.get("html_url", RELEASES_URL)
             self.release_notes = data.get("body", "")
 
-            # Find installer and portable assets
+            # Find installer and portable assets.
+            # v5.3.0+ ships three assets:
+            #   DupeZ-GPU.exe          (recommended standalone)
+            #   DupeZ-Compat.exe       (fallback standalone)
+            #   DupeZ_v5.3.0_Setup.exe (installer, bundles both)
+            # Older releases shipped:
+            #   DupeZ_Setup.exe  or  DupeZ_v5.2.4_Setup.exe
+            #   dupez.exe        (single portable binary)
+            # The logic below handles both naming conventions so that
+            # v5.2.x clients checking against a v5.3.0+ release still
+            # find valid download URLs.
             self.download_url = None
             self.installer_url = None
+            _gpu_url: Optional[str] = None
+            _compat_url: Optional[str] = None
+            _portable_url: Optional[str] = None
             for asset in data.get("assets", []):
                 name = asset.get("name", "").lower()
                 url = asset.get("browser_download_url", "")
+                if not url:
+                    continue
                 if "setup" in name and name.endswith(".exe"):
                     self.installer_url = url
                 elif name.endswith(".exe") or name.endswith(".zip"):
-                    if not self.download_url:
-                        self.download_url = url
+                    if "gpu" in name:
+                        _gpu_url = url
+                    elif "compat" in name:
+                        _compat_url = url
+                    else:
+                        _portable_url = url
 
-            # Prefer installer, fall back to portable exe, then release page
+            # Portable preference: GPU > legacy single exe > Compat
+            self.download_url = _gpu_url or _portable_url or _compat_url
+
+            # Prefer installer for upgrade-in-place, fall back to
+            # portable exe, then release page.
             if not self.download_url:
                 self.download_url = self.installer_url or self.latest_url
             if not self.installer_url:
@@ -181,6 +204,12 @@ class UpdateChecker:
     ) -> None:
         """Download the new installer to temp and launch it.
 
+        Always prefers the installer asset (``*Setup*.exe``) because it
+        supports ``/SILENT /CLOSEAPPLICATIONS`` flags and upgrades in
+        place via the stable Inno Setup AppId. If only a standalone exe
+        is available (no installer in the release), fall back to opening
+        the release page in the browser so the user can choose manually.
+
         Parameters
         ----------
         on_progress : callable(bytes_done, bytes_total)
@@ -188,10 +217,19 @@ class UpdateChecker:
         on_done : callable(success, message)
             Completion callback (called from background thread).
         """
-        url = self.installer_url or self.download_url
-        if not url:
+        # Only auto-install from the Setup installer. Standalone exes
+        # (DupeZ-GPU.exe, DupeZ-Compat.exe, dupez.exe) can't be
+        # launched with /SILENT and don't do in-place upgrades.
+        url = self.installer_url
+        if not url or "setup" not in url.rsplit("/", 1)[-1].lower():
+            # No installer asset found — open release page instead
+            log_warning(
+                "Auto-update: no installer asset found in release. "
+                "Opening release page for manual download."
+            )
+            self.open_download()
             if on_done:
-                on_done(False, "No download URL available")
+                on_done(False, "No installer found — opened release page")
             return
 
         def _worker() -> None:
