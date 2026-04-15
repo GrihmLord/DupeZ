@@ -1,0 +1,31 @@
+# Ruff config for DupeZ.
+# Keep the error/bug checks; relax stylistic rules that don't affect correctness.
+# Legacy code in app/gui/ uses compact single-line patterns we don't want to churn.
+
+line-length = 120
+target-version = "py311"
+
+[lint]
+# Default rule set plus pyflakes (F). Skip nitpicky style rules that fire in legacy code.
+select = ["E", "F", "W"]
+ignore = [
+    "E701",  # multiple statements on one line (colon) — legacy compact style
+    "E702",  # multiple statements on one line (semicolon) — legacy compact style
+    "E731",  # lambda assignment — acceptable for small inline helpers
+    "E741",  # ambiguous variable name — `l` in local lambdas
+    "F401",  # unused imports in try/except ImportError availability checks
+    "F541",  # f-string without placeholders — cosmetic
+    "F841",  # assigned-but-unused locals — intentional in some flows
+    "E402",  # module-level import not at top — platform gates use this pattern
+    "E501",  # line too long — handled by line-length, and some legacy lines are fine
+    "E721",  # type comparison — legacy isinstance-alternative pattern
+    "W292",  # missing newline at EOF — handled by pre-commit end-of-file-fixer
+]
+
+[lint.per-file-ignores]
+# Vendored / generated / compiled exclusions
+"app/firewall/clumsy_src/external/**" = ["ALL"]
+"app/firewall_helper/_build_default.py" = ["ALL"]
+
+[lint.pyflakes]
+extend-generics = []

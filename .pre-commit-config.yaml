@@ -1,0 +1,82 @@
+# Pre-commit hooks — run `pre-commit install` after cloning.
+# Scans every staged change for secrets, private keys, large files,
+# merge conflicts, and direct commits to main.
+#
+# Install:
+#   pip install pre-commit detect-secrets
+#   detect-secrets scan > .secrets.baseline
+#   pre-commit install
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args:
+          - "--baseline"
+          - ".secrets.baseline"
+        exclude: |
+          (?x)^(
+            package\.lock\.json|
+            poetry\.lock|
+            app/firewall/clumsy_src/external/.*|
+            .*\.docx|
+            .*\.pptx|
+            .*\.xlsx|
+            .*\.pdf|
+            .*\.ico|
+            .*\.png|
+            .*\.jpg|
+            .*\.gif|
+            .*\.dll|
+            .*\.sys|
+            .*\.exe|
+            .*\.lib
+          )$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+        exclude: ^app/config/.*\.json$  # some config files use comments
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: |
+          (?x)^(
+            app/firewall/clumsy_src/external/.*|
+            .*\.docx|
+            .*\.pptx|
+            .*\.xlsx|
+            .*\.pdf|
+            .*\.ico|
+            .*\.png|
+            .*\.dll|
+            .*\.sys|
+            .*\.exe|
+            .*\.lib
+          )$
+      - id: trailing-whitespace
+        exclude: |
+          (?x)^(
+            app/firewall/clumsy_src/external/.*|
+            .*\.docx|
+            .*\.md
+          )$
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: ["--fix", "--exit-non-zero-on-fix"]
