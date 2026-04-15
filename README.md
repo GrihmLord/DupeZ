@@ -18,7 +18,7 @@ DupeZ uses a three-tier fallback for packet disruption:
 2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
 3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation.
 
-**12 Disruption Modules:** Drop, Lag (with connection preservation), Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Full Disconnect, Out-of-Order, God Mode (pulse cycling), Dupe Engine, Tick-Sync
+**10 Disruption Modules:** Drop, Lag (with connection preservation), Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Disconnect (stateful timed cut — primary dupe vector), Out-of-Order, God Mode (pulse cycling). Tick-synchronized burst/pulse modes layer on top via the tick-sync engine.
 
 **Statistical Models:** Gilbert-Elliott bursty loss, Pareto heavy-tail jitter, Token Bucket rate limiting, Correlated drop with temporal autocorrelation. All produce patterns statistically indistinguishable from real network degradation.
 
@@ -42,15 +42,9 @@ Pulse cycling keeps the sliding-window average below DayZ's kick threshold indef
 
 **Teleportation:** During extended block phases, your outbound movement reaches the server continuously. When the flush phase hits, the target's client reconciles the entire position delta at once — visual teleport from the target's perspective.
 
-### Dupe Engine (v5.2.0)
+### Stateful Cut Disconnect (primary dupe vector)
 
-Precise timed disconnect-reconnect for inventory duplication. Three-phase state machine:
-
-1. **PREP** — Normal traffic. Perform the inventory action (drop, swap, transfer).
-2. **CUT** — Hard network cut. All traffic both directions dropped for configurable duration (1-25s, default 5s).
-3. **RESTORE** — Network restored. Player reconnects, server reconciles partial state.
-
-Timer-based or manual trigger via UI/voice (`trigger_cut()`). Multi-cycle support for automated retry. Configurable action delay to let the inventory RPC reach the server before cutting.
+The standalone Dupe Engine v1 was retired in v5.5.0. Dupe functionality now lives in the `disconnect` module as a stateful cut-with-timer — the same three-phase flow (arm → cut → release) exposed via three sliders: `Chance %`, `Arm Delay (ms)`, and `Duration (ms)`. Leaving duration at `0` preserves the legacy "drop until stopped" behavior; setting arm delay + duration arms a timed cut. Pair with the A2S Cut Verifier (see v5.6.0 below) for closed-loop severance confirmation.
 
 ### Extended Lag (v5.2.0)
 
@@ -124,16 +118,12 @@ Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uni
 
 | Preset | Effect |
 |--------|--------|
-| Red Disconnect | 95% drop + 2000ms lag + 1KB/s cap + full throttle + disconnect |
-| DupeZ Default | Disconnect + 95% drop + 1500ms lag + 1KB/s cap + throttle |
-| Heavy Lag | 3000ms delay + 95% drop + 1KB/s cap |
-| Light Lag | 800ms delay + 60% drop |
-| God Mode | Pulse-cycling inbound lag — indefinite red chain |
-| God Mode Infinite | 5s block / 300ms flush — maximum freeze duration |
-| God Mode Aggressive | God Mode + 30% inbound drop for harder freeze |
-| Dupe Mode | Timed network cut (5s) for inventory duplication |
-| Total Chaos | All modules maxed — complete network destruction |
+| Red Disconnect | 100% drop + 3000ms lag + 0 KB/s cap + full throttle + hard cut |
+| Lag | Heavy sustained lag + drop — tune sliders after selecting (Light ~800/60 · Max ~5000/100) |
+| God Mode | Bidirectional pulse-cycle — ghost teleport, invulnerable, hits land (3500ms block / 300ms flush / 100ms stagger) |
 | Custom | Set your own parameters |
+
+Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in the game profile JSON and are auto-selected at disrupt time based on target subnet, MAC OUI, hostname, and device type — see `app/firewall/target_profile.py::resolve_target_profile`.
 
 ---
 
@@ -266,10 +256,9 @@ app/
 │   ├── blocker.py                   # netsh firewall rules (fallback)
 │   └── modules/                     # Extracted disruption modules
 │       ├── godmode.py               # Pulse-cycling god mode (v5.2)
-│       ├── dupe_engine.py           # Timed disconnect dupe engine (v5.2)
 │       ├── lag.py                   # Connection-preserving lag (v5.2)
 │       ├── drop.py                  # Random packet drop
-│       ├── disconnect.py            # Hard disconnect (100% drop)
+│       ├── disconnect.py            # Stateful timed cut — primary dupe vector
 │       ├── duplicate.py             # Packet flooding (N+1 copies)
 │       ├── ood.py                   # Out-of-order reordering
 │       ├── corrupt.py               # Payload bit-flip corruption
