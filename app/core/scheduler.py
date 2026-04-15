@@ -303,8 +303,8 @@ class DisruptionScheduler:
         if self._on_macro_step:
             try:
                 self._on_macro_step(event, ip, step_info)
-            except Exception:
-                pass
+            except Exception as exc:
+                log_error(f"Scheduler: macro callback error: {exc}")
 
     # ── Scheduler loop ────────────────────────────────────────────
 

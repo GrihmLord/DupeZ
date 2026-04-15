@@ -41,7 +41,7 @@ import time
 from collections import deque
 from typing import Dict, Optional
 
-from app.logs.logger import log_info
+from app.logs.logger import log_info, log_error
 
 # Import base classes from native engine — these MUST exist for the module
 # system to work.  If native engine isn't available, these modules can't
@@ -330,8 +330,8 @@ class ParetoLagModule(DisruptionModule):
             for _, pkt_data, addr in to_send:
                 try:
                     self._send_fn(pkt_data, addr)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error(f"ParetoLag: flush send failed: {exc}")
             time.sleep(0.001)
 
     def process(self, packet_data: bytearray, addr: WINDIVERT_ADDRESS,
@@ -374,8 +374,8 @@ class ParetoLagModule(DisruptionModule):
             try:
                 if self._send_fn:
                     self._send_fn(pkt_data, addr)
-            except Exception:
-                pass
+            except Exception as exc:
+                log_error(f"ParetoLag: stop flush failed: {exc}")
         avg = (self._total_delay_ms / max(1, self._total_packets))
         log_info(
             f"ParetoLag stats: packets={self._total_packets}, "

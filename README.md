@@ -1,4 +1,4 @@
-# DupeZ v5.4.0
+# DupeZ v5.6.0
 
 Per-device network disruption toolkit. Scan your network, pick your targets, manipulate their packets. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
@@ -108,6 +108,12 @@ Built-in interactive guide with 10+ collapsible sections covering every feature:
 
 All control sections in Clumsy Control (Preset, Auto-Tune, Platform, Direction, Modules, Scheduler/Macros, Live Stats, Voice Control, GPC/Cronus) are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow.
 
+### ARP Spoof + A2S Cut Verifier (v5.6.0)
+
+Closed-loop cut verification for WiFi same-network targets. ARP poison writes three gateway-facing frames per cycle — opcode-2 reply with L2 source spoofed to the target's MAC, plus an opcode-1 request variant — defeating ASUS/Netgear/Ubiquiti anti-spoof heuristics and RFC 826 strict-mode routers. While a cut is active, the A2S probe polls the Source query port every second, captures a baseline player count on the first reachable poll, and emits `cut_verified` events with states `unknown → connected → degraded → severed`. Peak `max_cut_state` is written to `engine_stop` so the learning loop sees labeled severance data without operator input. `LearningLoop.cut_effectiveness(profile, goal)` surfaces per-bucket severance rates so the auto-tuner can switch presets when the current one can't sever a target class.
+
+Vendor column now resolves against the full IEEE OUI database (~35k entries via scapy MANUFDB) instead of the 60-entry curated table — Ring, HUMAX, Murata, Texas Instruments, Chamberlain, HP, Samsung, Apple, and every other registered manufacturer populate correctly.
+
 ### Windows Installer & Auto-Update (v5.2.0)
 
 Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uninstall support. Windows application manifest and VS_VERSION_INFO resource for SmartScreen trust. In-app auto-updater checks GitHub Releases and can download + silently install new versions with progress feedback.
@@ -179,7 +185,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.4.0_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.6.0_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -189,7 +195,7 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.4.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
+Download `DupeZ_v5.6.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
@@ -297,8 +303,17 @@ app/
 
 plugins/                             # Community plugins (each folder = one plugin)
 └── example_ping_monitor/
-tests/                               # Test suite (216+ tests)
-docs/                                # Documentation
+tests/                               # Test suite (353 tests, 2 hardware-gated)
+tools/                               # Operator CLI utilities (scan/lag smoketest, etc.)
+bench/                               # Micro-benchmarks for hot paths
+docs/
+├── adr/                             # Architecture Decision Records
+├── release-notes/                   # Per-version release notes + deploy checklists
+├── user_guides/                     # End-user how-to docs
+├── integration/                     # Integration and platform notes
+└── reports/                         # Audit and research reports
+logs/
+└── archive/                         # Quarantined crash dumps and stale traces
 ```
 
 ---

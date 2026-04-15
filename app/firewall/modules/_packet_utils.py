@@ -1,8 +1,8 @@
 """Shared packet classification and utility functions.
 
-Extracted from godmode.py for reuse across dupe_engine_v2.py and other
-modules that need direction detection, packet classification, keepalive
-tracking, and WinDivert address handling.
+Extracted from godmode.py for reuse across modules that need direction
+detection, packet classification, keepalive tracking, and WinDivert
+address handling.
 """
 
 from __future__ import annotations

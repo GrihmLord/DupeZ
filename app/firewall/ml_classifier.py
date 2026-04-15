@@ -248,14 +248,25 @@ class TinyNet:
 #  Math helpers (no numpy)
 # ═══════════════════════════════════════════════════════════════════════
 
-_rng_state = [42]  # simple PRNG for weight init
+class _LCG:
+    """Simple linear congruential generator for weight initialization.
+
+    Instance-level state avoids module-level mutable global.
+    """
+
+    __slots__ = ("_state",)
+
+    def __init__(self, seed: int = 42) -> None:
+        self._state = seed
+
+    def xavier(self, scale: float) -> float:
+        """Return a random float in [-scale, scale]."""
+        self._state = (self._state * 1103515245 + 12345) & 0x7FFFFFFF
+        return ((self._state / 0x7FFFFFFF) * 2 - 1) * scale
 
 
-def _xavier(scale: float) -> float:
-    """Simple LCG-based random for Xavier initialization."""
-    _rng_state[0] = (_rng_state[0] * 1103515245 + 12345) & 0x7FFFFFFF
-    # Map to [-scale, scale]
-    return ((_rng_state[0] / 0x7FFFFFFF) * 2 - 1) * scale
+_rng = _LCG(42)
+_xavier = _rng.xavier  # module-level alias for backward compat
 
 
 def _softmax(logits: List[float]) -> List[float]:

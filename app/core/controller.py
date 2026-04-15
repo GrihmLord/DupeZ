@@ -97,6 +97,15 @@ class AppController:
         """Return list of currently disrupted IPs."""
         return disruption_manager.get_disrupted_devices()
 
+    def mark_cut_outcome(self, persisted: bool, ip: Optional[str] = None) -> int:
+        """Label the currently-open cut for the survival trainer.
+
+        ``persisted=False`` → dupe succeeded (hive did not flush).
+        ``persisted=True``  → dupe failed (hive flushed normally).
+        Returns the number of engines that received the label.
+        """
+        return disruption_manager.mark_cut_outcome(persisted, ip=ip)
+
     def get_disruption_status(self, ip: str) -> Dict:
         """Return disruption status for *ip*."""
         return disruption_manager.get_device_status(ip)

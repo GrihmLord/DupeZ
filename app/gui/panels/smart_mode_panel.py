@@ -19,9 +19,28 @@ try:
     from app.ai.smart_engine import SmartDisruptionEngine, DisruptionRecommendation
     from app.ai.llm_advisor import LLMAdvisor
     from app.ai.session_tracker import SessionTracker
+    from app.ai.learning_loop import LearningLoop, MIN_EPISODES_FOR_RECS
     SMART_ENGINE_AVAILABLE = True
 except ImportError:
     SMART_ENGINE_AVAILABLE = False
+
+
+# Colour tokens for the historical severance hint line.
+_SEVERANCE_COLORS = {
+    "great":   ("#00ff88", "cut lands reliably"),
+    "ok":      ("#fbbf24", "cut is inconsistent — consider a stronger preset"),
+    "weak":    ("#ff6b6b", "this preset rarely severs — auto-tuner will switch"),
+    "nodata":  ("#64748b", "no historical data yet"),
+}
+
+
+def _severance_tier(severed_rate: float) -> str:
+    """Map a severed_rate (0..1) to a tier key in ``_SEVERANCE_COLORS``."""
+    if severed_rate >= 0.70:
+        return "great"
+    if severed_rate >= 0.40:
+        return "ok"
+    return "weak"
 
 __all__ = ["SmartModePanel"]
 
@@ -39,11 +58,13 @@ class SmartModePanel(QWidget):
             self._smart_engine = SmartDisruptionEngine()
             self._smart_tracker = SessionTracker()
             self._smart_advisor = LLMAdvisor()
+            self._learning_loop = LearningLoop()
         else:
             self._smart_profiler = None
             self._smart_engine = None
             self._smart_tracker = None
             self._smart_advisor = None
+            self._learning_loop = None
 
         self._setup_ui()
 
@@ -243,6 +264,10 @@ class SmartModePanel(QWidget):
             info_lines.append(
                 f"<span style='color:#6b7280'>• {reason}</span>")
 
+        severance_line = self._format_severance_line(profile, rec)
+        if severance_line:
+            info_lines.append(severance_line)
+
         self.smart_info_label.setText("<br>".join(info_lines))
         self.smart_info_label.setStyleSheet(
             "color: #e0e0e0; font-size: 10px; padding: 6px; "
@@ -314,3 +339,70 @@ class SmartModePanel(QWidget):
         self.smart_confidence_bar.setValue(70)
         self.smart_confidence_bar.setFormat(
             "AI Advisor — apply with DISRUPT button")
+
+    # ------------------------------------------------------------------
+    # Historical severance (cut_effectiveness) integration
+    # ------------------------------------------------------------------
+    def _format_severance_line(self, profile, rec) -> str:
+        """Render a one-line hint showing this preset's historical severance
+        rate for the detected (target_profile, goal) bucket.
+
+        Returns an empty string if the learning loop is unavailable or the
+        profile/rec can't be keyed for lookup.
+        """
+        if self._learning_loop is None:
+            return ""
+
+        target_profile = self._derive_target_profile_key(profile)
+        goal = getattr(rec, "goal", None) or "disconnect"
+        if not target_profile:
+            return ""
+
+        try:
+            stats = self._learning_loop.cut_effectiveness(
+                target_profile=target_profile, goal=goal)
+        except Exception as exc:  # noqa: BLE001 — UI hint is best-effort
+            log_error(f"cut_effectiveness lookup failed: {exc}")
+            return ""
+
+        if not stats or not stats.get("sufficient_data"):
+            n = (stats or {}).get("n", 0)
+            if not stats:
+                tier = "nodata"
+                label = f"no prior sessions for {target_profile}/{goal}"
+            else:
+                tier = "nodata"
+                label = (
+                    f"building history: {n}/{MIN_EPISODES_FOR_RECS} sessions "
+                    f"for {target_profile}/{goal}"
+                )
+            color = _SEVERANCE_COLORS[tier][0]
+            return (f"<span style='color:{color}'>⏳ {label}</span>")
+
+        severed_pct = int(stats["severed_rate"] * 100)
+        tier = _severance_tier(stats["severed_rate"])
+        color, blurb = _SEVERANCE_COLORS[tier]
+        return (
+            f"<span style='color:{color}'>● "
+            f"severance: <b>{severed_pct}%</b> over {stats['n']} sessions "
+            f"({target_profile}/{goal}) — {blurb}</span>"
+        )
+
+    @staticmethod
+    def _derive_target_profile_key(profile) -> str:
+        """Map a NetworkProfiler profile object to the LearningLoop bucket
+        key (``ps5_hotspot`` / ``xbox_hotspot`` / ``pc_local`` / ...).
+
+        Uses ``device_type`` + ``connection_type`` from the profiler.
+        """
+        device = (getattr(profile, "device_type", "") or "").lower()
+        conn = (getattr(profile, "connection_type", "") or "").lower()
+        if "ps5" in device or "playstation" in device:
+            return "ps5_hotspot" if "hotspot" in conn else "ps5_lan"
+        if "xbox" in device:
+            return "xbox_hotspot" if "hotspot" in conn else "xbox_lan"
+        if "switch" in device or "nintendo" in device:
+            return "switch_lan"
+        if "pc" in device or "windows" in device:
+            return "pc_local"
+        return "unknown"

@@ -200,7 +200,10 @@ def _get_machine_seed() -> str:
             ["wmic", "csproduct", "get", "UUID"],
             capture_output=True, text=True, timeout=5,
         )
-        uuid_line = [l.strip() for l in result.stdout.splitlines() if l.strip() and l.strip() != "UUID"]
+        uuid_line = [
+            stripped for stripped in (raw.strip() for raw in result.stdout.splitlines())
+            if stripped and stripped != "UUID"
+        ]
         if uuid_line:
             parts.append(uuid_line[0])
     except Exception:

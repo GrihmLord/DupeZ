@@ -39,7 +39,7 @@ import subprocess
 import traceback
 import ctypes
 from ctypes import wintypes
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 from app.logs.logger import log_info, log_error
 from app.utils.helpers import mask_ip, _NO_WINDOW, is_admin
 
@@ -745,11 +745,12 @@ class ClumsyEngine:
                     capture_output=True, timeout=5,
                     creationflags=CREATE_NO_WINDOW,
                 )
-            except Exception:
+            except Exception as exc:
+                log_error(f"ClumsyEngine: taskkill failed: {exc}")
                 try:
                     self._proc.kill()
-                except Exception:
-                    pass
+                except Exception as kill_exc:
+                    log_error(f"ClumsyEngine: kill fallback failed: {kill_exc}")
             self._proc = None
         self._hwnd = None
         log_info("ClumsyEngine stopped")
@@ -787,7 +788,7 @@ class ClumsyEngine:
         log_info(f"config.txt written: {path}")
         log_info(f"  filter entry: DupeZ: {self.filter_str}")
 
-    def _write_presets(self) -> Any:
+    def _write_presets(self) -> None:
         """Write presets.ini with numeric values ONLY — all modules DISABLED.
 
         CRITICAL IUP BEHAVIOR:
@@ -952,7 +953,7 @@ class ClumsyNetworkDisruptor:
     def _is_admin() -> bool:
         return is_admin()
 
-    def _get_clumsy_dir(self) -> dirname:
+    def _get_clumsy_dir(self) -> str:
         return os.path.dirname(os.path.abspath(self.clumsy_exe))
 
     # Core disruption
@@ -1025,6 +1026,15 @@ class ClumsyNetworkDisruptor:
                     merged = dict(_preset_base)
                     merged.update(params)
                     params = merged
+                    # Stash detection metadata so the engine can attach it
+                    # to the engine_start event for the learning loop.
+                    if _detection is not None:
+                        params.setdefault("_target_profile", _detection.profile)
+                        params.setdefault(
+                            "_network_class",
+                            getattr(_detection, "connection_mode", "unknown"),
+                        )
+                        params.setdefault("_platform", _detection.platform)
                     # Ensure layer flag reflects detection regardless of
                     # stale GUI checkbox state — the auto-detect whole
                     # point is to remove manual layer decisions.
@@ -1073,16 +1083,16 @@ class ClumsyNetworkDisruptor:
                                   f"using profile defaults")
             except Exception:
                 params = {
-                    "lag_delay": 1500, "drop_chance": 95,
+                    "lag_delay": 2000, "drop_chance": 95,
                     "disconnect_chance": 100,
                     "bandwidth_limit": 1, "bandwidth_queue": 0,
-                    "throttle_chance": 100, "throttle_frame": 400,
+                    "throttle_chance": 100, "throttle_frame": 350,
                     "throttle_drop": True, "direction": "both",
                     "tick_sync_direction": "inbound",
                     "pulse_direction": "inbound",
                     "stealth_drop_direction": "inbound",
                     "stealth_lag_direction": "inbound",
-                    "godmode_lag_ms": 3000,
+                    "godmode_lag_ms": 3500,
                     "godmode_drop_inbound_pct": 0,
                     "godmode_keepalive_interval_ms": 800,
                 }
@@ -1151,31 +1161,89 @@ class ClumsyNetworkDisruptor:
                 and getattr(_detection, "needs_arp_spoof", False)
             )
             if needs_arp:
+                # ARP-spoof capture is asymmetric: only one leg of the
+                # target↔gateway flow lands through us (gateway caches on
+                # consumer routers are harder to poison than endpoint caches,
+                # so OUTBOUND target→gateway typically wins). Presets like
+                # ps5_hotspot default all module directions to "inbound" —
+                # correct for NETWORK_FORWARD on the ICS host, wrong here.
+                # Force "both" so LagModule/pulse/tick_sync consume whatever
+                # we actually capture (OUT, IN, or both).
+                _arp_dir_keys = (
+                    "direction",
+                    "tick_sync_direction",
+                    "pulse_direction",
+                    "stealth_drop_direction",
+                    "stealth_lag_direction",
+                )
+                for _k in _arp_dir_keys:
+                    if params.get(_k) != "both":
+                        log_info(
+                            f"[WiFi] ARP-spoof path: forcing {_k}="
+                            f"'both' (was {params.get(_k)!r})"
+                        )
+                        params[_k] = "both"
                 try:
                     from app.network.arp_spoof import ArpSpoofer
-                    log_info(
-                        f"[WiFi] Target {mask_ip(target_ip)} is on same "
-                        f"WiFi network — activating ARP spoofing to "
-                        f"redirect traffic through this machine"
-                    )
-                    _arp_spoofer = ArpSpoofer(target_ip=target_ip)
-                    if _arp_spoofer.start():
-                        log_info("[WiFi] ARP spoofing active — traffic "
-                                 "redirected, using NETWORK_FORWARD layer")
-                        # Force FORWARD layer — traffic now routes through us
-                        is_local = False
-                        params["_network_local"] = False
-                    else:
+                    from app.network.npcap_check import check_npcap
+                    from app.logs.gui_notify import gui_toast
+
+                    _npcap = check_npcap()
+                    if not _npcap.available:
                         log_error(
-                            "[WiFi] ARP spoofing failed to start. "
-                            "Falling back to NETWORK layer (limited "
-                            "effectiveness on WiFi same-network)."
+                            f"[WiFi] Cannot ARP-spoof: {_npcap.reason}. "
+                            f"Install Npcap: {_npcap.install_url}"
                         )
-                        _arp_spoofer = None
+                        gui_toast(
+                            "error",
+                            f"WiFi same-network target detected but "
+                            f"{_npcap.reason}. Install Npcap to enable "
+                            f"ARP-spoof interception.",
+                        )
+                    else:
+                        log_info(
+                            f"[WiFi] Target {mask_ip(target_ip)} is on same "
+                            f"WiFi network — activating ARP spoofing to "
+                            f"redirect traffic through this machine"
+                        )
+                        gui_toast(
+                            "info",
+                            f"WiFi same-net target — starting ARP spoof "
+                            f"({mask_ip(target_ip)})",
+                        )
+                        _arp_spoofer = ArpSpoofer(target_ip=target_ip)
+                        if _arp_spoofer.start():
+                            log_info("[WiFi] ARP spoofing active — traffic "
+                                     "redirected, using NETWORK_FORWARD layer")
+                            # Force FORWARD layer — traffic now routes through us
+                            is_local = False
+                            params["_network_local"] = False
+                        else:
+                            log_error(
+                                "[WiFi] ARP spoofing failed to start. "
+                                "Falling back to NETWORK layer (limited "
+                                "effectiveness on WiFi same-network)."
+                            )
+                            gui_toast(
+                                "error",
+                                "ARP spoof failed to start — check logs. "
+                                "Falling back to NETWORK layer (weak).",
+                            )
+                            _arp_spoofer = None
                 except ImportError:
                     log_error("[WiFi] arp_spoof module not available")
+                    try:
+                        from app.logs.gui_notify import gui_toast as _t
+                        _t("error", "ARP-spoof module unavailable.")
+                    except Exception:
+                        pass
                 except Exception as arp_err:
                     log_error(f"[WiFi] ARP spoof error: {arp_err}")
+                    try:
+                        from app.logs.gui_notify import gui_toast as _t
+                        _t("error", f"ARP spoof error: {arp_err}")
+                    except Exception:
+                        pass
                     _arp_spoofer = None
 
             if target_ip and target_ip != "unknown":
@@ -1225,6 +1293,14 @@ class ClumsyNetworkDisruptor:
                     )
                     if native_engine.start():
                         engine = native_engine
+                        # Give the engine a handle to the live spoofer so
+                        # its flow-health watchdog can produce actionable
+                        # diagnostics ("ARP active but no packets" vs
+                        # "no spoofer, switched LAN may need one").
+                        try:
+                            native_engine._arp_spoofer = _arp_spoofer
+                        except Exception:
+                            pass
                         log_info("Native WinDivert engine started successfully")
                     else:
                         log_error("Native engine start returned False — "
@@ -1253,8 +1329,21 @@ class ClumsyNetworkDisruptor:
                     "params": params,
                     "start_time": time.time(),
                     "arp_spoofer": _arp_spoofer,
+                    # Auto-detect result — kept for GUI surfacing
+                    # (layer, platform, profile, needs_arp_spoof, reasons)
+                    "detection": ({
+                        "profile": _detection.profile,
+                        "layer": _detection.layer,
+                        "platform": _detection.platform,
+                        "connection_mode": getattr(
+                            _detection, "connection_mode", "unknown"),
+                        "needs_arp_spoof": getattr(
+                            _detection, "needs_arp_spoof", False),
+                        "reasons": list(_detection.reasons),
+                    } if _detection is not None else None),
                 }
-            log_info(f"DISRUPTION ACTIVE: {mask_ip(target_ip)} (PID={engine._proc.pid})")
+            _pid = getattr(getattr(engine, '_proc', None), 'pid', 'N/A')
+            log_info(f"DISRUPTION ACTIVE: {mask_ip(target_ip)} (PID={_pid})")
             return True
 
         except Exception as e:
@@ -1355,6 +1444,27 @@ class ClumsyNetworkDisruptor:
                     for k in self._STAT_KEYS:
                         totals[k] += stats.get(k, 0)
                     totals["active_engines"] += 1 if stats.get("alive") else 0
+                    # Merge in the auto-detect metadata the GUI uses
+                    # to render the "profile=ps5_hotspot / layer=forward
+                    # / ARP-spoof=yes" badge line.
+                    _det = info.get("detection")
+                    if _det is not None:
+                        stats = dict(stats)
+                        stats["detection"] = _det
+                    # Also surface ARP spoofer liveness so the GUI can
+                    # show a warning if the spoofer dropped but the
+                    # engine kept running.
+                    _arp = info.get("arp_spoofer")
+                    if _arp is not None:
+                        stats = dict(stats)
+                        stats["arp_spoof_active"] = bool(
+                            getattr(_arp, "_running", False))
+                        stats["arp_packets_sent"] = int(
+                            getattr(_arp, "packets_sent", 0)
+                            if not callable(
+                                getattr(_arp, "packets_sent", None))
+                            else _arp.packets_sent()
+                        )
                     totals["per_device"][ip] = stats
         return totals
 
@@ -1380,7 +1490,8 @@ class ClumsyNetworkDisruptor:
         """Deactivate the manager, stopping all disruptions."""
         self.stop_clumsy()
 
-    def disrupt_device(self, ip, methods=None, params=None, **kwargs) -> disconnect_device_clumsy:
+    def disrupt_device(self, ip: str, methods: Optional[List[str]] = None,
+                       params: Optional[Dict] = None, **kwargs) -> bool:
         """Start disruption on *ip*.
 
         ``**kwargs`` are forwarded to ``disconnect_device_clumsy`` and may
@@ -1389,27 +1500,55 @@ class ClumsyNetworkDisruptor:
         """
         return self.disconnect_device_clumsy(ip, methods, params, **kwargs)
 
-    def stop_device(self, ip) -> reconnect_device_clumsy:
+    def stop_device(self, ip: str) -> bool:
         """Stop disruption on *ip*."""
         return self.reconnect_device_clumsy(ip)
 
-    def stop_all_devices(self) -> clear_all_disruptions_clumsy:
+    def stop_all_devices(self) -> bool:
         """Stop all active disruptions."""
         return self.clear_all_disruptions_clumsy()
 
-    def get_disrupted_devices(self) -> get_disrupted_devices_clumsy:
+    def get_disrupted_devices(self) -> List[str]:
         """Return IPs currently under disruption."""
         return self.get_disrupted_devices_clumsy()
 
-    def get_device_status(self, ip) -> get_device_status_clumsy:
+    def mark_cut_outcome(self, persisted: bool, ip: Optional[str] = None) -> int:
+        """Tag the currently-open cut with its survival-model label.
+
+        Forwards to every active :class:`NativeWinDivertEngine` (or a
+        specific one if *ip* is given) so the next ``cut_end`` event
+        carries ``persisted`` into the episode JSONL. Returns the number
+        of engines that accepted the label.
+
+        ``persisted=False`` → dupe succeeded (hive did not flush).
+        ``persisted=True``  → dupe failed (hive flushed normally).
+        """
+        count = 0
+        with self._device_lock:
+            items = (
+                [(ip, self.disrupted_devices[ip])]
+                if ip and ip in self.disrupted_devices
+                else list(self.disrupted_devices.items())
+            )
+        for _target_ip, entry in items:
+            engine = entry.get("engine")
+            if engine is not None and hasattr(engine, "mark_last_cut_outcome"):
+                try:
+                    engine.mark_last_cut_outcome(bool(persisted))
+                    count += 1
+                except Exception as exc:
+                    log_error(f"mark_cut_outcome failed for {mask_ip(_target_ip)}: {exc}")
+        return count
+
+    def get_device_status(self, ip: str) -> Dict:
         """Return status for a specific target."""
         return self.get_device_status_clumsy(ip)
 
-    def get_status(self) -> get_clumsy_status:
+    def get_status(self) -> Dict:
         """Return overall manager status."""
         return self.get_clumsy_status()
 
-    def get_engine_stats(self) -> get_all_engine_stats:
+    def get_engine_stats(self) -> Dict:
         """Return aggregated packet stats from all engines."""
         return self.get_all_engine_stats()
 

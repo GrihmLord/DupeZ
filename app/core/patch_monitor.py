@@ -601,12 +601,19 @@ class PatchMonitor:
                         pass
                     raise
 
-                # Clear profile cache so next load picks up changes
+                # Clear profile cache so next load picks up changes.
+                # If this fails, disk is updated but in-memory state is stale —
+                # that's worth warning about (operator will run with old tuning
+                # until restart).
                 try:
                     from app.config.game_profiles import reload_profile
                     reload_profile("dayz")
-                except Exception:
-                    pass
+                except Exception as exc:  # noqa: BLE001
+                    log_info(
+                        "PatchMonitor: profile written to disk but "
+                        f"reload_profile failed ({exc!r}); restart app to "
+                        "pick up changes"
+                    )
 
                 log_info(
                     f"PatchMonitor: auto-updated game profile "

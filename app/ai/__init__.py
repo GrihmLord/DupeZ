@@ -11,6 +11,13 @@ from app.ai.network_profiler import NetworkProfile, NetworkProfiler
 from app.ai.smart_engine import SmartDisruptionEngine
 from app.ai.llm_advisor import LLMAdvisor
 from app.ai.session_tracker import SessionTracker
+from app.ai.feature_extractor import FeatureExtractor, FEATURE_DIM, FEATURE_NAMES
+from app.ai.episode_recorder import EpisodeRecorder, DEFAULT_EPISODE_DIR
+from app.ai.learning_loop import (
+    LearningLoop, EpisodeSummary, HistoricalRecommendation,
+    MIN_EPISODES_FOR_RECS,
+)
+from app.ai.models import BaseModel, NullModel
 
 # Voice control is optional — requires sounddevice + openai-whisper
 try:
@@ -29,5 +36,16 @@ __all__ = [
     "VoiceController",
     "VoiceConfig",
     "is_voice_available",
+    "FeatureExtractor",
+    "FEATURE_DIM",
+    "FEATURE_NAMES",
+    "EpisodeRecorder",
+    "DEFAULT_EPISODE_DIR",
+    "LearningLoop",
+    "EpisodeSummary",
+    "HistoricalRecommendation",
+    "MIN_EPISODES_FOR_RECS",
+    "BaseModel",
+    "NullModel",
 ]
 

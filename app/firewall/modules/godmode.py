@@ -57,6 +57,22 @@ from app.firewall.native_divert_engine import (
 )
 from app.logs.logger import log_error, log_info
 
+# Tick estimator (optional — for tick-aligned flush timing)
+try:
+    from app.firewall.tick_sync import TickEstimator
+    _TICK_AVAILABLE = True
+except ImportError:
+    _TICK_AVAILABLE = False
+
+# Stealth timing (optional — jitter on flush cadence to avoid detection)
+try:
+    from app.firewall.stealth import (
+        TimingRandomizer, NaturalPatternGenerator, SessionFingerprintRotator,
+    )
+    _STEALTH_AVAILABLE = True
+except ImportError:
+    _STEALTH_AVAILABLE = False
+
 # ML classifier (optional — degrades gracefully if unavailable)
 try:
     from app.firewall.ml_classifier import MLPacketClassifier, MLPacketType
@@ -98,7 +114,7 @@ def _classify_packet(packet_data: bytearray, is_target: bool = False) -> Tuple[P
 #  Defaults
 # ═══════════════════════════════════════════════════════════════════════
 
-DEFAULT_GODMODE_LAG_MS: int = 2000
+DEFAULT_GODMODE_LAG_MS: int = 3500       # deeper desync between pulses
 DEFAULT_KEEPALIVE_INTERVAL_MS: int = 800
 DEFAULT_QUEUE_MAXLEN: int = 50_000
 _MAX_LAG_MS: int = 120_000
@@ -106,20 +122,31 @@ _FLUSH_POLL_INTERVAL_S: float = 0.001
 _BURST_SIZE: int = 50
 _BURST_PAUSE_S: float = 0.005
 
-DEFAULT_PULSE_BLOCK_MS: int = 3000
-DEFAULT_PULSE_FLUSH_MS: int = 400
+DEFAULT_PULSE_BLOCK_MS: int = 3500       # longer block = deeper ghost desync
+DEFAULT_PULSE_FLUSH_MS: int = 300        # shorter flush = less time enemies react
 DEFAULT_PULSE_FLUSH_MAX_PACKETS: int = 300
 
 # During flush, how many GAME_STATE packets to keep per direction.
-# Rest are dropped. For inbound: prevents teleporting enemy playback.
-# For outbound: sends only newest position → clean teleport to current pos.
-DEFAULT_FLUSH_GAMESTATE_KEEP: int = 5
+# Rest are dropped.
+#
+# v6.2: Direction-specific culling:
+#   OUTBOUND (your position → server): keep 1. Only the newest position
+#     goes out → server sees a single clean teleport to your current pos.
+#     This is the #1 change for "teleport, not skip around" behavior.
+#   INBOUND (enemy positions → you): keep 2. Two newest packets give the
+#     client a recent position pair for interpolation, producing smoother
+#     enemy rendering after flush. Keeping only 1 inbound causes enemies
+#     to "pop" into position; 2 lets the client lerp between them.
+DEFAULT_FLUSH_GAMESTATE_KEEP_OUT: int = 1   # YOUR position: clean teleport
+DEFAULT_FLUSH_GAMESTATE_KEEP_IN: int = 2    # ENEMY positions: smooth interpolation
+# Backward-compat alias used when per-direction isn't configured
+DEFAULT_FLUSH_GAMESTATE_KEEP: int = 1
 
 # Staggered flush: inbound arrives first so client gets fresh enemy positions,
-# THEN outbound (including hit reports) flushes after a delay.  This gives
-# the client updated enemy positions before hit reports are validated by the
+# THEN outbound (including hit reports) flushes after a delay. Gives the
+# client updated enemy positions before hit reports are validated by the
 # server, dramatically improving hit registration accuracy.
-DEFAULT_FLUSH_STAGGER_MS: int = 120  # ms delay between inbound and outbound flush
+DEFAULT_FLUSH_STAGGER_MS: int = 100      # tighter stagger = faster hit validation
 
 # Drip-feed: max inbound packets sent per flush-loop tick (1ms).
 # Spreading inbound over the flush window prevents visual teleporting
@@ -238,6 +265,53 @@ class GodModeModule(DisruptionModule):
             except Exception as exc:
                 log_error(f"[GodMode] Recorder init failed: {exc}")
 
+        # ── Tick estimator (tick-aligned flush timing) ────────────────
+        # v6.1: Align FLUSH phase start to server tick boundary so the
+        # position data in the newest GAME_STATE is as fresh as possible.
+        # This maximizes teleport accuracy — flushing mid-tick means the
+        # "newest" packet is already half a tick stale.
+        self._tick_estimator: Optional[object] = None
+        if _TICK_AVAILABLE:
+            try:
+                self._tick_estimator = TickEstimator()
+                log_info("[GodMode] TickEstimator initialized for tick-aligned flush")
+            except Exception as exc:
+                log_error(f"[GodMode] TickEstimator init failed: {exc}")
+
+        # ── Stealth timing (jitter on pulse cadence) ──────────────────
+        # v6.1: Add Gaussian jitter to block/flush timing to prevent
+        # BattlEye from detecting periodic pulse patterns.
+        self._timing_jitter: Optional[object] = None
+        self._keepalive_pattern: Optional[object] = None
+        self._session_rotator: Optional[object] = None
+        if _STEALTH_AVAILABLE:
+            try:
+                # v6.2: SessionFingerprintRotator varies pulse timing each
+                # session so no two sessions have identical block/flush/stagger
+                # patterns. Anti-cheat can't build a behavioral signature
+                # across sessions because the parameters shift.
+                self._session_rotator = SessionFingerprintRotator()
+                _jitter_pct = self._session_rotator.vary(
+                    "godmode_jitter_pct",
+                    params.get("godmode_jitter_pct", 0.10),
+                    variance_pct=0.30)
+                self._timing_jitter = TimingRandomizer(jitter_pct=_jitter_pct)
+
+                # Vary keepalive cycle length per session (10-20s range)
+                _ka_cycle = self._session_rotator.vary(
+                    "keepalive_cycle", 15.0, variance_pct=0.30)
+                _ka_pattern = self._session_rotator.get_pattern()
+                self._keepalive_pattern = NaturalPatternGenerator(
+                    pattern=_ka_pattern, cycle_sec=_ka_cycle)
+
+                log_info(
+                    f"[GodMode] Stealth active: jitter={_jitter_pct:.3f}, "
+                    f"keepalive_pattern={_ka_pattern}, "
+                    f"ka_cycle={_ka_cycle:.1f}s, "
+                    f"session={self._session_rotator._session_hash[:8]}")
+            except Exception as exc:
+                log_error(f"[GodMode] Stealth init failed: {exc}")
+
         # ── Auto-detect game server port ─────────────────────────────
         # Track UDP destination ports from outbound target traffic.
         # After _PORT_DETECT_SAMPLES packets, lock to the most common port.
@@ -260,10 +334,11 @@ class GodModeModule(DisruptionModule):
         if params.get("godmode_infinite", False):
             params.setdefault("godmode_pulse", True)
             params.setdefault("godmode_pulse_block_ms", 5000)
-            params.setdefault("godmode_pulse_flush_ms", 300)
+            params.setdefault("godmode_pulse_flush_ms", 250)
             params.setdefault("godmode_pulse_flush_max", 200)
             params.setdefault("godmode_keepalive_interval_ms", 2000)
-            params.setdefault("godmode_flush_gamestate_keep", 3)
+            params.setdefault("godmode_flush_gamestate_keep", 1)
+            params.setdefault("godmode_flush_stagger_ms", 80)
             self._keepalive_interval = max(0,
                 params.get("godmode_keepalive_interval_ms", 2000)) / 1000.0
 
@@ -287,6 +362,13 @@ class GodModeModule(DisruptionModule):
             profile_defaults.get("godmode_flush_gamestate_keep",
                                  DEFAULT_FLUSH_GAMESTATE_KEEP),
         ))
+        # v6.2: Per-direction overrides (fall back to unified value)
+        self._flush_gamestate_keep_out: int = max(0, params.get(
+            "godmode_flush_gamestate_keep_out",
+            DEFAULT_FLUSH_GAMESTATE_KEEP_OUT))
+        self._flush_gamestate_keep_in: int = max(0, params.get(
+            "godmode_flush_gamestate_keep_in",
+            DEFAULT_FLUSH_GAMESTATE_KEEP_IN))
 
         # ── Staggered flush ─────────────────────────────────────────
         # Inbound flushes first (client gets fresh enemy positions),
@@ -299,23 +381,49 @@ class GodModeModule(DisruptionModule):
         ))
         self._flush_stagger_s: float = self._flush_stagger_ms / 1000.0
 
+        # v6.2: Apply session fingerprint rotation to pulse timing.
+        # Each session gets ±15% variation on block/flush/stagger so
+        # BattlEye can't correlate timing patterns across sessions.
+        if self._session_rotator is not None:
+            self._pulse_block_ms = max(500, int(self._session_rotator.vary(
+                "pulse_block", float(self._pulse_block_ms), 0.15)))
+            self._pulse_flush_ms = max(100, int(self._session_rotator.vary(
+                "pulse_flush", float(self._pulse_flush_ms), 0.15)))
+            self._flush_stagger_ms = max(30, int(self._session_rotator.vary(
+                "flush_stagger", float(self._flush_stagger_ms), 0.20)))
+            self._flush_stagger_s = self._flush_stagger_ms / 1000.0
+
+        # v6.2: Adaptive block duration based on tick rate.
+        # Enabled by default — uses tick estimator to scale block length:
+        #   High tick rate (60Hz) → shorter block (faster state replication
+        #     means less time needed to create deep desync)
+        #   Low tick rate (20Hz) → longer block (slower replication needs
+        #     more time to accumulate position divergence)
+        # Scaling: block_ms * (30 / estimated_hz) → normalized to 30Hz baseline
+        # Applied dynamically in _is_flush_phase after tick estimate stabilizes.
+        self._adaptive_block: bool = params.get("godmode_adaptive_block", True)
+        self._base_block_ms: int = self._pulse_block_ms  # save pre-adapt value
+
         self._cycle_duration_s: float = (
             (self._pulse_block_ms + self._pulse_flush_ms) / 1000.0
         )
         self._block_duration_s: float = self._pulse_block_ms / 1000.0
         self._cycle_start: float = 0.0
+        self._last_tick_adapt: float = 0.0  # track when we last adapted
 
         mode = "PULSE" if self._pulse_enabled else "CLASSIC"
         if params.get("godmode_infinite", False):
             mode = "INFINITE"
         log_info(
-            f"GodMode v6 BIDIR initialized: mode={mode}, "
+            f"GodMode v6.2 BIDIR initialized: mode={mode}, "
             f"target_ip={self._target_ip}, "
             f"block={self._pulse_block_ms}ms, "
             f"flush={self._pulse_flush_ms}ms, "
             f"stagger={self._flush_stagger_ms}ms, "
             f"keepalive={keepalive_ms}ms, "
-            f"gamestate_keep={self._flush_gamestate_keep}, "
+            f"gamestate_keep_out={self._flush_gamestate_keep_out}, "
+            f"gamestate_keep_in={self._flush_gamestate_keep_in}, "
+            f"adaptive_block={self._adaptive_block}, "
             f"queue_max={queue_max}"
         )
 
@@ -326,7 +434,8 @@ class GodModeModule(DisruptionModule):
         try:
             from app.config.game_profiles import get_disruption_defaults
             return get_disruption_defaults("dayz")
-        except Exception:
+        except Exception as exc:
+            log_error(f"GodMode: failed to load DayZ profile defaults: {exc}")
             return {}
 
     def _is_flush_phase(self, now: float) -> bool:
@@ -336,6 +445,65 @@ class GodModeModule(DisruptionModule):
             self._cycle_start = now
         elapsed = (now - self._cycle_start) % self._cycle_duration_s
         return elapsed >= self._block_duration_s
+
+    def _maybe_adapt_block_duration(self, now: float) -> None:
+        """Dynamically adjust block duration based on observed tick rate.
+
+        Called periodically from process(). Recalculates at most once per
+        second to avoid thrashing. Scales block_ms relative to a 30Hz
+        baseline: higher tick rates get shorter blocks, lower rates get longer.
+
+        Clamped to [500ms, 2x base] to prevent extreme values.
+        """
+        if not self._adaptive_block or self._tick_estimator is None:
+            return
+        if now - self._last_tick_adapt < 1.0:
+            return  # rate-limit to 1 adapt/sec
+        self._last_tick_adapt = now
+        te = self._tick_estimator
+        if te.estimated_tick_hz <= 0 or te.confidence < 0.4:
+            return  # not confident enough
+
+        # Scale factor: 30Hz baseline. 60Hz → 0.5x block, 15Hz → 2x block.
+        scale = 30.0 / te.estimated_tick_hz
+        scale = max(0.5, min(2.0, scale))  # clamp
+        new_block = int(self._base_block_ms * scale)
+        new_block = max(500, new_block)
+
+        if new_block != self._pulse_block_ms:
+            self._pulse_block_ms = new_block
+            self._block_duration_s = new_block / 1000.0
+            self._cycle_duration_s = (
+                (new_block + self._pulse_flush_ms) / 1000.0)
+
+    def _tick_align_flush_start(self, now_mono: float) -> float:
+        """Return a small sleep duration to align flush start to tick boundary.
+
+        Args:
+            now_mono: Current time from time.monotonic() (must match the
+                clock used by TickEstimator.update()).
+
+        v6.1: When the flush phase is about to begin, this nudges the
+        start time forward to coincide with the next estimated tick
+        boundary.  Flushing at tick start means the GAME_STATE packet
+        kept (newest-1) contains the freshest position the server just
+        computed, yielding maximum teleport accuracy.
+
+        Returns 0.0 if tick estimation isn't ready or alignment is disabled.
+        """
+        if self._tick_estimator is None:
+            return 0.0
+        te = self._tick_estimator
+        if te.estimated_tick_ms <= 0 or te.confidence < 0.3:
+            return 0.0
+        next_tick = te.get_next_tick_time(now_mono)
+        wait = next_tick - now_mono
+        if wait <= 0 or wait > 0.050:  # cap at 50ms to avoid stalling
+            return 0.0
+        # Apply stealth jitter so alignment isn't perfectly periodic
+        if self._timing_jitter is not None:
+            wait = self._timing_jitter.jitter(wait * 1000.0) / 1000.0
+        return max(0.0, min(wait, 0.050))
 
     # ── Flush thread ─────────────────────────────────────────────────
 
@@ -352,13 +520,28 @@ class GodModeModule(DisruptionModule):
         self._flush_thread.start()
 
     def _drain_queue_smart(
-        self, queue: deque, max_packets: int
+        self, queue: deque, max_packets: int,
+        is_inbound: bool = False,
     ) -> list:
-        """Drain a queue with GAME_STATE culling.
+        """Drain a queue with priority ordering and GAME_STATE/BULK culling.
 
         Returns list of (packet_data, addr) tuples to send.
-        Drops all but the newest ``_flush_gamestate_keep`` GAME_STATE
-        packets. All other classes pass through.
+
+        v6.2: Direction-specific GAME_STATE culling:
+          - OUTBOUND: keep newest 1 → clean teleport (YOUR position)
+          - INBOUND: keep newest 2 → smooth enemy interpolation
+
+        Culling strategy:
+          - GAME_STATE: keep newest N (direction-dependent, see above)
+          - GAME_BULK: keep newest 1 (world sync — bandwidth-expensive)
+          - GAME_SMALL: keep all (acks, small control — cheap)
+          - KEEPALIVE: keep all (connection maintenance)
+
+        Flush order (optimized for hit registration):
+          1. KEEPALIVE — re-establish connection liveness first
+          2. GAME_SMALL — acks arrive, server knows client is responsive
+          3. GAME_STATE — fresh positions for hit validation
+          4. GAME_BULK — world sync last (least time-sensitive)
         """
         raw: list[_QEntry] = []
         with self._lock:
@@ -370,27 +553,79 @@ class GodModeModule(DisruptionModule):
         if not raw:
             return []
 
-        # Separate GAME_STATE from everything else
+        # Bucket by packet class
+        keepalive: list[_QEntry] = []
+        game_small: list[_QEntry] = []
         gamestate: list[_QEntry] = []
+        game_bulk: list[_QEntry] = []
         other: list[_QEntry] = []
+
         for entry in raw:
-            if entry[3] == PktClass.GAME_STATE:
+            pkt_class = entry[3]
+            if pkt_class == PktClass.KEEPALIVE:
+                keepalive.append(entry)
+            elif pkt_class == PktClass.GAME_SMALL:
+                game_small.append(entry)
+            elif pkt_class == PktClass.GAME_STATE:
                 gamestate.append(entry)
+            elif pkt_class == PktClass.GAME_BULK:
+                game_bulk.append(entry)
             else:
                 other.append(entry)
 
-        # Cull GAME_STATE to newest N
-        if len(gamestate) > self._flush_gamestate_keep:
-            dropped = len(gamestate) - self._flush_gamestate_keep
-            self._flush_gamestate_dropped += dropped
-            gamestate = gamestate[-self._flush_gamestate_keep:]
+        # v6.2: Direction-specific GAME_STATE culling with ML-aware ranking
+        gs_keep = (self._flush_gamestate_keep_in if is_inbound
+                   else self._flush_gamestate_keep_out)
+        if len(gamestate) > gs_keep:
+            # v6.2: If ML classifier is available, use it to rank GAME_STATE
+            # packets. Position-carrying packets (POSITION_UPDATE, MOVEMENT)
+            # are preferred over entity state or inventory updates because
+            # position data is what determines teleport accuracy.
+            if (self._ml_classifier is not None and _ML_AVAILABLE
+                    and len(gamestate) > 1):
+                # Score each GAME_STATE: position packets get +10 priority,
+                # plus recency bonus (index in list = arrival order).
+                _scored: list[Tuple[float, int, _QEntry]] = []
+                for i, entry in enumerate(gamestate):
+                    score = float(i)  # recency: higher = newer
+                    try:
+                        ml_pred = self._ml_classifier.classify(
+                            entry[1],  # packet_data
+                            is_outbound=(not is_inbound),
+                            timestamp=entry[0])
+                        if ml_pred.label in (
+                            MLPacketType.POSITION_UPDATE,
+                            MLPacketType.MOVEMENT,
+                        ):
+                            score += 10.0  # strong preference for position
+                    except Exception:
+                        pass  # fall back to recency-only
+                    _scored.append((score, i, entry))
+                # Sort by score descending, keep top N
+                _scored.sort(key=lambda x: x[0], reverse=True)
+                kept_entries = [s[2] for s in _scored[:gs_keep]]
+                # Restore arrival order for flush sequencing
+                kept_entries.sort(key=lambda e: e[0])
+                dropped = len(gamestate) - gs_keep
+                self._flush_gamestate_dropped += dropped
+                gamestate = kept_entries
+            else:
+                # Fallback: simple newest-N culling
+                dropped = len(gamestate) - gs_keep
+                self._flush_gamestate_dropped += dropped
+                gamestate = gamestate[-gs_keep:]
 
-        # Return in order: other first, then newest gamestate
-        result = []
-        for _, pkt, addr, _ in other:
-            result.append((pkt, addr))
-        for _, pkt, addr, _ in gamestate:
-            result.append((pkt, addr))
+        # Cull GAME_BULK to newest 1 (bandwidth-expensive)
+        _BULK_KEEP: int = 1
+        if len(game_bulk) > _BULK_KEEP:
+            self._flush_gamestate_dropped += len(game_bulk) - _BULK_KEEP
+            game_bulk = game_bulk[-_BULK_KEEP:]
+
+        # Priority-ordered flush: keepalive → acks → positions → bulk
+        result: list[Tuple[bytearray, WINDIVERT_ADDRESS]] = []
+        for bucket in (keepalive, game_small, other, gamestate, game_bulk):
+            for _, pkt, addr, _ in bucket:
+                result.append((pkt, addr))
         return result
 
     def _flush_loop(self) -> None:
@@ -424,12 +659,31 @@ class GodModeModule(DisruptionModule):
 
                 # Step 1: Drain inbound queue once into a local buffer
                 if not _in_draining and not _in_pending:
+                    # v6.1: Tick-align flush start for maximum position freshness
+                    # Use monotonic clock for tick alignment (matches TickEstimator)
+                    _tick_wait = self._tick_align_flush_start(time.monotonic())
+                    if _tick_wait > 0:
+                        time.sleep(_tick_wait)
+                        now = time.time()  # refresh wall clock after alignment sleep
+
                     _in_pending = self._drain_queue_smart(
-                        self._inbound_queue, self._pulse_flush_max)
+                        self._inbound_queue, self._pulse_flush_max,
+                        is_inbound=True)
                     _in_draining = True
                     _out_done = False
-                    # Schedule outbound after stagger delay from NOW
-                    _out_flush_at = now + self._flush_stagger_s
+                    # Adaptive stagger: scale delay based on inbound packet count.
+                    # More inbound packets = client needs longer to process position
+                    # updates before outbound hit reports are validated.
+                    # Base stagger + 0.5ms per inbound packet, capped at 2x base.
+                    _adaptive_stagger = self._flush_stagger_s
+                    if _in_pending:
+                        _per_pkt_extra = 0.0005  # 0.5ms per packet
+                        _extra = len(_in_pending) * _per_pkt_extra
+                        _adaptive_stagger = min(
+                            self._flush_stagger_s * 2.0,
+                            self._flush_stagger_s + _extra,
+                        )
+                    _out_flush_at = now + _adaptive_stagger
 
                 # Step 2: Drip-feed inbound packets (_FLUSH_DRIP_IN per tick)
                 if _in_pending:
@@ -445,7 +699,8 @@ class GodModeModule(DisruptionModule):
                 # Step 3: Flush OUTBOUND after stagger delay (once)
                 if _in_draining and not _out_done and now >= _out_flush_at:
                     out_pkts = self._drain_queue_smart(
-                        self._outbound_queue, self._pulse_flush_max)
+                        self._outbound_queue, self._pulse_flush_max,
+                        is_inbound=False)
                     for pkt_data, addr in out_pkts:
                         try:
                             self._send_fn(pkt_data, addr)  # type: ignore[misc]
@@ -534,6 +789,15 @@ class GodModeModule(DisruptionModule):
 
         if is_inbound:
             self._class_counts_in[pkt_class] += 1
+            # v6.1: Feed tick estimator with inbound UDP for tick rate estimation
+            if self._tick_estimator is not None and proto == _PROTO_UDP:
+                try:
+                    _now_mono = time.monotonic()
+                    self._tick_estimator.update(_now_mono)
+                    # v6.2: Adapt block duration based on observed tick rate
+                    self._maybe_adapt_block_duration(_now_mono)
+                except Exception:
+                    pass  # estimator is non-critical
         else:
             self._class_counts_out[pkt_class] += 1
 
@@ -557,8 +821,13 @@ class GodModeModule(DisruptionModule):
                 ml_pred = self._ml_classifier.classify(
                     packet_data, is_outbound=is_outbound, timestamp=time.time())
                 ml_label = ml_pred.label
-            except Exception:
-                pass  # ML failure is non-fatal
+            except Exception as exc:
+                self._ml_errors = getattr(self, "_ml_errors", 0) + 1
+                if self._ml_errors <= 5:
+                    log_error(f"GodMode: ML classify failed: {exc}")
+                if self._ml_errors >= 50:
+                    log_error("GodMode: ML classifier disabled after 50 failures")
+                    self._ml_classifier = None
 
         # Debug: log first 10 packets per direction
         if is_inbound:
@@ -599,25 +868,36 @@ class GodModeModule(DisruptionModule):
         # This handles DayZ where the smallest packets may exceed the
         # KEEPALIVE threshold but we still need periodic pass-through.
         if self._keepalive_interval > 0:
+            # v6.1: Natural keepalive timing — apply jitter so intervals
+            # look like genuine wifi interference rather than perfect spacing.
+            # The NaturalPatternGenerator modulates the effective interval
+            # with a sinusoidal + random spike pattern.
+            effective_interval = self._keepalive_interval
+            if self._keepalive_pattern is not None:
+                # Modulate interval: base * (0.6 to 1.4) via pattern
+                modulated_drop = self._keepalive_pattern.get_drop_chance(50.0)
+                # Map drop_chance (0-100) → interval multiplier (0.6-1.4)
+                effective_interval = self._keepalive_interval * (0.6 + 0.8 * modulated_drop / 100.0)
+
             if is_inbound:
                 elapsed_in = now - self._last_keepalive_in
-                if pkt_class == PktClass.KEEPALIVE and elapsed_in >= self._keepalive_interval:
+                if pkt_class == PktClass.KEEPALIVE and elapsed_in >= effective_interval:
                     self._last_keepalive_in = now
                     self._in_keepalive += 1
                     return False
                 # Fallback: pass smallest game packet if overdue
-                if pkt_class == PktClass.GAME_SMALL and elapsed_in >= self._keepalive_interval * 2:
+                if pkt_class == PktClass.GAME_SMALL and elapsed_in >= effective_interval * 2:
                     self._last_keepalive_in = now
                     self._in_keepalive += 1
                     return False
             elif is_outbound:
                 elapsed_out = now - self._last_keepalive_out
-                if pkt_class == PktClass.KEEPALIVE and elapsed_out >= self._keepalive_interval:
+                if pkt_class == PktClass.KEEPALIVE and elapsed_out >= effective_interval:
                     self._last_keepalive_out = now
                     self._out_keepalive += 1
                     return False
                 # Fallback: pass smallest game packet if overdue
-                if pkt_class == PktClass.GAME_SMALL and elapsed_out >= self._keepalive_interval * 2:
+                if pkt_class == PktClass.GAME_SMALL and elapsed_out >= effective_interval * 2:
                     self._last_keepalive_out = now
                     self._out_keepalive += 1
                     return False
@@ -702,6 +982,10 @@ class GodModeModule(DisruptionModule):
             "detected_server_port": self._detected_server_port,
             "class_in": {c.name: n for c, n in self._class_counts_in.items() if n},
             "class_out": {c.name: n for c, n in self._class_counts_out.items() if n},
+            "tick_estimator": (
+                self._tick_estimator.get_stats()
+                if self._tick_estimator is not None else None
+            ),
             "ml_classifier": (
                 self._ml_classifier.get_stats()
                 if self._ml_classifier is not None else None
@@ -765,8 +1049,8 @@ class GodModeModule(DisruptionModule):
                 try:
                     self._send_fn(pkt_data, addr)
                     flushed += 1
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error(f"GodMode: shutdown flush failed ({len(pkt_data)}B): {exc}")
                 if (i + 1) % _BURST_SIZE == 0 and i + 1 < len(remaining):
                     time.sleep(_BURST_PAUSE_S)
 
@@ -777,8 +1061,8 @@ class GodModeModule(DisruptionModule):
         if self._ml_classifier is not None:
             try:
                 ml_summary = f", {self._ml_classifier.get_prediction_summary()}"
-            except Exception:
-                pass
+            except Exception as exc:
+                log_error(f"GodMode: ML summary failed: {exc}")
 
         log_info(
             f"GodMode v6 BIDIR stats: "

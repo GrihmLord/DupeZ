@@ -106,45 +106,178 @@ def _probe_gpu_usable() -> Tuple[bool, str]:
     pre-ADR-0001 baseline. A false positive would mean SwiftShader or
     hardware raster on a blocklisted driver, which Chromium itself will
     then fall back from — so the cost of a wrong guess is bounded.
+
+    Probe chain (stops at first conclusive answer):
+      1. Pure-ctypes DXGI factory — fastest, no third-party deps.
+      2. ``wmic`` subprocess — slower (~500ms) but universally available
+         on Windows 10/11 (wmic deprecated but still ships).
+      3. Give up → (False, reason).
     """
     if sys.platform != "win32":
         return (False, "non-windows")
+
+    # ── Probe 1: Pure-ctypes DXGI ──────────────────────────────────
+    # CreateDXGIFactory1 → EnumAdapters1 → GetDesc1.
+    # Works without comtypes, win32com, or any third-party package.
     try:
-        import ctypes
-        from ctypes import wintypes
-
-        # Query DXGI for adapter count via EnumAdapters1. If there's at
-        # least one non-software adapter with >= 512 MB dedicated video
-        # memory, call it usable.
-        try:
-            import comtypes  # type: ignore  # noqa: F401
-        except Exception:
-            # No comtypes — fall back to the CIM_VideoController WMI check,
-            # which is slower but widely available. Skip WMI if pywin32 is
-            # missing to keep startup fast.
-            try:
-                import win32com.client  # type: ignore
-                wmi = win32com.client.GetObject("winmgmts:")
-                adapters = wmi.InstancesOf("Win32_VideoController")
-                for a in adapters:
-                    try:
-                        name = str(a.Name or "").lower()
-                        ram = int(getattr(a, "AdapterRAM", 0) or 0)
-                    except Exception:
-                        continue
-                    if "microsoft basic" in name or "standard vga" in name:
-                        continue
-                    if ram >= 512 * 1024 * 1024:
-                        return (True, f"wmi:{name} ram={ram}")
-                return (False, "wmi:no-capable-adapter")
-            except Exception as e:
-                return (False, f"wmi-failed:{e}")
-
-        # comtypes path — but this is heavy. Skip it by default; WMI is
-        # enough for a startup heuristic.
-        return (False, "dxgi-unimplemented")
+        result = _probe_dxgi_ctypes()
+        if result is not None:
+            return result
     except Exception as e:
-        return (False, f"probe-error:{e}")
+        log.debug("DXGI ctypes probe failed: %s", e)
+
+    # ── Probe 2: wmic subprocess ───────────────────────────────────
+    try:
+        import subprocess
+        out = subprocess.check_output(
+            ["wmic", "path", "win32_videocontroller", "get",
+             "name,AdapterRAM", "/format:csv"],
+            timeout=5, stderr=subprocess.DEVNULL, text=True,
+        )
+        for line in out.splitlines():
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) < 3:
+                continue
+            name = parts[1].lower()
+            if "microsoft basic" in name or "standard vga" in name:
+                continue
+            try:
+                ram = int(parts[2])
+            except (ValueError, IndexError):
+                ram = 0
+            if ram >= 256 * 1024 * 1024:  # 256 MB minimum
+                return (True, f"wmic:{parts[1]} ram={ram}")
+        return (False, "wmic:no-capable-adapter")
+    except Exception as e:
+        return (False, f"wmic-failed:{e}")
+
+
+def _probe_dxgi_ctypes() -> "Tuple[bool, str] | None":
+    """Pure-ctypes DXGI adapter enumeration.
+
+    Returns ``(usable, reason)`` if we got a conclusive answer,
+    or ``None`` if the probe couldn't run (missing DLL, etc.)
+    so the caller should try the next strategy.
+    """
+    import ctypes
+    import ctypes.wintypes as wt
+
+    try:
+        dxgi = ctypes.windll.dxgi  # type: ignore[attr-defined]
+    except (OSError, AttributeError):
+        return None
+
+    # IID_IDXGIFactory1 = {770aae78-f26f-4dba-a829-253c83d1b387}
+    IID_IDXGIFactory1 = (ctypes.c_byte * 16)(
+        0x78, 0xAE, 0x0A, 0x77, 0x6F, 0xF2, 0xBA, 0x4D,
+        0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87,
+    )
+
+    factory_ptr = ctypes.c_void_p()
+    hr = dxgi.CreateDXGIFactory1(
+        ctypes.byref(IID_IDXGIFactory1),
+        ctypes.byref(factory_ptr),
+    )
+    if hr != 0 or not factory_ptr.value:
+        return None
+
+    # IDXGIFactory1::EnumAdapters1 is vtable index 12.
+    # IDXGIAdapter1::GetDesc1 is vtable index 10.
+    # IDXGIAdapter1::Release is vtable index 2.
+    # IDXGIFactory1::Release is vtable index 2.
+    vtable = ctypes.cast(
+        factory_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))
+    )[0]
+
+    # DXGI_ADAPTER_DESC1 layout (partial — we only need Description and
+    # DedicatedVideoMemory):
+    #   WCHAR Description[128]   offset 0    (256 bytes)
+    #   UINT  VendorId           offset 256  (4 bytes)
+    #   UINT  DeviceId           offset 260  (4 bytes)
+    #   UINT  SubSysId           offset 264  (4 bytes)
+    #   UINT  Revision           offset 268  (4 bytes)
+    #   SIZE_T DedicatedVideoMemory   offset 272 (8 bytes on x64)
+    #   SIZE_T DedicatedSystemMemory  offset 280
+    #   SIZE_T SharedSystemMemory     offset 288
+    #   LUID   AdapterLuid           offset 296
+    #   UINT   Flags                 offset 304
+    # Total: ~308 bytes. Allocate 320 for safety.
+    DESC1_SIZE = 320
+
+    best_name = ""
+    best_ram = 0
+    idx = 0
+
+    while True:
+        adapter_ptr = ctypes.c_void_p()
+        # Call EnumAdapters1(factory, idx, &adapter)
+        enum_fn = ctypes.WINFUNCTYPE(
+            ctypes.c_long, ctypes.c_void_p, ctypes.c_uint,
+            ctypes.POINTER(ctypes.c_void_p),
+        )(vtable[12])
+        hr = enum_fn(factory_ptr, idx, ctypes.byref(adapter_ptr))
+        if hr != 0 or not adapter_ptr.value:
+            break
+        idx += 1
+
+        # GetDesc1
+        desc_buf = (ctypes.c_byte * DESC1_SIZE)()
+        adapter_vtable = ctypes.cast(
+            adapter_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))
+        )[0]
+        get_desc1 = ctypes.WINFUNCTYPE(
+            ctypes.c_long, ctypes.c_void_p,
+            ctypes.POINTER(ctypes.c_byte * DESC1_SIZE),
+        )(adapter_vtable[10])
+        hr_desc = get_desc1(adapter_ptr, ctypes.byref(desc_buf))
+
+        # Release adapter
+        release_fn = ctypes.WINFUNCTYPE(
+            ctypes.c_ulong, ctypes.c_void_p
+        )(adapter_vtable[2])
+        release_fn(adapter_ptr)
+
+        if hr_desc != 0:
+            continue
+
+        # Parse Description (WCHAR[128] at offset 0)
+        raw_name = bytes(desc_buf[:256])
+        try:
+            name = raw_name.decode("utf-16-le").rstrip("\x00")
+        except Exception:
+            name = ""
+
+        # Parse DedicatedVideoMemory (SIZE_T at offset 272)
+        ram_bytes = bytes(desc_buf[272:280])
+        ram = int.from_bytes(ram_bytes, byteorder="little", signed=False)
+
+        # Parse Flags (UINT at offset 304)
+        flags_bytes = bytes(desc_buf[304:308])
+        flags = int.from_bytes(flags_bytes, byteorder="little", signed=False)
+        DXGI_ADAPTER_FLAG_SOFTWARE = 2
+        if flags & DXGI_ADAPTER_FLAG_SOFTWARE:
+            continue  # Skip Microsoft Basic Render Driver / WARP
+
+        name_lower = name.lower()
+        if "microsoft basic" in name_lower or "standard vga" in name_lower:
+            continue
+
+        if ram > best_ram:
+            best_ram = ram
+            best_name = name
+
+    # Release factory
+    factory_vtable = vtable
+    release_factory = ctypes.WINFUNCTYPE(
+        ctypes.c_ulong, ctypes.c_void_p
+    )(factory_vtable[2])
+    release_factory(factory_ptr)
+
+    if best_ram >= 256 * 1024 * 1024:  # 256 MB dedicated VRAM
+        return (True, f"dxgi:{best_name} vram={best_ram}")
+    if idx == 0:
+        return None  # DXGI worked but no adapters — unusual, let next probe try
+    return (False, f"dxgi:no-capable-adapter (best={best_name} vram={best_ram})")
 
 
 def resolve_tier() -> Tier:
@@ -153,6 +286,9 @@ def resolve_tier() -> Tier:
     if override == "gpu":
         log.info("renderer tier: tier1_hw (forced by DUPEZ_MAP_RENDERER=gpu)")
         return "tier1_hw"
+    if override == "swiftshader":
+        log.info("renderer tier: tier2_swiftshader (forced by DUPEZ_MAP_RENDERER=swiftshader)")
+        return "tier2_swiftshader"
     if override == "software":
         log.info("renderer tier: tier3_cpu (forced by DUPEZ_MAP_RENDERER=software)")
         return "tier3_cpu"

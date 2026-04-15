@@ -52,13 +52,15 @@ class DuplicateModule(DisruptionModule):
         send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
     ) -> bool:
         """Send original + *count* copies when the roll hits."""
-        count: int = self.params.get("duplicate_count", DEFAULT_DUPLICATE_COUNT)
+        count: int = max(1, self.params.get("duplicate_count", DEFAULT_DUPLICATE_COUNT))
 
         if self._roll(self.params.get("duplicate_chance", DEFAULT_DUPLICATE_CHANCE)):
-            # Send the original first, then extra copies
-            send_fn(packet_data, addr)
-            for _ in range(count):
+            try:
                 send_fn(packet_data, addr)
-            return True  # we handled the send (original + copies)
+                for _ in range(count):
+                    send_fn(packet_data, addr)
+            except Exception:
+                pass  # best-effort: partial sends are acceptable for flooding
+            return True
 
-        return False  # chance didn't hit — let packet pass through normally
+        return False

@@ -47,21 +47,43 @@ _DEFAULT_ARCH = _COMPILED_DEFAULT
 
 
 def _detect_gpu_available() -> bool:
-    """Best-effort GPU detection — True if a discrete/integrated GPU is present.
+    """Best-effort GPU detection — True if a usable GPU is present.
 
     Used to auto-select ``split`` mode when the build default is ambiguous,
     so that QWebEngineView can use hardware rasterisation (which requires
     the GUI process to run at Medium IL, not elevated).
+
+    Probe chain: DXGI ctypes (fast, no deps) → wmic subprocess (fallback).
     """
+    import sys
+    if sys.platform != "win32":
+        return False
+
+    # Try the renderer_tier DXGI probe first — it's fast and dependency-free
+    try:
+        from app.gui.map_host.renderer_tier import _probe_gpu_usable
+        usable, _reason = _probe_gpu_usable()
+        return usable
+    except Exception:
+        pass
+
+    # Fallback: wmic (deprecated but still ships on Win10/11)
     try:
         import subprocess
         out = subprocess.check_output(
             ["wmic", "path", "win32_videocontroller", "get", "name"],
             timeout=5, stderr=subprocess.DEVNULL, text=True,
         )
-        # Any line that isn't the header or blank means a GPU exists
-        lines = [l.strip() for l in out.splitlines() if l.strip() and l.strip().lower() != "name"]
-        return len(lines) > 0
+        lines = [
+            stripped for stripped in (raw.strip() for raw in out.splitlines())
+            if stripped and stripped.lower() != "name"
+        ]
+        # Filter out software adapters
+        for line in lines:
+            low = line.lower()
+            if "microsoft basic" not in low and "standard vga" not in low:
+                return True
+        return False
     except Exception:
         return False
 
