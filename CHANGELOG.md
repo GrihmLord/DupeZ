@@ -4,6 +4,16 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.6.1 — 2026-04-15 (Updater Stability)
+
+### Fixed
+- **Updater no longer spuriously prompts when already on latest.** Added equal-tag short-circuit in `UpdateChecker.check_sync` — if normalized current and latest tags match exactly, `is_newer` is False without falling through to numeric compare. Guards against stale frozen `__version__` values causing re-prompts.
+- **Installer URL now uses stable versionless alias.** `installer_url` is set to `https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe` regardless of what the GitHub API asset scan resolved. Same stable URL the landing page CTA uses — self-updating per release.
+
+### Changed
+- Packaging manifest versions (`dupez.manifest`, `dupez_compat.manifest`) bumped from stale `5.5.0.0` to `5.6.1.0` to match runtime.
+
+---
 ## v5.6.0 â€” 2026-04-14 (MAC-Spoof Spike + A2S Cut Verification + Learning-Loop Closure)
 
 Three-frontier release that closes the observability loop on cut effectiveness, hardens the ARP-poison path against consumer-router anti-spoof heuristics, and fills in the vendor column for every IEEE-registered OUI. The disruption pipeline now produces labeled episodes end-to-end with no operator input required.
