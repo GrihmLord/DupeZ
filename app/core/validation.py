@@ -85,7 +85,7 @@ _WINDIVERT_ALLOWED_TOKENS = frozenset({
 # Allowed disruption method names
 VALID_DISRUPTION_METHODS: FrozenSet[str] = frozenset({
     "lag", "drop", "throttle", "duplicate", "ood", "corrupt",
-    "rst", "disconnect", "bandwidth", "godmode", "dupe",
+    "rst", "disconnect", "bandwidth", "godmode",
     "stealth_drop", "stealth_lag",
     "gilbert_elliott", "pareto_jitter", "correlated_drop",
     "token_bucket", "tick_sync", "pulse",
@@ -112,11 +112,8 @@ VALID_PARAM_RANGES: Dict[str, Tuple[type, float, float]] = {
     "godmode_pulse_flush_ms": (float, 100, 5000),
     "godmode_pulse_flush_max": (int, 10, 5000),
     "lag_keepalive_interval_ms": (float, 0, 10000),
-    "dupe_prep_duration_ms": (float, 0, 30000),
-    "dupe_cut_duration_ms": (float, 1000, 25000),
-    "dupe_cycle_count": (int, 1, 10),
-    "dupe_cycle_delay_ms": (float, 0, 30000),
-    "dupe_action_delay_ms": (float, 0, 5000),
+    "disconnect_duration_ms": (float, 0, 60000),
+    "disconnect_arm_delay_ms": (float, 0, 30000),
     "direction": (str, 0, 0),  # special case — validated separately
 }
 

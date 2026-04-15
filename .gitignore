@@ -59,8 +59,12 @@ Thumbs.db
 cleanup_*.py
 
 # User data — NEVER commit (contains real IPs, MACs, device fingerprints)
+app/data/
+!app/data/.gitkeep
 app/data/*.json
 app/data/*.jsonl
+app/data/**/*.jsonl
+app/data/**/*.jsonl.bak
 app/data/*.hmac
 *.hmac
 app/data/*.db

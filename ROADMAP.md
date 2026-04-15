@@ -140,7 +140,21 @@ First release shipping **two user-facing binaries from one codebase**: `DupeZ-GP
 
 ---
 
-## v5.5.0 — GUI Integration & Live Visualization
+## v5.6.0 — MAC-Spoof Spike + A2S Cut Verification + Learning-Loop Closure ✅
+
+**Released:** 2026-04-14
+
+Three-frontier release closing the observability loop on cut effectiveness, hardening ARP poison against consumer-router anti-spoof heuristics, and filling in the vendor column for every IEEE-registered OUI.
+
+- ~~**MAC-spoof spike** — Gateway-facing poison now emits opcode-2 reply with L2 source spoofed to target MAC + opcode-1 request variant. Defeats ASUS/Netgear/Ubiquiti anti-spoof and RFC 826 strict-mode routers.~~ ✅ Done
+- ~~**A2S cut verifier → episode recorder** — `CutVerifier` writes `cut_verified` events on every state transition. `engine_stop` carries peak `max_cut_state`.~~ ✅ Done
+- ~~**`LearningLoop.cut_effectiveness`** — Per-bucket severance aggregation distinct from recommend(). Enables auto-tuner preset switching when current preset can't sever.~~ ✅ Done
+- ~~**Full scapy MANUFDB vendor fallback** — `lookup_vendor()` chains to ~35k-entry IEEE OUI database on curated-table miss.~~ ✅ Done
+- ~~**Smoketest tool** — `tools/smoketest_scan_and_lag.py` end-to-end pipeline validator with distinct exit codes per failure class.~~ ✅ Done
+
+---
+
+## v5.7.0 — GUI Integration & Live Visualization
 
 **Status:** Next up
 
@@ -157,6 +171,19 @@ Wire the v5.x engine features into the UI so users can use God Mode Pulse, Dupe 
 - **Stealth Pattern Selector** — Natural pattern chooser with preview waveform.
 - **Code Signing** — Obtain EV code signing certificate, sign exe + installer for instant SmartScreen trust. Wire into `build.bat` Stage 2.
 - **Installer UX** — Custom installer banner/wizard images, license agreement page, optional portable mode checkbox.
+
+---
+
+## v5.5.0 — WiFi ARP Spoof + Audit Cleanup ✅
+
+**Status:** Complete
+
+WiFi same-network interception and technical debt cleanup from the Phase C codebase audit.
+
+- **WiFi Same-Network Mode** — ARP cache poisoning for targets on the same WiFi (not behind hotspot). Auto-detected by `target_profile.py`, managed by `arp_spoof.py`.
+- **V1 Dupe Engine Removed** — Deprecated module deleted; mechanics docstring preserved in v2. `DupeMethod.LEGACY` is self-contained.
+- **Shared Widget Extraction** — `CollapsibleCard` moved to `app/gui/widgets/` for cross-panel reuse.
+- **Type Annotation & PRNG Fixes** — `_finalize_calibration` return type, `_LCG` class replacing module-level mutable state.
 
 ---
 
@@ -217,6 +244,8 @@ Reduce detection surface and expand platform support.
 - [x] **v5.2.3** — Version display fix + single source of truth. Dashboard title bar and HTTP `User-Agent` header now report the actual build version. `app/core/updater.py` and `app/core/secure_http.py` both had `"5.2.0"` hardcoded — fixed by pointing at a new `app/__version__.py` single-source-of-truth module. Hardcoding versions anywhere under `app/` is now explicitly forbidden.
 - [x] **v5.2.4** — Installer architecture fix + manifest sync. Installer now lands in `C:\Program Files\DupeZ` on 64-bit Windows instead of `C:\Program Files (x86)\DupeZ` — added missing `ArchitecturesInstallIn64BitMode=x64` / `ArchitecturesAllowed=x64` directives to `installer.iss`. `dupez.manifest` `assemblyIdentity` version bumped from the stale `5.2.0.0` it had been stuck at since v5.2.0, now tracked in the per-release bump checklist.
 - [x] **v5.3.0** — Split-elevation architecture + hardware-rasterized map + preset collapse. Dual-variant builds (`DupeZ-GPU.exe` + `DupeZ-Compat.exe`). ADR-0001 helper-role dispatch, feature-flag routing in blocker, renderer tier resolver, 4-stage hostname chain with bundled zeroconf, packaging subtree reorganization, preset taxonomy 8 → 5.
+- [x] **v5.5.0** — WiFi same-network ARP-spoof mode, `CollapsibleCard` extraction, `ml_classifier` PRNG refactor, deprecated Dupe Engine v1 removal.
+- [x] **v5.6.0** — MAC-spoof spike (gateway-facing opcode 1+2 with L2 target-MAC impersonation), A2S cut verifier plumbed into episode recorder (`cut_verified` events + `max_cut_state` on `engine_stop`), `LearningLoop.cut_effectiveness` severance aggregation, full scapy MANUFDB vendor fallback (~35k OUI), end-to-end smoketest tool.
 
 ---
 

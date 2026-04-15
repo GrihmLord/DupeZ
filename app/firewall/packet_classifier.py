@@ -263,7 +263,7 @@ class PacketClassifier:
         if now - self._calibration_start >= self._calibration_sec:
             self._finalize_calibration()
 
-    def _finalize_calibration(self) -> Optional[Any]:
+    def _finalize_calibration(self) -> None:
         """Derive thresholds from observed traffic percentiles."""
         with self._calibration_lock:
             sizes = sorted(self._calibration_sizes)

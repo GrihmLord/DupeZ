@@ -44,7 +44,7 @@ class ThrottleModule(DisruptionModule):
         send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
     ) -> bool:
         """Return ``True`` to drop the packet when inside the throttle window."""
-        frame_ms: int = self.params.get("throttle_frame", DEFAULT_THROTTLE_FRAME_MS)
+        frame_ms: int = max(1, self.params.get("throttle_frame", DEFAULT_THROTTLE_FRAME_MS))
         now: float = time.time()
 
         if self._roll(self.params.get("throttle_chance", DEFAULT_THROTTLE_CHANCE)):

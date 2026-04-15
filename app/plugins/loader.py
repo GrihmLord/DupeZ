@@ -15,6 +15,7 @@ import sys
 import traceback
 from typing import Any, Dict, List, Optional, Type
 
+from app.core.validation import validate_json_size
 from app.logs.logger import log_info, log_error, log_warning
 from app.plugins.base import (
     DisruptionPlugin,
@@ -144,14 +145,16 @@ class PluginLoader:
     def _parse_manifest(self, path: str, plugin_dir: str) -> Optional[PluginManifest]:
         """Parse and validate a manifest.json file."""
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        except (json.JSONDecodeError, OSError) as e:
+            with open(path, "rb") as f:
+                raw = f.read()
+            validate_json_size(raw, context=f"plugin manifest {path}")
+            data = json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, OSError, ValueError) as e:
             log_error(f"Failed to read manifest at {path}: {e}")
             return None
 
         # Validate required fields
-        missing = REQUIRED_FIELDS - set(data.keys())
+        missing = REQUIRED_FIELDS - data.keys()
         if missing:
             log_error(f"Manifest at {path} missing fields: {missing}")
             return None

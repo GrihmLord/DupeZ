@@ -1,28 +1,48 @@
 {
   "game": "DayZ",
   "engine": "Enfusion",
-  "version_notes": "Calibrated for DayZ 1.29+ (April 2026). All values are defaults that can be overridden by auto-calibration.",
-
+  "version_notes": "Calibrated for DayZ 1.29+ (April 2026). Aggressive tuning \u2014 longer cuts, deeper filtering, tighter timing.",
   "network": {
     "protocol": "udp",
     "default_port": 2302,
-    "port_range": [2302, 2305],
-    "steam_ports": [27015, 27016, 27017],
-    "auxiliary_ports": [9306, 9308],
-    "all_known_ports": [2302, 2303, 2304, 2305, 9306, 9308, 27015, 27016, 27017],
+    "port_range": [
+      2302,
+      2305
+    ],
+    "steam_ports": [
+      27015,
+      27016,
+      27017
+    ],
+    "auxiliary_ports": [
+      9306,
+      9308
+    ],
+    "all_known_ports": [
+      2302,
+      2303,
+      2304,
+      2305,
+      9306,
+      9308,
+      27015,
+      27016,
+      27017
+    ],
     "port_auto_detect": true,
     "port_auto_detect_method": "highest_pps_udp_flow"
   },
-
   "tick_model": {
-    "expected_range_hz": [20, 120],
+    "expected_range_hz": [
+      20,
+      120
+    ],
     "default_estimate_hz": 60,
     "iat_min_sec": 0.004,
-    "iat_max_sec": 0.500,
+    "iat_max_sec": 0.5,
     "packets_per_second_max": 30,
-    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically. iat_min raised to 4ms (250Hz ceiling) to filter hotspot WiFi sub-5ms jitter noise from the median without losing real signal."
+    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically."
   },
-
   "reliable_udp": {
     "protocol_style": "gafferon_games",
     "header_size_bytes": 16,
@@ -31,32 +51,27 @@
     "ack_timeout_sec": 1.0,
     "notes": "Each ack is sent 32 times via bitfield. Need burst >32 packets to cause genuine desync."
   },
-
   "packet_classification": {
     "auto_calibrate": true,
-    "calibration_duration_sec": 10,
+    "calibration_duration_sec": 8,
     "size_thresholds": {
       "keepalive_max_bytes": 60,
       "movement_max_bytes": 150,
       "state_max_bytes": 500,
-      "bulk_min_bytes": 500,
-      "notes": "Defaults used until auto-calibration completes. Based on pre-1.29 traffic captures."
+      "bulk_min_bytes": 500
     },
     "frequency_thresholds": {
       "high_pps": 25,
       "medium_pps": 5,
-      "low_pps": 5,
-      "notes": "Defaults. Auto-calibration derives from detected tick rate."
+      "low_pps": 5
     },
     "size_percentiles": {
       "keepalive": "P10",
       "movement": "P40",
       "state": "P75",
-      "bulk": "P90",
-      "notes": "During calibration, thresholds are set to these percentiles of observed packet sizes."
+      "bulk": "P90"
     }
   },
-
   "game_state_detection": {
     "auto_calibrate": true,
     "thresholds": {
@@ -66,176 +81,198 @@
       "loading_bps": 50000,
       "loading_avg_size": 500,
       "combat_pps": 40,
-      "combat_outbound_ratio": 0.8,
-      "notes": "Absolute defaults. With auto_calibrate=true, these become multipliers against baseline."
+      "combat_outbound_ratio": 0.8
     },
     "baseline_multipliers": {
       "disconnected": 0.05,
       "menu": 0.25,
       "loading_bps": 3.0,
-      "combat_pps": 1.5,
-      "notes": "When auto-calibrating: disconnected = baseline * 0.05, menu = baseline * 0.25, etc."
+      "combat_pps": 1.5
     }
   },
-
-  "dupe_engine_v2": {
-    "default_method": "drop_pick",
-    "cut_duration_ms": 5000,
-    "restore_duration_ms": 800,
-    "rpc_timeout_ms": 2000,
-    "keepalive_interval_ms": 800,
-    "cycle_count": 1,
-    "cycle_delay_ms": 3000,
-    "cooldown_ms": 1500,
-    "tick_align": true,
-    "stealth_jitter": true,
-    "rpc_burst_window_ms": 200,
-    "rpc_burst_min_packets": 2,
-    "graduated_restore_phases": {
-      "phase1_frac": 0.25,
-      "phase2_frac": 0.50,
-      "notes": "P1: keepalives+acks. P2: +outbound game drip-feed. P3: full open."
-    },
-    "outbound_queue_max": 10000,
-    "drip_per_tick": 5,
-    "method_overrides": {
-      "rift": {
-        "cut_duration_ms": 8000,
-        "keepalive_interval_ms": 600,
-        "restore_duration_ms": 1200,
-        "cycle_count": 2,
-        "cooldown_ms": 2000
-      },
-      "swap": {
-        "cut_duration_ms": 4000,
-        "rpc_timeout_ms": 1500,
-        "restore_duration_ms": 600
-      }
-    },
-    "notes": "DayZ 1.29+ dupe engine v2 defaults. Selective packet filtering keeps connection alive during cut. Tick-aligned entry for precision. Graduated restore prevents reconnection spike detection."
-  },
-
   "disruption_defaults": {
-    "lag_delay_ms": 1500,
+    "lag_delay_ms": 2000,
     "drop_chance_pct": 95,
     "disconnect_chance_pct": 100,
     "bandwidth_limit_kbps": 1,
     "bandwidth_queue": 0,
     "throttle_chance_pct": 100,
-    "throttle_frame_ms": 400,
+    "throttle_frame_ms": 350,
     "throttle_drop": true,
     "direction": "both",
     "tick_sync_direction": "inbound",
     "pulse_direction": "inbound",
     "stealth_drop_direction": "inbound",
     "stealth_lag_direction": "inbound",
-    "godmode_lag_ms": 3000,
+    "godmode_lag_ms": 3500,
     "godmode_drop_inbound_pct": 0,
     "godmode_keepalive_interval_ms": 800,
     "godmode_keepalive_auto_calibrate": true,
     "godmode_lag_queue_maxlen": 10000,
-    "notes": "3s god mode lag is enough for state desync at any tick rate. tick_sync/pulse/stealth_drop default to inbound-only: dropping server->client state replication is what desyncs the ghost; dropping outbound wastes packets and raises BattlEye avg-loss counter."
+    "godmode_pulse_block_ms": 3500,
+    "godmode_pulse_flush_ms": 300,
+    "godmode_flush_stagger_ms": 100,
+    "godmode_flush_gamestate_keep": 4,
+    "notes": "3.5s god mode block creates deep desync. 300ms flush is tight enough that enemies can't react. Stagger 100ms ensures hit reports validate."
   },
-
   "burst_strategy": {
     "pulse_burst_ticks": 40,
     "pulse_rest_ticks": 260,
-    "notes": "burst=40 > 32-packet ack-redundancy ceiling so drops actually break state. rest=260 keeps burst/(burst+rest) = 13.3% below the ~15% 1.27+ freeze-detection sliding window threshold. See reliable_udp.ack_redundancy_count and anti_cheat.freeze_threshold_pct."
+    "notes": "burst=40 > 32-packet ack-redundancy ceiling so drops actually break state. rest=260 keeps burst/(burst+rest) = 13.3% below the ~15% freeze-detection threshold."
   },
-
   "disruption_presets": {
     "pc_local": {
       "_network_local": true,
-      "methods": ["pulse", "tick_sync", "stealth_drop", "drop", "lag"],
-      "pulse_burst_ticks": 35,
-      "pulse_rest_ticks": 230,
-      "pulse_drop_chance": 95,
-      "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.35,
-      "pulse_learning": 80,
-      "ts_drop_window_pct": 0.4,
-      "ts_drop_chance": 90,
-      "ts_min_confidence": 0.35,
-      "ts_learning_packets": 80,
-      "tick_sync_direction": "inbound",
-      "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 5,
-      "stealth_cycle_sec": 12,
-      "stealth_drop_direction": "inbound",
-      "lag_delay": 1200,
-      "drop_chance": 95,
-      "direction": "inbound",
-      "notes": "PC-local preset. Tight confidence 0.35 for clean hardline timing. burst=35 > 32 ack ceiling. avg_loss = 35/265 = 13.2% < 15% freeze threshold."
-    },
-    "ps5_hotspot": {
-      "_network_local": false,
-      "methods": ["pulse", "tick_sync", "stealth_drop", "lag"],
-      "pulse_burst_ticks": 40,
-      "pulse_rest_ticks": 260,
+      "methods": [
+        "pulse",
+        "tick_sync",
+        "stealth_drop",
+        "drop",
+        "lag"
+      ],
+      "pulse_burst_ticks": 38,
+      "pulse_rest_ticks": 220,
       "pulse_drop_chance": 98,
       "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.20,
+      "pulse_min_confidence": 0.3,
       "pulse_learning": 60,
-      "ts_drop_window_pct": 0.35,
-      "ts_drop_chance": 90,
-      "ts_min_confidence": 0.20,
+      "ts_drop_window_pct": 0.45,
+      "ts_drop_chance": 95,
+      "ts_min_confidence": 0.3,
       "ts_learning_packets": 60,
       "tick_sync_direction": "inbound",
       "stealth_pattern": "wifi_interference",
       "stealth_base_drop": 8,
-      "stealth_cycle_sec": 12,
+      "stealth_cycle_sec": 10,
       "stealth_drop_direction": "inbound",
-      "lag_delay": 1200,
+      "lag_delay": 1500,
+      "drop_chance": 98,
       "direction": "inbound",
+      "notes": "PC-local. Tight confidence 0.30 for clean hardline timing. burst=38 > 32 ack ceiling. avg_loss = 38/258 = 14.7% just under 15% freeze threshold."
+    },
+    "ps5_hotspot": {
+      "_network_local": false,
+      "methods": [
+        "pulse",
+        "tick_sync",
+        "stealth_drop",
+        "lag"
+      ],
+      "pulse_burst_ticks": 40,
+      "pulse_rest_ticks": 250,
+      "pulse_drop_chance": 100,
+      "pulse_direction": "inbound",
+      "pulse_min_confidence": 0.2,
+      "pulse_learning": 50,
+      "ts_drop_window_pct": 0.4,
+      "ts_drop_chance": 95,
+      "ts_min_confidence": 0.2,
+      "ts_learning_packets": 50,
+      "tick_sync_direction": "inbound",
+      "stealth_pattern": "wifi_interference",
+      "stealth_base_drop": 10,
+      "stealth_cycle_sec": 10,
+      "stealth_drop_direction": "inbound",
+      "lag_delay": 1500,
+      "direction": "inbound",
+      "disconnect_direction": "both",
       "iat_min_sec": 0.006,
-      "notes": "PS5 over Windows ICS/Mobile Hotspot. burst=40 > 32 ack ceiling. avg_loss = 40/300 = 13.3% < 15% freeze threshold. Confidence 0.20 tolerates hotspot double-hop jitter. INBOUND-only — PS5 NAT teardown risk if outbound is blocked >3s."
+      "notes": "PS5 over ICS/hotspot. burst=40 > 32 ack ceiling. avg_loss = 40/290 = 13.8%. 100% drop during burst for maximum desync. INBOUND-only for pulse/tick_sync/stealth_drop/lag (PS5 NAT teardown risk if outbound blocked >3s). DISCONNECT method uses direction=both because the clone-dupe protocol requires suppressing the PS5->server logout packet so the server holds the character as a ghost; operator must keep cut <= 3s to avoid NAT teardown."
+    },
+    "ps5_maximum_cut": {
+      "_network_local": false,
+      "_extends": "ps5_hotspot",
+      "methods": [
+        "disconnect",
+        "pulse",
+        "tick_sync",
+        "stealth_drop",
+        "drop",
+        "lag"
+      ],
+      "pulse_burst_ticks": 40,
+      "pulse_rest_ticks": 250,
+      "pulse_drop_chance": 100,
+      "pulse_direction": "both",
+      "pulse_min_confidence": 0.2,
+      "pulse_learning": 50,
+      "ts_drop_window_pct": 0.4,
+      "ts_drop_chance": 98,
+      "ts_min_confidence": 0.2,
+      "ts_learning_packets": 50,
+      "tick_sync_direction": "both",
+      "stealth_pattern": "wifi_interference",
+      "stealth_base_drop": 15,
+      "stealth_cycle_sec": 8,
+      "stealth_drop_direction": "both",
+      "lag_delay": 2500,
+      "drop_chance": 98,
+      "direction": "both",
+      "disconnect_direction": "both",
+      "iat_min_sec": 0.006,
+      "_require_arp_spoof_on_lan": true,
+      "_require_cut_verifier": true,
+      "_stack_order": [
+        "windivert",
+        "arp_spoof",
+        "ip_forward_off"
+      ],
+      "notes": "TRIPLE-STACK MAXIMUM CUT (P4). Fires WinDivert + ARP spoof + IP-forward-disable in parallel for belt-and-suspenders severance. BOTH-direction everything (vs inbound-only on ps5_hotspot) because the goal is total severance, not NAT preservation. Operator MUST keep cut <=3s: this preset WILL trigger NAT teardown if held. Use for one-shot high-value runs where verified severance matters more than repeatability. Cut verifier auto-attaches; green light = roster dropped OR ping gone, red = target still responding."
     },
     "xbox_hotspot": {
       "_network_local": false,
-      "methods": ["pulse", "tick_sync", "stealth_drop", "lag"],
+      "methods": [
+        "pulse",
+        "tick_sync",
+        "stealth_drop",
+        "lag"
+      ],
       "pulse_burst_ticks": 40,
-      "pulse_rest_ticks": 300,
-      "pulse_drop_chance": 98,
+      "pulse_rest_ticks": 270,
+      "pulse_drop_chance": 100,
       "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.20,
-      "pulse_learning": 60,
-      "ts_drop_window_pct": 0.35,
-      "ts_drop_chance": 90,
-      "ts_min_confidence": 0.20,
-      "ts_learning_packets": 60,
+      "pulse_min_confidence": 0.2,
+      "pulse_learning": 50,
+      "ts_drop_window_pct": 0.4,
+      "ts_drop_chance": 95,
+      "ts_min_confidence": 0.2,
+      "ts_learning_packets": 50,
       "tick_sync_direction": "inbound",
       "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 6,
-      "stealth_cycle_sec": 12,
+      "stealth_base_drop": 8,
+      "stealth_cycle_sec": 10,
       "stealth_drop_direction": "inbound",
-      "lag_delay": 1400,
+      "lag_delay": 1500,
       "direction": "inbound",
       "iat_min_sec": 0.006,
-      "notes": "Xbox NAT is slightly more tolerant than PS5 — rest=300 gives a larger safety margin. avg_loss = 40/340 = 11.8%."
+      "notes": "Xbox NAT slightly more tolerant. rest=270 for safety margin. avg_loss = 40/310 = 12.9%."
     }
   },
-
   "nat_keepalive": {
     "default_interval_ms": 800,
     "auto_calibrate": true,
     "min_interval_ms": 200,
     "max_interval_ms": 5000,
-    "probe_method": "observe_minimum_stable_interval",
-    "notes": "Auto-calibrate by observing the minimum packet interval that maintains NAT mapping."
+    "probe_method": "observe_minimum_stable_interval"
   },
-
   "network_bubble": {
     "radius_meters": 900,
-    "batch_send_create": 10,
-    "notes": "networkObjectBatchSendCreate = 10 objects/frame default."
+    "batch_send_create": 10
   },
-
+  "a2s_probe": {
+    "enabled_by_default": true,
+    "default_query_port": 27016,
+    "interval_s": 1.0,
+    "timeout_s": 1.0,
+    "include_roster": false,
+    "notes": "Source A2S_INFO poll during cuts. Auto-labels episode outcome when server player_count drops (hive evicted our session = dupe success). Does not require operator to press MARK DUPE. Host/port are passed via params.a2s_host / params.a2s_port; if absent the probe is skipped. include_roster=false by default because BattlEye strips player names on most DayZ servers."
+  },
   "anti_cheat": {
     "name": "BattlEye",
     "kernel_mode": true,
     "freeze_threshold_pct": 15,
     "freeze_window_sec": 8,
-    "freeze_threshold_notes": "DayZ 1.27+ sliding-window connection quality monitor. Sustained avg loss >~15% over ~5-10s triggers the player-freeze system. Any shipped preset must keep burst/(burst+rest) below this ceiling.",
+    "freeze_threshold_notes": "DayZ 1.27+ sliding-window connection quality monitor. Sustained avg loss >~15% over ~5-10s triggers player-freeze. All presets keep burst/(burst+rest) below this ceiling.",
     "detection_vectors": [
       "PiDDBCache driver signature scan",
       "MmUnloadedDrivers scan",
@@ -250,15 +287,13 @@
       "timing_randomization": true
     }
   },
-
   "platform_support": {
     "ps5": {
       "connection_method": "ics_hotspot",
       "gateway_subnet": "192.168.137.0/24",
       "interception_layer": "NETWORK_FORWARD",
       "nat_sensitivity": "high",
-      "keepalive_interval_ms": 800,
-      "notes": "PS5 via ICS hotspot. Laptop is gateway. WinDivert NETWORK_FORWARD layer."
+      "keepalive_interval_ms": 800
     },
     "ps4": {
       "connection_method": "ics_hotspot",
@@ -272,8 +307,7 @@
       "gateway_subnet": "192.168.137.0/24",
       "interception_layer": "NETWORK_FORWARD",
       "nat_sensitivity": "medium",
-      "keepalive_interval_ms": 1000,
-      "notes": "Xbox Series X/S. Similar ICS setup. Xbox NAT is slightly more tolerant."
+      "keepalive_interval_ms": 1000
     },
     "xbox_one": {
       "connection_method": "ics_hotspot",
@@ -287,8 +321,7 @@
       "gateway_subnet": null,
       "interception_layer": "NETWORK",
       "nat_sensitivity": "low",
-      "keepalive_interval_ms": 2000,
-      "notes": "PC target on same machine or LAN. Use NETWORK layer (not FORWARD). No NAT concerns if local."
+      "keepalive_interval_ms": 2000
     },
     "wifi_same_network": {
       "connection_method": "wifi_arp_spoof",
@@ -297,8 +330,7 @@
       "nat_sensitivity": "medium",
       "keepalive_interval_ms": 800,
       "requires_npcap": true,
-      "requires_arp_spoof": true,
-      "notes": "Target on same WiFi LAN (not hotspot). ARP spoofing redirects traffic through laptop, then NETWORK_FORWARD layer intercepts. Requires Npcap installed. IP forwarding enabled automatically."
+      "requires_arp_spoof": true
     }
   }
 }

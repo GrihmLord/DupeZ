@@ -14,7 +14,7 @@
   "block_duration": 30,
   "theme": "dark",
   "auto_refresh": true,
-  "refresh_interval": 120,
+  "refresh_interval": 119,
   "show_device_icons": true,
   "show_status_indicators": true,
   "compact_view": false,
@@ -26,5 +26,6 @@
   "encrypt_logs": false,
   "debug_mode": false,
   "verbose_logging": false,
+  "map_renderer": "gpu",
   "whitelist": []
 }

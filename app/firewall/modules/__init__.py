@@ -20,12 +20,13 @@ from app.firewall.modules.ood import OODModule
 from app.firewall.modules.rst import RSTModule
 from app.firewall.modules.disconnect import DisconnectModule
 from app.firewall.modules.godmode import GodModeModule
-from app.firewall.modules.dupe_engine import DupeEngineModule
-from app.firewall.modules.dupe_engine_v2 import DupeEngineV2
 
 # Core module registry — maps method name strings to module classes.
 # Phase 1/3/7 modules (statistical_models, tick_sync, stealth) register
 # themselves separately via lazy import in native_divert_engine.py.
+#
+# Note: the "dupe" method (DupeEngineV2) was removed — duplication is now
+# performed directly via the "disconnect" module (red DISCONNECT button).
 CORE_MODULE_MAP = {
     "drop":       DropModule,
     "lag":        LagModule,
@@ -37,13 +38,11 @@ CORE_MODULE_MAP = {
     "rst":        RSTModule,
     "disconnect": DisconnectModule,
     "godmode":    GodModeModule,
-    "dupe":       DupeEngineV2,        # v2 is now the default dupe engine
-    "dupe_v1":    DupeEngineModule,    # legacy v1, deprecated
 }
 
 __all__ = [
     "DropModule", "LagModule", "DuplicateModule", "ThrottleModule",
     "CorruptModule", "BandwidthModule", "OODModule", "RSTModule",
-    "DisconnectModule", "GodModeModule", "DupeEngineModule", "DupeEngineV2",
+    "DisconnectModule", "GodModeModule",
     "CORE_MODULE_MAP",
 ]

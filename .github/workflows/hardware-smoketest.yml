@@ -1,0 +1,84 @@
+name: Hardware Smoketest
+
+# Runs the WinDivert end-to-end pipeline test (tests/test_hardware_smoketest.py)
+# on a self-hosted Windows runner with Administrator privileges, Npcap, and
+# WinDivert installed. Gated off the `hardware` pytest marker so it never
+# executes on the default GitHub-hosted Linux runners.
+#
+# Prerequisites on the self-hosted runner:
+#   * Windows 10/11, runner service running as Administrator
+#   * Python 3.11+ on PATH
+#   * Npcap installed in WinPcap-API-compatible mode
+#   * app/firewall/WinDivert.dll and WinDivert64.sys present in checkout
+#   * At least one reachable target on the local subnet
+#
+# Optional env overrides (set as repo/workflow secrets or vars):
+#   DUPEZ_SMOKETEST_CIDR, DUPEZ_SMOKETEST_LAST_OCTET,
+#   DUPEZ_SMOKETEST_LAG_MS, DUPEZ_SMOKETEST_DURATION
+
+on:
+  schedule:
+    # 09:00 UTC nightly — adjust to off-peak for the target network
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      cidr:
+        description: 'Override DUPEZ_SMOKETEST_CIDR (e.g. 192.168.1.0/24)'
+        required: false
+        default: ''
+      last_octet:
+        description: 'Override DUPEZ_SMOKETEST_LAST_OCTET'
+        required: false
+        default: ''
+
+jobs:
+  hardware-smoketest:
+    runs-on: [self-hosted, windows, admin, windivert]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Verify WinDivert artefacts present
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "app/firewall/WinDivert.dll")) {
+            throw "WinDivert.dll missing from app/firewall/"
+          }
+          if (-not (Test-Path "app/firewall/WinDivert64.sys")) {
+            throw "WinDivert64.sys missing from app/firewall/"
+          }
+
+      - name: Run hardware smoketest
+        shell: pwsh
+        env:
+          DUPEZ_SMOKETEST_CIDR: ${{ github.event.inputs.cidr || vars.DUPEZ_SMOKETEST_CIDR }}
+          DUPEZ_SMOKETEST_LAST_OCTET: ${{ github.event.inputs.last_octet || vars.DUPEZ_SMOKETEST_LAST_OCTET }}
+          DUPEZ_SMOKETEST_LAG_MS: ${{ vars.DUPEZ_SMOKETEST_LAG_MS || '300' }}
+          DUPEZ_SMOKETEST_DURATION: ${{ vars.DUPEZ_SMOKETEST_DURATION || '6.0' }}
+        run: |
+          pytest -m hardware -v --tb=short 2>&1 | Tee-Object -FilePath smoketest.log
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoketest-logs-${{ github.run_id }}
+          path: |
+            smoketest.log
+            logs/**/*.log
+          if-no-files-found: ignore
+          retention-days: 14

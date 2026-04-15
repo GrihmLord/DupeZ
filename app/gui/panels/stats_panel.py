@@ -14,6 +14,17 @@ from app.logs.logger import log_error
 __all__ = ["StatsPanel"]
 
 
+# Cut-verifier state → (dot colour, label, tooltip fragment).
+# The dot is prepended to the banner line for each active device so the
+# cut state is visible at a glance without reading the text.
+_CUT_STATE_COLOR = {
+    "unknown":   ("#64748b", "UNKNOWN",   "probe not reachable yet"),
+    "connected": ("#00ff88", "CONNECTED", "cut hasn't landed — target still in session"),
+    "degraded":  ("#fbbf24", "DEGRADED",  "ping failing, session still alive server-side"),
+    "severed":   ("#ff4444", "SEVERED",   "character evicted — dupe window open"),
+}
+
+
 class StatsPanel(QWidget):
     """Real-time packet statistics dashboard."""
 
@@ -78,6 +89,22 @@ class StatsPanel(QWidget):
         # Active engines count
         self._stat_engines_label = self._view._lbl("Engines: 0 active", "#6b7280")
         stats_layout.addWidget(self._stat_engines_label)
+
+        # Auto-detect + ARP-spoof + cut-verifier status banner.
+        # One line per active device. Shows: profile / layer /
+        # ARP-spoof state (with packets sent) / cut-verifier state.
+        # Hidden when nothing is active.
+        self._stat_target_label = QLabel("")
+        self._stat_target_label.setStyleSheet(
+            "color: #94a3b8; font-size: 10px; font-family: "
+            "'Cascadia Code', 'Consolas', monospace; "
+            "padding: 4px 8px; border-radius: 4px; "
+            "background: rgba(8,12,22,0.5); "
+            "border: 1px solid rgba(30,41,59,0.4);")
+        self._stat_target_label.setWordWrap(True)
+        self._stat_target_label.setTextFormat(Qt.TextFormat.RichText)
+        self._stat_target_label.setVisible(False)
+        stats_layout.addWidget(self._stat_target_label)
 
         # Per-device breakdown (compact table)
         self._stat_device_table = QTableWidget()
@@ -200,6 +227,8 @@ class StatsPanel(QWidget):
             # Per-device breakdown
             per_device = stats.get("per_device", {})
             self._stat_device_table.setRowCount(0)
+            _banner_lines = []
+            _tooltip_lines = []
             for ip, dstats in per_device.items():
                 row = self._stat_device_table.rowCount()
                 self._stat_device_table.insertRow(row)
@@ -216,6 +245,32 @@ class StatsPanel(QWidget):
                 methods = ", ".join(dstats.get("methods", []))
                 self._stat_device_table.setItem(
                     row, 3, QTableWidgetItem(methods))
+
+                _det = dstats.get("detection") or {}
+                _cut_state = dstats.get("cut_state")
+                _banner_lines.append(self._format_device_banner(
+                    display_ip=display_ip,
+                    detection=_det,
+                    arp_active=dstats.get("arp_spoof_active"),
+                    arp_packets=dstats.get("arp_packets_sent", 0),
+                    cut_state=_cut_state,
+                ))
+                _state_key = (str(_cut_state).lower()
+                              if _cut_state else "unknown")
+                _, _led_label, _state_tip = _CUT_STATE_COLOR.get(
+                    _state_key, _CUT_STATE_COLOR["unknown"])
+                _tooltip_lines.append(
+                    f"{display_ip} — {_led_label}: {_state_tip}")
+
+            if _banner_lines:
+                self._stat_target_label.setText(
+                    "<br>".join(_banner_lines))
+                self._stat_target_label.setToolTip(
+                    "\n".join(_tooltip_lines))
+                self._stat_target_label.setVisible(True)
+            else:
+                self._stat_target_label.setToolTip("")
+                self._stat_target_label.setVisible(False)
 
             # ── God Mode detail panel ───────────────────────────────
             self._refresh_godmode_stats(per_device)
@@ -306,6 +361,43 @@ class StatsPanel(QWidget):
         elif total_queued > 200:
             risk += 10
         self._gm_kick_bar.setValue(min(risk, 100))
+
+    @staticmethod
+    def _format_device_banner(
+        display_ip: str,
+        detection: dict,
+        arp_active,
+        arp_packets: int,
+        cut_state,
+    ) -> str:
+        """Render one device's status banner line as HTML with a coloured
+        cut-state LED prepended.
+
+        Format:
+            ●  10.0.0.x  ps5_hotspot/forward  ARP:ACTIVE(44)  CUT:SEVERED
+        """
+        state_key = (cut_state or "unknown").lower()
+        led_color, led_label, _tooltip = _CUT_STATE_COLOR.get(
+            state_key, _CUT_STATE_COLOR["unknown"])
+        led = (f"<span style='color:{led_color};font-weight:700;"
+               f"font-size:14px;'>●</span>")
+
+        profile = detection.get("profile", "?")
+        layer = detection.get("layer", "?")
+        parts = [f"{display_ip}&nbsp;&nbsp;{profile}/{layer}"]
+
+        if arp_active is True:
+            parts.append(f"ARP:ACTIVE({arp_packets})")
+        elif arp_active is False:
+            parts.append("ARP:INACTIVE")
+        elif detection.get("needs_arp_spoof"):
+            parts.append("ARP:REQUIRED(not started)")
+
+        if cut_state:
+            parts.append(
+                f"<span style='color:{led_color}'>CUT:{led_label}</span>")
+
+        return f"{led}&nbsp;&nbsp;" + "&nbsp;&nbsp;".join(parts)
 
     @staticmethod
     def _format_count(n: int) -> str:
