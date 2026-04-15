@@ -11,7 +11,7 @@ pushd "%~dp0.."
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.5.0"
+set "DUPEZ_VERSION=5.6.0"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
 
 echo ============================================
@@ -171,10 +171,4 @@ echo  The installer strips MOTW and installs to Program Files,
 echo  which avoids Application Control / SmartScreen blocks.
 echo.
 echo  For zero SmartScreen warnings, code-sign with:
-echo    set DUPEZ_SIGN_CERT=path\to\cert.pfx
-echo    set DUPEZ_SIGN_PASS=your_password
-echo.
-
-popd
-endlocal
-pause
+echo    set DUPEZ_SIGN_CERT=path

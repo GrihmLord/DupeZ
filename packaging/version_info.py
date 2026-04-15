@@ -2,23 +2,23 @@
 #
 # PyInstaller version info for DupeZ Windows executable.
 #
-# This file is referenced by dupez.spec to embed VS_VERSION_INFO
-# into the .exe, which Windows uses for:
-#   - Properties dialog (right-click -> Properties -> Details)
+# Embeds file/product version, company, copyright, and description
+# into the PE resource table so Windows Explorer's Properties dialog
+# and Task Manager show accurate metadata. This is also what:
 #   - SmartScreen / WDAC trust scoring (signed + versioned > unsigned)
-#   - Application compatibility database lookups
+#   - Registry uninstall entries
+#   - crash reporters
+# read to identify the binary.
 #
-# Usage in spec:  exe = EXE(..., version='version_info.py')
-#
-# NOTE: PyInstaller parses this file with eval(), which accepts exactly
-# one expression. Do NOT add a module docstring, imports, or assignments
+# IMPORTANT: the VSVersionInfo(...) expression must be a single
+# expression tree. Do not put `from PyInstaller... import *`
 # above the VSVersionInfo(...) call — eval() will reject multi-statement
 # input with SyntaxError.
 
 VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=(5, 4, 0, 0),
-        prodvers=(5, 4, 0, 0),
+        filevers=(5, 6, 0, 0),
+        prodvers=(5, 6, 0, 0),
         mask=0x3F,
         flags=0x0,
         OS=0x40004,          # VOS_NT_WINDOWS32
@@ -33,12 +33,12 @@ VSVersionInfo(
                 [
                     StringStruct('CompanyName',      'DupeZ'),
                     StringStruct('FileDescription',  'DupeZ — Network Packet Interception Utility'),
-                    StringStruct('FileVersion',      '5.5.0.0'),
+                    StringStruct('FileVersion',      '5.6.0.0'),
                     StringStruct('InternalName',     'dupez'),
                     StringStruct('LegalCopyright',   'Copyright © 2024-2026 DupeZ. All rights reserved.'),
                     StringStruct('OriginalFilename', 'dupez.exe'),
                     StringStruct('ProductName',      'DupeZ'),
-                    StringStruct('ProductVersion',   '5.5.0.0'),
+                    StringStruct('ProductVersion',   '5.6.0.0'),
                 ],
             ),
         ]),
