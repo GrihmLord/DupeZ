@@ -26,6 +26,10 @@ ignore = [
 # Vendored / generated / compiled exclusions
 "app/firewall/clumsy_src/external/**" = ["ALL"]
 "app/firewall_helper/_build_default.py" = ["ALL"]
+# PyInstaller version resource — uses names injected by PyInstaller at eval time
+# (VSVersionInfo, FixedFileInfo, StringFileInfo, StringTable, StringStruct,
+# VarFileInfo, VarStruct). They aren't importable, so F821 is expected here.
+"packaging/version_info.py" = ["F821"]
 
 [lint.pyflakes]
 extend-generics = []
