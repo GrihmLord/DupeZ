@@ -28,7 +28,7 @@
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.6.0"
+#define MyAppVersion   "5.6.1"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -210,6 +210,10 @@ begin
   end;
 end;
 
-// Post-install hook: strip MOTW from everything we just wrote to {app}.
-// Runs after all files are copied but before the "Finished" page.
+// ── Post-install: strip MOTW from extracted files so launching the
+// app doesn't trigger SmartScreen / "blocked by Windows" prompts.
 procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    RemoveMOTW(ExpandConstant('{app}'));
+end;
