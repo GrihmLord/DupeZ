@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QGroupBox,

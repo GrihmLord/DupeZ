@@ -10,11 +10,10 @@ who has never used a network tool can understand exactly what to do.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QCursor, QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QFrame,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -39,31 +38,31 @@ _RED          = "#ff6b6b"
 _PURPLE       = "#a78bfa"
 
 # ── Stylesheet fragments ──────────────────────────────────────────
-_SCROLL_QSS = f"""
-QScrollArea {{
+_SCROLL_QSS = """
+QScrollArea {
     background: transparent;
     border: none;
-}}
-QScrollArea > QWidget > QWidget {{
+}
+QScrollArea > QWidget > QWidget {
     background: transparent;
-}}
-QScrollBar:vertical {{
+}
+QScrollBar:vertical {
     background: rgba(15, 23, 42, 0.3);
     width: 6px;
     border-radius: 3px;
     margin: 2px;
-}}
-QScrollBar::handle:vertical {{
+}
+QScrollBar::handle:vertical {
     background: rgba(0, 240, 255, 0.15);
     border-radius: 3px;
     min-height: 30px;
-}}
-QScrollBar::handle:vertical:hover {{
+}
+QScrollBar::handle:vertical:hover {
     background: rgba(0, 240, 255, 0.3);
-}}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
-}}
+}
 """
 
 _SECTION_HEADER_QSS = f"""
@@ -134,7 +133,7 @@ class _CollapsibleSection(QWidget):
 def _styled_body(html: str) -> QWidget:
     """Wrap HTML text in a styled QLabel inside a container."""
     container = QWidget()
-    container.setStyleSheet(f"background: rgba(5, 8, 16, 0.4); border-radius: 6px;")
+    container.setStyleSheet("background: rgba(5, 8, 16, 0.4); border-radius: 6px;")
     lay = QVBoxLayout(container)
     lay.setContentsMargins(16, 12, 16, 14)
     lbl = QLabel(html)
@@ -180,16 +179,19 @@ with the GPU build, admin elevation is handled automatically. If you see
 
     ("GETTING STARTED — FIRST-TIME SETUP", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-Five steps to your first disruption:</p>
+Six steps to your first disruption:</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>1.</b> Launch DupeZ. The GPU build auto-elevates;
-for the Compat build, right-click → <b>Run as administrator</b>.</p>
+<b style='color:{_CYAN};'>1.</b> Launch DupeZ. The GPU build auto-elevates
+via an elevated helper; for the Compat build, right-click →
+<b>Run as administrator</b>. Status bar should read
+<b style='color:{_GREEN};'>Engine: READY</b>.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>2.</b> You land on the <b>Clumsy Control</b> tab
 (🎯 in the sidebar). The left panel shows devices on your network — run a
-<b>Scan</b> to discover them.</p>
+<b>Scan</b> to discover them. Vendor column uses the IEEE OUI database,
+so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
@@ -212,7 +214,14 @@ hit <b>DISRUPT</b>. DupeZ starts intercepting packets for that device only.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>5.</b> Hit <b>STOP</b> when done — your connection
 restores instantly. Use <b>STOP ALL</b> to kill every active disruption at
-once.</p>
+once. For a fixed-length cut, set <b>Duration</b> in the Scheduler row
+and click <b>TIMED DISRUPT</b> instead of DISRUPT — it auto-stops.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>6.</b> Watch the <b>LIVE STATS</b> card for the
+per-device cut-state LED. Red = <b style='color:{_RED};'>severed</b>
+(character evicted server-side, dupe window open). Amber = partial cut.
+Green = cut hasn't landed yet.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_CYAN};'>Quick Start — Character Clone (DayZ):</b></p>
@@ -276,8 +285,31 @@ Inbound affects data coming <i>from</i> the server; outbound affects data
 going <i>to</i> the server.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>Scheduler</b> — Set a delay before disruption
-starts and a duration for how long it runs. Useful for timed operations.</p>
+<b style='color:{_CYAN};'>Scheduler &amp; Macros</b> — Sits inline directly
+under DISRUPT / STOP / STOP ALL (no separate card). Set <b>Duration</b>
+(0.5s resolution) and an optional <b>Delay</b>, then use:</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_PURPLE};'>TIMED DISRUPT</b> — Runs for the set
+duration, then auto-stops. Ideal for reproducible clone-dupe windows.</li>
+<li><b style='color:{_PURPLE};'>RUN MACRO</b> — Chains configured
+disruption steps in sequence (recorded or scripted).</li>
+<li><b style='color:{_AMBER};'>STOP MACRO</b> — Cancels an in-flight
+macro without touching other active disruptions.</li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>SMART DISRUPT</b> — When enabled, DupeZ consults
+the learning loop (past labeled episodes + cut-effectiveness stats) and
+picks the preset / direction / duration most likely to sever the current
+target class. After 5 labeled episodes for a (profile, goal) bucket, it
+will <i>auto-switch presets</i> if the current one can't sever — no more
+silently retrying a preset that doesn't fit the target.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>LIVE STATS (collapsible card below)</b> — Each
+targeted device shows a coloured cut-state LED: grey (unknown), green
+(connected), amber (degraded), red (severed). Hover the stats banner for
+per-device tooltips driven by the A2S cut verifier.</p>
 """, False),
 
     ("🗺 IZURVIVE MAP TAB", f"""
@@ -398,7 +430,7 @@ detection. Clone mode skips this — it holds the cut until you disconnect.</p>
 duplication. For single-item dupes, try <b>Drop & Pick</b>.</p>
 """, False),
 
-    ("🛡 ARP SPOOF & A2S CUT VERIFIER (v5.6)", f"""
+    ("🛡 ARP SPOOF & A2S CUT VERIFIER (v5.6.0)", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
 When the target is on the <b>same WiFi network</b> as you (not behind a
 hotspot), DupeZ intercepts traffic via <b>ARP cache poisoning</b> instead of

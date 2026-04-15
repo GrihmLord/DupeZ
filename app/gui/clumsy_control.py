@@ -8,8 +8,6 @@ modules, sliders, macros, profiles, smart-mode, voice, GPC) on the right.
 
 from __future__ import annotations
 
-import os
-import re
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -24,7 +22,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
@@ -50,7 +47,7 @@ from app.gui.panels.voice_panel import VoicePanel
 from app.gui.panels.gpc_panel import GPCPanel
 from app.gui.panels.smart_mode_panel import SmartModePanel, SMART_ENGINE_AVAILABLE
 from app.gui.panels.ai_panel import (
-    AIPanel, SMART_MODE_OFF, SMART_MODE_LEARN, SMART_MODE_ASSIST,
+    AIPanel,
 )
 
 # Profile system
@@ -668,14 +665,13 @@ class ClumsyControlView(QWidget):
 
         right_layout.addLayout(btn_layout)
 
-        # ── Scheduler / Macro panel ──
-        # Pinned permanent control below DISRUPT / STOP / STOP ALL. Not
-        # collapsible — Grihm wants this grouped with the action buttons so
-        # TIMED DISRUPT + RUN MACRO are always reachable without digging
-        # through collapsed sections.
-        sched_group = self._card("SCHEDULER / MACROS")
+        # ── Scheduler / Macro controls (inline, no group box) ──
+        # Pinned permanent controls below DISRUPT / STOP / STOP ALL. Rendered
+        # as a flat continuation of the action-button cluster — no title,
+        # no border — so the whole control strip reads as one unit.
         sched_layout = QVBoxLayout()
         sched_layout.setSpacing(6)
+        sched_layout.setContentsMargins(0, 4, 0, 0)
 
         # Quick-schedule row
         sched_row1 = QHBoxLayout()
@@ -716,8 +712,7 @@ class ClumsyControlView(QWidget):
         self.sched_status.setStyleSheet(self._MUTED_QSS)
         sched_layout.addWidget(self.sched_status)
 
-        sched_group.setLayout(sched_layout)
-        right_layout.addWidget(sched_group)
+        right_layout.addLayout(sched_layout)
 
         # ---- LIVE STATS (extracted panel) ----
         self._stats_panel = StatsPanel(self)
@@ -1382,7 +1377,7 @@ class ClumsyControlView(QWidget):
         # ── Comprehensive disruption debug ──
         preset_name = self.preset_combo.currentText()
         log_info("=" * 60)
-        log_info(f"[DISRUPT] BUTTON PRESSED")
+        log_info("[DISRUPT] BUTTON PRESSED")
         log_info(f"[DISRUPT] Preset: '{preset_name}'")
         log_info(f"[DISRUPT] Targets: {[_log_mask_ip(t) for t in targets]}")
         log_info(f"[DISRUPT] Methods (from checkboxes): {methods}")
@@ -1424,14 +1419,14 @@ class ClumsyControlView(QWidget):
         for k, v in preset_params.items():
             if k not in params:
                 missing.append(k)
-            elif params[k] != v and k in gui_slider_keys:
+            elif params[k] != v and k in self.sliders:
                 pass  # slider may have been manually adjusted
-            elif params[k] != v and k not in gui_slider_keys:
+            elif params[k] != v and k not in self.sliders:
                 log_info(f"[DISRUPT]   WARNING: preset param '{k}' expected={v} got={params[k]}")
         if missing:
             log_info(f"[DISRUPT]   MISSING from params: {missing}")
         else:
-            log_info(f"[DISRUPT]   All preset params present in engine params ✓")
+            log_info("[DISRUPT]   All preset params present in engine params ✓")
 
         log_info(f"[DISRUPT] Controller present: {self.controller is not None}")
         log_info("=" * 60)
@@ -1993,5 +1988,3 @@ class ClumsyControlView(QWidget):
                 border: 1px solid rgba(30,41,59,0.3);
             }}
         """
-
-

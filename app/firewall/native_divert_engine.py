@@ -228,15 +228,15 @@ class WinDivertDLL:
             filter_str.encode('ascii'), layer, priority, flags
         )
 
-    def recv(self, handle, packet_buf, buf_len, recv_len, addr) -> WinDivertRecv:
+    def recv(self, handle, packet_buf, buf_len, recv_len, addr):
         return self._dll.WinDivertRecv(handle, packet_buf, buf_len,
                                         recv_len, addr)
 
-    def send(self, handle, packet_buf, pkt_len, send_len, addr) -> WinDivertSend:
+    def send(self, handle, packet_buf, pkt_len, send_len, addr):
         return self._dll.WinDivertSend(handle, packet_buf, pkt_len,
                                         send_len, addr)
 
-    def close(self, handle) -> WinDivertClose:
+    def close(self, handle):
         return self._dll.WinDivertClose(handle)
 
     # ── Batch API (WinDivert 2.x) ────────────────────────────
@@ -322,7 +322,7 @@ class WinDivertDLL:
             self.batch_available = False
             log_info("WinDivert batch API not available — using single-packet mode")
 
-    def calc_checksums(self, packet_buf, pkt_len, addr=None, flags=0) -> WinDivertHelperCalcChecksums:
+    def calc_checksums(self, packet_buf, pkt_len, addr=None, flags=0):
         return self._dll.WinDivertHelperCalcChecksums(
             packet_buf, pkt_len, addr, flags
         )
@@ -1800,4 +1800,3 @@ class NativeWinDivertEngine:
                  f"processed={self._packets_processed} "
                  f"IN(consumed={_inbound_consumed}, passed={_inbound_passed}) "
                  f"OUT(consumed={_outbound_consumed}, passed={_outbound_passed})")
-

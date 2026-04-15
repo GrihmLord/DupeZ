@@ -70,12 +70,38 @@ app/data/*.hmac
 app/data/*.db
 app/data/*.db-journal
 app/data/*.backup.*
+app/data/**/*.backup.*
 app/data/profiles/
 dist/app/data/
 
 # Environment files
 .env
 .env.*
+!.env.example
+.envrc
+.direnv/
+
+# Credentials and key material — NEVER commit
+*.pem
+*.key
+*.pfx
+*.p12
+*.jks
+*.keystore
+id_rsa
+id_ed25519
+id_ecdsa
+id_dsa
+*.priv
+*_rsa
+*_ed25519
+.secrets
+.secrets.yaml
+credentials.json
+credentials.yaml
+
+# Pre-commit / secret-scanner local state
+.secrets.baseline.local
 
 # Runtime caches
 device_cache.json
