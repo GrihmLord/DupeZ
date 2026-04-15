@@ -441,9 +441,24 @@ class LatencyOverlayWidget(QWidget):
     def _ping_loop(self) -> None:
         """Background: continuously ping target and emit averaged results."""
         history: List[float] = []
+        # Track all attempts (True=success, False=timeout) for loss %.
+        attempts: List[bool] = []
+        _MAX_ATTEMPTS = 60
+
         while self._running:
             rtt = _run_ping(self._target_ip)
-            if rtt >= 0:
+            success = rtt >= 0
+            attempts.append(success)
+            if len(attempts) > _MAX_ATTEMPTS:
+                attempts = attempts[-_MAX_ATTEMPTS:]
+
+            # Compute loss over the sliding window of attempts.
+            loss_pct = (
+                (attempts.count(False) / len(attempts)) * 100.0
+                if attempts else 0.0
+            )
+
+            if success:
                 history.append(rtt)
                 if len(history) > 60:
                     history = history[-60:]
@@ -457,9 +472,9 @@ class LatencyOverlayWidget(QWidget):
 
                 # Store snapshot for sparkline (read from GUI thread)
                 self._history = list(history)
-                self._ping_result.emit(avg, jitter, 0.0)
+                self._ping_result.emit(avg, jitter, loss_pct)
             else:
-                self._ping_result.emit(-1.0, 0.0, 100.0)
+                self._ping_result.emit(-1.0, 0.0, loss_pct)
 
             time.sleep(1)
 
@@ -1017,9 +1032,27 @@ class ConnectionMapperWidget(QWidget):
 # ── NetworkToolsView (top-level container) ──────────────────────────
 
 class NetworkToolsView(QWidget):
-    """Tabbed container exposing all four network intelligence panels."""
+    """Tabbed container exposing network intelligence + AI/GPC panels.
 
-    def __init__(self, controller: Any = None, parent: Optional[QWidget] = None) -> None:
+    Base tabs (always present): Traffic Monitor, Latency Overlay, Port Scanner,
+    Connection Mapper.
+
+    Optional tabs (added when ``ai_tab`` / ``gpc_tab`` are supplied, typically
+    constructed by ClumsyControlView and reparented here so their event
+    handlers stay bound to the owning view):
+
+      * **AI / Smart Ops** — Smart Mode tri-state, ML capture, auto-tune, voice.
+      * **GPC / Cronus Zen** — controller-side macro subsystem.
+    """
+
+    def __init__(
+        self,
+        controller: Any = None,
+        parent: Optional[QWidget] = None,
+        ai_tab: Optional[QWidget] = None,
+        gpc_tab: Optional[QWidget] = None,
+        lan_cut_tab: Optional[QWidget] = None,
+    ) -> None:
         super().__init__(parent)
         self.controller = controller
 
@@ -1048,7 +1081,46 @@ class NetworkToolsView(QWidget):
         self.mapper_tab = ConnectionMapperWidget(controller=controller)
         self.tabs.addTab(self.mapper_tab, "Connection Mapper")
 
+        # Optional reparented tabs — own their own cleanup; we just render.
+        self.ai_tab = ai_tab
+        if ai_tab is not None:
+            self.tabs.addTab(ai_tab, "AI / Smart Ops")
+
+        self.gpc_tab = gpc_tab
+        if gpc_tab is not None:
+            self.tabs.addTab(gpc_tab, "GPC / Cronus Zen")
+
+        self.lan_cut_tab = lan_cut_tab
+        if lan_cut_tab is not None:
+            self.tabs.addTab(lan_cut_tab, "LAN Cut")
+
         layout.addWidget(self.tabs)
+
+    def attach_ai_tab(self, widget: QWidget) -> None:
+        """Attach the AI / Smart Ops tab after construction.
+
+        Used when the parent dashboard builds the AI panel lazily (e.g. because
+        it depends on a ClumsyControlView that's created later in the stacking
+        order). No-op if an AI tab is already attached.
+        """
+        if self.ai_tab is not None:
+            return
+        self.ai_tab = widget
+        self.tabs.addTab(widget, "AI / Smart Ops")
+
+    def attach_gpc_tab(self, widget: QWidget) -> None:
+        """Attach the GPC / Cronus Zen tab after construction."""
+        if self.gpc_tab is not None:
+            return
+        self.gpc_tab = widget
+        self.tabs.addTab(widget, "GPC / Cronus Zen")
+
+    def attach_lan_cut_tab(self, widget: QWidget) -> None:
+        """Attach the LAN Cut (NetCut-style) tab after construction."""
+        if self.lan_cut_tab is not None:
+            return
+        self.lan_cut_tab = widget
+        self.tabs.addTab(widget, "LAN Cut")
 
     def cleanup(self) -> None:
         """Stop all background threads and timers across child tabs."""

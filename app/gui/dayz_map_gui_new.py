@@ -216,7 +216,8 @@ def consume_prewarmed_map_gui() -> Optional["DayZMapGUI"]:
 
 # ── Map catalogue ───────────────────────────────────────────────────
 
-MAP_OPTIONS: Dict[str, str] = {
+# ── DayZ maps (iZurvive) ────────────────────────────────────────────
+_DAYZ_MAPS: Dict[str, str] = {
     "Chernarus+ (Satellite)": "https://izurvive.com/chernarusplussatmap",
     "Chernarus+ (Topographic)": "https://izurvive.com/chernarusplus",
     "Livonia": "https://izurvive.com/livonia",
@@ -226,6 +227,8 @@ MAP_OPTIONS: Dict[str, str] = {
     "Esseker": "https://izurvive.com/esseker",
     "Takistan": "https://izurvive.com/takistan",
 }
+
+MAP_OPTIONS: Dict[str, str] = dict(_DAYZ_MAPS)
 
 # ── Ad-blocking data ────────────────────────────────────────────────
 
@@ -477,7 +480,12 @@ class DayZMapGUI(QWidget):
         self.map_combo.addItems(MAP_OPTIONS.keys())
         self.map_combo.setCurrentText(self.current_map)
         self.map_combo.setStyleSheet(_COMBO_QSS)
+        # Belt-and-suspenders: currentTextChanged handles programmatic
+        # changes; activated fires on every user click (even re-selecting
+        # the same item) which guards against Qt versions that silently
+        # drop currentTextChanged when the embedded view is mid-load.
         self.map_combo.currentTextChanged.connect(self.load_map)
+        self.map_combo.activated.connect(self._on_map_combo_activated)
         bar_layout.addWidget(self.map_combo)
         bar_layout.addStretch()
 
@@ -1088,10 +1096,38 @@ class DayZMapGUI(QWidget):
 
     # ── Map loading ─────────────────────────────────────────────────
 
+    def _on_map_combo_activated(self, index: int) -> None:
+        """Handle explicit user selection from the combo dropdown.
+
+        ``activated`` fires on every user click — even re-selecting the
+        current item — so this catches cases where ``currentTextChanged``
+        was silently swallowed (Qt race with in-flight page loads).
+        """
+        name = self.map_combo.itemText(index)
+        if name:
+            self.load_map(name)
+
     def load_map(self, map_name: str) -> None:
         """Navigate the active view (inproc or child) to the selected map."""
+        url = MAP_OPTIONS.get(map_name)
+        if url is None:
+            log_error(
+                f"Map: unknown map name {map_name!r}, "
+                "falling back to Chernarus+ (Satellite)"
+            )
+            url = MAP_OPTIONS.get(
+                "Chernarus+ (Satellite)",
+                "https://izurvive.com/chernarusplussatmap",
+            )
+
+        # De-duplicate rapid calls (both currentTextChanged and
+        # activated fire on the same user click).
+        _last = getattr(self, "_last_loaded_url", None)
+        if url == _last and map_name == self.current_map:
+            return
         self.current_map = map_name
-        url = MAP_OPTIONS.get(map_name, MAP_OPTIONS["Chernarus+ (Satellite)"])
+        self._last_loaded_url = url  # type: ignore[attr-defined]
+        log_info(f"Map: load_map — name={map_name!r}, url={url}")
 
         # Child-host path: push the URL over IPC. If the child isn't
         # connected yet, _on_host_hwnd_received will push the current
@@ -1099,18 +1135,23 @@ class DayZMapGUI(QWidget):
         if self._host_client is not None and self._host_container is not None:
             try:
                 self._host_client.load(url)
-                log_info(f"Loading map (child): {map_name} -> {url}")
+                log_info(f"Map: navigating (child): {map_name} -> {url}")
             except Exception as exc:
-                log_error(f"Error loading map in child host: {exc}")
+                log_error(f"Map: child host load failed: {exc}")
             return
 
         if self.map_view is None:
+            log_error("Map: load_map — map_view is None, cannot navigate")
             return
         try:
+            # Cancel any in-flight navigation first — without this,
+            # calling load() while the previous page is still fetching
+            # tiles/ads can be silently dropped by some Qt versions.
+            self.map_view.stop()
             self.map_view.load(QUrl(url))
-            log_info(f"Loading map: {map_name} -> {url}")
+            log_info(f"Map: navigating (inproc): {map_name} -> {url}")
         except Exception as exc:
-            log_error(f"Error loading map: {exc}")
+            log_error(f"Map: inproc load failed: {exc}")
 
     # ── Cleanup ─────────────────────────────────────────────────────
 

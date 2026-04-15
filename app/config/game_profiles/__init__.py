@@ -7,7 +7,7 @@ Auto-calibration overrides these defaults with live traffic data when enabled.
 
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from app.logs.logger import log_info, log_error
 
@@ -26,7 +26,6 @@ __all__ = [
     "get_tick_model",
     "reload_profile",
 ]
-
 
 class PresetNotFoundError(KeyError):
     """Raised when a named disruption preset is not defined in the game profile."""

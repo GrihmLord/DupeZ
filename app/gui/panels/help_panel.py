@@ -10,11 +10,10 @@ who has never used a network tool can understand exactly what to do.
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QCursor, QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QCursor
 from PyQt6.QtWidgets import (
     QFrame,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -39,31 +38,31 @@ _RED          = "#ff6b6b"
 _PURPLE       = "#a78bfa"
 
 # ── Stylesheet fragments ──────────────────────────────────────────
-_SCROLL_QSS = f"""
-QScrollArea {{
+_SCROLL_QSS = """
+QScrollArea {
     background: transparent;
     border: none;
-}}
-QScrollArea > QWidget > QWidget {{
+}
+QScrollArea > QWidget > QWidget {
     background: transparent;
-}}
-QScrollBar:vertical {{
+}
+QScrollBar:vertical {
     background: rgba(15, 23, 42, 0.3);
     width: 6px;
     border-radius: 3px;
     margin: 2px;
-}}
-QScrollBar::handle:vertical {{
+}
+QScrollBar::handle:vertical {
     background: rgba(0, 240, 255, 0.15);
     border-radius: 3px;
     min-height: 30px;
-}}
-QScrollBar::handle:vertical:hover {{
+}
+QScrollBar::handle:vertical:hover {
     background: rgba(0, 240, 255, 0.3);
-}}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
-}}
+}
 """
 
 _SECTION_HEADER_QSS = f"""
@@ -134,7 +133,7 @@ class _CollapsibleSection(QWidget):
 def _styled_body(html: str) -> QWidget:
     """Wrap HTML text in a styled QLabel inside a container."""
     container = QWidget()
-    container.setStyleSheet(f"background: rgba(5, 8, 16, 0.4); border-radius: 6px;")
+    container.setStyleSheet("background: rgba(5, 8, 16, 0.4); border-radius: 6px;")
     lay = QVBoxLayout(container)
     lay.setContentsMargins(16, 12, 16, 14)
     lbl = QLabel(html)
@@ -163,8 +162,8 @@ _SECTIONS: list[tuple[str, str, bool]] = [
 <b style='color:{_CYAN};'>DupeZ</b> is a per-device network disruption toolkit
 built for gamers. It intercepts packets between your console or PC and the game
 server, giving you fine-grained control over lag, packet loss, throttling, and
-more — across <b>DayZ</b>, <b>GTA</b>, <b>Fortnite</b>, and any other game
-on <b>PS5</b>, <b>Xbox</b>, or <b>PC</b>.</p>
+more — across <b>DayZ</b>, <b>GTA</b>, <b>Fortnite</b>,
+and any other game on <b>PS5</b>, <b>Xbox</b>, or <b>PC</b>.</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
 Under the hood DupeZ uses <b>WinDivert</b>, a kernel-level packet interception
@@ -180,21 +179,33 @@ with the GPU build, admin elevation is handled automatically. If you see
 
     ("GETTING STARTED — FIRST-TIME SETUP", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-Five steps to your first disruption:</p>
+Six steps to your first disruption:</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>1.</b> Launch DupeZ. The GPU build auto-elevates;
-for the Compat build, right-click → <b>Run as administrator</b>.</p>
+<b style='color:{_CYAN};'>1.</b> Launch DupeZ. The GPU build auto-elevates
+via an elevated helper; for the Compat build, right-click →
+<b>Run as administrator</b>. Status bar should read
+<b style='color:{_GREEN};'>Engine: READY</b>.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>2.</b> You land on the <b>Clumsy Control</b> tab
 (🎯 in the sidebar). The left panel shows devices on your network — run a
-<b>Scan</b> to discover them.</p>
+<b>Scan</b> to discover them. Vendor column uses the IEEE OUI database,
+so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
-the right panel (e.g. "Red Disconnect" for maximum effect, or "Mild Lag" for
-subtle testing). Presets auto-configure the disruption modules and values.</p>
+the right panel. Available presets:</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_GREEN};'>Dupe</b> — Character clone / item duplication.
+Defaults to Clone mode — see the Dupe Engine section below for step-by-step
+instructions. Use the <b>DUPE METHOD</b> card to pick between Clone,
+Drop &amp; Pick, Swap, Container, Rift, or Legacy</li>
+<li><b>Red Disconnect</b> — Full disconnect: 95% drop, heavy lag, bandwidth cap</li>
+<li><b>Lag</b> — Sustained lag + drop. Tune with the sliders after selecting</li>
+<li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
+<li><b>Custom</b> — Set your own parameters manually</li>
+</ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>4.</b> Click a device in the table to target it, then
@@ -203,7 +214,27 @@ hit <b>DISRUPT</b>. DupeZ starts intercepting packets for that device only.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>5.</b> Hit <b>STOP</b> when done — your connection
 restores instantly. Use <b>STOP ALL</b> to kill every active disruption at
-once.</p>
+once. For a fixed-length cut, set <b>Duration</b> in the Scheduler row
+and click <b>TIMED DISRUPT</b> instead of DISRUPT — it auto-stops.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>6.</b> Watch the <b>LIVE STATS</b> card for the
+per-device cut-state LED. Red = <b style='color:{_RED};'>severed</b>
+(character evicted server-side, dupe window open). Amber = partial cut.
+Green = cut hasn't landed yet.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
+<b style='color:{_CYAN};'>Quick Start — Character Clone (DayZ):</b></p>
+<ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li>Scan → select your PC or console</li>
+<li>Preset → <b>Dupe</b> (Clone is the default method)</li>
+<li>Wait for a server persistence save (every 5-15 min)</li>
+<li>Hit <b>DISRUPT</b>, then perform your inventory action in-game</li>
+<li>Alt-F4 or kill DayZ while the cut is held</li>
+<li>Reconnect — your character has the original inventory, moved items
+are in the world</li>
+</ol>
+
 """, False),
 
     ("🎯 CLUMSY CONTROL — THE MAIN VIEW", f"""
@@ -218,8 +249,17 @@ device's IP so only game traffic is affected.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Presets (right)</b> — Pre-built disruption
-profiles. Pick one and the modules + sliders auto-configure. You can also save
-and load your own custom profiles.</p>
+profiles. Pick one and the modules + sliders auto-configure:</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_GREEN};'>Dupe</b> — Smart duplication engine with a
+<b>DUPE METHOD</b> card. Choose Clone (default), Drop &amp; Pick, Swap,
+Container, Rift, or Legacy. Each method has its own description and default
+cut duration</li>
+<li><b>Red Disconnect</b> — Full disconnect: 95% drop, heavy lag, bandwidth cap</li>
+<li><b>Lag</b> — Sustained lag + drop. Tune with sliders after selecting</li>
+<li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
+<li><b>Custom</b> — Set your own parameters manually</li>
+</ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Disruption Modules</b> — Each module manipulates
@@ -245,8 +285,31 @@ Inbound affects data coming <i>from</i> the server; outbound affects data
 going <i>to</i> the server.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>Scheduler</b> — Set a delay before disruption
-starts and a duration for how long it runs. Useful for timed operations.</p>
+<b style='color:{_CYAN};'>Scheduler &amp; Macros</b> — Sits inline directly
+under DISRUPT / STOP / STOP ALL (no separate card). Set <b>Duration</b>
+(0.5s resolution) and an optional <b>Delay</b>, then use:</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_PURPLE};'>TIMED DISRUPT</b> — Runs for the set
+duration, then auto-stops. Ideal for reproducible clone-dupe windows.</li>
+<li><b style='color:{_PURPLE};'>RUN MACRO</b> — Chains configured
+disruption steps in sequence (recorded or scripted).</li>
+<li><b style='color:{_AMBER};'>STOP MACRO</b> — Cancels an in-flight
+macro without touching other active disruptions.</li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>SMART DISRUPT</b> — When enabled, DupeZ consults
+the learning loop (past labeled episodes + cut-effectiveness stats) and
+picks the preset / direction / duration most likely to sever the current
+target class. After 5 labeled episodes for a (profile, goal) bucket, it
+will <i>auto-switch presets</i> if the current one can't sever — no more
+silently retrying a preset that doesn't fit the target.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>LIVE STATS (collapsible card below)</b> — Each
+targeted device shows a coloured cut-state LED: grey (unknown), green
+(connected), amber (degraded), red (severed). Hover the stats banner for
+per-device tooltips driven by the A2S cut verifier.</p>
 """, False),
 
     ("🗺 IZURVIVE MAP TAB", f"""
@@ -259,13 +322,24 @@ plan routes without switching windows.</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li>Full Chernarus+ and Livonia maps with pan/zoom</li>
 <li>Satellite and Topographic layer toggle</li>
-<li>GPU-accelerated rendering (requires the GPU build variant)</li>
+<li>GPU-accelerated rendering when a capable GPU is detected</li>
+<li>Automatic renderer tier detection — GPU (ANGLE/D3D11), SwiftShader, or CPU
+raster based on your hardware</li>
 </ul>
 
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Map Renderer Override:</b> Go to <b>Settings →
+Interface → Map Renderer</b> to force a specific renderer (GPU, SwiftShader,
+or Software). The status bar shows the active tier: <b style='color:{_GREEN};'>
+GPU</b>, <b style='color:{_AMBER};'>SW-GL</b>, or <b style='color:#ff4444;'>
+CPU</b>. Changing the renderer requires an app restart (DupeZ will prompt
+you automatically).</p>
+
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
-<b style='color:{_AMBER};'>Map slow or software-rendered?</b> Make sure you're
-running the GPU build (DupeZ-GPU.exe). The Compat build runs elevated, which
-forces QWebEngine into software rasterization.</p>
+<b style='color:{_AMBER};'>Map slow or software-rendered?</b> The GPU build
+(DupeZ-GPU.exe) runs at Medium IL and can use hardware raster. The Compat
+build runs elevated, which forces CPU raster. Try setting the renderer to
+<b>gpu</b> in Settings if auto-detection picked a lower tier.</p>
 """, False),
 
     ("👤 ACCOUNT TRACKER TAB", f"""
@@ -298,6 +372,120 @@ status, set location, clear notes, delete, or export matching</li>
 <li><b>Last modified</b> — Select an account to see when it was last
 changed in the status bar</li>
 </ul>
+""", False),
+
+    ("🔄 DUPE ENGINE v2 — SMART DUPLICATION", f"""
+<p style='color:{_TEXT}; font-size:12px;'>
+The Dupe Engine v2 uses <b>selective packet filtering</b> designed for DayZ
+1.29+ servers. Instead of dropping all traffic (which triggers freeze detection
+and disconnects), v2 classifies every packet and only blocks game-state
+replication while keeping your connection alive.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>How it works:</b> TCP, keepalives, and small acks
+always pass through. Only GAME_STATE and GAME_BULK packets (inventory/entity
+replication) are blocked. This creates a desync window where the server has
+applied your action but your client never receives the confirmation — the
+foundation for duplication.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Dupe Methods (select in the DUPE METHOD card):</b></p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_GREEN};'>Clone (Character Dupe)</b> — Full character clone
+via persistence save race. The server saves your state, you perform an inventory
+action, then disconnect before the next save. Server rolls back your character
+to the saved state (full inventory) while moved items persist in the world.
+<b>Default and recommended method</b></li>
+<li><b>Drop & Pick</b> — Drop an item, the outbound RPC reaches the server,
+then inbound state is blocked. Pick up during the cut window</li>
+<li><b>Swap</b> — Initiate a swap between hands and container. Blocks state
+both directions to freeze the partial swap on the server</li>
+<li><b>Container</b> — Put item in a container. Inbound block prevents the
+client from seeing the server's confirmation of the transfer</li>
+<li><b>Rift</b> — Extended bidirectional state block with pulse cycling. Most
+aggressive — creates deep desync over multiple cycles</li>
+<li><b>Legacy</b> — Total hard cut for pre-1.27 servers.
+<b>Will disconnect you on modern servers</b></li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Clone Mode Steps:</b></p>
+<ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li>Wait for a server persistence save (every 5-15 min, configurable)</li>
+<li>Select the <b>Dupe</b> preset and <b>Clone</b> method, then DISRUPT</li>
+<li>Perform your inventory action (drop items, fill a stash, etc.)</li>
+<li>Alt-F4 or kill DayZ while the cut is held</li>
+<li>Reconnect — your character has the original inventory, moved items are in
+the world</li>
+</ol>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Graduated Restore:</b> For non-clone methods, when
+the cut ends, v2 restores in 3 phases: keepalives first, then outbound game
+state in a drip-feed, then full open. This avoids reconnection spike
+detection. Clone mode skips this — it holds the cut until you disconnect.</p>
+
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
+<b style='color:{_AMBER};'>Tip:</b> Start with <b>Clone</b> for full character
+duplication. For single-item dupes, try <b>Drop & Pick</b>.</p>
+""", False),
+
+    ("🛡 ARP SPOOF & A2S CUT VERIFIER (v5.6.0)", f"""
+<p style='color:{_TEXT}; font-size:12px;'>
+When the target is on the <b>same WiFi network</b> as you (not behind a
+hotspot), DupeZ intercepts traffic via <b>ARP cache poisoning</b> instead of
+the forward-path WinDivert layer. v5.6 upgrades this path with a three-frame
+spike per poison cycle designed to survive anti-spoof on modern consumer
+routers.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>What changed in v5.6:</b></p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b>Opcode-2 reply with spoofed L2 source</b> — Ethernet source MAC is
+set to the <i>target's</i> MAC, not yours. Defeats ASUS/Netgear/Ubiquiti
+heuristics that drop frames where ARP sender MAC ≠ Ethernet source MAC.</li>
+<li><b>Opcode-1 request variant</b> — Same spoofed layout, ARP opcode 1
+(request) instead of 2 (reply). Handles RFC 826 strict-mode routers that
+ignore unsolicited replies.</li>
+<li><b>Target-facing poison unchanged</b> — The frame that tells the target
+"gateway is at my MAC" is still a standard unicast reply from your real MAC.</li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>A2S cut verifier:</b> For Source-engine servers
+(DayZ, every Source-derived title), DupeZ polls the query port once per
+second while a cut is active. It captures a <b>baseline player count</b> on
+the first reachable response, then watches for a drop. When the count goes
+down, your character was evicted server-side — the cut landed.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Cut state progression</b> (visible in session logs
+as <code>cut_verified</code> events):</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b style='color:{_TEXT_DIM};'>unknown</b> — probe not reachable yet, or
+no baseline captured</li>
+<li><b style='color:{_GREEN};'>connected</b> — server reachable, player count
+matches baseline (cut hasn't landed)</li>
+<li><b style='color:{_AMBER};'>degraded</b> — ping failing but player count
+intact (partial cut, session still alive server-side)</li>
+<li><b style='color:{_RED};'>severed</b> — player count dropped below
+baseline (character evicted, dupe window open)</li>
+</ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Learning loop:</b> Every session's peak
+<code>max_cut_state</code> is written to the episode recorder. SMART DISRUPT
+now has two aggregations: <b>recommend()</b> (did the dupe stick?) and
+<b>cut_effectiveness()</b> (did the cut even fire?). After 5 labeled episodes
+per (profile, goal) bucket, the auto-tuner uses this to switch presets when
+the current one fails to sever — instead of silently retrying a preset that
+can't hit this target class.</p>
+
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
+<b style='color:{_AMBER};'>Tip:</b> If the Device Table vendor column shows
+<b>Unknown</b> for a device with a real MAC, scapy's MANUFDB isn't loading —
+check logs for a scapy import error. v5.6 chains the full ~35k-entry IEEE
+OUI database as a fallback to the 60-entry curated gaming table.</p>
 """, False),
 
     ("📡 NETWORK TOOLS TAB", f"""
@@ -339,6 +527,15 @@ talking to and on which ports.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 Themes apply live — switch from the combo and see the change instantly. The
 sidebar buttons stay fixed at 40×40 regardless of theme.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>Map Renderer</b> — Under the <b>Interface</b> tab,
+choose the map rendering backend: <b>Auto</b> (recommended — detects your GPU
+automatically), <b>GPU</b> (force hardware raster via ANGLE/D3D11),
+<b>SwiftShader</b> (software OpenGL), or <b>Software</b> (pure CPU, no GPU
+processes). Changing this restarts DupeZ so the new renderer takes effect at
+Qt boot.</p>
+
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Other settings:</b> scan behaviour, thread limits,

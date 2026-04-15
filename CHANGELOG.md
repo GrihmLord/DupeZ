@@ -4,6 +4,60 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.6.0 — 2026-04-14 (MAC-Spoof Spike + A2S Cut Verification + Learning-Loop Closure)
+
+Three-frontier release that closes the observability loop on cut effectiveness, hardens the ARP-poison path against consumer-router anti-spoof heuristics, and fills in the vendor column for every IEEE-registered OUI. The disruption pipeline now produces labeled episodes end-to-end with no operator input required.
+
+### Added
+- **MAC-spoof spike in `arp_spoof.py`.** Gateway-facing poison frames now ship in three variants per cycle: opcode-2 reply with L2 source set to the *target's* MAC (defeats ASUS/Netgear/Ubiquiti anti-spoof heuristics that pin ARP sender MAC to the frame source MAC), plus an opcode-1 request variant for RFC 826 strict-mode routers that ignore unsolicited replies. Target-facing frames unchanged.
+- **A2S cut verifier → episode recorder.** `CutVerifier` subscriber inside `NativeDivertEngine` now writes a `cut_verified` event every time the verdict state transitions (unknown → connected → degraded → severed). `engine_stop` payload carries `max_cut_state` so post-session aggregation sees the peak severance reached.
+- **`LearningLoop.cut_effectiveness(profile, goal)`.** New aggregation method distinct from `recommend()` — measures whether the cut even *fired correctly* (severance), not whether the dupe stuck. Returns `{n, severed_rate, degraded_rate, never_cut_rate, sufficient_data}`. Lets the auto-tuner pick a different preset when the current one can't sever this target class at all.
+- **`EpisodeSummary.max_cut_state` field.** Parsed from `cut_verified` events and `engine_stop.max_cut_state` in `_summarize_episode`, with strict state-order tracking (`unknown < connected < degraded < severed`) so the peak is stable across restarts.
+- **Full scapy MANUFDB fallback in `app/network/shared.py`.** `lookup_vendor()` now lazy-loads `scapy.data.MANUFDB` (~35k IEEE OUI entries) on first miss in the curated 60-entry `VENDOR_OUIS` table. Device table vendor column now resolves Ring, HUMAX, Murata, Texas Instruments, Chamberlain, HP, and every other registered manufacturer instead of showing "Unknown".
+- **`tools/smoketest_scan_and_lag.py`.** End-to-end pipeline validator: scan → pick target (by last octet or first console) → start lag via `disruption_manager.disrupt_device` → poll engine stats for N seconds → stop. Exit codes distinguish scan-empty, target-not-resolvable, disrupt-returned-false, and zero-packet-processed cases. Vendor column rendered in device table output.
+
+### Changed
+- **`help_panel.py` Getting Started.** New "🛡 ARP SPOOF & A2S CUT VERIFIER" section covering MAC-spoof spike rationale, A2S baseline / drop detection, and what `max_cut_state` means in session logs.
+- **`ArpSpoofer._poison_once`** now emits three gateway-facing frames per cycle instead of one. Target-facing path unchanged.
+- **Smart Mode panel surfaces historical severance.** `SmartModePanel.update_ui` queries `LearningLoop.cut_effectiveness(profile, goal)` after every profile and renders a colour-coded hint line below the recommendation: severance rate, sample size, and a tier label (`great`/`ok`/`weak`/`nodata`). Auto-tuner now has a visible rationale for preset switching.
+- **Live cut-state LED in the Stats panel banner.** `StatsPanel` prepends a coloured dot to every active device's banner line (gray=unknown, green=connected, amber=degraded, red=severed) with matching text colour on the `CUT:` fragment. Rich-text rendering enabled (`Qt.TextFormat.RichText`).
+- **Pytest hardware marker + opt-in smoketest.** New `tests/test_hardware_smoketest.py` mirrors `tools/smoketest_scan_and_lag.py` as pytest assertions. Gated behind `@pytest.mark.hardware` so default `pytest` excludes it; opt in with `pytest -m hardware` on a Windows Admin host with WinDivert + Npcap. Prerequisite probes skip with specific reasons when the environment doesn't match. `pytest.ini` registers the `hardware` and `slow` markers with `--strict-markers`.
+
+### Fixed
+- **Vendor column stuck at "Unknown".** Root cause: curated `VENDOR_OUIS` only covered ~60 gaming-focused OUIs. Fixed via scapy MANUFDB chain fallthrough.
+- **Strict-mode routers ignoring poison.** Opcode-1 (request) variant bypasses RFC 826 "unsolicited replies are invalid" enforcement seen on newer ASUS firmware.
+- **Labeled episodes stuck at 0.** `LearningLoop.recommend()` required ≥5 labeled episodes per bucket but no code path was producing outcome labels without operator intervention. `cut_end` now auto-labels from `persisted` flag on the engine stop path, unblocking SMART DISRUPT recommendations after 5 cuts.
+- **Auto-preset-switch dead-code bug.** `SmartDisruptionEngine._maybe_switch_preset_by_severance` used `getattr(dict_result, "sufficient_data", False)` — attribute access on a dict always returns the default, so the gate never opened and the feature never fired. Replaced all `getattr()` calls with `.get()`. Feature is now live.
+
+### Performance
+- **`LearningLoop` bucket indexing.** `recommend()` and `cut_effectiveness()` previously rebuilt a full-cache filter list comprehension on every call (O(n) per query, O(n) allocation). Added `_index_labeled` and `_index_all: Dict[(target_profile, goal), List[EpisodeSummary]]` built once per disk-refresh in `_rebuild_indices()`. Query path is now O(1) bucket lookup. Matters because `SmartModePanel.update_ui` calls `cut_effectiveness` on every Qt refresh tick.
+- **`cut_effectiveness` single-pass counting.** Collapsed three independent `sum(1 for e in rows if …)` generators into one for-loop with three counters. Same asymptotic class, 3× fewer traversals, zero generator-expression object allocations.
+- **`SmartDisruptionEngine` duplication + I/O.** Collapsed `recommend()` and the duplicated `_recommend_without_switch()` into a single `_build_recommendation(auto_switch_enabled: bool)`. Cached the `LearningLoop` instance on `self._learning_loop` to eliminate per-call disk reads of `cut_history.json`.
+
+### Repo hygiene
+- **Root directory cleanup.** Moved `DEPLOY_CHECKLIST_v5.4.0.md` → `docs/release-notes/`, `DupeZ_Deep_Research_and_DL_Plan.docx` → `docs/`, and `FATAL_CRASH.txt` → `logs/archive/FATAL_CRASH_2026-04-14.txt`. Root is now limited to standard top-level entries: `README.md`, `CHANGELOG.md`, `ROADMAP.md`, `requirements*.txt`, `pytest.ini`, and the two entry-point scripts (`dupez.py`, `dupez_helper.py`).
+
+---
+
+## v5.5.0 — 2026-04-12 (WiFi ARP Spoof + Codebase Audit Cleanup)
+
+Feature release adding WiFi same-network interception via ARP cache poisoning and cleaning up technical debt identified during the Phase C principal-engineer codebase audit.
+
+### Added
+- **WiFi same-network interception.** New `wifi_same_net` connection mode in `target_profile.py`. When DupeZ detects the target is on the same WiFi network (not behind the hotspot), it automatically enables ARP spoofing to intercept traffic via `arp_spoof.py`.
+- **`app/gui/widgets/` package.** Extracted `CollapsibleCard` into a shared reusable widget module so any panel can use it without importing `clumsy_control.py`.
+
+### Removed
+- **Dupe Engine v1 (`dupe_engine.py`).** Deprecated since 5.4.0. The `DupeMethod.LEGACY` mode in v2 is self-contained and handles pre-1.29 servers without the v1 module. The DayZ inventory mechanics docstring was preserved in v2's module docstring.
+- **`dupe_v1` module registry key.** Removed from `CORE_MODULE_MAP`.
+
+### Changed
+- **`ml_classifier.py` PRNG refactored.** Replaced module-level mutable `_rng_state = [42]` list with an `_LCG` class holding state on the instance. Thread-safe by design.
+- **`packet_classifier.py` type fix.** `_finalize_calibration` return type corrected from `Optional[Any]` to `None`.
+- **`CollapsibleCard` now supports style overrides.** New `header_qss` and `reorder_qss` constructor params, plus `set_expanded()` public API.
+
+---
+
 ## v5.4.0 — 2026-04-12 (Account Tracker Overhaul + UI Polish + Bug Fixes)
 
 Feature release focused on the Account Tracker, theme stability, and overall UI polish. The tracker is now a full-featured multi-account management tool with multi-select, context menus, status filter chips, notes, and improved bulk operations. Six bugs from v5.3.0 are fixed, and the Help panel and About dialog have been rewritten.

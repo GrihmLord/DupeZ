@@ -108,6 +108,16 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # --- Phase 1b: Log GPU/renderer tier ---
+    _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
+    _arch = os.environ.get("DUPEZ_ARCH", "unknown")
+    log_info(f"Renderer tier: {_tier} | Architecture: {_arch} | Admin: {IS_ADMIN}")
+    if _tier == "tier3_cpu" and not IS_ADMIN:
+        log_warning(
+            "Running CPU-raster map. If you have a GPU, ensure you are "
+            "using DupeZ-GPU.exe (split mode) for hardware-accelerated map."
+        )
+
     # --- Phase 2: QApplication + Splash Screen ---
     try:
         # QtWebEngine REQUIRES this attribute to be set on the

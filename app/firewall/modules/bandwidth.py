@@ -46,9 +46,9 @@ class BandwidthModule(DisruptionModule):
         send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
     ) -> bool:
         """Drop the packet if forwarding it would exceed the byte budget."""
-        limit_kbps: int = self.params.get(
+        limit_kbps: int = max(1, self.params.get(
             "bandwidth_limit", DEFAULT_BANDWIDTH_LIMIT_KBPS
-        )
+        ))
         limit_bytes: int = limit_kbps * _BYTES_PER_KB
         now: float = time.time()
 

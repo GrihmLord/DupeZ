@@ -143,6 +143,34 @@ _inproc_self_elevate_if_needed()
 _root = os.path.dirname(os.path.abspath(__file__))
 if _root not in sys.path:
     sys.path.insert(0, _root)
+
+# ── Read persisted map_renderer setting early ──────────────────────
+# The user can set "gpu" / "swiftshader" / "software" in Settings →
+# Interface → Map Renderer. We read it from the JSON file directly
+# (no AppState import, no PyQt6 import) and inject it into the env
+# var that renderer_tier.py consumes. "auto" means don't override.
+if "DUPEZ_MAP_RENDERER" not in os.environ:
+    try:
+        import json as _json
+        _settings_paths = [
+            os.path.join(_root, "app", "config", "settings.json"),
+        ]
+        # Frozen exe: look relative to the exe dir as well
+        if getattr(sys, "frozen", False):
+            _settings_paths.insert(0, os.path.join(
+                os.path.dirname(sys.executable), "app", "config", "settings.json"))
+        for _sp in _settings_paths:
+            if os.path.isfile(_sp):
+                with open(_sp, "r", encoding="utf-8") as _f:
+                    _cfg = _json.load(_f)
+                _mr = _cfg.get("map_renderer", "auto")
+                if _mr and _mr != "auto":
+                    os.environ["DUPEZ_MAP_RENDERER"] = _mr
+                    print(f"[dupez] map_renderer from settings: {_mr}", file=sys.stderr)
+                break
+    except Exception as _e:
+        print(f"[dupez] early settings read failed (non-fatal): {_e}", file=sys.stderr)
+
 try:
     from app.gui.map_host.renderer_tier import apply_chromium_flags
     apply_chromium_flags()

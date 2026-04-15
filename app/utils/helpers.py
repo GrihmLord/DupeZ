@@ -44,6 +44,9 @@ def _log_error(msg: str) -> None:
 # Suppress console window flash on Windows subprocess calls
 _NO_WINDOW: int = 0x08000000 if sys.platform == "win32" else 0
 
+# Hoisted platform check — avoid repeated platform.system() allocations in hot paths
+_IS_WINDOWS: bool = platform.system() == "Windows"
+
 # Pre-compiled MAC address validation pattern
 _MAC_ADDRESS_PATTERN: re.Pattern = re.compile(
     r'^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$'
@@ -86,7 +89,7 @@ def mask_ip(ip: str) -> str:
 def is_admin() -> bool:
     """Check if the current process has administrator/root privileges."""
     try:
-        if platform.system() == "Windows":
+        if _IS_WINDOWS:
             import ctypes
             return ctypes.windll.shell32.IsUserAnAdmin() != 0
         return os.geteuid() == 0
@@ -168,7 +171,7 @@ def ping_host(host: str, timeout: float = 1.0) -> Tuple[bool, float]:
     """
     try:
         timeout_ms = str(int(timeout * 1000))
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             cmd = ["ping", "-n", "1", "-w", timeout_ms, host]
         else:
             cmd = ["ping", "-c", "1", "-W", str(int(timeout)), host]
@@ -288,7 +291,7 @@ def get_common_ports() -> Dict[str, int]:
 
 def safe_console_message(message: str) -> str:
     """Replace non-ASCII characters with '?' for safe Windows console output."""
-    if platform.system() == "Windows":
+    if _IS_WINDOWS:
         try:
             return message.encode('ascii', errors='replace').decode('ascii')
         except Exception:

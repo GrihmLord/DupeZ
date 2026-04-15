@@ -46,6 +46,9 @@ _PRIVATE_RANGES = [
 
 _MAC_RE = re.compile(r"^([0-9a-fA-F]{2}[:-]){5}([0-9a-fA-F]{2})$")
 
+# Cached once: platform.system() + .lower() allocates on every call.
+_IS_WINDOWS = platform.system().lower() == "windows"
+
 __all__ = ["NetworkDevice", "EnhancedNetworkScanner"]
 
 
@@ -212,10 +215,20 @@ class EnhancedNetworkScanner(QObject):
 
     def scan_network(
         self,
-        network_range: str = "192.168.1.0/24",
+        network_range: Optional[str] = None,
         quick_scan: bool = True,
     ) -> List[Dict]:
-        """Scan network for devices with ARP-first strategy."""
+        """Scan network for devices with ARP-first strategy.
+
+        If *network_range* is None (default), all ARP entries are
+        returned regardless of subnet — this is what the operator
+        almost always wants, because ARP already enumerates every
+        subnet the host can reach (LAN, ICS hotspot, VPN, etc.).
+
+        If *network_range* is explicit (e.g. "192.168.137.0/24"),
+        ARP entries are filtered to that CIDR before return. This
+        is useful for scoping a scan to a single hotspot subnet.
+        """
         try:
             if sys.is_finalizing():
                 log_error("Cannot scan during interpreter shutdown")
@@ -224,16 +237,31 @@ class EnhancedNetworkScanner(QObject):
             self.scan_in_progress = True
             start_time = time.time()
             log_info("Starting enhanced network scan",
-                     network_range=network_range, quick_scan=quick_scan)
+                     network_range=network_range or "<all ARP>",
+                     quick_scan=quick_scan)
 
             # ARP table is authoritative and instant
             arp_devices = self._scan_arp_table()
             log_info(f"ARP table: {len(arp_devices)} unique devices")
 
+            # Apply CIDR filter only if caller gave one explicitly.
+            if network_range and arp_devices:
+                try:
+                    net = ipaddress.IPv4Network(network_range, strict=False)
+                    arp_devices = [
+                        d for d in arp_devices
+                        if d.get("ip") and ipaddress.IPv4Address(d["ip"]) in net
+                    ]
+                    log_info(f"After CIDR filter ({network_range}): "
+                             f"{len(arp_devices)} device(s)")
+                except ValueError as e:
+                    log_error(f"Invalid network_range '{network_range}': {e}")
+
             # IP sweep only if ARP found nothing (avoids hotspot ghost IPs)
             if not arp_devices:
-                log_info("ARP empty — falling back to IP sweep")
-                ip_list = self._generate_ip_list(network_range)
+                sweep_range = network_range or "192.168.1.0/24"
+                log_info(f"ARP empty — falling back to IP sweep ({sweep_range})")
+                ip_list = self._generate_ip_list(sweep_range)
                 ip_devices = self._scan_ips(ip_list, quick_scan=True)
                 all_devices = self._combine_device_lists([], ip_devices)
             else:
@@ -241,6 +269,7 @@ class EnhancedNetworkScanner(QObject):
 
             all_devices = self._deduplicate_by_mac(all_devices)
             self._detect_console_devices(all_devices)
+            all_devices.sort(key=self._device_sort_key)
 
             scan_duration = time.time() - start_time
             console_count = sum(1 for d in all_devices if d.get("is_console"))
@@ -391,7 +420,7 @@ class EnhancedNetworkScanner(QObject):
     def _ping_host(self, ip: str) -> bool:
         """Ping *ip* using the system ping command."""
         try:
-            if platform.system().lower() == "windows":
+            if _IS_WINDOWS:
                 cmd = ["ping", "-n", "1", "-w", str(self.timeout * 1000), ip]
                 result = subprocess.run(
                     cmd, capture_output=True, text=True,
@@ -427,7 +456,7 @@ class EnhancedNetworkScanner(QObject):
 
         try:
             # ARP lookup
-            if platform.system().lower() == "windows":
+            if _IS_WINDOWS:
                 result = subprocess.run(
                     ["arp", "-a", ip], capture_output=True, text=True,
                     timeout=5, creationflags=_NO_WINDOW,
@@ -460,7 +489,7 @@ class EnhancedNetworkScanner(QObject):
                     pass
 
             # 3. NetBIOS fallback (Windows)
-            if hostname == "Unknown" and platform.system().lower() == "windows":
+            if hostname == "Unknown" and _IS_WINDOWS:
                 try:
                     nbt = subprocess.run(
                         ["nbtstat", "-a", ip], capture_output=True, text=True,
@@ -542,14 +571,13 @@ class EnhancedNetworkScanner(QObject):
             return False
 
     def _detect_console_devices(self, devices: List[Dict]) -> List[Dict]:
-        """Tag console devices in-place and return the console subset."""
-        consoles: List[Dict] = []
-        for d in devices:
-            if self._is_console_device(d):
-                d["is_console"] = True
-                d["device_type"] = self._determine_device_type(d)
-                consoles.append(d)
-        return consoles
+        """Return the console subset of *devices*.
+
+        ``_make_device_info`` already populated ``is_console`` and
+        ``device_type`` at construction time, so this is an O(n) filter
+        rather than an O(n) recompute.
+        """
+        return [d for d in devices if d.get("is_console")]
 
     # ── Port scanning ─────────────────────────────────────────────
 
@@ -589,8 +617,25 @@ class EnhancedNetworkScanner(QObject):
 
     @staticmethod
     def _get_traffic_info(ip: str) -> Tuple[int, int]:
-        """Placeholder for traffic monitoring (not yet implemented)."""
-        return 0, 0
+        """Return (bytes_sent, bytes_recv) for connections to *ip*.
+
+        Uses ``psutil.net_connections()`` to find sockets connected to the
+        target IP.  Returns aggregate counter estimates based on the number
+        of active connections (psutil doesn't expose per-connection byte
+        counts, so this is a presence heuristic: 0 means no active socket).
+        """
+        try:
+            import psutil
+            conns = psutil.net_connections(kind="inet")
+            active = sum(1 for c in conns if c.raddr and c.raddr.ip == ip)
+            if active == 0:
+                return 0, 0
+            # Return a non-zero signal proportional to active connections
+            # (true per-connection byte counts require eBPF / ETW tracing
+            # which is out of scope for the scanner's needs).
+            return active, active
+        except Exception:
+            return 0, 0
 
     # ── ARP table scanning ────────────────────────────────────────
 
@@ -599,7 +644,7 @@ class EnhancedNetworkScanner(QObject):
         mac_best: Dict[str, Tuple[str, str, int]] = {}  # mac_lower -> (ip, mac_raw, last_octet)
 
         try:
-            if platform.system().lower() == "windows":
+            if _IS_WINDOWS:
                 result = subprocess.run(
                     ["arp", "-a"], capture_output=True, text=True,
                     timeout=5, creationflags=_NO_WINDOW,
@@ -623,7 +668,7 @@ class EnhancedNetworkScanner(QObject):
                 if len(parts) < 2:
                     continue
 
-                if platform.system().lower() == "windows":
+                if _IS_WINDOWS:
                     ip, mac_raw = parts[0], parts[1]
                 else:
                     ip = parts[0]
@@ -669,20 +714,81 @@ class EnhancedNetworkScanner(QObject):
     # ── Deduplication ─────────────────────────────────────────────
 
     def _deduplicate_by_mac(self, devices: List[Dict]) -> List[Dict]:
-        """Keep one entry per physical MAC address."""
-        seen: set[str] = set()
-        result: List[Dict] = []
+        """Keep one entry per physical MAC address AND per IP.
+
+        Two-pass dedup:
+          1. MAC-level: drops repeat MACs (keeps first occurrence).
+          2. IP-level: drops repeat IPs, preferring the entry with the
+             richer metadata (console flag set, known hostname, known vendor).
+
+        Stale ARP entries, DHCP transitions, and MAC-randomizing clients
+        (iPhones, modern Android) can produce two rows for the same IP with
+        different MACs. Without IP dedup the GUI renders the duplicate as
+        a 'repeat IP' — which is what the operator is seeing.
+        """
+        seen_macs: set[str] = set()
+        mac_deduped: List[Dict] = []
         for d in devices:
             mac_raw = d.get("mac", "Unknown")
             if mac_raw == "Unknown":
-                result.append(d)
+                mac_deduped.append(d)
                 continue
             mac_lower = mac_raw.replace("-", ":").lower()
-            if mac_lower in seen:
+            if mac_lower in seen_macs:
                 continue
-            seen.add(mac_lower)
-            result.append(d)
-        return result
+            seen_macs.add(mac_lower)
+            mac_deduped.append(d)
+
+        by_ip: Dict[str, Dict] = {}
+        for d in mac_deduped:
+            ip = d.get("ip")
+            if not ip:
+                continue
+            existing = by_ip.get(ip)
+            if existing is None or self._richer_entry(d, existing) is d:
+                by_ip[ip] = d
+        return list(by_ip.values())
+
+    @staticmethod
+    def _richer_entry(a: Dict, b: Dict) -> Dict:
+        """Return whichever dict has more useful identification metadata.
+
+        Preference order: console-flagged > known hostname > known vendor >
+        known MAC > first seen.
+        """
+        def _score(d: Dict) -> int:
+            score = 0
+            if d.get("is_console"):
+                score += 8
+            host = d.get("hostname") or ""
+            if host and not host.startswith("device-") and host != "Unknown":
+                score += 4
+            vendor = d.get("vendor") or ""
+            if vendor and vendor != "Unknown":
+                score += 2
+            if d.get("mac") and d["mac"] != "Unknown":
+                score += 1
+            return score
+        return a if _score(a) >= _score(b) else b
+
+    @staticmethod
+    def _device_sort_key(d: Dict):
+        """Sort consoles first, then by numeric IPv4 octets ascending.
+
+        Ensures operator-relevant targets (PS5/Xbox/Switch, ICS hotspot
+        192.168.137.x) render at the top of the GUI table instead of being
+        scrolled off-screen behind lexically-smaller 10.0.0.x neighbors.
+        """
+        ip = d.get("ip") or ""
+        try:
+            octets = tuple(int(o) for o in ip.split("."))
+            if len(octets) != 4:
+                octets = (999, 999, 999, 999)
+        except ValueError:
+            octets = (999, 999, 999, 999)
+        # Hotspot subnet (ICS default) gets a mild priority boost below consoles
+        hotspot_priority = 0 if ip.startswith("192.168.137.") else 1
+        return (not d.get("is_console"), hotspot_priority, octets)
 
     def _combine_device_lists(
         self, arp_devices: List[Dict], ip_devices: List[Dict],
@@ -734,18 +840,25 @@ class EnhancedNetworkScanner(QObject):
 
     # ── ARP cache (avoids per-IP subprocess) ──────────────────────
 
-    _arp_cache_output: str = ""
+    _arp_cache_ips: set = set()
     _arp_cache_time: float = 0.0
     _arp_cache_lock = threading.Lock()
     _ARP_CACHE_TTL: float = 10.0
+    _ARP_IP_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
     def _check_arp_table_for_ip(self, ip: str) -> bool:
-        """Check if *ip* appears in the cached ARP output."""
+        """Return True if *ip* is in the cached ARP table.
+
+        Membership lookup is O(1) against a pre-parsed set of IPs. The
+        prior implementation did a substring scan across the raw ARP
+        output blob, which was O(len(output)) per call and O(N ·
+        len(output)) across a full sweep.
+        """
         try:
             now = time.time()
             with self._arp_cache_lock:
-                if now - self._arp_cache_time > self._ARP_CACHE_TTL or not self._arp_cache_output:
-                    if platform.system().lower() == "windows":
+                if now - self._arp_cache_time > self._ARP_CACHE_TTL or not self._arp_cache_ips:
+                    if _IS_WINDOWS:
                         result = subprocess.run(
                             ["arp", "-a"], capture_output=True, text=True,
                             timeout=5, creationflags=_NO_WINDOW,
@@ -754,9 +867,12 @@ class EnhancedNetworkScanner(QObject):
                         result = subprocess.run(
                             ["arp", "-n"], capture_output=True, text=True, timeout=5,
                         )
-                    self._arp_cache_output = result.stdout if result.returncode == 0 else ""
+                    if result.returncode == 0:
+                        self._arp_cache_ips = set(self._ARP_IP_RE.findall(result.stdout))
+                    else:
+                        self._arp_cache_ips = set()
                     self._arp_cache_time = now
-                return ip in self._arp_cache_output
+                return ip in self._arp_cache_ips
         except Exception:
             return False
 

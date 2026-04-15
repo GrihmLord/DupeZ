@@ -213,11 +213,16 @@ class LagModule(DisruptionModule):
             self._lag_queue.clear()
 
         if self._send_fn:
+            flush_errors: int = 0
             for _, pkt_data, addr in remaining:
                 try:
                     self._send_fn(pkt_data, addr)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    flush_errors += 1
+                    if flush_errors <= 3:
+                        log_error(f"LagModule: shutdown flush failed ({len(pkt_data)}B): {exc}")
+            if flush_errors > 3:
+                log_error(f"LagModule: {flush_errors} total shutdown flush failures")
 
         log_info(
             f"LagModule stopped: lagged={self._total_lagged}, "

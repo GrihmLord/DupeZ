@@ -8,8 +8,6 @@ modules, sliders, macros, profiles, smart-mode, voice, GPC) on the right.
 
 from __future__ import annotations
 
-import os
-import re
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -24,11 +22,11 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QDoubleSpinBox,
     QSlider,
     QSpinBox,
     QSplitter,
@@ -48,6 +46,9 @@ from app.gui.panels.stats_panel import StatsPanel
 from app.gui.panels.voice_panel import VoicePanel
 from app.gui.panels.gpc_panel import GPCPanel
 from app.gui.panels.smart_mode_panel import SmartModePanel, SMART_ENGINE_AVAILABLE
+from app.gui.panels.ai_panel import (
+    AIPanel,
+)
 
 # Profile system
 try:
@@ -78,156 +79,8 @@ except ImportError:
 
 __all__ = ["ClumsyControlView", "PRESETS", "MODULE_DEFS", "CollapsibleCard"]
 
-
-# ── Collapsible / reorderable card widget ─────────────────────────
-
-_COLLAPSE_HEADER_QSS = (
-    "QPushButton { background: rgba(10,15,26,0.55); color: #00f0ff; "
-    "font-size: 11px; font-weight: 700; letter-spacing: 1px; "
-    "border: 1px solid rgba(30,41,59,0.45); border-radius: 8px; "
-    "text-align: left; padding: 8px 12px; } "
-    "QPushButton:hover { border-color: rgba(0,240,255,0.25); "
-    "background: rgba(10,15,26,0.7); }"
-)
-_REORDER_BTN_QSS = (
-    "QPushButton { background: transparent; color: #475569; "
-    "border: none; font-size: 13px; padding: 0; min-width: 20px; } "
-    "QPushButton:hover { color: #00f0ff; }"
-)
-
-
-class CollapsibleCard(QWidget):
-    """A collapsible, optionally reorderable card section.
-
-    Click the header to expand/collapse.  The ▲/▼ buttons let users
-    reorder sections within the parent layout.
-
-    Parameters
-    ----------
-    title : str
-        Section header label (e.g. "MODULES").
-    content : QWidget
-        The widget to show/hide when toggling.
-    parent_layout : QVBoxLayout | None
-        If provided, ▲/▼ reorder buttons are shown and wired to swap
-        position within this layout.
-    collapsed : bool
-        Start collapsed (default False — start expanded).
-    """
-
-    def __init__(self, title: str, content: QWidget, *,
-                 parent_layout: Optional[QVBoxLayout] = None,
-                 collapsed: bool = False,
-                 parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        self._title = title
-        self._expanded = not collapsed
-        self._parent_layout = parent_layout
-
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 2, 0, 2)
-        root.setSpacing(2)
-
-        # Header row
-        header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
-        header_row.setSpacing(4)
-
-        arrow = "▼" if self._expanded else "▶"
-        self._header_btn = QPushButton(f" {arrow}  {title}")
-        self._header_btn.setStyleSheet(_COLLAPSE_HEADER_QSS)
-        self._header_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self._header_btn.setFixedHeight(34)
-        self._header_btn.clicked.connect(self._toggle)
-        header_row.addWidget(self._header_btn, 1)
-
-        # Reorder buttons (only if parent_layout given)
-        if parent_layout is not None:
-            self._btn_up = QPushButton("▲")
-            self._btn_up.setStyleSheet(_REORDER_BTN_QSS)
-            self._btn_up.setFixedSize(22, 34)
-            self._btn_up.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            self._btn_up.setToolTip("Move section up")
-            self._btn_up.clicked.connect(self._move_up)
-            header_row.addWidget(self._btn_up)
-
-            self._btn_down = QPushButton("▼")
-            self._btn_down.setStyleSheet(_REORDER_BTN_QSS)
-            self._btn_down.setFixedSize(22, 34)
-            self._btn_down.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-            self._btn_down.setToolTip("Move section down")
-            self._btn_down.clicked.connect(self._move_down)
-            header_row.addWidget(self._btn_down)
-
-        root.addLayout(header_row)
-
-        # Content area
-        self._content = content
-        self._content.setVisible(self._expanded)
-        root.addWidget(self._content)
-
-    # ── Toggle collapse ──
-
-    def _toggle(self) -> None:
-        self._expanded = not self._expanded
-        arrow = "▼" if self._expanded else "▶"
-        self._header_btn.setText(f" {arrow}  {self._title}")
-        self._content.setVisible(self._expanded)
-
-    # ── Reorder within parent layout ──
-
-    def _find_index(self) -> int:
-        """Find this widget's index in the parent layout."""
-        if self._parent_layout is None:
-            return -1
-        for i in range(self._parent_layout.count()):
-            item = self._parent_layout.itemAt(i)
-            if item and item.widget() is self:
-                return i
-        return -1
-
-    def _move_up(self) -> None:
-        idx = self._find_index()
-        if idx <= 0 or self._parent_layout is None:
-            return
-        # Find the previous CollapsibleCard (skip non-card widgets)
-        target = idx - 1
-        while target >= 0:
-            item = self._parent_layout.itemAt(target)
-            if item and isinstance(item.widget(), CollapsibleCard):
-                break
-            target -= 1
-        if target < 0:
-            return
-        self._swap_with(target)
-
-    def _move_down(self) -> None:
-        idx = self._find_index()
-        if idx < 0 or self._parent_layout is None:
-            return
-        count = self._parent_layout.count()
-        target = idx + 1
-        while target < count:
-            item = self._parent_layout.itemAt(target)
-            if item and isinstance(item.widget(), CollapsibleCard):
-                break
-            target += 1
-        if target >= count:
-            return
-        self._swap_with(target)
-
-    def _swap_with(self, other_idx: int) -> None:
-        """Swap this widget's position with the widget at *other_idx*."""
-        my_idx = self._find_index()
-        if my_idx < 0 or self._parent_layout is None:
-            return
-        # Remove both (remove higher index first to preserve indices)
-        hi, lo = max(my_idx, other_idx), min(my_idx, other_idx)
-        hi_item = self._parent_layout.takeAt(hi)
-        lo_item = self._parent_layout.takeAt(lo)
-        # Re-insert swapped
-        self._parent_layout.insertWidget(lo, hi_item.widget())
-        self._parent_layout.insertWidget(hi, lo_item.widget())
+# Shared reusable widget — extracted to app/gui/widgets/
+from app.gui.widgets.collapsible_card import CollapsibleCard  # noqa: E402
 
 # ── Disruption presets ──────────────────────────────────────────────
 # Each preset defines a named disruption configuration with the modules
@@ -235,55 +88,40 @@ class CollapsibleCard(QWidget):
 
 PRESETS: Dict[str, Dict[str, Any]] = {
     "Red Disconnect": {
-        "description": "Full disconnect — 95% drop, 2s lag, 1KB/s cap, throttle, disconnect",
+        "description": "Hard disconnect — 100% drop, 3s lag, zero bandwidth, throttle, full kill",
         "methods": ["lag", "drop", "bandwidth", "throttle", "disconnect"],
         "params": {
-            "lag_delay": 2000, "drop_chance": 95,
-            "bandwidth_limit": 1, "bandwidth_queue": 0,
-            "throttle_chance": 100, "throttle_frame": 500,
+            "lag_delay": 3000, "drop_chance": 100,
+            "bandwidth_limit": 0, "bandwidth_queue": 0,
+            "throttle_chance": 100, "throttle_frame": 600,
             "throttle_drop": True, "direction": "both",
+            # Stateful cut defaults — 0/0 preserves legacy "drop until stopped"
+            # behavior; set via sliders to arm a timed cut.
+            "disconnect_chance": 100,
+            "disconnect_arm_delay_ms": 0,
+            "disconnect_duration_ms": 0,
         }
     },
     "Lag": {
-        "description": "Sustained lag + drop — tune with the Lag Delay / Drop % sliders (Light ~800ms/60% · Heavy ~3000ms/95%)",
-        "methods": ["lag", "drop", "bandwidth"],
+        "description": "Heavy sustained lag + drop — tune sliders after selecting (Light ~800/60 · Max ~5000/100)",
+        "methods": ["lag", "drop", "bandwidth", "throttle"],
         "params": {
-            # Mid-strength default between old Light Lag and Heavy Lag.
-            # Adjust lag_delay / drop_chance sliders to taste after selecting.
-            "lag_delay": 1500, "drop_chance": 80,
-            "bandwidth_limit": 2, "bandwidth_queue": 0,
-            "direction": "both",
+            "lag_delay": 2500, "drop_chance": 90,
+            "bandwidth_limit": 1, "bandwidth_queue": 0,
+            "throttle_chance": 80, "throttle_frame": 400,
+            "throttle_drop": True, "direction": "both",
         }
     },
     "God Mode": {
-        "description": "Bidirectional pulse-cycle — teleport around, invulnerable, hits land.",
+        "description": "Bidirectional pulse-cycle — ghost teleport, invulnerable, hits land.",
         "methods": ["godmode"],
         "params": {
-            # GodModeModule v6 BIDIR: blocks BOTH directions during block phase.
-            #   Outbound (device→server): queued → server has stale position → ghost
-            #   Inbound (server→device): queued → frozen enemies on screen
-            # Staggered flush: inbound first (fresh enemy pos) → stagger delay
-            # → outbound (hit reports validated against current positions).
-            # TCP/keepalives pass through always to prevent kicks.
             "godmode_pulse": True,
-            "godmode_pulse_block_ms": 3000,   # 3s block per cycle
-            "godmode_pulse_flush_ms": 400,    # 400ms flush window
-            "godmode_flush_stagger_ms": 120,  # inbound→outbound stagger
+            "godmode_pulse_block_ms": 3500,   # 3.5s block — deep desync
+            "godmode_pulse_flush_ms": 300,    # 300ms flush — tight window
+            "godmode_flush_stagger_ms": 100,  # fast inbound→outbound stagger
             "godmode_keepalive_interval_ms": 800,
-            "godmode_flush_gamestate_keep": 5,
-            "direction": "both",
-        }
-    },
-    "Dupe Mode": {
-        "description": "Total network blackout for item duplication — 100% drop, zero bandwidth, disconnect",
-        "methods": ["disconnect", "drop", "bandwidth"],
-        "params": {
-            # Unlike Red Disconnect (95% drop + lag for combat), Dupe Mode
-            # is a TOTAL bidirectional blackout. No lag (pointless when
-            # dropping everything), no throttle (nothing to throttle).
-            # Pure hard cut for triggering DayZ inventory rollback.
-            "drop_chance": 100,
-            "bandwidth_limit": 0, "bandwidth_queue": 0,
+            "godmode_flush_gamestate_keep": 4,
             "direction": "both",
         }
     },
@@ -314,7 +152,11 @@ def _mdef(key: str, label: str, desc: str,
 MODULE_DEFS: List[Dict[str, Any]] = [
     _mdef("lag", "LAG", "Add delay to packets", [("Delay (ms)", "lag_delay", 0, 120000, 500)]),
     _mdef("drop", "DROP", "Drop packets randomly", [("Chance %", "drop_chance", 0, 100, 100)]),
-    _mdef("disconnect", "DISCONNECT", "Break connection"),
+    _mdef("disconnect", "DISCONNECT", "Timed cut — arm → cut → release", [
+        ("Chance %",       "disconnect_chance",        0, 100,   100),
+        ("Arm Delay (ms)", "disconnect_arm_delay_ms",  0, 30000,   0),
+        ("Duration (ms)",  "disconnect_duration_ms",   0, 60000,   0),
+    ]),
     _mdef("bandwidth", "BANDWIDTH", "Limit bandwidth", [
         ("Limit (KB/s)", "bandwidth_limit", 0, 1000, 5), ("Queue Size", "bandwidth_queue", 0, 1000, 0)]),
     _mdef("throttle", "THROTTLE", "Throttle packet flow", [
@@ -352,7 +194,7 @@ class ClumsyControlView(QWidget):
     _LABEL_BOLD_QSS = "color: #94a3b8; font-size: 11px; font-weight: 700;"
     _SCHED_PURPLE_QSS = "color: #a78bfa; font-size: 11px; font-weight: 600;"
     _SCHED_PINK_QSS = "color: #e879f9; font-size: 11px; font-weight: 600;"
-    _RADIO_CB_QSS = _cb_qss.__func__(8, margin=True)
+    _RADIO_CB_QSS = _cb_qss.__func__(8, margin=False)
     _SLIDER_QSS = ("QSlider::groove:horizontal { border: 1px solid rgba(51,65,85,0.4); height: 6px; "
                    "background: rgba(15,23,42,0.6); border-radius: 3px; } "
                    "QSlider::handle:horizontal { background: #00f0ff; border: none; "
@@ -541,7 +383,7 @@ class ClumsyControlView(QWidget):
         _modes = [QHeaderView.ResizeMode.Fixed] + [QHeaderView.ResizeMode.Stretch]*4 + [QHeaderView.ResizeMode.ResizeToContents]*2
         for i, mode in enumerate(_modes):
             hdr.setSectionResizeMode(i, mode)
-        self.device_table.setColumnWidth(0, 32)
+        self.device_table.setColumnWidth(0, 40)
         self.device_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.device_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.device_table.setAlternatingRowColors(True)
@@ -651,12 +493,12 @@ class ClumsyControlView(QWidget):
         self._sections_layout.addWidget(self._section_preset)
 
         # ---- SMART MODE: AI AUTO-TUNE (extracted panel) ----
+        # Built here but NOT added as a card on this view. Reparented to
+        # AIPanel and rendered inside NetworkToolsView's "AI / Smart Ops" tab.
         self._smart_panel = SmartModePanel(self)
-        if self._smart_panel.available:
-            self._section_smart = CollapsibleCard(
-                "AUTO-TUNE / SMART MODE", self._smart_panel,
-                parent_layout=self._sections_layout, collapsed=True)
-            self._sections_layout.addWidget(self._section_smart)
+        # Smart Mode tri-state (off/learn/assist) — flipped by AIPanel, read
+        # on DISRUPT by _collect_params. Default off preserves prior behavior.
+        self._smart_mode_auto_tune = False
 
         # Platform mode toggle — PC Local vs Remote (console/hotspot)
         platform_group = self._card("PLATFORM")
@@ -697,6 +539,10 @@ class ClumsyControlView(QWidget):
             "DIRECTION", dir_group,
             parent_layout=self._sections_layout, collapsed=True)
         self._sections_layout.addWidget(self._section_direction)
+
+        # Dupe preset and its dedicated controls tree were removed —
+        # the duplication workflow now runs through the red DISCONNECT
+        # module directly, so no separate dupe UI is needed here.
 
         # ---- MODULE CONTROLS ----
         # Each module: [enable checkbox] NAME  [param sliders]
@@ -819,23 +665,34 @@ class ClumsyControlView(QWidget):
 
         right_layout.addLayout(btn_layout)
 
-        # ── Scheduler / Macro panel ──
-        sched_group = self._card("SCHEDULER / MACROS")
+        # ── Scheduler / Macro controls (inline, no group box) ──
+        # Pinned permanent controls below DISRUPT / STOP / STOP ALL. Rendered
+        # as a flat continuation of the action-button cluster — no title,
+        # no border — so the whole control strip reads as one unit.
         sched_layout = QVBoxLayout()
         sched_layout.setSpacing(6)
+        sched_layout.setContentsMargins(0, 4, 0, 0)
 
         # Quick-schedule row
         sched_row1 = QHBoxLayout()
         sched_row1.setSpacing(4)
-        for attr, label, rng, val, tip in [
-            ("sched_duration", "Duration:", (5, 3600), 60, "Disruption duration (seconds)"),
-            ("sched_delay", "Delay:", (0, 3600), 0, "Delay before starting (0 = now)"),
-        ]:
-            sb = QSpinBox()
-            sb.setRange(*rng); sb.setValue(val); sb.setSuffix("s")
-            sb.setToolTip(tip); sb.setFixedWidth(80); sb.setStyleSheet(self._SPINBOX_QSS)
-            setattr(self, attr, sb)
-            sched_row1.addWidget(QLabel(label)); sched_row1.addWidget(sb)
+        # Duration: sub-second resolution for clone-dupe timing
+        self.sched_duration = QDoubleSpinBox()
+        self.sched_duration.setRange(0.5, 3600.0)
+        self.sched_duration.setDecimals(1)
+        self.sched_duration.setSingleStep(0.5)
+        self.sched_duration.setValue(3.0)
+        self.sched_duration.setSuffix("s")
+        self.sched_duration.setToolTip("Disruption duration (seconds, 0.5s resolution)")
+        self.sched_duration.setFixedWidth(80)
+        self.sched_duration.setStyleSheet(self._SPINBOX_QSS)
+        sched_row1.addWidget(QLabel("Duration:")); sched_row1.addWidget(self.sched_duration)
+
+        self.sched_delay = QSpinBox()
+        self.sched_delay.setRange(0, 3600); self.sched_delay.setValue(0); self.sched_delay.setSuffix("s")
+        self.sched_delay.setToolTip("Delay before starting (0 = now)")
+        self.sched_delay.setFixedWidth(80); self.sched_delay.setStyleSheet(self._SPINBOX_QSS)
+        sched_row1.addWidget(QLabel("Delay:")); sched_row1.addWidget(self.sched_delay)
         sched_layout.addLayout(sched_row1)
 
         sched_row2 = QHBoxLayout()
@@ -855,11 +712,7 @@ class ClumsyControlView(QWidget):
         self.sched_status.setStyleSheet(self._MUTED_QSS)
         sched_layout.addWidget(self.sched_status)
 
-        sched_group.setLayout(sched_layout)
-        self._section_scheduler = CollapsibleCard(
-            "SCHEDULER / MACROS", sched_group,
-            parent_layout=self._sections_layout, collapsed=True)
-        self._sections_layout.addWidget(self._section_scheduler)
+        right_layout.addLayout(sched_layout)
 
         # ---- LIVE STATS (extracted panel) ----
         self._stats_panel = StatsPanel(self)
@@ -868,19 +721,131 @@ class ClumsyControlView(QWidget):
             parent_layout=self._sections_layout, collapsed=True)
         self._sections_layout.addWidget(self._section_stats)
 
+        # ---- ML DATA CAPTURE ----
+        # Opt-in: writes per-window feature vectors + cut_start/cut_end
+        # events to app/data/episodes/ for offline training. Hot path
+        # cost is zero when unchecked.
+        _ml_group = QGroupBox("ML DATA CAPTURE")
+        _ml_group.setStyleSheet(self._CARD_QSS)
+        _ml_layout = QVBoxLayout()
+        _ml_layout.setSpacing(6)
+        self.record_episodes_cb = QCheckBox("Record session (feature vectors + cut labels)")
+        self.record_episodes_cb.setStyleSheet(self._MODULE_CB_QSS)
+        self.record_episodes_cb.setToolTip(
+            "Writes JSONL episodes to app/data/episodes/ for training the "
+            "cut-duration regressor and flush detector."
+        )
+        _ml_layout.addWidget(self.record_episodes_cb)
+        _ml_hint = QLabel("Off by default. Leave off for normal use.")
+        _ml_hint.setStyleSheet(self._SUBTLE_QSS)
+        _ml_layout.addWidget(_ml_hint)
+
+        # Model-informed duration suggestion.
+        self.suggest_duration_btn = QPushButton("SUGGEST DURATION (from model)")
+        self.suggest_duration_btn.setStyleSheet(
+            "QPushButton { background: rgba(0,240,255,0.12); color: #00f0ff; "
+            "border: 1px solid rgba(0,240,255,0.35); border-radius: 6px; "
+            "padding: 6px 10px; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: rgba(0,240,255,0.22); }"
+        )
+        self.suggest_duration_btn.setToolTip(
+            "Query the survival model for the cut length that reaches the "
+            "target success probability (p90 by default), then push it "
+            "onto the Duration (ms) slider. Floor: 15s (DayZ combat-log "
+            "window)."
+        )
+        self.suggest_duration_btn.clicked.connect(self._on_suggest_duration)
+        _ml_layout.addWidget(self.suggest_duration_btn)
+        self.suggest_status = QLabel("")
+        self.suggest_status.setStyleSheet(self._SUBTLE_QSS)
+        self.suggest_status.setWordWrap(True)
+        _ml_layout.addWidget(self.suggest_status)
+
+        # ── Outcome labels — feed the survival trainer. Without these,
+        # every cut is right-censored and the model can only report the
+        # empirical duration distribution. One click per cut is the
+        # cheapest possible label schema.
+        _outcome_row = QHBoxLayout()
+        _outcome_row.setSpacing(6)
+        self.mark_success_btn = QPushButton("✓ MARK DUPE SUCCESS")
+        self.mark_success_btn.setStyleSheet(
+            "QPushButton { background: rgba(0,255,140,0.12); color: #00ff8c; "
+            "border: 1px solid rgba(0,255,140,0.35); border-radius: 6px; "
+            "padding: 6px 10px; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: rgba(0,255,140,0.22); }"
+        )
+        self.mark_success_btn.setToolTip(
+            "Label the current/last cut as a successful dupe "
+            "(hive DID NOT flush → persisted=False, event observed)."
+        )
+        self.mark_success_btn.clicked.connect(
+            lambda: self._on_mark_cut_outcome(persisted=False))
+        self.mark_fail_btn = QPushButton("✗ MARK DUPE FAIL")
+        self.mark_fail_btn.setStyleSheet(
+            "QPushButton { background: rgba(255,70,70,0.12); color: #ff6666; "
+            "border: 1px solid rgba(255,70,70,0.35); border-radius: 6px; "
+            "padding: 6px 10px; font-size: 11px; font-weight: 700; } "
+            "QPushButton:hover { background: rgba(255,70,70,0.22); }"
+        )
+        self.mark_fail_btn.setToolTip(
+            "Label the current/last cut as a failed dupe "
+            "(hive flushed → persisted=True)."
+        )
+        self.mark_fail_btn.clicked.connect(
+            lambda: self._on_mark_cut_outcome(persisted=True))
+        _outcome_row.addWidget(self.mark_success_btn)
+        _outcome_row.addWidget(self.mark_fail_btn)
+        _ml_layout.addLayout(_outcome_row)
+
+        self.outcome_status = QLabel("")
+        self.outcome_status.setStyleSheet(self._SUBTLE_QSS)
+        self.outcome_status.setWordWrap(True)
+        _ml_layout.addWidget(self.outcome_status)
+
+        _ml_group.setLayout(_ml_layout)
+        # ML group is owned here but rendered inside AIPanel (not as a card
+        # on this view). Exposed via attribute so the reparenting survives.
+        self._ml_group = _ml_group
+
         # ---- VOICE CONTROL (extracted panel) ----
+        # Built here so event handlers bind to this view, reparented into
+        # AIPanel for display inside NetworkToolsView "AI / Smart Ops" tab.
         self._voice_panel = VoicePanel(self)
-        self._section_voice = CollapsibleCard(
-            "VOICE CONTROL", self._voice_panel,
-            parent_layout=self._sections_layout, collapsed=True)
-        self._sections_layout.addWidget(self._section_voice)
 
         # ---- GPC / CRONUS (extracted panel) ----
+        # Built here, reparented to its own tab in NetworkToolsView.
         self._gpc_panel = GPCPanel(self)
-        self._section_gpc = CollapsibleCard(
-            "GPC / CRONUS ZEN", self._gpc_panel,
-            parent_layout=self._sections_layout, collapsed=True)
-        self._sections_layout.addWidget(self._section_gpc)
+
+        # ---- LAN CUT (NetCut-style ARP severance) ----
+        # Lives in the GPC tab area so it's one click away from the
+        # scripting/controller tools but separate from DISRUPT flow.
+        try:
+            from app.gui.panels.lan_cut_panel import LanCutPanel
+            self._lan_cut_panel = LanCutPanel(self)
+        except Exception as _lc_err:  # noqa: BLE001 — never fatal
+            from app.logs.logger import log_error as _lerr
+            _lerr(f"LanCutPanel init failed: {_lc_err}")
+            self._lan_cut_panel = None
+
+        # ---- Consolidated AI / Smart Ops panel ----
+        # Hosts Smart Mode tri-state + SmartModePanel + ML widget + VoicePanel.
+        # Dashboard pulls self._ai_panel over to NetworkToolsView as a tab.
+        if self._smart_panel.available:
+            self._ai_panel = AIPanel(
+                clumsy_view=self,
+                smart_panel=self._smart_panel,
+                ml_widget=self._ml_group,
+                voice_panel=self._voice_panel,
+            )
+        else:
+            # Smart engine unavailable — still offer ML capture + voice in a
+            # minimal AI panel so the tab isn't empty.
+            self._ai_panel = AIPanel(
+                clumsy_view=self,
+                smart_panel=None,
+                ml_widget=self._ml_group,
+                voice_panel=self._voice_panel,
+            )
 
         # Clumsy status
         self.clumsy_status_label = QLabel("Clumsy: Checking...")
@@ -1256,6 +1221,94 @@ class ClumsyControlView(QWidget):
 
     # ── Disruption actions ────────────────────────────────────────────
 
+    def _on_suggest_duration(self) -> None:
+        """Query the survival model for p90-success cut length.
+
+        Falls back to the legacy QRF regressor when the survival artefact
+        is missing so the button keeps working through the transition.
+        The slider is populated with the p75 midpoint; the status line
+        reports the full (p50, p75, p90) interval.
+        """
+        try:
+            from app.ai.models.survival_model import (
+                load_default, HIVE_FLUSH_FLOOR_S,
+            )
+            from app.ai.train_survival_model import extract_samples
+            from pathlib import Path
+        except Exception as exc:
+            self.suggest_status.setText(f"Model dependencies unavailable: {exc}")
+            return
+
+        model = load_default()
+        if not model.ready:
+            self.suggest_status.setText(
+                "No trained model found. Record ≥3 real cuts with outcome "
+                "labels and run `python -m app.ai.train_survival_model`."
+            )
+            return
+
+        X, _d, _e, _paths = extract_samples(Path("app/data/episodes"), real_only=True)
+        if len(X) == 0:
+            # Model is loaded but has no recent features — use the KM
+            # baseline at a neutral feature vector. The wrapper handles
+            # the fallback internally.
+            from app.ai.feature_extractor import FEATURE_DIM
+            feat = [0.0] * FEATURE_DIM
+        else:
+            feat = list(X[-1])
+
+        # Survival-axis quantiles: probability of dupe success.
+        p50, p75, p90 = model.predict_interval(feat, 0.5, 0.9)
+        chosen_ms = int(round(p75 * 1000))
+        slider = self.sliders.get("disconnect_duration_ms")
+        if slider is not None:
+            slider.setValue(
+                max(slider.minimum(), min(slider.maximum(), chosen_ms))
+            )
+        meta_src = getattr(model, "meta", {}) or {}
+        if callable(meta_src):
+            try:
+                meta_src = meta_src()
+            except Exception:
+                meta_src = {}
+        n = meta_src.get("n_samples", "?")
+        ev = meta_src.get("n_events", "?")
+        self.suggest_status.setText(
+            f"p75={p75:.1f}s  (p50={p50:.1f}s, p90={p90:.1f}s) · "
+            f"n={n}, events={ev} · floor {int(HIVE_FLUSH_FLOOR_S)}s"
+        )
+
+    def _on_mark_cut_outcome(self, persisted: bool) -> None:
+        """Forward an outcome label to every live engine.
+
+        ``persisted=False`` means the dupe succeeded (hive did not
+        flush). The label lands on the survival trainer as the event
+        indicator.
+        """
+        if not self.controller:
+            self.outcome_status.setText("No controller — cannot label cuts.")
+            return
+        try:
+            count = self.controller.mark_cut_outcome(persisted=persisted)
+        except AttributeError:
+            self.outcome_status.setText(
+                "Controller missing mark_cut_outcome — rebuild to get the "
+                "latest binding."
+            )
+            return
+        except Exception as exc:
+            self.outcome_status.setText(f"Label failed: {exc}")
+            return
+        word = "SUCCESS (persisted=False)" if not persisted else "FAIL (persisted=True)"
+        if count == 0:
+            self.outcome_status.setText(
+                f"No active engines — start a cut first. Label queued: {word}"
+            )
+        else:
+            self.outcome_status.setText(
+                f"Labeled {count} active cut{'s' if count != 1 else ''} as {word}"
+            )
+
     def _collect_params(self) -> Dict[str, Any]:
         """Read all slider + checkbox values into a params dict.
 
@@ -1276,6 +1329,16 @@ class ClumsyControlView(QWidget):
         # Platform mode
         params["_network_local"] = self.pc_local_check.isChecked()
 
+        # ML data capture (opt-in; also flipped by Smart Mode tri-state)
+        if getattr(self, "record_episodes_cb", None) is not None:
+            params["_record_episodes"] = self.record_episodes_cb.isChecked()
+
+        # Auto-tune — enabled by Smart Mode "Assist". Engine reads this gate
+        # in _auto_tune_duration_if_requested() and tunes duration from the
+        # learning loop's prior-episode stats.
+        if getattr(self, "_smart_mode_auto_tune", False):
+            params["_auto_tune_duration"] = True
+
         # Direction
         inb = self.dir_inbound.isChecked()
         outb = self.dir_outbound.isChecked()
@@ -1294,7 +1357,7 @@ class ClumsyControlView(QWidget):
         preset_name = self.preset_combo.currentText()
         preset = PRESETS.get(preset_name)
         if preset:
-            gui_keys = set(self.sliders.keys()) | set(self.extra_checks.keys()) | {"direction"}
+            gui_keys = self.sliders.keys() | self.extra_checks.keys() | {"direction"}
             for k, v in preset.get("params", {}).items():
                 if k not in gui_keys:
                     params[k] = v
@@ -1314,7 +1377,7 @@ class ClumsyControlView(QWidget):
         # ── Comprehensive disruption debug ──
         preset_name = self.preset_combo.currentText()
         log_info("=" * 60)
-        log_info(f"[DISRUPT] BUTTON PRESSED")
+        log_info("[DISRUPT] BUTTON PRESSED")
         log_info(f"[DISRUPT] Preset: '{preset_name}'")
         log_info(f"[DISRUPT] Targets: {[_log_mask_ip(t) for t in targets]}")
         log_info(f"[DISRUPT] Methods (from checkboxes): {methods}")
@@ -1342,11 +1405,9 @@ class ClumsyControlView(QWidget):
             if related:
                 log_info(f"[DISRUPT]   {mod_key}: {related}")
         # Group: engine hints (non-slider, non-direction)
-        gui_slider_keys = set(self.sliders.keys())
-        gui_extra_keys = set(self.extra_checks.keys())
         hint_keys = {k: v for k, v in params.items()
-                     if k not in gui_slider_keys
-                     and k not in gui_extra_keys
+                     if k not in self.sliders
+                     and k not in self.extra_checks
                      and "direction" not in k}
         if hint_keys:
             log_info(f"[DISRUPT]   Engine hints (non-GUI): {hint_keys}")
@@ -1358,14 +1419,14 @@ class ClumsyControlView(QWidget):
         for k, v in preset_params.items():
             if k not in params:
                 missing.append(k)
-            elif params[k] != v and k in gui_slider_keys:
+            elif params[k] != v and k in self.sliders:
                 pass  # slider may have been manually adjusted
-            elif params[k] != v and k not in gui_slider_keys:
+            elif params[k] != v and k not in self.sliders:
                 log_info(f"[DISRUPT]   WARNING: preset param '{k}' expected={v} got={params[k]}")
         if missing:
             log_info(f"[DISRUPT]   MISSING from params: {missing}")
         else:
-            log_info(f"[DISRUPT]   All preset params present in engine params ✓")
+            log_info("[DISRUPT]   All preset params present in engine params ✓")
 
         log_info(f"[DISRUPT] Controller present: {self.controller is not None}")
         log_info("=" * 60)
@@ -1435,8 +1496,8 @@ class ClumsyControlView(QWidget):
 
             # Schedule auto-stop — use QTimer to stay on the GUI thread
             _targets_copy = list(targets)
-            _dur = duration
-            QTimer.singleShot(_dur * 1000, lambda: self._timed_auto_stop(_targets_copy, _dur))
+            _dur = float(duration)
+            QTimer.singleShot(int(_dur * 1000), lambda: self._timed_auto_stop(_targets_copy, _dur))
             self.sched_status.setText(f"Timed: {duration}s on {len(targets)} target(s)")
             self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
             self._refresh_device_table_status()
@@ -1748,13 +1809,14 @@ class ClumsyControlView(QWidget):
 
         preset = PRESETS.get(preset_name)
         if preset is None:
-            print(f"[PRESET] Unknown preset: '{preset_name}'")
+            log_info(f"[PRESET] Unknown preset: '{preset_name}'")
             return
 
         methods = preset.get("methods", [])
         params = preset.get("params", {})
         description = preset.get("description", "")
         self._apply_config(methods, params, description=description)
+
 
     # ── Status refresh ──────────────────────────────────────────────
 
@@ -1926,5 +1988,3 @@ class ClumsyControlView(QWidget):
                 border: 1px solid rgba(30,41,59,0.3);
             }}
         """
-
-

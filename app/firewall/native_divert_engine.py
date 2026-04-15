@@ -39,7 +39,7 @@ from collections import deque
 from ctypes import wintypes
 from typing import Any, Callable, Dict, List, Optional
 
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_error, log_warning
 from app.utils.helpers import _NO_WINDOW
 
 # Recorder hotkeys — event tagging during packet recording
@@ -48,6 +48,13 @@ try:
     _RECORDER_HOTKEYS_AVAILABLE = True
 except ImportError:
     _RECORDER_HOTKEYS_AVAILABLE = False
+
+# Traffic pattern analyzer — passive observer for live stats & game state
+try:
+    from app.ai.traffic_analyzer import TrafficPatternAnalyzer
+    _TRAFFIC_ANALYZER_AVAILABLE = True
+except ImportError:
+    _TRAFFIC_ANALYZER_AVAILABLE = False
 
 # Statistical models — Phase 1 v5 (lazy import to avoid circular deps)
 _STATISTICAL_MODULES_LOADED = False
@@ -221,15 +228,15 @@ class WinDivertDLL:
             filter_str.encode('ascii'), layer, priority, flags
         )
 
-    def recv(self, handle, packet_buf, buf_len, recv_len, addr) -> WinDivertRecv:
+    def recv(self, handle, packet_buf, buf_len, recv_len, addr):
         return self._dll.WinDivertRecv(handle, packet_buf, buf_len,
                                         recv_len, addr)
 
-    def send(self, handle, packet_buf, pkt_len, send_len, addr) -> WinDivertSend:
+    def send(self, handle, packet_buf, pkt_len, send_len, addr):
         return self._dll.WinDivertSend(handle, packet_buf, pkt_len,
                                         send_len, addr)
 
-    def close(self, handle) -> WinDivertClose:
+    def close(self, handle):
         return self._dll.WinDivertClose(handle)
 
     # ── Batch API (WinDivert 2.x) ────────────────────────────
@@ -315,7 +322,7 @@ class WinDivertDLL:
             self.batch_available = False
             log_info("WinDivert batch API not available — using single-packet mode")
 
-    def calc_checksums(self, packet_buf, pkt_len, addr=None, flags=0) -> WinDivertHelperCalcChecksums:
+    def calc_checksums(self, packet_buf, pkt_len, addr=None, flags=0):
         return self._dll.WinDivertHelperCalcChecksums(
             packet_buf, pkt_len, addr, flags
         )
@@ -380,12 +387,18 @@ class DisruptionModule:
         return True  # unknown → process
 
     @staticmethod
-    def _roll(chance) -> bool:
+    def _roll(chance: int) -> bool:
         """Return True if a chance% roll succeeds. 100% is deterministic."""
+        if chance <= 0:
+            return False
         return chance >= 100 or random.random() * 100 < chance
 
-    def process(self, packet_data: bytearray, addr: WINDIVERT_ADDRESS,
-                send_fn) -> bool:
+    def process(
+        self,
+        packet_data: bytearray,
+        addr: WINDIVERT_ADDRESS,
+        send_fn: Callable[[bytearray, Any], None],
+    ) -> bool:
         """Process a packet. Return True if packet was handled (sent or dropped).
         Return False to pass through to next module or default send."""
         return False
@@ -499,6 +512,54 @@ class NativeWinDivertEngine:
         self._send_len = wintypes.UINT(0)
         self._send_lock = threading.Lock()
 
+        # ── Telemetry / ML data capture (opt-in) ──────────────────
+        # When params["_record_episodes"] is truthy, the packet loop feeds
+        # a FeatureExtractor and asynchronously writes feature-vector
+        # windows plus cut_start/cut_end events to
+        # app/data/episodes/episode_<tag>.jsonl. Off by default so the
+        # hot path stays identical for users who don't opt in.
+        self._feature_extractor = None
+        self._episode_recorder = None
+        # A2S probe — optional external oracle that auto-labels cut outcomes
+        # when the server roster drops our character (P2 from competitive audit).
+        self._a2s_probe = None
+        self._a2s_auto_labeled: bool = False
+        # Cut verifier — active ICMP/A2S liveness probe that flips the GUI
+        # status light SEVERED when the target goes dark (P3).
+        self._cut_verifier = None
+        # Flush predictor (P5) — live countdown of safe cut window.
+        # Lazy-init: None until first get_stats() call during a cut, so
+        # sessions without a recording bucket don't pay import cost.
+        self._flush_predictor = None
+        # Server-IP auto-detect: forward-layer (hotspot) packet flow exposes
+        # the remote endpoint (game server) as the non-target side of each
+        # packet. We sample the first few outbound packets, pick the modal
+        # remote on a UDP game port, and late-start the A2S probe.
+        self._server_ip_hint: Optional[str] = None
+        self._server_ip_candidates: Dict[str, int] = {}
+        self._server_ip_resolved: bool = False
+        self._server_ip_deadline_ts: float = 0.0  # set by start()
+        self._window_interval_s: float = float(
+            params.get("_window_interval_ms", 200)
+        ) / 1000.0
+        self._last_window_close: float = 0.0
+        # Operator-supplied outcome for the currently-open cut. The GUI
+        # "Mark dupe success/fail" button writes this; stop() flushes it
+        # into the cut_end event so the survival trainer has a label.
+        self._pending_cut_outcome: Optional[bool] = None
+        if params.get("_record_episodes"):
+            try:
+                from app.ai.feature_extractor import FeatureExtractor
+                from app.ai.episode_recorder import EpisodeRecorder
+                self._feature_extractor = FeatureExtractor()
+                self._episode_recorder = EpisodeRecorder(
+                    session_tag=params.get("_episode_tag", "")
+                )
+            except Exception as exc:  # pragma: no cover
+                log_warning(f"[EPISODE] Failed to initialize recorder: {exc}")
+                self._feature_extractor = None
+                self._episode_recorder = None
+
         # Target IP for stats reporting
         self.target_ip = params.get("_target_ip", "unknown")
 
@@ -516,6 +577,16 @@ class NativeWinDivertEngine:
         # Precompute layer mode flag so the hot path skips a dict lookup
         # per packet. Updated in start() if params mutate.
         self._use_local_layer: bool = bool(params.get("_network_local", False))
+
+        # Traffic pattern analyzer — passive observer fed from packet loop
+        self._traffic_analyzer: Optional[TrafficPatternAnalyzer] = None
+        if _TRAFFIC_ANALYZER_AVAILABLE:
+            try:
+                self._traffic_analyzer = TrafficPatternAnalyzer(
+                    window_sec=2.0, snapshot_interval=1.0)
+                log_info("NativeEngine: TrafficPatternAnalyzer attached")
+            except Exception as exc:
+                log_error(f"NativeEngine: TrafficPatternAnalyzer init failed: {exc}")
 
         # Emulate subprocess-like interface for compatibility
         self._proc = self  # self acts as the "process"
@@ -553,17 +624,92 @@ class NativeWinDivertEngine:
             "target_ip": self.target_ip,
             "methods": list(self.methods),
         }
-        # Collect per-module stats (godmode, lag, dupe_engine, etc.)
+        # Collect per-module stats (godmode, lag, dupe, etc.)
         module_stats = {}
         for mod in self._modules:
             if hasattr(mod, 'get_stats'):
                 try:
                     mod_name = mod.__class__.__name__
                     module_stats[mod_name] = mod.get_stats()
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error(f"NativeEngine: {mod.__class__.__name__}.get_stats() failed: {exc}")
         if module_stats:
             stats["module_stats"] = module_stats
+        # Attach traffic analyzer stats if available
+        if self._traffic_analyzer is not None:
+            try:
+                stats["traffic_analysis"] = self._traffic_analyzer.get_stats()
+            except Exception:
+                pass
+        # Attach cut verifier state (for GUI SEVERED/CONNECTED light)
+        if self._cut_verifier is not None:
+            try:
+                stats["cut_state"] = self._cut_verifier.state().value
+            except Exception:
+                pass
+        # Attach flush-prediction countdown if a DisconnectModule is
+        # currently CUTTING. This is what the GUI renders as the
+        # live HOLD / WARN / STOP_NOW badge.
+        try:
+            from app.firewall.modules.disconnect import (
+                DisconnectModule, STATE_CUTTING,
+            )
+            _started_at = 0.0
+            for mod in self._modules:
+                if isinstance(mod, DisconnectModule) and mod.state == STATE_CUTTING:
+                    _s = mod.stats().get("cut_started_at", 0.0)
+                    if _s > 0.0:
+                        _started_at = max(_started_at, _s)
+            if _started_at > 0.0:
+                import time as _t
+                elapsed_s = max(0.0, _t.monotonic() - _started_at)
+                if self._flush_predictor is None:
+                    from app.ai.flush_predictor import FlushPredictor
+                    self._flush_predictor = FlushPredictor()
+                # Derive bucket keys from stashed profile metadata
+                _goal = "disconnect"  # DisconnectModule is by definition disconnect
+                pred = self._flush_predictor.predict(
+                    target_profile=self.params.get("_target_profile", "unknown"),
+                    goal=_goal,
+                    elapsed_s=elapsed_s,
+                    network_class=self.params.get("_network_class", "unknown"),
+                )
+                if pred is not None:
+                    stats["flush_prediction"] = {
+                        "action": pred.action.value,
+                        "elapsed_s": round(pred.elapsed_s, 2),
+                        "recommended_stop_s": pred.recommended_stop_s,
+                        "safe_ceiling_s": pred.safe_ceiling_s,
+                        "danger_floor_s": pred.danger_floor_s,
+                        "p_flush_at_elapsed": pred.p_flush_at_elapsed,
+                        "sample_size": pred.sample_size,
+                        "success_count": pred.success_count,
+                        "fail_count": pred.fail_count,
+                        "reason": pred.reason,
+                    }
+                else:
+                    stats["flush_prediction"] = {
+                        "action": "unknown",
+                        "elapsed_s": round(elapsed_s, 2),
+                        "reason": "insufficient labeled episodes in bucket",
+                    }
+        except Exception:
+            pass
+        # Attach A2S snapshot (baseline vs current player count)
+        if self._a2s_probe is not None:
+            try:
+                snap = self._a2s_probe.latest()
+                baseline = self._a2s_probe.baseline_count()
+                if snap is not None:
+                    stats["a2s"] = {
+                        "reachable": snap.reachable,
+                        "player_count": snap.player_count,
+                        "baseline_count": baseline,
+                        "dropped": self._a2s_probe.count_dropped(),
+                        "server_name": snap.server_name,
+                    }
+            except Exception:
+                pass
         return stats
 
     def start(self) -> bool:
@@ -666,14 +812,276 @@ class NativeWinDivertEngine:
                             self._recorder_hotkeys = None
                         break
 
+            # Wire DisconnectModule state transitions into the recorder
+            # so cut_start / cut_end are labeled alongside feature windows.
+            if self._episode_recorder is not None:
+                try:
+                    from app.firewall.modules.disconnect import DisconnectModule
+                    sink = self._episode_recorder.record_event
+                    for mod in self._modules:
+                        if isinstance(mod, DisconnectModule):
+                            mod.attach_event_sink(sink)
+                    # Derive the goal from active methods so the learning
+                    # loop can bucket (profile, goal) correctly without
+                    # requiring callers to pass a goal explicitly.
+                    _m = set(self.methods or ())
+                    if "disconnect" in _m:
+                        _goal = "disconnect"
+                    elif "lag" in _m:
+                        _goal = "lag"
+                    elif "drop" in _m or "pulse" in _m:
+                        _goal = "desync"
+                    else:
+                        _goal = "other"
+
+                    # Direction: per-module override wins when disconnect is
+                    # the goal (see dayz.json disconnect_direction); fall
+                    # back to global.
+                    _direction = self.params.get(
+                        "disconnect_direction"
+                        if _goal == "disconnect"
+                        else "direction",
+                        self.params.get("direction", "both"),
+                    )
+
+                    self._episode_recorder.record_event(
+                        "engine_start",
+                        target_ip=self.target_ip,
+                        methods=list(self.methods),
+                        target_profile=self.params.get(
+                            "_target_profile", "unknown"),
+                        network_class=self.params.get(
+                            "_network_class", "unknown"),
+                        platform=self.params.get("_platform", "unknown"),
+                        goal=_goal,
+                        direction=_direction,
+                    )
+                except Exception as exc:
+                    log_warning(f"[EPISODE] Event sink wiring failed: {exc}")
+
+            # Start A2S probe if a query port is configured. The probe
+            # establishes a baseline player_count on first reachable poll,
+            # then watches for drops during the cut. On drop it writes a
+            # cut_outcome(persisted=false) event so the learning loop gets
+            # a labeled episode without the operator pressing MARK DUPE.
+            # Host resolution order:
+            #   1. Explicit a2s_host / server_ip params (operator override)
+            #   2. target_ip when WinDivert is on NETWORK layer (PC-local
+            #      mode: target IS the server endpoint already).
+            #   3. Deferred: auto-detect from UDP flow on forward layer.
+            _a2s_host = self.params.get("a2s_host") or self.params.get("server_ip")
+            _defer_a2s = False
+            if not _a2s_host:
+                if self._use_local_layer and self.target_ip and self.target_ip != "unknown":
+                    _a2s_host = self.target_ip
+                else:
+                    # Forward layer (hotspot) — defer to the resolver
+                    _defer_a2s = True
+            _a2s_port = (
+                self.params.get("a2s_port")
+                or self.params.get("query_port")
+                or 27016
+            )
+            if not self.params.get("a2s_enabled", True):
+                _a2s_host = None
+                _defer_a2s = False
+            if (_a2s_host or _defer_a2s) and _a2s_port:
+                try:
+                    from app.network.a2s_probe import A2SProbe
+
+                    def _on_snap(snap, _self=self) -> None:
+                        # Auto-label once per engine session on first drop
+                        if _self._a2s_auto_labeled:
+                            return
+                        if _self._a2s_probe is None:
+                            return
+                        if _self._a2s_probe.count_dropped(threshold=1):
+                            _self._a2s_auto_labeled = True
+                            log_info(
+                                f"[A2S] roster drop detected "
+                                f"(count={snap.player_count}, "
+                                f"baseline={_self._a2s_probe.baseline_count()}) "
+                                "→ auto-labeling cut as dupe success"
+                            )
+                            if _self._episode_recorder is not None:
+                                try:
+                                    _self._episode_recorder.record_event(
+                                        "cut_outcome",
+                                        persisted=False,
+                                        source="a2s_probe",
+                                        player_count=snap.player_count,
+                                        baseline=_self._a2s_probe.baseline_count(),
+                                    )
+                                except Exception:
+                                    pass
+                            # Also stash as pending so engine_stop flushes it
+                            # into cut_end. Semantics: _pending_cut_outcome
+                            # stores `persisted`; False = hive did NOT flush
+                            # = dupe success.
+                            _self._pending_cut_outcome = False
+
+                    # Shared factory so deferred start uses the same config
+                    def _spawn_a2s(host: str, _self=self,
+                                   _port=int(_a2s_port),
+                                   _on_snap=_on_snap) -> None:
+                        try:
+                            probe = A2SProbe(
+                                host=str(host),
+                                port=_port,
+                                interval_s=float(_self.params.get("a2s_interval_s", 1.0)),
+                                timeout_s=float(_self.params.get("a2s_timeout_s", 1.0)),
+                                include_roster=bool(_self.params.get("a2s_include_roster", False)),
+                            )
+                            probe.subscribe(_on_snap)
+                            probe.start()
+                            _self._a2s_probe = probe
+                            # Late-attach to cut verifier if it exists
+                            if _self._cut_verifier is not None:
+                                try:
+                                    _self._cut_verifier._a2s_probe = probe  # noqa: SLF001
+                                except Exception:
+                                    pass
+                        except Exception as _exc:
+                            log_warning(f"[A2S] deferred start failed: {_exc}")
+
+                    if _a2s_host:
+                        _spawn_a2s(str(_a2s_host))
+                    else:
+                        # Forward layer — start resolver thread that waits
+                        # up to a2s_resolve_timeout_s for modal server IP.
+                        _resolve_s = float(self.params.get("a2s_resolve_timeout_s", 3.0))
+                        self._server_ip_deadline_ts = time.monotonic() + _resolve_s
+
+                        def _resolver(_self=self,
+                                      _deadline=self._server_ip_deadline_ts,
+                                      _spawn=_spawn_a2s) -> None:
+                            # Poll every 250ms until we have a clear modal
+                            # winner (≥5 samples and ≥2× runner-up) or
+                            # timeout. Minimum floor so we don't latch on
+                            # the first stray packet.
+                            while (
+                                _self._running
+                                and not _self._server_ip_resolved
+                                and time.monotonic() < _deadline
+                            ):
+                                time.sleep(0.25)
+                                cands = dict(_self._server_ip_candidates)
+                                if not cands:
+                                    continue
+                                ranked = sorted(
+                                    cands.items(), key=lambda kv: kv[1], reverse=True,
+                                )
+                                top_ip, top_n = ranked[0]
+                                runner = ranked[1][1] if len(ranked) > 1 else 0
+                                if top_n >= 5 and top_n >= 2 * max(1, runner):
+                                    _self._server_ip_hint = top_ip
+                                    _self._server_ip_resolved = True
+                                    log_info(
+                                        f"[A2S] resolved server IP → {top_ip} "
+                                        f"(n={top_n}, runner={runner})"
+                                    )
+                                    _spawn(top_ip)
+                                    return
+                            # Timeout — pick best we have if any
+                            if not _self._server_ip_resolved and _self._server_ip_candidates:
+                                ranked = sorted(
+                                    _self._server_ip_candidates.items(),
+                                    key=lambda kv: kv[1], reverse=True,
+                                )
+                                top_ip, top_n = ranked[0]
+                                _self._server_ip_hint = top_ip
+                                _self._server_ip_resolved = True
+                                log_info(
+                                    f"[A2S] resolver timed out, using "
+                                    f"best candidate {top_ip} (n={top_n})"
+                                )
+                                _spawn(top_ip)
+                            elif not _self._server_ip_resolved:
+                                log_warning(
+                                    "[A2S] resolver saw no UDP flow — "
+                                    "probe skipped (target not sending?)"
+                                )
+
+                        threading.Thread(
+                            target=_resolver, name="A2SResolver", daemon=True,
+                        ).start()
+                except Exception as exc:
+                    log_warning(f"[A2S] probe init failed: {exc}")
+                    self._a2s_probe = None
+
+            # Cut verifier: active ICMP probe against target_ip. Required
+            # by MAXIMUM CUT preset (_require_cut_verifier=true) and
+            # optional elsewhere (opt in with params["enable_cut_verifier"]).
+            _want_verifier = bool(
+                self.params.get("enable_cut_verifier")
+                or self.params.get("_require_cut_verifier")
+            )
+            if _want_verifier and self.target_ip and self.target_ip != "unknown":
+                try:
+                    from app.network.cut_verifier import CutVerifier
+                    self._cut_verifier = CutVerifier(
+                        target_ip=self.target_ip,
+                        interval_s=float(self.params.get("cut_verify_interval_s", 0.5)),
+                        fail_threshold=int(self.params.get("cut_verify_fail_threshold", 2)),
+                        a2s_probe=self._a2s_probe,
+                    )
+
+                    # Wire cut-state transitions into episode recorder so the
+                    # learning loop can distinguish "cut never severed"
+                    # (preset ineffective) from "cut severed but no dupe"
+                    # (preset works, hive flushed anyway).
+                    def _on_verdict(verdict, _self=self, _last=[None]) -> None:
+                        if verdict.state == _last[0]:
+                            return
+                        _last[0] = verdict.state
+                        if _self._episode_recorder is not None:
+                            try:
+                                _self._episode_recorder.record_event(
+                                    "cut_verified",
+                                    state=verdict.state.value,
+                                    reason=verdict.reason,
+                                    ping_ok=verdict.ping_ok,
+                                    a2s_dropped=verdict.a2s_dropped,
+                                )
+                            except Exception:
+                                pass
+                        # Track max severity reached for engine stop summary
+                        _order = {"unknown": 0, "connected": 1,
+                                  "degraded": 2, "severed": 3}
+                        cur = _order.get(verdict.state.value, 0)
+                        prev = _order.get(
+                            getattr(_self, "_max_cut_state", "unknown"), 0)
+                        if cur > prev:
+                            _self._max_cut_state = verdict.state.value
+
+                    self._max_cut_state = "unknown"
+                    self._cut_verifier.subscribe(_on_verdict)
+                    self._cut_verifier.start()
+                except Exception as exc:
+                    log_warning(f"[VERIFY] init failed: {exc}")
+                    self._cut_verifier = None
+
             # Start packet processing thread
             self._running = True
+            self._last_window_close = time.monotonic()
             self._thread = threading.Thread(
                 target=self._packet_loop,
                 daemon=True,
                 name="NativeWinDivert"
             )
             self._thread.start()
+
+            # Flow-health watchdog: if we don't see ANY packets within
+            # 3 s of start, the filter is wrong, the target isn't
+            # generating traffic, or ARP poisoning silently failed
+            # (most common dupe-failure cause on switched networks).
+            # Runs once, fire-and-forget.
+            threading.Thread(
+                target=self._flow_health_check,
+                args=(3.0,),
+                daemon=True,
+                name="NativeWinDivertHealth",
+            ).start()
 
             log_info(f"NativeEngine RUNNING: methods={self.methods}, "
                      f"filter={self.filter_str}")
@@ -724,6 +1132,22 @@ class NativeWinDivertEngine:
         except Exception:
             pass
 
+        # Stop cut verifier first (depends on A2S probe).
+        if self._cut_verifier is not None:
+            try:
+                self._cut_verifier.stop()
+            except Exception as exc:
+                log_warning(f"[VERIFY] stop failed: {exc}")
+            self._cut_verifier = None
+
+        # Stop A2S probe early so it doesn't race with recorder shutdown.
+        if self._a2s_probe is not None:
+            try:
+                self._a2s_probe.stop()
+            except Exception as exc:
+                log_warning(f"[A2S] probe stop failed: {exc}")
+            self._a2s_probe = None
+
         # Stop recorder hotkeys before modules shut down
         if self._recorder_hotkeys is not None:
             try:
@@ -765,6 +1189,37 @@ class NativeWinDivertEngine:
                  f"dropped={self._packets_dropped}, "
                  f"passed={self._packets_passed})")
 
+        # Flush the episode recorder last so the final window + engine_stop
+        # event land on disk before we return. Close any in-progress cut
+        # first so open-ended cuts (duration_ms=0) get a cut_end label.
+        # The pending persisted outcome (set via mark_last_cut_outcome)
+        # propagates into the cut_end event so the survival trainer can
+        # use it without a separate label pass.
+        if self._episode_recorder is not None:
+            try:
+                from app.firewall.modules.disconnect import DisconnectModule
+                pending = self._pending_cut_outcome
+                self._pending_cut_outcome = None
+                for mod in self._modules:
+                    if isinstance(mod, DisconnectModule):
+                        try:
+                            mod.force_cut_end(persisted=pending)
+                        except Exception:
+                            pass
+                self._episode_recorder.record_event(
+                    "engine_stop",
+                    processed=self._packets_processed,
+                    dropped=self._packets_dropped,
+                    inbound=self._packets_inbound,
+                    outbound=self._packets_outbound,
+                    max_cut_state=getattr(self, "_max_cut_state", "unknown"),
+                )
+                self._episode_recorder.stop()
+            except Exception as exc:
+                log_warning(f"[EPISODE] Recorder stop failed: {exc}")
+            self._episode_recorder = None
+            self._feature_extractor = None
+
     def _cleanup(self) -> None:
         if self._handle and self._handle != INVALID_HANDLE_VALUE:
             try:
@@ -773,6 +1228,193 @@ class NativeWinDivertEngine:
                 pass
             self._handle = None
         self._running = False
+
+    # ── ML integration ────────────────────────────────────────────────
+
+    def mark_last_cut_outcome(self, persisted: bool) -> None:
+        """Tag the currently-open (or most recent) cut with its outcome.
+
+        ``persisted=False`` means the cut prevented the hive from
+        flushing — the dupe succeeded. ``persisted=True`` means the hive
+        still wrote — the dupe failed. This is what the survival model
+        uses as the event label during training.
+
+        The GUI "Mark dupe success/fail" buttons call this. If the cut
+        is still open, the outcome is stashed and flushed into the
+        cut_end event by stop(). If the cut already closed, we fire a
+        standalone cut_outcome event so the trainer can still pick it up.
+        """
+        self._pending_cut_outcome = bool(persisted)
+        if self._episode_recorder is None:
+            return
+        try:
+            from app.firewall.modules.disconnect import (
+                DisconnectModule, STATE_DONE,
+            )
+            # If every DisconnectModule has already closed its cut, emit
+            # a standalone cut_outcome event so the label isn't lost.
+            any_open = False
+            for mod in self._modules:
+                if isinstance(mod, DisconnectModule) and mod.state != STATE_DONE:
+                    any_open = True
+                    break
+            if not any_open:
+                self._episode_recorder.record_event(
+                    "cut_outcome", persisted=bool(persisted),
+                )
+        except Exception as exc:
+            log_warning(f"[EPISODE] mark_last_cut_outcome failed: {exc}")
+
+    def _flow_health_check(self, window_s: float) -> None:
+        """Warn loudly if the WinDivert filter sees zero packets in *window_s*.
+
+        On switched networks, ARP poisoning can fail silently — the
+        spoof thread reports success but no target traffic actually
+        flows through us, so every cut is a no-op. This watchdog
+        catches that case and surfaces it instead of leaving the
+        operator wondering why cuts don't work.
+        """
+        try:
+            start_count = self._packets_processed
+            start_ts = time.monotonic()
+            # Sample in short ticks so a clean stop() exits fast.
+            while self._running and (time.monotonic() - start_ts) < window_s:
+                time.sleep(0.25)
+            if not self._running:
+                return
+            delta = self._packets_processed - start_count
+            if delta > 0:
+                log_info(
+                    f"[HEALTH] flow OK — {delta} packets in first "
+                    f"{window_s:.1f}s"
+                )
+                return
+
+            # Zero packets. Try to tell the operator why.
+            arp_hint = ""
+            try:
+                # Best-effort: if there's an ArpSpoofer attached and it
+                # claims to be active but we see nothing, the poison
+                # isn't propagating (wrong iface, IP forwarding off,
+                # switch with port-security, etc.).
+                spoofer = getattr(self, "_arp_spoofer", None)
+                if spoofer is not None and getattr(spoofer, "is_active", False):
+                    arp_hint = (
+                        " ARP spoofer is ACTIVE but no packets are "
+                        "reaching the filter — poison likely failed "
+                        "(check iface, IP forwarding, MAC resolution)."
+                    )
+                elif spoofer is None:
+                    arp_hint = (
+                        " No ARP spoofer attached — on a switched LAN "
+                        "you may need one to see target traffic."
+                    )
+            except Exception:
+                pass
+
+            log_warning(
+                f"[HEALTH] ZERO packets in {window_s:.1f}s for target "
+                f"{self.target_ip} filter='{self.filter_str}'. Cuts "
+                f"will be no-ops until traffic flows through the "
+                f"filter.{arp_hint}"
+            )
+            # Emit a labeled event so the trainer sees the miss.
+            if self._episode_recorder is not None:
+                try:
+                    self._episode_recorder.record_event(
+                        "flow_health_miss",
+                        window_s=window_s,
+                        target_ip=self.target_ip,
+                    )
+                except Exception:
+                    pass
+        except Exception as exc:
+            log_warning(f"[HEALTH] watchdog crashed: {exc}")
+
+    def _auto_tune_duration_if_requested(self) -> None:
+        """Populate params['disconnect_duration_ms'] from the survival model.
+
+        STRICTLY gated on ``params["_auto_tune_duration"]`` being truthy.
+        Direct GUI cuts (clone-dupe workflow) leave this flag unset and
+        retain legacy open-ended semantics: cut stays open until the
+        operator releases it, no forced duration, no quiet-window tail.
+        The clone-dupe protocol requires an instant clean release synced
+        to the account-switch beat — any forced duration or quiet window
+        sabotages that timing.
+
+        Only Smart Mode (which opts in by setting ``_auto_tune_duration``)
+        gets model-driven duration. The quiet window must be seeded by the
+        caller — the engine never injects one on its own.
+        """
+        if "disconnect" not in self.methods:
+            return
+        if not self.params.get("_auto_tune_duration"):
+            return  # operator / direct-cut path — respect legacy semantics
+        current = self.params.get("disconnect_duration_ms", 0) or 0
+        if current > 0:
+            return  # operator pinned a value, respect it
+
+        # ── Step 1: learned median from prior successful cuts ─────────
+        # If the LearningLoop has ≥5 labeled episodes for this
+        # (target_profile, goal) bucket, trust its median duration over
+        # the survival model. This closes the feedback loop: real in-game
+        # outcomes > baseline population model.
+        try:
+            from app.ai.learning_loop import LearningLoop
+            _ll = LearningLoop()
+            rec = _ll.recommend(
+                target_profile=self.params.get("_target_profile", "unknown"),
+                goal="disconnect",
+                network_class=self.params.get("_network_class", "unknown"),
+            )
+            if rec is not None and rec.best_duration_s > 0:
+                self.params["disconnect_duration_ms"] = int(
+                    round(rec.best_duration_s * 1000)
+                )
+                log_info(
+                    f"[AUTO-TUNE] disconnect_duration_ms="
+                    f"{self.params['disconnect_duration_ms']} "
+                    f"(learned: n={rec.sample_size}, "
+                    f"success_rate={rec.success_rate:.0%}, "
+                    f"conf={rec.confidence:.2f})"
+                )
+                return
+        except Exception as exc:
+            log_warning(f"[AUTO-TUNE] learning loop unavailable: {exc}")
+
+        # ── Step 2: fall back to population survival model ─────────────
+        try:
+            from app.ai.feature_extractor import FEATURE_DIM
+            from app.ai.models.survival_model import (
+                load_default, HIVE_FLUSH_FLOOR_S, HARD_KICK_FLOOR_S,
+            )
+            try:
+                model = load_default()
+            except Exception:
+                model = None
+
+            if model is None or not getattr(model, "ready", False):
+                log_info("[AUTO-TUNE] survival model not ready — "
+                         "leaving duration=0 (open-ended, operator releases)")
+                return
+
+            target_p = float(self.params.get("_auto_tune_target_p", 0.9))
+            target_p = max(0.5, min(0.99, target_p))
+
+            baseline = [0.0] * FEATURE_DIM
+            pred = float(model.quantile_duration(baseline, p=target_p))
+            secs = max(HARD_KICK_FLOOR_S, pred)
+
+            self.params["disconnect_duration_ms"] = int(round(secs * 1000))
+            log_info(
+                f"[AUTO-TUNE] disconnect_duration_ms="
+                f"{self.params['disconnect_duration_ms']} "
+                f"(survival model p={target_p:.2f}, "
+                f"hive_floor={HIVE_FLUSH_FLOOR_S}s, "
+                f"kick_floor={HARD_KICK_FLOOR_S}s)"
+            )
+        except Exception as exc:
+            log_warning(f"[AUTO-TUNE] failed: {exc}")
 
     def _init_modules(self) -> None:
         """Create disruption module instances based on selected methods.
@@ -800,9 +1442,10 @@ class NativeWinDivertEngine:
             if key in self.params:
                 log_info(f"[ENGINE INIT]   {key} = {self.params[key]}")
 
-        # Enforce optimal module order for maximum disruption
+        # Enforce optimal module order for maximum disruption.
+        # ("dupe" removed — duplication now runs through the disconnect module.)
         PRIORITY_ORDER = [
-            "dupe", "godmode", "disconnect", "drop", "bandwidth", "throttle",
+            "godmode", "disconnect", "drop", "bandwidth", "throttle",
             "lag", "ood", "duplicate", "corrupt", "rst",
         ]
         ordered_methods = [m for m in PRIORITY_ORDER if m in self.methods]
@@ -827,6 +1470,13 @@ class NativeWinDivertEngine:
                      f"{self.params['lag_passthrough']} — auto-detect skipped")
         else:
             log_info("[ENGINE INIT] No duplicate/ood — lag passthrough not needed")
+
+        # Auto-tune: if the caller asked for a survival-model-predicted
+        # cut duration (either implicitly by leaving disconnect_duration_ms
+        # at 0, or explicitly via params["_auto_tune_duration"]), query
+        # the trained model and fill the param in. Falls through to the
+        # legacy open-ended cut semantics if the model isn't ready.
+        self._auto_tune_duration_if_requested()
 
         self._modules = []
         for method_name in ordered_methods:
@@ -1005,9 +1655,35 @@ class NativeWinDivertEngine:
                     if _src_u32 == self._target_ip_u32:
                         is_outbound = True
                         addr.Outbound = True
+                        # Capture candidate server IP (dst of outbound pkt)
+                        # during the short resolution window. Only UDP (17).
+                        if (
+                            not self._server_ip_resolved
+                            and len(packet_data) >= 20
+                            and packet_data[9] == 17
+                        ):
+                            _remote = (
+                                f"{packet_data[16]}.{packet_data[17]}."
+                                f"{packet_data[18]}.{packet_data[19]}"
+                            )
+                            self._server_ip_candidates[_remote] = (
+                                self._server_ip_candidates.get(_remote, 0) + 1
+                            )
                     elif _dst_u32 == self._target_ip_u32:
                         is_outbound = False
                         addr.Outbound = False
+                        if (
+                            not self._server_ip_resolved
+                            and len(packet_data) >= 20
+                            and packet_data[9] == 17
+                        ):
+                            _remote = (
+                                f"{packet_data[12]}.{packet_data[13]}."
+                                f"{packet_data[14]}.{packet_data[15]}"
+                            )
+                            self._server_ip_candidates[_remote] = (
+                                self._server_ip_candidates.get(_remote, 0) + 1
+                            )
                     else:
                         is_outbound = bool(addr.Outbound)
                 else:
@@ -1018,6 +1694,37 @@ class NativeWinDivertEngine:
                     self._packets_outbound += 1
                 else:
                     self._packets_inbound += 1
+
+                # Feed traffic analyzer (passive — no packet modification)
+                if self._traffic_analyzer is not None:
+                    self._traffic_analyzer.record_packet(
+                        time.time(), pkt_len, is_outbound)
+
+                # Feature extraction for ML training corpus (opt-in).
+                # Classification is cheap (header inspection only) and only
+                # runs when the recorder is active, so the default hot path
+                # is untouched.
+                if self._feature_extractor is not None:
+                    try:
+                        from app.firewall.modules._packet_utils import classify_packet
+                        _pkt_cls, _proto, _sp, _dp = classify_packet(
+                            packet_data, is_target=True
+                        )
+                        _mono = time.monotonic()
+                        self._feature_extractor.observe(
+                            _pkt_cls, pkt_len, not is_outbound,
+                            _dp if is_outbound else _sp, _mono,
+                        )
+                        if _mono - self._last_window_close >= self._window_interval_s:
+                            _vec = self._feature_extractor.close_window(_mono)
+                            if self._episode_recorder is not None:
+                                self._episode_recorder.record_window(_vec)
+                            self._last_window_close = _mono
+                    except Exception as _fx_exc:
+                        # Never let telemetry break the packet loop.
+                        if not hasattr(self, "_fx_err_logged"):
+                            log_warning(f"[EPISODE] Feature extract error: {_fx_exc}")
+                            self._fx_err_logged = True
 
                 # Determine if we should trace this packet
                 dir_label = "OUT" if is_outbound else "IN"
@@ -1093,4 +1800,3 @@ class NativeWinDivertEngine:
                  f"processed={self._packets_processed} "
                  f"IN(consumed={_inbound_consumed}, passed={_inbound_passed}) "
                  f"OUT(consumed={_outbound_consumed}, passed={_outbound_passed})")
-
