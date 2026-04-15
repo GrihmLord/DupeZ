@@ -28,6 +28,7 @@ from app.logs.logger import log_error, log_info, log_warning
 __all__ = [
     "CURRENT_VERSION",
     "GITHUB_REPO",
+    "LATEST_INSTALLER_URL",
     "RELEASES_API",
     "RELEASES_URL",
     "UpdateChecker",
@@ -42,6 +43,13 @@ CURRENT_VERSION = __version__
 GITHUB_REPO = "GrihmLord/DupeZ"
 RELEASES_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
+# Stable versionless alias — resolves via GitHub 302 redirect to the current
+# release's DupeZ_Setup.exe asset. Using this as the install target means the
+# updater always pulls the latest setup without needing to rebuild the URL
+# for each release. Landing-page CTA and in-app updater share this alias.
+LATEST_INSTALLER_URL = (
+    f"https://github.com/{GITHUB_REPO}/releases/latest/download/DupeZ_Setup.exe"
+)
 
 
 def _parse_version(v: str) -> Tuple[int, ...]:
@@ -228,14 +236,33 @@ class UpdateChecker:
             # Portable preference: GPU > legacy single exe > Compat
             self.download_url = _gpu_url or _portable_url or _compat_url
 
-            # Prefer installer for upgrade-in-place, fall back to
-            # portable exe, then release page.
-            if not self.download_url:
-                self.download_url = self.installer_url or self.latest_url
-            if not self.installer_url:
-                self.installer_url = self.download_url
+            # Always prefer the stable versionless alias for the installer.
+            # GitHub's /releases/latest/download/<asset> endpoint 302s to the
+            # current release's asset, so this URL is self-updating and
+            # guaranteed to point at the latest release regardless of what
+            # the API asset scan picked up (or missed). The API-resolved
+            # installer_url is retained as fallback in case the alias ever
+            # 404s (e.g. asset rename mid-release).
+            _api_installer = self.installer_url
+            self.installer_url = LATEST_INSTALLER_URL
 
-            is_newer = _parse_version(self.latest_version) > _parse_version(self.current_version)
+            # Prefer installer for upgrade-in-place, fall back to portable
+            # exe, then release page.
+            if not self.download_url:
+                self.download_url = self.installer_url or _api_installer or self.latest_url
+
+            # Version compare: exact-string match (after v/V + whitespace
+            # normalization) short-circuits to "no update". This guards
+            # against _parse_version edge cases where a stale frozen exe
+            # with a mismatched __version__ would otherwise re-prompt the
+            # user on every check. Only fall through to numeric compare
+            # when tags differ.
+            cur_norm = (self.current_version or "").lstrip("vV").strip()
+            lat_norm = (self.latest_version or "").lstrip("vV").strip()
+            if lat_norm and cur_norm == lat_norm:
+                is_newer = False
+            else:
+                is_newer = _parse_version(self.latest_version) > _parse_version(self.current_version)
 
             self._result = {
                 "update_available": is_newer,
