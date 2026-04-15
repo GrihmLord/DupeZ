@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.4.0"
+set "DUPEZ_VERSION=5.6.0"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -98,10 +98,4 @@ echo   dist\DupeZ-GPU.exe     ^(asInvoker, split, GPU map — RECOMMENDED^)
 echo   dist\DupeZ-Compat.exe  ^(requireAdministrator, inproc, legacy^)
 echo.
 echo  Ship BOTH on the release page. GPU is the default download;
-echo  Compat is the fallback for users whose Chromium GPU flags
-echo  don't survive even at Medium IL (blocklisted GPUs, ancient
-echo  drivers, locked-down corporate boxes).
-echo.
-
-popd
-endlocal
+echo  Co

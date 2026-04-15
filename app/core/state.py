@@ -87,6 +87,9 @@ class AppSettings:
     debug_mode: bool = False
     verbose_logging: bool = False
 
+    # Map / GPU
+    map_renderer: str = "auto"  # "auto" | "gpu" | "swiftshader" | "software"
+
     # Security
     whitelist: Optional[list] = None
 

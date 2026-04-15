@@ -165,12 +165,15 @@ class DataPersistenceManager:
                 self._data_cache[data_type] = data
 
                 # Atomic write: tmp → fsync → replace
+                # CRITICAL: write binary. Text mode on Windows translates
+                # "\n" → "\r\n" on disk, so the bytes we HMAC here differ
+                # from the bytes _try_load_json reads back in "rb" mode.
                 tmp_path = file_path.with_suffix(".tmp")
                 try:
                     raw_json = json.dumps(data, indent=2, ensure_ascii=False)
                     raw_bytes = raw_json.encode("utf-8")
-                    with open(tmp_path, "w", encoding="utf-8") as f:
-                        f.write(raw_json)
+                    with open(tmp_path, "wb") as f:
+                        f.write(raw_bytes)
                         f.flush()
                         os.fsync(f.fileno())
                     os.replace(str(tmp_path), str(file_path))
@@ -275,6 +278,13 @@ class DataPersistenceManager:
         If a companion .hmac file exists, the file's contents are
         verified against the stored HMAC before parsing.  A tampered
         file is treated as corrupt (returns None).
+
+        Legacy self-heal: files written by the pre-binary-mode writer
+        have "\r\n" line endings on Windows; their HMAC was computed
+        over the "\n" version, so verification fails. If the file
+        parses as valid JSON and its LF-normalised form matches the
+        stored HMAC, we accept it and silently re-sign on the next
+        save. Real tampering still fails both checks.
         """
         try:
             if not path.exists():
@@ -288,9 +298,21 @@ class DataPersistenceManager:
                     with open(hmac_path, "r", encoding="utf-8") as hf:
                         stored_hmac = hf.read().strip()
                     if not _verify_hmac(raw, stored_hmac):
-                        log_error(f"HMAC verification FAILED for {path.name} — "
-                                  "possible tampering")
-                        return None
+                        # Self-heal path: retry against LF-normalised bytes
+                        # (legacy Windows CRLF writes).
+                        normalised = raw.replace(b"\r\n", b"\n")
+                        if (normalised != raw
+                                and _verify_hmac(normalised, stored_hmac)):
+                            log_info(
+                                f"Legacy HMAC accepted for {path.name} "
+                                "(CRLF-normalised); will re-sign on next save"
+                            )
+                        else:
+                            log_error(
+                                f"HMAC verification FAILED for {path.name} — "
+                                "possible tampering"
+                            )
+                            return None
                 except Exception as e:
                     log_error(f"HMAC check error for {path.name}: {e}")
                     # Continue loading — HMAC failure is logged but

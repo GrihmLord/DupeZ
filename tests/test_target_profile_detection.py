@@ -186,5 +186,52 @@ class TestNormalizationHelpers(unittest.TestCase):
         self.assertEqual(_oui_prefix("invalid"), "")
 
 
+class TestWifiSameNetworkDetection(unittest.TestCase):
+    """Tests for the WiFi same-network detection and ARP spoof flags."""
+
+    def test_hotspot_does_not_need_arp_spoof(self):
+        r = resolve_target_profile("192.168.137.42")
+        self.assertFalse(r.needs_arp_spoof)
+        self.assertEqual(r.connection_mode, "hotspot")
+
+    def test_local_does_not_need_arp_spoof(self):
+        # IP outside any known subnet — falls to local on CI
+        r = resolve_target_profile("10.99.99.99")
+        self.assertFalse(r.needs_arp_spoof)
+        self.assertEqual(r.connection_mode, "local")
+
+    def test_detection_result_has_connection_mode(self):
+        r = resolve_target_profile("192.168.137.5")
+        d = r.as_dict()
+        self.assertIn("connection_mode", d)
+        self.assertIn("needs_arp_spoof", d)
+
+    def test_hotspot_connection_mode(self):
+        r = resolve_target_profile("192.168.137.10")
+        self.assertEqual(r.connection_mode, "hotspot")
+
+    def test_detection_result_new_fields_have_defaults(self):
+        # Old-style 4-arg construction still works
+        r = DetectionResult("pc_local", "local", "pc", ["test"])
+        self.assertEqual(r.connection_mode, "local")
+        self.assertFalse(r.needs_arp_spoof)
+
+
+class TestWifiSameNetworkHelper(unittest.TestCase):
+    """Test _is_wifi_same_network helper directly."""
+
+    def test_hotspot_ip_returns_false(self):
+        from app.firewall.target_profile import _is_wifi_same_network
+        self.assertFalse(_is_wifi_same_network("192.168.137.5"))
+
+    def test_invalid_ip_returns_false(self):
+        from app.firewall.target_profile import _is_wifi_same_network
+        self.assertFalse(_is_wifi_same_network("not-an-ip"))
+
+    def test_loopback_returns_false(self):
+        from app.firewall.target_profile import _is_wifi_same_network
+        self.assertFalse(_is_wifi_same_network("127.0.0.1"))
+
+
 if __name__ == "__main__":
     unittest.main()

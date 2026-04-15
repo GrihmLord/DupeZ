@@ -48,7 +48,7 @@ from typing import Dict, Optional
 
 from app.core.crypto import deterministic_param_hash, hash_sha384
 
-from app.logs.logger import log_info
+from app.logs.logger import log_info, log_error
 
 from app.firewall.native_divert_engine import (
     DisruptionModule,
@@ -327,8 +327,8 @@ class StealthLagModule(DisruptionModule):
             for _, pkt, addr in to_send:
                 try:
                     self._send_fn(pkt, addr)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error(f"StealthLag: flush send failed: {exc}")
             time.sleep(0.001)
 
     def process(self, packet_data: bytearray, addr: WINDIVERT_ADDRESS,
@@ -360,8 +360,8 @@ class StealthLagModule(DisruptionModule):
             try:
                 if self._send_fn:
                     self._send_fn(pkt, addr)
-            except Exception:
-                pass
+            except Exception as exc:
+                log_error(f"StealthLag: stop flush failed: {exc}")
 
 
 class SessionFingerprintRotator:

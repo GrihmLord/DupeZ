@@ -18,7 +18,7 @@
 ; BUILD (run from repo root):
 ;   1. Build dupez.exe first:   pyinstaller packaging\dupez.spec --noconfirm
 ;   2. Then compile installer:  iscc packaging\installer.iss
-;   Output: dist\DupeZ_v5.4.0_Setup.exe
+;   Output: dist\DupeZ_v5.6.0_Setup.exe
 ;
 ; PATH NOTE:
 ;   This .iss lives in packaging\, but every Source: path below
@@ -28,7 +28,7 @@
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.4.0"
+#define MyAppVersion   "5.6.0"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -213,7 +213,3 @@ end;
 // Post-install hook: strip MOTW from everything we just wrote to {app}.
 // Runs after all files are copied but before the "Finished" page.
 procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-    RemoveMOTW(ExpandConstant('{app}'));
-end;

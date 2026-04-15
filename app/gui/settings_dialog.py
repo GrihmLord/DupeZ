@@ -55,18 +55,22 @@ QGroupBox {
     background-color: rgba(10, 15, 26, 0.55);
     border: 1px solid rgba(30, 41, 59, 0.45);
     border-radius: 10px;
-    margin-top: 18px;
-    padding: 16px 12px 12px 12px;
+    margin-top: 22px;
+    padding: 24px 14px 14px 14px;
     font-weight: 700;
     color: #00f0ff;
 }
 QGroupBox::title {
     subcontrol-origin: margin;
+    subcontrol-position: top left;
     left: 14px;
+    top: 4px;
     padding: 0 8px;
     color: #00f0ff;
     font-size: 11px;
     letter-spacing: 1px;
+    background-color: rgba(10, 15, 26, 0.9);
+    border-radius: 4px;
 }
 
 /* --- Labels --- */
@@ -103,8 +107,8 @@ QLineEdit, QSpinBox, QComboBox {
     color: #f1f5f9;
     border: 1px solid rgba(51, 65, 85, 0.5);
     border-radius: 8px;
-    padding: 7px 12px;
-    min-height: 24px;
+    padding: 6px 12px;
+    min-height: 20px;
     font-size: 12px;
 }
 QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
@@ -419,13 +423,16 @@ class SettingsDialog(QDialog):
         self.setLayout(root)
 
     # --- General Tab ---
-    def _tab_general(self) -> w:
+    def _tab_general(self) -> QWidget:
         w = QWidget()
         lay = QVBoxLayout()
-        lay.setSpacing(6)
+        lay.setSpacing(12)
+        lay.setContentsMargins(4, 4, 4, 4)
 
         g = QGroupBox("Auto-Scan")
         fl = QFormLayout()
+        fl.setVerticalSpacing(10)
+        fl.setContentsMargins(10, 8, 10, 8)
         self.auto_scan_checkbox = QCheckBox("Enable automatic scanning")
         fl.addRow("Auto-Scan:", self.auto_scan_checkbox)
 
@@ -443,6 +450,8 @@ class SettingsDialog(QDialog):
 
         g2 = QGroupBox("Logging")
         fl2 = QFormLayout()
+        fl2.setVerticalSpacing(10)
+        fl2.setContentsMargins(10, 8, 10, 8)
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         fl2.addRow("Log Level:", self.log_level_combo)
@@ -454,13 +463,16 @@ class SettingsDialog(QDialog):
         return w
 
     # --- Network Tab ---
-    def _tab_network(self) -> w:
+    def _tab_network(self) -> QWidget:
         w = QWidget()
         lay = QVBoxLayout()
-        lay.setSpacing(6)
+        lay.setSpacing(12)
+        lay.setContentsMargins(4, 4, 4, 4)
 
         g = QGroupBox("Scanning")
         fl = QFormLayout()
+        fl.setVerticalSpacing(10)
+        fl.setContentsMargins(10, 8, 10, 8)
 
         self.ping_timeout_spinbox = QSpinBox()
         self.ping_timeout_spinbox.setRange(1, 10)
@@ -482,13 +494,20 @@ class SettingsDialog(QDialog):
         return w
 
     # --- Smart Mode Tab ---
-    def _tab_smart(self) -> w:
+    def _tab_smart(self) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+
         w = QWidget()
         lay = QVBoxLayout()
-        lay.setSpacing(6)
+        lay.setSpacing(12)
+        lay.setContentsMargins(4, 4, 4, 4)
 
         g1 = QGroupBox("Smart Mode")
         fl1 = QFormLayout()
+        fl1.setVerticalSpacing(10)
+        fl1.setContentsMargins(10, 8, 10, 8)
         self.smart_mode_checkbox = QCheckBox("Enable traffic analysis")
         fl1.addRow("Smart Mode:", self.smart_mode_checkbox)
         self.auto_block_checkbox = QCheckBox("Auto-block suspicious devices")
@@ -498,6 +517,8 @@ class SettingsDialog(QDialog):
 
         g2 = QGroupBox("Thresholds")
         fl2 = QFormLayout()
+        fl2.setVerticalSpacing(10)
+        fl2.setContentsMargins(10, 8, 10, 8)
         self.high_traffic_threshold = QSpinBox()
         self.high_traffic_threshold.setRange(100, 10000)
         self.high_traffic_threshold.setSuffix(" KB/s")
@@ -517,6 +538,8 @@ class SettingsDialog(QDialog):
 
         g3 = QGroupBox("Blocking")
         fl3 = QFormLayout()
+        fl3.setVerticalSpacing(10)
+        fl3.setContentsMargins(10, 8, 10, 8)
         self.block_duration_spinbox = QSpinBox()
         self.block_duration_spinbox.setRange(1, 1440)
         self.block_duration_spinbox.setSuffix(" min")
@@ -531,17 +554,19 @@ class SettingsDialog(QDialog):
 
         lay.addStretch()
         w.setLayout(lay)
-        return w
+        scroll.setWidget(w)
+        return scroll
 
     # --- Interface Tab ---
-    def _tab_interface(self) -> scroll:
+    def _tab_interface(self) -> QScrollArea:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
 
         w = QWidget()
         lay = QVBoxLayout()
-        lay.setSpacing(6)
+        lay.setSpacing(12)
+        lay.setContentsMargins(4, 4, 4, 4)
 
         # Theme selection
         g1 = QGroupBox("Theme")
@@ -615,6 +640,8 @@ class SettingsDialog(QDialog):
         # Display settings
         g3 = QGroupBox("Display")
         fl3 = QFormLayout()
+        fl3.setVerticalSpacing(10)
+        fl3.setContentsMargins(10, 8, 10, 8)
 
         for attr, label, row_label in [
             ("auto_refresh_checkbox", "Auto-refresh device list", "Auto-Refresh:"),
@@ -631,9 +658,53 @@ class SettingsDialog(QDialog):
         g3.setLayout(fl3)
         lay.addWidget(g3)
 
+        # Map / GPU
+        g_map = QGroupBox("Map Renderer")
+        fl_map = QFormLayout()
+        fl_map.setVerticalSpacing(10)
+        fl_map.setContentsMargins(10, 8, 10, 8)
+
+        self.map_renderer_combo = QComboBox()
+        # Values match DUPEZ_MAP_RENDERER env var expectations
+        self.map_renderer_combo.addItems(["auto", "gpu", "swiftshader", "software"])
+        fl_map.addRow("Renderer:", self.map_renderer_combo)
+
+        _renderer_desc = QLabel(
+            "auto = detect GPU automatically · gpu = force hardware · "
+            "swiftshader = software GL · software = CPU only")
+        _renderer_desc.setWordWrap(True)
+        _renderer_desc.setStyleSheet("color: #64748b; font-size: 10px;")
+        fl_map.addRow("", _renderer_desc)
+
+        import os as _os
+        _cur_tier = _os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
+        _tier_names = {
+            "tier1_hw": "GPU hardware raster",
+            "tier2_swiftshader": "SwiftShader software GL",
+            "tier3_cpu": "CPU raster (no GPU)",
+        }
+        self._map_tier_label = QLabel(
+            f"Current session: {_tier_names.get(_cur_tier, _cur_tier)}")
+        self._map_tier_label.setObjectName("map_tier_info")
+        self._map_tier_label.setStyleSheet("color: #94a3b8; font-size: 11px;")
+        fl_map.addRow("Active:", self._map_tier_label)
+
+        self._map_restart_label = QLabel(
+            "Changing this will prompt a restart.")
+        self._map_restart_label.setStyleSheet(
+            "color: #fbbf24; font-size: 10px; font-style: italic;")
+        fl_map.addRow("", self._map_restart_label)
+
+        g_map.setLayout(fl_map)
+        lay.addWidget(g_map)
+
+        # Game Profile section removed — DupeZ is DayZ-only
+
         # Notifications
         g4 = QGroupBox("Notifications")
         fl4 = QFormLayout()
+        fl4.setVerticalSpacing(10)
+        fl4.setContentsMargins(10, 8, 10, 8)
         for attr, label, row_label in [
             ("show_notifications_checkbox", "Desktop notifications", "Notifications:"),
             ("sound_alerts_checkbox", "Sound alerts", "Sound:"),
@@ -647,46 +718,82 @@ class SettingsDialog(QDialog):
         return scroll
 
     # --- Advanced Tab ---
-    def _tab_advanced(self) -> w:
+    @staticmethod
+    def _make_row_widget(label_text: str, control: QWidget) -> QWidget:
+        """Build a label + control inside a container widget with a hard height."""
+        container = QWidget()
+        container.setFixedHeight(44)
+        container.setStyleSheet("background: transparent;")
+        row = QHBoxLayout(container)
+        row.setContentsMargins(0, 4, 0, 4)
+        lbl = QLabel(label_text)
+        lbl.setFixedWidth(140)
+        row.addWidget(lbl)
+        row.addWidget(control, 1)
+        return container
+
+    def _tab_advanced(self) -> QWidget:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+
         w = QWidget()
         lay = QVBoxLayout()
-        lay.setSpacing(6)
+        lay.setSpacing(14)
+        lay.setContentsMargins(4, 4, 4, 4)
 
+        # ── Performance ──
         g1 = QGroupBox("Performance")
-        fl1 = QFormLayout()
+        g1_lay = QVBoxLayout()
+        g1_lay.setSpacing(4)
+        g1_lay.setContentsMargins(12, 24, 12, 12)
+
         self.cache_duration_spinbox = QSpinBox()
         self.cache_duration_spinbox.setRange(30, 600)
         self.cache_duration_spinbox.setSuffix(" sec")
-        fl1.addRow("Cache Duration:", self.cache_duration_spinbox)
+        g1_lay.addWidget(self._make_row_widget("Cache Duration:", self.cache_duration_spinbox))
 
         self.memory_limit_spinbox = QSpinBox()
         self.memory_limit_spinbox.setRange(50, 1000)
         self.memory_limit_spinbox.setSuffix(" MB")
-        fl1.addRow("Memory Limit:", self.memory_limit_spinbox)
-        g1.setLayout(fl1)
+        g1_lay.addWidget(self._make_row_widget("Memory Limit:", self.memory_limit_spinbox))
+
+        g1.setLayout(g1_lay)
         lay.addWidget(g1)
 
+        # ── Security ──
         g2 = QGroupBox("Security")
-        fl2 = QFormLayout()
+        g2_lay = QVBoxLayout()
+        g2_lay.setSpacing(4)
+        g2_lay.setContentsMargins(12, 24, 12, 12)
+
         self.require_admin_checkbox = QCheckBox("Require administrator")
-        fl2.addRow("Admin Required:", self.require_admin_checkbox)
+        g2_lay.addWidget(self._make_row_widget("Admin Required:", self.require_admin_checkbox))
         self.encrypt_logs_checkbox = QCheckBox("Encrypt log files")
-        fl2.addRow("Encrypt Logs:", self.encrypt_logs_checkbox)
-        g2.setLayout(fl2)
+        g2_lay.addWidget(self._make_row_widget("Encrypt Logs:", self.encrypt_logs_checkbox))
+
+        g2.setLayout(g2_lay)
         lay.addWidget(g2)
 
+        # ── Debug ──
         g3 = QGroupBox("Debug")
-        fl3 = QFormLayout()
+        g3_lay = QVBoxLayout()
+        g3_lay.setSpacing(4)
+        g3_lay.setContentsMargins(12, 24, 12, 12)
+
         self.debug_mode_checkbox = QCheckBox("Enable debug mode")
-        fl3.addRow("Debug Mode:", self.debug_mode_checkbox)
+        g3_lay.addWidget(self._make_row_widget("Debug Mode:", self.debug_mode_checkbox))
         self.verbose_logging_checkbox = QCheckBox("Verbose logging")
-        fl3.addRow("Verbose:", self.verbose_logging_checkbox)
-        g3.setLayout(fl3)
+        g3_lay.addWidget(self._make_row_widget("Verbose:", self.verbose_logging_checkbox))
+
+        g3.setLayout(g3_lay)
         lay.addWidget(g3)
 
         lay.addStretch()
         w.setLayout(lay)
-        return w
+        scroll.setWidget(w)
+        return scroll
 
     def _widget_map(self) -> list:
         """Return (widget, setting_key) pairs for all settings controls."""
@@ -708,6 +815,7 @@ class SettingsDialog(QDialog):
             (self.memory_limit_spinbox, 'memory_limit'), (self.require_admin_checkbox, 'require_admin'),
             (self.encrypt_logs_checkbox, 'encrypt_logs'), (self.debug_mode_checkbox, 'debug_mode'),
             (self.verbose_logging_checkbox, 'verbose_logging'),
+            (self.map_renderer_combo, 'map_renderer'),
         ]
 
     def _apply_settings_to_widgets(self, s) -> None:
@@ -758,11 +866,94 @@ class SettingsDialog(QDialog):
             if hasattr(self, 'controller') and self.controller:
                 self.controller.update_settings(new_settings)
             log_info("Settings saved")
-            QMessageBox.information(self, "Settings", "Settings saved successfully.")
+
+            # Check if map renderer changed — requires app restart
+            old_renderer = getattr(self.current_settings, 'map_renderer', 'auto')
+            new_renderer = d.get('map_renderer', 'auto')
+            if new_renderer != old_renderer:
+                self._prompt_restart_for_renderer(new_renderer)
+            else:
+                QMessageBox.information(self, "Settings", "Settings saved successfully.")
+
             self.accept()
         except Exception as e:
             log_error(f"Error saving settings: {e}")
             QMessageBox.critical(self, "Error", f"Failed to save settings:\n{e}")
+
+    def _prompt_restart_for_renderer(self, new_renderer: str) -> None:
+        """Ask the user to restart for a map renderer change, then relaunch."""
+        _labels = {
+            "auto": "Auto-detect",
+            "gpu": "GPU (hardware)",
+            "swiftshader": "SwiftShader",
+            "software": "CPU (software)",
+        }
+        label = _labels.get(new_renderer, new_renderer)
+        reply = QMessageBox.question(
+            self,
+            "Restart Required",
+            f"Map renderer changed to <b>{label}</b>.<br><br>"
+            "DupeZ needs to restart for this to take effect.<br>"
+            "Restart now?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._do_restart()
+        else:
+            QMessageBox.information(
+                self, "Settings",
+                "Settings saved. The new renderer will apply next time you launch DupeZ."
+            )
+
+    @staticmethod
+    def _do_restart() -> None:
+        """Relaunch the application and exit the current process."""
+        import os
+        import sys
+
+        log_info("Restarting DupeZ for map renderer change...")
+
+        if getattr(sys, "frozen", False):
+            # PyInstaller frozen exe — relaunch the same exe
+            exe = sys.executable
+            args = sys.argv[1:]
+        else:
+            # Dev mode — relaunch python with the entry script
+            exe = sys.executable
+            # Find the entry point (dupez.py in the repo root)
+            entry = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(
+                    os.path.abspath(__file__)))),
+                "dupez.py",
+            )
+            args = [entry] + sys.argv[1:]
+
+        try:
+            if sys.platform == "win32":
+                # On Windows, use subprocess to spawn a detached process
+                # before we exit, so the new instance outlives us.
+                import subprocess
+                subprocess.Popen(
+                    [exe] + args,
+                    close_fds=True,
+                    creationflags=subprocess.DETACHED_PROCESS
+                    | subprocess.CREATE_NEW_PROCESS_GROUP,
+                )
+            else:
+                # Unix — os.execv replaces the current process
+                os.execv(exe, [exe] + args)
+        except Exception as exc:
+            log_error(f"Restart failed: {exc}")
+            # Non-fatal — the user can restart manually
+            return
+
+        # Exit the current instance
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.quit()
+        sys.exit(0)
 
     def reset_to_defaults(self) -> None:
         """Reset all controls to AppSettings() defaults."""

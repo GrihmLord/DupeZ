@@ -23,6 +23,8 @@ from contextlib import contextmanager
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 from app.logs.logger import log_error, log_info
+
+_IS_WINDOWS = platform.system().lower() == "windows"
 from app.network.shared import HOSTNAME_VENDORS, lookup_vendor
 from app.utils.helpers import _NO_WINDOW, mask_ip
 
@@ -107,7 +109,7 @@ class NativeNetworkScanner:
                 except Exception:
                     continue
 
-            if platform.system().lower() == "windows":
+            if _IS_WINDOWS:
                 return self._icmp_ping_windows(ip)
 
             return False
@@ -173,7 +175,7 @@ class NativeNetworkScanner:
     def _get_mac_from_arp_cache(self, ip: str) -> Optional[str]:
         """Read MAC from the OS ARP cache."""
         try:
-            if platform.system().lower() == "windows":
+            if _IS_WINDOWS:
                 return self._get_mac_from_windows_arp(ip)
             return self._get_mac_from_linux_arp(ip)
         except Exception as e:
@@ -342,7 +344,7 @@ def get_vendor_info(mac: str) -> str:
 def scan_arp_table_safe() -> List[str]:
     """Return IPs from the local ARP table."""
     try:
-        if platform.system().lower() == "windows":
+        if _IS_WINDOWS:
             found = _native_scanner._get_windows_arp_ips()
         else:
             found = _native_scanner._get_linux_arp_ips()
@@ -514,14 +516,31 @@ def scan_devices_full() -> List[Dict]:
 
 
 def get_network_info() -> Dict:
-    """Return basic local network information."""
+    """Return basic local network information.
+
+    Tries to resolve the real default gateway first (via ``arp_spoof``
+    module or system commands), falling back to ``.1`` assumption.
+    """
     try:
         local_ip = get_local_ip()
         network = ".".join(local_ip.split(".")[:-1])
+
+        # Try to get the real gateway instead of assuming .1
+        gateway = f"{network}.1"
+        try:
+            from app.network.arp_spoof import get_default_gateway
+            real_gw = get_default_gateway()
+            if real_gw:
+                gateway = real_gw
+        except ImportError:
+            pass  # arp_spoof module not installed — use .1 assumption
+        except Exception as gw_err:
+            log_error(f"Real gateway detection failed: {gw_err}")
+
         return {
             "local_ip": local_ip,
             "network": f"{network}.0/24",
-            "gateway": f"{network}.1",
+            "gateway": gateway,
         }
     except Exception as e:
         log_error(f"Failed to get network info: {e}")

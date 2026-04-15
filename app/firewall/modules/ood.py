@@ -7,6 +7,7 @@ import random
 from typing import Callable, List, Optional, Tuple
 
 from app.firewall.native_divert_engine import DisruptionModule, WINDIVERT_ADDRESS
+from app.logs.logger import log_error
 
 __all__ = ["OODModule"]
 
@@ -77,6 +78,6 @@ class OODModule(DisruptionModule):
             for pkt, a in self._buffer:
                 try:
                     send_fn(pkt, a)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    log_error(f"OODModule: flush-on-stop failed ({len(pkt)}B): {exc}")
         self._buffer.clear()

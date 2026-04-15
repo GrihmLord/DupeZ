@@ -138,10 +138,44 @@ HOSTNAME_VENDORS: Dict[str, str] = {
 }
 
 
+# Lazy-loaded scapy OUI DB (~35k entries). Imported on first miss in
+# the curated table so we only pay the cost if needed. Falls back to
+# "Unknown" if scapy isn't installed.
+_SCAPY_MANUFDB = None
+_SCAPY_MANUFDB_TRIED = False
+
+
+def _scapy_manuf_lookup(mac_colon: str) -> str:
+    """Consult scapy's full IEEE OUI database. Returns ''Unknown'' on miss."""
+    global _SCAPY_MANUFDB, _SCAPY_MANUFDB_TRIED
+    if not _SCAPY_MANUFDB_TRIED:
+        _SCAPY_MANUFDB_TRIED = True
+        try:
+            from scapy.data import MANUFDB  # type: ignore
+            _SCAPY_MANUFDB = MANUFDB
+        except Exception:
+            _SCAPY_MANUFDB = None
+    if _SCAPY_MANUFDB is None:
+        return "Unknown"
+    try:
+        result = _SCAPY_MANUFDB.lookup(mac_colon)
+    except Exception:
+        return "Unknown"
+    # scapy returns (short, long) on hit, or (mac, mac) on miss
+    if not result:
+        return "Unknown"
+    short, long_name = result if isinstance(result, tuple) else (None, result)
+    if long_name and long_name.lower() != mac_colon.lower():
+        return str(long_name)
+    return "Unknown"
+
+
 def lookup_vendor(mac: str) -> str:
     """Return the vendor string for *mac*, or ``'Unknown'``.
 
     Accepts any common MAC format: colon, hyphen, or dot-separated.
+    Consults the curated ``VENDOR_OUIS`` table first (fast, gaming-focused),
+    then falls back to scapy's full IEEE OUI database when installed.
     """
     if not mac or mac.lower() in ("unknown", ""):
         return "Unknown"
@@ -154,4 +188,7 @@ def lookup_vendor(mac: str) -> str:
         cleaned = ":".join(cleaned[i : i + 2] for i in range(0, 12, 2))
 
     prefix = ":".join(cleaned.split(":")[:3])
-    return VENDOR_OUIS.get(prefix, "Unknown")
+    hit = VENDOR_OUIS.get(prefix)
+    if hit:
+        return hit
+    return _scapy_manuf_lookup(cleaned)

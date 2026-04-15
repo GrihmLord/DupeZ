@@ -225,6 +225,8 @@ class DupeZDashboard(QMainWindow):
         self._setup_tray()
         self._setup_tray_hotkey()
         self._connect_signals()
+        self._register_gui_toast()
+        self._check_npcap_on_startup()
 
         # Periodic timers
         self._status_timer = QTimer(self)
@@ -415,7 +417,16 @@ class DupeZDashboard(QMainWindow):
         # cleanly when prewarm was skipped or failed.
         self.map_view = consume_prewarmed_map_gui() or DayZMapGUI()
         self.accounts_view = DayZAccountTracker()
-        self.nettools_view = NetworkToolsView(controller=self.controller)
+        # NetworkToolsView adopts the AI / Smart Ops and GPC tabs built inside
+        # ClumsyControlView. Panels stay owned by clumsy_view so their event
+        # handlers (selected_ip, disrupt, etc.) keep working after reparenting.
+        ai_tab = getattr(self.clumsy_view, "_ai_panel", None)
+        gpc_tab = getattr(self.clumsy_view, "_gpc_panel", None)
+        lan_cut_tab = getattr(self.clumsy_view, "_lan_cut_panel", None)
+        self.nettools_view = NetworkToolsView(
+            controller=self.controller, ai_tab=ai_tab, gpc_tab=gpc_tab,
+            lan_cut_tab=lan_cut_tab,
+        )
         self.help_view = HelpPanel()
         for view in (self.clumsy_view, self.map_view,
                      self.accounts_view, self.nettools_view,
@@ -712,13 +723,26 @@ class DupeZDashboard(QMainWindow):
     # ── Status bar ──────────────────────────────────────────────────
 
     def _setup_status_bar(self) -> None:
-        """Create the bottom status bar with device/disruption counts."""
+        """Create the bottom status bar with device/disruption counts + GPU tier."""
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.device_status_label = QLabel("Devices: 0")
         self.disruption_status_label = QLabel("Disruptions: 0")
         self.status_bar.addWidget(self.device_status_label)
         self.status_bar.addPermanentWidget(self.disruption_status_label)
+
+        # GPU renderer tier indicator — shows whether the map is HW-accelerated
+        _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
+        _tier_labels = {
+            "tier1_hw": ("GPU", "#00ff88", "Map: hardware GPU raster (ANGLE/D3D11)"),
+            "tier2_swiftshader": ("SW-GL", "#fbbf24", "Map: SwiftShader software GL — consider DupeZ-GPU.exe"),
+            "tier3_cpu": ("CPU", "#ff4444", "Map: CPU raster (no GPU) — use DupeZ-GPU.exe for best performance"),
+        }
+        label_text, color, tooltip = _tier_labels.get(_tier, ("?", "#94a3b8", "Unknown renderer tier"))
+        self._gpu_tier_label = QLabel(f"  Map: {label_text}")
+        self._gpu_tier_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: 600;")
+        self._gpu_tier_label.setToolTip(tooltip)
+        self.status_bar.addPermanentWidget(self._gpu_tier_label)
 
     def _update_status_bar(self) -> None:
         """Refresh device/disruption counts."""
@@ -761,6 +785,48 @@ class DupeZDashboard(QMainWindow):
                 pass
         except Exception as exc:
             log_error(f"Signal connection error: {exc}")
+
+    # ── GUI toast / Npcap status ────────────────────────────────────
+
+    def _register_gui_toast(self) -> None:
+        """Route backend toast emissions to our status bar on the main thread."""
+        try:
+            from app.logs.gui_notify import register_gui_toast
+            from PyQt6.QtCore import QMetaObject, Q_ARG, Qt as _Qt
+
+            def _emit(level: str, msg: str) -> None:
+                ms = 4000 if level == "info" else 8000
+                prefix = {"info": "", "warn": "\u26A0 ", "error": "\u2716 "}.get(level, "")
+                try:
+                    QMetaObject.invokeMethod(
+                        self.status_bar, "showMessage",
+                        _Qt.ConnectionType.QueuedConnection,
+                        Q_ARG(str, f"{prefix}{msg}"),
+                        Q_ARG(int, ms),
+                    )
+                except Exception:
+                    pass
+
+            register_gui_toast(_emit)
+        except Exception as exc:
+            log_error(f"gui_toast register failed: {exc}")
+
+    def _check_npcap_on_startup(self) -> None:
+        """Surface Npcap status once at startup so the operator knows
+        whether WiFi same-net interception / LAN Cut is available."""
+        try:
+            from app.network.npcap_check import check_npcap
+            status = check_npcap()
+            if status.available:
+                self.status_bar.showMessage(status.short(), 4000)
+            else:
+                self.status_bar.showMessage(
+                    f"\u26A0 {status.short()} \u2014 LAN Cut + WiFi "
+                    f"same-net interception unavailable. See LAN Cut tab.",
+                    10000,
+                )
+        except Exception as exc:
+            log_error(f"npcap check failed: {exc}")
 
     # ── User actions ────────────────────────────────────────────────
 

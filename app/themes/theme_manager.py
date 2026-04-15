@@ -464,7 +464,7 @@ QMessageBox QPushButton {{ min-width: 80px; min-height: 24px; }}
         self.rainbow_speed = max(0.1, min(10.0, speed))
         log_info(f"Rainbow speed set to: {self.rainbow_speed}")
 
-    def get_rainbow_speed(self) -> int: return self.rainbow_speed
+    def get_rainbow_speed(self) -> float: return self.rainbow_speed
     def is_rainbow_active(self) -> bool: return self.rainbow_timer is not None and self.rainbow_timer.isActive()
     def get_theme_info(self) -> dict:
         return {"current_theme": self.current_theme,
