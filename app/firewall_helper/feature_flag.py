@@ -69,13 +69,23 @@ def _detect_gpu_available() -> bool:
 
     # Fallback: wmic (deprecated but still ships on Win10/11)
     try:
-        import subprocess
-        out = subprocess.check_output(
-            ["wmic", "path", "win32_videocontroller", "get", "name"],
-            timeout=5, stderr=subprocess.DEVNULL, text=True,
+        from app.core import safe_subprocess as _safe_sp
+        wmic_path = _safe_sp.resolve_system_binary("wbem\\wmic") if False else None
+        # wmic lives at System32\wbem\wmic.exe — resolve_system_binary
+        # expects System32 directly, so construct the path manually.
+        import os as _os
+        sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
+        wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
+        if not _os.path.isfile(wmic_path):
+            return False
+        res = _safe_sp.run(
+            [wmic_path, "path", "win32_videocontroller", "get", "name"],
+            timeout=5.0,
+            expect_returncode=None,
+            intent="feature_flag.gpu_probe_wmic",
         )
         lines = [
-            stripped for stripped in (raw.strip() for raw in out.splitlines())
+            stripped for stripped in (raw.strip() for raw in res.stdout.splitlines())
             if stripped and stripped.lower() != "name"
         ]
         # Filter out software adapters

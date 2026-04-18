@@ -178,12 +178,20 @@ def _run_ping(target: str, timeout: int = 1000) -> float:
     Returns ``-1.0`` on timeout or any failure.
     """
     try:
-        result = subprocess.run(
-            ["ping", _PING_FLAG, "1", "-w", str(timeout), target],
-            capture_output=True, text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        import ipaddress
+        try:
+            clean = str(ipaddress.IPv4Address(str(target).strip()))
+        except (ipaddress.AddressValueError, ValueError):
+            return -1.0
+        from app.core import safe_subprocess as _safe_sp
+        ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
+        res = _safe_sp.run(
+            [ping_path, _PING_FLAG, "1", "-w", str(timeout), clean],
+            timeout=5.0,
+            expect_returncode=None,
+            intent="network_tools.ping_rtt",
         )
-        match = re.search(r"time[=<](\d+\.?\d*)", result.stdout)
+        match = re.search(r"time[=<](\d+\.?\d*)", res.stdout)
         return float(match.group(1)) if match else -1.0
     except Exception:
         return -1.0

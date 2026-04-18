@@ -211,10 +211,11 @@ def train(
     }
 
     artefact = {"knn": knn, "km": km, "meta": meta}
-    model_out.parent.mkdir(parents=True, exist_ok=True)
-    import pickle
-    with open(model_out, "wb") as fp:
-        pickle.dump(artefact, fp)
+    # HMAC-SHA384 signed on disk via the model-integrity module so the
+    # inference loader accepts it. A tampered or unsigned .pkl is
+    # refused at load time — no bare pickle.load() in the runtime path.
+    from app.core.model_integrity import save_artefact as _save_signed_artefact
+    _save_signed_artefact(artefact, model_out)
 
     return {
         "n_samples":  meta["n_samples"],

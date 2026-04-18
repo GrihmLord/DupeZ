@@ -1,0 +1,55 @@
+# DupeZ Runtime Dependencies — pip-tools source file
+#
+# This file is the SINGLE SOURCE OF TRUTH for runtime dependencies.
+# Edit version bounds here, then regenerate requirements-locked.txt:
+#
+#     scripts\lock-requirements.ps1    (Windows)
+#     scripts/lock-requirements.sh     (POSIX)
+#
+# CI will reject PRs whose requirements.in and requirements-locked.txt
+# are out of sync (see .github/workflows/requirements-lock.yml).
+
+# ── GUI ──────────────────────────────────────────────────────────────
+# PyQt6 and PyQt6-WebEngine MUST be the same minor version or
+# QtWebEngineCore.dll fails to load at import time. Pin them together.
+PyQt6>=6.6.0,<6.12
+PyQt6-WebEngine>=6.6.0,<6.12
+PyQtGraph>=0.13.0
+Pillow>=9.5.0
+
+# ── System & Process ────────────────────────────────────────────────
+psutil>=5.9.0
+keyboard>=0.13.5
+
+# Windows COM — used to spawn the unelevated map host via
+# Explorer's Shell.Application so Chromium GPU init can succeed
+# under a medium-integrity token.
+pywin32>=306; sys_platform == 'win32'
+
+# ── Network ──────────────────────────────────────────────────────────
+scapy>=2.6.0
+requests>=2.28.0
+
+# mDNS hostname resolution — 4th-stage fallback in the hostname chain.
+zeroconf>=0.130.0
+
+# ── Data / Export ────────────────────────────────────────────────────
+openpyxl>=3.1.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# ── Cryptography ────────────────────────────────────────────────────
+# AES-256-GCM envelope encryption for secrets, Ed25519 for update
+# manifest verification (see app/core/updater.py signed-manifest path).
+cryptography>=43.0.0
+
+# ── Config ───────────────────────────────────────────────────────────
+PyYAML>=6.0.1
+
+# ── GPC / Cronus Device Bridge ─────────────────────────────────────
+pyserial>=3.5
+
+# ── Voice Control (optional but included in default build) ─────────
+# Pulls torch on first resolve — expect long regen times.
+sounddevice>=0.4.6
+openai-whisper>=20231117

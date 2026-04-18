@@ -16,11 +16,14 @@ Usage::
 
 from __future__ import annotations
 
-import pickle
 from pathlib import Path
 from typing import Any, Dict, List, Sequence, Tuple
 
 from app.ai.models.base import BaseModel, NullModel, Prediction
+from app.core.model_integrity import (
+    ModelIntegrityError,
+    load_artefact as _load_signed_artefact,
+)
 from app.logs.logger import log_info, log_warning
 
 __all__ = ["DurationRegressor", "load_default", "DEFAULT_ARTEFACT"]
@@ -88,14 +91,20 @@ def load_default(path: Path = DEFAULT_ARTEFACT) -> BaseModel:
     if not path.exists():
         return NullModel(name="duration_regressor", default=5.0)
     try:
-        with open(path, "rb") as fp:
-            artefact = pickle.load(fp)
+        # HMAC-verified load — refuses unsigned or tampered artefacts.
+        artefact = _load_signed_artefact(path)
         model = DurationRegressor(artefact)
         log_info(
             f"[MODEL] duration_regressor loaded "
             f"(n={artefact.get('n_samples')}, trained_at={artefact.get('trained_at')})"
         )
         return model
+    except ModelIntegrityError as exc:
+        log_warning(
+            f"[MODEL] duration_regressor refused (integrity): {exc}. "
+            "Run `python -m scripts.sign_models` on a known-good file or re-train."
+        )
+        return NullModel(name="duration_regressor", default=5.0)
     except Exception as exc:  # pragma: no cover
         log_warning(f"[MODEL] duration_regressor load failed: {exc}")
         return NullModel(name="duration_regressor", default=5.0)

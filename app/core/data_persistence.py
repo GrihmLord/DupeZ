@@ -56,12 +56,76 @@ __all__ = [
 
 
 # ── HMAC Integrity ───────────────────────────────────────────────────
+#
+# The HMAC key is a 32-byte per-install secret managed by
+# :mod:`app.core.secret_store` under ``kind="persistence.hmac"``:
+#
+#   * Windows → sealed with DPAPI (user scope). Extracting the key
+#     requires a logon session for the installing user *plus* access
+#     to the ciphertext on disk; an attacker with read access to the
+#     ``app/data/*.hmac`` files alone cannot forge integrity tags.
+#   * POSIX   → 0o600 file under ``$XDG_DATA_HOME/DupeZ/secrets/``.
+#
+# A previous version of this module derived the "key" deterministically
+# from ``platform.node() | $USERNAME | platform.machine() | <literal>``
+# — values the local attacker already owns. That scheme provided only
+# the illusion of integrity.  We retain the old derivation here **only**
+# as a one-shot verification fallback so that existing on-disk
+# ``.hmac`` files still load; the next save re-signs them under the
+# new secret-store-rooted key.
+
+PERSISTENCE_SECRET_KIND: str = "persistence.hmac"
+PERSISTENCE_KEY_SIZE: int = 32
+
+_KEY_LOCK = threading.Lock()
+_KEY_CACHE: Optional[bytes] = None
+_KEY_DEGRADED: bool = False
+
 
 def _get_hmac_key() -> bytes:
-    """Derive a machine-specific HMAC key for data integrity.
+    """Return the HMAC key, loading it from :mod:`secret_store` once.
 
-    Uses the same machine seed as the secrets manager, hashed to
-    produce a stable 48-byte (384-bit) key.
+    On the extremely rare path where the secret store is unreachable
+    (catastrophic filesystem failure, DPAPI master key lost), we fall
+    back to the legacy derivation so the app still boots — but we flag
+    this via :data:`_KEY_DEGRADED` so that diagnostic surfaces can
+    report it. This is a fail-open choice for *availability*; the
+    integrity guarantee is reduced to "as strong as the legacy
+    derivation" in that path, which is what we have today anyway.
+    """
+    global _KEY_CACHE, _KEY_DEGRADED
+    if _KEY_CACHE is not None:
+        return _KEY_CACHE
+    with _KEY_LOCK:
+        if _KEY_CACHE is not None:
+            return _KEY_CACHE
+        try:
+            from app.core.secret_store import get_or_create_secret
+            key = get_or_create_secret(
+                PERSISTENCE_SECRET_KIND, size=PERSISTENCE_KEY_SIZE,
+            )
+            if not isinstance(key, (bytes, bytearray)) or len(key) < 16:
+                raise RuntimeError(
+                    f"secret_store returned invalid key "
+                    f"(len={len(key) if key else 0})"
+                )
+            _KEY_CACHE = bytes(key)
+        except Exception as e:
+            log_error(
+                f"persistence: secret_store unreachable ({e}); falling back "
+                "to legacy machine-derived key. Integrity tags will still "
+                "verify for existing data but are weaker than design."
+            )
+            _KEY_CACHE = _get_legacy_hmac_key()
+            _KEY_DEGRADED = True
+        return _KEY_CACHE
+
+
+def _get_legacy_hmac_key() -> bytes:
+    """Legacy machine-derived key — kept ONLY for verification fallback.
+
+    Any file whose stored HMAC matches under this key will be silently
+    re-signed under the new secret-store-rooted key on its next save.
     """
     import platform
     parts = [
@@ -80,8 +144,23 @@ def _compute_hmac(data: bytes) -> str:
 
 
 def _verify_hmac(data: bytes, expected_hex: str) -> bool:
-    """Constant-time HMAC verification."""
+    """Constant-time HMAC verification.
+
+    Tries the current secret-store-rooted key first; on mismatch, the
+    caller (:meth:`DataPersistenceManager._try_load_json`) also gets a
+    chance to normalise CRLF and to try the legacy key. We expose a
+    single-key check here and keep the fallback orchestration visible
+    at the call site so the ladder is auditable.
+    """
     computed = hmac.new(_get_hmac_key(), data, hashlib.sha384).hexdigest()
+    return hmac.compare_digest(computed, expected_hex)
+
+
+def _verify_hmac_legacy(data: bytes, expected_hex: str) -> bool:
+    """Constant-time verification under the legacy machine-derived key."""
+    computed = hmac.new(
+        _get_legacy_hmac_key(), data, hashlib.sha384
+    ).hexdigest()
     return hmac.compare_digest(computed, expected_hex)
 
 
@@ -297,22 +376,41 @@ class DataPersistenceManager:
                 try:
                     with open(hmac_path, "r", encoding="utf-8") as hf:
                         stored_hmac = hf.read().strip()
-                    if not _verify_hmac(raw, stored_hmac):
-                        # Self-heal path: retry against LF-normalised bytes
-                        # (legacy Windows CRLF writes).
-                        normalised = raw.replace(b"\r\n", b"\n")
-                        if (normalised != raw
-                                and _verify_hmac(normalised, stored_hmac)):
-                            log_info(
-                                f"Legacy HMAC accepted for {path.name} "
-                                "(CRLF-normalised); will re-sign on next save"
-                            )
-                        else:
-                            log_error(
-                                f"HMAC verification FAILED for {path.name} — "
-                                "possible tampering"
-                            )
-                            return None
+
+                    # Verification ladder:
+                    #   1. current key + raw bytes
+                    #   2. current key + CRLF-normalised bytes
+                    #   3. legacy key + raw bytes      (pre-DPAPI files)
+                    #   4. legacy key + CRLF-normalised
+                    # Anything passing rungs 2-4 is accepted but will
+                    # be re-signed under the current key on the next
+                    # save — the save path always rewrites the .hmac.
+                    normalised = raw.replace(b"\r\n", b"\n")
+                    if _verify_hmac(raw, stored_hmac):
+                        pass  # healthy
+                    elif normalised != raw and _verify_hmac(normalised, stored_hmac):
+                        log_info(
+                            f"HMAC accepted for {path.name} "
+                            "(CRLF-normalised); will re-sign on next save"
+                        )
+                    elif _verify_hmac_legacy(raw, stored_hmac):
+                        log_info(
+                            f"HMAC accepted for {path.name} under legacy "
+                            "machine-derived key; will re-sign under "
+                            "secret-store-rooted key on next save"
+                        )
+                    elif (normalised != raw
+                            and _verify_hmac_legacy(normalised, stored_hmac)):
+                        log_info(
+                            f"HMAC accepted for {path.name} under legacy "
+                            "key (CRLF-normalised); will re-sign on next save"
+                        )
+                    else:
+                        log_error(
+                            f"HMAC verification FAILED for {path.name} — "
+                            "possible tampering (no key matched)"
+                        )
+                        return None
                 except Exception as e:
                     log_error(f"HMAC check error for {path.name}: {e}")
                     # Continue loading — HMAC failure is logged but

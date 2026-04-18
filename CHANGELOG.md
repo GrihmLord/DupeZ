@@ -4,11 +4,50 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
-## v5.6.1 � 2026-04-15 (Updater Stability)
+## v5.6.2 — 2026-04-17 (Nation-State Hardening: §9.2 Second-Factor + Signed Auto-Update + Tracker Fixes)
+
+Closes the last open blocker on the nation-state certification track (§9.2 strong second-factor authentication) and fail-closes the auto-updater behind a pinned Ed25519 signing chain. Also unblocks a long-standing DayZ account-tracker import regression where Excel-exported CSVs silently dropped every row, plus housekeeping for the offsec CLI stdout/stderr split. Verdict per `docs/release-notes/CERTIFICATION_v5.6.2.md`: **CERTIFIED — Nation-State Grade**.
+
+### Added
+- **§9.2 second-factor authentication gate (`app/core/second_factor.py`).** SP 800-63B / CNSA 2.0-aligned WebAuthn / FIDO2 / TOTP scaffold. RFC 6238 TOTP with HMAC-SHA256 (not SHA-1), 256-bit seeds, ±1-step skew window. Constant-time compare via `hmac.compare_digest`. Sliding-window rate limiter (5 failures / 15 min, lockout). Process-wide singleton with thread lock. Scope allowlist (`elevation`, `plugin_install`, `offsec.engagement`, `secret_rotation`, `self_test`) — unregistered scopes raise. FIDO2 provider gracefully reports `available=False` when `python-fido2` is absent and **never** silently passes. Cache TTL with `bypass_cache` override. CI bypass via `DUPEZ_SECOND_FACTOR_DISABLED=1`.
+- **Gate wired into elevation, plugin loader, and offsec runner.** `app/firewall_helper/elevation.py` calls `gate.require("elevation", …)` before spawning the firewall helper. `app/plugins/loader.py` calls `_enforce_second_factor("plugin_install", …)` from both `load_all()` and `load_plugin()`. `app/offsec/runner.py` calls the gate after consent check and before tactic dispatch with scope `offsec.engagement`.
+- **Signed auto-update verification (`app/core/update_verify.py`).** Pinned Ed25519 release-key chain with `TRUSTED_PUBKEYS_PEM` allowlist (currently empty → updater is **fail-closed** until first key provisioning). Manifest schema `dupez.update-manifest.v1` with version, released_at, installer filename, SHA-256 hex, and size. Detached 72-byte signature envelope: 8-byte SHA-256 pubkey fingerprint + 64-byte Ed25519 signature. Manifest size cap (64 KB), installer size cap (1 GB), filename anti-traversal check. Updater (`app/core/updater.py`) refuses to launch any installer whose manifest fingerprint, signature, schema, version, filename, size, or SHA-256 don't all verify. Phase-2 stream download enforces signed `installer_size` as a hard byte cap before hash check.
+- **`scripts/sign-release.py` offline signing tool.** Generates Ed25519 keypairs, builds canonical-JSON manifest, signs and round-trip self-verifies. Designed to run on an air-gapped host or HSM. CLI: `--gen-key`, `--sign`, `--verify`. Documented key-rotation flow in module docstring.
+- **`tests/test_second_factor.py`.** 13 tests against the §9.2 gate via in-memory `secret_store` fixture (works on any OS, no DPAPI). Audit-logger stub prevents pytest pollution of production audit chain at `app/data/audit.jsonl`. Covers TOTP enroll/verify, skew window, non-digit input rejection, scope registry enforcement, prompter cache short-circuit, rate-lockout, revocation, FIDO2 graceful unavailability, and re-enrollment seed rotation.
+- **`tests/test_account_tracker_csv.py`.** 25 regression tests over the DayZ account tracker CSV/XLSX import path. AST-based loader extracts non-Qt helpers without spinning up the GUI graph. Covers BOM stripping, tag-prefix stripping (`#`, `@`, `:`), separator collapsing (`-`/`_`/`.`), header synonym map (15+ aliases), status/station case canonicalization, and the `_XLSX_DEFAULT_FIELDS == ACCOUNT_FIELDS` off-by-one guard.
+- **`.github/workflows/tests-ci.yml`.** Windows-runner pytest matrix (Python 3.11 + 3.12) with coverage on `app.core.second_factor` and `app.gui.dayz_account_tracker`. Sets `DUPEZ_OFFSEC_CONSENT=""` and `DUPEZ_SECOND_FACTOR_DISABLED=1` so gated surfaces don't stall on prompts. Second job `ast-lint` AST-parses every `app/**/*.py` on Ubuntu — fails the PR on any syntax error.
 
 ### Fixed
-- **Updater no longer spuriously prompts when already on latest.** Added equal-tag short-circuit in `UpdateChecker.check_sync` � if normalized current and latest tags match exactly, `is_newer` is False without falling through to numeric compare. Guards against stale frozen `__version__` values causing re-prompts.
-- **Installer URL now uses stable versionless alias.** `installer_url` is set to `https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe` regardless of what the GitHub API asset scan resolved. Same stable URL the landing page CTA uses � self-updating per release.
+- **DayZ account tracker CSV/XLSX import dropped every row from Excel-exported files.** Four cumulative root causes in `app/gui/dayz_account_tracker.py`:
+  1. `_XLSX_DEFAULT_FIELDS` was missing the `value` column → positional mapping was off-by-one for headerless files.
+  2. `encoding='utf-8'` did not strip the UTF-8 BOM Excel adds → first header was un-mappable → every row was silently dropped.
+  3. Header-synonym map was thin: `character`, `server`, `kit`, `role`, `inv`, `tier` and tag-prefixed forms (`#email`, `@notes`, `:notes`) were not recognised.
+  4. No delimiter sniffing → semicolon- and tab-delimited CSVs were parsed as a single-column table.
+  Now: `utf-8-sig` decoding, `csv.Sniffer` for delimiter, expanded synonym map, full ACCOUNT_FIELDS in defaults. Regression tests in `tests/test_account_tracker_csv.py`.
+- **Offsec CLI stdout pollution by INFO logger (Task #19).** `app/logs/logger.py` now routes INFO chatter to stderr when `DUPEZ_OFFSEC_CLI=1` or `offsec` appears in `sys.argv[:3]`, so callers consuming machine-parseable JSON on stdout don't get logger noise mixed in. Warnings/errors always go to stderr regardless.
+- **`packaging/version_info.py` PE resource version drift.** `filevers`/`prodvers` tuples were stuck at `(5, 6, 0, 0)` while string fields advanced to `5.6.1.0`. Now `(5, 6, 2, 0)` and `5.6.2.0` aligned.
+
+### Changed
+- **Root directory cleaned for v5.6.2 release.** Superseded audit/cert artifacts moved to `docs/archive/2026-04-17/` (`MASTER_CERTIFICATION_2026-04-17.md`, `_v2.md`, `SECURITY_AUDIT_2026-04-17_v2.md`, `SECURITY_CERTIFICATION.md`, `COMPLEXITY_AUDIT_2026-04-17.md`, `AUDIT_2026-04-17.md`, `ROADMAP_2026-04-17.md`). v3 master cert promoted to `docs/release-notes/CERTIFICATION_v5.6.2.md` as the shipping cert. Intermediate `requirements-locked.txt.body` and `requirements-locked.txt.generated` artifacts archived (already in .gitignore).
+- **All version strings bumped to 5.6.2.** `app/__version__.py`, `packaging/version_info.py`, `packaging/build.bat`, `packaging/build_variants.bat`, `packaging/dupez.manifest`, `packaging/dupez_compat.manifest`, `packaging/installer.iss`, `README.md`.
+
+### Security
+- **Auto-update is fail-closed until release-key provisioning.** `TRUSTED_PUBKEYS_PEM` is intentionally empty in this client — the updater refuses every signed update and falls through to opening the GitHub release page in the user's browser. To enable signed in-app updates: generate a keypair offline (`scripts/sign-release.py --gen-key`), paste the pubkey PEM into `TRUSTED_PUBKEYS_PEM`, ship a client release carrying the new pubkey, then sign subsequent installers with the matching private key. Documented rotation flow in `app/core/update_verify.py` and `scripts/sign-release.py` module docstrings.
+- **Compromise of GitHub no longer translates 1:1 to silent installer-grade RCE.** Pre-v5.6.2, an attacker with write access to GrihmLord/DupeZ releases could swap the `DupeZ_Setup.exe` asset and every auto-updater client would silently install it. With the signed-manifest chain in place, that swap requires *also* compromising the offline-held private key matching one of the pinned pubkeys.
+
+### Test plan
+- `pytest tests/test_second_factor.py -v` — 13 pass on Linux+Windows (in-memory secret_store shim).
+- `pytest tests/test_account_tracker_csv.py -v` — 25 pass via AST helper extraction (no Qt required).
+- AST-lint over `app/**/*.py` — all files parse cleanly.
+- Offsec engagement on Windows host (DPAPI + WinDivert + named pipes): 1 HIGH / 14 MEDIUM / 3 LOW / 8 INFO. Net **−1 HIGH** vs v2 baseline; 0 new findings. Remaining HIGH (`DUPEZ-OFFSEC-0022`) is the standing architectural finding for which §9.2 is the countermeasure.
+
+---
+
+## v5.6.1 � 2026-04-15 (Updater Stability)
+
+### Fixed
+- **Updater no longer spuriously prompts when already on latest.** Added equal-tag short-circuit in `UpdateChecker.check_sync` � if normalized current and latest tags match exactly, `is_newer` is False without falling through to numeric compare. Guards against stale frozen `__version__` values causing re-prompts.
+- **Installer URL now uses stable versionless alias.** `installer_url` is set to `https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe` regardless of what the GitHub API asset scan resolved. Same stable URL the landing page CTA uses � self-updating per release.
 
 ### Changed
 - Packaging manifest versions (`dupez.manifest`, `dupez_compat.manifest`) bumped from stale `5.5.0.0` to `5.6.1.0` to match runtime.

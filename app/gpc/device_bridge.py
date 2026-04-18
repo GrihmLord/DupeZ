@@ -24,6 +24,7 @@ Dependencies:
 from __future__ import annotations
 
 import os
+import re
 import sys
 import threading
 import time
@@ -121,13 +122,24 @@ class DeviceDetector:
 
         # WMI fallback via subprocess
         try:
-            import subprocess
-            result = subprocess.run(
-                ["wmic", "path", "Win32_PnPEntity", "where",
+            import os as _os
+            from app.core import safe_subprocess as _safe_sp
+            # Only allow known-fixed VID constant — it's a compile-time
+            # string in this module but double-check so no future edit
+            # lets a caller-controlled value become part of argv.
+            if not re.fullmatch(r"[0-9a-fA-F]{4}", CRONUS_VID):
+                raise ValueError(f"rejecting non-hex VID: {CRONUS_VID!r}")
+            sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
+            wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
+            if not _os.path.isfile(wmic_path):
+                return devices
+            result = _safe_sp.run(
+                [wmic_path, "path", "Win32_PnPEntity", "where",
                  f"DeviceID like '%VID_{CRONUS_VID}%'",
                  "get", "Name,DeviceID", "/format:csv"],
-                capture_output=True, text=True, timeout=10,
-                creationflags=_NO_WINDOW,
+                timeout=10.0,
+                expect_returncode=None,
+                intent="gpc.wmic_enumerate_cronus",
             )
             for line in result.stdout.strip().split('\n'):
                 if CRONUS_VID.lower() in line.lower():

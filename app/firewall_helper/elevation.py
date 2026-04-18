@@ -447,13 +447,62 @@ def _parent_pid_sentinel_path() -> str:
 def ensure_helper_running(
     pipe_name: Optional[str] = None,
     mode: Optional[str] = None,
+    shared_secret: Optional[bytes] = None,
 ) -> int:
     """Spawn the helper using the resolved elevation strategy.
 
     Returns the helper PID. Raises ElevationError on failure.
-    The caller should then connect the PipeClient and wait for the
-    handshake — see `DisruptionManagerProxy._ensure_helper()`.
+
+    Auth:
+        If ``shared_secret`` is provided, the 32-byte token is written
+        to the user-private sentinel (auth.write_token_sentinel) BEFORE
+        the helper is spawned. The helper reads-and-consumes the
+        sentinel at startup. If not provided, the caller is responsible
+        for writing the sentinel beforehand — usually via
+        DisruptionManagerProxy which owns the token lifecycle.
+
+    The caller must then connect the PipeClient (with the same secret)
+    and wait for the handshake — see `DisruptionManagerProxy._ensure_helper()`.
+
+    Second-factor gate (§9.2): if a second-factor provider is enrolled
+    on this install, elevation is gated behind it. Set the environment
+    variable ``DUPEZ_SECOND_FACTOR_DISABLED=1`` to bypass only in
+    controlled CI — production installs MUST leave the gate active.
     """
+    # §9.2: require second factor for elevation if enrolled. We do NOT
+    # force enrollment here (that would break first-boot UX) — if no
+    # provider is enrolled the gate short-circuits silently. Enrolled
+    # installs get a mandatory check.
+    try:
+        if os.environ.get("DUPEZ_SECOND_FACTOR_DISABLED") != "1":
+            from app.core.second_factor import SecondFactorRequired, get_gate
+            gate = get_gate()
+            if gate.is_enrolled():
+                try:
+                    gate.require("elevation",
+                                 reason="spawn elevated firewall helper")
+                except SecondFactorRequired as e:
+                    raise ElevationError(
+                        f"second-factor verification refused elevation: {e}"
+                    ) from e
+    except ElevationError:
+        raise
+    except Exception as e:
+        # Never let a second-factor import error bring down elevation
+        # on installs that haven't enrolled. Log & continue.
+        log.debug("second-factor gate not available: %s", e)
+
+    # Write the auth sentinel BEFORE launching so the helper can read it
+    # the instant it starts. Without this, run_helper_server refuses to
+    # start on the helper side (by design).
+    if shared_secret is not None:
+        try:
+            from app.firewall_helper.auth import write_token_sentinel
+            path = write_token_sentinel(shared_secret)
+            log.debug("wrote auth sentinel: %s", path)
+        except Exception as e:
+            raise ElevationError(f"failed to write auth sentinel: {e}") from e
+
     effective_mode = (mode or resolve_elevation_mode()).lower()
     parent_pid = os.getpid()
 

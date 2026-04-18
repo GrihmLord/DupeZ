@@ -42,6 +42,15 @@ from typing import Any, Callable, Dict, List, Optional
 from app.logs.logger import log_info, log_error, log_warning
 from app.utils.helpers import _NO_WINDOW
 
+# safe_subprocess is loaded lazily — this module is Windows-only and we
+# want imports to succeed on non-Windows hosts running unit tests.
+try:
+    from app.core import safe_subprocess as _safe_sp
+    from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+except Exception:  # pragma: no cover
+    _safe_sp = None
+    _SafeSpErr = Exception  # type: ignore[assignment,misc]
+
 # Recorder hotkeys — event tagging during packet recording
 try:
     from app.firewall.recorder_hotkeys import RecorderHotkeys
@@ -716,14 +725,21 @@ class NativeWinDivertEngine:
         """Open WinDivert handle and start packet processing thread."""
         try:
             # Kill any existing clumsy.exe first — only one process can
-            # hold a WinDivert handle at a time
+            # hold a WinDivert handle at a time. Routed through
+            # safe_subprocess so the spawn is audit-logged and the
+            # taskkill binary is resolved from System32 (no PATH hijack).
             try:
-                subprocess.Popen(
-                    ["taskkill", "/F", "/IM", "clumsy.exe"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    creationflags=_NO_WINDOW,
-                )
-                time.sleep(0.05)  # brief pause — just enough for handle release
+                if _safe_sp is not None:
+                    taskkill_path = _safe_sp.resolve_system_binary("taskkill")
+                    _safe_sp.run(
+                        [taskkill_path, "/F", "/IM", "clumsy.exe"],
+                        timeout=5.0,
+                        expect_returncode=None,  # rc=128 if no process — fine
+                        intent="native_divert.kill_preexisting_clumsy",
+                    )
+                    time.sleep(0.05)  # brief pause — handle release
+            except _SafeSpErr:
+                pass
             except Exception:
                 pass
 

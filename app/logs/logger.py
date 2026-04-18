@@ -125,9 +125,23 @@ class DupeZLogger:
     # ── Handler setup ─────────────────────────────────────────────
 
     def _setup_handlers(self) -> None:
-        """Create console + rotating file handlers."""
+        """Create console + rotating file handlers.
+
+        Offsec CLI path: when ``DUPEZ_OFFSEC_CLI=1`` (or the process
+        was started via ``python -m app.offsec.runner``), INFO-level
+        chatter is routed to stderr instead of stdout so that the
+        caller's JSON output on stdout remains machine-parseable.
+        Warnings and errors always go to stderr regardless.
+        """
         try:
-            console_handler = SafeConsoleHandler(sys.stdout)
+            # Task #19: route INFO chatter to stderr for offsec CLI
+            # paths so stdout can carry clean JSON to a consumer.
+            _offsec_mode = (
+                os.environ.get("DUPEZ_OFFSEC_CLI") == "1"
+                or any("offsec" in a for a in sys.argv[:3])
+            )
+            _console_stream = sys.stderr if _offsec_mode else sys.stdout
+            console_handler = SafeConsoleHandler(_console_stream)
             console_handler.setLevel(logging.INFO)
             console_handler.setFormatter(logging.Formatter(
                 "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
@@ -135,9 +149,10 @@ class DupeZLogger:
             ))
 
             try:
-                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+                _console_stream.reconfigure(encoding="utf-8", errors="replace")
             except Exception as e:
-                print(f"Warning: Could not configure Unicode support: {e}")
+                print(f"Warning: Could not configure Unicode support: {e}",
+                      file=sys.stderr)
 
             self.logger.addHandler(console_handler)
 

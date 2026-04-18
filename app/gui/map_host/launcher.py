@@ -228,15 +228,23 @@ def _spawn_unelevated(python_exe: str, args: str) -> bool:
 
 
 def _spawn_popen(python_exe: str, args: str) -> bool:
-    """Plain subprocess spawn — inherits parent token."""
-    import shlex
-    import subprocess
+    """Plain subprocess spawn — inherits parent token.
 
+    Routed through safe_subprocess.spawn_detached so argv validation,
+    CREATE_NO_WINDOW, and audit events all apply. ``python_exe`` is
+    sys.executable (already validated upstream), so we pass
+    trusted_executable=True.
+    """
+    import shlex
     try:
-        # shlex.split with posix=False on Windows keeps quoted paths intact.
+        from app.core import safe_subprocess as _safe_sp
         split_args = shlex.split(args, posix=(sys.platform != "win32"))
-        subprocess.Popen([python_exe] + split_args, close_fds=True)
-        log_info("map-host: spawned via subprocess.Popen (fallback)")
+        _safe_sp.spawn_detached(
+            [python_exe] + split_args,
+            trusted_executable=True,
+            intent="map_host.spawn_fallback_python",
+        )
+        log_info("map-host: spawned via safe_subprocess.spawn_detached (fallback)")
         return True
     except Exception as exc:  # noqa: BLE001
         log_error(f"map-host: subprocess fallback failed: {exc}")

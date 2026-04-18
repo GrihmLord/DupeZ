@@ -28,6 +28,13 @@ _IS_WINDOWS = platform.system().lower() == "windows"
 from app.network.shared import HOSTNAME_VENDORS, lookup_vendor
 from app.utils.helpers import _NO_WINDOW, mask_ip
 
+try:
+    from app.core import safe_subprocess as _safe_sp
+    from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+except Exception:  # pragma: no cover
+    _safe_sp = None  # type: ignore[assignment]
+    _SafeSpErr = Exception  # type: ignore[misc,assignment]
+
 __all__ = [
     "F",
     "handle_network_error",
@@ -208,13 +215,17 @@ class NativeNetworkScanner:
     def _get_windows_arp_ips(self) -> List[str]:
         """Extract IPs from Windows ``arp -a`` output."""
         try:
-            result = subprocess.run(
-                ["arp", "-a"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=_NO_WINDOW,
+            if _safe_sp is None:
+                return []
+            arp_path = _safe_sp.ARP or _safe_sp.resolve_system_binary("arp")
+            res = _safe_sp.run(
+                [arp_path, "-a"],
+                timeout=5.0,
+                expect_returncode=None,
+                intent="device_scan.windows_arp_enumerate",
             )
             ips: List[str] = []
-            for m in re.finditer(r"(\d+\.\d+\.\d+\.\d+)", result.stdout):
+            for m in re.finditer(r"(\d+\.\d+\.\d+\.\d+)", res.stdout):
                 ip = m.group(1)
                 if not ip.startswith(self._EXCLUDED_PREFIXES):
                     ips.append(ip)

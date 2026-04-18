@@ -36,7 +36,6 @@ The artefact is still a single pickle so it can drop in behind the
 
 from __future__ import annotations
 
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -44,6 +43,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from app.ai.models.base import BaseModel, NullModel, Prediction
+from app.core.model_integrity import (
+    ModelIntegrityError,
+    load_artefact as _load_signed_artefact,
+)
 from app.logs.logger import log_info, log_warning
 
 __all__ = [
@@ -338,8 +341,8 @@ def load_default(path: Path = DEFAULT_ARTEFACT) -> BaseModel:
     """
     if path.exists():
         try:
-            with open(path, "rb") as fp:
-                artefact = pickle.load(fp)
+            # HMAC-verified load — refuses unsigned or tampered artefacts.
+            artefact = _load_signed_artefact(path)
             knn = artefact.get("knn")
             km = artefact["km"]
             meta = artefact.get("meta", {})
@@ -350,6 +353,12 @@ def load_default(path: Path = DEFAULT_ARTEFACT) -> BaseModel:
                 f"trained_at={meta.get('trained_at')})"
             )
             return model
+        except ModelIntegrityError as exc:
+            log_warning(
+                f"[MODEL] survival_model refused (integrity): {exc}. "
+                "Run `python -m scripts.sign_models` on a known-good "
+                "file or re-train."
+            )
         except Exception as exc:  # pragma: no cover
             log_warning(f"[MODEL] survival_model load failed: {exc}")
 

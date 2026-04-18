@@ -170,19 +170,41 @@ def ping_host(host: str, timeout: float = 1.0) -> Tuple[bool, float]:
     Uses the system ping command. Returns (False, 0.0) on failure.
     """
     try:
+        import ipaddress
+        try:
+            clean_host = str(ipaddress.IPv4Address(str(host).strip()))
+        except (ipaddress.AddressValueError, ValueError):
+            return False, 0.0
+
         timeout_ms = str(int(timeout * 1000))
+        stdout = ""
+        rc = -1
         if _IS_WINDOWS:
-            cmd = ["ping", "-n", "1", "-w", timeout_ms, host]
+            try:
+                from app.core import safe_subprocess as _safe_sp
+                ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
+                res = _safe_sp.run(
+                    [ping_path, "-n", "1", "-w", timeout_ms, clean_host],
+                    timeout=timeout + 1.0,
+                    expect_returncode=None,
+                    intent="helpers.ping_host",
+                )
+                stdout = res.stdout
+                rc = res.returncode
+            except Exception:
+                return False, 0.0
         else:
-            cmd = ["ping", "-c", "1", "-W", str(int(timeout)), host]
+            import shutil as _shutil
+            ping_exe = _shutil.which("ping") or "/bin/ping"
+            result = subprocess.run(
+                [ping_exe, "-c", "1", "-W", str(int(timeout)), clean_host],
+                capture_output=True, text=True, timeout=timeout + 1,
+            )
+            stdout = result.stdout
+            rc = result.returncode
 
-        result = subprocess.run(
-            cmd, capture_output=True, text=True,
-            timeout=timeout + 1, creationflags=_NO_WINDOW,
-        )
-
-        if result.returncode == 0:
-            time_match = _PING_TIME_PATTERN.search(result.stdout)
+        if rc == 0:
+            time_match = _PING_TIME_PATTERN.search(stdout)
             response_time = float(time_match.group(1)) if time_match else 0.0
             return True, response_time
         return False, 0.0

@@ -47,13 +47,22 @@ import platform
 import re
 import socket
 import struct
-import subprocess
+import subprocess  # retained for CalledProcessError type + DEVNULL constant
 import threading
 import time
 from typing import Optional, Tuple
 
+from app.core import safe_subprocess
+from app.core.safe_subprocess import (
+    ARP as _SP_ARP,
+    IPCONFIG as _SP_IPCONFIG,
+    NETSH as _SP_NETSH,
+    PING as _SP_PING,
+    ROUTE as _SP_ROUTE,
+    SafeSubprocessError,
+)
 from app.logs.logger import log_error, log_info
-from app.utils.helpers import _NO_WINDOW
+from app.utils.helpers import _NO_WINDOW  # still used by non-subprocess paths
 
 __all__ = [
     "ArpSpoofer",
@@ -117,31 +126,41 @@ def get_default_gateway() -> Optional[str]:
 
 
 def _gateway_windows() -> Optional[str]:
-    """Parse default gateway from ``ipconfig``."""
+    """Parse default gateway from ``ipconfig``.
+
+    All subprocess calls route through :mod:`app.core.safe_subprocess`
+    with absolute-path binaries pre-resolved at import time, so we are
+    immune to PATH hijack and every spawn is audit-logged.
+    """
+    if not _SP_IPCONFIG:
+        log_error("ipconfig path not resolved at startup — skipping")
+        return None
     try:
-        out = subprocess.check_output(
-            ["ipconfig"], text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        result = safe_subprocess.run(
+            [_SP_IPCONFIG],
+            timeout=5.0,
+            intent="arp_spoof.gateway_discovery",
         )
-        # Match "Default Gateway . . . : 192.168.1.1" or similar
         for m in re.finditer(
             r"Default Gateway[\s.]*:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})",
-            out,
+            result.stdout,
         ):
             gw = m.group(1)
             if gw != "0.0.0.0":
                 return gw
-    except Exception as e:
+    except SafeSubprocessError as e:
         log_error(f"ipconfig gateway parse failed: {e}")
 
     # Fallback: route print
+    if not _SP_ROUTE:
+        return None
     try:
-        out = subprocess.check_output(
-            ["route", "print", "0.0.0.0"],
-            text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        result = safe_subprocess.run(
+            [_SP_ROUTE, "print", "0.0.0.0"],
+            timeout=5.0,
+            intent="arp_spoof.gateway_route_print",
         )
-        for line in out.splitlines():
+        for line in result.stdout.splitlines():
             parts = line.split()
             if len(parts) >= 3 and parts[0] == "0.0.0.0":
                 gw = parts[2]
@@ -151,24 +170,33 @@ def _gateway_windows() -> Optional[str]:
                         return gw
                 except ValueError:
                     continue
-    except Exception as e:
+    except SafeSubprocessError as e:
         log_error(f"route print gateway parse failed: {e}")
 
     return None
 
 
 def _gateway_linux() -> Optional[str]:
-    """Parse default gateway from ``ip route``."""
+    """Parse default gateway from ``ip route``.
+
+    Resolves ``ip`` via ``shutil.which`` once, then invokes with the
+    absolute path through :func:`safe_subprocess.run`.
+    """
+    import shutil
+    ip_bin = shutil.which("ip")
+    if not ip_bin:
+        log_error("`ip` binary not found on PATH")
+        return None
     try:
-        out = subprocess.check_output(
-            ["ip", "route", "show", "default"],
-            text=True, timeout=5,
+        result = safe_subprocess.run(
+            [ip_bin, "route", "show", "default"],
+            timeout=5.0,
+            intent="arp_spoof.gateway_linux",
         )
-        # "default via 192.168.1.1 dev wlan0 ..."
-        parts = out.split()
+        parts = result.stdout.split()
         if len(parts) >= 3 and parts[0] == "default" and parts[1] == "via":
             return parts[2]
-    except Exception as e:
+    except SafeSubprocessError as e:
         log_error(f"ip route gateway parse failed: {e}")
     return None
 
@@ -191,19 +219,22 @@ def get_local_mac(target_ip: Optional[str] = None) -> Optional[str]:
 
 def _local_mac_windows(target_ip: Optional[str] = None) -> Optional[bytes]:
     """Get local MAC via ``ipconfig /all``."""
+    if not _SP_IPCONFIG:
+        return None
     try:
         # Determine which local IP routes to the target
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect((target_ip or "8.8.8.8", 80))
             local_ip = s.getsockname()[0]
 
-        out = subprocess.check_output(
-            ["ipconfig", "/all"], text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        result = safe_subprocess.run(
+            [_SP_IPCONFIG, "/all"],
+            timeout=5.0,
+            intent="arp_spoof.local_mac_windows",
         )
         # Walk sections: find the adapter whose IPv4 matches local_ip
         current_mac = None
-        for line in out.splitlines():
+        for line in result.stdout.splitlines():
             mac_m = re.match(
                 r"\s*Physical Address[\s.]*:\s*([\dA-Fa-f-]{17})", line
             )
@@ -215,7 +246,7 @@ def _local_mac_windows(target_ip: Optional[str] = None) -> Optional[bytes]:
             if ip_m and ip_m.group(1) == local_ip and current_mac:
                 return _mac_str_to_bytes(current_mac)
 
-    except Exception as e:
+    except (SafeSubprocessError, OSError) as e:
         log_error(f"_local_mac_windows failed: {e}")
     return None
 
@@ -223,17 +254,23 @@ def _local_mac_windows(target_ip: Optional[str] = None) -> Optional[bytes]:
 def _local_mac_linux(target_ip: Optional[str] = None) -> Optional[bytes]:
     """Get local MAC from /sys/class/net/<iface>/address."""
     import os
+    import shutil
+    ip_bin = shutil.which("ip")
+    if not ip_bin:
+        return None
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect((target_ip or "8.8.8.8", 80))
             local_ip = s.getsockname()[0]
 
         # Find the interface for this IP
-        out = subprocess.check_output(
-            ["ip", "-o", "addr", "show"], text=True, timeout=5
+        result = safe_subprocess.run(
+            [ip_bin, "-o", "addr", "show"],
+            timeout=5.0,
+            intent="arp_spoof.local_mac_linux",
         )
         iface = None
-        for line in out.splitlines():
+        for line in result.stdout.splitlines():
             if local_ip in line:
                 iface = line.split()[1]
                 break
@@ -243,7 +280,7 @@ def _local_mac_linux(target_ip: Optional[str] = None) -> Optional[bytes]:
             if os.path.exists(mac_path):
                 with open(mac_path) as f:
                     return _mac_str_to_bytes(f.read().strip())
-    except Exception as e:
+    except (SafeSubprocessError, OSError) as e:
         log_error(f"_local_mac_linux failed: {e}")
     return None
 
@@ -270,37 +307,62 @@ def get_mac_for_ip(ip: str) -> Optional[bytes]:
 
 
 def _ping_once(ip: str) -> None:
-    """Send a single ICMP echo to populate the ARP table."""
+    """Send a single ICMP echo to populate the ARP table.
+
+    A failed ping is expected in many cases (target offline, firewall
+    drops ICMP) — we swallow all errors because the ARP cache read
+    that follows can still succeed on its own.
+    """
+    is_win = _IS_WINDOWS
+    count_flag = "-n" if is_win else "-c"
+    # Windows -w is in ms; Linux -W is in seconds
+    timeout_flag = "-w" if is_win else "-W"
+    timeout_val = "500" if is_win else "1"
+
+    if is_win:
+        ping_bin = _SP_PING
+    else:
+        import shutil
+        ping_bin = shutil.which("ping") or ""
+
+    if not ping_bin:
+        return
     try:
-        is_win = _IS_WINDOWS
-        count_flag = "-n" if is_win else "-c"
-        # Windows -w is in ms; Linux -W is in seconds
-        timeout_flag = "-w" if is_win else "-W"
-        timeout_val = "500" if is_win else "1"
-        subprocess.run(
-            ["ping", count_flag, "1", timeout_flag, timeout_val, ip],
-            capture_output=True, timeout=3,
-            creationflags=_NO_WINDOW if is_win else 0,
+        safe_subprocess.run(
+            [ping_bin, count_flag, "1", timeout_flag, timeout_val, ip],
+            timeout=3.0,
+            expect_returncode=None,  # ping failure is expected; don't raise
+            intent="arp_spoof.ping_prime_arp",
         )
-    except Exception:
+    except SafeSubprocessError:
         pass
 
 
 def _mac_from_arp_windows(ip: str) -> Optional[bytes]:
-    """Read MAC from ``arp -a`` output on Windows."""
+    """Read MAC from ``arp -a <ip>`` output on Windows.
+
+    Note: ``ip`` is an IP literal that was validated upstream (callers
+    come from :func:`get_mac_for_ip`, which is only fed validated IPs);
+    it is NOT user-originated shell input. safe_subprocess forbids
+    pre-joined argv strings, so even if an attacker somehow injected
+    shell metacharacters they would land as a single argv token.
+    """
+    if not _SP_ARP:
+        return None
     try:
-        out = subprocess.check_output(
-            ["arp", "-a", ip], text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        result = safe_subprocess.run(
+            [_SP_ARP, "-a", ip],
+            timeout=5.0,
+            intent="arp_spoof.arp_query_windows",
         )
-        for line in out.splitlines():
+        for line in result.stdout.splitlines():
             if ip in line:
                 m = re.search(r"([\da-fA-F]{2}[:-]){5}[\da-fA-F]{2}", line)
                 if m:
                     mac_str = m.group(0).replace("-", ":").lower()
                     if mac_str != "ff:ff:ff:ff:ff:ff":
                         return _mac_str_to_bytes(mac_str)
-    except Exception as e:
+    except SafeSubprocessError as e:
         log_error(f"_mac_from_arp_windows({ip}): {e}")
     return None
 
@@ -459,17 +521,19 @@ def _get_ip_forwarding_state() -> bool:
         except Exception:
             return False
 
+    if not _SP_NETSH:
+        return False
     try:
-        out = subprocess.check_output(
-            ["netsh", "interface", "ipv4", "show", "global"],
-            text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+        result = safe_subprocess.run(
+            [_SP_NETSH, "interface", "ipv4", "show", "global"],
+            timeout=5.0,
+            intent="arp_spoof.get_ip_forwarding_state",
         )
         # Look for "IP Forwarding" line
-        for line in out.splitlines():
+        for line in result.stdout.splitlines():
             if "forwarding" in line.lower():
                 return "enabled" in line.lower()
-    except Exception as e:
+    except SafeSubprocessError as e:
         log_error(f"Failed to check IP forwarding state: {e}")
     return False
 
@@ -490,22 +554,20 @@ def _set_ip_forwarding(enable: bool) -> bool:
             return False
 
     state = "enabled" if enable else "disabled"
+    if not _SP_NETSH:
+        log_error("netsh path not resolved at startup")
+        return False
     try:
-        subprocess.check_call(
-            ["netsh", "interface", "ipv4", "set", "global",
+        safe_subprocess.run(
+            [_SP_NETSH, "interface", "ipv4", "set", "global",
              f"forwarding={state}"],
-            timeout=10,
-            creationflags=_NO_WINDOW,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            timeout=10.0,
+            intent="arp_spoof.set_ip_forwarding",
         )
         log_info(f"IP forwarding {state}")
         return True
-    except subprocess.CalledProcessError as e:
-        log_error(f"netsh set forwarding failed (exit {e.returncode})")
-        return False
-    except Exception as e:
-        log_error(f"Failed to set IP forwarding: {e}")
+    except SafeSubprocessError as e:
+        log_error(f"netsh set forwarding failed: {e}")
         return False
 
 

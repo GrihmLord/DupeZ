@@ -33,6 +33,13 @@ import threading
 import time
 from typing import Callable, Optional
 
+from app.firewall_helper.auth import (
+    AuthenticationError,
+    HandshakeError,
+    HANDSHAKE_TIMEOUT_SEC,
+    handshake_client,
+    handshake_server,
+)
 from app.firewall_helper.protocol import (
     FRAME_TERMINATOR,
     MAX_FRAME_BYTES,
@@ -165,9 +172,16 @@ class PipeServer:
     def __init__(
         self,
         handler: Callable[[Request], Response],
+        shared_secret: bytes,
         pipe_name: str = DEFAULT_PIPE_NAME,
     ) -> None:
+        if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) != 32:
+            raise ValueError(
+                "PipeServer.shared_secret must be 32 bytes (see "
+                "app.firewall_helper.auth.generate_token)"
+            )
         self.handler = handler
+        self.shared_secret = bytes(shared_secret)
         self.pipe_name = pipe_name
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -240,6 +254,19 @@ class PipeServer:
                 )
                 win32pipe.ConnectNamedPipe(pipe_handle, None)
                 log.info("PipeServer client connected")
+                # ── Mutual auth BEFORE any dispatch (H2 / ADR-0001 §6) ──
+                # Any process on the same session can open the pipe
+                # (SDDL grants WD+AU), so every connection MUST prove
+                # knowledge of the shared secret before we accept a
+                # single request frame.
+                try:
+                    self._do_handshake(pipe_handle, win32file, pywintypes)
+                except AuthenticationError as e:
+                    log.warning("PipeServer: rejecting unauthenticated client: %s", e)
+                    continue
+                except HandshakeError as e:
+                    log.warning("PipeServer: malformed handshake, dropping: %s", e)
+                    continue
                 self._serve_client(pipe_handle, win32file, pywintypes)
             except Exception as e:
                 # ERROR_PIPE_BUSY (231) means another helper instance already
@@ -268,6 +295,49 @@ class PipeServer:
                         pass
 
         log.info("PipeServer stopped")
+
+    def _do_handshake(self, pipe_handle, win32file, pywintypes) -> None:
+        """Run the mutual auth handshake on an accepted pipe.
+
+        Budget is HANDSHAKE_TIMEOUT_SEC — we enforce this by running
+        the handshake in a side thread and joining on a deadline. On
+        timeout we raise HandshakeError, which the accept loop treats
+        as a disconnect.
+
+        The handshake itself uses the same frame primitives as the
+        dispatch loop (_read_frame / _write_frame), so WinDivert's
+        pipe buffer semantics apply identically.
+        """
+        def _reader() -> Optional[bytes]:
+            return _read_frame(pipe_handle, win32file, pywintypes)
+
+        def _writer(data: bytes) -> None:
+            _write_frame(pipe_handle, win32file, data)
+
+        exc: list = []
+
+        def _run() -> None:
+            try:
+                handshake_server(self.shared_secret, _reader, _writer)
+            except Exception as e:  # noqa: BLE001 — re-raised on main thread below
+                exc.append(e)
+
+        t = threading.Thread(target=_run, name="pipe-handshake-server", daemon=True)
+        t.start()
+        t.join(timeout=HANDSHAKE_TIMEOUT_SEC)
+        if t.is_alive():
+            # Pipe read is still blocked — slam the pipe so the reader
+            # unblocks with an error, then treat as a timeout.
+            try:
+                win32file.CloseHandle(pipe_handle)
+            except Exception:
+                pass
+            raise HandshakeError(
+                f"handshake did not complete within {HANDSHAKE_TIMEOUT_SEC}s"
+            )
+        if exc:
+            raise exc[0]
+        log.info("PipeServer: handshake complete, client authenticated")
 
     def _serve_client(self, pipe_handle, win32file, pywintypes) -> None:
         while not self._stop.is_set():
@@ -309,7 +379,17 @@ class PipeClient:
     multiple GUI threads can share one client instance.
     """
 
-    def __init__(self, pipe_name: str = DEFAULT_PIPE_NAME) -> None:
+    def __init__(
+        self,
+        shared_secret: bytes,
+        pipe_name: str = DEFAULT_PIPE_NAME,
+    ) -> None:
+        if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) != 32:
+            raise ValueError(
+                "PipeClient.shared_secret must be 32 bytes (see "
+                "app.firewall_helper.auth.generate_token)"
+            )
+        self.shared_secret = bytes(shared_secret)
         self.pipe_name = pipe_name
         self._handle = None
         self._lock = threading.Lock()
@@ -318,11 +398,13 @@ class PipeClient:
         self._pywintypes = None
 
     def connect(self, timeout_ms: int = CONNECT_TIMEOUT_MS) -> None:
-        """Open the pipe. Retries until *timeout_ms* elapses.
+        """Open the pipe and complete mutual auth.
 
         The helper's CreateNamedPipe and our CreateFile race at startup;
         if the helper isn't ready yet we get ERROR_FILE_NOT_FOUND and
-        retry after a short sleep.
+        retry after a short sleep. Once the pipe is open, we MUST complete
+        the mutual-auth handshake before any Request frame is sent —
+        see ADR-0001 §6 / auth.handshake_client.
         """
         self._win32pipe, self._win32file, self._pywintypes = _import_win32()
 
@@ -346,8 +428,22 @@ class PipeClient:
                     None,
                     None,
                 )
-                log.info("PipeClient connected to %s", self.pipe_name)
+                log.info("PipeClient connected to %s, running handshake...", self.pipe_name)
+                # Run handshake BEFORE declaring the client usable.
+                self._run_client_handshake()
+                log.info("PipeClient handshake complete — authenticated to helper")
                 return
+            except (AuthenticationError, HandshakeError):
+                # Hard fail on auth: we're talking to the wrong helper
+                # or the secret is stale. Close the handle and raise —
+                # the caller should NOT retry without a fresh token.
+                try:
+                    if self._handle is not None:
+                        self._win32file.CloseHandle(self._handle)
+                        self._handle = None
+                except Exception:
+                    pass
+                raise
             except self._pywintypes.error as e:
                 last_err = e
                 time.sleep(0.05)
@@ -355,6 +451,42 @@ class PipeClient:
         raise TimeoutError(
             f"PipeClient.connect timed out after {timeout_ms} ms: {last_err}"
         )
+
+    def _run_client_handshake(self) -> None:
+        """Run the mutual-auth handshake over the currently open pipe."""
+        if self._handle is None:
+            raise RuntimeError("PipeClient._run_client_handshake before CreateFile")
+
+        def _reader() -> Optional[bytes]:
+            return _read_frame(self._handle, self._win32file, self._pywintypes)
+
+        def _writer(data: bytes) -> None:
+            _write_frame(self._handle, self._win32file, data)
+
+        # Enforce the same timeout budget as the server.
+        exc: list = []
+
+        def _run() -> None:
+            try:
+                handshake_client(self.shared_secret, _reader, _writer)
+            except Exception as e:  # noqa: BLE001 — re-raised on main thread
+                exc.append(e)
+
+        t = threading.Thread(target=_run, name="pipe-handshake-client", daemon=True)
+        t.start()
+        t.join(timeout=HANDSHAKE_TIMEOUT_SEC)
+        if t.is_alive():
+            # Kill the pipe to unblock the background reader, then raise.
+            try:
+                self._win32file.CloseHandle(self._handle)
+            except Exception:
+                pass
+            self._handle = None
+            raise HandshakeError(
+                f"client handshake timed out after {HANDSHAKE_TIMEOUT_SEC}s"
+            )
+        if exc:
+            raise exc[0]
 
     def close(self) -> None:
         with self._lock:

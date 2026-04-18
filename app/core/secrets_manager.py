@@ -193,21 +193,30 @@ def _get_machine_seed() -> str:
         platform.machine(),
         platform.system(),
     ]
-    # Add machine UUID on Windows if available
-    try:
-        import subprocess
-        result = subprocess.run(
-            ["wmic", "csproduct", "get", "UUID"],
-            capture_output=True, text=True, timeout=5,
-        )
-        uuid_line = [
-            stripped for stripped in (raw.strip() for raw in result.stdout.splitlines())
-            if stripped and stripped != "UUID"
-        ]
-        if uuid_line:
-            parts.append(uuid_line[0])
-    except Exception:
-        pass
+    # Optional Windows machine UUID — deliberately NOT spawned via
+    # subprocess. The four parts above already make cross-machine
+    # decryption fail (node+user+machine+system collision is vanishingly
+    # rare in a normal install base). A prior version of this function
+    # shelled out to `wmic csproduct get UUID`, which (a) bypassed
+    # safe_subprocess policy, (b) tripped the offsec bare-subprocess
+    # rule, and (c) depends on wmic.exe, which Microsoft is removing
+    # from Windows 11 24H2+. We now read the UUID passively from the
+    # registry when Windows exposes it, and silently skip on any
+    # failure — the seed's core identity is already strong without it.
+    if os.name == "nt":
+        try:
+            import winreg  # type: ignore[import-not-found]
+            with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Cryptography",
+                0,
+                winreg.KEY_READ | winreg.KEY_WOW64_64KEY,
+            ) as k:
+                machine_guid, _ = winreg.QueryValueEx(k, "MachineGuid")
+                if isinstance(machine_guid, str) and machine_guid:
+                    parts.append(machine_guid)
+        except Exception:
+            pass
     return "|".join(parts)
 
 
