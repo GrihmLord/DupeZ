@@ -128,12 +128,20 @@ def _probe_gpu_usable() -> Tuple[bool, str]:
 
     # ── Probe 2: wmic subprocess ───────────────────────────────────
     try:
-        import subprocess
-        out = subprocess.check_output(
-            ["wmic", "path", "win32_videocontroller", "get",
+        import os as _os
+        from app.core import safe_subprocess as _safe_sp
+        sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
+        wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
+        if not _os.path.isfile(wmic_path):
+            return (False, "wmic-not-found")
+        res = _safe_sp.run(
+            [wmic_path, "path", "win32_videocontroller", "get",
              "name,AdapterRAM", "/format:csv"],
-            timeout=5, stderr=subprocess.DEVNULL, text=True,
+            timeout=5.0,
+            expect_returncode=None,
+            intent="renderer_tier.gpu_probe_wmic",
         )
+        out = res.stdout
         for line in out.splitlines():
             parts = [p.strip() for p in line.split(",")]
             if len(parts) < 3:

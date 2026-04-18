@@ -17,6 +17,7 @@ from __future__ import annotations
 import ipaddress
 import platform
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -36,6 +37,30 @@ from app.logs.logger import (
 )
 from app.network.shared import lookup_vendor
 from app.utils.helpers import _NO_WINDOW, mask_ip
+
+# Phase 4 Pass 3 — route Windows system-binary calls through
+# safe_subprocess so they get absolute System32 paths, CREATE_NO_WINDOW,
+# argv validation, timeouts, and audit events. Guarded import so the
+# module still imports on non-Windows / test environments.
+try:
+    from app.core import safe_subprocess as _safe_sp
+    from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+except Exception:  # pragma: no cover
+    _safe_sp = None  # type: ignore[assignment]
+    _SafeSpErr = Exception  # type: ignore[misc,assignment]
+
+
+def _ip_for_argv(ip: str) -> Optional[str]:
+    """Validate *ip* as IPv4 before passing it as an argv arg.
+
+    Prevents someone who controls the ARP table / ping target from
+    smuggling extra argv tokens. Returns the normalised IP string or
+    None on rejection.
+    """
+    try:
+        return str(ipaddress.IPv4Address(ip.strip()))
+    except (ipaddress.AddressValueError, ValueError):
+        return None
 
 # RFC 1918 private ranges — module-level to avoid recreation per call
 _PRIVATE_RANGES = [
@@ -419,20 +444,30 @@ class EnhancedNetworkScanner(QObject):
 
     def _ping_host(self, ip: str) -> bool:
         """Ping *ip* using the system ping command."""
+        clean_ip = _ip_for_argv(ip)
+        if clean_ip is None:
+            return False
         try:
             if _IS_WINDOWS:
-                cmd = ["ping", "-n", "1", "-w", str(self.timeout * 1000), ip]
-                result = subprocess.run(
-                    cmd, capture_output=True, text=True,
-                    timeout=self.timeout + 1, creationflags=_NO_WINDOW,
+                if _safe_sp is None:
+                    return False
+                ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
+                res = _safe_sp.run(
+                    [ping_path, "-n", "1", "-w",
+                     str(self.timeout * 1000), clean_ip],
+                    timeout=float(self.timeout + 1),
+                    expect_returncode=None,
+                    intent="scanner.ping_host",
                 )
+                return res.returncode == 0
             else:
-                cmd = ["ping", "-c", "1", "-W", str(self.timeout), ip]
+                ping_exe = shutil.which("ping") or "/bin/ping"
+                cmd = [ping_exe, "-c", "1", "-W", str(self.timeout), clean_ip]
                 result = subprocess.run(
                     cmd, capture_output=True, text=True,
                     timeout=self.timeout + 1,
                 )
-            return result.returncode == 0
+                return result.returncode == 0
         except Exception:
             return False
 
@@ -456,17 +491,32 @@ class EnhancedNetworkScanner(QObject):
 
         try:
             # ARP lookup
-            if _IS_WINDOWS:
-                result = subprocess.run(
-                    ["arp", "-a", ip], capture_output=True, text=True,
-                    timeout=5, creationflags=_NO_WINDOW,
-                )
+            clean_ip = _ip_for_argv(ip)
+            if clean_ip is None:
+                return mac, hostname
+            arp_stdout = ""
+            if _IS_WINDOWS and _safe_sp is not None:
+                try:
+                    arp_path = _safe_sp.ARP or _safe_sp.resolve_system_binary("arp")
+                    res = _safe_sp.run(
+                        [arp_path, "-a", clean_ip],
+                        timeout=5.0,
+                        expect_returncode=None,
+                        intent="scanner.arp_query_per_ip",
+                    )
+                    if res.returncode == 0:
+                        arp_stdout = res.stdout
+                except _SafeSpErr:
+                    arp_stdout = ""
             else:
+                arp_exe = shutil.which("arp") or "/usr/sbin/arp"
                 result = subprocess.run(
-                    ["arp", "-n", ip], capture_output=True, text=True, timeout=5,
+                    [arp_exe, "-n", clean_ip], capture_output=True, text=True, timeout=5,
                 )
-            if result.returncode == 0:
-                m = re.search(r"([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}", result.stdout)
+                if result.returncode == 0:
+                    arp_stdout = result.stdout
+            if arp_stdout:
+                m = re.search(r"([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}", arp_stdout)
                 if m:
                     mac = m.group(0)
 
@@ -489,18 +539,21 @@ class EnhancedNetworkScanner(QObject):
                     pass
 
             # 3. NetBIOS fallback (Windows)
-            if hostname == "Unknown" and _IS_WINDOWS:
+            if hostname == "Unknown" and _IS_WINDOWS and _safe_sp is not None:
                 try:
-                    nbt = subprocess.run(
-                        ["nbtstat", "-a", ip], capture_output=True, text=True,
-                        timeout=3, creationflags=_NO_WINDOW,
+                    nbt_path = _safe_sp.resolve_system_binary("nbtstat")
+                    nbt = _safe_sp.run(
+                        [nbt_path, "-a", clean_ip],
+                        timeout=3.0,
+                        expect_returncode=None,
+                        intent="scanner.nbtstat_lookup",
                     )
                     if nbt.returncode == 0:
                         for line in nbt.stdout.splitlines():
                             line = line.strip()
                             if "<00>" in line and "UNIQUE" in line:
                                 name = line.split()[0].strip()
-                                if name and name != ip:
+                                if name and name != clean_ip:
                                     hostname = name
                                     break
                 except Exception:
@@ -644,20 +697,33 @@ class EnhancedNetworkScanner(QObject):
         mac_best: Dict[str, Tuple[str, str, int]] = {}  # mac_lower -> (ip, mac_raw, last_octet)
 
         try:
+            arp_stdout = ""
             if _IS_WINDOWS:
-                result = subprocess.run(
-                    ["arp", "-a"], capture_output=True, text=True,
-                    timeout=5, creationflags=_NO_WINDOW,
-                )
+                if _safe_sp is None:
+                    return []
+                try:
+                    arp_path = _safe_sp.ARP or _safe_sp.resolve_system_binary("arp")
+                    res = _safe_sp.run(
+                        [arp_path, "-a"],
+                        timeout=5.0,
+                        expect_returncode=None,
+                        intent="scanner.arp_table_sweep_windows",
+                    )
+                    if res.returncode != 0:
+                        return []
+                    arp_stdout = res.stdout
+                except _SafeSpErr:
+                    return []
             else:
+                arp_exe = shutil.which("arp") or "/usr/sbin/arp"
                 result = subprocess.run(
-                    ["arp", "-n"], capture_output=True, text=True, timeout=5,
+                    [arp_exe, "-n"], capture_output=True, text=True, timeout=5,
                 )
+                if result.returncode != 0:
+                    return []
+                arp_stdout = result.stdout
 
-            if result.returncode != 0:
-                return []
-
-            for line in result.stdout.splitlines():
+            for line in arp_stdout.splitlines():
                 stripped = line.strip()
                 if not stripped or stripped.startswith("Interface:") or "---" in stripped:
                     continue
@@ -858,17 +924,27 @@ class EnhancedNetworkScanner(QObject):
             now = time.time()
             with self._arp_cache_lock:
                 if now - self._arp_cache_time > self._ARP_CACHE_TTL or not self._arp_cache_ips:
-                    if _IS_WINDOWS:
-                        result = subprocess.run(
-                            ["arp", "-a"], capture_output=True, text=True,
-                            timeout=5, creationflags=_NO_WINDOW,
-                        )
+                    arp_stdout = ""
+                    if _IS_WINDOWS and _safe_sp is not None:
+                        try:
+                            arp_path = _safe_sp.ARP or _safe_sp.resolve_system_binary("arp")
+                            res = _safe_sp.run(
+                                [arp_path, "-a"],
+                                timeout=5.0,
+                                expect_returncode=None,
+                                intent="scanner.arp_cache_refresh",
+                            )
+                            arp_stdout = res.stdout if res.returncode == 0 else ""
+                        except _SafeSpErr:
+                            arp_stdout = ""
                     else:
+                        arp_exe = shutil.which("arp") or "/usr/sbin/arp"
                         result = subprocess.run(
-                            ["arp", "-n"], capture_output=True, text=True, timeout=5,
+                            [arp_exe, "-n"], capture_output=True, text=True, timeout=5,
                         )
-                    if result.returncode == 0:
-                        self._arp_cache_ips = set(self._ARP_IP_RE.findall(result.stdout))
+                        arp_stdout = result.stdout if result.returncode == 0 else ""
+                    if arp_stdout:
+                        self._arp_cache_ips = set(self._ARP_IP_RE.findall(arp_stdout))
                     else:
                         self._arp_cache_ips = set()
                     self._arp_cache_time = now

@@ -135,3 +135,8 @@ app/firewall/clumsy_src/external/**/*.exe
 app/firewall_helper/_build_default.py
 .vercel
 .env*.local
+
+# pip-compile intermediate artifacts — we commit requirements-locked.txt only
+requirements-locked.txt.generated
+requirements-locked.txt.body
+requirements-locked.header

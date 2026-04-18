@@ -931,14 +931,16 @@ class SettingsDialog(QDialog):
 
         try:
             if sys.platform == "win32":
-                # On Windows, use subprocess to spawn a detached process
-                # before we exit, so the new instance outlives us.
-                import subprocess
-                subprocess.Popen(
-                    [exe] + args,
-                    close_fds=True,
-                    creationflags=subprocess.DETACHED_PROCESS
-                    | subprocess.CREATE_NEW_PROCESS_GROUP,
+                # On Windows, spawn a detached successor through
+                # safe_subprocess so argv validation, CREATE_NO_WINDOW,
+                # and audit logging all apply. ``exe`` here is
+                # ``sys.executable`` or the frozen binary itself — already
+                # trusted, so we pass trusted_executable=True.
+                from app.core import safe_subprocess as _safe_sp
+                _safe_sp.spawn_detached(
+                    [exe] + list(args),
+                    trusted_executable=True,
+                    intent="settings_dialog.restart_self",
                 )
             else:
                 # Unix — os.execv replaces the current process

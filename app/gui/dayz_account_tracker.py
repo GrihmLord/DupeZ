@@ -108,26 +108,97 @@ _TEMPLATE_ACCOUNTS: List[Dict[str, str]] = [
     },
 ]
 
-#: Known header synonyms for XLSX column auto-detection.
+#: Known header synonyms / tag-identifiers for CSV+XLSX column auto-detection.
+#:
+#: Keys are already-normalized tokens (see :func:`_normalize_header`). The
+#: normalizer lowercases, strips surrounding whitespace, collapses runs of
+#: punctuation/whitespace to a single space, and trims leading ``#`` / ``@``
+#: tag prefixes, so synonyms like ``"E-Mail"``, ``"E Mail"``, ``"#email"``,
+#: and ``" Email "`` all collapse onto the same key.
 _XLSX_KNOWN_HEADERS: Dict[str, str] = {
-    "account": "account", "name": "account", "player": "account",
-    "email": "email", "e-mail": "email",
-    "location": "location", "loc": "location",
-    "status": "status",
-    "station": "station", "kit": "station",
-    "gear": "gear", "equipment": "gear",
-    "holding": "holding", "inventory": "holding",
-    "loadout": "loadout", "weapons": "loadout",
-    "needs": "needs", "need": "needs",
-    "value": "value",
-    "notes": "notes", "note": "notes", "comment": "notes", "comments": "notes",
+    # account / player
+    "account": "account", "accounts": "account",
+    "name": "account", "player": "account", "username": "account",
+    "character": "account", "character name": "account",
+    "char": "account", "handle": "account", "gamer tag": "account",
+    "user": "account",
+    # email
+    "email": "email", "e mail": "email", "mail": "email",
+    "email address": "email", "contact": "email",
+    # location
+    "location": "location", "loc": "location", "map": "location",
+    "server": "location", "server location": "location",
+    "region": "location", "coords": "location", "coordinates": "location",
+    "where": "location",
+    # status
+    "status": "status", "state": "status", "condition": "status",
+    # station / kit
+    "station": "station", "kit": "station", "role": "station",
+    "class": "station", "build": "station",
+    # gear
+    "gear": "gear", "equipment": "gear", "equip": "gear",
+    "armor": "gear", "armour": "gear",
+    # holding / inventory
+    "holding": "holding", "inventory": "holding", "inv": "holding",
+    "items": "holding", "stash": "holding", "carrying": "holding",
+    # loadout / weapons
+    "loadout": "loadout", "weapons": "loadout", "weapon": "loadout",
+    "guns": "loadout", "primary": "loadout",
+    # needs
+    "needs": "needs", "need": "needs", "wants": "needs",
+    "wishlist": "needs", "todo": "needs", "to do": "needs",
+    # value / tier
+    "value": "value", "tier": "value", "rating": "value",
+    "worth": "value", "priority": "value",
+    # notes
+    "notes": "notes", "note": "notes",
+    "comment": "notes", "comments": "notes", "remarks": "notes",
+    "description": "notes", "desc": "notes",
 }
 
-#: Default column order when no header row is detected.
-_XLSX_DEFAULT_FIELDS: List[str] = [
-    "account", "email", "location", "status", "station",
-    "gear", "holding", "loadout", "needs", "notes",
-]
+#: Default column order when no header row is detected — must match the
+#: positional export order used by :attr:`ACCOUNT_FIELDS` / :attr:`TABLE_HEADERS`.
+_XLSX_DEFAULT_FIELDS: List[str] = list(ACCOUNT_FIELDS)
+
+#: Canonical casing for status values, so case-variant CSV input still
+#: renders with the correct color chip in the table.
+_STATUS_CANON: Dict[str, str] = {s.lower(): s for s in STATUS_OPTIONS}
+
+#: Canonical casing for station / kit values.
+_STATION_CANON: Dict[str, str] = {s.lower(): s for s in STATION_OPTIONS}
+
+
+def _normalize_header(raw: object) -> str:
+    """Return a canonical form of a header cell.
+
+    Lowercases, strips ``#``/``@`` tag prefixes, collapses runs of
+    whitespace or punctuation to a single space, and trims surrounding
+    whitespace. Non-str input is coerced via :func:`str`.
+    """
+    import re as _re
+    if raw is None:
+        return ""
+    s = str(raw).strip().lower()
+    # strip a single leading tag-identifier prefix ("#email", "@notes", ":loc")
+    s = _re.sub(r"^[#@:]+", "", s)
+    # strip a UTF-8 BOM if it slipped through (e.g. ``encoding='utf-8'`` read)
+    if s.startswith("\ufeff"):
+        s = s[1:]
+    # collapse any run of whitespace or punctuation to a single space
+    s = _re.sub(r"[\s\-_./\\|]+", " ", s).strip()
+    return s
+
+
+def _canon_status(val: str) -> str:
+    """Return the canonical-cased status if *val* matches, else *val* as-is."""
+    key = (val or "").strip().lower()
+    return _STATUS_CANON.get(key, val.strip() if isinstance(val, str) else val)
+
+
+def _canon_station(val: str) -> str:
+    """Return the canonical-cased station if *val* matches, else *val* as-is."""
+    key = (val or "").strip().lower()
+    return _STATION_CANON.get(key, val.strip() if isinstance(val, str) else val)
 
 # ── QSS constants ──────────────────────────────────────────────────
 
@@ -1017,11 +1088,11 @@ class DayZAccountTracker(QWidget):
                 for col_idx in range(1, sheet.max_column + 1):
                     cell_val = sheet.cell(row=row_idx, column=col_idx).value
                     if cell_val is not None:
-                        row_vals.append((col_idx, str(cell_val).strip().lower()))
+                        row_vals.append((col_idx, _normalize_header(cell_val)))
 
                 matches = {}
                 for col_idx, val in row_vals:
-                    if val in _XLSX_KNOWN_HEADERS:
+                    if val and val in _XLSX_KNOWN_HEADERS:
                         matches[col_idx] = _XLSX_KNOWN_HEADERS[val]
 
                 if len(matches) >= 2:
@@ -1030,7 +1101,9 @@ class DayZAccountTracker(QWidget):
                     break
 
             if header_row_idx is None:
-                header_row_idx = 1
+                # No recognizable header row — positional fallback.
+                # We start at row 1 so that row 1 is treated as data, not header.
+                header_row_idx = 0
                 for col_idx in range(1, min(len(_XLSX_DEFAULT_FIELDS) + 1, sheet.max_column + 1)):
                     header_map[col_idx] = _XLSX_DEFAULT_FIELDS[col_idx - 1]
 
@@ -1047,14 +1120,17 @@ class DayZAccountTracker(QWidget):
                 cell_a = sheet.cell(row=row_idx, column=1).value
                 if cell_a and 'base' in str(cell_a).strip().lower():
                     cell_b = sheet.cell(row=row_idx, column=2).value
-                    if cell_b is None or str(cell_b).strip().lower() in _XLSX_KNOWN_HEADERS:
+                    if cell_b is None or _normalize_header(cell_b) in _XLSX_KNOWN_HEADERS:
                         bases_start_row = row_idx
                         log_info(f"XLSX bases section detected at row {bases_start_row}")
                         break
 
             account_end_row = bases_start_row if bases_start_row else sheet.max_row + 1
 
-            for row_idx in range(header_row_idx + 1, account_end_row):
+            # When header_row_idx == 0 (positional fallback), start reading at row 1.
+            data_start_row = max(1, header_row_idx + 1)
+
+            for row_idx in range(data_start_row, account_end_row):
                 try:
                     row_data = {}
                     is_empty = True
@@ -1075,6 +1151,12 @@ class DayZAccountTracker(QWidget):
                     if not account_name or len(account_name) < 2:
                         accounts_skipped += 1
                         continue
+
+                    # Canonicalize status / station casing so color chips still match.
+                    if row_data.get('status'):
+                        row_data['status'] = _canon_status(row_data['status'])
+                    if row_data.get('station'):
+                        row_data['station'] = _canon_station(row_data['station'])
 
                     now = datetime.now().isoformat()
                     account_data = {f: row_data.get(f, 'Ready' if f == 'status' else '')
@@ -1147,32 +1229,104 @@ class DayZAccountTracker(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to process XLSX file:\n{e}")
 
     def _process_csv_file(self, file_path: str) -> None:
-        """Import accounts from a CSV file with header-based column mapping."""
+        """Import accounts from a CSV file with header-based column mapping.
+
+        Handles:
+            * UTF-8 BOM (``encoding='utf-8-sig'``) so Excel-exported CSVs
+              round-trip cleanly.
+            * Delimiter sniffing (comma, semicolon, tab, pipe) via
+              :class:`csv.Sniffer` with a comma fallback.
+            * Expanded header synonyms / tag-identifiers via
+              :func:`_normalize_header` + :data:`_XLSX_KNOWN_HEADERS`.
+            * Positional fallback when no header row is recognized,
+              using :data:`_XLSX_DEFAULT_FIELDS` (which now matches
+              :data:`ACCOUNT_FIELDS` exactly).
+            * Canonical casing for ``status`` / ``station`` values so
+              ``"ready"`` from a foreign CSV still renders with the
+              correct color chip.
+        """
         try:
             accounts_imported = 0
             accounts_skipped = 0
+            unmapped_headers: List[str] = []
 
-            with open(file_path, 'r', newline='', encoding='utf-8') as file:
-                reader = csv.DictReader(file)
+            # --- Delimiter sniff on a small probe buffer ---
+            with open(file_path, 'r', newline='', encoding='utf-8-sig',
+                      errors='replace') as probe:
+                sample = probe.read(4096)
+            dialect_delim = ','
+            if sample.strip():
+                try:
+                    dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+                    dialect_delim = dialect.delimiter
+                except csv.Error:
+                    dialect_delim = ','
+
+            with open(file_path, 'r', newline='', encoding='utf-8-sig',
+                      errors='replace') as file:
+                reader = csv.DictReader(file, delimiter=dialect_delim)
 
                 csv_col_map: Dict[str, str] = {}
                 if reader.fieldnames:
                     for col_name in reader.fieldnames:
-                        norm = col_name.strip().lower()
+                        if col_name is None:
+                            continue
+                        norm = _normalize_header(col_name)
                         if norm in _XLSX_KNOWN_HEADERS:
                             csv_col_map[col_name] = _XLSX_KNOWN_HEADERS[norm]
+                        else:
+                            unmapped_headers.append(str(col_name))
 
-                for row_num, row in enumerate(reader, start=2):
+                # Positional fallback: if we recognized no headers but the
+                # file has a row, assume the canonical ACCOUNT_FIELDS order.
+                positional_fallback = False
+                if not csv_col_map and reader.fieldnames:
+                    log_warning(
+                        f"CSV headers unrecognized; falling back to positional "
+                        f"mapping. Unmapped: {reader.fieldnames}"
+                    )
+                    positional_fallback = True
+                    # The DictReader already consumed the first row as headers;
+                    # treat those header cells as the first data row.
+                    first_row_vals = list(reader.fieldnames or [])
+                else:
+                    first_row_vals = None
+
+                def _row_iter():
+                    if positional_fallback and first_row_vals:
+                        yield 1, first_row_vals  # synthetic row from headers
+                    for idx, r in enumerate(reader, start=2):
+                        yield idx, r
+
+                for row_num, row in _row_iter():
                     try:
                         account_data: Dict[str, str] = {f: '' for f in ACCOUNT_FIELDS}
                         account_data['status'] = 'Ready'
-                        for csv_col, field in csv_col_map.items():
-                            val = row.get(csv_col, '')
-                            if val:
-                                account_data[field] = val.strip()
+
+                        if positional_fallback and isinstance(row, list):
+                            for col_idx, val in enumerate(row):
+                                if col_idx >= len(_XLSX_DEFAULT_FIELDS):
+                                    break
+                                field = _XLSX_DEFAULT_FIELDS[col_idx]
+                                if val is not None and str(val).strip():
+                                    account_data[field] = str(val).strip()
+                        else:
+                            for csv_col, field in csv_col_map.items():
+                                val = row.get(csv_col, '') if isinstance(row, dict) else ''
+                                if val:
+                                    account_data[field] = str(val).strip()
+
+                        # Canonicalize status / station casing.
+                        if account_data.get('status'):
+                            account_data['status'] = _canon_status(account_data['status'])
+                        if account_data.get('station'):
+                            account_data['station'] = _canon_station(account_data['station'])
+
                         now = datetime.now().isoformat()
-                        account_data.update(last_seen=now, created_date=now,
-                                            id=f"imported_{accounts_imported + 1}_{datetime.now().timestamp()}")
+                        account_data.update(
+                            last_seen=now, created_date=now,
+                            id=f"imported_{accounts_imported + 1}_{datetime.now().timestamp()}",
+                        )
 
                         if self._try_import_account(account_data):
                             accounts_imported += 1
@@ -1186,14 +1340,18 @@ class DayZAccountTracker(QWidget):
 
             self._refresh_after_import()
 
-            QMessageBox.information(
-                self, "CSV Import Complete",
-                f"Import completed!\n\n"
-                f"Accounts imported: {accounts_imported}\n"
-                f"Accounts skipped: {accounts_skipped}\n\n"
-                f"Total accounts: {len(self.accounts)}",
+            detail = (f"Delimiter: {dialect_delim!r}\n"
+                      f"Accounts imported: {accounts_imported}\n"
+                      f"Accounts skipped: {accounts_skipped}\n\n"
+                      f"Total accounts: {len(self.accounts)}")
+            if unmapped_headers:
+                detail += f"\n\nUnmapped headers (ignored): {', '.join(unmapped_headers)}"
+            QMessageBox.information(self, "CSV Import Complete", detail)
+            log_info(
+                f"CSV import completed: {accounts_imported} imported, "
+                f"{accounts_skipped} skipped, delim={dialect_delim!r}, "
+                f"unmapped={unmapped_headers}"
             )
-            log_info(f"CSV import completed: {accounts_imported} imported, {accounts_skipped} skipped")
 
         except Exception as e:
             log_error(f"Failed to process CSV file: {e}")

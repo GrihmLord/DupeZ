@@ -23,6 +23,14 @@ from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from app.__version__ import __version__
+from app.core import safe_subprocess
+from app.core.safe_subprocess import SafeSubprocessError
+from app.core.secure_http import _get_tls_context, secure_get
+from app.core.update_verify import (
+    SigVerifyError,
+    verify_installer_sha256,
+    verify_manifest,
+)
 from app.logs.logger import log_error, log_info, log_warning
 
 __all__ = [
@@ -110,14 +118,25 @@ def _kill_dupez_processes(exclude_pid: Optional[int] = None) -> None:
     exe_names = {"dupez.exe", "dupez_helper.exe"}
 
     # ── Collect target PIDs via tasklist ──────────────────────────
+    # Routed through safe_subprocess so we get audit-logging and an
+    # absolute System32 path (no PATH hijack surface).
+    try:
+        tasklist_path = safe_subprocess.resolve_system_binary("tasklist")
+    except SafeSubprocessError as e:
+        log_warning(f"tasklist unavailable; skipping pid collection: {e}")
+        return
+
     target_pids: List[int] = []
     for exe in exe_names:
         try:
-            out = subprocess.check_output(
-                ["tasklist", "/FI", f"IMAGENAME eq {exe}", "/FO", "CSV", "/NH"],
-                text=True, timeout=5, creationflags=0x08000000,  # CREATE_NO_WINDOW
+            result = safe_subprocess.run(
+                [tasklist_path, "/FI", f"IMAGENAME eq {exe}",
+                 "/FO", "CSV", "/NH"],
+                timeout=5.0,
+                expect_returncode=None,  # rc=1 if no matches — fine
+                intent="updater.tasklist_scan",
             )
-            for line in out.strip().splitlines():
+            for line in result.stdout.strip().splitlines():
                 parts = line.replace('"', "").split(",")
                 if len(parts) >= 2:
                     try:
@@ -126,7 +145,7 @@ def _kill_dupez_processes(exclude_pid: Optional[int] = None) -> None:
                             target_pids.append(pid)
                     except ValueError:
                         continue
-        except Exception:
+        except SafeSubprocessError:
             continue
 
     if not target_pids:
@@ -339,6 +358,7 @@ class UpdateChecker:
 
         def _worker() -> None:
             self._downloading = True
+            dest: Optional[str] = None
             try:
                 # Determine filename from URL
                 fname = url.rsplit("/", 1)[-1]
@@ -347,12 +367,82 @@ class UpdateChecker:
 
                 dest = os.path.join(tempfile.gettempdir(), fname)
 
+                # ── Phase 1: fetch + verify signed manifest ───────────
+                # The installer cannot be trusted until its SHA-256 has
+                # been verified against a manifest signed by a pinned
+                # Ed25519 key. Fetch the two sidecar artifacts first
+                # (both are small — secure_get enforces TLS 1.3 and a
+                # 32 MB response cap). Any failure here means we refuse
+                # to download the installer at all.
+                manifest_url = url + ".manifest.json"
+                sig_url = url + ".manifest.sig"
+                log_info(f"Fetching signed manifest: {manifest_url}")
+                try:
+                    manifest_bytes = secure_get(
+                        manifest_url,
+                        headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"},
+                        timeout=30,
+                        require_https=True,
+                    )
+                    sig_bytes = secure_get(
+                        sig_url,
+                        headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"},
+                        timeout=30,
+                        require_https=True,
+                    )
+                except Exception as e:
+                    log_error(
+                        f"Update refused: manifest/sig fetch failed: {e}. "
+                        "Release must ship signed manifest artifacts."
+                    )
+                    if on_done:
+                        on_done(
+                            False,
+                            "Update refused: signed manifest not available. "
+                            "Please update manually from the release page.",
+                        )
+                    return
+
+                try:
+                    manifest = verify_manifest(manifest_bytes, sig_bytes)
+                except SigVerifyError as e:
+                    log_error(f"Update refused: manifest signature invalid: {e}")
+                    if on_done:
+                        on_done(False, f"Update refused (signature): {e}")
+                    return
+
+                # Manifest-stated filename must match the URL we were
+                # told to download. Prevents a manifest that authorises
+                # A from being swapped onto a download of B.
+                if manifest.installer_filename.lower() != fname.lower():
+                    log_error(
+                        f"Update refused: manifest filename {manifest.installer_filename!r} "
+                        f"does not match download target {fname!r}"
+                    )
+                    if on_done:
+                        on_done(False, "Update refused: installer filename mismatch")
+                    return
+
+                log_info(
+                    f"Manifest verified: version={manifest.version}, "
+                    f"installer={manifest.installer_filename}, "
+                    f"sha256={manifest.installer_sha256[:16]}…, "
+                    f"size={manifest.installer_size}"
+                )
+
+                # ── Phase 2: stream-download the installer ────────────
                 log_info(f"Downloading update: {url} → {dest}")
 
-                # Download with progress
+                # Use the hardened TLS context so the installer
+                # download enforces TLS 1.3 and validates certs.
                 req = Request(url, headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"})
-                resp = urlopen(req, timeout=60)
-                total = int(resp.headers.get("Content-Length", 0))
+                ctx = _get_tls_context() if url.startswith("https://") else None
+                resp = urlopen(req, timeout=60, context=ctx)
+                total = int(resp.headers.get("Content-Length", 0)) or manifest.installer_size
+                # Hard cap: refuse to write more than the manifest says.
+                # Prevents an over-long response from filling disk before
+                # the hash check runs.
+                size_cap = manifest.installer_size
                 downloaded = 0
                 chunk_size = 1024 * 64  # 64 KB chunks
 
@@ -361,6 +451,11 @@ class UpdateChecker:
                         chunk = resp.read(chunk_size)
                         if not chunk:
                             break
+                        if downloaded + len(chunk) > size_cap:
+                            raise SigVerifyError(
+                                f"installer stream exceeded signed size "
+                                f"{size_cap} at {downloaded + len(chunk)}"
+                            )
                         f.write(chunk)
                         downloaded += len(chunk)
                         if on_progress:
@@ -368,7 +463,21 @@ class UpdateChecker:
 
                 log_info(f"Download complete: {dest} ({downloaded} bytes)")
 
-                # Strip MOTW from the downloaded installer
+                # ── Phase 3: verify installer bytes against manifest ──
+                try:
+                    verify_installer_sha256(dest, manifest)
+                except SigVerifyError as e:
+                    log_error(f"Update refused: installer hash mismatch: {e}")
+                    if on_done:
+                        on_done(False, f"Update refused (hash): {e}")
+                    return
+
+                log_info(
+                    "Installer hash verified against signed manifest — "
+                    "safe to launch."
+                )
+
+                # Strip MOTW from the now-verified installer
                 try:
                     motw_path = dest + ":Zone.Identifier"
                     if os.path.exists(motw_path):
@@ -381,15 +490,25 @@ class UpdateChecker:
                 _kill_dupez_processes(exclude_pid=os.getpid())
 
                 # Launch the installer (it will upgrade in-place thanks to
-                # same AppId and UsePreviousAppDir=yes in installer.iss)
+                # same AppId and UsePreviousAppDir=yes in installer.iss).
+                #
+                # trusted_executable=True: `dest` is a temp path we wrote
+                # ourselves AFTER signature + SHA-256 verification in the
+                # preceding lines — it is guaranteed-existent and known-good.
+                # safe_subprocess.spawn_detached still enforces argv shape
+                # validation and audits the spawn.
                 log_info(f"Launching installer: {dest}")
-                subprocess.Popen(
+                safe_subprocess.spawn_detached(
                     [dest, "/SILENT", "/CLOSEAPPLICATIONS"],
-                    creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
+                    trusted_executable=True,
+                    intent="updater.launch_verified_installer",
                 )
+                # Handoff completed — do NOT delete `dest` in the finally
+                # block: the installer we just launched is still reading it.
+                dest = None
 
                 if on_done:
-                    on_done(True, dest)
+                    on_done(True, os.path.join(tempfile.gettempdir(), fname))
 
                 # Give the callback a moment to fire (e.g. update UI),
                 # then exit this process so our own exe is unlocked for
@@ -398,11 +517,24 @@ class UpdateChecker:
                 time.sleep(0.5)
                 os._exit(0)
 
+            except SigVerifyError as exc:
+                log_error(f"Update signature verification failed: {exc}")
+                if on_done:
+                    on_done(False, f"Update refused (signature): {exc}")
             except Exception as exc:
                 log_error(f"Update download failed: {exc}")
                 if on_done:
                     on_done(False, str(exc))
             finally:
+                # If we bailed out before launching the installer, wipe
+                # the partially-downloaded or rejected file so nothing
+                # can pick it up out of band.
+                if dest is not None:
+                    try:
+                        if os.path.exists(dest):
+                            os.remove(dest)
+                    except Exception:
+                        pass
                 self._downloading = False
 
         threading.Thread(target=_worker, daemon=True, name="UpdateDownload").start()

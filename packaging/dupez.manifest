@@ -3,7 +3,7 @@
           xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
 
   <assemblyIdentity
-      version="5.6.1.0"
+      version="5.6.2.0"
       processorArchitecture="amd64"
       name="DupeZ.NetworkTool"
       type="win32" />

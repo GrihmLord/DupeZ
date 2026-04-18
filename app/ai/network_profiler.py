@@ -18,6 +18,7 @@ what settings will be most effective against THIS specific connection.
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import sys
 import time
@@ -26,9 +27,23 @@ import threading
 import statistics
 import subprocess
 from dataclasses import dataclass, field, asdict
-from typing import List
+from typing import List, Optional
 from app.logs.logger import log_info, log_error
 from app.utils.helpers import mask_ip, _NO_WINDOW
+
+try:
+    from app.core import safe_subprocess as _safe_sp
+    from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+except Exception:  # pragma: no cover
+    _safe_sp = None  # type: ignore[assignment]
+    _SafeSpErr = Exception  # type: ignore[misc,assignment]
+
+
+def _safe_ipv4(host: str) -> Optional[str]:
+    try:
+        return str(ipaddress.IPv4Address(str(host).strip()))
+    except (ipaddress.AddressValueError, ValueError):
+        return None
 
 __all__ = ["NetworkProfile", "NetworkProfiler"]
 
@@ -155,15 +170,19 @@ class NetworkProfiler:
     def _probe_ping(self, profile: NetworkProfile) -> None:
         """Send ICMP pings via system ping command and parse results."""
         try:
-            # Windows ping: -n count, -w timeout_ms
-            cmd = ["ping", "-n", str(self.ping_count),
-                   "-w", str(int(self.ping_timeout * 1000)),
-                   profile.target_ip]
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=30,
-                creationflags=_NO_WINDOW,
+            clean_ip = _safe_ipv4(profile.target_ip)
+            if clean_ip is None or _safe_sp is None:
+                return
+            ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
+            res = _safe_sp.run(
+                [ping_path, "-n", str(self.ping_count),
+                 "-w", str(int(self.ping_timeout * 1000)),
+                 clean_ip],
+                timeout=30.0,
+                expect_returncode=None,
+                intent="network_profiler.ping_burst",
             )
-            output = result.stdout
+            output = res.stdout
 
             # Parse RTT values from "time=XXms" or "time<1ms"
             rtt_matches = re.findall(r'time[=<](\d+)ms', output)

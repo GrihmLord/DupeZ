@@ -255,6 +255,8 @@ The deep-research release. All 7 deep-research phases implemented: statistical d
 - [x] **v5.4.0** — Account Tracker overhaul (multi-select, context menu, filter chips, notes, bulk ops with scope, export-subset), GPU auto-detection fallback, About/Help rewrites, nav-button theme-switch hardening, rainbow auto-animate, six v5.3.0 regression fixes.
 - [x] **v5.5.0** — WiFi same-network ARP-spoof mode, `CollapsibleCard` extraction, `ml_classifier` PRNG refactor, deprecated Dupe Engine v1 removal.
 - [x] **v5.6.0** — MAC-spoof spike (gateway-facing opcode 1+2 with L2 target-MAC impersonation), A2S cut verifier plumbed into episode recorder (`cut_verified` events + `max_cut_state` on `engine_stop`), `LearningLoop.cut_effectiveness` severance aggregation, full scapy MANUFDB vendor fallback (~35k OUI), end-to-end smoketest tool.
+- [x] **v5.6.1** — Updater stability: equal-tag short-circuit in `UpdateChecker.check_sync` to suppress spurious re-prompts; `installer_url` pinned to the stable versionless `releases/latest/download/DupeZ_Setup.exe` alias; `dupez.manifest` / `dupez_compat.manifest` versions resynced from stale `5.5.0.0`.
+- [x] **v5.6.2** — Nation-state hardening. Closed §9.2 with the SP 800-63B / CNSA 2.0 second-factor gate (`app/core/second_factor.py`) wired into elevation, plugin loader, and offsec runner. Auto-update fail-closed behind pinned Ed25519 signed-manifest verification (`app/core/update_verify.py` + `scripts/sign-release.py`). Fixed DayZ tracker CSV/XLSX import (BOM, delimiter sniffing, header synonyms, off-by-one). Routed offsec CLI INFO chatter to stderr. New pytest suite + Windows CI matrix. Cert: **CERTIFIED — Nation-State Grade**.
 
 ---
 

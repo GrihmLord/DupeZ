@@ -9,10 +9,42 @@ from __future__ import annotations
 
 import ctypes
 import os
+import re
 import sys
 import traceback
 
 __all__ = ["dump_crash", "main"]
+
+
+# ── Crash-dump PII scrubber (H5) ─────────────────────────────────────
+# Tracebacks contain absolute filesystem paths — under Python these
+# routinely include the developer's home directory (``C:\Users\<name>``
+# or ``/home/<name>``). When users attach FATAL_CRASH.txt to a bug
+# report or post it in Discord, those paths leak the Windows username
+# and any directory names off of it. Scrub before writing.
+
+# Patterns redact the user component while keeping the traceback
+# structurally useful (file name, line number, code snippet all remain).
+_PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    # C:\Users\<name>\...   →   C:\Users\<REDACTED>\...
+    (re.compile(r"(?i)([A-Z]:\\Users\\)[^\\/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+    # /Users/<name>/...     →   /Users/<REDACTED>/...
+    (re.compile(r"(/Users/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+    # /home/<name>/...      →   /home/<REDACTED>/...
+    (re.compile(r"(/home/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+)
+
+
+def _scrub_traceback(text: str) -> str:
+    """Redact home-directory usernames from traceback output.
+
+    Keeps file basenames, line numbers and code context so the dump is
+    still useful for post-mortem analysis, but removes the OS username
+    so crash reports are safe to share verbatim.
+    """
+    for pat, repl in _PII_PATTERNS:
+        text = pat.sub(repl, text)
+    return text
 
 
 def _get_pythonw() -> str:
@@ -25,15 +57,23 @@ def _get_pythonw() -> str:
 
 
 def dump_crash(exctype, value, tb) -> None:
-    """Write unhandled exception to FATAL_CRASH.txt for post-mortem."""
+    """Write unhandled exception to FATAL_CRASH.txt for post-mortem.
+
+    Paths are scrubbed of OS username before being written to disk so
+    the file is safe to share in bug reports. The original (un-scrubbed)
+    traceback still reaches stderr via ``sys.__excepthook__`` for
+    developer-side debugging.
+    """
     try:
         crash_dir = (
             os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
             else os.getcwd()
         )
         crash_file = os.path.join(crash_dir, "FATAL_CRASH.txt")
+        raw = "".join(traceback.format_exception(exctype, value, tb))
+        scrubbed = _scrub_traceback(raw)
         with open(crash_file, "w", encoding="utf-8") as f:
-            f.write("".join(traceback.format_exception(exctype, value, tb)))
+            f.write(scrubbed)
     except Exception:
         pass
     sys.__excepthook__(exctype, value, tb)
@@ -45,8 +85,36 @@ sys.excepthook = dump_crash
 if getattr(sys, "frozen", False):
     os.chdir(os.path.dirname(sys.executable))
 
-# Chromium refuses to render under Administrator without this
-os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+# ── Startup hardening (H6) ───────────────────────────────────────────
+# Call SetDefaultDllDirectories BEFORE any import that triggers a
+# LoadLibrary: PyQt6 pulls Chromium, Chromium loads ~60 .dlls, and a
+# single attacker-controlled CWD resolution there is a sideload win.
+# Keep this block above every third-party import.
+try:
+    from app.core.self_integrity import apply_startup_hardening as _apply_hardening
+    _apply_hardening()
+except Exception:
+    # Never crash the app because hardening couldn't load — the offsec
+    # layer will catch the regression in its next detection_coverage run.
+    pass
+
+# ── QtWebEngine sandbox gating (H6) ──────────────────────────────────
+# Chromium refuses to render under Administrator (High-IL) without
+# disabling its inner sandbox — mandatory for the Compat variant and
+# the legacy in-proc path. Under split mode the GUI is Medium-IL and
+# the Chromium sandbox MUST stay enabled; disabling it pointlessly
+# reduces the defense-in-depth around iZurvive's embedded map context.
+def _should_disable_qt_sandbox() -> bool:
+    # Split mode never elevates the GUI → keep Chromium sandbox on.
+    arch = os.environ.get("DUPEZ_ARCH", "").strip().lower()
+    if arch == "split":
+        return False
+    # In-proc / Compat path runs High-IL → Chromium requires sandbox off.
+    return True
+
+
+if _should_disable_qt_sandbox():
+    os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QCoreApplication, Qt

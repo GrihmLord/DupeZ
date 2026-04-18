@@ -24,6 +24,17 @@ from app.plugins.base import (
     ScannerPlugin,
     UIPanelPlugin,
 )
+from app.plugins.sandbox import (
+    SandboxViolation,
+    activate_sandbox,
+    plugin_scope,
+)
+from app.plugins.signing import (
+    PluginSigError,
+    PluginSigState,
+    SignedPluginManifest,
+    verify_plugin_manifest,
+)
 
 __all__ = [
     "MANIFEST_VERSION",
@@ -50,9 +61,21 @@ TYPE_CLASS_MAP: Dict[str, Type[PluginBase]] = {
 }
 
 class PluginManifest:
-    """Parsed and validated plugin manifest."""
+    """Parsed and validated plugin manifest.
 
-    def __init__(self, data: Dict, plugin_dir: str) -> None:
+    Carries the signature-verification state
+    (:class:`PluginSigState`) alongside the parsed fields so callers can
+    render a "verified vs dev-unsigned" badge in the UI and refuse to
+    activate anything outside those two states.
+    """
+
+    def __init__(
+        self,
+        data: Dict,
+        plugin_dir: str,
+        *,
+        signed: Optional[SignedPluginManifest] = None,
+    ) -> None:
         self.name: str = data["name"]
         self.version: str = data["version"]
         self.description: str = data["description"]
@@ -63,9 +86,19 @@ class PluginManifest:
         self.min_dupez_version: str = data.get("min_dupez_version", "4.0.0")
         self.dependencies: List[str] = data.get("dependencies", [])
         self.plugin_dir: str = plugin_dir
+        self.capabilities: frozenset = (
+            signed.capabilities if signed else frozenset()
+        )
+        self.sig_state: PluginSigState = (
+            signed.sig_state if signed else PluginSigState.REJECTED
+        )
+        self.entry_sha384: str = signed.entry_sha384 if signed else ""
 
     def __repr__(self) -> Any:
-        return f"<PluginManifest {self.name} v{self.version} ({self.plugin_type})>"
+        return (
+            f"<PluginManifest {self.name} v{self.version} "
+            f"({self.plugin_type}) {self.sig_state.value}>"
+        )
 
 class LoadedPlugin:
     """Container for a loaded plugin instance + its manifest."""
@@ -112,6 +145,10 @@ class PluginLoader:
         self.plugins: Dict[str, LoadedPlugin] = {}        # name -> loaded plugin
         self._controller = None
 
+        # Install the capability sandbox exactly once. Safe to call
+        # repeatedly — internal flag guards against double-install.
+        activate_sandbox()
+
     # Discovery
     def discover(self) -> List[PluginManifest]:
         """Scan plugins directory for valid plugin folders with manifest.json."""
@@ -143,7 +180,47 @@ class PluginLoader:
         return found
 
     def _parse_manifest(self, path: str, plugin_dir: str) -> Optional[PluginManifest]:
-        """Parse and validate a manifest.json file."""
+        """Parse, signature-verify, and validate a manifest.json file.
+
+        All plugins MUST pass :func:`verify_plugin_manifest` first:
+        that call enforces Ed25519 signature over the canonical
+        manifest bytes, pinned-pubkey fingerprint match, and the
+        entry-file SHA-384 pinning. Only dev-mode builds
+        (``DUPEZ_PLUGIN_DEV_MODE=1``) can skip the signature check,
+        and such plugins are marked :attr:`PluginSigState.DEV_UNSIGNED`
+        and audited loudly. Anything else is rejected before parsing.
+        """
+        # ── Signature verification ( first ) ───────────────────
+        try:
+            signed = verify_plugin_manifest(path)
+        except PluginSigError as e:
+            log_error(f"Plugin at {plugin_dir!r} REJECTED: {e}")
+            try:
+                from app.logs.audit import audit_event
+                audit_event("plugin_sig_rejected", {
+                    "plugin_dir": os.path.basename(plugin_dir),
+                    "reason": str(e),
+                })
+            except Exception:
+                pass
+            return None
+        if signed.sig_state == PluginSigState.DEV_UNSIGNED:
+            log_warning(
+                f"Plugin '{signed.name}' loaded as DEV_UNSIGNED — "
+                "signature skipped (DUPEZ_PLUGIN_DEV_MODE=1). This is not "
+                "safe for production builds."
+            )
+            try:
+                from app.logs.audit import audit_event
+                audit_event("plugin_unsigned_loaded", {
+                    "name": signed.name,
+                    "version": signed.version,
+                    "capabilities": sorted(signed.capabilities),
+                })
+            except Exception:
+                pass
+
+        # ── Now re-parse the raw manifest to build the legacy dict ──
         try:
             with open(path, "rb") as f:
                 raw = f.read()
@@ -198,13 +275,46 @@ class PluginLoader:
             log_error(f"Manifest at {path} references missing entry_point: {entry_point}")
             return None
 
-        return PluginManifest(data, plugin_dir)
+        return PluginManifest(data, plugin_dir, signed=signed)
 
     # Loading
+    def _enforce_second_factor(self, scope: str, reason: str) -> bool:
+        """§9.2 gate. Returns True iff the load may proceed.
+
+        Quietly passes on first-boot installs (no provider enrolled).
+        Refuses (logs + returns False) on enrolled installs that fail
+        verification or that have hit the rate limiter.
+        """
+        if os.environ.get("DUPEZ_SECOND_FACTOR_DISABLED") == "1":
+            return True
+        try:
+            from app.core.second_factor import (
+                SecondFactorRequired,
+                get_gate,
+            )
+        except Exception as e:
+            log_warning(f"second-factor gate unavailable, allowing: {e}")
+            return True
+        gate = get_gate()
+        if not gate.is_enrolled():
+            return True
+        try:
+            gate.require(scope, reason=reason)
+            return True
+        except SecondFactorRequired as e:
+            log_error(f"plugin load refused by second-factor gate: {e}")
+            return False
+
     def load_all(self, controller) -> List[LoadedPlugin]:
         """Load and activate all discovered plugins."""
         self._controller = controller
         loaded = []
+
+        if self.manifests and not self._enforce_second_factor(
+            "plugin_install", reason=f"load {len(self.manifests)} plugin(s)"
+        ):
+            log_error("Plugin load_all aborted: second-factor verification failed")
+            return loaded
 
         for name, manifest in self.manifests.items():
             plugin = self._load_plugin(manifest)
@@ -223,6 +333,12 @@ class PluginLoader:
         manifest = self.manifests.get(name)
         if not manifest:
             log_error(f"Plugin '{name}' not found in discovered manifests")
+            return None
+
+        if not self._enforce_second_factor(
+            "plugin_install", reason=f"load plugin {name!r}"
+        ):
+            log_error(f"Plugin {name!r} load aborted: second-factor verification failed")
             return None
 
         plugin = self._load_plugin(manifest)
@@ -299,15 +415,39 @@ class PluginLoader:
                 sys.modules.pop(module_name, None)
                 return None
 
-            # Instantiate and activate
+            # Instantiate and activate INSIDE the capability sandbox.
+            # The sandbox audit-hook mediates syscall-level events
+            # (socket/subprocess/exec/open-for-write) and raises
+            # SandboxViolation when the plugin attempts an op it didn't
+            # declare a matching capability for.
             instance = plugin_class()
-            success = instance.activate(self._controller)
+            with plugin_scope(manifest.name, manifest.capabilities):
+                try:
+                    success = instance.activate(self._controller)
+                except SandboxViolation as sv:
+                    log_error(
+                        f"Plugin '{manifest.name}' blocked by sandbox: {sv}"
+                    )
+                    try:
+                        from app.logs.audit import audit_event
+                        audit_event("plugin_sandbox_violation", {
+                            "name": manifest.name,
+                            "reason": str(sv),
+                        })
+                    except Exception:
+                        pass
+                    sys.modules.pop(module_name, None)
+                    return None
 
             loaded = LoadedPlugin(manifest, instance, module_name=module_name)
             loaded.active = success
 
             if success:
-                log_info(f"Plugin '{manifest.name}' activated successfully")
+                log_info(
+                    f"Plugin '{manifest.name}' activated "
+                    f"[{manifest.sig_state.value}] "
+                    f"caps={sorted(manifest.capabilities) or 'none'}"
+                )
             else:
                 loaded.error = "activate() returned False"
                 log_warning(f"Plugin '{manifest.name}' activate() returned False")
@@ -385,6 +525,8 @@ class PluginLoader:
                 "loaded": loaded is not None,
                 "active": loaded.active if loaded else False,
                 "error": loaded.error if loaded else None,
+                "sig_state": manifest.sig_state.value,
+                "capabilities": sorted(manifest.capabilities),
             })
         return info
 

@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import pickle
+from app.core.model_integrity import save_artefact as _save_signed_artefact
 import statistics
 import sys
 import time
@@ -206,9 +206,10 @@ def train(
         "real_only": real_only,
     }
 
-    model_out.parent.mkdir(parents=True, exist_ok=True)
-    with open(model_out, "wb") as fp:
-        pickle.dump(artefact, fp)
+    # Signs the artefact with the model-integrity HMAC-SHA384 key so
+    # the inference loader (model_integrity.load_artefact) will accept
+    # it. An unsigned .pkl produced by a hand-edit is refused on load.
+    _save_signed_artefact(artefact, model_out)
 
     return {
         "n_samples": len(y),

@@ -9,13 +9,15 @@ so they can be enumerated and cleaned up reliably.
 
 from __future__ import annotations
 
-import subprocess
 import threading
 import time
 from typing import Dict, List
 
+from app.core import safe_subprocess as _safe_sp
+from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+from app.core.validation import validate_ip as _validate_ip
 from app.logs.logger import log_error, log_info, log_warning
-from app.utils.helpers import _NO_WINDOW, is_admin, mask_ip
+from app.utils.helpers import is_admin, mask_ip
 
 __all__ = [
     "block_device",
@@ -32,20 +34,36 @@ __all__ = [
 
 # ── netsh helper ──────────────────────────────────────────────────────
 
-def _netsh(*args: str, timeout: int = 3) -> bool:
+def _resolve_netsh() -> str:
+    """Resolve netsh's absolute System32 path once per call.
+
+    Cached via the module-level constant when import-time resolution
+    succeeded; otherwise re-resolves on demand (unusual installs).
+    """
+    if _safe_sp.NETSH:
+        return _safe_sp.NETSH
+    return _safe_sp.resolve_system_binary("netsh")
+
+
+def _netsh(*args: str, timeout: int = 3, intent: str = "blocker.netsh") -> bool:
     """Run a ``netsh advfirewall firewall`` command.
 
-    Returns True only when the process exits with code 0.
+    Routed through safe_subprocess so the System32 path, CREATE_NO_WINDOW
+    flag, argv-list policy, and exit-code audit all apply. Returns True
+    only when netsh exits with code 0.
     """
     try:
-        result = subprocess.run(
-            ["netsh", "advfirewall", "firewall", *args],
-            capture_output=True, text=True, timeout=timeout,
-            creationflags=_NO_WINDOW,
+        netsh_path = _resolve_netsh()
+        res = _safe_sp.run(
+            [netsh_path, "advfirewall", "firewall", *args],
+            timeout=float(timeout),
+            expect_returncode=None,  # non-zero is a soft failure, not a raise
+            intent=intent,
         )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        log_warning(f"netsh timed out after {timeout}s: {' '.join(args[:3])}")
+        return res.returncode == 0
+    except _SafeSpErr as e:
+        # Timed out or argv policy violation — both surface as SafeSubprocessError.
+        log_warning(f"netsh failed ({intent}): {e}")
         return False
     except Exception as e:
         log_error(f"netsh execution error: {e}")
@@ -87,6 +105,15 @@ def block_device(ip: str, block: bool = True) -> bool:
     `inproc` mode, the function body below runs unchanged.
     """
     try:
+        # Strict IP validation — netsh's ``remoteip=`` keyword parser is
+        # tolerant of odd inputs; we reject anything that isn't a clean
+        # IPv4 literal to foreclose argv-injection style abuse.
+        clean_ip = _validate_ip(ip)
+        if clean_ip is None:
+            log_error(f"block_device: rejected malformed IP {ip!r}")
+            return False
+        ip = clean_ip
+
         # Feature-flag routing — see ADR-0001 §11. The lazy import keeps
         # the inproc path from touching any helper module at import time.
         from app.firewall_helper.feature_flag import is_split_mode
@@ -108,9 +135,11 @@ def block_device(ip: str, block: bool = True) -> bool:
         if block:
             ok = (
                 _netsh("add", "rule", f"name={base}_In", "dir=in",
-                       "action=block", f"remoteip={ip}", "enable=yes")
+                       "action=block", f"remoteip={ip}", "enable=yes",
+                       intent="blocker.add_inbound_block")
                 and _netsh("add", "rule", f"name={base}_Out", "dir=out",
-                           "action=block", f"remoteip={ip}", "enable=yes")
+                           "action=block", f"remoteip={ip}", "enable=yes",
+                           intent="blocker.add_outbound_block")
             )
             if ok:
                 _throttled_log(f"Blocked device: {mask_ip(ip)} (TEMPORARY)")
@@ -119,8 +148,10 @@ def block_device(ip: str, block: bool = True) -> bool:
             return ok
         else:
             ok = (
-                _netsh("delete", "rule", f"name={base}_In")
-                and _netsh("delete", "rule", f"name={base}_Out")
+                _netsh("delete", "rule", f"name={base}_In",
+                       intent="blocker.delete_inbound_block")
+                and _netsh("delete", "rule", f"name={base}_Out",
+                           intent="blocker.delete_outbound_block")
             )
             if ok:
                 _throttled_log(f"Unblocked device: {mask_ip(ip)}")
@@ -144,6 +175,11 @@ def is_ip_blocked(ip: str) -> bool:
     ADR-0001: forwarded to helper under `DUPEZ_ARCH=split`.
     """
     try:
+        clean_ip = _validate_ip(ip)
+        if clean_ip is None:
+            return False
+        ip = clean_ip
+
         from app.firewall_helper.feature_flag import is_split_mode
         if is_split_mode():
             from app.firewall_helper.ipc_client import get_proxy_manager
@@ -153,13 +189,15 @@ def is_ip_blocked(ip: str) -> bool:
         if platform.system() != "Windows":
             return False
 
-        result = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "show", "rule",
+        netsh_path = _resolve_netsh()
+        res = _safe_sp.run(
+            [netsh_path, "advfirewall", "firewall", "show", "rule",
              f"name={_rule_base(ip)}_In"],
-            capture_output=True, text=True, timeout=5,
-            creationflags=_NO_WINDOW,
+            timeout=5.0,
+            expect_returncode=None,
+            intent="blocker.show_rule_for_ip",
         )
-        return "No rules match the specified criteria" not in result.stdout
+        return "No rules match the specified criteria" not in res.stdout
     except Exception:
         return False
 
@@ -187,14 +225,16 @@ def clear_all_dupez_blocks() -> bool:
             log_error("Firewall clearing is only implemented for Windows")
             return False
 
-        result = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "show", "rule", "name=all"],
-            capture_output=True, text=True, timeout=10,
-            creationflags=_NO_WINDOW,
+        netsh_path = _resolve_netsh()
+        res = _safe_sp.run(
+            [netsh_path, "advfirewall", "firewall", "show", "rule", "name=all"],
+            timeout=10.0,
+            expect_returncode=None,
+            intent="blocker.enumerate_all_rules",
         )
 
         rule_names: List[str] = []
-        for line in result.stdout.splitlines():
+        for line in res.stdout.splitlines():
             if "Rule Name:" in line and "DupeZBlock" in line:
                 name = line.split("Rule Name:")[1].strip()
                 rule_names.append(name)
@@ -203,12 +243,16 @@ def clear_all_dupez_blocks() -> bool:
             log_info("No DupeZ firewall blocks to clear")
             return True
 
-        deleted = sum(1 for name in rule_names if _netsh("delete", "rule", f"name={name}"))
+        deleted = sum(
+            1 for name in rule_names
+            if _netsh("delete", "rule", f"name={name}",
+                      intent="blocker.delete_rule_by_name")
+        )
         log_info(f"Cleared {deleted}/{len(rule_names)} DupeZ firewall blocks")
         return True
 
-    except subprocess.TimeoutExpired:
-        log_error("Timeout enumerating firewall rules for cleanup")
+    except _SafeSpErr as e:
+        log_error(f"Error enumerating firewall rules for cleanup: {e}")
         return False
     except Exception as e:
         log_error(f"Error clearing firewall blocks: {e}", exception=e)
@@ -233,14 +277,16 @@ def get_blocked_ips() -> List[str]:
         if platform.system() != "Windows":
             return []
 
-        result = subprocess.run(
-            ["netsh", "advfirewall", "firewall", "show", "rule", "name=all"],
-            capture_output=True, text=True, timeout=10,
-            creationflags=_NO_WINDOW,
+        netsh_path = _resolve_netsh()
+        res = _safe_sp.run(
+            [netsh_path, "advfirewall", "firewall", "show", "rule", "name=all"],
+            timeout=10.0,
+            expect_returncode=None,
+            intent="blocker.list_blocked_ips",
         )
 
         blocked_ips: List[str] = []
-        for line in result.stdout.splitlines():
+        for line in res.stdout.splitlines():
             if "Rule Name:" in line and "DupeZBlock" in line and "_In" in line:
                 rule_name = line.split("Rule Name:")[1].strip()
                 ip = (rule_name

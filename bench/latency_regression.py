@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import statistics
 import sys
 import time
 from typing import Callable, List
@@ -176,6 +175,7 @@ def run_real_pipe(iters: int, pipe_name: str) -> None:
     four ops as the loopback path so the numbers line up directly.
     """
     print(f"\n[split/real-pipe] via {pipe_name}, iters={iters}")
+    from app.firewall_helper.auth import read_and_consume_token_sentinel
     from app.firewall_helper.transport import PipeClient
     from app.firewall_helper.protocol import (
         Request,
@@ -186,7 +186,19 @@ def run_real_pipe(iters: int, pipe_name: str) -> None:
         OP_HOTKEY_TRIGGER,
     )
 
-    client = PipeClient(pipe_name=pipe_name)
+    # The bench needs the same shared secret the live GUI uses. In
+    # practice we rely on the user having started the helper via the
+    # GUI (which wrote the sentinel) OR on manually dropping a
+    # matching token into the sentinel path before running the bench.
+    secret = read_and_consume_token_sentinel()
+    if not secret:
+        raise RuntimeError(
+            "latency_regression: no auth sentinel found. Start the helper "
+            "from the GUI first, or write a 32-byte token to "
+            "%LOCALAPPDATA%\\DupeZ\\helper_auth.tok before running this bench."
+        )
+
+    client = PipeClient(shared_secret=secret, pipe_name=pipe_name)
     client.connect(timeout_ms=5000)
     # Handshake sanity check.
     resp = client.call(Request(op=OP_PING))

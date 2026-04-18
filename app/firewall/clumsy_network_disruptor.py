@@ -38,6 +38,18 @@ import threading
 import subprocess
 import traceback
 import ctypes
+
+# Phase 4 Pass 3: route process launches through safe_subprocess for
+# System32 path-pinning, audit events, and timeouts. We still need
+# subprocess.Popen for the long-running clumsy.exe child (we keep a live
+# .poll()/.kill() handle on it), so we keep the direct import — but every
+# *one-shot* taskkill/ping/etc. goes through the wrapper.
+try:
+    from app.core import safe_subprocess as _safe_sp
+    from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
+except Exception:
+    _safe_sp = None  # type: ignore[assignment]
+    _SafeSpErr = Exception  # type: ignore[misc,assignment]
 from ctypes import wintypes
 from typing import Any, Dict, List, Optional
 from app.logs.logger import log_info, log_error
@@ -302,17 +314,24 @@ def _hide_window(hwnd) -> bool:
 def _kill_all_clumsy() -> None:
     """Kill every running clumsy.exe — only one can hold the WinDivert handle."""
     try:
-        result = subprocess.run(
-            ["taskkill", "/F", "/IM", "clumsy.exe"],
-            capture_output=True, timeout=3,
-            creationflags=CREATE_NO_WINDOW,
+        if _safe_sp is None:
+            log_info("safe_subprocess unavailable — skipping taskkill sweep")
+            return
+        taskkill_path = _safe_sp.resolve_system_binary("taskkill")
+        res = _safe_sp.run(
+            [taskkill_path, "/F", "/IM", "clumsy.exe"],
+            timeout=3.0,
+            expect_returncode=None,  # rc=128 when no match — fine
+            intent="clumsy.kill_all_preexisting",
         )
-        out = (result.stdout or b"").decode(errors="ignore").strip()
+        out = (res.stdout or "").strip()
         if "SUCCESS" in out.upper():
             log_info(f"Killed existing clumsy.exe: {out}")
             time.sleep(0.05)  # Minimal pause — handle releases fast
         else:
             log_info("No existing clumsy.exe to kill")
+    except _SafeSpErr as e:
+        log_info(f"taskkill clumsy.exe: {e} (probably not running)")
     except Exception as e:
         log_info(f"taskkill clumsy.exe: {e} (probably not running)")
 class ClumsyEngine:
@@ -413,9 +432,30 @@ class ClumsyEngine:
             log_info(f"ClumsyEngine CWD: {self.clumsy_dir}")
             log_info(f"ClumsyEngine FILTER (via config.txt): {self.filter_str}")
 
-            # Step 3: Launch
+            # Step 3: Launch. We keep a live Popen handle here (needed
+            # for .poll() / .kill() later), so this can't use
+            # safe_subprocess.run (waits to completion) or
+            # spawn_detached (returns only a PID). We defensively verify
+            # the absolute path up-front to match the safe_subprocess
+            # invariants and emit a paired audit event.
+            if not os.path.isabs(exe) or not os.path.isfile(exe):
+                log_error(f"ClumsyEngine: refusing to launch non-absolute/missing exe: {exe!r}")
+                return False
+            if _safe_sp is not None:
+                try:
+                    from app.logs.audit import audit_event
+                    audit_event("subprocess_spawn", {
+                        "intent": "clumsy.launch_long_running",
+                        "argv_preview": [exe, *cmd_list[1:]],
+                        "trusted_executable": True,
+                        "note": "long-running child; managed Popen handle",
+                    })
+                except Exception:
+                    pass
             self._proc = subprocess.Popen(
                 cmd_list, cwd=self.clumsy_dir,
+                shell=False,
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 creationflags=CREATE_NO_WINDOW,
             )
@@ -430,8 +470,20 @@ class ClumsyEngine:
                              f"falling back to GUI automation")
                     self._proc = None
                     cmd_list = [exe]
+                    if _safe_sp is not None:
+                        try:
+                            from app.logs.audit import audit_event
+                            audit_event("subprocess_spawn", {
+                                "intent": "clumsy.relaunch_gui_fallback",
+                                "argv_preview": cmd_list,
+                                "trusted_executable": True,
+                            })
+                        except Exception:
+                            pass
                     self._proc = subprocess.Popen(
                         cmd_list, cwd=self.clumsy_dir,
+                        shell=False,
+                        stdin=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                         creationflags=CREATE_NO_WINDOW,
                     )
@@ -740,10 +792,14 @@ class ClumsyEngine:
         """Kill clumsy.exe and clean up."""
         if self._proc:
             try:
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(self._proc.pid)],
-                    capture_output=True, timeout=5,
-                    creationflags=CREATE_NO_WINDOW,
+                if _safe_sp is None:
+                    raise RuntimeError("safe_subprocess unavailable")
+                taskkill_path = _safe_sp.resolve_system_binary("taskkill")
+                _safe_sp.run(
+                    [taskkill_path, "/F", "/T", "/PID", str(self._proc.pid)],
+                    timeout=5.0,
+                    expect_returncode=None,  # rc=128 if already gone
+                    intent="clumsy.taskkill_child_pid",
                 )
             except Exception as exc:
                 log_error(f"ClumsyEngine: taskkill failed: {exc}")

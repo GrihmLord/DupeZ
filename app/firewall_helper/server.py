@@ -266,14 +266,33 @@ class HelperDispatcher:
 def run_helper_server(
     disruption_manager: Any,
     blocker_module: Any = None,
+    shared_secret: Optional[bytes] = None,
 ) -> HelperDispatcher:
     """Start the pipe server and return the dispatcher.
 
     Caller is responsible for waiting on `dispatcher.shutdown_event`
     before tearing down the process. See `dupez_helper.py`.
+
+    Auth:
+        ``shared_secret`` MUST be a 32-byte token that the parent GUI
+        wrote to the sentinel path (see auth.write_token_sentinel).
+        If not provided, we attempt to read-and-consume the sentinel
+        ourselves. Refuses to start without a secret — an
+        unauthenticated helper is a local privilege-escalation pipe.
     """
+    if shared_secret is None:
+        from app.firewall_helper.auth import read_and_consume_token_sentinel
+        shared_secret = read_and_consume_token_sentinel()
+    if not shared_secret or len(shared_secret) != 32:
+        raise RuntimeError(
+            "run_helper_server refuses to start without a 32-byte shared "
+            "secret. The parent GUI must call auth.generate_token() + "
+            "auth.write_token_sentinel() before spawning the helper. "
+            "Running without auth would expose every ALLOWED_OPS opcode "
+            "to every Medium-IL process on the session."
+        )
     dispatcher = HelperDispatcher(disruption_manager, blocker_module=blocker_module)
-    server = PipeServer(handler=dispatcher.dispatch)
+    server = PipeServer(handler=dispatcher.dispatch, shared_secret=shared_secret)
     server.start()
     log.info("run_helper_server: PipeServer started, dispatcher ready")
     return dispatcher

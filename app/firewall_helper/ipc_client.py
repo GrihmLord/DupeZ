@@ -84,6 +84,11 @@ class DisruptionManagerProxy:
         # the same error. A second helper also collides on the named pipe
         # (FILE_FLAG_FIRST_PIPE_INSTANCE / max_instances=1 → ERROR 231).
         self._helper_spawn_attempted = False
+        # 32-byte HMAC key for the mutual handshake (H2 / ADR-0001 §6).
+        # Generated once per GUI lifetime; written to the sentinel file
+        # for the helper to read on startup. Both sides prove knowledge
+        # of this key before any opcode is dispatched.
+        self._shared_secret: Optional[bytes] = None
 
     # ── Lifecycle ──────────────────────────────────────────────────
 
@@ -103,9 +108,19 @@ class DisruptionManagerProxy:
 
             import time as _time
 
+            # Allocate a shared secret for this GUI lifetime if not yet
+            # done. The very first ensure_helper_running() call will
+            # write it to the sentinel so the helper can read it at
+            # startup. Subsequent reconnects (helper restart, pipe
+            # tear-down) reuse the same secret — the helper caches it
+            # in memory after the sentinel is consumed.
+            if self._shared_secret is None:
+                from app.firewall_helper.auth import generate_token
+                self._shared_secret = generate_token()
+
             # First attempt: connect to any existing helper (previous
             # session or prior initialize() call in this session).
-            self._client = PipeClient()
+            self._client = PipeClient(shared_secret=self._shared_secret)
             try:
                 self._client.connect(timeout_ms=1500)
                 resp = self._client.call(Request(op=OP_PING))
@@ -131,7 +146,10 @@ class DisruptionManagerProxy:
 
                 self._helper_spawn_attempted = True
                 try:
-                    ensure_helper_running()
+                    # Pass the shared secret so elevation.ensure_helper_running
+                    # writes the sentinel file before spawning. Without
+                    # this, the helper will refuse to start.
+                    ensure_helper_running(shared_secret=self._shared_secret)
                 except ElevationError as e:
                     raise RuntimeError(f"helper elevation failed: {e}") from e
             else:
@@ -145,7 +163,7 @@ class DisruptionManagerProxy:
             last_err: Optional[Exception] = None
             while _time.monotonic() < deadline:
                 try:
-                    self._client = PipeClient()
+                    self._client = PipeClient(shared_secret=self._shared_secret)
                     self._client.connect(timeout_ms=2000)
                     resp = self._client.call(Request(op=OP_PING))
                     if resp.ok:
