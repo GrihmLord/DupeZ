@@ -1,0 +1,40 @@
+# gitleaks configuration for DupeZ.
+#
+# Extends gitleaks' default rule set and allowlists files that are
+# known-safe but trip high-entropy heuristics:
+#
+#   .secrets.baseline        — detect-secrets baseline; contains SHA1
+#                              hashes of known-allowlisted strings.
+#                              The hashes themselves are not secrets.
+#   packaging/*.manifest     — Windows application manifests embed
+#                              Microsoft's public Common-Controls
+#                              publicKeyToken (6595b64144ccf1df).
+#                              This is a public identifier, not a key.
+#   poetry.lock, *.lock      — dependency resolver lockfiles with
+#                              hashes that look like high-entropy.
+#   app/firewall/clumsy_src/external/  — vendored third-party source,
+#                                        not our code to audit.
+title = "DupeZ gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known-safe files that trip high-entropy heuristics"
+paths = [
+    '''\.secrets\.baseline''',
+    '''packaging/dupez\.manifest''',
+    '''packaging/dupez_compat\.manifest''',
+    '''poetry\.lock''',
+    '''package-lock\.json''',
+    '''.*\.lock''',
+    '''app/firewall/clumsy_src/external/.*''',
+]
+
+# Allow Microsoft's public Common-Controls publicKeyToken anywhere it
+# appears. This is a public identifier used in every Windows .manifest
+# that depends on themed Common Controls v6 — it is baked into every
+# themed manifest Microsoft has ever shipped and is not a secret.
+regexes = [
+    '''6595b64144ccf1df''',  # pragma: allowlist secret
+]
