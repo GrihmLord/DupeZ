@@ -42,8 +42,19 @@ echo Installing dependencies...
 pip install -r requirements.txt
 
 :: ── 2. Clean stale artifacts ────────────────────────────────────────
-if exist "dist\DupeZ-GPU.exe"    del /q "dist\DupeZ-GPU.exe"
-if exist "dist\DupeZ-Compat.exe" del /q "dist\DupeZ-Compat.exe"
+:: Kill any running DupeZ instances so their .exe files unlock.
+taskkill /f /im DupeZ-GPU.exe    >nul 2>&1
+taskkill /f /im DupeZ-Compat.exe >nul 2>&1
+taskkill /f /im dupez_helper.exe >nul 2>&1
+
+:: Force-delete with verification. del /q silently no-ops on locked
+:: files, which historically caused PyInstaller's os.remove(self.name)
+:: to fail later in the build with WinError 5 (Access is denied).
+:: Defender real-time scanning is the usual culprit holding the handle
+:: after a fresh build; add dist\ + build\ to Defender exclusions to
+:: avoid this entirely (see release.md / build runbook).
+call :force_delete "dist\DupeZ-GPU.exe"
+call :force_delete "dist\DupeZ-Compat.exe"
 if exist "build\DupeZ-GPU"       rmdir /s /q "build\DupeZ-GPU"
 if exist "build\DupeZ-Compat"    rmdir /s /q "build\DupeZ-Compat"
 
@@ -66,6 +77,11 @@ if not exist "dist\DupeZ-GPU.exe" (
 echo       DupeZ-GPU.exe built successfully.
 
 :: ── 4. Build Compat variant (requireAdministrator + inproc) ─────────
+:: Belt-and-suspenders: ensure DupeZ-Compat.exe is gone after GPU build
+:: completes. Defender often re-scans dist\ between builds and re-locks
+:: the previous Compat artifact even if the startup clean succeeded.
+call :force_delete "dist\DupeZ-Compat.exe"
+
 echo.
 echo [2/3] Building DupeZ-Compat.exe ...
 python -m PyInstaller packaging\dupez_compat.spec --noconfirm
@@ -98,4 +114,37 @@ echo   dist\DupeZ-GPU.exe     ^(asInvoker, split, GPU map — RECOMMENDED^)
 echo   dist\DupeZ-Compat.exe  ^(requireAdministrator, inproc, legacy^)
 echo.
 echo  Ship BOTH on the release page. GPU is the default download;
-echo  Co
+echo  Compat is offered for users on blocklisted GPUs or environments
+echo  where Chromium's GPU process will not initialize.
+echo.
+
+popd
+endlocal
+exit /b 0
+
+:: ── Subroutine: force_delete ────────────────────────────────────────
+:: Usage: call :force_delete "path\to\file"
+:: Robustly removes a file that may be held by a handle (AV scan,
+:: Explorer preview, stale process). Retries up to 10 times with a
+:: 1-second backoff, then aborts the build if the file still exists.
+:: Needed because cmd's `del /q` silently no-ops on locked files,
+:: which caused PyInstaller's os.remove(self.name) to fail with
+:: WinError 5 late in the Compat build.
+:force_delete
+set "_FD_TARGET=%~1"
+if not exist "%_FD_TARGET%" exit /b 0
+set "_FD_TRIES=0"
+:force_delete_retry
+del /f /q "%_FD_TARGET%" >nul 2>&1
+if not exist "%_FD_TARGET%" exit /b 0
+set /a _FD_TRIES+=1
+if %_FD_TRIES% GEQ 10 (
+    echo.
+    echo BUILD FAILED — cannot delete "%_FD_TARGET%" after 10 attempts.
+    echo A process or AV handle is holding the file open. Close any
+    echo running DupeZ instances and add the dist\ + build\ folders to
+    echo your Defender exclusions, then re-run the build.
+    exit /b 1
+)
+powershell -NoProfile -Command "Start-Sleep -Milliseconds 1000" >nul 2>&1
+goto :force_delete_retry

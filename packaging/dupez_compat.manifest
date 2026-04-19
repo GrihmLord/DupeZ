@@ -18,7 +18,7 @@
           name="Microsoft.Windows.Common-Controls"
           version="6.0.0.0"
           processorArchitecture="*"
-          publicKeyToken="6595b64144ccf1df"  <!-- pragma: allowlist secret -->
+          publicKeyToken="6595b64144ccf1df"
           language="*" />
     </dependentAssembly>
   </dependency>
@@ -61,3 +61,7 @@
       <dpiAware>true/pm</dpiAware>
       <ws2:dpiAwareness>PerMonitorV2, PerMonitor</ws2:dpiAwareness>
       <ws2:longPathAware>true</ws2:longPathAware>
+    </asmv3:windowsSettings>
+  </asmv3:application>
+
+</assembly>
