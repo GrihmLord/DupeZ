@@ -201,7 +201,7 @@ the right panel. Available presets:</p>
 Defaults to Clone mode — see the Dupe Engine section below for step-by-step
 instructions. Use the <b>DUPE METHOD</b> card to pick between Clone,
 Drop &amp; Pick, Swap, Container, Rift, or Legacy</li>
-<li><b>Red Disconnect</b> — Full disconnect: 95% drop, heavy lag, bandwidth cap</li>
+<li><b>Red Disconnect</b> — Full disconnect: 100% drop, heavy lag, bandwidth cap</li>
 <li><b>Lag</b> — Sustained lag + drop. Tune with the sliders after selecting</li>
 <li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
 <li><b>Custom</b> — Set your own parameters manually</li>
@@ -255,7 +255,7 @@ profiles. Pick one and the modules + sliders auto-configure:</p>
 <b>DUPE METHOD</b> card. Choose Clone (default), Drop &amp; Pick, Swap,
 Container, Rift, or Legacy. Each method has its own description and default
 cut duration</li>
-<li><b>Red Disconnect</b> — Full disconnect: 95% drop, heavy lag, bandwidth cap</li>
+<li><b>Red Disconnect</b> — Full disconnect: 100% drop, heavy lag, bandwidth cap</li>
 <li><b>Lag</b> — Sustained lag + drop. Tune with sliders after selecting</li>
 <li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
 <li><b>Custom</b> — Set your own parameters manually</li>

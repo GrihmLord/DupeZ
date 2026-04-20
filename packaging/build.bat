@@ -11,7 +11,7 @@ pushd "%~dp0.."
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.6.2"
+set "DUPEZ_VERSION=5.6.3"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
 
 echo ============================================

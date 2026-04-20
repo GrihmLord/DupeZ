@@ -295,8 +295,13 @@ def main() -> None:
             except Exception:
                 pass
             try:
-                from app.firewall.clumsy_network_disruptor import disruption_manager
-                disruption_manager.stop()
+                # Use the feature-flag factory so split-mode tears down the
+                # elevated helper cleanly over IPC instead of no-op'ing the
+                # in-process singleton (which isn't the real engine under
+                # DUPEZ_ARCH=split). Under inproc this is identical to the
+                # old direct import.
+                from app.firewall_helper.feature_flag import get_disruption_manager
+                get_disruption_manager().stop()
                 log_info("Disruption engine stopped")
             except Exception as e:
                 log_error(f"Error stopping clumsy on exit: {e}")
