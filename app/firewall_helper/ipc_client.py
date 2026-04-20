@@ -182,7 +182,29 @@ class DisruptionManagerProxy:
         self._ensure_helper()
         assert self._client is not None
         request = Request(op=op, args=args or {})
-        return self._client.call(request)
+        try:
+            return self._client.call(request)
+        except (ConnectionError, OSError, BrokenPipeError) as e:
+            # Pipe died (helper crashed, killed, or restarted). Reset the
+            # proxy so the NEXT call re-runs _ensure_helper() and, if the
+            # helper is still alive, rebuilds the client — or, if it's
+            # gone, retries the elevation spawn. Without this reset the
+            # proxy is stuck: _connected stays True, so _ensure_helper
+            # short-circuits, and every subsequent call hits a dead pipe
+            # and returns False forever until GUI restart.
+            log.warning("pipe peer lost (%s) — resetting proxy for reconnect", e)
+            try:
+                if self._client is not None:
+                    self._client.close()
+            except Exception:
+                pass
+            self._client = None
+            self._connected = False
+            # Allow a fresh spawn attempt on reconnect — the one-shot
+            # spawn guard is there to prevent UAC spam during a single
+            # boot sequence, not to prevent recovery after a crash.
+            self._helper_spawn_attempted = False
+            raise
 
     # ── API — matches in-process manager 1:1 ───────────────────────
 

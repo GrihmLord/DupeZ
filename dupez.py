@@ -3,7 +3,20 @@
 DupeZ — Single root launcher.
 Run this file to start DupeZ.  Works both as a script and as PyInstaller entry.
 """
-import sys, os
+import sys
+import os
+
+# ── Fault handler — catch C-level crashes (v5.6.3) ─────────────────
+# sys.excepthook (installed later in app/main.py) only catches Python
+# exceptions. When WinDivert.dll, Qt6Core.dll, or Chromium's GPU process
+# segfaults, the process dies with no traceback at all. faulthandler
+# installs a signal handler that dumps a Python-level stack to stderr
+# from the C crash path. MUST run before any third-party import.
+try:
+    import faulthandler
+    faulthandler.enable()
+except Exception:
+    pass
 
 # ── Frozen helper-mode dispatch (ADR-0001 split) ───────────────────
 # Under DupeZ-GPU.exe, the elevated helper process is the SAME frozen
