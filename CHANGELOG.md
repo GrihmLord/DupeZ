@@ -4,6 +4,41 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.6.5 — 2026-05-11 (Self-Disrupt-By-Default: WiFi Lag That Actually Works)
+
+DupeZ exists to disrupt the operator's OWN connection (typically to a DayZ server) — not to attack other devices. v5.5.0 added a WiFi same-network ARP-spoof path under the assumption that operators wanted to redirect a peer device's traffic through the operator's machine. That premise was wrong for the actual use case AND fundamentally unreliable on modern consumer WiFi (AP client isolation drops the spoof on Eero, Google Nest, most ISP gateways, all public/guest networks — see v5.6.4 honesty pass). v5.6.5 collapses the WiFi same-network path to NETWORK-layer self-disrupt by default: the operator's own packets to/from the target get the disruption treatment, which works on every AP, every encryption mode, wired or wireless, immediately, no Npcap dependency.
+
+The v5.6.4 isolation watchdog from the in-progress design is still in the codebase as defensive infrastructure — it now only arms for power users who explicitly opt into ARP spoof via `params["_force_arp_spoof"] = True` (rare). For the default flow, self-disrupt is the day-one behavior, not a fallback.
+
+Also folds Inno Setup compilation + the versionless installer alias into `build_variants.bat` so the release pipeline is now genuinely one command. Inno Setup deprecation warning eliminated.
+
+### Changed (the headline)
+- **`wifi_same_net` targets now use NETWORK layer / self-disrupt by default (`app/firewall/target_profile.py`).** Previously: `layer="forward"`, `needs_arp_spoof=True` → engine opens on NETWORK_FORWARD, ARP spoofer starts, hopes the AP forwards station-to-station frames. Now: `layer="local"`, `needs_arp_spoof=False` → engine opens on NETWORK layer, filters on target_ip, disrupts the operator's own egress / ingress. Works on every AP regardless of isolation, no Npcap requirement, no ARP poison.
+- **`is_local` now derived from `_detection.layer` (`app/firewall/clumsy_network_disruptor.py`).** Pre-v5.6.5 `is_local` was only sourced from `params["_network_local"]`, which the controller doesn't populate from detection — so `detection.layer="local"` silently fell back to NETWORK_FORWARD. Now mapped explicitly, caller override (`params["_network_local"]`) still wins for backward compat.
+
+### Added (infrastructure for the rare opt-in case)
+- **WiFi isolation watchdog (`app/network/wifi_probe.py`).** New module with `IsolationWatchdog` class — samples `ArpSpoofer._packets_sent` vs `NativeWinDivertEngine._packets_processed` after a 5-second grace window. When sent > 0 and processed == 0, declares `ISOLATION_DETECTED` and invokes a callback. Only arms when the operator explicitly opted into ARP spoof via `_force_arp_spoof=True`. Daemon-threaded, non-blocking, cancellable. Also exposes `is_local_adapter_wifi()` for future GUI pre-flight messaging.
+- **Self-disrupt auto-fallback for the ARP opt-in path (`clumsy_network_disruptor.py`).** Two new methods: `_arm_wifi_isolation_watchdog()` and `_fallback_to_self_disrupt()`. If a power user opts into ARP spoof and the spoof can't land (AP isolation), the watchdog auto-falls-back to NETWORK layer with a toast. Operator-initiated stop cancels the watchdog before teardown.
+- **Inno Setup compilation folded into `packaging/build_variants.bat`.** Pipeline now runs PyInstaller → MOTW strip → ISCC → versionless alias emission in a single command. Locates ISCC.exe via PATH, then `$env:DUPEZ_ISCC`, then standard Inno Setup 6 install paths. Falls back gracefully if Inno Setup isn't installed. Closes the "iscc not on PATH + missing alias upload" gap that bit v5.6.2 → v5.6.3 → v5.6.4.
+
+### Fixed
+- **Inno Setup deprecation warning `Architecture identifier x64 is deprecated` (`packaging/installer.iss`).** Swapped `ArchitecturesAllowed=x64` and `ArchitecturesInstallIn64BitMode=x64` to `x64compatible`. Same install behavior on native x64 hosts, additionally allows install on ARM64 Windows running x64 emulation. Suppresses the ISCC 6.3+ warning.
+
+### Audit notes
+- **Self-disrupt scope is honest.** NETWORK layer captures only the operator's machine's traffic to and from the target. For DayZ duping (the canonical use case), this is exactly what's wanted: lag your own packets to the server, the server times out your character, dupe window opens. For attacking another player's session on a shared AP, no client-side approach works behind AP isolation — that requires managed-switch access upstream of the AP. v5.6.5 doesn't pretend otherwise.
+- **No Npcap dependency on the default path.** Self-disrupt uses WinDivert only. Operators on stock Windows without Npcap installed now get a working WiFi disruption on day one. The v5.6.4 "Partial Failure" dialog for missing Npcap is now dead code on the default path (kept for the opt-in ARP case).
+- **Watchdog is defensive infrastructure now, not a primary feature.** Self-tested in 4 scenarios (WORKING / ISOLATION_DETECTED / INCONCLUSIVE / ABORTED — all pass) but the default flow doesn't arm it.
+
+### Test plan
+- Build both variants + installer + alias in one command: `packaging\build_variants.bat`. Verify all four artifacts in `dist\`. Confirm version 5.6.5.0 in Explorer Properties.
+- WiFi same-net target (Eero, public hotspot, doesn't matter): fire Red Disconnect against any reachable IP on the same /24. Expected: badge red, log shows `target {ip} on same WiFi /24 → SELF-DISRUPT mode`, engine opens on NETWORK layer, ping FROM operator TO target drops or lags as configured. No Npcap warning, no ARP toast.
+- Wired Ethernet PC-LOCAL: behavior unchanged. Same NETWORK-layer path.
+- Hotspot mode (PS5/Xbox on ICS): behavior unchanged. Still NETWORK_FORWARD via the explicit hotspot subnet check.
+- Power-user opt-in: pass `params["_force_arp_spoof"] = True` on disrupt call. Expected: legacy v5.6.4 ARP-spoof path executes, watchdog arms, isolation auto-fallback if AP drops the spoof.
+- Watchdog cancel (opt-in path only): start a `_force_arp_spoof` cut, hit STOP within 2 seconds. Expected: no watchdog callback fires.
+
+---
+
 ## v5.6.4 — 2026-05-11 (WiFi Honesty Pass: No More Silent No-Ops)
 
 Driven by a user report that disruption "works on Ethernet but not WiFi." Audit confirmed: when the target is on the same WiFi /24 (the `wifi_same_net` path added in v5.5.0), four failure branches in `clumsy_network_disruptor.disconnect_device_clumsy` silently degraded to "WinDivert NETWORK_FORWARD open, but no ARP spoof running" — which captures zero packets. The UI badged DISRUPTED while doing nothing. Combined with the 2026 reality that most consumer APs (Eero, Google Nest, ISP gateways, all public/guest WiFi) ship with client isolation default-on and refuse to forward station-to-station L2 frames, this looked like a randomly-broken feature when it was actually a deterministic silent failure plus an L2 attack the AP was correctly dropping.

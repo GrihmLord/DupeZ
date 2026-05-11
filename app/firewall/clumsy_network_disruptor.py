@@ -52,7 +52,7 @@ except Exception:
     _SafeSpErr = Exception  # type: ignore[misc,assignment]
 from ctypes import wintypes
 from typing import Any, Dict, List, Optional
-from app.logs.logger import log_info, log_error
+from app.logs.logger import log_info, log_warning, log_error
 from app.utils.helpers import mask_ip, _NO_WINDOW, is_admin
 
 # Native WinDivert engine — primary engine (no GUI, no window)
@@ -1201,11 +1201,29 @@ class ClumsyNetworkDisruptor:
             #   - Uses NETWORK_FORWARD layer (ICS/hotspot forwarding)
             #   - addr.Outbound is always TRUE — use IP header parsing
             #   - Filter by device IP (target_ip IS the console/PC)
-            # WiFi same-network mode:
-            #   - Target is on same WiFi LAN but traffic doesn't route
-            #     through us. ARP spoof redirects traffic through us,
-            #     then NETWORK_FORWARD layer intercepts it.
+            # WiFi same-network mode (v5.6.5+):
+            #   - Target is on same WiFi LAN. Default is SELF-DISRUPT
+            #     (NETWORK layer, operator's own traffic to/from target).
+            #     ARP spoof / FORWARD layer reachable only via explicit
+            #     _force_arp_spoof opt-in (rarely useful — see v5.6.4
+            #     honesty pass for why).
             is_local = params.get("_network_local", False)
+
+            # v5.6.5: map _detection.layer → engine layer so the new
+            # local-default for wifi_same_net actually takes effect.
+            # Previously is_local was only ever set explicitly via the
+            # params dict (which the controller doesn't populate from
+            # detection), so detection.layer="local" silently fell back
+            # to params.get(..., False) = NETWORK_FORWARD. Caller can
+            # still override by passing _network_local in params.
+            if _detection is not None and "_network_local" not in params:
+                detected_layer = getattr(_detection, "layer", None)
+                if detected_layer == "local":
+                    is_local = True
+                    params["_network_local"] = True
+                elif detected_layer == "forward":
+                    is_local = False
+                    params["_network_local"] = False
 
             # ── ARP spoofing for WiFi same-network ────────────────
             # If auto-detection says we need ARP spoofing, start it
@@ -1419,6 +1437,24 @@ class ClumsyNetworkDisruptor:
                         "reasons": list(_detection.reasons),
                     } if _detection is not None else None),
                 }
+
+            # v5.6.5: Arm the WiFi isolation watchdog when the wifi_same_net
+            # path is active and the auto-fallback flag is set (default on).
+            # Watchdog observes (spoofer.packets_sent, engine.packets_processed)
+            # after a grace period and auto-falls-back to self-disrupt mode
+            # (NETWORK layer, operator's own traffic only) when isolation is
+            # detected. Skips clumsy.exe fallback engines — they lack the
+            # packet-counter telemetry the watchdog reads.
+            if (
+                _arp_spoofer is not None
+                and NATIVE_ENGINE_AVAILABLE
+                and isinstance(engine, NativeWinDivertEngine)
+                and params.get("_wifi_auto_fallback", True)
+            ):
+                self._arm_wifi_isolation_watchdog(
+                    target_ip, engine, _arp_spoofer, methods, params,
+                )
+
             _pid = getattr(getattr(engine, '_proc', None), 'pid', 'N/A')
             log_info(f"DISRUPTION ACTIVE: {mask_ip(target_ip)} (PID={_pid})")
             return True
@@ -1434,6 +1470,18 @@ class ClumsyNetworkDisruptor:
                 if target_ip not in self.disrupted_devices:
                     return True
                 info = self.disrupted_devices.pop(target_ip)
+
+            # v5.6.5: Cancel pending isolation watchdog BEFORE stopping the
+            # engine. Otherwise the watchdog might fire its callback into a
+            # half-torn-down state and try to restart an engine for a target
+            # the operator already released.
+            wd = info.get("wifi_watchdog")
+            if wd is not None:
+                try:
+                    wd.cancel()
+                except Exception:
+                    pass
+
             engine = info.get("engine")
             if engine:
                 engine.stop()
@@ -1456,6 +1504,234 @@ class ClumsyNetworkDisruptor:
             with self._device_lock:
                 self.disrupted_devices.pop(target_ip, None)
             return False
+
+    # ── v5.6.5: WiFi isolation watchdog + self-disrupt fallback ─────
+    #
+    # See app/network/wifi_probe.py for the watchdog implementation and a
+    # full design rationale. The flow is:
+    #
+    #   1. _arm_wifi_isolation_watchdog spawns a daemon thread that, after
+    #      a short grace window, samples (spoofer.packets_sent,
+    #      engine.packets_processed). If sent > 0 and processed == 0, the
+    #      AP is silently dropping our spoof — classic client-isolation
+    #      signature on Eero / Google Nest / ISP gateways / public WiFi.
+    #
+    #   2. The watchdog invokes its on_result callback with the verdict.
+    #      For ISOLATION_DETECTED, the callback calls
+    #      _fallback_to_self_disrupt, which tears down the FORWARD-layer
+    #      engine + ArpSpoofer and restarts a NETWORK-layer engine on
+    #      the same filter. NETWORK layer captures the operator's OWN
+    #      traffic to/from the target — useful for "lag my own game" or
+    #      "drop my own connection to this peer" use cases. It cannot
+    #      affect the target's traffic to third parties.
+    #
+    #   3. Operator-initiated stop (reconnect_device_clumsy) cancels the
+    #      watchdog so stale callbacks don't try to restart a released
+    #      engine.
+    #
+    # Opt-out: pass params["_wifi_auto_fallback"] = False to the original
+    # disrupt_device call. Defaults to True. The fallback engine itself
+    # is started with _wifi_auto_fallback=False to prevent re-fallback
+    # loops (NETWORK layer has no ArpSpoofer anyway, so the predicate
+    # in _arm_wifi_isolation_watchdog wouldn't match — but belt-and-
+    # suspenders).
+
+    def _arm_wifi_isolation_watchdog(
+        self,
+        target_ip: str,
+        engine,
+        spoofer,
+        methods: List[str],
+        params: Dict,
+    ) -> None:
+        """Spawn the WiFi isolation watchdog for an active disruption.
+
+        Args:
+            target_ip: target the watchdog is observing.
+            engine: live NativeWinDivertEngine instance.
+            spoofer: live ArpSpoofer instance.
+            methods: original method list, forwarded to the fallback restart.
+            params: original params dict, forwarded to the fallback restart.
+        """
+        try:
+            from app.network.wifi_probe import (
+                IsolationResult,
+                IsolationWatchdog,
+            )
+        except Exception as exc:
+            log_warning(
+                f"[WiFi] wifi_probe import failed: {exc} — "
+                f"auto-fallback to self-disrupt disabled this session"
+            )
+            return
+
+        def _on_result(result: str) -> None:
+            if result != IsolationResult.ISOLATION_DETECTED:
+                # WORKING / INCONCLUSIVE / ABORTED — no action. The
+                # engine's own _flow_health_check already logs the
+                # INCONCLUSIVE case loudly enough.
+                return
+            try:
+                self._fallback_to_self_disrupt(target_ip, methods, params)
+            except Exception as exc:
+                log_error(
+                    f"[WiFi-FALLBACK] {mask_ip(target_ip)} self-disrupt "
+                    f"raised: {exc}\n{traceback.format_exc()}"
+                )
+
+        try:
+            grace_s = float(params.get("_wifi_isolation_grace_s", 5.0))
+        except (TypeError, ValueError):
+            grace_s = 5.0
+
+        watchdog = IsolationWatchdog(
+            spoofer=spoofer,
+            engine=engine,
+            on_result=_on_result,
+            grace_s=grace_s,
+            target_ip=target_ip,
+        )
+        with self._device_lock:
+            if target_ip in self.disrupted_devices:
+                self.disrupted_devices[target_ip]["wifi_watchdog"] = watchdog
+        watchdog.start()
+        log_info(
+            f"[WiFi] isolation watchdog armed for {mask_ip(target_ip)} "
+            f"(grace={grace_s:.1f}s)"
+        )
+
+    def _fallback_to_self_disrupt(
+        self,
+        target_ip: str,
+        methods: List[str],
+        params: Dict,
+    ) -> None:
+        """Swap the active FORWARD+ARP engine for a NETWORK-layer self-disrupt engine.
+
+        Invoked exclusively by the isolation watchdog callback on
+        ISOLATION_DETECTED. The user-visible effect: a one-shot toast
+        explaining the mode change, followed by continued disruption
+        that only affects the operator's own traffic to/from
+        ``target_ip`` (because NETWORK layer cannot reach the target's
+        other flows). This is intentionally a degraded mode — the only
+        thing client-side that can possibly still work behind AP
+        client isolation.
+        """
+        with self._device_lock:
+            info = self.disrupted_devices.get(target_ip)
+        if not info:
+            log_info(
+                f"[WiFi-FALLBACK] {mask_ip(target_ip)} already released — "
+                f"aborting self-disrupt restart"
+            )
+            return
+
+        # 1. Surface the mode change to the operator BEFORE tearing down
+        # the current engine, so the toast lands while the badge is
+        # still red. Otherwise a brief "disrupted → off → disrupted"
+        # flicker confuses people.
+        try:
+            from app.logs.gui_notify import gui_toast
+            gui_toast(
+                "warning",
+                f"WiFi: AP isolation detected for {mask_ip(target_ip)}. "
+                f"Switching to SELF-DISRUPT mode — only your machine's "
+                f"traffic to/from the target will be affected. The "
+                f"target's other connections are not reachable through "
+                f"this AP without managed-switch access.",
+            )
+        except Exception:
+            pass
+
+        old_engine = info.get("engine")
+        old_spoofer = info.get("arp_spoofer")
+
+        # 2. Stop the current engine + spoofer. Use exception guards on
+        # both — we want to attempt the restart even if cleanup hiccups.
+        if old_engine is not None:
+            try:
+                old_engine.stop()
+            except Exception as exc:
+                log_warning(
+                    f"[WiFi-FALLBACK] old engine stop raised: {exc}"
+                )
+        if old_spoofer is not None:
+            try:
+                old_spoofer.stop()
+            except Exception as exc:
+                log_warning(
+                    f"[WiFi-FALLBACK] ArpSpoofer stop raised: {exc}"
+                )
+
+        # 3. Build new engine on NETWORK layer.
+        new_params = dict(params)
+        new_params["_network_local"] = True       # NETWORK layer
+        new_params["_wifi_self_disrupt"] = True   # telemetry / GUI tag
+        new_params["_wifi_auto_fallback"] = False  # no re-fallback loop
+        new_params["_target_ip"] = target_ip
+
+        if target_ip and target_ip != "unknown":
+            filt_expr = (
+                f"ip.SrcAddr == {target_ip} or "
+                f"ip.DstAddr == {target_ip}"
+            )
+        else:
+            filt_expr = "true"
+
+        new_engine = None
+        if NATIVE_ENGINE_AVAILABLE:
+            try:
+                new_engine = NativeWinDivertEngine(
+                    dll_path=self.windivert_dll,
+                    filter_str=filt_expr,
+                    methods=methods,
+                    params=new_params,
+                )
+                if not new_engine.start():
+                    new_engine = None
+            except Exception as exc:
+                log_error(
+                    f"[WiFi-FALLBACK] native engine restart failed: {exc}"
+                )
+                new_engine = None
+
+        if new_engine is None:
+            log_error(
+                f"[WiFi-FALLBACK] {mask_ip(target_ip)} could not restart "
+                f"in self-disrupt mode — disruption is now inactive."
+            )
+            try:
+                from app.logs.gui_notify import gui_toast
+                gui_toast(
+                    "error",
+                    f"Self-disrupt restart FAILED for "
+                    f"{mask_ip(target_ip)}. Check logs.",
+                )
+            except Exception:
+                pass
+            with self._device_lock:
+                self.disrupted_devices.pop(target_ip, None)
+            return
+
+        # 4. Swap in the new engine. Preserve detection info so the GUI
+        # still has context; drop arp_spoofer + watchdog refs since
+        # neither applies to self-disrupt mode.
+        with self._device_lock:
+            if target_ip in self.disrupted_devices:
+                self.disrupted_devices[target_ip].update({
+                    "engine": new_engine,
+                    "params": new_params,
+                    "arp_spoofer": None,
+                    "wifi_watchdog": None,
+                    "wifi_self_disrupt": True,
+                })
+
+        log_info(
+            f"[WiFi-FALLBACK] {mask_ip(target_ip)} now in SELF-DISRUPT "
+            f"mode (NETWORK layer, ARP spoofer stopped). Operator's own "
+            f"egress / ingress to target IS disrupted; target's other "
+            f"flows are unaffected (no L2 redirect through us)."
+        )
 
     def clear_all_disruptions_clumsy(self) -> bool:
         with self._device_lock:
