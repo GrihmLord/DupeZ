@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.6.5"
+set "DUPEZ_VERSION=5.6.6"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -183,27 +183,88 @@ if errorlevel 1 (
 
 :skip_installer
 
-:: ── 7. Final report ─────────────────────────────────────────────────
+:: ── 7. Sign update manifest (v5.6.6+) ───────────────────────────────
+:: The auto-updater (app/core/updater.py) fail-closes unless each
+:: release ships TWO sidecar files alongside DupeZ_Setup.exe:
+::
+::   DupeZ_Setup.exe.manifest.json   — Ed25519-signed metadata
+::   DupeZ_Setup.exe.manifest.sig    — 72-byte signature envelope
+::
+:: Without these, clients get "signed manifest not available" and
+:: fall back to manual install. Bit users v5.6.2-v5.6.5 because the
+:: signer was never wired in. Now folded in: if DUPEZ_SIGN_PRIVKEY
+:: points at the Ed25519 private key PEM, we sign automatically.
+::
+:: Privkey storage: KEEP OUT OF THE REPO. Recommended location:
+::   C:\DupeZ-keys\dupez-update-priv.pem (ACL'd to signer only)
+:: Generate once: python scripts\sign-release.py --gen-key ...
+:: Then add the pubkey to app/core/update_verify.TRUSTED_PUBKEYS_PEM
+:: and ship that client release BEFORE signing any update with the
+:: matching privkey. See app/core/update_verify.py docstring.
+echo.
+echo [Signing] Signing update manifest...
+
+if "%DUPEZ_SIGN_PRIVKEY%"=="" (
+    echo       DUPEZ_SIGN_PRIVKEY not set — skipping manifest signing.
+    echo       Auto-update will fail-closed for clients on this release.
+    echo       To enable: set DUPEZ_SIGN_PRIVKEY=path\to\dupez-update-priv.pem
+    goto :skip_sign_manifest
+)
+
+if not exist "%DUPEZ_SIGN_PRIVKEY%" (
+    echo       WARNING: DUPEZ_SIGN_PRIVKEY points at "%DUPEZ_SIGN_PRIVKEY%"
+    echo       but the file does not exist. Skipping manifest signing.
+    goto :skip_sign_manifest
+)
+
+if not exist "dist\DupeZ_Setup.exe" (
+    echo       WARNING: dist\DupeZ_Setup.exe not present — cannot sign.
+    goto :skip_sign_manifest
+)
+
+python scripts\sign-release.py --sign ^
+    --priv "%DUPEZ_SIGN_PRIVKEY%" ^
+    --installer "dist\DupeZ_Setup.exe" ^
+    --version "%DUPEZ_VERSION%"
+if errorlevel 1 (
+    echo       WARNING: sign-release.py returned an error.
+    echo       Auto-update will fail-closed for this release.
+    goto :skip_sign_manifest
+)
+
+if exist "dist\DupeZ_Setup.exe.manifest.json" (
+    echo       Signed manifest: dist\DupeZ_Setup.exe.manifest.json
+)
+if exist "dist\DupeZ_Setup.exe.manifest.sig" (
+    echo       Signature:       dist\DupeZ_Setup.exe.manifest.sig
+)
+
+:skip_sign_manifest
+
+:: ── 8. Final report ─────────────────────────────────────────────────
 echo.
 echo [5/5] Build summary
 echo ============================================
 echo  VARIANT BUILD COMPLETE
 echo ============================================
 echo.
-echo   dist\DupeZ-GPU.exe              ^(asInvoker, split, GPU map — RECOMMENDED^)
-echo   dist\DupeZ-Compat.exe           ^(requireAdministrator, inproc, legacy^)
+echo   dist\DupeZ-GPU.exe                       ^(asInvoker, split, GPU map — RECOMMENDED^)
+echo   dist\DupeZ-Compat.exe                    ^(requireAdministrator, inproc, legacy^)
 if exist "dist\DupeZ_v%DUPEZ_VERSION%_Setup.exe" (
-    echo   dist\DupeZ_v%DUPEZ_VERSION%_Setup.exe  ^(Inno Setup installer^)
-    echo   dist\DupeZ_Setup.exe            ^(stable versionless alias for landing page^)
+    echo   dist\DupeZ_v%DUPEZ_VERSION%_Setup.exe           ^(Inno Setup installer^)
+    echo   dist\DupeZ_Setup.exe                     ^(stable versionless alias for landing page^)
 ) else (
     echo   ^(installer skipped — see warnings above^)
 )
+if exist "dist\DupeZ_Setup.exe.manifest.json" (
+    echo   dist\DupeZ_Setup.exe.manifest.json       ^(signed update manifest^)
+    echo   dist\DupeZ_Setup.exe.manifest.sig        ^(Ed25519 signature envelope^)
+)
 echo.
-echo  Ship the installer + both portable exes + the versionless alias
-echo  on the release page. GPU is the default download; Compat is for
-echo  users on blocklisted GPUs or environments where Chromium's GPU
-echo  process will not initialize. The versionless alias keeps the
-echo  landing-page Download URL stable across releases.
+echo  Ship ALL of the above on the release page. The two .manifest.*
+echo  files are REQUIRED for auto-update to work — without them, clients
+echo  fail-closed with "signed manifest not available." The versionless
+echo  alias keeps the landing-page Download URL stable across releases.
 echo.
 
 popd
