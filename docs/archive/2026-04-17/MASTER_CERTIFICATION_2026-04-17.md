@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Certification date | 2026-04-17 |
-| Reviewer | Claude (principal SE / security architect, acting under Grihm's directive) |
+| Reviewer | DupeZ engineering (principal SE / security architect, acting under Grihm's directive) |
 | Scope | Full 7-phase nation-state-grade hardening directive |
 | Certification status | **BLOCKED** |
 | Next review required | After the two remediation items in §9 are satisfied |

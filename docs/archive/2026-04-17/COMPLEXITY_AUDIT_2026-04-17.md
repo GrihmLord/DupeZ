@@ -1,7 +1,7 @@
 # DupeZ — Phase 4 Complexity Audit (Passes 1 + 2 + 3)
 
 **Date:** 2026-04-17
-**Auditor:** Claude (Opus 4.7)
+**Auditor:** DupeZ engineering
 **Scope:** Passes 1 + 2 + 3 — score highest-value core + security-critical + security-adjacent large files; sweep the feature/UI stratum for residual subprocess bypasses; execute surgical rewrites on every file with Windows-branch direct subprocess calls.
 **Pass 3 correction:** an earlier iteration's claim that the feature/UI stratum had "no subprocess hits" was wrong — there were 17 files with direct `subprocess.run`/`Popen` callsites (most significantly `firewall/blocker.py`'s 4 netsh-firewall-mutation calls). All Windows-branch hits now routed through `safe_subprocess`.
 

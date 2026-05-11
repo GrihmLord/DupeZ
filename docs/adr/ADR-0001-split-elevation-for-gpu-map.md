@@ -453,18 +453,18 @@ At any checkpoint, Grihm can say stop and the feature flag lets us ship `split` 
 
 1. [ ] Grihm: approve or reject this ADR
 2. [ ] Grihm: confirm the 4–5 day sprint timing works against duping-feature dev priorities
-3. [ ] Claude: once approved, scaffold `app/firewall_helper/` package + `dupez_helper.py` entry point
-4. [ ] Claude: implement IPC protocol + feature flag dual-path
-5. [ ] Claude: move firewall subtree (no rewrites) behind flag
-6. [ ] Claude: refactor main-side consumers to IPC client
-7. [ ] Claude: elevation bootstrap rewrite + manifest change
-8. [ ] Claude: re-enable map GPU flags with auto-detection + graceful fallback (Tier 1/2/3)
-8a. [ ] Claude: implement `DUPEZ_MAP_RENDERER=auto|gpu|software` override
-8b. [ ] Claude: add GPU tier detection + one-time compatibility-mode toast
-8c. [ ] Claude: add three-machine QA matrix to Day 5 benchmark
+3. [ ] Eng: once approved, scaffold `app/firewall_helper/` package + `dupez_helper.py` entry point
+4. [ ] Eng: implement IPC protocol + feature flag dual-path
+5. [ ] Eng: move firewall subtree (no rewrites) behind flag
+6. [ ] Eng: refactor main-side consumers to IPC client
+7. [ ] Eng: elevation bootstrap rewrite + manifest change
+8. [ ] Eng: re-enable map GPU flags with auto-detection + graceful fallback (Tier 1/2/3)
+8a. [ ] Eng: implement `DUPEZ_MAP_RENDERER=auto|gpu|software` override
+8b. [ ] Eng: add GPU tier detection + one-time compatibility-mode toast
+8c. [ ] Eng: add three-machine QA matrix to Day 5 benchmark
 9. [ ] Grihm: end-to-end dupe QA in `split` mode on Windows box
-10. [ ] Claude: latency regression benchmark comparing inproc vs split
-11. [ ] Claude: document the split architecture in README + ROADMAP
+10. [ ] Eng: latency regression benchmark comparing inproc vs split
+11. [ ] Eng: document the split architecture in README + ROADMAP
 
 ---
 
@@ -569,11 +569,11 @@ BattlEye's kernel driver (BEDaisy.sys) hooks `PsSetCreateProcessNotifyRoutineEx`
 
 ### 11.7 Action items added/updated
 
-12. [ ] Claude: implement Option B2a (`runas` fallback) elevation path with SAFER token drop + Job object + Medium-IL GUI spawn, as Day 4 primary path.
-13. [ ] Claude: implement Option B2b (`scheduled_task` primary) with one-time install dialog, Task Scheduler COM integration, and `schtasks /Delete` uninstall.
-14. [ ] Claude: add `DUPEZ_ELEVATION={runas,scheduled_task,auto}` environment variable alongside `DUPEZ_ARCH` to select the mechanic.
-15. [ ] Claude: update `dupez_helper.py` to accept `--role helper --parent-pid N --launch-method {runas,scheduled_task}` so the helper knows which path spawned it (for logging and watcher behaviour).
-16. [ ] Claude: Day 5 benchmark now includes first-launch time comparison (runas vs scheduled_task) in addition to packet-path latency histograms.
+12. [ ] Eng: implement Option B2a (`runas` fallback) elevation path with SAFER token drop + Job object + Medium-IL GUI spawn, as Day 4 primary path.
+13. [ ] Eng: implement Option B2b (`scheduled_task` primary) with one-time install dialog, Task Scheduler COM integration, and `schtasks /Delete` uninstall.
+14. [ ] Eng: add `DUPEZ_ELEVATION={runas,scheduled_task,auto}` environment variable alongside `DUPEZ_ARCH` to select the mechanic.
+15. [ ] Eng: update `dupez_helper.py` to accept `--role helper --parent-pid N --launch-method {runas,scheduled_task}` so the helper knows which path spawned it (for logging and watcher behaviour).
+16. [ ] Eng: Day 5 benchmark now includes first-launch time comparison (runas vs scheduled_task) in addition to packet-path latency histograms.
 
 ### 11.8 Day 1 scaffolding is still correct
 
