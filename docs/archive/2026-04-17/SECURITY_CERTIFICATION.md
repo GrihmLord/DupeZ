@@ -362,6 +362,6 @@ controls listed in §2 and the threat-model coverage listed in §4.
 
 Residual risks §5 are accepted and tracked.
 
-- Author: DupeZ security automation (Claude-driven hardening pass)
+- Author: DupeZ security automation (automated hardening pass)
 - Date:   2026-04-17
 - Commit: _(insert git SHA at tag time)_
