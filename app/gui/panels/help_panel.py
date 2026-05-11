@@ -488,27 +488,47 @@ check logs for a scapy import error. v5.6 chains the full ~35k-entry IEEE
 OUI database as a fallback to the 60-entry curated gaming table.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
-<b style='color:{_AMBER};'>⚠ WiFi reality check (v5.6.4):</b> ARP-spoof
-targeting of <i>another</i> device on the same SSID often fails on modern
-consumer networks even when Npcap is installed and the spoofer reports
-"active." Three reasons:</p>
+<b style='color:{_GREEN};'>✓ WiFi disruption (v5.6.5+):</b> DupeZ disrupts
+YOUR OWN connection to a target — not other devices' connections. On WiFi
+same-network targets this means <b>self-disrupt mode</b> on NETWORK layer,
+which works on every AP regardless of client isolation, encryption, or
+802.11 mode. No Npcap dependency, no ARP spoofing, no AP-isolation lottery.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>How v5.6.5 self-disrupt works:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b>AP client isolation</b> — Default-on for Eero (main + guest), Google
-Nest, most ISP gateways, all public/guest WiFi. The AP refuses to forward
-station-to-station frames, so your poison reaches the AP and dies there.</li>
-<li><b>Wireless L2 model</b> — Stations only see their own + broadcast
-traffic. Even without isolation, the AP can drop spoofed unicasts between
-clients based on the DHCP binding table (rare in consumer firmware, common
-on managed enterprise gear).</li>
-<li><b>v5.6.4 honesty pass</b> — Earlier builds silently no-op'd when Npcap
-was missing or the spoofer couldn't start; the UI badged DISRUPTED while
-zero packets were intercepted. v5.6.4 surfaces a Partial Failure dialog
-instead. If you see it on WiFi: install Npcap, disable AP isolation if you
-own the router, or — most reliable — connect via Ethernet.</li>
+<li><b>Scope</b> — NETWORK layer captures only YOUR machine's traffic to
+and from the target. The modules (drop, lag, throttle, etc.) operate on
+that flow. For DayZ duping (the canonical use case), this is exactly what
+you want: lag your own packets to the server, the server times out your
+character, dupe window opens.</li>
+<li><b>What it doesn't do</b> — It does NOT affect the target's traffic
+to third parties. If the target is another player and your goal is to
+sever <i>their</i> session, you need to be upstream of their AP (managed
+switch, own router) — no client-side approach works behind consumer-AP
+client isolation. v5.6.5 doesn't pretend otherwise.</li>
+<li><b>Works on</b> — Eero, Google Nest, ISP gateways, public hotspots,
+guest WiFi, WPA3+MFP, anything. Doesn't care about AP isolation because
+nothing crosses the AP — your own machine is both sender and capture
+point.</li>
 </ul>
+
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
+<b style='color:{_AMBER};'>Power-user opt-in (rare):</b></p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li>Setting <code>params["_force_arp_spoof"] = True</code> on the disrupt
+call brings back the v5.5.0-v5.6.4 ARP-spoof + NETWORK_FORWARD path —
+useful only if you have a managed switch / own router / hotspot path
+where station-to-station L2 frames actually forward.</li>
+<li>The v5.6.5 isolation watchdog auto-arms on this path. If the AP
+silently drops the spoof, it falls back to self-disrupt mode automatically
+within 5 seconds (toast explains the switch).</li>
+</ul>
+
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:4px;'>
-WinDivert-only modes (PC-LOCAL against your own machine's connection) work
-identically on wired and WiFi — only multi-target ARP cuts are affected.</p>
+History: v5.5.0 added the ARP-spoof path on a faulty premise. v5.6.4
+stopped lying about silent no-ops in that path. v5.6.5 collapsed the
+default to self-disrupt — what DupeZ users actually want.</p>
 """, False),
 
     ("📡 NETWORK TOOLS TAB", f"""

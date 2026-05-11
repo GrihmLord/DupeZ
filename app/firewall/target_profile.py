@@ -282,6 +282,30 @@ def resolve_target_profile(
     reasons: List[str] = []
 
     # ── Layer & connection-mode decision ──────────────────────────
+    #
+    # v5.6.5 model: DupeZ exists to disrupt the OPERATOR's own connection
+    # to a target (typically the DayZ server they're playing on) — not to
+    # attack other people's traffic. The only path that still uses the
+    # FORWARD layer is the explicit Windows Mobile Hotspot / ICS case,
+    # where the operator's machine IS the gateway and FORWARD-layer
+    # traffic IS the operator's own routed traffic. Everything else uses
+    # the NETWORK layer (operator's own egress / ingress).
+    #
+    # Pre-v5.6.5, same-WiFi /24 targets were routed through ARP spoof +
+    # FORWARD layer to redirect the target's traffic through us. That
+    # path is fundamentally unreliable on modern consumer WiFi (AP
+    # client isolation drops the spoof, see v5.6.4 honesty pass) AND
+    # mismatched the actual user intent. v5.6.5 collapses that to the
+    # NETWORK-layer "self-disrupt" model: filter on target_ip, capture
+    # the operator's own packets to/from it, apply modules. Works on
+    # any AP, any encryption mode, wired or wireless.
+    #
+    # ARP-spoof / FORWARD-layer mode is still reachable for power users
+    # who want to try attacking another device's traffic: set
+    # ``needs_arp_spoof=True`` externally (or pass
+    # ``params["_force_arp_spoof"] = True`` at the orchestrator level).
+    # The v5.6.5 isolation watchdog will catch the silent-no-op case
+    # automatically and fall back to NETWORK layer.
     if _is_in_hotspot_subnet(target_ip):
         layer = "forward"
         connection_mode = CONNECTION_MODE_HOTSPOT
@@ -291,12 +315,13 @@ def resolve_target_profile(
             f"→ NETWORK_FORWARD (hotspot, no ARP spoof needed)"
         )
     elif _is_wifi_same_network(target_ip):
-        layer = "forward"
+        layer = "local"
         connection_mode = CONNECTION_MODE_WIFI_SAME_NET
-        needs_arp_spoof = True
+        needs_arp_spoof = False
         reasons.append(
-            f"target {target_ip} on same WiFi /24 but NOT hotspot "
-            f"→ NETWORK_FORWARD via ARP spoofing"
+            f"target {target_ip} on same WiFi /24 → SELF-DISRUPT mode "
+            f"(NETWORK layer, operator's own traffic to/from target). "
+            f"v5.6.5+ default — ARP spoof opt-in only."
         )
     else:
         layer = "local"

@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.6.4"
+set "DUPEZ_VERSION=5.6.5"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -72,7 +72,7 @@ if exist "build\DupeZ-Compat"    rmdir /s /q "build\DupeZ-Compat"
 
 :: ── 3. Build GPU variant (asInvoker + split) ────────────────────────
 echo.
-echo [1/3] Building DupeZ-GPU.exe ...
+echo [1/5] Building DupeZ-GPU.exe ...
 python -m PyInstaller packaging\dupez_gpu.spec --noconfirm
 if errorlevel 1 (
     echo.
@@ -101,7 +101,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [2/3] Building DupeZ-Compat.exe ...
+echo [2/5] Building DupeZ-Compat.exe ...
 python -m PyInstaller packaging\dupez_compat.spec --noconfirm
 if errorlevel 1 (
     echo.
@@ -119,21 +119,91 @@ echo       DupeZ-Compat.exe built successfully.
 
 :: ── 5. Strip MOTW from raw exes ─────────────────────────────────────
 echo.
-echo [3/3] Stripping Mark-of-the-Web from build output...
+echo [3/5] Stripping Mark-of-the-Web from build output...
 powershell -NoProfile -Command "Get-ChildItem 'dist' -Recurse | ForEach-Object { Unblock-File $_.FullName -ErrorAction SilentlyContinue }"
 echo       MOTW stripped from dist\ contents.
 
+:: ── 6. Build Inno Setup installer (v5.6.5) ──────────────────────────
+:: Up to v5.6.4, build_variants.bat only emitted the two portable
+:: exes; the installer had to be built separately via build.bat or a
+:: manual `iscc packaging\installer.iss` invocation. That bit two
+:: releases in a row (v5.6.3 + v5.6.4) when the operator forgot the
+:: second step. Now folded in — single-command release.
+::
+:: installer.iss already bundles DupeZ-GPU.exe (as dupez.exe) and
+:: DupeZ-Compat.exe alongside config / themes / dlls, so we just need
+:: the GPU + Compat builds above to exist (verified in steps 3-4) and
+:: ISCC on PATH or at the well-known install path.
 echo.
+echo [4/5] Building Inno Setup installer...
+
+:: Locate ISCC.exe — try PATH first, then the Inno Setup 6 default
+:: install dir. Allow override via env DUPEZ_ISCC for non-standard
+:: installs. ISCC isn't always added to PATH by the installer GUI.
+set "_ISCC="
+where iscc >nul 2>&1 && set "_ISCC=iscc"
+if not defined _ISCC if defined DUPEZ_ISCC if exist "%DUPEZ_ISCC%" set "_ISCC=%DUPEZ_ISCC%"
+if not defined _ISCC if exist "%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe" set "_ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
+if not defined _ISCC if exist "%ProgramFiles%\Inno Setup 6\ISCC.exe" set "_ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
+
+if not defined _ISCC (
+    echo       Inno Setup ^(ISCC.exe^) not found — skipping installer build.
+    echo       Install from https://jrsoftware.org/isdl.php and re-run,
+    echo       or set DUPEZ_ISCC to the full path of ISCC.exe.
+    goto :skip_installer
+)
+
+echo       Using ISCC: %_ISCC%
+"%_ISCC%" packaging\installer.iss
+if errorlevel 1 (
+    echo.
+    echo       WARNING: Installer build failed — ISCC returned an error.
+    echo       Portable exes are still valid; ship without installer if needed.
+    goto :skip_installer
+)
+
+set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
+if not exist "dist\%DUPEZ_INSTALLER%" (
+    echo       WARNING: dist\%DUPEZ_INSTALLER% not produced despite ISCC success.
+    goto :skip_installer
+)
+echo       Installer built: dist\%DUPEZ_INSTALLER%
+
+:: Emit versionless alias for the stable GitHub-releases-latest URL.
+:: The landing page Download Installer button points at
+:: https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe
+:: so this alias MUST exist on every release or the button 404s. Bit us
+:: between v5.6.2 and v5.6.3.
+copy /Y "dist\%DUPEZ_INSTALLER%" "dist\DupeZ_Setup.exe" >nul
+if errorlevel 1 (
+    echo       WARNING: Failed to create versionless alias dist\DupeZ_Setup.exe
+) else (
+    echo       Versionless alias: dist\DupeZ_Setup.exe ^(landing-page download target^)
+)
+
+:skip_installer
+
+:: ── 7. Final report ─────────────────────────────────────────────────
+echo.
+echo [5/5] Build summary
 echo ============================================
 echo  VARIANT BUILD COMPLETE
 echo ============================================
 echo.
-echo   dist\DupeZ-GPU.exe     ^(asInvoker, split, GPU map — RECOMMENDED^)
-echo   dist\DupeZ-Compat.exe  ^(requireAdministrator, inproc, legacy^)
+echo   dist\DupeZ-GPU.exe              ^(asInvoker, split, GPU map — RECOMMENDED^)
+echo   dist\DupeZ-Compat.exe           ^(requireAdministrator, inproc, legacy^)
+if exist "dist\DupeZ_v%DUPEZ_VERSION%_Setup.exe" (
+    echo   dist\DupeZ_v%DUPEZ_VERSION%_Setup.exe  ^(Inno Setup installer^)
+    echo   dist\DupeZ_Setup.exe            ^(stable versionless alias for landing page^)
+) else (
+    echo   ^(installer skipped — see warnings above^)
+)
 echo.
-echo  Ship BOTH on the release page. GPU is the default download;
-echo  Compat is offered for users on blocklisted GPUs or environments
-echo  where Chromium's GPU process will not initialize.
+echo  Ship the installer + both portable exes + the versionless alias
+echo  on the release page. GPU is the default download; Compat is for
+echo  users on blocklisted GPUs or environments where Chromium's GPU
+echo  process will not initialize. The versionless alias keeps the
+echo  landing-page Download URL stable across releases.
 echo.
 
 popd
