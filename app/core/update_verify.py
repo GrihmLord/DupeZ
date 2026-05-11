@@ -108,9 +108,13 @@ MAX_MANIFEST_BYTES = 65_536  # manifest is small JSON — cap hard
 # which causes the updater to refuse every update (fail-closed).  This
 # is the correct behaviour: never auto-install from an un-pinned source.
 TRUSTED_PUBKEYS_PEM: List[str] = [
-    # "-----BEGIN PUBLIC KEY-----\n"
-    # "MCowBQYDK2VwAyEA<...base64...>\n"
-    # "-----END PUBLIC KEY-----\n",
+    # v5.6.6: Initial release signing key. Generated 2026-05-11, held
+    # offline on the maintainer signing host. Fingerprint (8-byte
+    # SHA-256 prefix, hex): 4e9c3c6731efbaa8. The signature envelope
+    # of every released manifest will start with these 8 bytes.
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEA5hWX33y0ja2IOHeoJBwNB+dwucVJ0WHQ7YdWtGrg9Sw=\n"
+    "-----END PUBLIC KEY-----\n",
 ]
 
 

@@ -4,6 +4,35 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.6.6 — 2026-05-11 (Auto-Update Fix: Provisioned Signing + Pipeline Integration)
+
+The auto-updater has been fail-closed since v5.6.2 because `TRUSTED_PUBKEYS_PEM` was shipped as an empty list ("intentionally empty — causes the updater to refuse every update") and no release ever carried the `.manifest.json` / `.manifest.sig` sidecar files the verifier expects. Net effect for users: "Update failed: Update refused: signed manifest not available" toast on every check, manual download required every release.
+
+v5.6.6 provisions the Ed25519 release keypair, embeds the pinned pubkey in `app/core/update_verify.TRUSTED_PUBKEYS_PEM`, and folds `scripts/sign-release.py` into `packaging/build_variants.bat` so the manifest + signature are emitted automatically alongside the installer on every build. Auto-update works end-to-end from v5.6.6 onward.
+
+### Bootstrapping note for existing users
+Users on v5.6.3 / v5.6.4 / v5.6.5 must perform **one manual upgrade** to v5.6.6 — their clients have no pinned pubkey and will continue to fail-closed regardless of what we ship. From v5.6.6 onward, auto-update works correctly. This is the intended security behavior: trust cannot be bootstrapped from nothing, and we will not retro-add a permissive path to old clients.
+
+### Added
+- **Ed25519 release pubkey pinned (`app/core/update_verify.py`).** `TRUSTED_PUBKEYS_PEM` now carries a single PEM-encoded Ed25519 public key. The matching private key is held offline on the maintainer's signing host. Future key rotation follows the dual-pubkey transition window documented in the module docstring.
+- **Signing folded into build pipeline (`packaging/build_variants.bat`).** New step between installer build and final report: if `DUPEZ_SIGN_PRIVKEY` env var points at an existing Ed25519 PEM private key, the build invokes `python scripts/sign-release.py --sign --priv <key> --installer dist\DupeZ_Setup.exe --version <ver>`, producing `dist\DupeZ_Setup.exe.manifest.json` + `dist\DupeZ_Setup.exe.manifest.sig`. Both sidecar files are listed in the final build report and must be uploaded as release assets. Skipped gracefully if `DUPEZ_SIGN_PRIVKEY` is unset, with a clear warning that auto-update will fail-closed for clients on the resulting release.
+
+### Changed
+- **Root cleanup.** Moved `RELEASE_NOTES_v5.6.{3,4,5}.md` from the repo root into `docs/release-notes/` (which already held older release notes). Naming standardized as `vX.Y.Z.md`. Root now contains only the three top-level docs (CHANGELOG, README, ROADMAP), config files, and entry-point scripts.
+
+### Audit notes
+- The fail-closed posture has been correct since v5.6.2 — refusing every update is safer than auto-installing un-pinned code. The bug was leaving the pubkey list empty in shipped clients without surfacing that as a release blocker. v5.6.6 closes the loop.
+- Private key storage on Grihm's signing host: `C:\DupeZ-keys\dupez-update-priv.pem`, ACL-locked to the signer account only. Not on PATH, not in any auto-backup target, not synced. If it leaks, follow the key-rotation procedure in `app/core/update_verify.py` docstring — generate a new keypair, ship two consecutive releases (one carrying old+new pubkeys, then one dropping the old), then sign all future releases with the new key.
+- Releases v5.6.0-v5.6.5 are now "trust-orphaned" — clients on those versions cannot bootstrap into the auto-update path. This is intentional. Document in the landing page: "Users on v5.6.5 or older — please download v5.6.6 manually from the release page. Future updates will install automatically."
+
+### Test plan
+- `packaging\build_variants.bat` without `DUPEZ_SIGN_PRIVKEY` set: should build all 4 prior artifacts + skip signing with a clear warning.
+- `packaging\build_variants.bat` with `$env:DUPEZ_SIGN_PRIVKEY = "C:\DupeZ-keys\dupez-update-priv.pem"`: should additionally produce `dist\DupeZ_Setup.exe.manifest.json` + `dist\DupeZ_Setup.exe.manifest.sig`. Both must be uploaded with `gh release create`.
+- Manual install of v5.6.6 on a clean Win11 box, then trigger update check — should report "no newer version available" cleanly (no "signed manifest not available" toast).
+- Roll a synthetic v5.6.7 release with the signed manifest, run the v5.6.6 client's update check — should download, verify, and prompt to install.
+
+---
+
 ## v5.6.5 — 2026-05-11 (Self-Disrupt-By-Default: WiFi Lag That Actually Works)
 
 DupeZ exists to disrupt the operator's OWN connection (typically to a DayZ server) — not to attack other devices. v5.5.0 added a WiFi same-network ARP-spoof path under the assumption that operators wanted to redirect a peer device's traffic through the operator's machine. That premise was wrong for the actual use case AND fundamentally unreliable on modern consumer WiFi (AP client isolation drops the spoof on Eero, Google Nest, most ISP gateways, all public/guest networks — see v5.6.4 honesty pass). v5.6.5 collapses the WiFi same-network path to NETWORK-layer self-disrupt by default: the operator's own packets to/from the target get the disruption treatment, which works on every AP, every encryption mode, wired or wireless, immediately, no Npcap dependency.
