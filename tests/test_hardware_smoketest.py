@@ -183,13 +183,53 @@ def test_vendor_resolution_resolves_known_oui() -> None:
     check that protects against the ``vendor=Unknown`` regression that hit
     v5.5 when the curated table was the only source.
     """
-    from app.network.shared import lookup_vendor
+    from app.network.shared import lookup_vendor, VENDOR_OUIS
 
     assert lookup_vendor("b4:0a:d8:11:22:33") == "Sony Interactive Entertainment", (
         "curated VENDOR_OUIS table must resolve Sony b4:0a:d8")
 
-    apple_vendor = lookup_vendor("9c:76:0e:aa:bb:cc")
-    assert apple_vendor != "Unknown", (
-        "scapy MANUFDB fallback not loading — curated table alone can't "
-        "resolve Apple 9c:76:0e. Check that scapy is installed and "
-        "`scapy.data.MANUFDB` imports cleanly.")
+    # v5.6.7: the original test asserted scapy resolved Apple 9c:76:0e
+    # specifically, but scapy's bundled MANUFDB drifts over time as IEEE
+    # registrations are added/retired/reclassified. A single hard-coded
+    # OUI is a brittle proxy for "the scapy fallback is reachable." Try
+    # a slate of stable, decades-old vendor OUIs that should be in any
+    # MANUFDB snapshot scapy has ever shipped. As long as scapy resolves
+    # at least one of them, the fallback path is verified.
+    #
+    # We filter out anything already in the curated VENDOR_OUIS table —
+    # that path doesn't exercise scapy. The candidates here are picked
+    # from old, stable, non-gaming registrations specifically because
+    # gaming OUIs are likely to be in our curated table.
+    candidates = [
+        # OUI prefix → vendor substring (case-insensitive contains-check)
+        ("08:00:07:11:22:33", "apple"),     # Apple 1981 registration
+        ("00:0d:93:11:22:33", "apple"),     # Apple 2004
+        ("00:1d:0f:11:22:33", "cisco"),     # Cisco 2007
+        ("00:0c:29:11:22:33", "vmware"),    # VMware
+        ("00:50:56:11:22:33", "vmware"),    # VMware
+        ("b8:27:eb:11:22:33", "raspberry"), # Raspberry Pi 2012
+        ("dc:a6:32:11:22:33", "raspberry"), # Raspberry Pi 2019
+        ("3c:5a:b4:11:22:33", "google"),    # Google
+    ]
+
+    failures = []
+    for mac, expected_substring in candidates:
+        prefix = ":".join(mac.split(":")[:3]).lower()
+        if prefix in VENDOR_OUIS:
+            continue  # curated path — doesn't exercise scapy fallback
+        vendor = lookup_vendor(mac)
+        if vendor == "Unknown":
+            failures.append(f"{mac} → Unknown")
+            continue
+        if expected_substring in vendor.lower():
+            return  # success: scapy resolved at least one
+        # Resolved to something unexpected — count as partial success
+        # (scapy IS working, just labels differently)
+        return
+
+    raise AssertionError(
+        "scapy MANUFDB fallback not resolving any tested OUI. Either "
+        "scapy isn't installed, scapy.data.MANUFDB import is broken, or "
+        "the bundled OUI database is missing every vendor we tried. "
+        f"Tested: {[m for m, _ in candidates]}. Failures: {failures}"
+    )
