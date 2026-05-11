@@ -28,7 +28,7 @@
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.6.4"
+#define MyAppVersion   "5.6.5"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -52,8 +52,15 @@ DefaultGroupName={#MyAppName}
 ; 64-bit registry hive must be used for uninstall entries. Without these
 ; directives, Inno Setup defaults to 32-bit mode and installs a 64-bit
 ; binary into the x86 Program Files path — latent bug in v5.2.0–v5.2.3.
-ArchitecturesInstallIn64BitMode=x64
-ArchitecturesAllowed=x64
+; v5.6.5: Inno Setup 6.3+ deprecates the legacy "x64" identifier in
+; favor of "x64compatible" (matches x64 + ARM64-x64-emulation hosts) or
+; "x64os" (native x64 only). We want our 64-bit binary to install on
+; both native x64 *and* ARM64 systems running x64 emulation (Windows
+; on Arm laptops, increasingly common). "x64compatible" is the right
+; choice for that. Suppresses the "Architecture identifier x64 is
+; deprecated" warning emitted by ISCC 6.3+ during compile.
+ArchitecturesInstallIn64BitMode=x64compatible
+ArchitecturesAllowed=x64compatible
 DisableProgramGroupPage=yes
 ; Allow user to upgrade without uninstalling first
 UsePreviousAppDir=yes
