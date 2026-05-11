@@ -486,6 +486,29 @@ can't hit this target class.</p>
 <b>Unknown</b> for a device with a real MAC, scapy's MANUFDB isn't loading —
 check logs for a scapy import error. v5.6 chains the full ~35k-entry IEEE
 OUI database as a fallback to the 60-entry curated gaming table.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
+<b style='color:{_AMBER};'>⚠ WiFi reality check (v5.6.4):</b> ARP-spoof
+targeting of <i>another</i> device on the same SSID often fails on modern
+consumer networks even when Npcap is installed and the spoofer reports
+"active." Three reasons:</p>
+<ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
+<li><b>AP client isolation</b> — Default-on for Eero (main + guest), Google
+Nest, most ISP gateways, all public/guest WiFi. The AP refuses to forward
+station-to-station frames, so your poison reaches the AP and dies there.</li>
+<li><b>Wireless L2 model</b> — Stations only see their own + broadcast
+traffic. Even without isolation, the AP can drop spoofed unicasts between
+clients based on the DHCP binding table (rare in consumer firmware, common
+on managed enterprise gear).</li>
+<li><b>v5.6.4 honesty pass</b> — Earlier builds silently no-op'd when Npcap
+was missing or the spoofer couldn't start; the UI badged DISRUPTED while
+zero packets were intercepted. v5.6.4 surfaces a Partial Failure dialog
+instead. If you see it on WiFi: install Npcap, disable AP isolation if you
+own the router, or — most reliable — connect via Ethernet.</li>
+</ul>
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:4px;'>
+WinDivert-only modes (PC-LOCAL against your own machine's connection) work
+identically on wired and WiFi — only multi-target ARP cuts are affected.</p>
 """, False),
 
     ("📡 NETWORK TOOLS TAB", f"""

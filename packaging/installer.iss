@@ -28,7 +28,7 @@
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.6.3"
+#define MyAppVersion   "5.6.4"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"

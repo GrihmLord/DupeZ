@@ -1246,61 +1246,82 @@ class ClumsyNetworkDisruptor:
 
                     _npcap = check_npcap()
                     if not _npcap.available:
+                        # v5.6.4: Bail honestly instead of silently opening a
+                        # NETWORK_FORWARD WinDivert handle that will never see
+                        # a packet. Without ARP poison, no traffic is routed
+                        # through us; the engine would report "active" while
+                        # doing nothing. Surface the failure to the GUI so the
+                        # "Partial Failure" dialog tells the operator to
+                        # install Npcap or switch to wired.
                         log_error(
                             f"[WiFi] Cannot ARP-spoof: {_npcap.reason}. "
-                            f"Install Npcap: {_npcap.install_url}"
+                            f"Install Npcap: {_npcap.install_url}. "
+                            f"Aborting disruption — would be a silent no-op."
                         )
                         gui_toast(
                             "error",
-                            f"WiFi same-network target detected but "
-                            f"{_npcap.reason}. Install Npcap to enable "
-                            f"ARP-spoof interception.",
+                            f"WiFi target needs ARP spoof, but "
+                            f"{_npcap.reason}. Install Npcap or use wired.",
                         )
+                        return False
+                    log_info(
+                        f"[WiFi] Target {mask_ip(target_ip)} is on same "
+                        f"WiFi network — activating ARP spoofing to "
+                        f"redirect traffic through this machine"
+                    )
+                    gui_toast(
+                        "info",
+                        f"WiFi same-net target — starting ARP spoof "
+                        f"({mask_ip(target_ip)})",
+                    )
+                    _arp_spoofer = ArpSpoofer(target_ip=target_ip)
+                    if _arp_spoofer.start():
+                        log_info("[WiFi] ARP spoofing active — traffic "
+                                 "redirected, using NETWORK_FORWARD layer")
+                        # Force FORWARD layer — traffic now routes through us
+                        is_local = False
+                        params["_network_local"] = False
                     else:
-                        log_info(
-                            f"[WiFi] Target {mask_ip(target_ip)} is on same "
-                            f"WiFi network — activating ARP spoofing to "
-                            f"redirect traffic through this machine"
+                        # v5.6.4: Previously this branch logged "falling back
+                        # to NETWORK layer" but did NOT actually change
+                        # is_local / _network_local — so it stayed on
+                        # NETWORK_FORWARD with no spoofer, which sees zero
+                        # traffic and is a silent no-op. ArpSpoofer.start()
+                        # returning False means Npcap opened but injection or
+                        # gateway resolution failed; the local NETWORK layer
+                        # cannot help target a remote device either. Abort.
+                        log_error(
+                            "[WiFi] ARP spoofing failed to start. "
+                            "Aborting disruption — NETWORK_FORWARD without "
+                            "a working spoofer would be a silent no-op, and "
+                            "NETWORK layer cannot affect remote targets."
                         )
                         gui_toast(
-                            "info",
-                            f"WiFi same-net target — starting ARP spoof "
-                            f"({mask_ip(target_ip)})",
+                            "error",
+                            "ARP spoof failed to start. Check Npcap install "
+                            "or AP client isolation; consider wired.",
                         )
-                        _arp_spoofer = ArpSpoofer(target_ip=target_ip)
-                        if _arp_spoofer.start():
-                            log_info("[WiFi] ARP spoofing active — traffic "
-                                     "redirected, using NETWORK_FORWARD layer")
-                            # Force FORWARD layer — traffic now routes through us
-                            is_local = False
-                            params["_network_local"] = False
-                        else:
-                            log_error(
-                                "[WiFi] ARP spoofing failed to start. "
-                                "Falling back to NETWORK layer (limited "
-                                "effectiveness on WiFi same-network)."
-                            )
-                            gui_toast(
-                                "error",
-                                "ARP spoof failed to start — check logs. "
-                                "Falling back to NETWORK layer (weak).",
-                            )
-                            _arp_spoofer = None
+                        _arp_spoofer = None
+                        return False
                 except ImportError:
-                    log_error("[WiFi] arp_spoof module not available")
+                    log_error("[WiFi] arp_spoof module not available — "
+                              "aborting (would be silent no-op).")
                     try:
                         from app.logs.gui_notify import gui_toast as _t
-                        _t("error", "ARP-spoof module unavailable.")
+                        _t("error", "ARP-spoof module unavailable — aborting.")
                     except Exception:
                         pass
+                    return False
                 except Exception as arp_err:
-                    log_error(f"[WiFi] ARP spoof error: {arp_err}")
+                    log_error(f"[WiFi] ARP spoof error: {arp_err} — "
+                              f"aborting (would be silent no-op).")
                     try:
                         from app.logs.gui_notify import gui_toast as _t
                         _t("error", f"ARP spoof error: {arp_err}")
                     except Exception:
                         pass
                     _arp_spoofer = None
+                    return False
 
             if target_ip and target_ip != "unknown":
                 filt_expr = (
