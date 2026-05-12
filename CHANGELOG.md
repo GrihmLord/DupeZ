@@ -4,6 +4,42 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.6.7 — 2026-05-11 (Account-Tracker XLSX Fix + Multi-Script-Device Support)
+
+Two operator-facing bugs in one release.
+
+(1) The account-tracker XLSX importer silently dropped every row from workbooks where column A held the account name but the header cell above it was blank — a common spreadsheet convention (the name acts as the row label, EMAIL/STATUS/etc. start at column B). The importer's header detector happily mapped 8 columns, left column A unmapped, and then bailed on every data row because `row_data['account']` was always empty. Fixed by inferring the account column when no header maps to it but a leading unmapped column has text in the data rows. Net effect: workbooks that previously imported 0/N accounts now import N/N.
+
+(2) The "GPC / CRONUS" panel only detected CronusZEN/MAX. Titan One and Titan Two from ConsoleTuner use the same .gpc scripting language (Cronus-derived dialect, compiled in Gtuner IV instead of Zen Studio), but their devices weren't detected and exports went to the wrong library folder. Generalized device detection to also recognize Titan VID `0x2F0A` and the legacy shared VID `0x2508`, classified by USB description string. Export-path routing now considers the detected device type and drops the script into Zen Studio for Cronus, Gtuner for Titan, with the prior Documents/DupeZ/GPC fallback for anything not classified.
+
+### Fixed
+- **Account-tracker XLSX skipping rows with blank header in column A (`app/gui/dayz_account_tracker.py`).** Auto-detection now infers an account-name column when no header maps to "account" but an unmapped column (typically column A) has consistent text content across the first few data rows. Header-row detection and the existing positional fallback are unchanged for workbooks that already worked.
+
+### Added
+- **Titan One / Titan Two detection (`app/gpc/device_bridge.py`).** New constants `TITAN_VID = "2F0A"` and `TITAN_DEVICE_NAMES`. `SUPPORTED_VIDS` tuple now contains `("2508", "2F0A")`. The Windows WMI fallback iterates supported VIDs. New `_classify_device()` helper disambiguates Cronus Zen / Cronus Max / Titan One / Titan Two from USB description + VID.
+- **`ScriptDevice` dataclass (`app/gpc/device_bridge.py`).** Renamed `CronusDevice` → `ScriptDevice`; `CronusDevice` retained as a backward-compat alias so existing callers continue to import cleanly.
+- **`find_gtuner_library()` + `find_cronusmax_library()` (`app/gpc/device_bridge.py`).** Locates the Gtuner IV / Gtuner II / ConsoleTuner script folders and the CronusMAX Plus library respectively, alongside the existing `find_zen_studio_library()`.
+- **`get_default_export_path(device_type)` (`app/gpc/device_bridge.py`).** Routes exports based on the detected device type: Titan → Gtuner, CronusMAX → CronusMAX Plus, anything else → Zen Studio first then fallback. Backward-compatible: callers passing no argument get the pre-v5.6.7 Zen-first behavior.
+
+### Changed
+- **Panel renamed "GPC / CRONUS" → "GAME SCRIPTS" (`app/gui/panels/gpc_panel.py`).** Reflects the broader device set. Device-status banner now shows human-readable device label ("Cronus Zen", "Titan Two", etc.) instead of the raw `device_type` tag. Export dialog title updated from "GPC Export" → "Script Export".
+- **Connect/disconnect callbacks (`app/gui/panels/gpc_panel.py`).** Previously inline lambdas that built a banner string and threw away the `device_type`. Now real methods that cache `self._gpc_device_type` so EXPORT routes to the correct IDE library.
+
+### Audit notes
+- Same .gpc syntax compiles cleanly on Cronus Zen Studio AND Titan Gtuner IV — the script content emitted by `gpc_generator.GPCGenerator` is unchanged, only the EXPORT target folder differs. Operators with both ecosystems installed can produce one script and run it on either device class.
+- Pre-firmware-split Titan One devices that still enumerate with VID 0x2508 are caught by the shared-VID path; the description-string classifier sorts them as `titan1` so they route to Gtuner.
+- Detection scope: any device exposing a Cronus or Titan USB vendor identifier OR carrying a known description substring. Adding support for additional script-device brands in the future requires only a VID entry in `SUPPORTED_VIDS` and a description-pattern in `_classify_device()`.
+
+### Test plan
+- Build with `packaging\build_variants.bat`. Confirm artifacts version 5.6.7.0.
+- Import Grihm's `dayz_accounts_clean (2).xlsx`: should import 11/11 accounts (was 0/11 on v5.6.6).
+- Open Game Scripts panel with no device connected: status shows "Device: None detected — scripts export to file."
+- Plug in a Cronus Zen: status shows "Device: Cronus Zen — <USB description>." EXPORT writes to `Documents/Zen Studio/Library/DupeZ/<script>.gpc`.
+- Plug in a Titan Two: status shows "Device: Titan Two — <USB description>." EXPORT writes to `Documents/Gtuner IV/Scripts/DupeZ/<script>.gpc`.
+- Backward compat: any caller of `get_default_export_path()` (no argument) still gets the Zen-first behavior.
+
+---
+
 ## v5.6.6 — 2026-05-11 (Auto-Update Fix: Provisioned Signing + Pipeline Integration)
 
 The auto-updater has been fail-closed since v5.6.2 because `TRUSTED_PUBKEYS_PEM` was shipped as an empty list ("intentionally empty — causes the updater to refuse every update") and no release ever carried the `.manifest.json` / `.manifest.sig` sidecar files the verifier expects. Net effect for users: "Update failed: Update refused: signed manifest not available" toast on every check, manual download required every release.

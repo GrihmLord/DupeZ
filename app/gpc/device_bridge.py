@@ -1,24 +1,40 @@
 #!/usr/bin/env python3
 """
-CronusZEN/MAX Device Bridge — detect and communicate with Cronus devices.
+Game-Script Device Bridge — detect Cronus, Titan, and other GPC-compatible
+controller-script devices.
 
-CronusZEN/MAX devices expose a USB HID interface and a virtual COM port
-when connected.  There is no published serial protocol for remote control,
-so this module focuses on:
+v5.6.7 generalization: this module originally targeted CronusZEN/MAX only.
+Titan One/Two from ConsoleTuner uses the same GPC scripting language (a
+Cronus-derived dialect compiled in Gtuner IV), so the same generated .gpc
+file can be dropped into their script library and run identically. The
+detection layer is now VID-list-based and the export-path lookup
+considers Cronus's Zen Studio library, Cronus's CronusMAX Plus library,
+and Titan's Gtuner library in turn.
 
-  1. Device detection — find connected Cronus devices by USB VID/PID
-  2. Connection status monitoring
-  3. Script export path management (Zen Studio import folder)
-  4. Future: if a community protocol is discovered, serial command layer
+Supported devices (v5.6.7):
 
-USB identifiers (from community research):
-  - CronusZEN:  VID=0x2508, PID varies by firmware
-  - CronusMAX:  VID=0x2508, PID varies
-  - Generic HID: class 0x03
+  CronusZEN     VID=0x2508, ConsoleTuner-derived firmware,  IDE = Zen Studio
+  CronusMAX     VID=0x2508, original Collective Minds line,  IDE = Zen Studio / CronusMAX Plus
+  Titan One     VID=0x2508 (pre-firmware shared) / 0x2F0A, IDE = Gtuner II / Gtuner IV
+  Titan Two     VID=0x2508 (pre-firmware shared) / 0x2F0A, IDE = Gtuner IV
+
+Note: Cronus and Titan both historically used VID 0x2508 because Titan
+One predates the Console Tuner brand split. Modern Titan firmware ships
+with its own VID. We accept both VIDs and disambiguate via the USB
+description string.
+
+Detection methods:
+
+  1. pyserial list_ports — cross-platform, picks up VID/PID/description
+  2. Windows WMI fallback via wmic — when pyserial is unavailable
 
 Dependencies:
-  - pyserial>=3.5 (optional, for future serial comms)
-  - No hard dependencies — device detection uses OS-level tools
+  - pyserial>=3.5 (optional, for VID/PID enumeration)
+  - No hard dependencies — falls back to wmic on Windows
+
+Future:
+  - If a community serial protocol surfaces for either ecosystem,
+    drop it in alongside :class:`DeviceDetector`.
 """
 
 from __future__ import annotations
@@ -36,35 +52,98 @@ from app.utils.helpers import _NO_WINDOW
 __all__ = [
     "CRONUS_VID",
     "CRONUS_DEVICE_NAMES",
+    "TITAN_VID",
+    "TITAN_DEVICE_NAMES",
+    "SUPPORTED_VIDS",
     "CronusDevice",
+    "ScriptDevice",
     "DeviceDetector",
     "DeviceMonitor",
     "find_zen_studio_library",
+    "find_gtuner_library",
+    "find_cronusmax_library",
     "get_default_export_path",
     "scan_devices",
     "is_device_connected",
 ]
 
-# Cronus USB Vendor ID (community-identified)
+# ── USB vendor identifiers ─────────────────────────────────────────────
+# Cronus (community-identified). Historically Titan One shared this VID
+# because ConsoleTuner was the original firmware vendor for both lines.
 CRONUS_VID = "2508"
 
-# Known device names
+# Titan VID after the Console Tuner brand split. Newer Titan firmware
+# enumerates with this VID instead of the legacy 2508.
+TITAN_VID = "2F0A"
+
+#: Every VID we'll accept as a "GPC-compatible script device." Detection
+#: scans for any of these; disambiguation between brands happens via the
+#: USB description string.
+SUPPORTED_VIDS = (CRONUS_VID, TITAN_VID)
+
+# ── Known USB description substrings ───────────────────────────────────
 CRONUS_DEVICE_NAMES = [
     "cronus zen", "cronus max", "cronuszen", "cronusmax",
     "collective minds", "cm device",
 ]
 
+TITAN_DEVICE_NAMES = [
+    "titan one", "titan two", "titanone", "titantwo", "t1", "t2",
+    "consoletuner", "console tuner", "gtuner",
+]
+
+# ── Device data class ──────────────────────────────────────────────────
 @dataclass
-class CronusDevice:
-    """Represents a detected Cronus device."""
+class ScriptDevice:
+    """Represents a detected GPC-compatible script device.
+
+    ``device_type`` is one of: ``"zen"``, ``"max"``, ``"titan1"``,
+    ``"titan2"``, ``"cronus_other"``, ``"titan_other"``, ``"unknown"``.
+    Callers should treat it as an informational tag — the script
+    language (.gpc) and export workflow are identical across all of
+    these, only the IDE / library path differs.
+    """
     name: str
     port: Optional[str] = None       # COM port if available
     vid: str = ""
     pid: str = ""
     serial_number: str = ""
-    device_type: str = "unknown"     # "zen" or "max"
+    device_type: str = "unknown"
     connected: bool = False
     firmware_version: str = ""
+
+
+# v5.6.7: keep ``CronusDevice`` as a backward-compat alias so callers
+# from the pre-Titan era continue to work without import changes.
+CronusDevice = ScriptDevice
+
+
+def _classify_device(desc: str, vid: str) -> str:
+    """Return a ``device_type`` tag from USB description + VID.
+
+    Description-first because Cronus and Titan One share VID 0x2508
+    historically. Falls back to VID-only classification when the
+    description is empty or unhelpful.
+    """
+    d = (desc or "").lower()
+    if "titan two" in d or "titantwo" in d or " t2" in d:
+        return "titan2"
+    if "titan one" in d or "titanone" in d or " t1" in d:
+        return "titan1"
+    if "gtuner" in d or "consoletuner" in d or "console tuner" in d:
+        # Generic Titan brand match when the model name isn't in the
+        # description string.
+        return "titan_other"
+    if "zen" in d:
+        return "zen"
+    if "max" in d or "cronusmax" in d or "collective minds" in d:
+        return "max"
+    # VID-only fallback
+    if vid.upper() == TITAN_VID:
+        return "titan_other"
+    if vid.upper() == CRONUS_VID:
+        return "cronus_other"
+    return "unknown"
 
 # Device detection
 class DeviceDetector:
@@ -90,75 +169,82 @@ class DeviceDetector:
     def get_last_scan(self) -> List[CronusDevice]:
         return self._last_scan
 
-    def _scan_pyserial(self) -> List[CronusDevice]:
-        """Scan for Cronus devices using pyserial's list_ports (cross-platform)."""
+    def _scan_pyserial(self) -> List[ScriptDevice]:
+        """Scan for Cronus/Titan devices using pyserial's list_ports (cross-platform)."""
         devices = []
+        all_names = CRONUS_DEVICE_NAMES + TITAN_DEVICE_NAMES
         try:
             from serial.tools import list_ports
             for port in list_ports.comports():
                 desc_lower = (port.description or "").lower()
                 mfr_lower = (getattr(port, 'manufacturer', None) or "").lower()
                 vid = f"{port.vid:04X}" if port.vid else ""
-                if (vid == CRONUS_VID
-                        or any(n in desc_lower for n in CRONUS_DEVICE_NAMES)
-                        or any(n in mfr_lower for n in CRONUS_DEVICE_NAMES)):
-                    devices.append(CronusDevice(
-                        name=port.description or "Cronus Device",
+                if (vid in SUPPORTED_VIDS
+                        or any(n in desc_lower for n in all_names)
+                        or any(n in mfr_lower for n in all_names)):
+                    dtype = _classify_device(port.description or "", vid)
+                    devices.append(ScriptDevice(
+                        name=port.description or "GPC Script Device",
                         port=port.device, vid=vid,
                         pid=f"{port.pid:04X}" if port.pid else "",
                         serial_number=getattr(port, 'serial_number', '') or "",
-                        device_type="zen" if "zen" in desc_lower else "max",
+                        device_type=dtype,
                         connected=True,
                     ))
         except ImportError:
             pass
         return devices
 
-    def _scan_windows(self) -> List[CronusDevice]:
-        """Scan for Cronus devices on Windows using pyserial + WMI fallback."""
+    def _scan_windows(self) -> List[ScriptDevice]:
+        """Scan for Cronus/Titan devices on Windows: pyserial + WMI fallback."""
         devices = self._scan_pyserial()
         if devices:
             return devices
 
-        # WMI fallback via subprocess
+        # WMI fallback via subprocess — query for any of our supported VIDs.
+        # We iterate VIDs rather than building a compound WHERE clause to
+        # keep each wmic invocation simple and the resulting argv hard to
+        # mis-parse if someone changes the VID constants downstream.
         try:
             import os as _os
             from app.core import safe_subprocess as _safe_sp
-            # Only allow known-fixed VID constant — it's a compile-time
-            # string in this module but double-check so no future edit
-            # lets a caller-controlled value become part of argv.
-            if not re.fullmatch(r"[0-9a-fA-F]{4}", CRONUS_VID):
-                raise ValueError(f"rejecting non-hex VID: {CRONUS_VID!r}")
             sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
             wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
             if not _os.path.isfile(wmic_path):
                 return devices
-            result = _safe_sp.run(
-                [wmic_path, "path", "Win32_PnPEntity", "where",
-                 f"DeviceID like '%VID_{CRONUS_VID}%'",
-                 "get", "Name,DeviceID", "/format:csv"],
-                timeout=10.0,
-                expect_returncode=None,
-                intent="gpc.wmic_enumerate_cronus",
-            )
-            for line in result.stdout.strip().split('\n'):
-                if CRONUS_VID.lower() in line.lower():
-                    parts = line.split(',')
-                    if len(parts) >= 3:
-                        name = parts[-1].strip() or "Cronus Device"
-                        devices.append(CronusDevice(
-                            name=name, vid=CRONUS_VID, connected=True,
-                            device_type="zen" if "zen" in name.lower() else "max",
-                        ))
+
+            for vid in SUPPORTED_VIDS:
+                # Defense in depth — argv whitelist would catch this
+                # already, but guarding here makes the intent explicit.
+                if not re.fullmatch(r"[0-9a-fA-F]{4}", vid):
+                    log_error(f"DeviceDetector: rejecting non-hex VID {vid!r}")
+                    continue
+                result = _safe_sp.run(
+                    [wmic_path, "path", "Win32_PnPEntity", "where",
+                     f"DeviceID like '%VID_{vid}%'",
+                     "get", "Name,DeviceID", "/format:csv"],
+                    timeout=10.0,
+                    expect_returncode=None,
+                    intent="gpc.wmic_enumerate_script_device",
+                )
+                for line in result.stdout.strip().split('\n'):
+                    if vid.lower() in line.lower():
+                        parts = line.split(',')
+                        if len(parts) >= 3:
+                            name = parts[-1].strip() or "GPC Script Device"
+                            devices.append(ScriptDevice(
+                                name=name, vid=vid, connected=True,
+                                device_type=_classify_device(name, vid),
+                            ))
         except Exception as e:
-            # Only log once — wmic is missing on many Windows installs
+            # Only log once — wmic is missing on many Windows installs.
             if not getattr(self, '_wmi_warned', False):
                 log_error(f"DeviceDetector: WMI scan failed (suppressing repeats): {e}")
                 self._wmi_warned = True
         return devices
 
-    def _scan_unix(self) -> List[CronusDevice]:
-        """Scan for Cronus devices on Linux/Mac."""
+    def _scan_unix(self) -> List[ScriptDevice]:
+        """Scan for Cronus/Titan devices on Linux/Mac."""
         return self._scan_pyserial()
 
 # Device Monitor — background polling for connect/disconnect events
@@ -257,61 +343,124 @@ class DeviceMonitor:
 
             time.sleep(self._poll_interval)
 
-# Zen Studio integration — export path management
+# ── IDE library discovery ─────────────────────────────────────────────
+def _first_existing_dir(*candidates: str) -> Optional[str]:
+    """Return the first path in *candidates* that exists as a directory."""
+    for path in candidates:
+        if path and os.path.isdir(path):
+            return path
+    return None
+
+
 def find_zen_studio_library() -> Optional[str]:
     """Find the Zen Studio GPC library folder on the system.
 
-    Zen Studio stores user scripts in:
+    Zen Studio (the CronusZEN IDE) stores user scripts in:
       Windows: %USERPROFILE%/Documents/Zen Studio/Library/
       or:      %APPDATA%/Zen Studio/Library/
     """
     if sys.platform != "win32":
         return None
-
-    candidates = []
-
-    # Documents folder
-    docs = os.path.join(os.path.expanduser("~"), "Documents",
-                        "Zen Studio", "Library")
-    candidates.append(docs)
-
-    # AppData
+    home = os.path.expanduser("~")
     appdata = os.environ.get("APPDATA", "")
-    if appdata:
-        candidates.append(os.path.join(appdata, "Zen Studio", "Library"))
+    found = _first_existing_dir(
+        os.path.join(home, "Documents", "Zen Studio", "Library"),
+        os.path.join(appdata, "Zen Studio", "Library") if appdata else "",
+    )
+    if found:
+        log_info(f"Found Zen Studio library: {found}")
+    return found
 
-    # Also check for CronusMAX Plus
-    docs_cm = os.path.join(os.path.expanduser("~"), "Documents",
-                           "CronusMAX Plus", "Library")
-    candidates.append(docs_cm)
 
-    for path in candidates:
-        if os.path.isdir(path):
-            log_info(f"Found Zen Studio library: {path}")
-            return path
+def find_cronusmax_library() -> Optional[str]:
+    """Find the CronusMAX Plus IDE library folder (legacy MAX line)."""
+    if sys.platform != "win32":
+        return None
+    home = os.path.expanduser("~")
+    found = _first_existing_dir(
+        os.path.join(home, "Documents", "CronusMAX Plus", "Library"),
+    )
+    if found:
+        log_info(f"Found CronusMAX Plus library: {found}")
+    return found
 
-    return None
 
-def get_default_export_path() -> str:
-    """Get the best path to export .gpc files.
-    Prefers Zen Studio library, falls back to user Documents."""
-    zen_lib = find_zen_studio_library()
-    if zen_lib:
-        dupez_dir = os.path.join(zen_lib, "DupeZ")
+def find_gtuner_library() -> Optional[str]:
+    """Find the Gtuner script library folder (Titan One / Titan Two IDE).
+
+    Gtuner IV (current) and Gtuner II (legacy) both keep user scripts in
+    a per-version library directory under Documents. We check both since
+    operators on older Titan One setups may still be on Gtuner II.
+
+    Typical locations on Windows:
+      %USERPROFILE%/Documents/Gtuner IV/Scripts/
+      %USERPROFILE%/Documents/Gtuner/Scripts/      (legacy Gtuner II)
+      %USERPROFILE%/Documents/ConsoleTuner/Gtuner IV/Scripts/
+    """
+    if sys.platform != "win32":
+        return None
+    home = os.path.expanduser("~")
+    found = _first_existing_dir(
+        os.path.join(home, "Documents", "Gtuner IV", "Scripts"),
+        os.path.join(home, "Documents", "Gtuner", "Scripts"),
+        os.path.join(home, "Documents", "ConsoleTuner", "Gtuner IV", "Scripts"),
+    )
+    if found:
+        log_info(f"Found Gtuner library: {found}")
+    return found
+
+
+def get_default_export_path(device_type: str = "") -> str:
+    """Return the best directory to drop a generated .gpc file.
+
+    Strategy:
+      1. If *device_type* identifies a Titan device, prefer Gtuner's
+         script folder (so the script appears in the Titan IDE on next
+         refresh, ready to compile + push).
+      2. If it identifies a CronusMAX, prefer the CronusMAX Plus library.
+      3. For Cronus Zen or anything generic, prefer Zen Studio's library.
+      4. Otherwise (no library found, or no specific device detected),
+         fall back to Documents/DupeZ/GPC — operator imports manually.
+
+    Either way, we create a per-tool ``DupeZ`` subfolder under the
+    matched library so generated scripts don't pollute the user's own.
+    Backward-compatible: callers that don't pass *device_type* (the
+    pre-v5.6.7 signature) get the Zen-first behavior they had before.
+    """
+    dtype = (device_type or "").lower()
+
+    if dtype in ("titan1", "titan2", "titan_other"):
+        preferred = find_gtuner_library()
+    elif dtype == "max":
+        preferred = find_cronusmax_library() or find_zen_studio_library()
+    else:
+        # Zen, cronus_other, unknown, "" → Zen Studio first, then Gtuner
+        # as a secondary on systems where only Titan IDE is installed.
+        preferred = (
+            find_zen_studio_library()
+            or find_cronusmax_library()
+            or find_gtuner_library()
+        )
+
+    if preferred:
+        dupez_dir = os.path.join(preferred, "DupeZ")
         os.makedirs(dupez_dir, exist_ok=True)
         return dupez_dir
 
-    # Fallback to Documents/DupeZ/GPC
+    # Final fallback: Documents/DupeZ/GPC — operator imports manually
+    # from there into whichever IDE they actually use.
     docs = os.path.join(os.path.expanduser("~"), "Documents", "DupeZ", "GPC")
     os.makedirs(docs, exist_ok=True)
     return docs
 
-# Public API
-def scan_devices() -> List[CronusDevice]:
-    """Quick scan for connected Cronus devices."""
+
+# ── Public API ─────────────────────────────────────────────────────────
+def scan_devices() -> List[ScriptDevice]:
+    """Quick scan for connected Cronus/Titan script devices."""
     return DeviceDetector().scan()
 
+
 def is_device_connected() -> bool:
-    """Check if any Cronus device is connected."""
+    """Check if any supported script device is connected."""
     return len(scan_devices()) > 0
 

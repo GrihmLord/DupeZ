@@ -1107,6 +1107,50 @@ class DayZAccountTracker(QWidget):
                 for col_idx in range(1, min(len(_XLSX_DEFAULT_FIELDS) + 1, sheet.max_column + 1)):
                     header_map[col_idx] = _XLSX_DEFAULT_FIELDS[col_idx - 1]
 
+            # v5.6.7: account-name column inference.
+            #
+            # User-supplied workbooks frequently have the account name in
+            # column A but leave that header cell blank (the name acts as
+            # the de-facto row label, while EMAIL / STATUS / etc. are
+            # explicit headers starting in column B). Before this fix
+            # the auto-detector would happily map every other column,
+            # leave column A unmapped, and then silently skip every row
+            # because row_data['account'] was always empty.
+            #
+            # Heuristic: if no column in header_map currently resolves
+            # to "account", scan unmapped columns left-to-right; for
+            # each candidate, look at the next several data rows and
+            # count cells that contain text. The first column with
+            # consistent text content gets adopted as the account
+            # column. We bias toward the leftmost candidate because
+            # spreadsheet convention puts the row-label there.
+            if "account" not in header_map.values() and header_row_idx >= 0:
+                inferred_col = None
+                unmapped_cols = [
+                    c for c in range(1, sheet.max_column + 1)
+                    if c not in header_map
+                ]
+                # Sample up to 5 data rows immediately after the header.
+                sample_start = max(1, header_row_idx + 1)
+                sample_end = min(sample_start + 5, sheet.max_row + 1)
+                for col_idx in unmapped_cols:
+                    text_cells = 0
+                    for row_idx in range(sample_start, sample_end):
+                        val = sheet.cell(row=row_idx, column=col_idx).value
+                        if val is not None and str(val).strip():
+                            text_cells += 1
+                    # Require at least 2 rows of text to avoid mistaking a
+                    # sparse / "notes only on row 3" column for the name.
+                    if text_cells >= 2:
+                        inferred_col = col_idx
+                        break
+                if inferred_col is not None:
+                    header_map[inferred_col] = "account"
+                    log_info(
+                        f"XLSX account column inferred at col {inferred_col} "
+                        f"(header cell was blank; data rows have text)"
+                    )
+
             log_info(f"XLSX header detected at row {header_row_idx}: {header_map}")
 
             # --- Parse account rows ---

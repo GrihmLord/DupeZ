@@ -1,5 +1,14 @@
-# app/gui/panels/gpc_panel.py — GPC / CronusZEN script panel widget
-"""Extracted from ClumsyControlView._build_gpc_panel and GPC handler methods."""
+# app/gui/panels/gpc_panel.py — GPC / Game-Script device panel widget
+"""GPC script generation, export, and device sync panel.
+
+v5.6.7 generalization: the underlying engine (gpc_generator, device_bridge)
+now supports Cronus Zen, Cronus Max, Titan One, and Titan Two — all of
+which compile the same .gpc syntax. The panel label was updated from
+``GPC / CRONUS`` to ``GAME SCRIPTS`` to reflect the broader device set,
+and the device-status line now shows which IDE library will receive an
+EXPORT (Zen Studio for Cronus, Gtuner for Titan, fallback to Documents
+for any other / not-detected case).
+"""
 
 from __future__ import annotations
 
@@ -29,12 +38,30 @@ __all__ = ["GPCPanel"]
 class GPCPanel(QWidget):
     """GPC script generation, export, and device sync panel."""
 
+    # Human-friendly labels for each detected device_type. Used in the
+    # device-status banner. Mapped from device_bridge._classify_device's
+    # output strings. Anything not in this map renders as "Unknown".
+    _DEVICE_LABELS = {
+        "zen": "Cronus Zen",
+        "max": "Cronus Max",
+        "titan1": "Titan One",
+        "titan2": "Titan Two",
+        "cronus_other": "Cronus (model unknown)",
+        "titan_other": "Titan (model unknown)",
+        "unknown": "Game-script device",
+    }
+
     def __init__(self, parent_view, parent=None) -> None:
         super().__init__(parent)
         self._view = parent_view
         self._gpc_generator = None
         self._gpc_last_source = ""
         self._gpc_monitor = None
+        # v5.6.7: remember the currently-connected device's classification
+        # so EXPORT routes the .gpc file to the matching IDE's library
+        # (Zen Studio for Cronus, Gtuner for Titan). "" means nothing
+        # connected → fall back to Documents/DupeZ/GPC.
+        self._gpc_device_type: str = ""
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -45,13 +72,16 @@ class GPCPanel(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
-        gpc_group = self._view._card("GPC / CRONUS")
+        # v5.6.7: renamed from "GPC / CRONUS" → "GAME SCRIPTS" to reflect
+        # the expanded device support (Cronus Zen/Max + Titan One/Two +
+        # any future GPC-compatible device).
+        gpc_group = self._view._card("GAME SCRIPTS")
         gl = QVBoxLayout()
         gl.setSpacing(6)
 
         if not GPC_AVAILABLE:
             missing_label = self._view._lbl(
-                "GPC module not available", "#6b7280", italic=True)
+                "Game-script module not available", "#6b7280", italic=True)
             gl.addWidget(missing_label)
             gpc_group.setLayout(gl)
             layout.addWidget(gpc_group)
@@ -121,19 +151,23 @@ class GPCPanel(QWidget):
 
         # Device monitor
         self._gpc_monitor = DeviceMonitor(
-            on_connect=lambda dev: self._gpc_device_event(
-                f"Connected: {dev.name}"),
-            on_disconnect=lambda dev: self._gpc_device_event(
-                f"Disconnected: {dev.name}"),
+            on_connect=self._on_device_connect,
+            on_disconnect=self._on_device_disconnect,
         )
         self._gpc_monitor.start()
 
         # Initial device scan
         def _initial_scan():
             devices = scan_devices()
-            msg = (f"Device: {devices[0].name} ({devices[0].device_type.upper()})"
-                   if devices
-                   else "Device: None detected — scripts export to file")
+            if devices:
+                dev = devices[0]
+                self._gpc_device_type = dev.device_type or ""
+                label = self._DEVICE_LABELS.get(
+                    dev.device_type, "Game-script device")
+                msg = f"Device: {label} — {dev.name}"
+            else:
+                self._gpc_device_type = ""
+                msg = "Device: None detected — scripts export to file"
             self._view._invoke_main("_panel_gpc_set_device_label", msg)
 
         threading.Thread(target=_initial_scan, daemon=True).start()
@@ -182,7 +216,11 @@ class GPCPanel(QWidget):
             return
 
         from app.gpc.device_bridge import get_default_export_path
-        export_dir = get_default_export_path()
+        # v5.6.7: pass the connected device's type so the export folder
+        # is whichever IDE library matches (Zen Studio vs Gtuner vs
+        # CronusMAX Plus). Empty string is safe — falls back to the
+        # Zen-first behavior we had pre-v5.6.7.
+        export_dir = get_default_export_path(self._gpc_device_type)
         name = self.gpc_template_combo.currentData() or "dupez_script"
         safe_name = re.sub(r'[^\w\-]', '_', name.lower())
         path = os.path.join(export_dir, f"{safe_name}.gpc")
@@ -190,10 +228,25 @@ class GPCPanel(QWidget):
         ok = self._gpc_generator.export_to_file(self._gpc_last_source, path)
         if ok:
             QMessageBox.information(
-                self, "GPC Export", f"Script exported to:\n{path}")
+                self, "Script Export", f"Script exported to:\n{path}")
         else:
             QMessageBox.warning(
-                self, "GPC Export", "Failed to export — check logs")
+                self, "Script Export", "Failed to export — check logs")
+
+    # v5.6.7: connect/disconnect handlers update the cached device type
+    # so EXPORT routes correctly. Previously these were inline lambdas
+    # that only built a banner string; the device_type was thrown away.
+    def _on_device_connect(self, dev) -> None:
+        self._gpc_device_type = getattr(dev, "device_type", "") or ""
+        label = self._DEVICE_LABELS.get(
+            self._gpc_device_type, "Game-script device")
+        self._gpc_device_event(f"Connected: {label} — {dev.name}")
+
+    def _on_device_disconnect(self, dev) -> None:
+        self._gpc_device_type = ""
+        label = self._DEVICE_LABELS.get(
+            getattr(dev, "device_type", "") or "", "Game-script device")
+        self._gpc_device_event(f"Disconnected: {label} — {dev.name}")
 
     def _gpc_device_event(self, msg: str) -> None:
         self._view._invoke_main("_panel_gpc_set_device_label", msg)
