@@ -444,7 +444,12 @@ class ClumsyControlView(QWidget):
         preset_layout = QVBoxLayout()
         self.preset_combo = QComboBox()
         self.preset_combo.setStyleSheet(self._COMBO_QSS)
-        self.preset_combo.addItems(PRESETS.keys())
+        # v5.6.9: dropdown lists built-in + custom presets. Built-ins
+        # come first (preserves muscle memory) followed by a "─── Custom
+        # ───" separator then user-authored presets sorted by name. The
+        # merged dict is what PRESETS.get() reads later in the handlers,
+        # so we shadow the module-level name with the live merged view.
+        self._refresh_preset_dropdown()
         # Connect ALL combo signals for maximum reliability across PyQt6 versions.
         self.preset_combo.currentIndexChanged.connect(self._on_preset_index_changed)
         self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
@@ -1199,13 +1204,17 @@ class ClumsyControlView(QWidget):
 
         # Inject preset methods that have no GUI checkbox (e.g. "godmode")
         preset_name = self.preset_combo.currentText()
-        preset = PRESETS.get(preset_name, {})
+        # v5.6.9: lookup includes custom presets
+        preset = self._presets_lookup().get(preset_name, {})
         for m in preset.get("methods", []):
             if m not in self.module_checks and m not in methods:
                 methods.append(m)
 
         if not methods:
-            methods = PRESETS.get(preset_name, {}).get("methods", []) or ["drop", "lag"]
+            # v5.6.9: lookup includes custom presets
+            methods = self._presets_lookup().get(preset_name, {}).get(
+                "methods", []
+            ) or ["drop", "lag"]
         return methods
 
     def _end_smart_session(self) -> None:
@@ -1355,7 +1364,8 @@ class ClumsyControlView(QWidget):
         # lag_preserve_connection), and any other params the preset defines
         # that have no UI control.
         preset_name = self.preset_combo.currentText()
-        preset = PRESETS.get(preset_name)
+        # v5.6.9: lookup includes custom presets
+        preset = self._presets_lookup().get(preset_name)
         if preset:
             gui_keys = self.sliders.keys() | self.extra_checks.keys() | {"direction"}
             for k, v in preset.get("params", {}).items():
@@ -1412,8 +1422,8 @@ class ClumsyControlView(QWidget):
         if hint_keys:
             log_info(f"[DISRUPT]   Engine hints (non-GUI): {hint_keys}")
 
-        # Verify preset params were merged
-        preset_cfg = PRESETS.get(preset_name, {})
+        # Verify preset params were merged (v5.6.9: includes custom)
+        preset_cfg = self._presets_lookup().get(preset_name, {})
         preset_params = preset_cfg.get("params", {})
         missing = []
         for k, v in preset_params.items():
@@ -1793,6 +1803,82 @@ class ClumsyControlView(QWidget):
 
     _last_applied_preset: str = ""  # dedup guard for triple-signal
 
+    def _refresh_preset_dropdown(self) -> None:
+        """Repopulate ``preset_combo`` from built-in + custom stores.
+
+        v5.6.9: built-in presets keep their original order; a divider
+        item separates them from user-authored custom presets sorted
+        alphabetically. The divider is a non-selectable item — clicking
+        it does nothing.
+
+        Also re-publishes the merged ``{name: preset_dict}`` view as
+        ``self._merged_presets`` so the existing handler code paths
+        (``PRESETS.get(name, {})``) keep working when we substitute
+        the read site with ``self._presets_lookup()``.
+        """
+        try:
+            from app.core.preset_store import list_custom_presets
+            customs = list_custom_presets()
+        except Exception as exc:
+            log_error(f"failed to list custom presets: {exc}")
+            customs = []
+
+        # Build the merged dict view first so handlers can read it.
+        self._merged_presets = dict(PRESETS)
+        for p in customs:
+            if p.name in self._merged_presets:
+                # Defensive: validate_preset already blocks reserved
+                # names on save, but if a stale custom preset somehow
+                # got in with the same name, the built-in wins.
+                continue
+            self._merged_presets[p.name] = {
+                "description": p.description,
+                "methods": list(p.methods),
+                "params": dict(p.params),
+            }
+
+        # Now rebuild the dropdown.
+        self.preset_combo.blockSignals(True)
+        try:
+            self.preset_combo.clear()
+            for name in PRESETS.keys():
+                self.preset_combo.addItem(name)
+            custom_names = sorted(p.name for p in customs)
+            if custom_names:
+                self.preset_combo.insertSeparator(self.preset_combo.count())
+                for name in custom_names:
+                    self.preset_combo.addItem(name)
+        finally:
+            self.preset_combo.blockSignals(False)
+
+    def _presets_lookup(self) -> Dict[str, Any]:
+        """Return the merged built-in + custom preset dict.
+
+        Existing handler code reads from ``PRESETS`` directly. To stay
+        backward-compatible we keep ``PRESETS`` as the built-in source
+        of truth and add this lookup that handlers can consult when
+        they need to find a custom preset's definition. A future
+        refactor can replace every ``PRESETS.get(name)`` callsite with
+        ``self._presets_lookup().get(name)`` for full coverage.
+        """
+        return getattr(self, "_merged_presets", PRESETS)
+
+    def _open_preset_editor(self) -> None:
+        """Open the custom preset editor and refresh the dropdown on close."""
+        try:
+            from app.gui.dialogs.preset_editor_dialog import PresetEditorDialog
+        except Exception as exc:
+            log_error(f"failed to import preset editor: {exc}")
+            QMessageBox.critical(
+                self, "Preset Editor",
+                f"Could not open the editor: {exc}"
+            )
+            return
+        dialog = PresetEditorDialog(self)
+        dialog.exec()
+        # Editor may have added / renamed / deleted presets — re-sync.
+        self._refresh_preset_dropdown()
+
     def _on_preset_index_changed(self, index: int) -> None:
         """Fires when the combo box index changes or user activates an item."""
         self._last_applied_preset = ""  # reset dedup so re-select works
@@ -1807,7 +1893,8 @@ class ClumsyControlView(QWidget):
             return
         self._last_applied_preset = preset_name
 
-        preset = PRESETS.get(preset_name)
+        # v5.6.9: lookup includes custom presets (built-in + user-authored)
+        preset = self._presets_lookup().get(preset_name)
         if preset is None:
             log_info(f"[PRESET] Unknown preset: '{preset_name}'")
             return

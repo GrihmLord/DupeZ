@@ -165,6 +165,85 @@ class LearningLoop:
             reasoning=reasoning,
         )
 
+    # v5.6.8: user-facing dupe-history surface. The aggregators
+    # (recommend, cut_effectiveness) tell the AUTO-TUNER what to
+    # do next; recent_episodes lets the GUI show the OPERATOR what
+    # actually happened. Same underlying cache, different consumer.
+    def recent_episodes(
+        self,
+        limit: int = 50,
+        labeled_only: bool = False,
+    ) -> List[EpisodeSummary]:
+        """Return the most recent N episodes for display.
+
+        Args:
+            limit: maximum rows to return. Default 50 keeps GUI render
+                cheap even on a long-running install.
+            labeled_only: when True, skip episodes where
+                ``outcome is None`` (operator never confirmed
+                success/fail). Useful for dashboards that should hide
+                "in-progress / unverified" cuts.
+
+        Returns:
+            Episodes ordered newest-first by start timestamp. Returns
+            an empty list when no episodes exist (no errors raised).
+        """
+        self._refresh_if_stale()
+        with self._lock:
+            episodes = list(self._cache)
+
+        episodes.sort(key=lambda e: e.start_ts, reverse=True)
+        if labeled_only:
+            episodes = [e for e in episodes if e.outcome is not None]
+        if limit > 0:
+            episodes = episodes[:limit]
+        return episodes
+
+    def session_summary(self) -> Dict[str, Any]:
+        """Aggregate metrics across the entire episode store.
+
+        Returns a small dict suitable for a dashboard header strip:
+
+            {
+                "total": int,           # all parsed episodes
+                "labeled": int,         # episodes with outcome != None
+                "successes": int,       # outcome == True
+                "failures": int,        # outcome == False
+                "success_rate": float,  # successes / labeled, 0..1
+                "severed": int,         # max_cut_state == "severed"
+                "degraded": int,        # max_cut_state == "degraded"
+                "never_cut": int,       # max_cut_state in (unknown, connected)
+                "last_session_ts": float | None,  # newest start_ts seen
+            }
+
+        No errors raised; missing data yields zero counts.
+        """
+        self._refresh_if_stale()
+        with self._lock:
+            episodes = list(self._cache)
+        labeled = [e for e in episodes if e.outcome is not None]
+        successes = sum(1 for e in labeled if e.outcome)
+        failures = len(labeled) - successes
+        severed = sum(1 for e in episodes if e.max_cut_state == "severed")
+        degraded = sum(1 for e in episodes if e.max_cut_state == "degraded")
+        never_cut = sum(
+            1 for e in episodes
+            if e.max_cut_state in ("unknown", "connected")
+        )
+        return {
+            "total": len(episodes),
+            "labeled": len(labeled),
+            "successes": successes,
+            "failures": failures,
+            "success_rate": (successes / len(labeled)) if labeled else 0.0,
+            "severed": severed,
+            "degraded": degraded,
+            "never_cut": never_cut,
+            "last_session_ts": (
+                max((e.start_ts for e in episodes), default=None)
+            ),
+        }
+
     def cut_effectiveness(
         self,
         target_profile: str,

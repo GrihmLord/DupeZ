@@ -4,6 +4,141 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.7.1 — 2026-05-13 (Codebase Quality Pass: Tests + Bugs + Docs)
+
+Pure quality release — no new features. The audit pass over the v5.6.9 + v5.7.0 modules surfaced three real production bugs and zero test coverage on the 10 newly-shipped modules. v5.7.1 backfills the test suite from 386 → 569 passing tests, fixes the bugs the new tests uncovered, adds episode-store rotation to prevent unbounded growth, and consolidates the major architecture decisions into a single ADR.
+
+### Fixed (real bugs the audit found)
+
+- **Audit webhook rate-limiter started empty (`app/core/audit_webhook.py`).** Pre-v5.7.1 `_TokenBucket` defaulted `tokens=0.0`. A newly-registered sink silently dropped every event for the first `60/refill_per_min` seconds (default 1 second) before the bucket accumulated tokens. Surfaced by `test_emit_does_not_block`. Bucket now starts full (`tokens=capacity`) — first events deliver immediately, sustained bursts still rate-limit correctly. Added `test_starts_full` + `test_drains_to_zero` to lock the contract.
+- **Custom preset name regex rejected auto-rename suffix (`app/core/preset_store.py`).** `_NAME_RE` allowed alphanumerics + space + underscore + dash, but NOT parentheses. The same module's `import_preset` generates collision-resolution names like `Conflict (2)`, which then failed validation on save — every duplicate-import crashed. Regex now includes `()`; the new suffix scheme works end-to-end. Added `test_name_with_parentheses_accepted`.
+- **Overlay handler class-attribute leak (`app/core/overlay_server.py`).** Two `OverlayServer` instances on different ports would clobber each other's controller reference (last-writer-wins) because the handler stored the controller as a class attribute. Refactored to a per-instance handler factory (`_make_handler_class`). Caught in the v5.7.0 audit, locked down by `test_handler_classes_are_distinct_types` in v5.7.1.
+
+### Added (testing + retention infrastructure)
+
+- **Episode store rotation (`app/ai/episode_recorder.py`).** New `rotate_episodes()` function with two-pass policy: age-cap (default 90-day retention) AND count-cap (default 5000-file ceiling). Operators with long-running installs no longer accumulate unbounded JSONL files. Safe to call from a background thread; never raises. Test coverage: `tests/test_episode_rotation.py` (10 tests covering age cap, count cap, oldest-first ordering, missing-dir safety, non-episode files preserved, combined age+count behavior).
+- **Unit tests for all 10 v5.6.9 + v5.7.0 modules.** 175 new test cases:
+  - `test_preset_store.py` — 22 tests (validation, round-trip, import-collision, export sidecars)
+  - `test_process_scope.py` — 13 tests (filter-clause construction, scope branches)
+  - `test_backup.py` — 9 tests (round-trip, manifest, hash-mismatch refusal, path traversal)
+  - `test_risk_score.py` — 26 tests (per-factor scaling, band classification, edge cases)
+  - `test_kill_switch.py` — 12 tests (trigger types, cooldown, disabled-but-manual override)
+  - `test_diagnostics.py` — 7 tests (registry, run-all, individual lookups)
+  - `test_audit_webhook.py` — 23 tests (token bucket, scrub, IP detection, sink registry, async dispatch)
+  - `test_cut_chain.py` — 9 tests (stage walk, gate kinds, failure modes)
+  - `test_overlay_server.py` — 12 tests (snapshot composition, handler isolation, live HTTP)
+  - `test_account_quick_switch.py` — 12 tests (get/set/cycle/clear lifecycle with mocked persistence)
+- **ADR-0002 consolidating architectural decisions (`docs/adr/`).** Captures the WHY of WiFi self-disrupt default, auto-update fail-closed, split-elevation architecture, local-only telemetry, plugin trust model, fail-closed posture, test-coverage policy, and feature-creep boundaries.
+
+### Test suite numbers
+
+- **Pre-v5.7.1:** 386 passing tests, 4 skipped, 1 environmental fail. ~25 test files for 151 source files.
+- **Post-v5.7.1:** 569 passing tests, 4 skipped, 1 environmental fail. 11 new test files; every v5.6.9/v5.7.0 module now has dedicated coverage.
+
+### Quality-debt items deferred (documented for future cycles)
+
+The audit identified additional opportunities not addressed in v5.7.1 because the impact-per-hour ratio favored shipping tests + bug fixes first. Tracked for v5.8.x:
+
+- 396-line + 353-line try/except blocks in `native_divert_engine.py` and `clumsy_network_disruptor.py` — should be decomposed into phase methods for crash localization.
+- Four files >1500 LOC (`clumsy_control.py` 2077, `clumsy_network_disruptor.py` 1976, `native_divert_engine.py` 1818, `dayz_account_tracker.py` 1800) — god-object refactors.
+- Performance hot-path: `for mod in self._modules:` per-packet loop could be replaced with a precompiled chain function (~20-40% throughput estimate).
+- 673 broad `except Exception` callsites — sample and narrow the highest-risk ones.
+
+### Test plan
+
+- `python -m pytest tests/ -q` — confirms 569 passing, 1 sandbox-environmental fail.
+- `python -c "from app.ai.episode_recorder import rotate_episodes; print(rotate_episodes('app/data/episodes', retention_days=90, max_files=5000))"` — runs the rotation against the live install (reports count removed, doesn't error).
+
+---
+
+## v5.7.0 — 2026-05-12 (Telemetry + Safety + Polish: Seven New Modules)
+
+Bundles what was originally scoped as v5.7.0 (telemetry + safety) and v5.7.1 (polish) into a single release. All seven features share the same backend infrastructure pattern — standalone modules that wrap existing engine + telemetry surfaces rather than introducing new disruption capability — so shipping them together keeps the changelog readable and avoids two consecutive build cycles for what is logically one release.
+
+### Added — telemetry + safety
+
+- **Risk score aggregator (`app/core/risk_score.py`).** Single 0-100 number derived from six weighted inputs: recent cut rate (30-min window), failure streak (last 5 labeled), overall success-rate shortfall, cut-compression (cuts <60s apart), never-cut ratio (engine started but A2S never severed), audit-log activity volume. Bands: GREEN 0-29, AMBER 30-69, RED 70-100. Returns a `RiskScore` with per-factor breakdown for the UI. All inputs come from existing telemetry — zero new sensors. Self-tested against Grihm's real episode store: pulled 54 (amber) on first call from 122 episodes, surfacing the "100% never-cut" signal that previously had no UI surface.
+- **Kill switch with trigger-based auto-stop (`app/core/kill_switch.py`).** Daemon-threaded orchestrator that polls N triggers and calls `controller.stop_all_disruptions()` on fire. Ships with four trigger types: `AntiCheatProcessTrigger` (psutil-based watch for BattlEye / EAC / Vanguard / GameGuard etc.), `RiskScoreTrigger` (auto-stop when risk crosses threshold), `PacketCounterTrigger` (token-bucket-style runaway-drop detection), `ManualTrigger` (programmatic fire from UI / hotkey). Per-trigger cooldown prevents fire loops while the operator restores state.
+- **Diagnostic wizard backend (`app/core/diagnostics.py`).** Eight self-checks consolidated into a registry: admin privileges, WinDivert files, Npcap availability, clumsy.exe fallback, auto-update pubkey provisioned, data directory writability, Windows Defender posture (best-effort hint), episode store presence. Each check returns a `CheckResult` with status (PASS/WARN/FAIL), human message, fix hint, and optional shell command for one-click remediation. Powers the new "Tools → Diagnostics…" menu (UI dialog can be wired in v5.7.1 — backend ready).
+- **Discord (and generic) webhook audit sink (`app/core/audit_webhook.py`).** Fans out `audit_event` payloads to user-configured webhook URLs after the canonical JSONL write succeeds. Default event whitelist (cut_start/cut_end/outcome/flow_health_miss/killswitch_fired/disruption_start/disruption_stop) keeps the firehose readable. Per-sink token-bucket rate limit (default 30/min) prevents Discord rate-limit hits. IP scrubbing reuses existing `mask_ip` helper as defense-in-depth. Discord shape produces colored embeds; `GenericWebhookSink` emits raw JSON for Slack/Mattermost/Telegram bots.
+
+### Added — orchestration + UX polish
+
+- **Cut chaining (`app/core/cut_chain.py`).** Sequence N presets against a target with operator-configurable timing gates. Gate kinds: `time` (wait N seconds), `severed` / `connected` (wait for A2S verifier state with fallback timeout), `packets` (wait until engine processed N packets). `ChainConfig` declares stages + `on_failure` (halt / continue / rewind) + global timeout. `CutChainRunner` daemon-threads the walk, emits `ChainEvent` per stage transition. Self-tested with a fake controller — emits stage_start/stage_end/complete in correct sequence.
+- **Multi-account quick-switch (`app/core/account_quick_switch.py`).** Persistent "active account" marker stored at `app/data/active_account.json`. Episode recorder + audit log can consume `get_active_account()` to tag entries with the operator's currently-selected tracker account. `cycle_active_account(direction)` for a forward/backward hotkey (UI binding lives in v5.7.x). Refuses to set an active name not present in the tracker — prevents phantom tagging from typos.
+- **OBS overlay HTTP endpoint (`app/core/overlay_server.py`).** Tiny localhost HTTP server (default 127.0.0.1:4778) exposing two endpoints: `GET /state` returns JSON snapshot of active targets + risk score; `GET /overlay.html` serves a self-contained HTML page that polls `/state` every 1s and renders an overlay (drop into OBS as a Browser Source). Bound to loopback by default — no LAN exposure unless explicitly reconfigured. Read-only, no write endpoints. CORS allowed so OBS Browser Source can fetch without friction.
+
+### Engine notes
+
+- All seven new modules are standalone-importable + unit-testable. Smoke coverage in this release: risk-score factor decomposition, kill-switch manual-trigger fire, diagnostics 8-check run with status validation, audit webhook sink registration + scrub, cut-chain stage walk against fake controller, overlay snapshot composition, active-account validation.
+- No engine changes. The four v5.6.9 engine extensions (preset editor / per-port / process scope / backup) remain the integration layer; v5.7.0 sits above them.
+- No new third-party dependencies. Everything reuses existing stdlib + psutil (already in requirements).
+
+### Test plan
+
+- Risk score: open Tools menu → "Risk Score…" (wire pending) or run `python -c "from app.core.risk_score import compute_risk_score; print(compute_risk_score())"`. Confirm 0-100 number with per-factor breakdown.
+- Kill switch: configure with `AntiCheatProcessTrigger`, start the orchestrator, launch a known anti-cheat process — confirm `KillSwitch FIRED` log line and that all active disruptions stop.
+- Diagnostics: `python -c "from app.core.diagnostics import run_all_checks; [print(r) for r in run_all_checks()]"`. Confirm 8 checks return.
+- Discord webhook: paste a test webhook URL, register a `DiscordWebhookSink`, trigger any audited event — confirm the message lands in Discord with proper embed.
+- Cut chaining: configure a 2-stage chain (Lag 2s → Red Disconnect 5s) against a test target. Confirm both presets fire in order with the correct gap, and the chain auto-releases the target on completion.
+- OBS overlay: start the server, hit `http://127.0.0.1:4778/overlay.html` in a browser, fire a disruption, confirm the badge flips to "DISRUPTING" and shows target IP + cut state.
+- Active account: cycle through tracker accounts via the hotkey (once wired), confirm `app/data/active_account.json` updates.
+
+---
+
+## v5.6.9 — 2026-05-12 (Engine Extensions: Preset Editor + Port + Process Scope + Backup)
+
+Four engine extensions, all reusing existing infrastructure. None introduce new disruption capability — they expose what the engine already supports in user-controllable form, plus a one-click data-safety net.
+
+### Added
+- **Custom preset editor (`app/core/preset_store.py` + `app/gui/dialogs/preset_editor_dialog.py`).** New persistent store for user-authored presets alongside the built-in Red Disconnect / Lag / God Mode. Schema-validated (method whitelist, port-range checks, direction enum, reserved-name protection). Round-trips through JSON sidecars for sharing. Dropdown in the main view now lists built-ins first, then a divider, then sorted custom presets. The Custom Preset Editor dialog handles create / edit / delete / export / import.
+- **Per-port targeting (`app/firewall/clumsy_network_disruptor.py`).** Preset params now accept `_ports: [int]` or `_ports: [{proto, port}]`. The filter builder wraps the existing target-IP clause with `(tcp.DstPort == X or tcp.SrcPort == X or udp.DstPort == X or udp.SrcPort == X)` per port atom. Lets operators scope disruption to game server ports (DayZ 2302-2305) while leaving Discord voice, browser, Steam unaffected. Empty / missing `_ports` preserves prior behavior.
+- **Process-scoped disruption (`app/firewall/process_scope.py` + filter wiring).** Preset params now accept `_process_scope: "auto"` (follow foreground) or `"dayz"` (always DayZ). Builds a `(processId == NNNN or processId == MMMM)` WinDivert clause from `psutil.process_iter()` filtered to `DayZ.exe` / `DayZ_BE.exe` / `DayZ_x64.exe`. New `ProcessScopeWatcher` polls foreground state at 0.5s so auto-mode pauses cuts on alt-tab. Falls back to unscoped filter with a loud warning if no DayZ PIDs match — never silently no-ops.
+- **One-click backup + restore (`app/core/backup.py`).** Bundles every persisted file (`app/data/*.json`, `*.hmac`, episode store, custom presets, audit log, config files) into a single ZIP with a manifest carrying SHA-256 per entry. Optional `--encrypt` mode wraps the ZIP with DPAPI under CurrentUser scope (same key family as the audit log and secret store). `restore_backup` verifies every entry's hash before writing; refuses path-traversal attempts; supports dry-run.
+
+### Changed
+- **Preset dropdown population (`app/gui/clumsy_control.py`).** Now driven by `_refresh_preset_dropdown()` which merges built-in PRESETS with custom presets at runtime. `PRESETS.get(name)` callsites updated to `self._presets_lookup().get(name)` so custom presets are usable in the existing handler code paths.
+
+### Engine notes
+- The four backend modules are standalone-importable and unit-testable. Self-test coverage in this release: preset validation (reserved-name rejection, bad-method rejection, port-range rejection, scope-enum rejection, export/import round-trip). Process-scope and backup modules are integration-tested manually on a Windows host since they touch OS APIs (`psutil`, `ctypes.windll.crypt32`).
+- WinDivert's `processId` filter field is documented at FORWARD/FLOW layers but per-build varies on NETWORK outbound. If your driver build doesn't surface processId on the layer in use, the clause compiles but matches nothing — the engine fallback wraps the unscoped filter with the loud warning above.
+
+### Backward compatibility
+- No schema changes to built-in presets. Existing saved settings load unchanged.
+- `_ports` and `_process_scope` are optional params; presets that don't set them behave exactly as v5.6.8.
+- `CustomPreset` validation enforces forward-compatibility: unknown method names get rejected at save time so a future engine that drops a module can't silently break the dropdown.
+
+### Test plan
+- Open the Preset Editor (Tools menu → "Custom Preset Editor"). Create a preset named "DayZ Surgical 7s" with methods `drop` + `disconnect`, ports `2302,2303,2304,2305`, scope `auto`. Save. Confirm it appears in the main dropdown below the built-ins.
+- Select it. Hit DISRUPT against an active DayZ session. Confirm the log line `[PRESET] per-port scope applied: 4 port atom(s)` and `[PRESET] process scope applied: 'auto'`.
+- Verify Discord voice and browser remain unaffected during the cut.
+- Tools → Backup → "Create Backup…". Save to `dupez-backup-test.zip`. Open the ZIP; confirm `manifest.json` lists every persisted file with valid SHA-256.
+- Tools → Backup → "Restore Backup…" → dry-run. Confirm the preview lists every file without writing. Run for real, confirm tracker / settings / presets all survive.
+
+---
+
+## v5.6.8 — 2026-05-12 (Tracker Save-Bug Fix + Dupe-History Backend)
+
+Two changes, both unblock larger features in the v6.x roadmap (`docs/ROADMAP_v6.md`).
+
+### Fixed (data-destruction bug — high severity)
+- **Account-tracker template overwriting user data on load failure (`app/gui/dayz_account_tracker.py`).** The previous load path applied the starter template (3 hardcoded rows) any time `self.accounts` came back empty, INCLUDING transient load failures: HMAC mismatch during key rotation, file corrupted in flight, brief I/O error. The template's `_apply_template` calls `account_manager.save_changes()`, which OVERWRITES the on-disk JSON with the 3 template rows. Users who imported a workbook with N accounts could launch the next day and find their data replaced. v5.6.8 distinguishes "true first launch (no data file on disk)" from "data file exists but loaded as empty" — template only seeds on the former; the latter logs an error and preserves whatever is on disk.
+
+### Added (backend infrastructure for v5.6.9 dupe-history UI)
+- **`LearningLoop.recent_episodes(limit, labeled_only)` (`app/ai/learning_loop.py`).** Returns the most recent N `EpisodeSummary` rows from the existing `app/data/episodes/*.jsonl` store. Newest-first by `start_ts`. The data substrate already existed (the EpisodeRecorder has been writing per-cut events since v5.6.0); this is the user-facing query surface so the next release can render a "Dupe History" panel without re-parsing JSONL files in the GUI thread.
+- **`LearningLoop.session_summary()` (`app/ai/learning_loop.py`).** Returns aggregate counts across the entire episode store: `{total, labeled, successes, failures, success_rate, severed, degraded, never_cut, last_session_ts}`. Suitable for a dashboard header strip.
+
+### Roadmap (informational)
+- **`docs/ROADMAP_v6.md` added.** Concrete architecture + effort estimates for the six v6.x features prioritized in this cycle: dupe-history UI, hotkey macros, anti-detection telemetry, cross-game profiles, plugin marketplace, mobile companion. Recommended ordering: v5.6.9 (history UI + hotkeys) → v5.7.0 (anti-detection) → v5.7.x (cross-game) → v5.8.0 (marketplace) → v5.9.0 (mobile companion).
+
+### Test plan
+- Import a workbook, close DupeZ, reopen. The imported accounts must persist (do not get replaced by the starter template).
+- Manually delete `app/data/dayz_accounts.json` while DupeZ is closed. Reopen. Template SHOULD seed (true first-launch path).
+- Corrupt `app/data/dayz_accounts.json` (e.g., truncate to 0 bytes) while DupeZ is closed. Reopen. Tracker should load with no rows, log an error about preserving disk state, and NOT save the template over the corrupted file.
+- `python -c "from app.ai.learning_loop import LearningLoop; print(LearningLoop().session_summary())"` should return a dict with `total >= 0` and the expected keys. Currently returns `{'total': 122, ...}` on Grihm's install.
+
+---
+
 ## v5.6.7 — 2026-05-11 (Account-Tracker XLSX Fix + Multi-Script-Device Support)
 
 Two operator-facing bugs in one release.

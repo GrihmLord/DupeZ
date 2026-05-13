@@ -28,11 +28,105 @@ from typing import Any, Dict, List, Optional
 
 from app.logs.logger import log_error, log_info, log_warning
 
-__all__ = ["EpisodeRecorder", "DEFAULT_EPISODE_DIR"]
+__all__ = ["EpisodeRecorder", "DEFAULT_EPISODE_DIR", "rotate_episodes"]
 
 DEFAULT_EPISODE_DIR: Path = Path("app/data/episodes")
 _MAX_QUEUE: int = 4096
 _FLUSH_INTERVAL_S: float = 2.0
+
+# v5.7.1 retention defaults. Operators with very long-running installs
+# accumulate hundreds of MBs over months — the on-disk store and the
+# learning-loop cold-read scan both grow linearly with file count.
+# These are intentionally generous (90 days / 5000 files) so power
+# users keep their training data, but bounded.
+_DEFAULT_RETENTION_DAYS: int = 90
+_DEFAULT_MAX_FILES: int = 5000
+
+
+def rotate_episodes(
+    episode_dir: Optional[Path] = None,
+    *,
+    retention_days: int = _DEFAULT_RETENTION_DAYS,
+    max_files: int = _DEFAULT_MAX_FILES,
+) -> int:
+    """Delete episode files older than *retention_days* OR beyond *max_files*.
+
+    Two-pass policy:
+
+    1. **Age cap.** Anything with ``mtime`` older than the retention
+       cutoff is removed regardless of count.
+    2. **Count cap.** If more than *max_files* remain, oldest-first
+       trim until at most *max_files* survive.
+
+    Operates atomically per-file (unlink each in isolation); failures
+    on individual files are logged but don't halt the pass. Safe to
+    call from a background thread; never raises.
+
+    Args:
+        episode_dir: directory to clean. Defaults to
+            ``DEFAULT_EPISODE_DIR``.
+        retention_days: episodes older than this are deleted. Default 90.
+        max_files: hard ceiling on retained files. Default 5000.
+
+    Returns:
+        Number of files actually removed.
+    """
+    target = Path(episode_dir) if episode_dir else DEFAULT_EPISODE_DIR
+    if not target.exists():
+        return 0
+
+    cutoff_ts = time.time() - (max(0, retention_days) * 86400.0)
+    removed = 0
+
+    try:
+        files = list(target.glob("episode_*.jsonl"))
+    except OSError as exc:
+        log_warning(f"rotate_episodes: scan failed: {exc}")
+        return 0
+
+    # Pre-collect (path, mtime) so we sort once and reuse for both passes.
+    entries = []
+    for p in files:
+        try:
+            entries.append((p, p.stat().st_mtime))
+        except OSError:
+            continue
+
+    # Pass 1: age cap.
+    surviving = []
+    for path, mtime in entries:
+        if retention_days > 0 and mtime < cutoff_ts:
+            try:
+                path.unlink()
+                removed += 1
+            except OSError as exc:
+                log_warning(
+                    f"rotate_episodes: cannot delete {path.name}: {exc}"
+                )
+                surviving.append((path, mtime))
+        else:
+            surviving.append((path, mtime))
+
+    # Pass 2: count cap on survivors. Oldest first so we keep the
+    # most recent training data the learning loop relies on.
+    if max_files > 0 and len(surviving) > max_files:
+        surviving.sort(key=lambda t: t[1])  # oldest first
+        overflow = surviving[: len(surviving) - max_files]
+        for path, _mtime in overflow:
+            try:
+                path.unlink()
+                removed += 1
+            except OSError as exc:
+                log_warning(
+                    f"rotate_episodes: cannot delete {path.name}: {exc}"
+                )
+
+    if removed:
+        log_info(
+            f"rotate_episodes: removed {removed} stale episode file(s) "
+            f"(retention={retention_days}d, max={max_files})"
+        )
+    return removed
 
 
 class EpisodeRecorder:
