@@ -40,7 +40,7 @@ from app.gui.dayz_map_gui_new import DayZMapGUI, consume_prewarmed_map_gui
 from app.gui.network_tools import NetworkToolsView
 from app.gui.panels.help_panel import HelpPanel
 from app.gui.settings_dialog import SettingsDialog
-from app.logs.logger import log_error, log_info
+from app.logs.logger import log_error, log_info, log_warning
 from app.utils.helpers import is_admin
 
 try:
@@ -692,6 +692,26 @@ class DupeZDashboard(QMainWindow):
         self._add_action(tools_menu, "&Settings", "Ctrl+,", self._open_settings)
         self._add_action(tools_menu, "Stop All &Disruptions", "Ctrl+D",
                          self._stop_all_disruptions)
+        # v5.6.9 additions
+        tools_menu.addSeparator()
+        self._add_action(tools_menu, "Custom &Preset Editor…", "Ctrl+Shift+P",
+                         self._open_preset_editor)
+        self._add_action(tools_menu, "&Backup → File…", "",
+                         self._on_create_backup)
+        self._add_action(tools_menu, "Restore from &Backup…", "",
+                         self._on_restore_backup)
+
+        # v5.7.1: multi-account quick-switch. Forward / backward cycle
+        # through the tracker accounts plus a "clear" entry. The active
+        # account is persisted in app/data/active_account.json and
+        # consumed by the episode recorder + audit log for tagging.
+        tools_menu.addSeparator()
+        self._add_action(tools_menu, "&Next Account", "Ctrl+Alt+A",
+                         self._cycle_account_next)
+        self._add_action(tools_menu, "Pre&vious Account", "Ctrl+Alt+Shift+A",
+                         self._cycle_account_prev)
+        self._add_action(tools_menu, "C&lear Active Account", "",
+                         self._clear_active_account)
 
         # View
         view_menu = menubar.addMenu("&View")
@@ -847,6 +867,145 @@ class DupeZDashboard(QMainWindow):
         if self.controller:
             self.controller.stop_all_disruptions()
             self.status_bar.showMessage("All disruptions stopped", 3000)
+
+    # v5.6.9 menu handlers ─────────────────────────────────────────────
+    def _open_preset_editor(self) -> None:
+        """Open the custom preset editor dialog.
+
+        On close, refresh the clumsy-control dropdown so newly-saved
+        custom presets appear without requiring an app restart.
+        """
+        try:
+            from app.gui.dialogs.preset_editor_dialog import PresetEditorDialog
+            PresetEditorDialog(self).exec()
+        except Exception as exc:
+            log_error(f"open preset editor failed: {exc}")
+            QMessageBox.critical(
+                self, "Preset Editor",
+                f"Could not open the editor: {exc}"
+            )
+            return
+        # Best-effort: trigger the dropdown refresh on the clumsy view.
+        # The view may not be initialized yet on very early invocations,
+        # so guard with hasattr and swallow internal errors.
+        try:
+            view = getattr(self, "clumsy_view", None)
+            refresh = getattr(view, "_refresh_preset_dropdown", None)
+            if callable(refresh):
+                refresh()
+        except Exception as exc:
+            log_warning(f"preset dropdown refresh failed: {exc}")
+
+    def _on_create_backup(self) -> None:
+        """Create a one-click backup bundle of all DupeZ data."""
+        try:
+            from app.core.backup import create_backup
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Create Backup",
+                f"dupez-backup-{__import__('time').strftime('%Y%m%d_%H%M%S')}.zip",
+                "DupeZ Backup (*.zip);;Encrypted DupeZ Backup (*.zip.dpapi)",
+            )
+            if not path:
+                return
+            encrypt = path.endswith(".dpapi")
+            out = create_backup(path, encrypt=encrypt)
+            QMessageBox.information(
+                self, "Backup Complete",
+                f"Bundle written to:\n{out}"
+            )
+        except Exception as exc:
+            log_error(f"create_backup failed: {exc}")
+            QMessageBox.critical(
+                self, "Backup Failed", f"{exc}"
+            )
+
+    # v5.7.1 multi-account quick-switch handlers ──────────────────────
+    def _cycle_account_next(self) -> None:
+        """Cycle the active-account marker forward to the next tracker entry."""
+        try:
+            from app.core import account_quick_switch as aqs
+            new_name = aqs.cycle_active_account(1)
+            if new_name:
+                self.status_bar.showMessage(
+                    f"Active account: {new_name}", 4000
+                )
+            else:
+                self.status_bar.showMessage(
+                    "No accounts in tracker — add one first", 4000
+                )
+        except Exception as exc:
+            log_error(f"cycle_account_next failed: {exc}")
+
+    def _cycle_account_prev(self) -> None:
+        """Cycle the active-account marker backward to the prior tracker entry."""
+        try:
+            from app.core import account_quick_switch as aqs
+            new_name = aqs.cycle_active_account(-1)
+            if new_name:
+                self.status_bar.showMessage(
+                    f"Active account: {new_name}", 4000
+                )
+            else:
+                self.status_bar.showMessage(
+                    "No accounts in tracker — add one first", 4000
+                )
+        except Exception as exc:
+            log_error(f"cycle_account_prev failed: {exc}")
+
+    def _clear_active_account(self) -> None:
+        """Unset the active-account marker. Episodes will no longer be tagged."""
+        try:
+            from app.core import account_quick_switch as aqs
+            aqs.clear_active_account()
+            self.status_bar.showMessage("Active account cleared", 3000)
+        except Exception as exc:
+            log_error(f"clear_active_account failed: {exc}")
+
+    def _on_restore_backup(self) -> None:
+        """Restore from a previously-created backup bundle."""
+        try:
+            from app.core.backup import restore_backup, list_bundle
+            path, _ = QFileDialog.getOpenFileName(
+                self, "Restore Backup", "",
+                "DupeZ Backup (*.zip *.zip.dpapi);;All Files (*)",
+            )
+            if not path:
+                return
+            # Dry-run preview first so the operator can confirm impact.
+            preview = restore_backup(path, dry_run=True)
+            if preview.error:
+                QMessageBox.critical(
+                    self, "Restore Failed", preview.error
+                )
+                return
+            count = len(preview.restored)
+            if QMessageBox.question(
+                self, "Confirm Restore",
+                f"This will overwrite {count} files in your DupeZ "
+                f"install with the bundle's contents.\n\nContinue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            ) != QMessageBox.StandardButton.Yes:
+                return
+            result = restore_backup(path, dry_run=False)
+            if result.ok:
+                QMessageBox.information(
+                    self, "Restore Complete",
+                    f"Restored {len(result.restored)} files. "
+                    f"Restart DupeZ for changes to take full effect."
+                )
+            else:
+                QMessageBox.warning(
+                    self, "Restore Issues",
+                    f"Restored {len(result.restored)}, "
+                    f"hash mismatches {len(result.hash_mismatches)}. "
+                    f"See logs."
+                )
+        except Exception as exc:
+            log_error(f"restore_backup failed: {exc}")
+            QMessageBox.critical(
+                self, "Restore Failed", f"{exc}"
+            )
 
     def _export_data(self) -> None:
         """Export device list to CSV."""

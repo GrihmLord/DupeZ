@@ -918,8 +918,21 @@ class DayZAccountTracker(QWidget):
     def _load_accounts(self) -> None:
         """Load accounts from the persistence layer.
 
-        When the tracker is empty (first launch), auto-loads the
-        starter template so the user has example rows to work with.
+        v5.6.8: template-on-empty was DESTRUCTIVE. The prior version
+        applied the starter template (which calls save_changes and
+        OVERWRITES the on-disk JSON) any time ``self.accounts`` came
+        back empty — including transient load failures, HMAC mismatch
+        during a key rotation, or a corrupted file in flight. Users
+        who imported a workbook with 11 accounts would launch the next
+        day and find their data replaced by three "Main Character /
+        Alt — Storage Mule / Alt — Fresh Spawn" rows because the load
+        path failed silently and the template fired as a fallback.
+
+        Fix: distinguish "true first launch" (no JSON file on disk)
+        from "load returned empty for any other reason" (file exists
+        but was unreadable / decoded to []). Template only seeds on
+        true first launch. Empty-after-load leaves disk untouched and
+        surfaces an error log so the operator can investigate.
         """
         try:
             self.accounts = account_manager.accounts.copy()
@@ -927,8 +940,29 @@ class DayZAccountTracker(QWidget):
             for acc in self.accounts:
                 if 'notes' not in acc:
                     acc['notes'] = ''
+
             if not self.accounts:
-                self._apply_template(silent=True)
+                # Check whether the data file physically exists. If yes,
+                # the load failed — preserve any on-disk data and DO NOT
+                # overwrite with the template.
+                from app.core.data_persistence import persistence_manager
+                data_file = (
+                    persistence_manager.data_directory / "dayz_accounts.json"
+                )
+                if data_file.exists():
+                    log_error(
+                        f"Account data file exists at {data_file} but "
+                        f"loaded as empty — preserving on-disk data, "
+                        f"NOT seeding template (would overwrite). Check "
+                        f"HMAC / file permissions / backups."
+                    )
+                else:
+                    log_info(
+                        "No account data file on disk — first launch, "
+                        "seeding starter template."
+                    )
+                    self._apply_template(silent=True)
+
             self._refresh_account_table()
             self._update_statistics()
             log_info(f"Loaded {len(self.accounts)} accounts")

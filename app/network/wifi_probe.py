@@ -50,9 +50,16 @@ from typing import Any, Callable, Optional
 
 # Lazy imports for psutil / log — module must be importable in test
 # environments without these. Logging falls back to stderr.
+#
+# v5.7.1 fix: the original import path ``app.logs.unified_logger`` was a
+# typo from initial drafting (no such module exists). The fallback
+# branch caught the ImportError silently, which made the module
+# *appear* to work — but every log call wrote to stderr instead of
+# going through DupeZ's logger, so wifi-isolation warnings never
+# landed in the user's log files. Corrected to ``app.logs.logger``.
 
 try:
-    from app.logs.unified_logger import log_info, log_warning, log_error
+    from app.logs.logger import log_info, log_warning, log_error
 except Exception:  # pragma: no cover — fallback for standalone use
     import sys
     def log_info(msg: str) -> None: print(f"[INFO] {msg}", file=sys.stderr)

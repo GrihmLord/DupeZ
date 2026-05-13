@@ -159,7 +159,19 @@ EDIT_INDEX_MAP = {
 }
 
 # EnumWindows callback type
-WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+#
+# v5.7.1: gated on platform — ``ctypes.WINFUNCTYPE`` is a Windows-only
+# attribute that doesn't exist on Linux/macOS, so importing this module
+# under CI's ``ast-lint`` job (which runs on ubuntu-latest) used to
+# crash here at module load. The callback is only invoked by
+# ``_find_window_by_pid`` which is itself Windows-only (uses
+# ``ctypes.windll.user32``), so making the type a ``None`` shim on
+# non-Windows hosts is safe — calls into ``_find_window_by_pid`` are
+# already gated by the OS-detection upstream.
+if sys.platform.startswith("win"):
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+else:
+    WNDENUMPROC = None  # type: ignore[assignment]
 def _find_window_by_pid(pid: int, timeout: float = 5.0) -> Optional[int]:
     """Poll for a visible window belonging to `pid`. Returns HWND or None."""
     user32 = ctypes.windll.user32
@@ -1348,6 +1360,69 @@ class ClumsyNetworkDisruptor:
                 )
             else:
                 filt_expr = "true"
+
+            # v5.6.9 #3: per-port targeting. When the preset declares
+            # ``_ports`` as a list of int (or {proto,port} dicts), AND a
+            # port clause onto the existing filter so disruption only
+            # touches game traffic and leaves Discord/voice/browser
+            # untouched. Empty / missing _ports preserves prior
+            # behavior (target ALL of the target's traffic).
+            _ports = params.get("_ports") or []
+            if _ports:
+                port_atoms: List[str] = []
+                for entry in _ports:
+                    if isinstance(entry, int) and 1 <= entry <= 65535:
+                        port_atoms.append(
+                            f"(tcp.DstPort == {entry} or "
+                            f"tcp.SrcPort == {entry} or "
+                            f"udp.DstPort == {entry} or "
+                            f"udp.SrcPort == {entry})"
+                        )
+                    elif isinstance(entry, dict):
+                        proto = str(entry.get("proto", "")).lower()
+                        port = entry.get("port")
+                        if proto in ("tcp", "udp") and isinstance(port, int) \
+                                and 1 <= port <= 65535:
+                            port_atoms.append(
+                                f"({proto}.DstPort == {port} or "
+                                f"{proto}.SrcPort == {port})"
+                            )
+                if port_atoms:
+                    ports_clause = " or ".join(port_atoms)
+                    filt_expr = f"({filt_expr}) and ({ports_clause})"
+                    log_info(
+                        f"[PRESET] per-port scope applied: "
+                        f"{len(port_atoms)} port atom(s)"
+                    )
+
+            # v5.6.9 #4: process-scoped disruption. When the preset sets
+            # ``_process_scope`` to "dayz" (always) or "auto" (follow
+            # foreground), wrap the filter with a processId clause so
+            # only DayZ-class processes get caught. Falls back loudly
+            # to the unscoped filter when no DayZ PIDs are running, to
+            # avoid silently no-op'ing every cut.
+            _scope = params.get("_process_scope") or ""
+            if _scope:
+                try:
+                    from app.firewall.process_scope import (
+                        apply_process_scope,
+                        find_dayz_pids,
+                        get_foreground_pid,
+                    )
+                    filt_expr = apply_process_scope(
+                        filt_expr,
+                        _scope,
+                        dayz_pids=find_dayz_pids(),
+                        foreground_pid=get_foreground_pid(),
+                    )
+                    log_info(
+                        f"[PRESET] process scope applied: {_scope!r}"
+                    )
+                except Exception as exc:
+                    log_warning(
+                        f"[PRESET] process scope wrap failed: {exc} — "
+                        f"continuing with unscoped filter"
+                    )
 
             mode_label = "PC-LOCAL (NETWORK)" if is_local else "REMOTE (NETWORK_FORWARD)"
             if _arp_spoofer:
