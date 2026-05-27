@@ -283,29 +283,38 @@ def resolve_target_profile(
 
     # ── Layer & connection-mode decision ──────────────────────────
     #
-    # v5.6.5 model: DupeZ exists to disrupt the OPERATOR's own connection
-    # to a target (typically the DayZ server they're playing on) — not to
-    # attack other people's traffic. The only path that still uses the
-    # FORWARD layer is the explicit Windows Mobile Hotspot / ICS case,
-    # where the operator's machine IS the gateway and FORWARD-layer
-    # traffic IS the operator's own routed traffic. Everything else uses
-    # the NETWORK layer (operator's own egress / ingress).
+    # v5.7.2 model (corrects the v5.6.5 regression):
     #
-    # Pre-v5.6.5, same-WiFi /24 targets were routed through ARP spoof +
-    # FORWARD layer to redirect the target's traffic through us. That
-    # path is fundamentally unreliable on modern consumer WiFi (AP
-    # client isolation drops the spoof, see v5.6.4 honesty pass) AND
-    # mismatched the actual user intent. v5.6.5 collapses that to the
-    # NETWORK-layer "self-disrupt" model: filter on target_ip, capture
-    # the operator's own packets to/from it, apply modules. Works on
-    # any AP, any encryption mode, wired or wireless.
+    # When the operator picks a device from the network scan — an Xbox,
+    # a PS5, another PC — and clicks DISRUPT, they want to disrupt THAT
+    # DEVICE. That is the primary workflow of the tool. v5.6.5 wrongly
+    # collapsed same-WiFi targets to "self-disrupt" (NETWORK layer,
+    # operator's own traffic only), which means clicking DISRUPT on an
+    # Xbox did nothing to the Xbox. A real user (Discord, "PUTKASKANU")
+    # reported exactly this: "scan finds all devices including xbox,
+    # but disruptions has no effect now after update."
     #
-    # ARP-spoof / FORWARD-layer mode is still reachable for power users
-    # who want to try attacking another device's traffic: set
-    # ``needs_arp_spoof=True`` externally (or pass
-    # ``params["_force_arp_spoof"] = True`` at the orchestrator level).
-    # The v5.6.5 isolation watchdog will catch the silent-no-op case
-    # automatically and fall back to NETWORK layer.
+    # Correct behavior, restored here:
+    #
+    #   * Same-WiFi /24 peer target → FORWARD layer + ARP spoof. We
+    #     redirect the target's traffic through us and disrupt IT.
+    #     This is the pre-v5.7 behavior that worked.
+    #
+    #   * The v5.6.5 isolation watchdog (kept) handles the case where
+    #     ARP spoof can't land because of AP client isolation: it
+    #     detects zero forwarded packets within ~5s and auto-falls-back
+    #     to self-disrupt mode with a toast. So users WITHOUT isolation
+    #     get the working ARP cut; users WITH isolation get an honest
+    #     fallback. Nobody gets a silent no-op.
+    #
+    #   * The v5.6.4 honesty guards (return False on Npcap-missing /
+    #     ArpSpoofer-start-failure) remain in the orchestrator, so a
+    #     misconfigured host still surfaces a Partial Failure dialog.
+    #
+    # Self-disrupt is no longer a forced default — it is the watchdog's
+    # automatic fallback, plus an explicit opt-in via
+    # ``params["_force_self_disrupt"] = True`` for operators who really
+    # do want to lag only their own connection.
     if _is_in_hotspot_subnet(target_ip):
         layer = "forward"
         connection_mode = CONNECTION_MODE_HOTSPOT
@@ -315,13 +324,14 @@ def resolve_target_profile(
             f"→ NETWORK_FORWARD (hotspot, no ARP spoof needed)"
         )
     elif _is_wifi_same_network(target_ip):
-        layer = "local"
+        layer = "forward"
         connection_mode = CONNECTION_MODE_WIFI_SAME_NET
-        needs_arp_spoof = False
+        needs_arp_spoof = True
         reasons.append(
-            f"target {target_ip} on same WiFi /24 → SELF-DISRUPT mode "
-            f"(NETWORK layer, operator's own traffic to/from target). "
-            f"v5.6.5+ default — ARP spoof opt-in only."
+            f"target {target_ip} on same WiFi /24 → NETWORK_FORWARD "
+            f"via ARP spoof (disrupt the target device directly). "
+            f"v5.7.2: isolation watchdog auto-falls-back to "
+            f"self-disrupt if the AP drops the spoof."
         )
     else:
         layer = "local"

@@ -1213,22 +1213,40 @@ class ClumsyNetworkDisruptor:
             #   - Uses NETWORK_FORWARD layer (ICS/hotspot forwarding)
             #   - addr.Outbound is always TRUE — use IP header parsing
             #   - Filter by device IP (target_ip IS the console/PC)
-            # WiFi same-network mode (v5.6.5+):
-            #   - Target is on same WiFi LAN. Default is SELF-DISRUPT
-            #     (NETWORK layer, operator's own traffic to/from target).
-            #     ARP spoof / FORWARD layer reachable only via explicit
-            #     _force_arp_spoof opt-in (rarely useful — see v5.6.4
-            #     honesty pass for why).
+            # WiFi same-network mode (v5.7.2):
+            #   - Target is on same WiFi LAN. Default routes through ARP
+            #     spoof + NETWORK_FORWARD layer so the TARGET DEVICE is
+            #     disrupted (this is the primary "pick a device, hit
+            #     DISRUPT" workflow). The isolation watchdog auto-falls-
+            #     back to self-disrupt if the AP drops the spoof.
+            #   - Operators who specifically want to lag only their OWN
+            #     traffic can pass params["_force_self_disrupt"] = True.
             is_local = params.get("_network_local", False)
 
-            # v5.6.5: map _detection.layer → engine layer so the new
-            # local-default for wifi_same_net actually takes effect.
-            # Previously is_local was only ever set explicitly via the
-            # params dict (which the controller doesn't populate from
-            # detection), so detection.layer="local" silently fell back
-            # to params.get(..., False) = NETWORK_FORWARD. Caller can
-            # still override by passing _network_local in params.
-            if _detection is not None and "_network_local" not in params:
+            # v5.7.2: honor an explicit self-disrupt opt-in. When set,
+            # it overrides detection: NETWORK layer, no ARP spoof. This
+            # is the documented escape hatch for "lag only my own
+            # connection to the target" (e.g. a shared game server).
+            _force_self_disrupt = bool(params.get("_force_self_disrupt"))
+            if _force_self_disrupt:
+                is_local = True
+                params["_network_local"] = True
+                log_info(
+                    "[WiFi] _force_self_disrupt set — NETWORK layer, "
+                    "ARP spoof skipped (operator opt-in)"
+                )
+
+            # Map _detection.layer → engine layer so the auto-detected
+            # FORWARD vs local layer actually takes effect. is_local is
+            # otherwise only sourced from params, which the controller
+            # doesn't populate from detection. Caller can still override
+            # by passing _network_local explicitly; _force_self_disrupt
+            # (handled above) also wins over detection.
+            if (
+                _detection is not None
+                and "_network_local" not in params
+                and not _force_self_disrupt
+            ):
                 detected_layer = getattr(_detection, "layer", None)
                 if detected_layer == "local":
                     is_local = True
@@ -1240,11 +1258,13 @@ class ClumsyNetworkDisruptor:
             # ── ARP spoofing for WiFi same-network ────────────────
             # If auto-detection says we need ARP spoofing, start it
             # BEFORE opening WinDivert so traffic is already flowing
-            # through us when the FORWARD layer opens.
+            # through us when the FORWARD layer opens. Suppressed when
+            # the operator forced self-disrupt mode.
             _arp_spoofer = None
             needs_arp = (
                 _detection is not None
                 and getattr(_detection, "needs_arp_spoof", False)
+                and not _force_self_disrupt
             )
             if needs_arp:
                 # ARP-spoof capture is asymmetric: only one leg of the
@@ -1655,9 +1675,9 @@ class ClumsyNetworkDisruptor:
                 )
 
         try:
-            grace_s = float(params.get("_wifi_isolation_grace_s", 5.0))
+            grace_s = float(params.get("_wifi_isolation_grace_s", 8.0))
         except (TypeError, ValueError):
-            grace_s = 5.0
+            grace_s = 8.0
 
         watchdog = IsolationWatchdog(
             spoofer=spoofer,

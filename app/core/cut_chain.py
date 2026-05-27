@@ -126,7 +126,7 @@ class CutChainRunner:
         if self.running:
             return
         self._stop.clear()
-        self._started_ts = time.time()
+        self._started_ts = time.monotonic()
         self._thread = threading.Thread(
             target=self._run, daemon=True, name="CutChainRunner"
         )
@@ -227,11 +227,16 @@ class CutChainRunner:
     def _wait_gate(self, idx: int, stage: Stage) -> None:
         kind = stage.gate.kind
         if kind == "time":
-            elapsed = 0.0
-            tick = 0.1
-            while elapsed < stage.gate.seconds and not self._stop.is_set():
-                self._stop.wait(tick)
-                elapsed += tick
+            # Deadline on the monotonic clock. The old `elapsed += tick`
+            # loop accumulated float error and ignored per-iteration
+            # scheduling overhead, so a "7s" gate drifted noticeably
+            # long; it also could not see a wall-clock change at all.
+            deadline = time.monotonic() + max(0.0, stage.gate.seconds)
+            while not self._stop.is_set():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                self._stop.wait(min(0.1, remaining))
             return
 
         if kind in ("severed", "connected"):
@@ -252,8 +257,8 @@ class CutChainRunner:
 
     def _wait_a2s_state(self, idx: int, want: str, timeout_s: float) -> None:
         """Poll the engine's max_cut_state until *want* or timeout."""
-        end = time.time() + timeout_s
-        while time.time() < end and not self._stop.is_set():
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end and not self._stop.is_set():
             try:
                 engines = getattr(self._controller, "disrupted_devices", {})
                 info = engines.get(self._cfg.target_ip, {})
@@ -276,8 +281,8 @@ class CutChainRunner:
         self, idx: int, target: int, timeout_s: float
     ) -> None:
         """Poll the engine's _packets_processed until >= target or timeout."""
-        end = time.time() + timeout_s
-        while time.time() < end and not self._stop.is_set():
+        end = time.monotonic() + timeout_s
+        while time.monotonic() < end and not self._stop.is_set():
             try:
                 engines = getattr(self._controller, "disrupted_devices", {})
                 info = engines.get(self._cfg.target_ip, {})
@@ -300,5 +305,5 @@ class CutChainRunner:
     def _global_timed_out(self) -> bool:
         return (
             self._cfg.global_timeout_s > 0
-            and (time.time() - self._started_ts) > self._cfg.global_timeout_s
+            and (time.monotonic() - self._started_ts) > self._cfg.global_timeout_s
         )

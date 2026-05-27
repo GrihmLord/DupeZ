@@ -208,3 +208,43 @@ class TestGates:
         # Should still complete despite unknown gate kind.
         kinds = [e.kind for e in events]
         assert "complete" in kinds or "halt" in kinds
+
+
+class TestTimeGateTiming:
+    """The time gate must wait ~the configured duration and stay stoppable.
+
+    Regression: the gate accumulated a fixed 0.1s tick into ``elapsed``
+    instead of measuring real time, so it drifted, and all timing used
+    wall-clock ``time.time()`` rather than ``time.monotonic()``.
+    """
+
+    def test_time_gate_waits_roughly_configured_duration(self) -> None:
+        events: list = []
+        cfg = ChainConfig(
+            target_ip="10.0.0.5",
+            stages=[Stage(preset="Lag", gate=Gate("time", seconds=0.5))],
+        )
+        runner = CutChainRunner(cfg, FakeController(), on_event=events.append)
+        start = time.monotonic()
+        runner.start()
+        runner._thread.join(timeout=3.0)
+        elapsed = time.monotonic() - start
+        # The single 0.5s gate dominates runtime. Generous slack for
+        # scheduling, but it must neither skip the wait (<0.4s) nor
+        # drift badly long (>1.5s).
+        assert 0.4 <= elapsed <= 1.5, f"time gate took {elapsed:.2f}s"
+        assert "complete" in [e.kind for e in events]
+
+    def test_time_gate_is_stop_responsive(self) -> None:
+        events: list = []
+        cfg = ChainConfig(
+            target_ip="10.0.0.5",
+            stages=[Stage(preset="Lag", gate=Gate("time", seconds=30.0))],
+        )
+        runner = CutChainRunner(cfg, FakeController(), on_event=events.append)
+        runner.start()
+        time.sleep(0.2)
+        start = time.monotonic()
+        runner.stop()
+        # stop() must interrupt the 30s gate near-immediately.
+        assert time.monotonic() - start < 1.0

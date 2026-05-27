@@ -8,17 +8,19 @@ This ADR consolidates the major architectural decisions baked into DupeZ between
 
 ---
 
-## §1 — WiFi disruption defaults to self-disrupt (v5.6.5)
+## §1 — WiFi disruption of same-network peer targets
 
-**Problem.** v5.5.0 added a `wifi_same_net` path that ARP-spoofed peer devices and routed their traffic through us via the NETWORK_FORWARD layer. This was the wrong premise for the actual user use case AND fundamentally unreliable on modern consumer WiFi: AP client isolation is default-on for Eero, Google Nest, and most ISP gateways, silently dropping the spoof and leaving the operator wondering why cuts don't land.
+**Status: this decision was made in v5.6.5, REVERSED in v5.7.2 after a user-reported regression. The current behavior is the v5.7.2 one. The v5.6.5 history is preserved below as a lesson.**
 
-**Decision.** v5.6.5 collapsed the default for `wifi_same_net` targets to NETWORK layer / self-disrupt — the operator's OWN traffic to/from the target gets the disruption treatment. Works on every AP regardless of isolation, encryption mode, or 802.11 version. Doesn't depend on Npcap. ARP spoof remains reachable as a power-user opt-in via `params["_force_arp_spoof"] = True`, with a v5.6.5 isolation watchdog that auto-falls-back when the spoof can't land.
+**Problem.** v5.5.0 added a `wifi_same_net` path that ARP-spoofs peer devices and routes their traffic through the operator's machine via the NETWORK_FORWARD layer, so the target device gets disrupted. This is unreliable on consumer WiFi where AP client isolation drops the spoof.
 
-**Alternatives considered.**
-- *Keep ARP as the default and improve detection.* Rejected: no client-side approach can reliably overcome AP isolation; the user-visible cause of failure was unfixable.
-- *Drop ARP entirely.* Rejected: small but real cohort of operators have managed switches / own routers where it works.
+**v5.6.5 decision (WRONG — reversed).** v5.6.5 collapsed the default to NETWORK layer / self-disrupt — only the operator's own traffic to/from the target was disrupted. The stated reasoning: AP isolation makes ARP unreliable, and "the canonical use case is lagging your own connection to a server."
 
-**Trade-off accepted.** Self-disrupt scope is narrower (can't affect target's traffic to third parties). For the canonical DayZ duping use case (lag the operator's own connection to the server until eviction) this is exactly correct.
+**Why it was wrong.** That reasoning mis-identified the primary workflow. DupeZ's core loop is: scan the network → see the devices (Xbox, PS5, other PCs) → pick one → click DISRUPT. The operator is unambiguously asking to disrupt *that device*. Self-disrupt does nothing they asked for. v5.6.5 silently turned the tool's headline function into a no-op for every peer target. A user (Discord, "PUTKASKANU") reported it directly: "scan finds all devices including xbox, but disruptions has no effect now after update."
+
+**v5.7.2 decision (current).** `wifi_same_net` targets route through ARP spoof + FORWARD layer again — the target device is disrupted directly. The v5.6.5 isolation watchdog is retained but now runs by default: when the AP genuinely drops the spoof (zero forwarded packets after an 8-second grace window), it auto-falls-back to self-disrupt mode with a toast. Users without AP isolation get the working cut; users with it get an honest, announced degraded mode. `params["_force_self_disrupt"]` is the explicit opt-in for operators who really do want self-disrupt.
+
+**Lesson.** Do not infer the "canonical use case" from one's own assumptions. The tool's actual primary workflow is whatever the UI most directly invites — here, "pick a device, disrupt it." When a design decision makes the most obvious UI action do nothing, the decision is wrong regardless of how defensible the edge-case reasoning sounds. Validate against a real user before collapsing a default.
 
 ---
 

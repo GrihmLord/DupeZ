@@ -169,12 +169,26 @@ class TestCompressionContribution:
         c = _compression_contribution(times)
         assert c.value == 0
 
-    def test_all_close_pairs_accrue(self) -> None:
-        # 10 cuts back-to-back at 5s spacing — all pairs <60s apart.
+    def test_all_close_pairs_accrue_to_full_cap(self) -> None:
+        # 10 cuts back-to-back at 5s spacing — all 9 consecutive pairs
+        # are <60s apart, which is the maximum possible for 10 cuts.
+        # The contribution must reach the cap exactly.
+        #
+        # Regression: the denominator was len(times), not len(times)-1,
+        # so an entirely-compressed history topped out at 9/10 of the
+        # cap and could never actually hit RED on this factor — while
+        # the detail string already (correctly) read "9/9 pairs".
         times = [1000.0 + i * 5 for i in range(10)]
         c = _compression_contribution(times)
-        # 9 close pairs out of 10 cuts → 90% → close to cap
-        assert c.value > 0
+        assert c.value == c.cap
+
+    def test_partial_compression_scales_by_pair_count(self) -> None:
+        # 5 timestamps → 4 consecutive pairs. Exactly 2 are <60s apart.
+        # Value must be 2/4 of the cap — proving the denominator is the
+        # pair count (N-1), not the timestamp count (N).
+        times = [0.0, 10.0, 5000.0, 5010.0, 12000.0]
+        c = _compression_contribution(times)
+        assert c.value == round((2 / 4) * c.cap)
 
 
 class TestNeverCutContribution:

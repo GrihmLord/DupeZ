@@ -12,6 +12,7 @@ Covers the detection ladder:
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from app.firewall.target_profile import (
     DetectionResult,
@@ -23,18 +24,34 @@ from app.firewall.target_profile import (
 
 
 class TestLayerDetection(unittest.TestCase):
+    """Test the layer-decision branch of resolve_target_profile.
+
+    The 'local' branch only runs when both ``_is_in_hotspot_subnet`` and
+    ``_is_wifi_same_network`` return False. ``_is_wifi_same_network``
+    inspects the host's actual network config, which varies between
+    runners — without a patch these tests would pass on one developer's
+    machine and fail on another (e.g. anyone on a 10.0.0.x or 192.168.1.x
+    LAN would resolve to ``wifi_same_net`` instead of ``local``). Patching
+    both helpers makes the test exercise the local branch deterministically.
+    """
+
     def test_hotspot_subnet_is_forward(self):
         r = resolve_target_profile("192.168.137.42")
         self.assertEqual(r.layer, "forward")
 
-    def test_non_hotspot_subnet_is_local(self):
+    @patch("app.firewall.target_profile._is_wifi_same_network", return_value=False)
+    def test_non_hotspot_subnet_is_local(self, _mock_wifi):
         r = resolve_target_profile("192.168.1.50")
         self.assertEqual(r.layer, "local")
         self.assertEqual(r.profile, "pc_local")
         self.assertEqual(r.platform, "pc")
 
-    def test_local_ignores_platform_signals(self):
-        # Even with a PS5 MAC, a local-subnet target must resolve to pc_local
+    @patch("app.firewall.target_profile._is_wifi_same_network", return_value=False)
+    def test_local_ignores_platform_signals(self, _mock_wifi):
+        # Even with a PS5 MAC, a TRUE-local-subnet target (not same-WiFi)
+        # must resolve to pc_local. v5.7.2 routes same-WiFi peers to
+        # forward+ARP-spoof, so this test patches _is_wifi_same_network
+        # to force the local branch regardless of the runner's LAN.
         r = resolve_target_profile(
             "10.0.0.15", mac="b4:0a:d8:11:22:33",
             hostname="PS5-livingroom",
@@ -215,6 +232,36 @@ class TestWifiSameNetworkDetection(unittest.TestCase):
         r = DetectionResult("pc_local", "local", "pc", ["test"])
         self.assertEqual(r.connection_mode, "local")
         self.assertFalse(r.needs_arp_spoof)
+
+    def test_wifi_same_net_uses_arp_spoof_and_forward_layer(self):
+        """v5.7.2 regression guard.
+
+        A same-WiFi /24 peer target (e.g. an Xbox the operator picked
+        from the network scan) MUST route through ARP spoof on the
+        FORWARD layer — that is what disrupts the target device.
+
+        v5.6.5 wrongly collapsed this to self-disrupt (NETWORK layer,
+        operator's own traffic only), so clicking DISRUPT on an Xbox
+        did nothing to the Xbox. A user reported it; v5.7.2 reverted
+        the default. This test locks the corrected behavior so the
+        regression cannot return silently.
+        """
+        from unittest.mock import patch
+        import app.firewall.target_profile as tp
+
+        with patch.object(tp, "_is_wifi_same_network", return_value=True):
+            r = resolve_target_profile("10.0.0.50")
+            self.assertEqual(
+                r.layer, "forward",
+                "wifi_same_net must use the FORWARD layer to disrupt "
+                "the target device, not self-disrupt",
+            )
+            self.assertTrue(
+                r.needs_arp_spoof,
+                "wifi_same_net must request ARP spoof so the target's "
+                "traffic is actually redirected through us",
+            )
+            self.assertEqual(r.connection_mode, "wifi_same_net")
 
 
 class TestWifiSameNetworkHelper(unittest.TestCase):

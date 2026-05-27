@@ -1520,7 +1520,8 @@ class NativeWinDivertEngine:
                     )
                     log_info(f"[ENGINE INIT]   └─ flush thread started")
 
-                # Auto-activate modules with state machines (e.g. DupeEngine)
+                # Auto-activate modules with state machines (e.g. the
+                # disconnect timed-cut module, God Mode pulse cycler)
                 if hasattr(mod, 'activate') and callable(getattr(mod, 'activate')):
                     try:
                         mod.activate()

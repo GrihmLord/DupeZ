@@ -60,6 +60,22 @@ from typing import Any, Dict, Optional
 from app.logs.logger import log_error, log_info, log_warning
 
 
+class _NoReuseThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with SO_REUSEADDR disabled.
+
+    The stdlib base sets ``allow_reuse_address = True`` which maps to
+    ``SO_REUSEADDR=1``. On Linux that only loosens TIME_WAIT reuse, but
+    on Windows it lets a second ``bind()`` SILENTLY STEAL the port from
+    a first listener — the opposite of what callers expect. We want a
+    duplicate bind to raise ``OSError`` on every platform so
+    :meth:`OverlayServer.start` can honestly report False. v5.7.4
+    regression test ``test_start_returns_false_on_bind_failure`` locks
+    this behavior.
+    """
+
+    allow_reuse_address = False
+
+
 __all__ = [
     "OverlayServer",
     "build_state_snapshot",
@@ -211,10 +227,21 @@ def _make_handler_class(controller: Any) -> type:
             self.send_response(status)
             self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
-            # Allow OBS browser source to fetch from localhost without
-            # CORS friction. Safe because the server is bound to
-            # loopback by default — there is no LAN exposure.
-            self.send_header("Access-Control-Allow-Origin", "*")
+            # v5.7.3 SECURITY: NO wildcard CORS header.
+            #
+            # The OBS browser source navigates directly TO /overlay.html,
+            # so its fetch() calls to /state are same-origin and need no
+            # CORS grant. A wildcard `Access-Control-Allow-Origin: *`
+            # would let ANY web page the operator visits in a normal
+            # browser poll http://127.0.0.1:4778/state and learn that
+            # DupeZ is running, what it is targeting, and the live risk
+            # score — a cross-origin information leak. Omitting the
+            # header entirely keeps /state readable only same-origin
+            # (i.e. only by the overlay page we serve).
+            #
+            # X-Content-Type-Options stops a browser from MIME-sniffing
+            # the JSON/HTML into something executable.
+            self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
@@ -261,12 +288,27 @@ class OverlayServer:
     def base_url(self) -> str:
         return f"http://{self._host}:{self._port}"
 
-    def start(self) -> None:
+    @property
+    def running(self) -> bool:
+        """True when the HTTP server is bound and serving."""
+        return self._server is not None
+
+    def start(self) -> bool:
+        """Start the overlay HTTP server.
+
+        Returns:
+            True if the server is bound and serving (or was already
+            running), False if the bind failed — e.g. the port is in
+            use. v5.7.4 callers (main.py autostart, dashboard toggle)
+            check this so they never report "overlay started" on a
+            failed bind. Pre-v5.7.5 start() always returned None and
+            both callers reported success unconditionally.
+        """
         if self._server is not None:
-            return
+            return True
         handler_cls = _make_handler_class(self._controller)
         try:
-            self._server = ThreadingHTTPServer(
+            self._server = _NoReuseThreadingHTTPServer(
                 (self._host, self._port), handler_cls
             )
         except OSError as exc:
@@ -275,7 +317,7 @@ class OverlayServer:
                 f"{exc}"
             )
             self._server = None
-            return
+            return False
         self._thread = threading.Thread(
             target=self._server.serve_forever,
             daemon=True, name="OverlayServer"
@@ -284,6 +326,7 @@ class OverlayServer:
         log_info(
             f"OverlayServer listening on {self.base_url}/overlay.html"
         )
+        return True
 
     def stop(self) -> None:
         if self._server is None:

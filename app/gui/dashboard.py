@@ -713,6 +713,18 @@ class DupeZDashboard(QMainWindow):
         self._add_action(tools_menu, "C&lear Active Account", "",
                          self._clear_active_account)
 
+        # v5.7.4: wire the previously-orphaned v5.7.0/v5.7.1 feature
+        # backends to actual menu entry points.
+        tools_menu.addSeparator()
+        self._add_action(tools_menu, "&Risk Score…", "",
+                         self._show_risk_score)
+        self._add_action(tools_menu, "&Diagnostics…", "F2",
+                         self._show_diagnostics)
+        self._add_action(tools_menu, "&Kill Switch — Panic Stop", "Ctrl+Alt+X",
+                         self._kill_switch_panic)
+        self._add_action(tools_menu, "Toggle &OBS Overlay Server", "",
+                         self._toggle_obs_overlay)
+
         # View
         view_menu = menubar.addMenu("&View")
         self._add_action(view_menu, "&Clumsy Control", "Ctrl+1",
@@ -961,6 +973,120 @@ class DupeZDashboard(QMainWindow):
         except Exception as exc:
             log_error(f"clear_active_account failed: {exc}")
 
+    # v5.7.4 — wire the orphaned v5.7.0/v5.7.1 feature backends ─────────
+    def _show_risk_score(self) -> None:
+        """Compute and display the current risk score with its breakdown."""
+        try:
+            from app.core.risk_score import compute_risk_score
+            score = compute_risk_score()
+            lines = [
+                f"Risk score: {score.score}/100  ({score.band.upper()})",
+                "",
+                score.advisory,
+                "",
+                "Factor breakdown:",
+            ]
+            for c in score.contributions:
+                lines.append(f"  +{c.value:>3}/{c.cap:<3}  {c.label}")
+                if c.detail:
+                    lines.append(f"           {c.detail}")
+            QMessageBox.information(
+                self, "DupeZ Risk Score", "\n".join(lines)
+            )
+        except Exception as exc:
+            log_error(f"risk score display failed: {exc}")
+            QMessageBox.warning(self, "Risk Score", f"Could not compute: {exc}")
+
+    def _show_diagnostics(self) -> None:
+        """Run all diagnostic self-checks and display the results."""
+        try:
+            from app.core.diagnostics import run_all_checks, CheckStatus
+            results = run_all_checks()
+            icon = {
+                CheckStatus.PASS: "[OK]  ",
+                CheckStatus.WARN: "[WARN]",
+                CheckStatus.FAIL: "[FAIL]",
+            }
+            lines = []
+            for r in results:
+                lines.append(f"{icon.get(r.status, '[?]')} {r.name}")
+                lines.append(f"        {r.message}")
+                if r.fix_hint:
+                    lines.append(f"        fix: {r.fix_hint}")
+                lines.append("")
+            fails = sum(1 for r in results if r.status == CheckStatus.FAIL)
+            header = (
+                f"{len(results)} checks — "
+                f"{fails} failing\n" + "=" * 40 + "\n"
+            )
+            box = QMessageBox(self)
+            box.setWindowTitle("DupeZ Diagnostics")
+            box.setIcon(
+                QMessageBox.Icon.Critical if fails
+                else QMessageBox.Icon.Information
+            )
+            box.setText(header + "\n".join(lines))
+            box.exec()
+        except Exception as exc:
+            log_error(f"diagnostics display failed: {exc}")
+            QMessageBox.warning(self, "Diagnostics", f"Could not run: {exc}")
+
+    def _kill_switch_panic(self) -> None:
+        """Immediate panic-stop of all disruptions (manual kill switch)."""
+        try:
+            if self.controller:
+                self.controller.stop_all_disruptions()
+            self.status_bar.showMessage(
+                "KILL SWITCH — all disruptions stopped", 5000
+            )
+            log_warning("Kill switch panic-stop invoked by operator")
+        except Exception as exc:
+            log_error(f"kill switch panic failed: {exc}")
+            QMessageBox.critical(
+                self, "Kill Switch",
+                f"Panic-stop encountered an error: {exc}\n"
+                f"Check that disruptions actually stopped."
+            )
+
+    def _toggle_obs_overlay(self) -> None:
+        """Start or stop the OBS overlay HTTP server."""
+        try:
+            from app.core.overlay_server import OverlayServer
+            from app.core.data_persistence import settings_manager
+            existing = getattr(self, "overlay_server", None)
+            if existing is not None:
+                existing.stop()
+                self.overlay_server = None
+                settings_manager.update_setting("obs_overlay_enabled", False)
+                self.status_bar.showMessage("OBS overlay stopped", 4000)
+                return
+            srv = OverlayServer(self.controller)
+            if not srv.start():
+                # Bind failed — port in use. Do NOT persist the enabled
+                # flag or claim success.
+                QMessageBox.warning(
+                    self, "OBS Overlay",
+                    f"Could not start the overlay server — the port "
+                    f"({srv.base_url.rsplit(':', 1)[-1]}) is likely "
+                    f"already in use. Close whatever is using it and "
+                    f"try again."
+                )
+                return
+            self.overlay_server = srv
+            settings_manager.update_setting("obs_overlay_enabled", True)
+            QMessageBox.information(
+                self, "OBS Overlay Started",
+                f"Overlay server running. Add this as a Browser Source "
+                f"in OBS:\n\n{srv.base_url}/overlay.html\n\n"
+                f"It auto-starts on future launches until you toggle "
+                f"it off here."
+            )
+        except Exception as exc:
+            log_error(f"OBS overlay toggle failed: {exc}")
+            QMessageBox.warning(
+                self, "OBS Overlay", f"Could not toggle: {exc}"
+            )
+
     def _on_restore_backup(self) -> None:
         """Restore from a previously-created backup bundle."""
         try:
@@ -1024,16 +1150,42 @@ class DupeZDashboard(QMainWindow):
             log_error(f"Export error: {exc}")
 
     def _show_hotkeys(self) -> None:
-        """Display the hotkey reference dialog."""
+        """Display the hotkey reference dialog.
+
+        Built dynamically from the live menu-bar actions so it can never
+        drift from the actual shortcuts. Previously this was a hand-typed
+        list that fell out of sync as menu entries were added (F2, the
+        kill switch, account cycling, the preset editor). The tray-toggle
+        QShortcut (Ctrl+Shift+D) is registered outside the menu, so it is
+        the one entry appended explicitly.
+        """
+        rows: list[str] = []
+        try:
+            for menu_action in self._custom_menubar.actions():
+                menu = menu_action.menu()
+                if menu is None:
+                    continue
+                for act in menu.actions():
+                    if act.isSeparator():
+                        continue
+                    sc = act.shortcut().toString()
+                    if not sc:
+                        continue
+                    label = act.text().replace("&", "").strip()
+                    rows.append(
+                        f"<tr><td style='padding-right:18px;'><b>{sc}</b>"
+                        f"</td><td>{label}</td></tr>"
+                    )
+        except Exception as exc:  # pragma: no cover - defensive
+            log_error(f"hotkey reference build failed: {exc}")
+        # Tray toggle is a standalone QShortcut, not a menu action.
+        rows.append(
+            "<tr><td style='padding-right:18px;'><b>Ctrl+Shift+D</b></td>"
+            "<td>Toggle Window (Tray Mode)</td></tr>"
+        )
         QMessageBox.information(self, "Hotkeys", (
             "<h3>DupeZ Hotkeys</h3>"
-            "<p><b>Ctrl+S</b> \u2014 Scan Network</p>"
-            "<p><b>Ctrl+D</b> \u2014 Stop All Disruptions</p>"
-            "<p><b>Ctrl+1/2/3/4</b> \u2014 Switch Views</p>"
-            "<p><b>Ctrl+,</b> \u2014 Settings</p>"
-            "<p><b>Ctrl+E</b> \u2014 Export Data</p>"
-            "<p><b>Ctrl+Shift+D</b> \u2014 Toggle Window (Tray Mode)</p>"
-            "<p><b>Ctrl+Q</b> \u2014 Exit</p>"
+            "<table cellpadding='3'>" + "".join(rows) + "</table>"
         ))
 
     def _check_for_updates(self) -> None:

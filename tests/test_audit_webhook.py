@@ -217,6 +217,40 @@ class TestEmitToSinks:
         elapsed = time.time() - start
         assert elapsed < 0.2, f"emit_to_sinks blocked {elapsed:.2f}s"
 
+    def test_audit_event_fans_out_to_sinks(self) -> None:
+        """v5.7.4 wiring guard: AuditLogger.log() must call emit_to_sinks.
+
+        Pre-v5.7.4 the audit logger never fanned out — a configured
+        webhook received nothing because emit_to_sinks had zero
+        callers. This test registers a sink, fires a real audit event,
+        and asserts the sink saw it. Locks the wiring so a future
+        refactor of audit.py cannot silently sever it again.
+        """
+        from app.core.audit_webhook import AuditSink
+
+        received = []
+
+        class CaptureSink(AuditSink):
+            def accepts(self, _e: str) -> bool:
+                return True  # capture everything for the test
+
+            def _post(self, event: str, payload: dict) -> None:
+                received.append((event, payload))
+
+        register_sink(CaptureSink(
+            "https://example.invalid/capture", rate_limit_per_min=120,
+        ))
+        # Fire through the real audit entry point.
+        from app.logs.audit import audit_event
+        audit_event("cut_start", {"target_ip": "10.0.0.9"})
+        # Sink dispatch is daemon-threaded; give it a moment.
+        time.sleep(0.1)
+        assert received, (
+            "audit_event did not reach the sink — the v5.7.4 "
+            "AuditLogger.log → emit_to_sinks wiring is broken"
+        )
+        assert received[0][0] == "cut_start"
+
     def test_one_sink_failure_does_not_block_others(self) -> None:
         # A sink whose emit() raises must not prevent other sinks
         # from firing. Use a real AuditSink subclass so the registry's

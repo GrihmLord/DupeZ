@@ -255,7 +255,10 @@ class KillSwitch:
         self._manual_overrides_disabled = True
 
     def start(self) -> None:
-        if self._thread is not None:
+        # Guard on is_alive(), not merely non-None: a stale dead
+        # reference must not block a restart, and a still-running thread
+        # must not be shadowed by a second one.
+        if self._thread is not None and self._thread.is_alive():
             return
         self._running.set()
         self._thread = threading.Thread(
@@ -270,9 +273,16 @@ class KillSwitch:
 
     def stop(self) -> None:
         self._running.clear()
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-            self._thread = None
+        t = self._thread
+        if t is not None:
+            t.join(timeout=2.0)
+            if t.is_alive():
+                # Join timed out — keep the reference so a later start()
+                # sees it via is_alive() and does not spawn a second
+                # poll thread racing on _last_fire_ts.
+                log_warning("KillSwitch thread did not stop within 2s")
+            else:
+                self._thread = None
 
     def fire_manual(self, reason: str = "manual trigger") -> None:
         """Convenience: find any ManualTrigger in config and fire it."""

@@ -160,6 +160,53 @@ def validate_preset(p: CustomPreset, *, allow_reserved: bool = False) -> None:
         )
     if not isinstance(p.params, dict):
         raise PresetValidationError("preset params must be a dict")
+
+    # v5.7.3 SECURITY: underscore-key allowlist.
+    #
+    # Keys starting with "_" are engine-internal control flags read by
+    # the disruption orchestrator — e.g. _network_local (forces NETWORK
+    # vs FORWARD layer), _force_self_disrupt, _force_arp_spoof,
+    # _wifi_auto_fallback, _target_ip. A preset is user-authored DATA,
+    # and presets are SHARED (export/import JSON sidecars; a future
+    # marketplace). If an imported preset could carry arbitrary "_*"
+    # keys, a malicious shared preset could silently flip engine
+    # behavior on the importer's machine — e.g. disable the isolation
+    # watchdog, force a layer, or inject a bogus _target_ip.
+    #
+    # Only these two underscore keys are legitimately preset-settable
+    # (they're documented preset features). Any other "_*" key is
+    # rejected at validation time, so it can never reach save or the
+    # engine. Non-underscore params (drop_chance, lag_delay, etc.) are
+    # unaffected — they're plain tuning values.
+    allowed_underscore = {"_ports", "_process_scope"}
+    rogue = sorted(
+        k for k in p.params
+        if isinstance(k, str) and k.startswith("_")
+        and k not in allowed_underscore
+    )
+    if rogue:
+        raise PresetValidationError(
+            f"preset params contains disallowed engine-internal keys: "
+            f"{rogue}. Only {sorted(allowed_underscore)} may be set by "
+            f"a preset; other '_'-prefixed keys are engine control "
+            f"flags and cannot be injected via a shared preset."
+        )
+
+    # v5.7.3 SECURITY: bound the params dict size. A preset is small
+    # config; an oversized params blob (thousands of keys, megabyte
+    # values) is either corruption or an attempt to DoS the importer.
+    try:
+        params_json_len = len(json.dumps(p.params))
+    except (TypeError, ValueError) as exc:
+        raise PresetValidationError(
+            f"preset params not JSON-serializable: {exc}"
+        ) from exc
+    if params_json_len > 16_384:
+        raise PresetValidationError(
+            f"preset params too large: {params_json_len} bytes "
+            f"(cap 16384) — presets are small config, not data blobs"
+        )
+
     direction = p.params.get("direction", "both")
     if direction not in VALID_DIRECTIONS:
         raise PresetValidationError(

@@ -1,4 +1,4 @@
-# DupeZ v5.7.1
+# DupeZ v5.7.4
 
 Per-device network disruption toolkit. Scan your network, pick your targets, manipulate their packets. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
@@ -60,7 +60,7 @@ Real-time packet classifier with UDP size/port heuristics, TCP flag analysis, an
 
 ### Asymmetric Direction Presets (v5.0.0)
 
-14 named presets across 5 families: God Mode (standard/stealth/aggressive), Ghost Mode (standard/soft), Desync (standard/heavy), Phantom (standard/aggressive), Combo (chaos/surgical). Independent inbound/outbound tuning per module.
+14 named presets across 6 families: God Mode (standard/stealth/aggressive), Ghost Mode (standard/soft), Desync (standard/heavy), Phantom (standard/aggressive), Statistical (bursty loss/jitter hell/ISP throttle), and Combo (chaos/surgical). Independent inbound/outbound tuning per module.
 
 ### AI Smart Mode (v3.1.0+)
 
@@ -84,7 +84,7 @@ Run DupeZ headless from the terminal. Subcommands: `scan`, `disrupt`, `stop`, `s
 
 ### Network Tools (v3.3.0+)
 
-Four-tab network intelligence toolkit: Live Traffic Monitor, Latency Overlay (floating transparent widget), Port Scanner, and Connection Mapper with gaming port detection and hostname resolution.
+Network intelligence toolkit. Four core tabs — Live Traffic Monitor, Latency Overlay (floating transparent widget), Port Scanner, and Connection Mapper with gaming port detection and hostname resolution — plus AI / Smart Ops, GPC / Cronus Zen, and LAN Cut tabs that appear when their subsystems are available.
 
 ### iZurvive Map
 
@@ -100,13 +100,32 @@ Built-in interactive guide with 10+ collapsible sections covering every feature:
 
 ### Collapsible & Reorderable Sections (v5.2.0)
 
-All control sections in Clumsy Control (Preset, Auto-Tune, Platform, Direction, Modules, Scheduler/Macros, Live Stats, Voice Control, GPC/Cronus) are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow.
+The Clumsy Control sections — Preset, Platform, Direction, Modules, and Live Stats — are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow. The scheduler/macro controls sit inline beneath the disrupt buttons; Smart Mode, Voice, and GPC/Cronus live in the Network Tools view.
 
 ### ARP Spoof + A2S Cut Verifier (v5.6.0)
 
 Closed-loop cut verification for WiFi same-network targets. ARP poison writes three gateway-facing frames per cycle — opcode-2 reply with L2 source spoofed to the target's MAC, plus an opcode-1 request variant — defeating ASUS/Netgear/Ubiquiti anti-spoof heuristics and RFC 826 strict-mode routers. While a cut is active, the A2S probe polls the Source query port every second, captures a baseline player count on the first reachable poll, and emits `cut_verified` events with states `unknown → connected → degraded → severed`. Peak `max_cut_state` is written to `engine_stop` so the learning loop sees labeled severance data without operator input. `LearningLoop.cut_effectiveness(profile, goal)` surfaces per-bucket severance rates so the auto-tuner can switch presets when the current one can't sever a target class.
 
 Vendor column now resolves against the full IEEE OUI database (~35k entries via scapy MANUFDB) instead of the 60-entry curated table — Ring, HUMAX, Murata, Texas Instruments, Chamberlain, HP, Samsung, Apple, and every other registered manufacturer populate correctly.
+
+### WiFi Peer Disruption Restored (v5.7.2)
+
+Same-WiFi targets (Xbox, PS5, other PCs) are disrupted directly again. v5.6.5 had collapsed the default to self-disrupt — only the operator's own traffic was affected — which silently turned the headline workflow ("scan → pick a device → DISRUPT") into a no-op. v5.7.2 routes `wifi_same_net` back through ARP spoof + FORWARD layer, with the v5.6.5 isolation watchdog retained as an automatic fallback when AP client isolation genuinely drops the spoof (grace window raised 5s → 8s to avoid false-positive fallback on a briefly-idle target). `params["_force_self_disrupt"]` is the explicit opt-in for operators who really do want the old self-disrupt behavior. See ADR-0002 §1 for the full decision history.
+
+### Tools-Menu Surfaces (v5.7.4)
+
+Six feature backends that shipped backend-only in v5.7.0/v5.7.1 are now reachable from the UI:
+
+- **Risk Score** — `Tools → Risk Score…` shows the live 0-100 score with the six-factor breakdown (active cuts, audit volume, kill-switch state, episode rate, anti-cheat presence, network changes).
+- **Diagnostics** — `Tools → Diagnostics…` (F2) runs all 8 self-checks (Npcap, WinDivert handle, IP forwarding, ARP table, audit log, episode store, signing key, update channel) with pass/warn/fail and per-check remediation hints.
+- **Kill Switch — Panic Stop** — `Tools → Kill Switch` (Ctrl+Alt+X) immediately halts every active disruption. The manual half of the kill-switch feature; auto-triggers (anti-cheat / risk threshold / packet rate) still pending a settings panel.
+- **OBS Overlay Server** — `Tools → Toggle OBS Overlay Server` starts/stops the localhost-bound HTTP endpoint and shows the browser-source URL. Auto-starts on launch when `settings.obs_overlay_enabled` is set.
+- **Audit Webhook Fan-Out** — `AuditLogger.log()` now actually emits configured Discord/generic webhook events after the canonical JSONL write. Best-effort, daemon-threaded, never raises into the audit hot path. Configure under Settings → Audit.
+- **Episode Store Rotation** — 90-day / 5000-file retention now enforced once per launch; the JSONL episode store no longer grows unbounded.
+
+### Security Hardening (v5.7.3)
+
+Five post-audit fixes to the v5.6.9–v5.7.2 modules (added after the v5.6.2 nation-state cert sweep, never security-reviewed): backup restore path allowlist (`app/data` + `app/config` only — closed an arbitrary-code-execution path from hand-crafted bundles); decompression-bomb caps on backup restore; overlay server `/state` no longer ships wildcard CORS (was leaking live disruption state to any website the operator visited); webhook URL scheme allowlist (`https://` or loopback `http://` only — `file://`/`ftp://` blocked); preset `params` underscore-key allowlist + 16 KB size cap so a shared preset can't inject engine control flags. 15 new security regression tests in `tests/test_security_v573.py`.
 
 ### Windows Installer & Auto-Update (v5.2.0)
 
@@ -175,7 +194,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.7.1_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.7.4_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -185,7 +204,7 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.7.1_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+Download `DupeZ_v5.7.4_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
@@ -292,15 +311,16 @@ app/
 
 plugins/                             # Community plugins (each folder = one plugin)
 └── example_ping_monitor/
-tests/                               # Test suite (353 tests, 2 hardware-gated)
+tests/                               # Test suite (774 tests across 42 files, 2 hardware-gated)
 tools/                               # Operator CLI utilities (scan/lag smoketest, etc.)
 bench/                               # Micro-benchmarks for hot paths
 docs/
 ├── adr/                             # Architecture Decision Records
 ├── release-notes/                   # Per-version release notes + deploy checklists
+├── audits/                          # Deep-audit reports (WiFi disrupt, etc.)
 ├── user_guides/                     # End-user how-to docs
 ├── integration/                     # Integration and platform notes
-└── reports/                         # Audit and research reports
+└── reports/                         # Audit and research reports (DOCX deliverables)
 logs/
 └── archive/                         # Quarantined crash dumps and stale traces
 ```
@@ -331,15 +351,23 @@ DupeZ v5.0.0+ implements defense-in-depth security hardening:
 
 ## Hotkeys
 
+The Help → Hotkeys dialog (F1) self-generates from the live menu bar, so it can never drift from the table below.
+
 | Key | Action |
 |-----|--------|
 | Ctrl+S | Scan network |
 | Ctrl+D | Stop all disruptions |
-| Ctrl+1 / 2 / 3 / 4 | Switch views |
+| Ctrl+1 / 2 / 3 / 4 | Switch views (Clumsy Control / Map / Accounts / Network Tools) |
 | Ctrl+, | Settings |
 | Ctrl+E | Export device data |
 | Ctrl+Q | Exit |
 | Ctrl+Shift+D | Toggle tray visibility |
+| Ctrl+Shift+P | Custom Preset Editor |
+| Ctrl+Alt+A | Next account (multi-account quick-switch) |
+| Ctrl+Alt+Shift+A | Previous account |
+| F1 | Help → Hotkeys dialog |
+| F2 | Diagnostics wizard (v5.7.4) |
+| Ctrl+Alt+X | Kill Switch — Panic Stop (v5.7.4) |
 
 ---
 
