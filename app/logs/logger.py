@@ -41,16 +41,39 @@ __all__ = [
 
 
 def _scrub_log_message(message: str) -> str:
-    """Pass message through the secrets scrubber if available.
+    """Scrub secrets and mask IP addresses before a line is written.
 
-    Lazy import to avoid circular dependency — the secrets manager
-    imports from logger, so we only resolve it at call time.
+    Two independent layers: the secrets manager redacts credentials,
+    and every IPv4 address has its last octet masked for opsec (log
+    files are routinely shared for support). The secrets import is lazy
+    — the secrets manager imports from logger, which would be circular
+    — while IP masking is a local regex that always runs even if the
+    secrets layer is unavailable.
     """
     try:
         from app.core.secrets_manager import scrub_message
-        return scrub_message(message)
+        message = scrub_message(message)
     except Exception:
-        return message
+        pass
+    try:
+        from app.utils.helpers import mask_ips_in_text
+        message = mask_ips_in_text(message)
+    except Exception:
+        pass
+    return message
+
+
+class _ScrubbingFormatter(logging.Formatter):
+    """Formatter that scrubs every fully-rendered log record.
+
+    Attached to all handlers so that NO log line can write a raw IP
+    address or a credential to disk or console — including the
+    ``error()``/``critical()`` exception paths that bypass
+    ``_log_with_context`` and the traceback rendered from ``exc_info``.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        return _scrub_log_message(super().format(record))
 
 
 class SafeConsoleHandler(logging.StreamHandler):
@@ -143,7 +166,7 @@ class DupeZLogger:
             _console_stream = sys.stderr if _offsec_mode else sys.stdout
             console_handler = SafeConsoleHandler(_console_stream)
             console_handler.setLevel(logging.INFO)
-            console_handler.setFormatter(logging.Formatter(
+            console_handler.setFormatter(_ScrubbingFormatter(
                 "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
                 datefmt=self._DATEFMT,
             ))
@@ -164,14 +187,16 @@ class DupeZLogger:
                     encoding="utf-8",
                 )
                 handler.setLevel(level)
-                handler.setFormatter(logging.Formatter(fmt, datefmt=self._DATEFMT))
+                handler.setFormatter(
+                    _ScrubbingFormatter(fmt, datefmt=self._DATEFMT)
+                )
                 self.logger.addHandler(handler)
 
         except Exception as e:
             print(f"Failed to setup logging handlers: {e}")
             basic = logging.StreamHandler()
             basic.setLevel(logging.INFO)
-            basic.setFormatter(logging.Formatter("%(levelname)s - %(message)s"))
+            basic.setFormatter(_ScrubbingFormatter("%(levelname)s - %(message)s"))
             self.logger.addHandler(basic)
 
     # ── Core logging methods ──────────────────────────────────────

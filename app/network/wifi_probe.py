@@ -66,6 +66,13 @@ except Exception:  # pragma: no cover — fallback for standalone use
     def log_warning(msg: str) -> None: print(f"[WARN] {msg}", file=sys.stderr)
     def log_error(msg: str) -> None: print(f"[ERR] {msg}", file=sys.stderr)
 
+try:
+    from app.utils.helpers import mask_ip
+except Exception:  # pragma: no cover — fallback for standalone use
+    def mask_ip(ip: str) -> str:
+        parts = ip.split(".")
+        return f"{parts[0]}.{parts[1]}.{parts[2]}.x" if len(parts) == 4 else ip
+
 
 # ── WiFi adapter detection ───────────────────────────────────────────
 
@@ -187,12 +194,17 @@ class IsolationWatchdog:
         for any thread-safety on shared state (e.g. ``threading.Lock``
         around mutation of the engine registry).
     grace_s:
-        Seconds to wait before sampling. Default 5.0 — short enough
-        that the operator notices quickly, long enough that genuine
-        slow-start traffic (a target that's not actively communicating)
-        isn't misclassified as isolation. Mirrors the 3.0s default of
-        the engine's built-in ``_flow_health_check`` watchdog with a
-        small additional margin.
+        Seconds to wait before sampling. Default 8.0 (v5.7.2, raised
+        from 5.0). Long enough that a target console briefly idle in a
+        menu — spoof landed, just no traffic to forward yet — is not
+        misclassified as AP isolation and bounced to self-disrupt.
+        Still short enough that a genuine isolation case (AP dropping
+        the spoof outright) is caught and the operator gets the
+        fallback toast quickly. The watchdog cannot perfectly
+        distinguish "AP dropped the spoof" from "target idle" — both
+        present as packets_sent>0, packets_processed==0 — so the grace
+        window is the tuning knob, and 8s errs toward not bouncing a
+        working-but-quiet cut.
     target_ip:
         Optional. Used purely for log readability.
     """
@@ -202,7 +214,7 @@ class IsolationWatchdog:
         spoofer: Any,
         engine: Any,
         on_result: Callable[[str], None],
-        grace_s: float = 5.0,
+        grace_s: float = 8.0,
         target_ip: Optional[str] = None,
     ) -> None:
         self._spoofer = spoofer
@@ -210,6 +222,14 @@ class IsolationWatchdog:
         self._on_result = on_result
         self._grace_s = float(grace_s)
         self._target_ip = target_ip or "?"
+        # Pre-masked for every log line / thread name (H4 fix). The raw
+        # target_ip is still retained on the instance so future code that
+        # legitimately needs to compare against an engine target can do
+        # so without re-parsing — but every public-facing string uses
+        # the masked form.
+        self._target_ip_masked = (
+            mask_ip(target_ip) if target_ip else "?"
+        )
 
         self._thread: Optional[threading.Thread] = None
         self._fired = threading.Event()
@@ -225,7 +245,7 @@ class IsolationWatchdog:
         self._thread = threading.Thread(
             target=self._run,
             daemon=True,
-            name=f"IsolationWatchdog[{self._target_ip}]",
+            name=f"IsolationWatchdog[{self._target_ip_masked}]",
         )
         self._thread.start()
 
@@ -276,7 +296,7 @@ class IsolationWatchdog:
 
         if processed > 0:
             log_info(
-                f"[WiFi-WATCHDOG] target={self._target_ip} OK — "
+                f"[WiFi-WATCHDOG] target={self._target_ip_masked} OK — "
                 f"{processed} forwarded packets in {self._grace_s:.1f}s"
             )
             self._fire(IsolationResult.WORKING)
@@ -288,9 +308,10 @@ class IsolationWatchdog:
             # assume isolation; let the engine's own watchdog handle
             # the logging and fall back conservatively.
             log_warning(
-                f"[WiFi-WATCHDOG] target={self._target_ip} INCONCLUSIVE — "
-                f"spoofer emitted 0 packets, engine processed 0. "
-                f"Not declaring isolation; check ArpSpoofer logs."
+                f"[WiFi-WATCHDOG] target={self._target_ip_masked} "
+                f"INCONCLUSIVE — spoofer emitted 0 packets, engine "
+                f"processed 0. Not declaring isolation; check "
+                f"ArpSpoofer logs."
             )
             self._fire(IsolationResult.INCONCLUSIVE)
             return
@@ -298,10 +319,11 @@ class IsolationWatchdog:
         # Spoof was emitted, but nothing came back through the filter.
         # Classic AP-isolation signature.
         log_warning(
-            f"[WiFi-WATCHDOG] target={self._target_ip} ISOLATION DETECTED — "
-            f"{sent} ARP frames emitted, 0 forwarded packets in "
-            f"{self._grace_s:.1f}s. AP is dropping station-to-station "
-            f"traffic. Falling back to self-disrupt mode."
+            f"[WiFi-WATCHDOG] target={self._target_ip_masked} "
+            f"ISOLATION DETECTED — {sent} ARP frames emitted, 0 "
+            f"forwarded packets in {self._grace_s:.1f}s. AP is dropping "
+            f"station-to-station traffic. Falling back to self-disrupt "
+            f"mode."
         )
         self._fire(IsolationResult.ISOLATION_DETECTED)
 

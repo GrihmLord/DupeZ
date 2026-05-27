@@ -14,11 +14,25 @@ Each check returns a :class:`CheckResult` with:
     status      : PASS / WARN / FAIL
     message     : one-line outcome
     fix_hint    : actionable remediation (empty for PASS)
-    fix_command : optional shell/PowerShell snippet the UI can offer
-                  to copy to clipboard or run with confirmation
+    fix_command : optional shell/PowerShell snippet — see SECURITY below
 
 Call :func:`run_all_checks` to get the full list, or
 :func:`run_check(name)` to re-run a single check after a fix attempt.
+
+SECURITY CONTRACT — fix_command (v5.7.3)
+----------------------------------------
+``fix_command`` is a HUMAN-FACING SUGGESTION ONLY. The UI may display
+it and offer a "copy to clipboard" affordance. The UI MUST NOT execute
+it — not via ``subprocess``, not via ``os.system``, not via the
+safe-subprocess wrapper, not on a button click, not automatically.
+
+Rationale: every fix_command string in this module is a compile-time
+constant, so today there is no injection vector. But a future check
+could compute a fix_command from a path or environment value; if the
+UI auto-ran it, that would become a command-injection sink. Keeping
+the "display only, never execute" rule absolute means no future check
+author can accidentally open that hole. Remediation is the operator's
+deliberate action, performed in their own shell.
 """
 
 from __future__ import annotations

@@ -4,23 +4,29 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
-## v5.7.0 — GUI Integration & Live Visualization
+## v5.7.5 — Finish the v5.7.4 Wire-Up
 
 **Status:** Next up
 
-Wire the v5.x engine features into the UI so users can use God Mode Pulse, Dupe Engine, and extended lag without hand-editing params. Plus code signing and distribution polish.
+v5.7.4 surfaced six of the eight v5.7.0/v5.7.1 backends in the UI. Two still ship backend-only because they need real configuration dialogs, not a single menu entry. v5.7.5 closes that gap.
 
-- **God Mode Pulse UI** — Block/flush timing sliders, mode selector (Classic/Pulse/Infinite), live cycle visualization showing block/flush phases.
-- **Dupe Engine UI** — PREP/CUT/RESTORE button with phase indicator, cut duration slider, cycle count spinner, manual trigger button.
-- **Extended Lag UI** — Connection preservation toggle, keepalive interval slider, queue depth indicator.
-- **Statistical Model UI** — Sliders and distribution preview graphs for Gilbert-Elliott, Pareto, token bucket, correlation.
-- **Packet Classifier Dashboard** — Live packet category breakdown. Per-category disruption rule editor.
-- **Tick Rate Visualizer** — Real-time tick estimation display with confidence indicator.
-- **Asymmetric Preset Selector** — Dropdown/card UI for the 14 named presets with effectiveness ratings.
-- **Game State Indicator** — Live GameStateDetector output (MENU, LOADING, IN_GAME_IDLE, COMBAT, DISCONNECTED).
-- **Stealth Pattern Selector** — Natural pattern chooser with preview waveform.
-- **Code Signing** — Obtain EV code signing certificate, sign exe + installer for instant SmartScreen trust. Wire into `build.bat` Stage 2.
-- **Installer UX** — Custom installer banner/wizard images, license agreement page, optional portable mode checkbox.
+- **Cut-chain configurator** — Multi-stage editor for `app/core/cut_chain.py`: add/reorder/remove stages, pick the gate type per stage (time / severed / connected / packets), pick the preset per stage, save/load chains. Currently invokable only by code; no operator-facing surface.
+- **Kill-switch auto-triggers panel** — Settings dialog for the three automatic triggers in `app/core/kill_switch.py`: anti-cheat process watch (BattlEye / EAC binaries), risk-score threshold, runaway packet-rate ceiling. The manual panic-stop already works (Ctrl+Alt+X); only the auto half needs UI.
+- **Discord webhook configuration UI** — Sink registration works (v5.7.4) but configuration is still settings-file-only. Add a Settings → Audit Webhooks tab with URL + enabled toggle + token-bucket rate slider + test-fire button.
+- **Diagnostics export** — `Tools → Diagnostics` (F2) shows results in a dialog. Add a "Copy to clipboard" / "Save as bug-report bundle" action that captures the 8-check output plus `logs/dupez.log` tail + masked target/gateway IPs for support tickets.
+
+---
+
+## v5.8.x — Quality-Debt Pass
+
+**Status:** Planned (deferred from v5.7.1)
+
+v5.7.1's quality pass added 175 tests and fixed 5 production bugs but explicitly deferred the structural cleanup — these items are tracked here so they don't slip again.
+
+- **God-object refactors** — `clumsy_network_disruptor.py` (~1700 LOC) and `dashboard.py` (~1200 LOC) split into focused modules. Engine orchestration, preset resolution, WiFi watchdog, and FORWARD-layer mode each become their own file in the disruptor case; menu/action handlers split out from the main `Dashboard` class.
+- **Hot-path optimization** — Profile the WinDivert recv → classify → policy → send loop. Targets: zero allocations in the steady-state per-packet path, batch-API saturation, packet-classifier LRU sized to actual working set.
+- **Broad-except cleanup** — The v5.2.2 voice-deps wrap and the v5.6.4 honesty pass left ~40 `except Exception` blocks behind. Narrow each to the actual raised types (or document why broad is correct, e.g., plugin sandbox boundary).
+- **Coverage report in CI** — Pytest already runs; add `pytest-cov` with a per-module floor so the next refactor can't silently drop test coverage.
 
 ---
 
@@ -266,6 +272,9 @@ The deep-research release. All 7 deep-research phases implemented: statistical d
 - [x] **v5.6.9** — Engine extensions (4 features): custom preset editor with JSON-validated store + import/export sidecars + Qt dialog; per-port WinDivert filter targeting via preset `_ports` param so cuts can be scoped to game ports only; process-scoped disruption via preset `_process_scope: auto|dayz` driving a `processId` filter clause from psutil-enumerated DayZ PIDs, with a foreground-watch thread for auto-mode; one-click backup/restore bundling all `app/data` + `app/config` JSON into a manifest-signed ZIP with optional DPAPI encryption.
 - [x] **v5.7.0** — Telemetry + safety + polish (7 features bundled): risk score aggregator (six-factor weighted 0-100 with GREEN/AMBER/RED bands over existing episode + audit telemetry); kill switch orchestrator with four trigger types (anti-cheat process watch, risk threshold, runaway packet rate, manual fire); diagnostic wizard backend (8 self-checks consolidated into a registry with per-check remediation hints); Discord/generic webhook audit sink with token-bucket rate limiting + IP scrubbing; cut chaining orchestrator (N-stage preset sequencer with time/severed/connected/packets gates); multi-account quick-switch (persistent active-account marker with tracker validation); OBS overlay HTTP endpoint (localhost-bound JSON + HTML/JS browser source for stream graphics).
 - [x] **v5.7.1** — Codebase quality pass. 175 new unit tests across 10 modules (test suite grew 386 → 569 passing). Audit uncovered three real production bugs: `_TokenBucket` starting empty (audit sinks dropped first ~1s of events silently), preset name regex rejecting auto-rename suffix `(2)` (every duplicate-import crashed), and overlay handler class-attribute leak between multi-instance servers. All three fixed. New `rotate_episodes()` with 90-day + 5000-file retention policy. ADR-0002 consolidates the major architectural decisions (WiFi self-disrupt, fail-closed auto-update, split elevation, local-only telemetry, plugin trust model). Quality-debt items remaining (god-object refactors, hot-path optimization, broad-except cleanup) documented for v5.8.x.
+- [x] **v5.7.2** — Regression fix: WiFi disruption of peer devices. A user reported that after updating to v5.7, DISRUPT had no effect on WiFi targets (Xbox) where it disconnected/lagged before. Root cause: the v5.6.5 "self-disrupt by default" decision turned same-WiFi peer disruption into a no-op — it only affected the operator's own traffic. Reverted `target_profile.resolve_target_profile` so `wifi_same_net` routes through ARP spoof + FORWARD layer again, disrupting the target device directly. The v5.6.5 isolation watchdog is retained and now runs by default — auto-falls-back to self-disrupt only when AP client isolation genuinely drops the spoof. Watchdog grace window raised 5s → 8s to avoid false-positive fallback on a briefly-idle target. `params["_force_self_disrupt"]` added as the explicit opt-in for operators who want self-disrupt. Regression test locks the corrected behavior.
+- [x] **v5.7.3** — Security hardening of the v5.6.9-v5.7.2 modules (added after the v5.6.2 nation-state cert sweep, never security-reviewed). Five findings, one critical: backup restore could overwrite source code from a hand-crafted bundle → arbitrary code execution (fixed with an `app/data` + `app/config` restore path allowlist); decompression-bomb caps on backup restore; overlay server `/state` no longer sends wildcard CORS (was leaking live disruption state to any website the operator visits); webhook URLs scheme-validated to `https://` (or loopback `http://`) so `file://`/`ftp://` are blocked; preset `params` underscore-key allowlist so a shared preset can't inject engine control flags, plus a 16 KB params size cap. 15 new security regression tests (`tests/test_security_v573.py`); suite 570 → 585.
+- [x] **v5.7.4** — Wire-up release. A deep audit found seven feature backends from v5.7.0/v5.7.1 had zero invocation points — tested, CHANGELOG-documented, but unreachable by a user (~2000 LOC of dead code). Root cause: v5.7.0 deferred UI wiring to v5.7.1, v5.7.1 was re-scoped to a quality pass, the wiring was dropped. Fixed: audit-webhook fan-out hooked into `AuditLogger.log()`; `rotate_episodes()` called at startup; webhook sinks registered from settings; OBS overlay auto-starts + Tools-menu toggle; risk score, diagnostics (F2), and kill-switch panic-stop (Ctrl+Alt+X) added as Tools-menu entries. Still backend-only and honestly documented as such: cut-chain configurator and the kill-switch auto-trigger orchestrator (both need real settings dialogs).
 
 ---
 

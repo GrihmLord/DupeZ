@@ -287,11 +287,86 @@ def main() -> None:
         except Exception as e:
             log_warning(f"Patch monitor failed to start (non-fatal): {e}")
 
+        # --- Phase 4b: v5.7.4 startup maintenance + service wiring ---
+        # The v5.7.0/v5.7.1 feature backends (episode rotation, audit
+        # webhook sinks, OBS overlay) were shipped without an invocation
+        # point. This block wires them in. Each step is independently
+        # guarded — a failure in one does not block the others or the app.
+        _overlay_server = None
+        try:
+            # Episode-store rotation: enforce the 90-day / 5000-file
+            # retention policy once per launch so the JSONL store does
+            # not grow unbounded.
+            from app.ai.episode_recorder import rotate_episodes
+            removed = rotate_episodes()
+            if removed:
+                log_info(f"Episode rotation: pruned {removed} stale file(s)")
+        except Exception as e:
+            log_warning(f"Episode rotation failed (non-fatal): {e}")
+
+        try:
+            # Audit webhook sinks: register any sink the operator
+            # configured in settings so audit_event fan-out has a
+            # destination. Off unless explicitly configured.
+            from app.core.data_persistence import settings_manager
+            _wh = settings_manager.get_setting("audit_webhook", None)
+            if isinstance(_wh, dict) and _wh.get("enabled") and _wh.get("url"):
+                from app.core.audit_webhook import (
+                    DiscordWebhookSink, GenericWebhookSink, register_sink,
+                )
+                kind = str(_wh.get("kind", "discord")).lower()
+                sink_cls = (DiscordWebhookSink if kind == "discord"
+                            else GenericWebhookSink)
+                register_sink(sink_cls(
+                    _wh["url"],
+                    rate_limit_per_min=int(_wh.get("rate_limit_per_min", 30)),
+                ))
+                log_info(f"Audit webhook sink registered ({kind})")
+        except Exception as e:
+            log_warning(f"Audit webhook setup failed (non-fatal): {e}")
+
+        try:
+            # OBS overlay HTTP server: auto-start when enabled in
+            # settings. The Tools menu also exposes a manual toggle.
+            from app.core.data_persistence import settings_manager
+            if settings_manager.get_setting("obs_overlay_enabled", False):
+                from app.core.overlay_server import OverlayServer
+                _candidate = OverlayServer(controller)
+                if _candidate.start():
+                    _overlay_server = _candidate
+                    # Hand the running server to the window so the Tools
+                    # menu toggle can stop/restart it.
+                    try:
+                        window.overlay_server = _overlay_server
+                    except Exception:
+                        pass
+                    log_info(
+                        f"OBS overlay server started at "
+                        f"{_overlay_server.base_url}/overlay.html"
+                    )
+                else:
+                    # Bind failed (port in use). Leave _overlay_server
+                    # None so shutdown doesn't try to stop a dead server.
+                    log_warning(
+                        "OBS overlay autostart: bind failed — overlay "
+                        "not running this session (check port 4778)"
+                    )
+        except Exception as e:
+            log_warning(f"OBS overlay autostart failed (non-fatal): {e}")
+
         def _shutdown_cleanup() -> None:
             try:
                 from app.core.patch_monitor import stop_background_monitoring
                 stop_background_monitoring()
                 log_info("Patch monitor stopped")
+            except Exception:
+                pass
+            try:
+                # v5.7.4: stop the OBS overlay HTTP server if it was
+                # started during Phase 4b.
+                if _overlay_server is not None:
+                    _overlay_server.stop()
+                    log_info("OBS overlay server stopped")
             except Exception:
                 pass
             try:

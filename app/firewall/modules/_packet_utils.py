@@ -226,8 +226,8 @@ def copy_windivert_addr(addr: WINDIVERT_ADDRESS) -> WINDIVERT_ADDRESS:
 class KeepaliveTracker:
     """Tracks keepalive pass-through timing for both directions.
 
-    Used by God Mode and Dupe Engine v2 to maintain connection health
-    during packet blocking phases.
+    Used by God Mode to maintain connection health during packet
+    blocking phases.
     """
 
     def __init__(self, interval_ms: int = 800) -> None:

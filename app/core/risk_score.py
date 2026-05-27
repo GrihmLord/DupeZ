@@ -221,7 +221,11 @@ def _compression_contribution(start_times: List[float]) -> RiskContribution:
         1 for i in range(1, len(sorted_ts))
         if (sorted_ts[i] - sorted_ts[i - 1]) < _COMPRESSION_THRESHOLD_S
     )
-    value = _scale(close_pairs, len(sorted_ts), _COMPRESSION_CAP)
+    # N timestamps yield N-1 consecutive pairs, so the denominator is
+    # len-1 — the maximum close_pairs can ever be. Dividing by len made
+    # an all-compressed history top out below the cap and disagreed with
+    # the detail string below (which already uses len-1).
+    value = _scale(close_pairs, len(sorted_ts) - 1, _COMPRESSION_CAP)
     return RiskContribution(
         label="Cut compression",
         value=value,

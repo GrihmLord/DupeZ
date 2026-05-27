@@ -4,6 +4,140 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.7.4 — 2026-05-24 (Wire-Up: Orphaned Feature Backends Now Reachable)
+
+A deep audit found that seven feature backends shipped across v5.7.0 and v5.7.1 were never wired to an invocation point. They were tested, documented in the CHANGELOG as shipped features, and the release notes said "UI lands next release" — but v5.7.1 became a codebase-quality pass and the wiring never happened. The result: ~2000 LOC of working, tested code that a user could not actually invoke. v5.7.4 closes that gap.
+
+### How the gap happened
+v5.7.0 explicitly deferred UI wiring to v5.7.1 ("backend ready, UI lands in v5.7.1" appears verbatim in the v5.7.0 release notes). v5.7.1 was then re-scoped to a quality/test pass and shipped without the deferred wiring. No audit caught it until now because every module compiled, every module had unit tests, and the CHANGELOG described the features as done — nothing flagged "this backend has zero callers."
+
+### Fixed — features now actually reachable
+- **Audit webhook fan-out (`app/logs/audit.py`).** `AuditLogger.log()` now calls `audit_webhook.emit_to_sinks()` after the canonical JSONL write. Pre-v5.7.4 a configured Discord/generic webhook received nothing — `emit_to_sinks` had zero callers. The fan-out is best-effort, daemon-threaded, and cannot raise into the audit hot path.
+- **Episode-store rotation (`app/main.py` Phase 4b).** `rotate_episodes()` now runs once per launch, enforcing the 90-day / 5000-file retention policy added in v5.7.1. Pre-v5.7.4 the function existed but was never called — the episode JSONL store grew unbounded.
+- **Audit webhook sink registration (`app/main.py` Phase 4b).** On startup DupeZ reads `settings.audit_webhook` and registers a `DiscordWebhookSink` / `GenericWebhookSink` when configured + enabled. Combined with the fan-out above, the webhook feature is now end-to-end functional.
+- **OBS overlay server (`app/main.py` Phase 4b + Tools menu).** Auto-starts on launch when `settings.obs_overlay_enabled` is set; a "Toggle OBS Overlay Server" Tools-menu entry starts/stops it on demand and shows the browser-source URL. Cleanly stopped on shutdown. Pre-v5.7.4 `OverlayServer` was never instantiated.
+- **Risk score (`app/gui/dashboard.py` Tools menu).** New "Risk Score…" entry computes and displays the 0-100 score with its full six-factor breakdown. Pre-v5.7.4 `compute_risk_score()` was computed only as an input to other orphaned modules — never shown to the operator.
+- **Diagnostic wizard (`app/gui/dashboard.py` Tools menu, F2).** New "Diagnostics…" entry runs all 8 self-checks and displays pass/warn/fail with remediation hints. Pre-v5.7.4 `run_all_checks()` had no UI entry point.
+- **Kill switch panic-stop (`app/gui/dashboard.py` Tools menu, Ctrl+Alt+X).** New "Kill Switch — Panic Stop" entry immediately halts all disruptions. This is the operator-essential half of the kill-switch feature.
+
+### Also fixed (triple-check pass)
+- **`OverlayServer.start()` reported success on a failed bind (`app/core/overlay_server.py`).** It returned `None` whether the port bound or not, so both the startup autostart and the Tools-menu toggle claimed "overlay started" even when the port was already in use. `start()` now returns `bool`; both callers check it and report honestly. Added a `running` property and two regression tests.
+- **`scripts/release.ps1` added.** The hand-typed release sequence silently mis-tagged four releases (v5.6.3, v5.6.5, v5.7.1 ×2): a pre-commit hook fails → `git commit` exits non-zero → PowerShell keeps going → `git tag` lands on the previous release's commit. The new driver checks `$LASTEXITCODE` after every step, asserts HEAD actually moved after the commit and the tree is clean, asserts the tag dereferences to the merged commit, and aborts on the first failure before anything irreversible. `scripts/README.md` updated to document it + the rest of the scripts directory.
+- **Help docs described a removed feature (`app/gui/panels/help_panel.py`).** Reported by a user: the Getting Started and Clumsy Control sections told operators to select a "Dupe" preset and pick a method from a "DUPE METHOD" card (Clone, Drop & Pick, Swap, Container, Rift, Legacy). None of that exists — `DupeEngineV2` and its method card were removed and duplication now runs through the **Red Disconnect** preset's stateful DISCONNECT timed-cut module, but the help panel was never updated. The three preset lists now match the actual `PRESETS` dict (Red Disconnect, Lag, God Mode, Custom); the "Dupe Engine v2" section was rewritten as "Duplication Workflow — The Timed Cut", describing the real arm → cut → release mechanism and the Arm Delay / Duration / TIMED DISRUPT controls. A stale `Dupe Engine v2` comment in `_packet_utils.py` was also corrected. No code behavior changed — this is a documentation-accuracy fix only.
+
+### Also fixed (doc-vs-reality audit)
+A follow-up audit — triggered by the same user report — checked every claim in the in-app help against the actual code. Seven more drift items, all fixed; no code behavior changed except the hotkey dialog (now self-generating, see below).
+- **Help "Voice Control" pointed at a settings tab that does not exist (`help_panel.py`).** It said "Tools → Settings → Voice tab"; the Settings dialog has no Voice tab. Voice control is the Voice panel in the **Network Tools → AI / Smart Ops** tab. Corrected.
+- **Help "GPC / Cronus Zen" pointed at the sidebar (`help_panel.py`).** It said the GPC panel appears in the sidebar; GPC is the **GPC / Cronus Zen** tab in the Network Tools view. Corrected.
+- **Help "SMART DISRUPT" described a control that is not in that view (`help_panel.py`).** The feature is **Smart Mode** — a tri-state (off/learn/assist) in the Network Tools → AI / Smart Ops tab, not a control in Clumsy Control. Renamed and relocated in the text.
+- **Help "Disruption Modules" list was missing three modules (`help_panel.py`).** DISCONNECT, BANDWIDTH, and TCP RST are in `MODULE_DEFS` but were absent from the help list — DISCONNECT being the duplication module makes that omission notable. All nine modules are now listed; the PLATFORM card was also added to the Clumsy Control section.
+- **Help "Keyboard Shortcuts" table was missing ten shortcuts (`help_panel.py`).** It listed 6; the menu bar registers 15 (plus the Ctrl+Shift+D tray toggle). The view-switch keys (Ctrl+1–4), preset editor (Ctrl+Shift+P), account cycling (Ctrl+Alt+A / Ctrl+Alt+Shift+A), Diagnostics (F2), and Kill Switch (Ctrl+Alt+X) were all undocumented. The table now lists all 16.
+- **Hotkey reference dialog rebuilt to self-generate (`app/gui/dashboard.py`).** `_show_hotkeys` (Help → Hotkeys, F1) was a third, separately-stale hand-typed list. It now generates itself from the live menu-bar `QAction`s, so it can never drift again.
+- **README corrected (`README.md`).** It listed Auto-Tune / Voice / GPC as Clumsy Control cards (they are not) and called Network Tools "four-tab" (four core + up to three conditional). Both corrected. A stale `clumsy_control.py` module docstring and a stale `native_divert_engine.py` comment were fixed too.
+
+**Guard against recurrence:** `tests/test_doc_drift_guard.py` (4 tests) now cross-checks `help_panel.py` against `PRESETS`, `MODULE_DEFS`, and the dashboard menu shortcuts on every CI run — parsed via `ast`, no Qt import. It fails the build if the help panel names a removed feature, omits a real preset/module, or disagrees with the menu about shortcuts. This is the structural fix: the doc-drift class of bug — which has now produced two separate user-visible failures — can no longer reach a release.
+
+### Also fixed (functional bug audit)
+A third audit pass — parallel deep-dive subagents over the v5.6.9–v5.7.4 modules — found five genuine runtime bugs. All fixed, each with a regression test (suite: 601 passing).
+- **`cut_chain.py` measured time on the wall clock.** Every duration and deadline (`global_timeout`, the time gate, the A2S and packet gate timeouts) used `time.time()`, which jumps on NTP sync / DST / manual clock changes — a jump mid-chain could fire a timeout instantly or never. Switched to `time.monotonic()` throughout. Separately, the time gate accumulated a fixed `0.1s` tick into an `elapsed` counter instead of measuring real elapsed time, so a "7s" gate drifted noticeably long; it now waits against a monotonic deadline.
+- **`kill_switch.py` could run two poll threads at once.** `stop()` nulled the thread reference unconditionally — even when the 2s join timed out and the thread was still alive — and `start()` only checked `_thread is not None`. A `stop()`/`start()` cycle under a slow tick spawned a second poll thread; the two then raced on `_last_fire_ts`. `start()` now guards on `is_alive()`; `stop()` only clears the reference once the thread has actually exited.
+- **`patch_monitor.py` discarded the whole patch feed on one bad date.** A non-numeric or absurd Steam `date` field fed straight into `datetime.fromtimestamp()` raised inside the item loop, and the broad `except` in `_fetch_news` then dropped *every* patch in the batch. The date is now coerced safely and the timestamp conversion is guarded per-item — one malformed item no longer poisons the fetch.
+- **`patch_monitor.py` background loop could busy-spin.** `range(int(self._check_interval))` truncates a fractional interval to `0`, turning the responsive-sleep loop into a no-delay hammer on the Steam API. Guarded with `max(1, …)`.
+- **`risk_score.py` cut-compression factor could never reach its cap.** `_compression_contribution` divided the close-pair count by the *timestamp* count (N) instead of the *pair* count (N-1), so a fully-compressed cut history topped out at `(N-1)/N` of the cap — it could never push that factor to RED, even though the detail string already read "N-1/N-1". Off-by-one corrected.
+
+Audit also confirmed clean: the v5.7.4 settings keys (`audit_webhook`, `obs_overlay_enabled`) resolve correctly against the free-form settings store, the Phase 4b wiring is sound, and `preset_store` / `backup` / `overlay_server` / `audit_webhook` / `diagnostics` have no functional bugs. A separate orphaned-symbol scan found no further wire-up gaps — the remaining zero-caller symbols are crypto/validation library helpers, not unreachable features.
+
+### Also fixed (IP-leak audit)
+A pass over every path an IP address can leave the process — logs, the audit trail, the Discord webhook, the OBS overlay — found two real leaks. A new shared masker, `mask_ips_in_text` (`app/utils/helpers.py`), masks the last octet of every IPv4 address found anywhere in a string (bare *or* embedded in prose) and is now applied at every egress point.
+- **Session logs wrote raw IP addresses (`app/logs/logger.py`).** `_scrub_log_message` — on the hot path for every log line — only scrubbed secrets, not IPs, so `ArpSpoofer`, `[VERIFY]`, `[LAN CUT]` and similar lines wrote full device IPs into `logs/*.log`, which users routinely share for support. It now masks IPs too. Separately, the `error()` / `critical()` exception path bypasses that scrubber entirely; a new `_ScrubbingFormatter` is attached to every handler so the message, the context, and the rendered `exc_info` traceback are all scrubbed regardless of code path — no log line can carry a raw IP or a credential.
+- **The audit JSONL masked IPs only under known key names (`app/logs/audit.py`).** `_scrub_pii` masked values under `ip` / `target_ip` / `src_ip` / `dst_ip` but returned every other string untouched — an IP under any other key, or embedded in a message, was written verbatim to `audit.jsonl`, which is bundled into the shareable backup zip. It now masks IPs in every string value.
+- **Webhook hardening (`app/core/audit_webhook.py`).** `_scrub` already masked bare-IP values before posting to Discord; it now also masks IPs embedded inside longer strings, closing the same gap as the audit fix.
+
+Confirmed already safe: the OBS overlay `/state` snapshot masks `target_ip` before serving it (the overlay is rendered on-stream), the episode-recorder JSONL stores no IP addresses, and the repository has no hardcoded public IPs.
+
+**Guard against recurrence:** `tests/test_ip_leak_guard.py` (8 tests) asserts each egress scrubber — session log, audit JSONL, webhook, overlay snapshot — masks both bare and embedded IPs on every CI run.
+
+### Still backend-only (documented, not yet wired — honest accounting)
+- **Cut chaining (`CutChainRunner`).** Genuinely needs a multi-stage configurator dialog (add/reorder/remove stages, per-stage gate selection). Deferred to a future release rather than shipped as a half-built UI.
+- **Kill-switch trigger orchestrator (`KillSwitch` class).** The manual panic-stop is wired (above); the auto-trigger config (anti-cheat process watch, risk-threshold, packet-rate) needs a settings panel. The panic button — the part that matters in a hurry — works now.
+
+### Test plan
+- Configure `settings.audit_webhook = {"enabled": true, "url": "https://discord.com/api/webhooks/...", "kind": "discord"}`, fire a cut, confirm a Discord embed arrives.
+- Launch, confirm log line `Episode rotation: pruned N stale file(s)` (or silence when nothing is stale).
+- Tools → Risk Score… — confirm the score dialog with factor breakdown.
+- Tools → Diagnostics (F2) — confirm 8 checks render.
+- Tools → Kill Switch — Panic Stop (Ctrl+Alt+X) — confirm all disruptions halt.
+- Tools → Toggle OBS Overlay Server — confirm the URL dialog; open it in a browser; confirm the overlay renders.
+
+---
+
+## v5.7.3 — 2026-05-13 (Security Hardening: v5.6.9-v5.7.2 Modules)
+
+The original nation-state cert sweep (v5.6.2, task #28) covered the codebase as it stood then. The eleven modules added afterward — preset store, process scope, backup, risk score, kill switch, diagnostics, audit webhook, cut chain, overlay server, account quick-switch, wifi probe — were never security-reviewed. v5.7.3 closes that gap. Five findings, one critical.
+
+### Fixed — CRITICAL
+
+- **Backup restore could overwrite source code → arbitrary code execution (`app/core/backup.py`).** `restore_backup` walked the manifest of whatever bundle it was handed and wrote every entry, gated only by a repo-root path-traversal check. That check stops escaping the repo — it does NOT stop a hand-crafted malicious bundle from containing an entry like `app/core/clumsy_network_disruptor.py` or `dupez.py` with attacker code, which would execute on the next launch. A backup shared via Discord (the encrypt mode is explicitly designed for sharing) was a code-execution vector. **Fix:** restore now enforces a path allowlist — only `app/data/` and `app/config/` entries are restorable. Executable code and packaging files are refused. A legitimate DupeZ bundle only ever contains allowlisted paths, so this never rejects a genuine backup.
+
+### Fixed — MEDIUM
+
+- **Backup decompression-bomb exposure (`app/core/backup.py`).** `restore_backup` / `list_bundle` read whole ZIP entries into memory with no size ceiling — a 50 KB bundle could decompress to exhaust RAM and disk. **Fix:** per-entry cap (512 MB) + total-bundle cap (2 GB), enforced from both the manifest-stated size AND the actual decompressed bytes (catches a lying manifest).
+- **Overlay server leaked disruption state cross-origin (`app/core/overlay_server.py`).** The `/state` endpoint sent `Access-Control-Allow-Origin: *`, so any website the operator visited in a normal browser could `fetch('http://127.0.0.1:4778/state')` and read whether DupeZ was running, what it was targeting, and the live risk score. **Fix:** wildcard CORS header removed entirely — the OBS browser source loads `overlay.html` directly so its `/state` calls are same-origin and need no CORS grant. Added `X-Content-Type-Options: nosniff`.
+- **Webhook URL accepted dangerous schemes (`app/core/audit_webhook.py`).** `urllib.request.urlopen` honors `file://`, `ftp://`, `gopher://` etc. A webhook URL set (or imported) as `file:///C:/Users/.../secrets.enc.json` would be opened by the sink. **Fix:** `_validate_webhook_url` enforces `https://` only, with `http://` permitted solely for loopback hosts. Validated at sink construction — a sink can never exist with a dangerous URL. New `WebhookURLError`.
+- **Preset params could inject engine control flags (`app/core/preset_store.py`).** A preset's `params` dict is user-authored, SHARED data (export/import sidecars, future marketplace). Underscore-prefixed keys are engine-internal control flags (`_network_local`, `_force_arp_spoof`, `_force_self_disrupt`, `_wifi_auto_fallback`, `_target_ip`). A malicious shared preset carrying `{"_network_local": true}` could silently flip engine behavior on the importer's machine. **Fix:** preset validation now allowlists underscore keys — only `_ports` and `_process_scope` (documented preset features) are permitted; any other `_`-prefixed key is rejected. Added a 16 KB cap on the serialized params dict (a preset is small config, not a data blob).
+
+### Fixed — LOW (documentation hardening)
+
+- **Diagnostics `fix_command` execution contract (`app/core/diagnostics.py`).** The `fix_command` field carries shell/PowerShell snippets. Today every value is a compile-time constant so there is no injection vector, but a future check could compute one from a path. Added an explicit SECURITY CONTRACT to the module docstring: `fix_command` is display-only and MUST NEVER be auto-executed by the UI. This makes the "display, never run" rule absolute so no future check author can accidentally open a command-injection sink.
+
+### Added
+- **`tests/test_security_v573.py`** — 15 security regression tests, one cluster per finding: backup path-allowlist (refuses to overwrite source, allows data paths), overlay no-CORS-wildcard, webhook scheme validation (file/ftp/remote-http rejected, https/localhost-http accepted), preset underscore-key allowlist + params size cap. Locks every fix so the holes cannot silently reopen.
+
+### Test suite
+- 570 → 585 passing (+15 security tests).
+
+### Test plan
+- `python -m pytest tests/test_security_v573.py -q` — all 15 pass.
+- Hand-craft a bundle with an `app/core/x.py` entry, attempt `restore_backup` — confirm it is skipped, not written.
+- Configure an audit webhook with a `file://` URL — confirm `WebhookURLError` is raised at sink construction.
+- Import a preset JSON whose params contain `_network_local` — confirm the import is rejected.
+- `curl -H "Origin: https://evil.example" http://127.0.0.1:4778/state` — confirm no `Access-Control-Allow-Origin` header in the response.
+
+---
+
+## v5.7.2 — 2026-05-13 (Regression Fix: WiFi Disruption of Peer Devices)
+
+A user reported a real regression: after updating to v5.7, scanning the WiFi network still found every device (including their Xbox) but firing DISRUPT had no effect — where pre-v5.7 it disconnected and lagged the target normally. This release reverts the decision that caused it.
+
+### The bug
+
+v5.6.5 made "self-disrupt" the default for same-WiFi targets — DISRUPT would only affect the operator's OWN machine's traffic to/from the target, never the target device itself. The reasoning at the time (AP client isolation makes ARP spoof unreliable; most users want to lag their own connection to a server) was wrong about the primary workflow: when an operator picks an Xbox / PS5 / PC from the network scan and clicks DISRUPT, they want to disrupt **that device**. Self-disrupt does nothing they asked for. v5.6.5 silently turned the tool's core function into a no-op for peer targets.
+
+### Fixed
+- **Same-WiFi peer targets route through ARP spoof again (`app/firewall/target_profile.py`).** `resolve_target_profile` now returns `layer="forward"`, `needs_arp_spoof=True` for `wifi_same_net` targets — the pre-v5.7 behavior that worked. The target device's traffic is redirected through the operator's machine and disrupted directly.
+- The v5.6.5 isolation watchdog is **kept and now actually runs by default** — when the AP genuinely has client isolation and drops the spoof, the watchdog detects zero forwarded packets and auto-falls-back to self-disrupt mode with a toast. Users without isolation get the working ARP cut; users with isolation get an honest fallback. Nobody gets a silent no-op.
+- The v5.6.4 honesty guards (return False → "Partial Failure" dialog on Npcap-missing / ArpSpoofer-start-failure) remain in place — a misconfigured host still surfaces the error.
+
+### Changed
+- **Isolation watchdog grace window raised 5s → 8s (`app/network/wifi_probe.py`).** The watchdog can't perfectly distinguish "AP dropped the spoof" from "target console briefly idle in a menu, no traffic to forward yet" — both look like `packets_sent > 0, packets_processed == 0`. The longer window errs toward not bouncing a working-but-quiet cut to self-disrupt. Still fast enough to catch genuine isolation. Configurable via `params["_wifi_isolation_grace_s"]`.
+- **`params["_force_self_disrupt"]` now honored (`app/firewall/clumsy_network_disruptor.py`).** Operators who specifically want to lag only their own connection to a target (e.g. a shared game server) can pass this flag — it forces NETWORK layer and skips ARP spoof regardless of detection. This is the documented escape hatch; self-disrupt is no longer the forced default.
+- Help panel WiFi section rewritten to describe the corrected v5.7.2 behavior.
+
+### Added
+- **Regression test (`tests/test_target_profile_detection.py`).** `test_wifi_same_net_uses_arp_spoof_and_forward_layer` asserts `wifi_same_net` resolves to `layer="forward"` + `needs_arp_spoof=True`. Locks the corrected behavior so this regression cannot return silently. Test suite: 569 → 570.
+
+### Upgrade note for affected users
+If you're on v5.7.0 or v5.7.1 and disruptions stopped working on WiFi peer devices, v5.7.2 restores them. Auto-update (v5.6.6+) will install it automatically. If the cut still has no effect after updating, you have AP client isolation — the watchdog will show an "AP isolation detected" toast; disable "Client Isolation" in your router's WiFi settings, or connect the operator PC via Ethernet.
+
+### Test plan
+- Build: `packaging\build_variants.bat`. Confirm 5.7.2.0.
+- WiFi same-net peer target (Xbox/PS5/PC) on a router WITHOUT client isolation: fire Red Disconnect. Expected: ARP spoof starts, target's connection lags/drops — restored pre-v5.7 behavior.
+- WiFi same-net target on a router WITH client isolation: fire Red Disconnect. Expected: ARP spoof starts, watchdog detects no forwarded packets after 8s, toast announces self-disrupt fallback.
+- `params["_force_self_disrupt"] = True`: confirm NETWORK layer, no ARP spoof, only operator's own traffic affected.
+- Hotspot mode (PS5/Xbox via ICS): unchanged.
+
+---
+
 ## v5.7.1 — 2026-05-13 (Codebase Quality Pass: Tests + Bugs + Docs)
 
 Pure quality release — no new features. The audit pass over the v5.6.9 + v5.7.0 modules surfaced three real production bugs and zero test coverage on the 10 newly-shipped modules. v5.7.1 backfills the test suite from 386 → 569 passing tests, fixes the bugs the new tests uncovered, adds episode-store rotation to prevent unbounded growth, and consolidates the major architecture decisions into a single ADR.

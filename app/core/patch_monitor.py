@@ -76,7 +76,20 @@ _STEAM_VERSION_URL: str = (
 # Where we persist the last-seen state
 _STATE_DIR: str = os.path.join(os.path.dirname(__file__), "..", "config")
 _STATE_FILE: str = os.path.join(_STATE_DIR, "patch_monitor_state.json")
-_STATE_HMAC_FILE: str = _STATE_FILE + ".hmac"
+
+
+def _hmac_path() -> str:
+    """Return the HMAC sidecar path derived from the current ``_STATE_FILE``.
+
+    Computed lazily rather than as a module-level constant so that
+    tests / callers that monkeypatch ``_STATE_FILE`` automatically get
+    a matching HMAC path. Previously this was a frozen-at-import-time
+    constant, which silently desynced from ``_STATE_FILE`` whenever
+    anything reassigned it — causing _save_state to write the HMAC to
+    one location and _load_state to read it from another, triggering a
+    bogus "HMAC verification FAILED -- possible tampering" reset.
+    """
+    return _STATE_FILE + ".hmac"
 
 # Game profile path
 _PROFILE_DIR: str = os.path.join(
@@ -385,13 +398,23 @@ class PatchMonitor:
                     if not _PATCH_TITLE_RE.search(title):
                         continue
 
-                date_unix = item.get("date", 0)
+                # Steam occasionally returns a non-numeric or absurd
+                # `date`; coerce safely so one malformed item cannot
+                # abort the entire news fetch.
+                try:
+                    date_unix = int(item.get("date", 0) or 0)
+                except (TypeError, ValueError):
+                    date_unix = 0
+                try:
+                    date_str = datetime.fromtimestamp(
+                        date_unix, tz=timezone.utc
+                    ).strftime("%Y-%m-%d %H:%M UTC")
+                except (OSError, OverflowError, ValueError):
+                    date_str = "unknown"
                 p = PatchInfo(
                     title=title,
                     date_unix=date_unix,
-                    date_str=datetime.fromtimestamp(
-                        date_unix, tz=timezone.utc
-                    ).strftime("%Y-%m-%d %H:%M UTC"),
+                    date_str=date_str,
                     gid=str(item.get("gid", "")),
                     url=item.get("url", ""),
                     contents=item.get("contents", ""),
@@ -638,8 +661,10 @@ class PatchMonitor:
         self.check_for_updates()
 
         while self._running:
-            # Sleep in small increments so stop_background() is responsive
-            for _ in range(int(self._check_interval)):
+            # Sleep in 1s increments so stop_background() is responsive.
+            # max(1, ...) guards against a fractional interval truncating
+            # to 0, which would turn this into a no-sleep busy loop.
+            for _ in range(max(1, int(self._check_interval))):
                 if not self._running:
                     return
                 time.sleep(1)
@@ -657,9 +682,10 @@ class PatchMonitor:
                 raw = f.read()
 
             # HMAC integrity check
-            if os.path.isfile(_STATE_HMAC_FILE):
+            hmac_file = _hmac_path()
+            if os.path.isfile(hmac_file):
                 try:
-                    with open(_STATE_HMAC_FILE, "r", encoding="utf-8") as hf:
+                    with open(hmac_file, "r", encoding="utf-8") as hf:
                         stored_hmac = hf.read().strip()
                     if not _verify_hmac(raw, stored_hmac):
                         log_error(
@@ -695,9 +721,16 @@ class PatchMonitor:
             raw_json = json.dumps(asdict(self._state), indent=2)
             raw_bytes = raw_json.encode("utf-8")
 
-            # Atomic write: tmp -> fsync -> replace
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                f.write(raw_json)
+            # Atomic write: tmp -> fsync -> replace.
+            # MUST be binary mode. Text mode on Windows translates \n
+            # to \r\n on write, so the bytes on disk differ from
+            # ``raw_bytes`` and the HMAC computed below (over
+            # ``raw_bytes``) fails to verify on the next load. This
+            # silently broke state persistence on Windows from
+            # introduction until v5.7.4 — fixed by writing the same
+            # exact bytes that get HMACed.
+            with open(tmp_path, "wb") as f:
+                f.write(raw_bytes)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, _STATE_FILE)
@@ -705,12 +738,13 @@ class PatchMonitor:
             # Write companion HMAC tag
             try:
                 hmac_hex = _compute_hmac(raw_bytes)
-                hmac_tmp = _STATE_HMAC_FILE + ".tmp"
+                hmac_file = _hmac_path()
+                hmac_tmp = hmac_file + ".tmp"
                 with open(hmac_tmp, "w", encoding="utf-8") as hf:
                     hf.write(hmac_hex)
                     hf.flush()
                     os.fsync(hf.fileno())
-                os.replace(hmac_tmp, _STATE_HMAC_FILE)
+                os.replace(hmac_tmp, hmac_file)
             except Exception as he:
                 log_error(f"PatchMonitor: HMAC write failed: {he}")
 

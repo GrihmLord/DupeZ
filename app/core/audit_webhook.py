@@ -56,6 +56,7 @@ __all__ = [
     "AuditSink",
     "DiscordWebhookSink",
     "GenericWebhookSink",
+    "WebhookURLError",
     "register_sink",
     "unregister_sink",
     "list_sinks",
@@ -114,6 +115,46 @@ class _TokenBucket:
         return False
 
 
+# ── URL validation ───────────────────────────────────────────────────
+
+class WebhookURLError(ValueError):
+    """Raised when a webhook URL fails the security scheme check."""
+
+
+def _validate_webhook_url(url: str) -> str:
+    """Validate + normalize a webhook URL. Raises WebhookURLError on reject.
+
+    v5.7.3 SECURITY: ``urllib.request.urlopen`` honors ANY scheme it has
+    a handler for — including ``file://`` (reads a local file) and
+    ``ftp://``. If a webhook URL ever reaches a sink from an untrusted
+    source (an imported config bundle, a shared preset, a future
+    marketplace), an attacker-set ``file:///C:/Users/.../secrets.enc.json``
+    would exfiltrate that file's contents to... nowhere useful for them
+    directly, but more importantly a ``file://`` or ``gopher://`` URL
+    can be abused for SSRF-style local probing.
+
+    Policy: only ``https://`` is accepted, with one exception —
+    ``http://`` is allowed when the host is loopback (127.0.0.1 /
+    localhost / ::1), so operators can point a sink at a local
+    relay / test listener during development.
+    """
+    import urllib.parse
+    if not isinstance(url, str) or not url.strip():
+        raise WebhookURLError("webhook URL is empty")
+    parsed = urllib.parse.urlparse(url.strip())
+    scheme = parsed.scheme.lower()
+    host = (parsed.hostname or "").lower()
+    if scheme == "https":
+        return url.strip()
+    if scheme == "http" and host in ("127.0.0.1", "localhost", "::1"):
+        return url.strip()
+    raise WebhookURLError(
+        f"webhook URL rejected: scheme {scheme!r} not allowed "
+        f"(use https://, or http:// only for localhost). "
+        f"file://, ftp://, gopher:// and other schemes are blocked."
+    )
+
+
 # ── Sink base + concrete sinks ───────────────────────────────────────
 
 class AuditSink:
@@ -127,7 +168,9 @@ class AuditSink:
         rate_limit_per_min: int = 30,
         timeout_s: float = 5.0,
     ) -> None:
-        self.url = url
+        # v5.7.3: validate scheme at construction — a sink can never be
+        # created with a file:// or other dangerous URL.
+        self.url = _validate_webhook_url(url)
         self._events: Set[str] = set(events) if events is not None else set(DEFAULT_EVENT_WHITELIST)
         self._bucket = _TokenBucket(
             capacity=max(1, rate_limit_per_min),
@@ -329,30 +372,32 @@ def emit_to_sinks(event_name: str, payload: Dict[str, Any]) -> None:
 # ── Privacy scrubbing ────────────────────────────────────────────────
 
 def _scrub(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Remove underscore-prefixed keys + mask anything that looks like an IP.
+    """Remove underscore-prefixed keys + mask every IP before egress.
 
     The audit log itself already masks IPs before write; the webhook
     layer adds defense-in-depth in case a future caller forgets to
     pre-mask. Keys starting with underscore are internal engine params
-    not meant for external eyes.
+    not meant for external eyes. ``mask_ips_in_text`` masks every IPv4
+    address in a string value — bare ("10.0.0.9") OR embedded in prose
+    ("cut on 10.0.0.9 failed") — so nothing leaks to Discord.
     """
     try:
-        from app.utils.helpers import mask_ip
+        from app.utils.helpers import mask_ips_in_text
     except Exception:
-        def mask_ip(s: str) -> str:  # type: ignore
+        def mask_ips_in_text(s: str) -> str:  # type: ignore
             return s
     out: Dict[str, Any] = {}
     for k, v in payload.items():
         if isinstance(k, str) and k.startswith("_"):
             continue
-        if isinstance(v, str) and _looks_like_ip(v):
-            out[k] = mask_ip(v)
+        if isinstance(v, str):
+            out[k] = mask_ips_in_text(v)
         elif isinstance(v, dict):
             out[k] = _scrub(v)
         elif isinstance(v, list):
             out[k] = [
                 _scrub(x) if isinstance(x, dict)
-                else (mask_ip(x) if isinstance(x, str) and _looks_like_ip(x) else x)
+                else (mask_ips_in_text(x) if isinstance(x, str) else x)
                 for x in v
             ]
         else:

@@ -94,6 +94,34 @@ _INCLUDE_GLOBS: Tuple[str, ...] = (
     "app/config/*.json",
 )
 
+# v5.7.3 SECURITY: restore-side path allowlist.
+#
+# The create side only ever collects files matching _INCLUDE_GLOBS
+# (app/data + app/config). But restore_backup walks the manifest of
+# whatever bundle it is handed — and a *hand-crafted malicious* bundle
+# could contain an entry like ``app/core/clumsy_network_disruptor.py``
+# or ``dupez.py`` with attacker code. The repo-root path-traversal
+# guard alone does NOT stop that: the entry stays inside the repo, it
+# just overwrites a SOURCE file, which executes on the next launch.
+#
+# Defense: restore_backup refuses to write any entry whose repo-
+# relative path does not start with one of these prefixes. Generated
+# data and user config are restorable; executable code and packaging
+# are not. A legit DupeZ bundle only contains paths under these
+# prefixes anyway, so this never rejects a genuine backup.
+_RESTORE_ALLOWED_PREFIXES: Tuple[str, ...] = (
+    "app/data/",
+    "app/config/",
+)
+
+# v5.7.3 SECURITY: decompression-bomb caps. restore_backup / list_bundle
+# read whole ZIP entries into memory; without a ceiling a 50 KB bundle
+# can decompress to fill RAM + disk. These bound a single entry and the
+# whole bundle's expanded size. 2 GB total is generous (the episode
+# store + all config rarely exceeds tens of MB) but finite.
+_MAX_ENTRY_BYTES: int = 512 * 1024 * 1024        # 512 MB per file
+_MAX_TOTAL_RESTORE_BYTES: int = 2 * 1024 * 1024 * 1024  # 2 GB whole bundle
+
 # Anything matching these is dropped even if it shows up via the
 # include globs (e.g., if a .json file slipped under build/).
 _EXCLUDE_SUBSTRINGS: Tuple[str, ...] = (
@@ -408,19 +436,66 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                 )
 
             root = _repo_root()
+            total_bytes = 0
             for entry in manifest.entries:
+                # ── SECURITY GATE 1: path allowlist ───────────────────
+                # Reject anything outside app/data + app/config BEFORE
+                # reading it. A malicious bundle entry like
+                # app/core/<x>.py or dupez.py would execute on next
+                # launch if restored — refuse outright.
+                norm = entry.path.replace("\\", "/")
+                if not norm.startswith(_RESTORE_ALLOWED_PREFIXES):
+                    log_error(
+                        f"restore_backup: BLOCKED non-allowlisted path "
+                        f"{entry.path!r} — only app/data/ and app/config/ "
+                        f"are restorable (refusing to overwrite code)"
+                    )
+                    result.skipped.append(entry.path)
+                    continue
+
+                # ── SECURITY GATE 2: per-entry size cap ───────────────
+                if entry.size > _MAX_ENTRY_BYTES:
+                    log_error(
+                        f"restore_backup: BLOCKED oversized entry "
+                        f"{entry.path!r} ({entry.size} bytes > "
+                        f"{_MAX_ENTRY_BYTES}) — possible decompression bomb"
+                    )
+                    result.skipped.append(entry.path)
+                    continue
+                total_bytes += entry.size
+                if total_bytes > _MAX_TOTAL_RESTORE_BYTES:
+                    log_error(
+                        f"restore_backup: ABORTED — bundle expands beyond "
+                        f"{_MAX_TOTAL_RESTORE_BYTES} bytes total "
+                        f"(decompression-bomb guard)"
+                    )
+                    raise BackupError(
+                        "bundle exceeds total restore size cap"
+                    )
+
                 src_in_zip = f"files/{entry.path}"
                 try:
                     with zf.open(src_in_zip) as f:
-                        data = f.read()
+                        # Read at most one byte past the manifest-stated
+                        # size — a mismatch means a lying manifest.
+                        data = f.read(_MAX_ENTRY_BYTES + 1)
                 except KeyError:
+                    result.skipped.append(entry.path)
+                    continue
+
+                if len(data) > _MAX_ENTRY_BYTES:
+                    log_error(
+                        f"restore_backup: BLOCKED {entry.path!r} — actual "
+                        f"decompressed size exceeds cap (manifest lied)"
+                    )
                     result.skipped.append(entry.path)
                     continue
 
                 if _hash_bytes(data) != entry.sha256:
                     log_error(
                         f"restore_backup: hash mismatch on {entry.path} "
-                        f"— bundle entry corrupted; refusing to write"
+                        f"— bundle entry corrupted or tampered; refusing "
+                        f"to write"
                     )
                     result.hash_mismatches.append(entry.path)
                     continue
@@ -431,7 +506,7 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
 
                 dest = (root / entry.path).resolve()
                 try:
-                    # Refuse to escape the repo tree.
+                    # Refuse to escape the repo tree (zip-slip guard).
                     dest.relative_to(root.resolve())
                 except ValueError:
                     log_error(

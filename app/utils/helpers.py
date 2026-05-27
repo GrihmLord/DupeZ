@@ -14,6 +14,8 @@ from typing import Dict, List, Optional, Tuple
 
 __all__ = [
     "mask_ip",
+    "mask_ips_in_text",
+    "mask_mac",
     "is_admin",
     "get_system_info",
     "get_network_interfaces",
@@ -84,6 +86,75 @@ def mask_ip(ip: str) -> str:
     if len(parts) == 4:
         return f"{parts[0]}.{parts[1]}.{parts[2]}.x"
     return ip
+
+
+# Matches a dotted IPv4 quad with every octet validated to 0-255, with
+# word boundaries so it will not fire on version strings ("5.7.4" has
+# only three octets) or run-on digit sequences.
+_IPV4_IN_TEXT_RE = re.compile(
+    r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b"
+)
+
+
+def mask_ips_in_text(text: str) -> str:
+    """Mask the last octet of every IPv4 address found anywhere in *text*.
+
+    Unlike :func:`mask_ip` (which expects the whole string to BE an
+    address), this scans free text, so an IP embedded in a log line or
+    audit message ("cut on 10.0.0.9 failed") cannot leak. Already-masked
+    addresses ("10.0.0.x") are not matched. Idempotent — safe to apply
+    to any string, including one already passed through this function.
+    """
+    if not text or "." not in text:
+        return text
+    return _IPV4_IN_TEXT_RE.sub(
+        lambda m: m.group(0).rsplit(".", 1)[0] + ".x", text
+    )
+
+
+def mask_mac(mac: object) -> str:
+    """Mask the device-unique portion of a MAC address for opsec in logs.
+
+    Preserves the first three octets (the OUI, which is already public
+    via the IEEE OUI registry and merely identifies the vendor) and
+    replaces the trailing three octets — the device-unique identifier —
+    with ``**:**:**``.
+
+    Examples
+    --------
+    >>> mask_mac("aa:bb:cc:dd:ee:ff")
+    'aa:bb:cc:**:**:**'
+    >>> mask_mac(b"\\xaa\\xbb\\xcc\\xdd\\xee\\xff")
+    'aa:bb:cc:**:**:**'
+
+    Accepts colon- or dash-separated strings, raw 12-char hex, and
+    ``bytes(6)``. Returns ``"??:??:??:**:**:**"`` for any input that
+    doesn't parse cleanly so callers never accidentally log the raw
+    value when masking fails.
+    """
+    if mac is None:
+        return "??:??:??:**:**:**"
+
+    # bytes / bytearray path
+    if isinstance(mac, (bytes, bytearray, memoryview)):
+        buf = bytes(mac)
+        if len(buf) != 6:
+            return "??:??:??:**:**:**"
+        return f"{buf[0]:02x}:{buf[1]:02x}:{buf[2]:02x}:**:**:**"
+
+    # String path
+    if not isinstance(mac, str):
+        return "??:??:??:**:**:**"
+
+    clean = mac.strip().lower().replace("-", ":")
+    if ":" in clean:
+        parts = clean.split(":")
+        if len(parts) == 6 and all(len(p) == 2 for p in parts):
+            return f"{parts[0]}:{parts[1]}:{parts[2]}:**:**:**"
+    elif len(clean) == 12:  # raw hex, no separators
+        return f"{clean[0:2]}:{clean[2:4]}:{clean[4:6]}:**:**:**"
+
+    return "??:??:??:**:**:**"
 
 
 def is_admin() -> bool:
@@ -284,7 +355,6 @@ def ensure_directory(path: str) -> bool:
     except Exception as e:
         _log_error(f"Failed to create directory {path}: {e}")
         return False
-
 
 def get_application_path() -> str:
     """Return the app/ directory path."""

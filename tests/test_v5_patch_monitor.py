@@ -448,5 +448,50 @@ class TestPatchMonitorGetState(unittest.TestCase):
         self.assertEqual(state["check_count"], 7)
 
 
+class TestFetchNewsDateCoercion(unittest.TestCase):
+    """Regression: a malformed Steam `date` must not abort the news fetch.
+
+    Before the fix, datetime.fromtimestamp() on a non-numeric or absurd
+    `date` raised inside the item loop; the broad except in _fetch_news
+    then discarded EVERY patch in the batch, not just the bad item.
+    """
+
+    def _fetch(self, newsitems):
+        monitor = PatchMonitor.__new__(PatchMonitor)
+        payload = {"appnews": {"newsitems": newsitems}}
+        with patch("app.core.secure_http.secure_get_json",
+                   return_value=payload):
+            return monitor._fetch_news()
+
+    def test_string_date_does_not_abort_fetch(self):
+        patches = self._fetch([
+            {"title": "DayZ 1.30 Update",
+             "feedlabel": "Community Announcements",
+             "date": "not-a-number", "gid": "1", "url": "u", "contents": "c"},
+        ])
+        self.assertEqual(len(patches), 1)
+        self.assertEqual(patches[0].date_unix, 0)
+
+    def test_absurd_date_yields_unknown_string(self):
+        patches = self._fetch([
+            {"title": "DayZ 1.30 Update",
+             "feedlabel": "Community Announcements",
+             "date": 10 ** 18, "gid": "1", "url": "u", "contents": "c"},
+        ])
+        self.assertEqual(len(patches), 1)
+        self.assertEqual(patches[0].date_str, "unknown")
+
+    def test_one_bad_item_does_not_drop_good_items(self):
+        patches = self._fetch([
+            {"title": "DayZ 1.30 Update",
+             "feedlabel": "Community Announcements",
+             "date": "bad", "gid": "1", "url": "u", "contents": "c"},
+            {"title": "DayZ 1.31 Hotfix",
+             "feedlabel": "Community Announcements",
+             "date": 1700000000, "gid": "2", "url": "u", "contents": "c"},
+        ])
+        self.assertEqual(len(patches), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

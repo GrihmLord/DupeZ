@@ -201,3 +201,52 @@ class TestKillSwitchOrchestrator:
         finally:
             ks.stop()
         assert len(fired) == 1
+
+
+class TestThreadLifecycle:
+    """start()/stop() must not leak or duplicate the poll thread.
+
+    Regression: stop() nulled _thread unconditionally and start() only
+    checked ``_thread is not None``. A stop() whose join timed out left
+    a live thread plus a None ref, so the next start() spawned a SECOND
+    poll thread — two threads then raced on _last_fire_ts.
+    """
+
+    @staticmethod
+    def _make() -> KillSwitch:
+        return KillSwitch(
+            KillSwitchConfig(enabled=True, poll_interval_s=0.05),
+            stop_callback=lambda _reason: None,
+        )
+
+    def test_double_start_does_not_duplicate_thread(self) -> None:
+        ks = self._make()
+        ks.start()
+        first = ks._thread
+        ks.start()  # second start must be a no-op
+        try:
+            assert ks._thread is first, "second start() replaced the thread"
+            live = [t for t in threading.enumerate() if t.name == "KillSwitch"]
+            assert len(live) == 1, f"expected 1 KillSwitch thread, got {len(live)}"
+        finally:
+            ks.stop()
+
+    def test_clean_stop_clears_thread_ref(self) -> None:
+        ks = self._make()
+        ks.start()
+        t = ks._thread
+        ks.stop()
+        # poll_interval is 0.05s, so the thread exits well within the
+        # 2s join — a clean stop must null the reference.
+        assert t is not None and not t.is_alive()
+        assert ks._thread is None
+
+    def test_stop_then_start_restarts_cleanly(self) -> None:
+        ks = self._make()
+        ks.start()
+        ks.stop()
+        ks.start()  # fresh start after a clean stop must work
+        try:
+            assert ks._thread is not None and ks._thread.is_alive()
+        finally:
+            ks.stop()

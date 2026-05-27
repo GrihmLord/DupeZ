@@ -197,14 +197,15 @@ so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 <b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
 the right panel. Available presets:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Dupe</b> — Character clone / item duplication.
-Defaults to Clone mode — see the Dupe Engine section below for step-by-step
-instructions. Use the <b>DUPE METHOD</b> card to pick between Clone,
-Drop &amp; Pick, Swap, Container, Rift, or Legacy</li>
-<li><b>Red Disconnect</b> — Full disconnect: 100% drop, heavy lag, bandwidth cap</li>
-<li><b>Lag</b> — Sustained lag + drop. Tune with the sliders after selecting</li>
-<li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
-<li><b>Custom</b> — Set your own parameters manually</li>
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — The duplication preset.
+Hard cut: 100% drop, 3s lag, zero bandwidth, throttle, plus the stateful
+DISCONNECT timed-cut module. This is what opens a dupe window — see the
+Duplication Workflow section below for step-by-step instructions</li>
+<li><b>Lag</b> — Heavy sustained lag + drop. Tune with the sliders after
+selecting (Light ~800ms/60% · Max ~5000ms/100%)</li>
+<li><b>God Mode</b> — Bidirectional pulse-cycle for ghost teleport,
+invulnerability, and landing hits</li>
+<li><b>Custom</b> — Set your own modules and parameters manually</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
@@ -227,9 +228,10 @@ Green = cut hasn't landed yet.</p>
 <b style='color:{_CYAN};'>Quick Start — Character Clone (DayZ):</b></p>
 <ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li>Scan → select your PC or console</li>
-<li>Preset → <b>Dupe</b> (Clone is the default method)</li>
+<li>Preset → <b>Red Disconnect</b></li>
 <li>Wait for a server persistence save (every 5-15 min)</li>
-<li>Hit <b>DISRUPT</b>, then perform your inventory action in-game</li>
+<li>Perform your inventory action in-game, then hit <b>DISRUPT</b> to hold
+the cut (or <b>TIMED DISRUPT</b> for a fixed window)</li>
 <li>Alt-F4 or kill DayZ while the cut is held</li>
 <li>Reconnect — your character has the original inventory, moved items
 are in the world</li>
@@ -251,15 +253,21 @@ device's IP so only game traffic is affected.</p>
 <b style='color:{_CYAN};'>Presets (right)</b> — Pre-built disruption
 profiles. Pick one and the modules + sliders auto-configure:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Dupe</b> — Smart duplication engine with a
-<b>DUPE METHOD</b> card. Choose Clone (default), Drop &amp; Pick, Swap,
-Container, Rift, or Legacy. Each method has its own description and default
-cut duration</li>
-<li><b>Red Disconnect</b> — Full disconnect: 100% drop, heavy lag, bandwidth cap</li>
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — The duplication preset.
+Enables lag, drop, bandwidth, throttle, and the stateful DISCONNECT
+timed-cut module in one click. Arm the cut with the DISCONNECT sliders in
+the MODULES card</li>
 <li><b>Lag</b> — Sustained lag + drop. Tune with sliders after selecting</li>
 <li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
 <li><b>Custom</b> — Set your own parameters manually</li>
 </ul>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>Platform card</b> — A single <b>PC LOCAL</b>
+toggle. Leave it <i>unchecked</i> for a PS5, Xbox, or remote PC — DupeZ
+uses the NETWORK_FORWARD layer and targets the device's IP. Check it when
+DayZ runs on <i>this</i> machine: DupeZ switches to the NETWORK layer and
+the target becomes the game server IP instead.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Disruption Modules</b> — Each module manipulates
@@ -269,6 +277,11 @@ packets differently:</p>
 100–200ms is noticeable; 500ms+ is extreme.</li>
 <li><b style='color:{_GREEN};'>Drop</b> — Randomly discards a % of packets.
 10–30% is realistic; 50%+ causes heavy desync.</li>
+<li><b style='color:{_GREEN};'>Disconnect</b> — The stateful timed cut
+(arm → cut → release). This is the duplication module — see the
+Duplication Workflow section for how to use it.</li>
+<li><b style='color:{_GREEN};'>Bandwidth</b> — Caps throughput (KB/s) with
+an optional queue. 0 KB/s is a full stall.</li>
 <li><b style='color:{_GREEN};'>Throttle</b> — Queues packets and releases
 them in bursts, creating "choppy" gameplay.</li>
 <li><b style='color:{_GREEN};'>Duplicate</b> — Sends copies of packets,
@@ -276,7 +289,9 @@ causing potential desyncs.</li>
 <li><b style='color:{_GREEN};'>Out of Order</b> — Shuffles packet sequence
 numbers, confusing netcode.</li>
 <li><b style='color:{_GREEN};'>Tamper</b> — Flips random bits in packet
-data. Use sparingly — high values cause disconnects.</li>
+data. Use sparingly — limited effect against DayZ.</li>
+<li><b style='color:{_GREEN};'>TCP RST</b> — Injects TCP reset flags.
+Aggressive — it will kick you too.</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
@@ -298,12 +313,14 @@ macro without touching other active disruptions.</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>SMART DISRUPT</b> — When enabled, DupeZ consults
-the learning loop (past labeled episodes + cut-effectiveness stats) and
-picks the preset / direction / duration most likely to sever the current
-target class. After 5 labeled episodes for a (profile, goal) bucket, it
-will <i>auto-switch presets</i> if the current one can't sever — no more
-silently retrying a preset that doesn't fit the target.</p>
+<b style='color:{_CYAN};'>SMART MODE</b> — Lives in the <b>AI / Smart Ops</b>
+tab of the Network Tools view, not in this view. It is a tri-state toggle:
+<b>off</b>, <b>learn</b>, or <b>assist</b>. In learn/assist mode DupeZ
+consults the learning loop (past labeled episodes + cut-effectiveness
+stats) and picks the preset / direction / duration most likely to sever
+the current target class. After 5 labeled episodes for a (profile, goal)
+bucket it will <i>auto-switch presets</i> if the current one can't sever —
+no more silently retrying a preset that doesn't fit the target.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>LIVE STATS (collapsible card below)</b> — Each
@@ -320,7 +337,8 @@ plan routes without switching windows.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Features:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li>Full Chernarus+ and Livonia maps with pan/zoom</li>
+<li>All official DayZ maps — Chernarus+, Livonia, Namalsk, Sakhal,
+Deer Isle, Esseker, Takistan — with pan/zoom</li>
 <li>Satellite and Topographic layer toggle</li>
 <li>GPU-accelerated rendering when a capable GPU is detected</li>
 <li>Automatic renderer tier detection — GPU (ANGLE/D3D11), SwiftShader, or CPU
@@ -374,60 +392,71 @@ changed in the status bar</li>
 </ul>
 """, False),
 
-    ("🔄 DUPE ENGINE v2 — SMART DUPLICATION", f"""
+    ("🔄 DUPLICATION WORKFLOW — THE TIMED CUT", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-The Dupe Engine v2 uses <b>selective packet filtering</b> designed for DayZ
-1.29+ servers. Instead of dropping all traffic (which triggers freeze detection
-and disconnects), v2 classifies every packet and only blocks game-state
-replication while keeping your connection alive.</p>
+Duplication in DayZ is a server-side persistence race: the server saves your
+character state on a fixed interval, and if your client disconnects at the
+right moment, the server rolls your character back to the last save while
+items you moved persist in the world. DupeZ's job is to <b>open and time
+that disconnect window</b> precisely — it does not modify the game.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>How it works:</b> TCP, keepalives, and small acks
-always pass through. Only GAME_STATE and GAME_BULK packets (inventory/entity
-replication) are blocked. This creates a desync window where the server has
-applied your action but your client never receives the confirmation — the
-foundation for duplication.</p>
+<b style='color:{_CYAN};'>The duplication preset is Red Disconnect.</b>
+Selecting it arms the full module stack — 100% drop, 3s lag, zero bandwidth,
+throttle — plus the stateful <b>DISCONNECT</b> module, which is the actual
+timed cut. One preset, one DISRUPT click.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>Dupe Methods (select in the DUPE METHOD card):</b></p>
+<b style='color:{_CYAN};'>The DISCONNECT module — arm → cut → release.</b>
+It exposes three sliders in the MODULES card:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Clone (Character Dupe)</b> — Full character clone
-via persistence save race. The server saves your state, you perform an inventory
-action, then disconnect before the next save. Server rolls back your character
-to the saved state (full inventory) while moved items persist in the world.
-<b>Default and recommended method</b></li>
-<li><b>Drop & Pick</b> — Drop an item, the outbound RPC reaches the server,
-then inbound state is blocked. Pick up during the cut window</li>
-<li><b>Swap</b> — Initiate a swap between hands and container. Blocks state
-both directions to freeze the partial swap on the server</li>
-<li><b>Container</b> — Put item in a container. Inbound block prevents the
-client from seeing the server's confirmation of the transfer</li>
-<li><b>Rift</b> — Extended bidirectional state block with pulse cycling. Most
-aggressive — creates deep desync over multiple cycles</li>
-<li><b>Legacy</b> — Total hard cut for pre-1.27 servers.
-<b>Will disconnect you on modern servers</b></li>
+<li><b>Chance %</b> — How aggressively packets are dropped during the cut.
+Leave at 100 for a clean sever</li>
+<li><b>Arm Delay (ms)</b> — Wait time after you hit DISRUPT before the cut
+lands. Use it to line the cut up with an in-game action</li>
+<li><b>Duration (ms)</b> — How long the cut is held before it auto-releases.
+Leave at <b>0</b> to hold the cut until you hit STOP manually</li>
 </ul>
 
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
+<b style='color:{_AMBER};'>Note:</b> Earlier builds shipped a separate
+"Dupe Engine v2" with a multi-method card (Clone, Drop &amp; Pick, Swap, and
+so on). That was consolidated — every one of those "methods" was just a
+different cut <i>timing</i>, so they are now a single timed cut you control
+directly with the Arm Delay / Duration sliders or the <b>TIMED DISRUPT</b>
+button. There is no method card to look for; pick your timing for the
+technique you are running.</p>
+
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>Clone Mode Steps:</b></p>
+<b style='color:{_CYAN};'>Character clone (full inventory dupe):</b></p>
 <ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li>Wait for a server persistence save (every 5-15 min, configurable)</li>
-<li>Select the <b>Dupe</b> preset and <b>Clone</b> method, then DISRUPT</li>
-<li>Perform your inventory action (drop items, fill a stash, etc.)</li>
+<li>Scan → select your PC or console in the device table</li>
+<li>Preset → <b>Red Disconnect</b></li>
+<li>Wait for a server persistence save (every 5-15 min, server-dependent)</li>
+<li>Perform your inventory action in-game — drop items, fill a stash, etc.</li>
+<li>Hit <b>DISRUPT</b> to hold the cut, or set a Duration and hit
+<b>TIMED DISRUPT</b> for a fixed window</li>
 <li>Alt-F4 or kill DayZ while the cut is held</li>
-<li>Reconnect — your character has the original inventory, moved items are in
-the world</li>
+<li>Reconnect — your character has the original inventory, the moved items
+are in the world</li>
 </ol>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>Graduated Restore:</b> For non-clone methods, when
-the cut ends, v2 restores in 3 phases: keepalives first, then outbound game
-state in a drip-feed, then full open. This avoids reconnection spike
-detection. Clone mode skips this — it holds the cut until you disconnect.</p>
+<b style='color:{_CYAN};'>Single-item / drop-and-pick:</b> Drop the item so
+the outbound action reaches the server, then arm a short cut — set
+<b>Duration</b> to 1000-3000ms and hit <b>TIMED DISRUPT</b> immediately, or
+DISRUPT then STOP by hand. Pick the item back up before the cut releases.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>Reading the cut:</b> Watch the per-device LED in
+the LIVE STATS card. Red (<b style='color:{_RED};'>severed</b>) means the cut
+landed and the dupe window is open. Amber is a partial cut — the sever has
+not fully taken yet.</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
-<b style='color:{_AMBER};'>Tip:</b> Start with <b>Clone</b> for full character
-duplication. For single-item dupes, try <b>Drop & Pick</b>.</p>
+<b style='color:{_AMBER};'>Tip:</b> Use <b>TIMED DISRUPT</b> for
+reproducible windows — it auto-stops at the Duration you set, so every dupe
+attempt uses an identical cut length.</p>
 """, False),
 
     ("🛡 ARP SPOOF & A2S CUT VERIFIER (v5.6.0)", f"""
@@ -488,47 +517,51 @@ check logs for a scapy import error. v5.6 chains the full ~35k-entry IEEE
 OUI database as a fallback to the 60-entry curated gaming table.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
-<b style='color:{_GREEN};'>✓ WiFi disruption (v5.6.5+):</b> DupeZ disrupts
-YOUR OWN connection to a target — not other devices' connections. On WiFi
-same-network targets this means <b>self-disrupt mode</b> on NETWORK layer,
-which works on every AP regardless of client isolation, encryption, or
-802.11 mode. No Npcap dependency, no ARP spoofing, no AP-isolation lottery.</p>
+<b style='color:{_GREEN};'>✓ WiFi disruption (v5.7.2):</b> Pick a device from
+the network scan — an Xbox, a PS5, another PC — hit DISRUPT, and DupeZ
+disrupts <b>that device</b>. Same-network targets route through ARP spoof
+on the FORWARD layer: the target's traffic is redirected through your
+machine, then the disruption modules (drop, lag, throttle, disconnect)
+act on it.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>How v5.6.5 self-disrupt works:</b></p>
+<b style='color:{_CYAN};'>How it works:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b>Scope</b> — NETWORK layer captures only YOUR machine's traffic to
-and from the target. The modules (drop, lag, throttle, etc.) operate on
-that flow. For DayZ duping (the canonical use case), this is exactly what
-you want: lag your own packets to the server, the server times out your
-character, dupe window opens.</li>
-<li><b>What it doesn't do</b> — It does NOT affect the target's traffic
-to third parties. If the target is another player and your goal is to
-sever <i>their</i> session, you need to be upstream of their AP (managed
-switch, own router) — no client-side approach works behind consumer-AP
-client isolation. v5.6.5 doesn't pretend otherwise.</li>
-<li><b>Works on</b> — Eero, Google Nest, ISP gateways, public hotspots,
-guest WiFi, WPA3+MFP, anything. Doesn't care about AP isolation because
-nothing crosses the AP — your own machine is both sender and capture
-point.</li>
+<li><b>ARP spoof + FORWARD layer</b> — DupeZ poisons the ARP caches so
+the target's traffic flows through your PC. WinDivert's FORWARD layer
+intercepts it and the modules disrupt it. Requires Npcap installed; if
+it's missing you get a Partial Failure dialog with install guidance
+(no silent no-ops).</li>
+<li><b>Isolation watchdog</b> — Some consumer APs (Eero, Google Nest,
+many ISP gateways, guest WiFi) enable client isolation, which drops
+station-to-station frames so the spoof can't land. DupeZ watches the
+forwarded-packet counter for 8 seconds; if the spoof was emitted but
+nothing comes back, it auto-falls-back to <b>self-disrupt mode</b> and
+shows a toast explaining the switch.</li>
+<li><b>Self-disrupt fallback</b> — When isolation is detected, DupeZ
+disrupts your own machine's traffic to/from the target instead. Useful
+when the target is something you connect to (a shared game server) but
+it cannot affect another device's independent traffic. This is the
+honest degraded mode, not the default.</li>
 </ul>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
-<b style='color:{_AMBER};'>Power-user opt-in (rare):</b></p>
+<b style='color:{_AMBER};'>If a cut has no effect:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li>Setting <code>params["_force_arp_spoof"] = True</code> on the disrupt
-call brings back the v5.5.0-v5.6.4 ARP-spoof + NETWORK_FORWARD path —
-useful only if you have a managed switch / own router / hotspot path
-where station-to-station L2 frames actually forward.</li>
-<li>The v5.6.5 isolation watchdog auto-arms on this path. If the AP
-silently drops the spoof, it falls back to self-disrupt mode automatically
-within 5 seconds (toast explains the switch).</li>
+<li>Confirm Npcap is installed (Tools → Diagnostics will check).</li>
+<li>If you see the "AP isolation detected" toast, your router is
+dropping the spoof. Disable "AP Isolation" / "Client Isolation" in the
+router's WiFi settings if you own it, or connect the operator PC by
+Ethernet — a wired uplink is not subject to WiFi client isolation.</li>
+<li>To force self-disrupt mode regardless (lag only your own traffic),
+pass <code>params["_force_self_disrupt"] = True</code>.</li>
 </ul>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:4px;'>
-History: v5.5.0 added the ARP-spoof path on a faulty premise. v5.6.4
-stopped lying about silent no-ops in that path. v5.6.5 collapsed the
-default to self-disrupt — what DupeZ users actually want.</p>
+History: v5.6.5 briefly made self-disrupt the default — that broke
+disrupting peer devices like Xbox/PS5 and was reverted in v5.7.2.
+ARP spoof is the default again; self-disrupt is the watchdog's
+automatic fallback when the AP won't cooperate.</p>
 """, False),
 
     ("📡 NETWORK TOOLS TAB", f"""
@@ -552,6 +585,18 @@ IP. Verify game server ports are open and reachable before you play.</p>
 <b style='color:{_CYAN};'>Connection Mapper</b> — Live view of every active
 network connection on your machine — see exactly which IPs your game is
 talking to and on which ports.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>AI / Smart Ops</b> — Smart Mode (the tri-state
+auto-tuner), ML capture, and the Voice control panel all live in this
+tab.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
+<b style='color:{_CYAN};'>GPC / Cronus Zen</b> — Appears when a CronusZEN
+device is detected — see the GPC / Cronus Zen section below.</p>
+
+<p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:6px;'>
+A <b>LAN Cut</b> tab may also be present depending on your build.</p>
 """, False),
 
     ("⚙ SETTINGS & THEMES", f"""
@@ -596,8 +641,9 @@ Control DupeZ hands-free with voice commands. Useful when you're mid-game and
 can't alt-tab.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>Enable:</b> Tools → Settings → Voice tab. Select
-your microphone and toggle voice control on.</p>
+<b style='color:{_CYAN};'>Enable:</b> Open the <b>Network Tools</b> view and
+go to the <b>AI / Smart Ops</b> tab — the Voice panel is there. Select your
+microphone and toggle voice control on.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Example commands:</b></p>
@@ -620,8 +666,8 @@ manipulation.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Setup:</b> Plug in CronusZEN via USB. DupeZ
-auto-detects it. The GPC panel appears in the sidebar when hardware is
-found.</p>
+auto-detects it. The <b>GPC / Cronus Zen</b> tab appears in the Network
+Tools view when the hardware is found.</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
 <b style='color:{_AMBER};'>Requires:</b> CronusZEN hardware + USB.
@@ -683,22 +729,43 @@ anomalies.</p>
 Quick reference:</p>
 
 <table style='color:{_TEXT_MUTED}; font-size:12px; margin-top:6px;' cellpadding='4'>
-<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+,</td>
-    <td>Open Settings</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+S</td>
     <td>Scan Network</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+D</td>
     <td>Stop All Disruptions</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Alt+X</td>
+    <td>Kill Switch — panic-stop every disruption</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+E</td>
     <td>Export Data</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+,</td>
+    <td>Open Settings</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+P</td>
+    <td>Custom Preset Editor</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>F2</td>
+    <td>Diagnostics</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+1</td>
+    <td>Switch to Clumsy Control view</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+2</td>
+    <td>Switch to iZurvive Map view</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+3</td>
+    <td>Switch to Account Tracker view</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+4</td>
+    <td>Switch to Network Tools view</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Alt+A</td>
+    <td>Next tracked account</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Alt+Shift+A</td>
+    <td>Previous tracked account</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+D</td>
+    <td>Toggle window (tray mode)</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>F1</td>
+    <td>Show this hotkey reference</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Q</td>
     <td>Quit DupeZ</td></tr>
-<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>F1</td>
-    <td>Show Hotkey Reference</td></tr>
 </table>
 
 <p style='color:{_TEXT_MUTED}; font-size:11px; margin-top:8px;'>
-Custom hotkeys can be configured in <b>Tools → Settings</b>.</p>
+The same list is available in-app at any time via <b>Help → Hotkeys</b>
+(F1), generated live from the menu so it always matches.</p>
 """, False),
 
 ]

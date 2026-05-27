@@ -2,8 +2,11 @@
 """Device scanner and per-device disruption control panel.
 
 ``ClumsyControlView`` is the primary DupeZ interaction surface: a split-pane
-with a device table on the left and full disruption controls (presets,
-modules, sliders, macros, profiles, smart-mode, voice, GPC) on the right.
+with a device table on the left and the disruption controls on the right —
+the PRESET, PLATFORM, DIRECTION, MODULES, and LIVE STATS collapsible cards,
+plus the inline scheduler/macro row. Smart Mode, Voice, and GPC were moved
+out to the Network Tools view (the AI / Smart Ops and GPC / Cronus Zen
+tabs); they are not part of this view.
 """
 
 from __future__ import annotations

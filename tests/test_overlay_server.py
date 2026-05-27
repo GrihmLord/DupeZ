@@ -150,6 +150,38 @@ class TestServerLifecycle:
         srv.start()  # must not raise / rebind
         srv.stop()
 
+    def test_start_returns_true_on_success(self) -> None:
+        # v5.7.4: start() must signal success so callers don't report
+        # "overlay started" on a failed bind.
+        ctrl = FakeController()
+        srv = OverlayServer(ctrl, host="127.0.0.1", port=0)
+        try:
+            assert srv.start() is True
+            assert srv.running is True
+            # Second start on an already-running server also returns True.
+            assert srv.start() is True
+        finally:
+            srv.stop()
+        assert srv.running is False
+
+    def test_start_returns_false_on_bind_failure(self) -> None:
+        # Bind the same port twice — the second start must return False,
+        # not silently report success.
+        ctrl = FakeController()
+        srv1 = OverlayServer(ctrl, host="127.0.0.1", port=0)
+        assert srv1.start() is True
+        bound_port = srv1._server.server_address[1]  # type: ignore
+        srv2 = OverlayServer(ctrl, host="127.0.0.1", port=bound_port)
+        try:
+            assert srv2.start() is False, (
+                "start() must return False when the port is already "
+                "in use — callers rely on this to avoid claiming success"
+            )
+            assert srv2.running is False
+        finally:
+            srv1.stop()
+            srv2.stop()
+
     def test_double_stop_is_idempotent(self) -> None:
         ctrl = FakeController()
         srv = OverlayServer(ctrl, host="127.0.0.1", port=0)
