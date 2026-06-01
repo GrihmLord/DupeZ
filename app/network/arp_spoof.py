@@ -107,6 +107,11 @@ _RESTORE_INTERVAL_SEC = 0.3
 _WARMUP_ROUNDS = 5
 _WARMUP_INTERVAL_SEC = 0.1
 
+# v5.7.5 (L3): abort the poison loop after this many consecutive
+# _poison_once() failures (typically a dead Npcap handle) rather than
+# spinning forever while still reporting the spoofer as ACTIVE.
+_POISON_FAILURE_THRESHOLD = 5
+
 # Hoisted once at import time; platform.system() invokes uname() and
 # .lower() allocates a fresh string every call. Every `_IS_WINDOWS`
 # check below is O(1) rather than O(syscall).

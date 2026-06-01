@@ -2020,4 +2020,3 @@ class ClumsyNetworkDisruptor:
 # Legacy name preserved; prefer ``disruption_manager`` in new code.
 clumsy_network_disruptor = ClumsyNetworkDisruptor()
 disruption_manager = clumsy_network_disruptor
-

@@ -17,8 +17,8 @@
 
 VSVersionInfo(
     ffi=FixedFileInfo(
-        filevers=5, 7, 6, 0),
-        prodvers=5, 7, 6, 0),
+        filevers=(5, 7, 6, 0),
+        prodvers=(5, 7, 6, 0),
         mask=0x3F,
         flags=0x0,
         OS=0x40004,          # VOS_NT_WINDOWS32
