@@ -311,7 +311,7 @@ app/
 
 plugins/                             # Community plugins (each folder = one plugin)
 └── example_ping_monitor/
-tests/                               # Test suite (804 tests across 42 files, 2 hardware-gated)
+tests/                               # Test suite (807 tests across 43 files, 2 hardware-gated)
 tools/                               # Operator CLI utilities (scan/lag smoketest, etc.)
 bench/                               # Micro-benchmarks for hot paths
 docs/
