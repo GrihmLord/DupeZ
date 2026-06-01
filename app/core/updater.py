@@ -26,10 +26,11 @@ from app.__version__ import __version__
 from app.core import safe_subprocess
 from app.core.safe_subprocess import SafeSubprocessError
 from app.core.secure_http import _get_tls_context, secure_get
+from app.core.update_state import DowngradeRefusedError
 from app.core.update_verify import (
     SigVerifyError,
     verify_installer_sha256,
-    verify_manifest,
+    verify_manifest_and_enforce_monotonic,
 )
 from app.logs.logger import log_error, log_info, log_warning
 
@@ -404,11 +405,44 @@ class UpdateChecker:
                     return
 
                 try:
-                    manifest = verify_manifest(manifest_bytes, sig_bytes)
+                    # v5.7.6: signature + downgrade-replay gate. If the
+                    # incoming manifest version is strictly older than
+                    # the highest version this install has ever accepted
+                    # (HMAC'd ledger under app/data/update_state.json),
+                    # we refuse — even with a valid signature. Closes
+                    # the one-time-signing-key-compromise replay attack.
+                    manifest = verify_manifest_and_enforce_monotonic(
+                        manifest_bytes, sig_bytes,
+                    )
                 except SigVerifyError as e:
                     log_error(f"Update refused: manifest signature invalid: {e}")
                     if on_done:
                         on_done(False, f"Update refused (signature): {e}")
+                    return
+                except DowngradeRefusedError as e:
+                    # Distinct branch — loud audit event, distinct user
+                    # message. A downgrade attempt is qualitatively
+                    # different from a bad signature: it means an
+                    # authentic-but-stale manifest was offered.
+                    log_error(
+                        f"Update refused: DOWNGRADE-REPLAY suspected — {e}"
+                    )
+                    try:
+                        from app.logs.audit import audit_event
+                        audit_event("update_downgrade_refused", {
+                            "reason": str(e),
+                        })
+                    except Exception:
+                        pass
+                    if on_done:
+                        on_done(
+                            False,
+                            "Update refused: downgrade-replay protection "
+                            "tripped. The server offered an older release "
+                            "than this client has already accepted. "
+                            "Please report this — it may indicate a "
+                            "compromised mirror.",
+                        )
                     return
 
                 # Manifest-stated filename must match the URL we were

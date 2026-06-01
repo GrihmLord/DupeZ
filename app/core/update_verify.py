@@ -78,6 +78,7 @@ __all__ = [
     "UpdateManifest",
     "pubkey_fingerprint",
     "verify_manifest",
+    "verify_manifest_and_enforce_monotonic",
     "verify_installer_sha256",
 ]
 
@@ -287,6 +288,36 @@ def verify_manifest(
         installer_sha256=sha256.lower(),
         installer_size=size,
     )
+
+
+def verify_manifest_and_enforce_monotonic(
+    manifest_bytes: bytes,
+    sig_envelope: bytes,
+    trusted_pubkeys_pem: Optional[Iterable[str]] = None,
+) -> UpdateManifest:
+    """Verify signature, then enforce the v5.7.6 downgrade-replay gate.
+
+    Combines :func:`verify_manifest` with
+    :func:`app.core.update_state.enforce_monotonic_version` so the
+    updater has a single call site for "is this manifest acceptable to
+    act on." On any failure — bad sig, downgrade, ledger I/O error —
+    the caller MUST NOT launch the installer.
+
+    Raises:
+        SigVerifyError on signature/schema failure (re-raised from
+            :func:`verify_manifest`).
+        app.core.update_state.DowngradeRefusedError when the manifest's
+            version is strictly older than the last accepted manifest.
+            Note: callers can choose to catch this specifically to log
+            a louder "POSSIBLE ATTACK" event without conflating it with
+            ordinary signature failures.
+    """
+    manifest = verify_manifest(manifest_bytes, sig_envelope, trusted_pubkeys_pem)
+    # Lazy import so the signature-verify codepath stays import-light
+    # for unit tests that exercise verify_manifest in isolation.
+    from app.core.update_state import enforce_monotonic_version
+    enforce_monotonic_version(manifest.version)
+    return manifest
 
 
 def verify_installer_sha256(

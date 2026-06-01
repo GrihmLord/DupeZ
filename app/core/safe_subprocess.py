@@ -122,6 +122,39 @@ def _windows_creation_flags() -> int:
     return CREATE_NO_WINDOW
 
 
+def _windows_startupinfo():
+    """Return a hardened STARTUPINFO for Windows spawns.
+
+    v5.7.6: belt-and-suspenders on top of ``CREATE_NO_WINDOW``. Sets:
+
+      * ``STARTF_USESHOWWINDOW`` + ``wShowWindow = SW_HIDE`` so any
+        ancillary window the child might try to show (an old netsh
+        confirmation dialog, a console subsystem fallback) is hidden
+        rather than briefly flashing on the operator's screen.
+      * ``STARTF_USESTDHANDLES`` is NOT forced here because callers
+        configure stdio via the subprocess kwargs (DEVNULL / PIPE)
+        and setting that flag without supplying matching handles is
+        invalid. We just hide the window.
+
+    Returns ``None`` on non-Windows so callers can pass ``startupinfo``
+    unconditionally.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        si = subprocess.STARTUPINFO()
+    except AttributeError:
+        # Non-Windows Python builds don't expose STARTUPINFO.
+        return None
+    # Constants — Python's subprocess module exposes these on Windows
+    # only, so guard the attribute access.
+    STARTF_USESHOWWINDOW = getattr(subprocess, "STARTF_USESHOWWINDOW", 1)
+    SW_HIDE = getattr(subprocess, "SW_HIDE", 0)
+    si.dwFlags |= STARTF_USESHOWWINDOW
+    si.wShowWindow = SW_HIDE
+    return si
+
+
 def _audit(event: str, payload: dict) -> None:
     """Best-effort audit — a subprocess call must NOT fail because the
     audit logger failed."""
@@ -184,6 +217,7 @@ def run(
 
     clean_argv = _validate_argv(argv, trusted_executable=trusted_executable)
     creationflags = _windows_creation_flags()
+    startupinfo = _windows_startupinfo()
 
     _audit("subprocess_spawn", {
         "intent": intent or "unspecified",
@@ -206,6 +240,8 @@ def run(
             timeout=timeout,
             check=False,
             creationflags=creationflags,
+            startupinfo=startupinfo,          # v5.7.6: SW_HIDE belt
+            close_fds=True,                   # v5.7.6: don't leak parent handles
         )
         stdout = completed.stdout or "" if capture_output else ""
         stderr = completed.stderr or "" if capture_output else ""
@@ -273,6 +309,7 @@ def spawn_detached(
     """
     clean_argv = _validate_argv(argv, trusted_executable=trusted_executable)
     flags = _windows_creation_flags()
+    startupinfo = _windows_startupinfo()
     if os.name == "nt":
         # DETACHED_PROCESS + CREATE_NEW_PROCESS_GROUP so the child
         # survives our exit and doesn't receive our Ctrl-C.
@@ -286,6 +323,12 @@ def spawn_detached(
     })
 
     try:
+        # v5.7.6: ``close_fds=True`` now also on Windows. Python 3.7+
+        # supports close_fds on Windows whenever stdin/stdout/stderr
+        # are explicitly redirected — which we do (DEVNULL × 3). Pre-
+        # v5.7.6 we explicitly opted out on Windows because of a stale
+        # Python 3.6 caveat; that's no longer a concern and the opt-
+        # out was leaking parent handles into detached children.
         proc = subprocess.Popen(
             clean_argv,
             shell=False,
@@ -294,8 +337,9 @@ def spawn_detached(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            close_fds=(os.name != "nt"),
+            close_fds=True,
             creationflags=flags,
+            startupinfo=startupinfo,
         )
         return proc.pid
     except OSError as e:

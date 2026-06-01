@@ -51,6 +51,45 @@ def _maybe_dispatch_helper_role() -> None:
 
 _maybe_dispatch_helper_role()
 
+
+# ── v5.7.6: operator escape hatches (--reset-audit, --verify-self) ─
+# These run BEFORE elevation / GUI bootstrap so the operator can drive
+# them from a regular shell without booting the whole stack.
+def _maybe_handle_v576_flags() -> None:
+    if "--reset-audit" in sys.argv:
+        _here = os.path.dirname(os.path.abspath(__file__))
+        if _here not in sys.path:
+            sys.path.insert(0, _here)
+        try:
+            from app.logs.audit import get_audit_logger
+            logger = get_audit_logger()
+            quarantine = logger.reset_after_tamper()
+            sys.stdout.write(
+                f"[dupez] audit chain reset. Quarantined files archived to:\n"
+                f"        {quarantine}\n"
+                f"        A fresh HMAC-chained audit.jsonl will be created "
+                f"on next event.\n"
+            )
+            sys.exit(0)
+        except Exception as e:
+            sys.stderr.write(f"[dupez] --reset-audit failed: {e}\n")
+            sys.exit(2)
+    if "--verify-self" in sys.argv:
+        _here = os.path.dirname(os.path.abspath(__file__))
+        if _here not in sys.path:
+            sys.path.insert(0, _here)
+        try:
+            from app.core.self_verify import verify_self
+            ok, message = verify_self()
+            sys.stdout.write(f"[dupez] {message}\n")
+            sys.exit(0 if ok else 3)
+        except Exception as e:
+            sys.stderr.write(f"[dupez] --verify-self failed: {e}\n")
+            sys.exit(2)
+
+
+_maybe_handle_v576_flags()
+
 # ── ADR-0001 manifest-flip compat shim ─────────────────────────────
 # The Win32 manifest was flipped from `requireAdministrator` to
 # `asInvoker` so the GUI can launch at Medium IL under DUPEZ_ARCH=split

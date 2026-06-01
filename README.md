@@ -1,4 +1,4 @@
-# DupeZ v5.7.4
+# DupeZ v5.7.6
 
 Per-device network disruption toolkit. Scan your network, pick your targets, manipulate their packets. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
 
@@ -194,7 +194,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.7.4_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.7.6_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -204,7 +204,7 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.7.4_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+Download `DupeZ_v5.7.6_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
@@ -311,7 +311,7 @@ app/
 
 plugins/                             # Community plugins (each folder = one plugin)
 └── example_ping_monitor/
-tests/                               # Test suite (774 tests across 42 files, 2 hardware-gated)
+tests/                               # Test suite (804 tests across 42 files, 2 hardware-gated)
 tools/                               # Operator CLI utilities (scan/lag smoketest, etc.)
 bench/                               # Micro-benchmarks for hot paths
 docs/
@@ -366,8 +366,8 @@ The Help → Hotkeys dialog (F1) self-generates from the live menu bar, so it ca
 | Ctrl+Alt+A | Next account (multi-account quick-switch) |
 | Ctrl+Alt+Shift+A | Previous account |
 | F1 | Help → Hotkeys dialog |
-| F2 | Diagnostics wizard (v5.7.4) |
-| Ctrl+Alt+X | Kill Switch — Panic Stop (v5.7.4) |
+| F2 | Diagnostics wizard (v5.7.5) |
+| Ctrl+Alt+X | Kill Switch — Panic Stop (v5.7.5) |
 
 ---
 

@@ -4,6 +4,84 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.7.6 -- 2026-05-27 (Maximum Security Tier 1: Downgrade Replay + Settings HMAC + Audit Seal + Subprocess + Webhook Allowlist)
+
+Closes the five highest-ROI gaps from the post-v5.7.5 security review. Each item closes a concrete attack path that would otherwise survive even with v5.7.5's defense-in-depth posture. No user-visible behavior changes for the normal-operation case -- the work is in fail-closed posture for adversarial paths. See `docs/release-notes/v5.7.6.md` and `docs/adr/ADR-0003-v576-security-hardening.md` for full rationale.
+
+### Security hardening
+
+- **(Item 1) Downgrade-replay protection on the update channel (`app/core/update_state.py`, `app/core/update_verify.py`, `app/core/updater.py`).** Ed25519 manifest signature verifies authenticity, not freshness. An attacker who replays a valid-but-older signed manifest (intercepted CDN, leaked withdrawn release, one-time signing-key compromise) could force every client to "update" backwards into a known-vulnerable version. v5.7.6 adds a HMAC-protected monotonic version ledger at `app/data/update_state.json{,.hmac}`: every successful `verify_manifest` call records the version, every subsequent manifest with a strictly-lower version is refused with a new `DowngradeRefusedError` and a loud `update_downgrade_refused` audit event. Strict semver compare; pre-release / build metadata ignored.
+
+- **(Item 2) HMAC sidecars for `settings.json` (`app/config/__init__.py`).** Pre-v5.7.6, a local attacker (or buggy backup-restore tool) could edit `settings.json` directly and DupeZ would happily load `"kill_switch": false`. Now follows the same sidecar pattern PatchMonitor and `data_persistence.py` already use: every save writes `settings.json` + `settings.json.hmac` atomically (binary mode, tmp + fsync + os.replace) under the per-install `persistence.hmac` secret. On load, mismatched tags quarantine the file as `settings.json.tampered.<ts>` and return `{}`. First-run migration from a v5.7.5 install (file exists, no sidecar) is a one-shot accept-and-sign.
+
+- **(Item 3) Audit log fail-closed on tamper (`app/logs/audit.py`, `dupez.py`).** Pre-v5.7.6 a broken hash chain logged ERROR and silently rotated aside, continuing to write a fresh chain. v5.7.6 seals the logger instead: writes an `audit.TAMPERED` sentinel under the audit directory, refuses every subsequent `log()` call (single stderr warning, then silent drops) until the operator runs `dupez --reset-audit`. The reset archives every audit*.{tampered,corrupted,jsonl} file to `audit-quarantine-<ts>/`, clears the sentinel, and writes a fresh `audit_chain_reset_by_operator` entry as the genesis of the new chain. Pairs with ADR-0002 §6 (fail-closed) -- audit integrity is the record of truth and silent recovery is the wrong default.
+
+- **(Item 4) Subprocess hardening (`app/core/safe_subprocess.py`).** `subprocess.run` and `Popen` calls now pass a Windows `STARTUPINFO` with `STARTF_USESHOWWINDOW | SW_HIDE` (belt on top of `CREATE_NO_WINDOW`) and force `close_fds=True` on every platform including Windows -- the previous `close_fds=(os.name != "nt")` ternary in `spawn_detached` was a Python 3.6-era opt-out that leaked parent handles into detached children on modern Python.
+
+- **(Item 5) Webhook host allowlist (`app/core/audit_webhook.py`, `app/config/audit_webhook_hosts.json` schema).** v5.7.3 closed `file://`/`ftp://`. v5.7.6 also closes `https://attacker.example.com` exfil: webhook hosts now must be in the default Discord allowlist (`discord.com`, `discordapp.com`, `canary.discord.com`, `ptb.discord.com`), in the operator-pinned HMAC-protected list at `app/config/audit_webhook_hosts.json`, or be a loopback address. Off-allowlist hosts are rejected at sink registration time with `WebhookURLError`.
+
+### Tier 1.5
+
+- **(Item 6) `dupez --verify-self` self-integrity check (`app/core/self_verify.py`).** PyInstaller-frozen builds can now verify the running `dupez.exe` against a sidecar `dupez.exe.sig` (Ed25519 signature over SHA-256 of the executable, signed under the same pinned release key as update manifests). Anti-tamper for the binary on disk. Runs explicitly via `--verify-self`; can be wired into the startup probe in a future release.
+
+- **(Item 7) `dupez --reset-audit` CLI flag (`dupez.py`).** Operator escape hatch paired with Item 3. Archives the suspect chain and unseal the logger.
+
+- **(Item 8) Cert-pinning helper (`app/core/cert_pinning.py`).** SPKI-pinning infrastructure for the auto-updater's GitHub Releases calls. **Ships in audit-only mode for v5.7.6**: the `PINS` map is empty by default and every cert chain observed during update calls emits a `cert_chain_observed` audit event so the release engineer can populate the pin set in v5.7.7. `DUPEZ_DISABLE_CERT_PIN=1` is the bypass escape hatch for the recovery path if a future CA rotation breaks the pins. Shipping known-good pins straight from the gap-analysis spec would brick the updater if the SPKI values were wrong; staged rollout is the correct posture for a pin set.
+
+### Test coverage
+
+`tests/test_security_v576.py` adds seven test classes covering the v5.7.6 invariants:
+
+- `TestDowngradeReplay`         -- semver compare, ledger persistence, monotonic floor, HMAC mismatch defaults to 0.0.0.
+- `TestSettingsHmacSidecar`     -- roundtrip writes sidecar, tampered payload quarantines + returns {}, first-run migration.
+- `TestAuditFailClosed`         -- clean chain logs, tampered terminal seals, sealed logger drops writes, reset archives + unseals.
+- `TestSubprocessHardening`     -- `subprocess.run` receives `close_fds=True` + STARTUPINFO on Windows; `spawn_detached` likewise.
+- `TestWebhookHostAllowlist`    -- Discord accepted, loopback accepted, off-allowlist rejected, test-env hosts work, file:// still rejected.
+- `TestSelfVerify`              -- dev-mode source-tree returns ok=True with "skipped".
+- `TestCertPinningHelpers`      -- empty-set audit-only, mismatch raises, match accepts, env disable bypasses.
+
+`tests/conftest.py` sets `DUPEZ_TEST_WEBHOOK_HOSTS` at session start so existing webhook tests against `example.invalid` keep passing.
+
+### Lockstep version bump
+
+`app/__version__.py`, `packaging/version_info.py`, `packaging/dupez.manifest`, `packaging/dupez_compat.manifest`, `packaging/installer.iss`, `packaging/build.bat`, `packaging/build_variants.bat`, `README.md`, `CHANGELOG.md`.
+
+### Deferred (v5.8.x)
+
+ADR-0003 documents the four items deferred to v5.8.x: real AppContainer / Job Object enforcement for plugins (currently declarative), DPAPI scope audit (`CRYPTPROTECT_LOCAL_MACHINE = 0`), memory-safe secret handling via `SecretBytes`, and WER opt-out for the elevated helper.
+
+---
+
+## v5.7.5 -- 2026-05-27 (WiFi Disrupt Audit Closure: MAC Scrubber + Resource Hygiene)
+
+Follow-up hardening pass closing the actionable MEDIUM and LOW findings from `docs/audits/WIFI_DISRUPT_AUDIT_v5.7.4.md`. The four HIGH findings (H1-H4) were already closed in v5.7.3/v5.7.4; this release closes M1, M2, M6, L2, L3, and adds a defense-in-depth MAC scrubber at the logger layer. No user-visible behavior changes -- the work is in failure-mode honesty, resource hygiene, and opsec.
+
+### Defense in depth
+
+- **MAC scrubber at the `ScrubbingFormatter` layer (`app/utils/helpers.py`, `app/logs/logger.py`).** New `mask_macs_in_text()` helper, wired into `_scrub_log_message()`. Every log line written to disk or console is now scrubbed of raw MAC addresses regardless of whether the call site remembered to call `mask_mac()`. OUI prefix preserved (vendor identification is public via IEEE registry); trailing three octets -- the device-unique part -- replaced with `**:**:**`. Companion to the existing `mask_ips_in_text()`.
+
+### Fixed (audit closure)
+
+- **(M1) `atexit.register(spoofer.stop)` registered when ARP spoofing starts (`app/firewall/clumsy_network_disruptor.py`).** Best-effort ARP cache restoration on uncaught exceptions, `sys.exit()`, and Ctrl+C. Previously a mid-session crash left the target poisoned, black-holing its gateway traffic for 30-60s until the ARP entry aged out. Does not cover `kill -9` / SIGSEGV (tracked for v5.8.x hot-reload guard) but covers every clean-shutdown failure mode.
+
+- **(M2) `_is_wifi_same_network` reads the actual interface netmask (`app/firewall/target_profile.py`).** Previously hardcoded `/24`, which silently misclassified targets on `/23` or `/22` LANs (Eero mesh, business APs) as "not same-network" -- they fell through to NETWORK layer with the wrong target, silent no-op disrupt. New `_local_network_for_ip()` helper reads the netmask via `psutil.net_if_addrs()`, falls back to `/24` only when unavailable.
+
+- **(M6) `NpcapSender` context manager + defensive `__del__` (`app/network/arp_spoof.py`).** Partial-init failures (`load()` succeeded, `open()` raised) no longer leak the pcap handle. `with NpcapSender() as sender:` is now supported; `__del__` is the GC-time safety net. Both call `close()` idempotently.
+
+- **(L2) `ArpSpoofer.__init__` validates `target_ip` and `gateway_ip` (`app/network/arp_spoof.py`).** Malformed IPs now raise `ValueError` immediately with a clear message instead of propagating through `arp -a`, `ping`, and `socket.connect` to surface as a generic "cannot resolve MAC" after 3+ subprocess invocations.
+
+- **(L3) `_poison_loop` self-terminates after persistent send failures (`app/network/arp_spoof.py`).** New `_POISON_FAILURE_THRESHOLD = 5` constant; after 5 consecutive `_poison_once()` raises (typical sign of a dead Npcap handle), the loop logs CRITICAL and sets `_running = False`. Previously the loop would spin forever logging an error every cycle while the disruptor still reported the spoofer as ACTIVE -- exactly the silent-fail pattern v5.6.4 was meant to eliminate.
+
+### Test coverage
+
+`tests/test_ip_leak_guard.py` extended with `TestMacScrubber`, `TestTargetProfileNetmask`, and `TestArpSpooferValidatesIp` test classes -- four new tests total locking down the v5.7.5 invariants.
+
+### Deferred to v5.8.x
+
+The remaining audit items (`M3` watchdog cancel-vs-fire race, `M4` watchdog thread join, `M5` `clear_all_disruptions_clumsy` error aggregation, `L1` netsh locale parsing, `L4` doc comments, `L5` taskkill warning logs) need the `WifiDisruptSession` orchestration class from architecture recommendation #5 to close cleanly. Tracked for the v5.8.x quality-debt pass already on the roadmap.
+
+---
+
 ## v5.7.4 — 2026-05-24 (Wire-Up: Orphaned Feature Backends Now Reachable)
 
 A deep audit found that seven feature backends shipped across v5.7.0 and v5.7.1 were never wired to an invocation point. They were tested, documented in the CHANGELOG as shipped features, and the release notes said "UI lands next release" — but v5.7.1 became a codebase-quality pass and the wiring never happened. The result: ~2000 LOC of working, tested code that a user could not actually invoke. v5.7.4 closes that gap.

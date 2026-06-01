@@ -121,6 +121,104 @@ class WebhookURLError(ValueError):
     """Raised when a webhook URL fails the security scheme check."""
 
 
+# v5.7.6: default host allowlist. Operators add custom hosts via the
+# HMAC-protected config file ``app/config/audit_webhook_hosts.json``
+# (load helper below). The defaults are the canonical Discord
+# endpoints; everything else is rejected at sink registration time so
+# a hijacked or imported config can't redirect events to an attacker.
+_DEFAULT_HOST_ALLOWLIST: frozenset[str] = frozenset({
+    "discord.com",
+    "discordapp.com",
+    "canary.discord.com",
+    "ptb.discord.com",
+})
+_LOOPBACK_HOSTS: frozenset[str] = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "::1",
+})
+
+
+def _load_operator_allowlist() -> frozenset[str]:
+    """Read operator-extended host allowlist from HMAC'd JSON config.
+
+    File: ``app/config/audit_webhook_hosts.json`` next to the package.
+    Companion ``.hmac`` sidecar is verified before any host is added —
+    if integrity fails we silently fall back to the default allowlist.
+    Returns lower-cased hostnames as a frozenset.
+
+    Schema::
+
+        {"schema": "dupez.webhook-hosts.v1",
+         "hosts": ["my-relay.example.com", "..."]}
+    """
+    try:
+        import hashlib
+        import hmac as _hmac
+        import os as _os
+        cfg_dir = _os.path.join(
+            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
+            "config",
+        )
+        cfg_path = _os.path.join(cfg_dir, "audit_webhook_hosts.json")
+        hmac_path = cfg_path + ".hmac"
+        if not (_os.path.isfile(cfg_path) and _os.path.isfile(hmac_path)):
+            return frozenset()
+        with open(cfg_path, "rb") as f:
+            raw = f.read()
+        with open(hmac_path, "r", encoding="ascii") as f:
+            tag = f.read().strip()
+        from app.core.data_persistence import _get_hmac_key
+        computed = _hmac.new(_get_hmac_key(), raw, hashlib.sha384).hexdigest()
+        if not _hmac.compare_digest(computed, tag):
+            log_warning(
+                "audit_webhook_hosts.json HMAC mismatch — ignoring operator "
+                "allowlist and using defaults only"
+            )
+            return frozenset()
+        doc = json.loads(raw.decode("utf-8"))
+        if not isinstance(doc, dict):
+            return frozenset()
+        if doc.get("schema") != "dupez.webhook-hosts.v1":
+            return frozenset()
+        hosts = doc.get("hosts", [])
+        if not isinstance(hosts, list):
+            return frozenset()
+        out = {h.lower() for h in hosts if isinstance(h, str) and h.strip()}
+        return frozenset(out)
+    except Exception as exc:
+        log_warning(f"audit_webhook_hosts.json load failed: {exc}")
+        return frozenset()
+
+
+def _test_hosts_from_env() -> frozenset[str]:
+    """Test-only escape hatch.
+
+    When the ``DUPEZ_TEST_WEBHOOK_HOSTS`` environment variable is set
+    to a comma-separated list of hostnames, those hosts are added to
+    the allowlist. This exists so unit tests can use
+    ``example.invalid`` and friends without churning the production
+    allowlist or HMAC'ing a per-test config file. The env var is
+    NEVER set by the shipped product, only by tests/conftest.
+    """
+    import os as _os
+    raw = _os.environ.get("DUPEZ_TEST_WEBHOOK_HOSTS", "")
+    if not raw:
+        return frozenset()
+    return frozenset(
+        h.strip().lower() for h in raw.split(",") if h.strip()
+    )
+
+
+def _allowed_hosts() -> frozenset[str]:
+    """Union of default, operator-extended, and test-env allowlists."""
+    return (
+        _DEFAULT_HOST_ALLOWLIST
+        | _load_operator_allowlist()
+        | _test_hosts_from_env()
+    )
+
+
 def _validate_webhook_url(url: str) -> str:
     """Validate + normalize a webhook URL. Raises WebhookURLError on reject.
 
@@ -133,10 +231,18 @@ def _validate_webhook_url(url: str) -> str:
     directly, but more importantly a ``file://`` or ``gopher://`` URL
     can be abused for SSRF-style local probing.
 
-    Policy: only ``https://`` is accepted, with one exception —
-    ``http://`` is allowed when the host is loopback (127.0.0.1 /
-    localhost / ::1), so operators can point a sink at a local
-    relay / test listener during development.
+    v5.7.6 SECURITY: scheme allowlist isn't enough. An attacker who
+    swaps a config to ``https://attacker.example.com/log`` can exfil
+    every cut_start / killswitch_fired event to their own server, even
+    though every field has been PII-scrubbed (those metadata signals
+    still leak operator behaviour). We now also require the host to
+    appear in the host allowlist:
+
+      * Default: ``discord.com``, ``discordapp.com`` (+ canary/ptb)
+      * Operator-extended via ``app/config/audit_webhook_hosts.json``
+        with HMAC sidecar (machine-bound, can't be imported from a
+        bundle without owning the install's DPAPI key)
+      * ``http://localhost`` (and ``::1``) stays allowed for dev relays
     """
     import urllib.parse
     if not isinstance(url, str) or not url.strip():
@@ -144,15 +250,32 @@ def _validate_webhook_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url.strip())
     scheme = parsed.scheme.lower()
     host = (parsed.hostname or "").lower()
-    if scheme == "https":
-        return url.strip()
-    if scheme == "http" and host in ("127.0.0.1", "localhost", "::1"):
-        return url.strip()
-    raise WebhookURLError(
-        f"webhook URL rejected: scheme {scheme!r} not allowed "
-        f"(use https://, or http:// only for localhost). "
-        f"file://, ftp://, gopher:// and other schemes are blocked."
-    )
+
+    # Loopback escape hatch — http or https.
+    if host in _LOOPBACK_HOSTS:
+        if scheme in ("http", "https"):
+            return url.strip()
+        raise WebhookURLError(
+            f"webhook URL rejected: loopback host requires http:// or https://, "
+            f"got scheme {scheme!r}"
+        )
+
+    if scheme != "https":
+        raise WebhookURLError(
+            f"webhook URL rejected: scheme {scheme!r} not allowed "
+            f"(use https://, or http:// only for localhost). "
+            f"file://, ftp://, gopher:// and other schemes are blocked."
+        )
+
+    allowed = _allowed_hosts()
+    if host not in allowed:
+        raise WebhookURLError(
+            f"webhook host rejected: {host!r} is not in the allowlist. "
+            f"Default hosts: {sorted(_DEFAULT_HOST_ALLOWLIST)}. "
+            f"To add a custom host, write it to "
+            f"app/config/audit_webhook_hosts.json with its HMAC sidecar."
+        )
+    return url.strip()
 
 
 # ── Sink base + concrete sinks ───────────────────────────────────────
