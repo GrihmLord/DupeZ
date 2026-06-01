@@ -16,6 +16,7 @@ __all__ = [
     "mask_ip",
     "mask_ips_in_text",
     "mask_mac",
+    "mask_macs_in_text",
     "is_admin",
     "get_system_info",
     "get_network_interfaces",
@@ -155,6 +156,38 @@ def mask_mac(mac: object) -> str:
         return f"{clean[0:2]}:{clean[2:4]}:{clean[4:6]}:**:**:**"
 
     return "??:??:??:**:**:**"
+
+
+# Matches a 6-octet MAC in colon or dash separator form. Word boundaries
+# prevent firing on filenames / random hex runs. Lowercase + uppercase
+# both covered by the [0-9A-Fa-f] class.
+_MAC_IN_TEXT_RE = re.compile(
+    r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b"
+)
+
+
+def mask_macs_in_text(text: str) -> str:
+    """Mask every MAC address found anywhere in *text*.
+
+    Companion to :func:`mask_ips_in_text`. Preserves the OUI prefix
+    (vendor-identifying, already public) and masks the trailing three
+    octets per :func:`mask_mac`. Used by the logger ScrubbingFormatter
+    as defense-in-depth so a forgotten call-site mask_mac() still
+    cannot leak a device-unique identifier into the log stream.
+
+    Idempotent: already-masked MACs (``aa:bb:cc:**:**:**``) do not
+    match the regex because ``*`` is not a hex digit.
+    """
+    if not text or ":" not in text and "-" not in text:
+        return text
+
+    def _replace(match: "re.Match[str]") -> str:
+        token = match.group(0)
+        sep = ":" if ":" in token else "-"
+        parts = token.lower().replace("-", ":").split(":")
+        return f"{parts[0]}{sep}{parts[1]}{sep}{parts[2]}{sep}**{sep}**{sep}**"
+
+    return _MAC_IN_TEXT_RE.sub(_replace, text)
 
 
 def is_admin() -> bool:

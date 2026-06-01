@@ -98,3 +98,68 @@ class TestOverlaySnapshot:
         snap = build_state_snapshot(_Ctrl())
         assert not _leaks(snap)
         assert snap["active_targets"][0]["target_ip"].startswith(_MASKED_PREFIX)
+
+
+class TestMacScrubber:
+    """Defense in depth: MAC addresses scrubbed at the logger formatter."""
+
+    _RAW_MAC = "aa:bb:cc:dd:ee:ff"
+    _MASKED_PREFIX = "aa:bb:cc:**"
+
+    def test_scrub_log_message_masks_embedded_mac(self) -> None:
+        # v5.7.5: any MAC slipped past a forgotten mask_mac() call must
+        # still be masked by the logger formatter.
+        from app.logs.logger import _scrub_log_message
+        out = _scrub_log_message(f"target MAC = {self._RAW_MAC}")
+        assert self._RAW_MAC not in out
+        assert self._MASKED_PREFIX in out
+
+    def test_mask_macs_in_text_handles_dashes(self) -> None:
+        from app.utils.helpers import mask_macs_in_text
+        out = mask_macs_in_text("local MAC = AA-BB-CC-DD-EE-FF")
+        assert "DD-EE-FF" not in out
+        assert "aa-bb-cc-**-**-**" in out
+
+    def test_mask_macs_in_text_is_idempotent(self) -> None:
+        from app.utils.helpers import mask_macs_in_text
+        masked_once = mask_macs_in_text(f"already {self._RAW_MAC}")
+        masked_twice = mask_macs_in_text(masked_once)
+        assert masked_once == masked_twice
+
+
+class TestTargetProfileNetmask:
+    """v5.7.5 (M2): _is_wifi_same_network now reads the real interface netmask."""
+
+    def test_local_network_helper_returns_an_ipv4network(self) -> None:
+        from app.firewall.target_profile import _local_network_for_ip
+        import ipaddress
+        net = _local_network_for_ip("127.0.0.1")
+        assert isinstance(net, ipaddress.IPv4Network)
+
+    def test_local_network_falls_back_to_24_for_unknown_ip(self) -> None:
+        # An IP that's not on any local interface falls back to /24.
+        from app.firewall.target_profile import _local_network_for_ip
+        net = _local_network_for_ip("203.0.113.55")
+        assert net.prefixlen == 24
+
+
+class TestArpSpooferValidatesIp:
+    """v5.7.5 (L2): malformed IPs are rejected at construction with ValueError."""
+
+    def test_invalid_target_ip_raises(self) -> None:
+        from app.network.arp_spoof import ArpSpoofer
+        try:
+            ArpSpoofer(target_ip="not-an-ip", gateway_ip="192.168.1.1")
+        except ValueError as exc:
+            assert "target_ip" in str(exc)
+        else:
+            raise AssertionError("Expected ValueError for malformed target_ip")
+
+    def test_invalid_gateway_ip_raises(self) -> None:
+        from app.network.arp_spoof import ArpSpoofer
+        try:
+            ArpSpoofer(target_ip="192.168.1.5", gateway_ip="lolnope")
+        except ValueError as exc:
+            assert "gateway_ip" in str(exc)
+        else:
+            raise AssertionError("Expected ValueError for malformed gateway_ip")

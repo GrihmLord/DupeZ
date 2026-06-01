@@ -36,6 +36,8 @@ from __future__ import annotations
 
 import ipaddress
 import re
+import socket as _socket_for_af
+_AF_INET = _socket_for_af.AF_INET
 from typing import Dict, List, Optional, Tuple
 
 __all__ = [
@@ -217,11 +219,44 @@ def _is_wifi_same_network(target_ip: str) -> bool:
         with _sock.socket(_sock.AF_INET, _sock.SOCK_DGRAM) as s:
             s.connect((target_ip, 80))
             local_ip = s.getsockname()[0]
-        # Same /24 → same LAN segment
-        local_net = ipaddress.IPv4Network(f"{local_ip}/24", strict=False)
+        # v5.7.5 (M2 fix): use the actual interface netmask, not a hardcoded
+        # /24. Many home/office networks run /23 or /22 (Eero mesh, business
+        # APs). The old /24 assumption silently misclassified a target on
+        # 192.168.2.10 when the operator was on 192.168.1.50/23 -- target
+        # fell through to "local" branch, NETWORK layer pointed at the
+        # wrong target, silent no-op disrupt. Reading the netmask makes
+        # this work end-to-end on whatever subnet size the LAN actually uses.
+        local_net = _local_network_for_ip(local_ip)
         return addr in local_net
     except Exception:
         return False
+
+
+def _local_network_for_ip(local_ip: str) -> "ipaddress.IPv4Network":
+    """Return the IPv4Network for *local_ip* using the actual interface netmask.
+
+    Falls back to /24 if psutil isn't available or doesn't expose a netmask
+    for the interface that owns *local_ip*. Used by :func:`_is_wifi_same_network`
+    so same-subnet detection works on /23, /22, etc.
+    """
+    try:
+        import psutil
+        for iface_addrs in psutil.net_if_addrs().values():
+            for addr in iface_addrs:
+                # AF_INET only -- IPv6 has its own family
+                if getattr(addr, "family", None) != _AF_INET:
+                    continue
+                if addr.address != local_ip:
+                    continue
+                if addr.netmask:
+                    return ipaddress.IPv4Network(
+                        f"{local_ip}/{addr.netmask}", strict=False
+                    )
+                break
+    except Exception:
+        pass
+    # Fallback: /24 keeps backward compat for the common home-LAN case.
+    return ipaddress.IPv4Network(f"{local_ip}/24", strict=False)
 
 
 def _match_platform_by_mac(mac: str) -> Optional[str]:

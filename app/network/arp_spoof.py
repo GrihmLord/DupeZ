@@ -820,6 +820,29 @@ class NpcapSender:
 
 # ── ArpSpoofer class ─────────────────────────────────────────────────
 
+
+    # v5.7.5 (M6 fix): context manager + defensive __del__. If a partial
+    # init fails (load() returned True, open() raised), nothing else
+    # closes the handle -- ctypes pointers aren't GC-tracked, so the
+    # pcap_t* would leak until process exit. Both safeguards call close()
+    # idempotently so double-close is harmless.
+
+    def __enter__(self) -> "NpcapSender":
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        # Defensive: best-effort close on GC. Exceptions inside __del__
+        # are swallowed by the interpreter anyway; explicit suppression
+        # makes the intent clear.
+        try:
+            self.close()
+        except Exception:
+            pass
+
+
 class ArpSpoofer:
     """Performs ARP cache poisoning to redirect traffic through this machine.
 
@@ -836,6 +859,26 @@ class ArpSpoofer:
     """
 
     def __init__(self, target_ip: str, gateway_ip: Optional[str] = None) -> None:
+        # v5.7.5 (L2 fix): validate target_ip up front. Previously a
+        # malformed IP would propagate through arp -a, ping, and
+        # socket.connect, surfacing only as a generic "cannot resolve
+        # MAC for target" message after 3+ subprocess invocations.
+        # Fail fast and loud with a clear ValueError instead.
+        try:
+            ipaddress.IPv4Address(target_ip)
+        except (ipaddress.AddressValueError, ValueError) as exc:
+            raise ValueError(
+                f"ArpSpoofer: target_ip must be a valid IPv4 address, "
+                f"got {target_ip!r}: {exc}"
+            ) from exc
+        if gateway_ip is not None:
+            try:
+                ipaddress.IPv4Address(gateway_ip)
+            except (ipaddress.AddressValueError, ValueError) as exc:
+                raise ValueError(
+                    f"ArpSpoofer: gateway_ip must be a valid IPv4 address "
+                    f"if provided, got {gateway_ip!r}: {exc}"
+                ) from exc
         self.target_ip = target_ip
         self.gateway_ip = gateway_ip or get_default_gateway()
 
@@ -1187,12 +1230,35 @@ class ArpSpoofer:
         self._send_frame(frame_to_gateway_req)
 
     def _poison_loop(self) -> None:
-        """Background thread: re-poison ARP caches every N seconds."""
+        """Background thread: re-poison ARP caches every N seconds.
+
+        v5.7.5 (L3 fix): if ``_poison_once`` raises N times in a row
+        (e.g. the Npcap handle died mid-session), the loop self-terminates
+        by setting ``_running = False`` and logging CRITICAL. Without
+        this guard, the loop would spin forever logging an error every
+        cycle while the disruptor still reported the spoofer as ACTIVE
+        -- the exact silent-fail pattern v5.6.4 was supposed to remove.
+        """
+        consecutive_failures = 0
         while self._running:
             try:
                 self._poison_once()
+                consecutive_failures = 0
             except Exception as e:
-                log_error(f"ArpSpoofer poison loop error: {e}")
+                consecutive_failures += 1
+                log_error(
+                    f"ArpSpoofer poison loop error "
+                    f"({consecutive_failures}/{_POISON_FAILURE_THRESHOLD}): {e}"
+                )
+                if consecutive_failures >= _POISON_FAILURE_THRESHOLD:
+                    log_error(
+                        "ArpSpoofer: CRITICAL -- "
+                        f"{_POISON_FAILURE_THRESHOLD} consecutive send "
+                        f"failures, aborting poison loop. Target traffic "
+                        f"is no longer being redirected."
+                    )
+                    self._running = False
+                    return
             # Sleep in small increments so we can exit quickly
             for _ in range(int(_SPOOF_INTERVAL_SEC / 0.25)):
                 if not self._running:

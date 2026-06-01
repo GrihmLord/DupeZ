@@ -1326,9 +1326,24 @@ class ClumsyNetworkDisruptor:
                     )
                     _arp_spoofer = ArpSpoofer(target_ip=target_ip)
                     if _arp_spoofer.start():
-                        log_info("[WiFi] ARP spoofing active — traffic "
+                        log_info("[WiFi] ARP spoofing active -- traffic "
                                  "redirected, using NETWORK_FORWARD layer")
-                        # Force FORWARD layer — traffic now routes through us
+                        # v5.7.5 (M1 fix): best-effort ARP restore on
+                        # process termination. Covers kill -9 / SIGTERM /
+                        # operator-closes-window-uncleanly paths. Without
+                        # this, the target stays poisoned and its traffic
+                        # black-holes for 30-60s after we die (or longer
+                        # on endpoints that pin ARP under load). atexit
+                        # runs on the SAME interpreter death; it does NOT
+                        # run on SIGSEGV or kill -9, but it does run on
+                        # sys.exit(), uncaught exceptions, and Ctrl+C
+                        # (after the signal handler converts to KeyboardInterrupt).
+                        try:
+                            import atexit as _atexit
+                            _atexit.register(_arp_spoofer.stop)
+                        except Exception:
+                            pass
+                        # Force FORWARD layer -- traffic now routes through us
                         is_local = False
                         params["_network_local"] = False
                     else:

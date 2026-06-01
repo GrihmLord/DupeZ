@@ -60,6 +60,14 @@ def _scrub_log_message(message: str) -> str:
         message = mask_ips_in_text(message)
     except Exception:
         pass
+    try:
+        # v5.7.5: defense in depth -- mask any MAC address that slipped
+        # past a forgotten mask_mac() call site. MACs uniquely identify
+        # devices across sessions, more sensitive than IPs.
+        from app.utils.helpers import mask_macs_in_text
+        message = mask_macs_in_text(message)
+    except Exception:
+        pass
     return message
 
 
