@@ -51,7 +51,7 @@ __all__ = [
 
 # ── Connection modes ─────────────────────────────────────────────────
 CONNECTION_MODE_HOTSPOT = "hotspot"            # ICS/mobile hotspot — we ARE the gateway
-CONNECTION_MODE_WIFI_SAME_NET = "wifi_same_net"  # Same WiFi LAN — need ARP spoofing
+CONNECTION_MODE_WIFI_SAME_NET = "wifi_same_net"  # Same WiFi LAN — need local forwarding
 CONNECTION_MODE_LOCAL = "local"                 # Same machine — NETWORK layer
 
 
@@ -126,7 +126,7 @@ class DetectionResult:
         layer:   ``local`` or ``forward``.
         platform: ``pc`` / ``ps5`` / ``xbox`` / ``unknown``.
         connection_mode: ``hotspot`` / ``wifi_same_net`` / ``local``.
-        needs_arp_spoof: True if ARP spoofing is required.
+        needs_arp_spoof: True if local forwarding is required.
         reasons: Human-readable detection trace, suitable for logging.
     """
 
@@ -199,14 +199,14 @@ def _is_wifi_same_network(target_ip: str) -> bool:
     This covers the case where the target device is on the same WiFi
     network but NOT connected through our hotspot.  Traffic between the
     target and the internet bypasses this machine entirely, so we need
-    ARP spoofing to redirect it through us.
+    local forwarding to redirect it through us.
     """
     try:
         addr = ipaddress.IPv4Address(target_ip)
     except (ipaddress.AddressValueError, ValueError):
         return False
 
-    # Already a hotspot device — no ARP spoofing needed
+    # Already a hotspot device — no local forwarding needed
     if _is_in_hotspot_subnet(target_ip):
         return False
 
@@ -331,12 +331,12 @@ def resolve_target_profile(
     #
     # Correct behavior, restored here:
     #
-    #   * Same-WiFi /24 peer target → FORWARD layer + ARP spoof. We
+    #   * Same-WiFi /24 peer target → FORWARD layer + local forwarding. We
     #     redirect the target's traffic through us and disrupt IT.
     #     This is the pre-v5.7 behavior that worked.
     #
     #   * The v5.6.5 isolation watchdog (kept) handles the case where
-    #     ARP spoof can't land because of AP client isolation: it
+    #     local forwarding can't land because of AP client isolation: it
     #     detects zero forwarded packets within ~5s and auto-falls-back
     #     to self-disrupt mode with a toast. So users WITHOUT isolation
     #     get the working ARP cut; users WITH isolation get an honest
@@ -356,7 +356,7 @@ def resolve_target_profile(
         needs_arp_spoof = False
         reasons.append(
             f"target {target_ip} in hotspot subnet {HOTSPOT_SUBNET} "
-            f"→ NETWORK_FORWARD (hotspot, no ARP spoof needed)"
+            f"→ NETWORK_FORWARD (hotspot, no local forwarding needed)"
         )
     elif _is_wifi_same_network(target_ip):
         layer = "forward"
@@ -364,9 +364,9 @@ def resolve_target_profile(
         needs_arp_spoof = True
         reasons.append(
             f"target {target_ip} on same WiFi /24 → NETWORK_FORWARD "
-            f"via ARP spoof (disrupt the target device directly). "
+            f"via local forwarding (disrupt the target device directly). "
             f"v5.7.2: isolation watchdog auto-falls-back to "
-            f"self-disrupt if the AP drops the spoof."
+            f"self-disrupt if the AP drops the local forwarding."
         )
     else:
         layer = "local"
@@ -427,7 +427,7 @@ def resolve_target_profile(
             )
 
     # Build profile name.  Both hotspot and WiFi-same-net use the same
-    # preset tuning (WiFi triggers ARP spoofing but the disruption
+    # preset tuning (WiFi triggers local forwarding but the disruption
     # params are identical).  Map to the existing hotspot preset keys.
     profile = "xbox_hotspot" if platform == "xbox" else "ps5_hotspot"
 

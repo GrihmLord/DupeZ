@@ -31,7 +31,7 @@ ENV/
 *.swo
 
 # Logs (created at runtime)
-logs/
+/logs/
 *.log
 
 # Test reports

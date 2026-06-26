@@ -1,0 +1,9 @@
+# Require explicit review for security-sensitive control planes and releases.
+/.github/ @GrihmLord
+/app/core/ @GrihmLord
+/app/firewall_helper/ @GrihmLord
+/app/plugins/ @GrihmLord
+/packaging/ @GrihmLord
+/scripts/release.ps1 @GrihmLord
+/scripts/sign-release.py @GrihmLord
+/SECURITY.md @GrihmLord

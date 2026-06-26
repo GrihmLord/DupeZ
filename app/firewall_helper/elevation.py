@@ -517,9 +517,24 @@ def ensure_helper_running(
         if not is_helper_task_registered():
             log.info("scheduled task not registered yet, registering now")
             register_helper_task()
-        return launch_helper_via_task(parent_pid)
+        pid = launch_helper_via_task(parent_pid)
+    elif effective_mode == "runas":
+        pid = launch_helper_runas(parent_pid, pipe_name=pipe_name)
+    else:
+        raise ElevationError(f"unknown elevation mode: {effective_mode}")
 
-    if effective_mode == "runas":
-        return launch_helper_runas(parent_pid, pipe_name=pipe_name)
-
-    raise ElevationError(f"unknown elevation mode: {effective_mode}")
+    try:
+        from app.firewall_helper.job_guard import (
+            bind_helper_to_parent_lifetime,
+        )
+        if bind_helper_to_parent_lifetime(pid):
+            log.info("helper pid=%d bound to kill-on-close Job object", pid)
+        else:
+            log.warning(
+                "helper pid=%d could not be assigned to Job object; "
+                "creation-time parent watcher remains active",
+                pid,
+            )
+    except Exception as exc:
+        log.warning("helper Job object binding failed: %s", exc)
+    return pid

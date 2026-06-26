@@ -31,6 +31,11 @@ __all__ = [
     "DisruptionScheduler",
 ]
 
+MAX_RULE_DURATION_SECONDS = 3600
+MAX_REPEAT_INTERVAL_SECONDS = 24 * 60 * 60
+MAX_MACRO_STEPS = 100
+MAX_MACRO_REPEATS = 100
+
 
 # ── Data models ───────────────────────────────────────────────────────
 
@@ -49,6 +54,16 @@ class ScheduledRule:
     enabled: bool = True
     last_run: float = 0.0
 
+    def __post_init__(self) -> None:
+        self.duration_seconds = max(
+            1,
+            min(MAX_RULE_DURATION_SECONDS, int(self.duration_seconds)),
+        )
+        self.repeat_interval = max(
+            0,
+            min(MAX_REPEAT_INTERVAL_SECONDS, int(self.repeat_interval)),
+        )
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -66,6 +81,12 @@ class MacroStep:
     params: Dict = field(default_factory=dict)
     duration_seconds: int = 10
     profile_name: str = ""
+
+    def __post_init__(self) -> None:
+        self.duration_seconds = max(
+            1,
+            min(MAX_RULE_DURATION_SECONDS, int(self.duration_seconds)),
+        )
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -87,6 +108,13 @@ class DisruptionMacro:
     target_ip: str = ""
     created: float = 0.0
 
+    def __post_init__(self) -> None:
+        self.repeat_count = max(
+            1,
+            min(MAX_MACRO_REPEATS, int(self.repeat_count)),
+        )
+        self.steps = list(self.steps[:MAX_MACRO_STEPS])
+
     def to_dict(self) -> dict:
         d = asdict(self)
         d["steps"] = [
@@ -105,6 +133,7 @@ class DisruptionMacro:
             MacroStep.from_dict(s) if isinstance(s, dict) else s
             for s in steps_raw
         ]
+        obj.__post_init__()
         return obj
 
 
@@ -155,6 +184,7 @@ class DisruptionScheduler:
         self._stop_macro_flag = threading.Event()
 
         self._running = False
+        self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.RLock()  # reentrant — _save nests inside callers
 
@@ -198,6 +228,7 @@ class DisruptionScheduler:
 
     def add_macro(self, macro: DisruptionMacro) -> str:
         """Register a macro.  Returns the macro ID."""
+        macro.__post_init__()
         if not macro.macro_id:
             macro.macro_id = f"macro_{int(time.time() * 1000)}"
         if not macro.created:
@@ -251,7 +282,7 @@ class DisruptionScheduler:
 
     def _run_macro_loop(self, macro: DisruptionMacro, ip: str) -> None:
         """Execute macro steps sequentially with wall-clock timing."""
-        repeats = macro.repeat_count if macro.repeat_count > 0 else 999_999
+        repeats = macro.repeat_count
         try:
             for cycle in range(repeats):
                 if self._stop_macro_flag.is_set():
@@ -313,6 +344,7 @@ class DisruptionScheduler:
         if self._running:
             return
         self._running = True
+        self._stop_event.clear()
         self._thread = threading.Thread(target=self._scheduler_loop, daemon=True)
         self._thread.start()
         log_info("Disruption scheduler started")
@@ -320,6 +352,7 @@ class DisruptionScheduler:
     def stop(self) -> None:
         """Stop the scheduler and any active disruptions."""
         self._running = False
+        self._stop_event.set()
         self.stop_macro()
 
         with self._lock:
@@ -335,7 +368,7 @@ class DisruptionScheduler:
 
     def _scheduler_loop(self) -> None:
         """Main tick loop — checks rules every second."""
-        while self._running:
+        while not self._stop_event.is_set():
             try:
                 now = time.time()
                 current_hhmm = datetime.now().strftime("%H:%M")
@@ -393,7 +426,7 @@ class DisruptionScheduler:
             except Exception as e:
                 log_error(f"Scheduler loop error: {e}")
 
-            time.sleep(1)
+            self._stop_event.wait(1)
 
     # ── Persistence ───────────────────────────────────────────────
 

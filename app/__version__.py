@@ -20,4 +20,4 @@
 # MUST import __version__ from this module. Do NOT hardcode version
 # strings anywhere else in app/.
 
-__version__ = "5.7.6"
+__version__ = "5.7.7"

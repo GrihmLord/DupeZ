@@ -107,7 +107,7 @@ class AIPanel(QWidget):
         )
         self.smart_mode_combo.setToolTip(
             "Off    — no capture, no auto-tune. Manual recommendations only.\n"
-            "Learn  — records JSONL episodes to app/data/episodes/ for training.\n"
+            "Learn  — records JSONL episodes to the per-user DupeZ data folder.\n"
             "Assist — capture + auto-tune duration + apply SmartEngine recs on DISRUPT."
         )
         self.smart_mode_combo.currentIndexChanged.connect(self._on_mode_changed)

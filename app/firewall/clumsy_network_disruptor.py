@@ -35,15 +35,11 @@ import os
 import sys
 import time
 import threading
-import subprocess
 import traceback
 import ctypes
 
-# Phase 4 Pass 3: route process launches through safe_subprocess for
-# System32 path-pinning, audit events, and timeouts. We still need
-# subprocess.Popen for the long-running clumsy.exe child (we keep a live
-# .poll()/.kill() handle on it), so we keep the direct import — but every
-# *one-shot* taskkill/ping/etc. goes through the wrapper.
+# Route process launches through safe_subprocess for path-pinning,
+# audit events, hidden windows, and handle-inheritance policy.
 try:
     from app.core import safe_subprocess as _safe_sp
     from app.core.safe_subprocess import SafeSubprocessError as _SafeSpErr
@@ -444,32 +440,17 @@ class ClumsyEngine:
             log_info(f"ClumsyEngine CWD: {self.clumsy_dir}")
             log_info(f"ClumsyEngine FILTER (via config.txt): {self.filter_str}")
 
-            # Step 3: Launch. We keep a live Popen handle here (needed
-            # for .poll() / .kill() later), so this can't use
-            # safe_subprocess.run (waits to completion) or
-            # spawn_detached (returns only a PID). We defensively verify
-            # the absolute path up-front to match the safe_subprocess
-            # invariants and emit a paired audit event.
-            if not os.path.isabs(exe) or not os.path.isfile(exe):
-                log_error(f"ClumsyEngine: refusing to launch non-absolute/missing exe: {exe!r}")
+            # Step 3: Launch through safe_subprocess.spawn_managed so
+            # the long-running child still has pid/poll/kill while all
+            # central subprocess policy and audit hooks apply.
+            if _safe_sp is None:
+                log_error("ClumsyEngine: safe_subprocess unavailable")
                 return False
-            if _safe_sp is not None:
-                try:
-                    from app.logs.audit import audit_event
-                    audit_event("subprocess_spawn", {
-                        "intent": "clumsy.launch_long_running",
-                        "argv_preview": [exe, *cmd_list[1:]],
-                        "trusted_executable": True,
-                        "note": "long-running child; managed Popen handle",
-                    })
-                except Exception:
-                    pass
-            self._proc = subprocess.Popen(
-                cmd_list, cwd=self.clumsy_dir,
-                shell=False,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=CREATE_NO_WINDOW,
+            self._proc = _safe_sp.spawn_managed(
+                cmd_list,
+                cwd=self.clumsy_dir,
+                trusted_executable=False,
+                intent="clumsy.launch_long_running",
             )
             log_info(f"ClumsyEngine launched: PID={self._proc.pid}")
 
@@ -482,22 +463,11 @@ class ClumsyEngine:
                              f"falling back to GUI automation")
                     self._proc = None
                     cmd_list = [exe]
-                    if _safe_sp is not None:
-                        try:
-                            from app.logs.audit import audit_event
-                            audit_event("subprocess_spawn", {
-                                "intent": "clumsy.relaunch_gui_fallback",
-                                "argv_preview": cmd_list,
-                                "trusted_executable": True,
-                            })
-                        except Exception:
-                            pass
-                    self._proc = subprocess.Popen(
-                        cmd_list, cwd=self.clumsy_dir,
-                        shell=False,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                        creationflags=CREATE_NO_WINDOW,
+                    self._proc = _safe_sp.spawn_managed(
+                        cmd_list,
+                        cwd=self.clumsy_dir,
+                        trusted_executable=False,
+                        intent="clumsy.relaunch_gui_fallback",
                     )
                     log_info(f"ClumsyEngine relaunched (GUI): PID={self._proc.pid}")
                     return self._start_gui_automation()
@@ -1132,13 +1102,6 @@ class ClumsyNetworkDisruptor:
                     "throttle_frame": _profile.get("throttle_frame_ms", 400),
                     "throttle_drop": _profile.get("throttle_drop", True),
                     "direction": _profile.get("direction", "both"),
-                    "tick_sync_direction": _profile.get("tick_sync_direction", "inbound"),
-                    "pulse_direction": _profile.get("pulse_direction", "inbound"),
-                    "stealth_drop_direction": _profile.get("stealth_drop_direction", "inbound"),
-                    "stealth_lag_direction": _profile.get("stealth_lag_direction", "inbound"),
-                    "godmode_lag_ms": _profile.get("godmode_lag_ms", 3000),
-                    "godmode_drop_inbound_pct": _profile.get("godmode_drop_inbound_pct", 0),
-                    "godmode_keepalive_interval_ms": _profile.get("godmode_keepalive_interval_ms", 800),
                 }
                 if preset:
                     try:
@@ -1156,13 +1119,6 @@ class ClumsyNetworkDisruptor:
                     "bandwidth_limit": 1, "bandwidth_queue": 0,
                     "throttle_chance": 100, "throttle_frame": 350,
                     "throttle_drop": True, "direction": "both",
-                    "tick_sync_direction": "inbound",
-                    "pulse_direction": "inbound",
-                    "stealth_drop_direction": "inbound",
-                    "stealth_lag_direction": "inbound",
-                    "godmode_lag_ms": 3500,
-                    "godmode_drop_inbound_pct": 0,
-                    "godmode_keepalive_interval_ms": 800,
                 }
 
         # ── Resolve methods list ───────────────────────────────────────
@@ -1172,17 +1128,18 @@ class ClumsyNetworkDisruptor:
             if isinstance(preset_methods, list) and preset_methods:
                 methods = list(preset_methods)
             else:
-                # Default method set depends on whether we're running
-                # PC-local or on the FORWARD layer. FORWARD-layer (PS5/Xbox
-                # over ICS hotspot) benefits from pulse+tick_sync+stealth
-                # because the 32-packet ack-redundancy ceiling means the
-                # original drop/lag/bandwidth/throttle combo can't reliably
-                # desync state without triggering the 1.27+ freeze system.
-                is_local_default = bool(params.get("_network_local", False))
-                if is_local_default:
-                    methods = ["drop", "lag", "bandwidth", "throttle"]
-                else:
-                    methods = ["pulse", "tick_sync", "stealth_drop", "lag"]
+                methods = ["drop", "lag", "bandwidth", "throttle"]
+
+        from app.core.validation import validate_methods
+
+        safe_methods = validate_methods(list(methods or []))
+        if not safe_methods:
+            log_error(
+                "No public diagnostic methods remained after validation; "
+                "falling back to bounded temporary disconnect"
+            )
+            safe_methods = ["disconnect"]
+        methods = safe_methods
 
         try:
             if target_ip in self.disrupted_devices:
@@ -1215,16 +1172,16 @@ class ClumsyNetworkDisruptor:
             #   - Filter by device IP (target_ip IS the console/PC)
             # WiFi same-network mode (v5.7.2):
             #   - Target is on same WiFi LAN. Default routes through ARP
-            #     spoof + NETWORK_FORWARD layer so the TARGET DEVICE is
+            #     local forwarding + NETWORK_FORWARD layer so the TARGET DEVICE is
             #     disrupted (this is the primary "pick a device, hit
             #     DISRUPT" workflow). The isolation watchdog auto-falls-
-            #     back to self-disrupt if the AP drops the spoof.
+            #     back to self-disrupt if the AP drops the local forwarding.
             #   - Operators who specifically want to lag only their OWN
             #     traffic can pass params["_force_self_disrupt"] = True.
             is_local = params.get("_network_local", False)
 
             # v5.7.2: honor an explicit self-disrupt opt-in. When set,
-            # it overrides detection: NETWORK layer, no ARP spoof. This
+            # it overrides detection: NETWORK layer, no local forwarding. This
             # is the documented escape hatch for "lag only my own
             # connection to the target" (e.g. a shared game server).
             _force_self_disrupt = bool(params.get("_force_self_disrupt"))
@@ -1233,7 +1190,7 @@ class ClumsyNetworkDisruptor:
                 params["_network_local"] = True
                 log_info(
                     "[WiFi] _force_self_disrupt set — NETWORK layer, "
-                    "ARP spoof skipped (operator opt-in)"
+                    "local forwarding skipped (operator opt-in)"
                 )
 
             # Map _detection.layer → engine layer so the auto-detected
@@ -1255,8 +1212,8 @@ class ClumsyNetworkDisruptor:
                     is_local = False
                     params["_network_local"] = False
 
-            # ── ARP spoofing for WiFi same-network ────────────────
-            # If auto-detection says we need ARP spoofing, start it
+            # ── local forwarding for WiFi same-network ────────────────
+            # If auto-detection says we need local forwarding, start it
             # BEFORE opening WinDivert so traffic is already flowing
             # through us when the FORWARD layer opens. Suppressed when
             # the operator forced self-disrupt mode.
@@ -1267,25 +1224,21 @@ class ClumsyNetworkDisruptor:
                 and not _force_self_disrupt
             )
             if needs_arp:
-                # ARP-spoof capture is asymmetric: only one leg of the
+                # ARP-local forwarding capture is asymmetric: only one leg of the
                 # target↔gateway flow lands through us (gateway caches on
-                # consumer routers are harder to poison than endpoint caches,
+                # consumer routers are harder to forwarding setup than endpoint caches,
                 # so OUTBOUND target→gateway typically wins). Presets like
                 # ps5_hotspot default all module directions to "inbound" —
                 # correct for NETWORK_FORWARD on the ICS host, wrong here.
-                # Force "both" so LagModule/pulse/tick_sync consume whatever
+                # Force "both" so public diagnostic modules consume whatever
                 # we actually capture (OUT, IN, or both).
                 _arp_dir_keys = (
                     "direction",
-                    "tick_sync_direction",
-                    "pulse_direction",
-                    "stealth_drop_direction",
-                    "stealth_lag_direction",
                 )
                 for _k in _arp_dir_keys:
                     if params.get(_k) != "both":
                         log_info(
-                            f"[WiFi] ARP-spoof path: forcing {_k}="
+                            f"[WiFi] ARP-local forwarding path: forcing {_k}="
                             f"'both' (was {params.get(_k)!r})"
                         )
                         params[_k] = "both"
@@ -1298,40 +1251,40 @@ class ClumsyNetworkDisruptor:
                     if not _npcap.available:
                         # v5.6.4: Bail honestly instead of silently opening a
                         # NETWORK_FORWARD WinDivert handle that will never see
-                        # a packet. Without ARP poison, no traffic is routed
+                        # a packet. Without ARP forwarding setup, no traffic is routed
                         # through us; the engine would report "active" while
                         # doing nothing. Surface the failure to the GUI so the
                         # "Partial Failure" dialog tells the operator to
                         # install Npcap or switch to wired.
                         log_error(
-                            f"[WiFi] Cannot ARP-spoof: {_npcap.reason}. "
+                            f"[WiFi] Cannot ARP-local forwarding: {_npcap.reason}. "
                             f"Install Npcap: {_npcap.install_url}. "
                             f"Aborting disruption — would be a silent no-op."
                         )
                         gui_toast(
                             "error",
-                            f"WiFi target needs ARP spoof, but "
+                            f"WiFi target needs local forwarding, but "
                             f"{_npcap.reason}. Install Npcap or use wired.",
                         )
                         return False
                     log_info(
                         f"[WiFi] Target {mask_ip(target_ip)} is on same "
-                        f"WiFi network — activating ARP spoofing to "
+                        f"WiFi network — activating local forwarding to "
                         f"redirect traffic through this machine"
                     )
                     gui_toast(
                         "info",
-                        f"WiFi same-net target — starting ARP spoof "
+                        f"WiFi same-net target — starting local forwarding "
                         f"({mask_ip(target_ip)})",
                     )
                     _arp_spoofer = ArpSpoofer(target_ip=target_ip)
                     if _arp_spoofer.start():
-                        log_info("[WiFi] ARP spoofing active -- traffic "
+                        log_info("[WiFi] local forwarding active -- traffic "
                                  "redirected, using NETWORK_FORWARD layer")
                         # v5.7.5 (M1 fix): best-effort ARP restore on
                         # process termination. Covers kill -9 / SIGTERM /
                         # operator-closes-window-uncleanly paths. Without
-                        # this, the target stays poisoned and its traffic
+                        # this, the target stays on the stale forwarding path and its traffic
                         # black-holes for 30-60s after we die (or longer
                         # on endpoints that pin ARP under load). atexit
                         # runs on the SAME interpreter death; it does NOT
@@ -1356,14 +1309,14 @@ class ClumsyNetworkDisruptor:
                         # gateway resolution failed; the local NETWORK layer
                         # cannot help target a remote device either. Abort.
                         log_error(
-                            "[WiFi] ARP spoofing failed to start. "
+                            "[WiFi] local forwarding failed to start. "
                             "Aborting disruption — NETWORK_FORWARD without "
                             "a working spoofer would be a silent no-op, and "
                             "NETWORK layer cannot affect remote targets."
                         )
                         gui_toast(
                             "error",
-                            "ARP spoof failed to start. Check Npcap install "
+                            "local forwarding failed to start. Check Npcap install "
                             "or AP client isolation; consider wired.",
                         )
                         _arp_spoofer = None
@@ -1373,16 +1326,16 @@ class ClumsyNetworkDisruptor:
                               "aborting (would be silent no-op).")
                     try:
                         from app.logs.gui_notify import gui_toast as _t
-                        _t("error", "ARP-spoof module unavailable — aborting.")
+                        _t("error", "ARP-local forwarding module unavailable — aborting.")
                     except Exception:
                         pass
                     return False
                 except Exception as arp_err:
-                    log_error(f"[WiFi] ARP spoof error: {arp_err} — "
+                    log_error(f"[WiFi] local forwarding error: {arp_err} — "
                               f"aborting (would be silent no-op).")
                     try:
                         from app.logs.gui_notify import gui_toast as _t
-                        _t("error", f"ARP spoof error: {arp_err}")
+                        _t("error", f"local forwarding error: {arp_err}")
                     except Exception:
                         pass
                     _arp_spoofer = None
@@ -1461,7 +1414,7 @@ class ClumsyNetworkDisruptor:
 
             mode_label = "PC-LOCAL (NETWORK)" if is_local else "REMOTE (NETWORK_FORWARD)"
             if _arp_spoofer:
-                mode_label += " + ARP SPOOF"
+                mode_label += " + LOCAL FORWARDING"
             log_info(f"{'='*50}\nDISRUPTION START: {mask_ip(target_ip)}\n"
                      f"  mode={mode_label}  methods={methods}"
                      f"  direction={params.get('direction', 'both')}"
@@ -1469,16 +1422,6 @@ class ClumsyNetworkDisruptor:
 
             # FORWARD-layer cannot originate keepalives on the device's
             # behalf — the local Windows stack can't forge the device's
-            # NAT binding without ICS cooperation. Surface this once so
-            # nobody wastes time tuning godmode_keepalive_interval_ms on
-            # PS5/Xbox targets.
-            if not is_local and "godmode" in methods:
-                log_info(
-                    "FORWARD-layer keepalive injection is a no-op — "
-                    "local stack cannot forge device NAT bindings. "
-                    "godmode_keepalive_interval_ms ignored in this mode."
-                )
-
             clumsy_dir = self._get_clumsy_dir()
             eng_params = dict(params)
             eng_params["_target_ip"] = target_ip
@@ -1596,16 +1539,16 @@ class ClumsyNetworkDisruptor:
             if engine:
                 engine.stop()
 
-            # Stop ARP spoofing if active — restore real ARP entries
+            # Stop local forwarding if active — restore real ARP entries
             # and disable IP forwarding (if we enabled it).
             arp_spoofer = info.get("arp_spoofer")
             if arp_spoofer is not None:
                 try:
                     arp_spoofer.stop()
-                    log_info(f"[WiFi] ARP spoofing stopped for "
+                    log_info(f"[WiFi] local forwarding stopped for "
                              f"{mask_ip(target_ip)}")
                 except Exception as arp_err:
-                    log_error(f"[WiFi] ARP spoof cleanup error: {arp_err}")
+                    log_error(f"[WiFi] local forwarding cleanup error: {arp_err}")
 
             log_info(f"Disruption stopped: {mask_ip(target_ip)}")
             return True
@@ -1623,7 +1566,7 @@ class ClumsyNetworkDisruptor:
     #   1. _arm_wifi_isolation_watchdog spawns a daemon thread that, after
     #      a short grace window, samples (spoofer.packets_sent,
     #      engine.packets_processed). If sent > 0 and processed == 0, the
-    #      AP is silently dropping our spoof — classic client-isolation
+    #      AP is silently dropping our local forwarding — classic client-isolation
     #      signature on Eero / Google Nest / ISP gateways / public WiFi.
     #
     #   2. The watchdog invokes its on_result callback with the verdict.
@@ -1754,7 +1697,7 @@ class ClumsyNetworkDisruptor:
             pass
 
         old_engine = info.get("engine")
-        old_spoofer = info.get("arp_spoofer")
+        old_arp_spoofer = info.get("arp_spoofer")
 
         # 2. Stop the current engine + spoofer. Use exception guards on
         # both — we want to attempt the restart even if cleanup hiccups.
@@ -1765,9 +1708,9 @@ class ClumsyNetworkDisruptor:
                 log_warning(
                     f"[WiFi-FALLBACK] old engine stop raised: {exc}"
                 )
-        if old_spoofer is not None:
+        if old_arp_spoofer is not None:
             try:
-                old_spoofer.stop()
+                old_arp_spoofer.stop()
             except Exception as exc:
                 log_warning(
                     f"[WiFi-FALLBACK] ArpSpoofer stop raised: {exc}"
@@ -1838,7 +1781,7 @@ class ClumsyNetworkDisruptor:
 
         log_info(
             f"[WiFi-FALLBACK] {mask_ip(target_ip)} now in SELF-DISRUPT "
-            f"mode (NETWORK layer, ARP spoofer stopped). Operator's own "
+            f"mode (NETWORK layer, spoofer stopped). Operator's own "
             f"egress / ingress to target IS disrupted; target's other "
             f"flows are unaffected (no L2 redirect through us)."
         )
@@ -1909,12 +1852,12 @@ class ClumsyNetworkDisruptor:
                     totals["active_engines"] += 1 if stats.get("alive") else 0
                     # Merge in the auto-detect metadata the GUI uses
                     # to render the "profile=ps5_hotspot / layer=forward
-                    # / ARP-spoof=yes" badge line.
+                    # / ARP-local forwarding=yes" badge line.
                     _det = info.get("detection")
                     if _det is not None:
                         stats = dict(stats)
                         stats["detection"] = _det
-                    # Also surface ARP spoofer liveness so the GUI can
+                    # Also surface spoofer liveness so the GUI can
                     # show a warning if the spoofer dropped but the
                     # engine kept running.
                     _arp = info.get("arp_spoofer")

@@ -65,10 +65,13 @@ def dump_crash(exctype, value, tb) -> None:
     developer-side debugging.
     """
     try:
-        crash_dir = (
-            os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
-            else os.getcwd()
-        )
+        try:
+            from app.core.app_paths import crashes_dir
+
+            crash_dir = str(crashes_dir())
+            os.makedirs(crash_dir, exist_ok=True)
+        except Exception:
+            crash_dir = os.getcwd()
         crash_file = os.path.join(crash_dir, "FATAL_CRASH.txt")
         raw = "".join(traceback.format_exception(exctype, value, tb))
         scrubbed = _scrub_traceback(raw)
@@ -207,6 +210,23 @@ def main() -> None:
             if os.path.exists(icon_path):
                 app.setWindowIcon(QIcon(icon_path))
                 break
+
+        # Require a versioned acknowledgement before initializing any active
+        # network components. The state contains no device or account data.
+        from app.core.operator_acknowledgement import (
+            is_acknowledged,
+            record_acknowledgement,
+        )
+        if not is_acknowledged():
+            from app.gui.operator_ack_dialog import (
+                OperatorAcknowledgementDialog,
+            )
+            acknowledgement = OperatorAcknowledgementDialog()
+            if acknowledgement.exec() != acknowledgement.DialogCode.Accepted:
+                log_info("Startup cancelled at authorized-use acknowledgement")
+                return
+            record_acknowledgement()
+            log_info("Authorized-use policy acknowledged")
 
         # --- Show splash screen and run init pipeline ---
         from app.gui.splash import DupeZSplash

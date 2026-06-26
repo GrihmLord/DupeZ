@@ -14,15 +14,15 @@ The engine understands that different network conditions require
 different approaches:
   - High-quality LAN connection → needs aggressive multi-module stacking
   - Flaky hotspot connection → light touch, just nudge it over the edge
-  - Console on NAT → target UDP, exploit NAT keepalive sensitivity
+  - Console on NAT → use conservative UDP diagnostics and NAT-safe timing
   - Gaming PC on fast LAN → need disconnect + bandwidth cap + lag combo
 
 Disruption Goals (user-selectable):
-  - "desync"      → cause game state desynchronization
+  - "desync"      → reproduce packet reordering / delayed-state symptoms
   - "lag"         → induce perceivable lag without full disconnect
-  - "disconnect"  → kill the connection entirely
+  - "disconnect"  → fully isolate the connection for a bounded test
   - "throttle"    → degrade to minimum playable state
-  - "chaos"       → maximum unpredictable disruption
+  - "chaos"       → broad multi-module stress diagnostic
 """
 
 from __future__ import annotations
@@ -102,12 +102,12 @@ class SmartDisruptionEngine:
     """
 
     # Disruption goals
-    GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "godmode", "auto"]
+    GOALS = ["desync", "lag", "disconnect", "throttle", "chaos", "auto"]
 
     # Alternates scanned by auto-preset-switch. Class-level to avoid
     # per-call allocation on the recommend() hot path.
     _SWITCH_ALTERNATES = (
-        "disconnect", "desync", "godmode", "lag", "throttle", "chaos",
+        "disconnect", "desync", "lag", "throttle", "chaos",
     )
 
     # Thresholds for auto-preset-switch evaluation.
@@ -192,10 +192,18 @@ class SmartDisruptionEngine:
                 f"(goal={goal}, intensity={intensity:.1f}, "
                 f"quality={quality:.0f})")
 
-        # Normalize "god mode" → "godmode" (GUI variant)
-        goal_key = goal.replace(" ", "")
-        strategy_fn = getattr(self, f"_strategy_{goal_key}",
-                              self._strategy_disconnect)
+        # Public Smart Mode goals are intentionally allowlisted. Unknown or
+        # legacy method names fall back to bounded temporary disconnect
+        # diagnostics instead of invoking compatibility-only internals.
+        strategy_map = {
+            "desync": self._strategy_desync,
+            "lag": self._strategy_lag,
+            "disconnect": self._strategy_disconnect,
+            "throttle": self._strategy_throttle,
+            "chaos": self._strategy_chaos,
+        }
+        goal_key = goal.replace(" ", "").lower()
+        strategy_fn = strategy_map.get(goal_key, self._strategy_disconnect)
         rec = strategy_fn(profile, intensity)
 
         self._adjust_for_connection(rec, profile, intensity)
@@ -426,11 +434,10 @@ class SmartDisruptionEngine:
         # NativeEngine respects any non-zero operator override.
         rec.params.setdefault("disconnect_duration_ms", 0)
         rec.params.setdefault("disconnect_arm_delay_ms", 0)
-        # Post-cut quiet window DEFAULTS TO 0 — the clone-dupe protocol
-        # requires an instant clean release synced to the account-switch
-        # beat. A quiet tail drops inbound packets past the release and
-        # desyncs that beat. Leave available as an explicit override for
-        # red-disconnect experiments only.
+        # Post-cut quiet window DEFAULTS TO 0 so manual authorized-lab
+        # diagnostics get an instant clean release. A quiet tail keeps
+        # dropping inbound packets after release and can blur the timing
+        # signal. Leave it available only as an explicit lab override.
         rec.params.setdefault("disconnect_quiet_after_ms", 0)
         rec.params["_auto_tune_duration"] = True
         rec.params["_auto_tune_target_p"] = self._scale(0.75, 0.95, intensity)
@@ -575,92 +582,9 @@ class SmartDisruptionEngine:
 
         return rec
 
-    # Strategy: God Mode
-    def _strategy_godmode(self, profile, intensity: float) -> DisruptionRecommendation:
-        """Directional lag — freeze others' view of you while you keep moving.
-
-        How it works:
-          - Inbound packets (server → target) are lagged heavily.
-            The target's game client stops receiving position updates about you.
-            To them, you freeze in place or disappear.
-          - Outbound packets (target → server) pass through untouched.
-            Your actions (movement, shots, damage) register on the server
-            in real time.
-
-        The net effect: you can move freely and deal damage while being
-        functionally invisible. When God Mode is deactivated, the
-        target's client catches up — all delayed packets arrive at once
-        and the game state reconciles.
-
-        Intensity controls:
-          - Low intensity (0.3): short lag, minimal desync
-          - Medium (0.6): noticeable freeze, good for repositioning
-          - High (1.0): long freeze + inbound drop, maximum invisibility
-        """
-        rec = DisruptionRecommendation(
-            name="Smart God Mode",
-            description="Directional lag — freeze their view, keep moving freely",
-        )
-
-        # Scale lag based on RTT — low-latency needs more lag to be noticeable
-        base_rtt = profile.avg_rtt_ms
-        lo, hi = ((1000,4000) if base_rtt < 20 else (800,3000) if base_rtt < 80 else (500,2000))
-        lag_ms = int(self._scale(lo, hi, intensity))
-
-        # At high intensity, also drop some inbound packets
-        # This makes the freeze more aggressive — some server updates
-        # never arrive at all, increasing desync
-        drop_inbound = 0
-        if intensity > 0.7:
-            drop_inbound = int(self._scale(0, 40, (intensity - 0.7) / 0.3))
-
-        # NAT keepalive interval: at high intensity we can reduce it (more
-        # aggressive = fewer keepalives = harder freeze but more NAT risk).
-        # At low intensity, keep default 800ms for safety.
-        keepalive_ms = int(self._scale(800, 400, intensity))
-        if intensity >= 0.95:
-            keepalive_ms = 0  # max intensity disables keepalive entirely
-
-        rec.methods = ["godmode"]
-        rec.params = {
-            "godmode_lag_ms": lag_ms,
-            "godmode_drop_inbound_pct": drop_inbound,
-            "godmode_keepalive_interval_ms": keepalive_ms,
-            "direction": "both",
-        }
-        rec.reasoning = [
-            "God Mode: inbound packets (server→target) lagged, outbound (target→server) pass through",
-            f"Inbound lag set to {lag_ms}ms — target won't see you move for "
-            f"~{lag_ms/1000:.1f}s at a time",
-            f"Their outbound actions still register in real time on the server",
-            f"NAT keepalive: 1 packet every {keepalive_ms}ms to prevent NAT table timeout"
-            if keepalive_ms > 0 else
-            "NAT keepalive DISABLED — maximum freeze but risk of NAT timeout on long sessions",
-        ]
-
-        if drop_inbound > 0:
-            rec.reasoning.append(
-                f"Aggressive mode: {drop_inbound}% of inbound packets dropped entirely "
-                "for harder freeze")
-
-        # God Mode is most effective on hotspot/ICS where you control the gateway
-        if profile.connection_type == "hotspot":
-            rec.estimated_effectiveness = self._scale(85, 99, intensity)
-            rec.reasoning.append(
-                "Hotspot detected — God Mode is maximally effective when you "
-                "are the gateway (ICS/mobile hotspot, NETWORK_FORWARD layer)")
-        else:
-            rec.estimated_effectiveness = self._scale(70, 90, intensity)
-            rec.reasoning.append(
-                "Note: God Mode works best on hotspot/ICS where your machine "
-                "is the gateway. On regular LAN, effectiveness depends on "
-                "network topology.")
-
-        return rec
-
     # Connection-specific adjustments
     # (param_key, scale_factor) pairs for hotspot reduction
-    _HOTSPOT_SCALE = {"lag_delay": 0.7, "godmode_lag_ms": 0.8}
+    _HOTSPOT_SCALE = {"lag_delay": 0.7}
 
     def _adjust_for_connection(self, rec: DisruptionRecommendation,
                                profile, intensity: float) -> None:
@@ -698,7 +622,7 @@ class SmartDisruptionEngine:
                 rec.params.setdefault("duplicate_count", 3)
             rec.reasoning.append(
                 f"Adjusted for {profile.device_hint or 'console'}: "
-                "added light duplication (consoles are sensitive to packet anomalies)")
+                "added light packet duplication for conservative console diagnostics")
             rec.estimated_effectiveness = min(100, rec.estimated_effectiveness + 5)
 
         elif profile.device_type == "mobile":
@@ -732,4 +656,3 @@ class SmartDisruptionEngine:
         """Linear interpolation between low and high based on t (0-1)."""
         t = max(0.0, min(1.0, t))
         return low + (high - low) * t
-

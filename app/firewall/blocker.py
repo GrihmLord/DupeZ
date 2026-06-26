@@ -142,7 +142,7 @@ def block_device(ip: str, block: bool = True) -> bool:
                            intent="blocker.add_outbound_block")
             )
             if ok:
-                _throttled_log(f"Blocked device: {mask_ip(ip)} (TEMPORARY)")
+                _throttled_log(f"Blocked device: {mask_ip(ip)} (session rule)")
             else:
                 log_error(f"Failed to create firewall rules for {mask_ip(ip)}")
             return ok

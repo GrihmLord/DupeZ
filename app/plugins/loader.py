@@ -51,6 +51,26 @@ MANIFEST_VERSION = "1.0"
 # Required manifest fields
 REQUIRED_FIELDS = {"name", "version", "description", "type", "entry_point"}
 VALID_TYPES = {"disruption", "scanner", "ui_panel", "generic"}
+INPROCESS_PRIVILEGED_CAPABILITIES = frozenset({
+    "disruption.raw_packet",
+    "process.spawn",
+    "fs.write_user_data",
+})
+
+
+def inprocess_capabilities_allowed(
+    capabilities,
+    *,
+    dev_mode: Optional[bool] = None,
+) -> bool:
+    """Reject high-impact capabilities until plugins are process-isolated."""
+    if dev_mode is None:
+        dev_mode = os.environ.get("DUPEZ_PLUGIN_DEV_MODE", "").strip().lower() in {
+            "1", "true", "yes", "on",
+        }
+    return bool(dev_mode) or not (
+        frozenset(capabilities) & INPROCESS_PRIVILEGED_CAPABILITIES
+    )
 
 # Type -> expected base class
 TYPE_CLASS_MAP: Dict[str, Type[PluginBase]] = {
@@ -219,6 +239,15 @@ class PluginLoader:
                 })
             except Exception:
                 pass
+        if not inprocess_capabilities_allowed(signed.capabilities):
+            denied = sorted(
+                signed.capabilities & INPROCESS_PRIVILEGED_CAPABILITIES
+            )
+            log_error(
+                f"Plugin '{signed.name}' REJECTED: in-process privileged "
+                f"capabilities require process isolation: {denied}"
+            )
+            return None
 
         # ── Now re-parse the raw manifest to build the legacy dict ──
         try:
@@ -529,4 +558,3 @@ class PluginLoader:
                 "capabilities": sorted(manifest.capabilities),
             })
         return info
-

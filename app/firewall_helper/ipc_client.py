@@ -12,15 +12,8 @@ Every method maps 1:1 to the in-process manager's API surface so that
     3. Unwraps the Response and returns result (or default on error).
 
 Lazy-initialised singleton via get_proxy_manager(). The first call
-spawns the helper (elevation bootstrap — wired up in Day 4, stubbed now)
-and connects the pipe.
-
-Day 1 status: this file is complete on the wire, but `_ensure_helper()`
-currently only connects to an already-running helper. The elevation
-bootstrap (ShellExecuteW runas + Job object) lands in Day 4 of the
-ADR-0001 sprint. Until then, `DUPEZ_ARCH=split` requires the helper to
-be started manually for testing — which is exactly what we want for
-Day 1: zero changes to the production path.
+starts or connects to the helper through the split-process transport
+and then keeps the controller API surface unchanged.
 """
 
 from __future__ import annotations

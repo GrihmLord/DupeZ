@@ -51,7 +51,7 @@ class TestProfileManager:
         assert self.pm.load("del_me") is None
 
     def test_export_import(self):
-        self.pm.save("exportable", methods=["godmode"], params={"godmode_lag_ms": 2000})
+        self.pm.save("exportable", methods=["lag"], params={"lag_delay": 2000})
         export_path = os.path.join(self.tmpdir, "exported.json")
         assert self.pm.export_profile("exportable", export_path)
         assert os.path.exists(export_path)
@@ -62,7 +62,7 @@ class TestProfileManager:
         imported = pm2.import_profile(export_path)
         assert imported is not None
         assert imported.name == "exportable"
-        assert imported.params["godmode_lag_ms"] == 2000
+        assert imported.params["lag_delay"] == 2000
 
     def test_profile_dataclass_roundtrip(self):
         from app.core.profiles import DisruptionProfile
@@ -125,12 +125,12 @@ class TestGPCGenerator:
         templates = list_templates()
         assert len(templates) >= 4
         names = [t["name"] for t in templates]
-        assert "DayZ Auto Dupe" in names
+        assert "DayZ Accessibility Helper" in names
 
     def test_generate_from_template(self):
         from app.gpc.gpc_generator import GPCGenerator, get_template
         gen = GPCGenerator()
-        tmpl = get_template("DayZ Auto Dupe")
+        tmpl = get_template("DayZ Accessibility Helper")
         assert tmpl is not None
         source = gen.generate(tmpl)
         assert source is not None
@@ -177,11 +177,11 @@ class TestLLMAdvisor:
         result = advisor.ask("nuke them with everything")
         assert result["goal"] == "chaos"
 
-    def test_godmode_keyword(self):
+    def test_pulse_diagnostic_keyword(self):
         from app.ai.llm_advisor import LLMAdvisor
         advisor = LLMAdvisor()
-        result = advisor.ask("god mode on my hotspot")
-        assert result["goal"] == "godmode"
+        result = advisor.ask("pulse diagnostic on my hotspot")
+        assert result["goal"] == "disconnect"
 
 
 # ======================================================================

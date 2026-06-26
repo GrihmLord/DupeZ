@@ -72,7 +72,13 @@ HIVE_FLUSH_FLOOR_S: float = 15.0
 # intended to produce a dupe.
 HARD_KICK_FLOOR_S: float = 30.0
 
-DEFAULT_ARTEFACT: Path = Path("app/data/models/survival_model.pkl")
+def _default_artefact() -> Path:
+    from app.core.app_paths import models_dir
+
+    return models_dir() / "survival_model.pkl"
+
+
+DEFAULT_ARTEFACT: Path = _default_artefact()
 
 
 @dataclass

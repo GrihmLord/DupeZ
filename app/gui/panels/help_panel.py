@@ -112,6 +112,10 @@ class _CollapsibleSection(QWidget):
         self._header.setStyleSheet(_SECTION_HEADER_QSS)
         self._header.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._header.setFixedHeight(44)
+        self._header.setAccessibleName(f"{title} help section")
+        self._header.setAccessibleDescription(
+            "Expand or collapse this help section"
+        )
         self._header.clicked.connect(self._toggle)
         self._title = title
         layout.addWidget(self._header)
@@ -197,14 +201,12 @@ so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 <b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
 the right panel. Available presets:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Red Disconnect</b> — The duplication preset.
-Hard cut: 100% drop, 3s lag, zero bandwidth, throttle, plus the stateful
-DISCONNECT timed-cut module. This is what opens a dupe window — see the
-Duplication Workflow section below for step-by-step instructions</li>
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — The full-isolation diagnostic preset.
+Full isolation diagnostic: 100% drop, 3s lag, zero bandwidth, throttle,
+plus the stateful DISCONNECT timed-cut module. Use only in an authorized
+lab or on equipment you control.</li>
 <li><b>Lag</b> — Heavy sustained lag + drop. Tune with the sliders after
 selecting (Light ~800ms/60% · Max ~5000ms/100%)</li>
-<li><b>God Mode</b> — Bidirectional pulse-cycle for ghost teleport,
-invulnerability, and landing hits</li>
 <li><b>Custom</b> — Set your own modules and parameters manually</li>
 </ul>
 
@@ -221,20 +223,18 @@ and click <b>TIMED DISRUPT</b> instead of DISRUPT — it auto-stops.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>6.</b> Watch the <b>LIVE STATS</b> card for the
 per-device cut-state LED. Red = <b style='color:{_RED};'>severed</b>
-(character evicted server-side, dupe window open). Amber = partial cut.
+(connection fully isolated). Amber = partial cut.
 Green = cut hasn't landed yet.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
-<b style='color:{_CYAN};'>Quick Start — Character Clone (DayZ):</b></p>
+<b style='color:{_CYAN};'>Quick Start — Authorized Lab Diagnostic:</b></p>
 <ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li>Scan → select your PC or console</li>
 <li>Preset → <b>Red Disconnect</b></li>
-<li>Wait for a server persistence save (every 5-15 min)</li>
-<li>Perform your inventory action in-game, then hit <b>DISRUPT</b> to hold
-the cut (or <b>TIMED DISRUPT</b> for a fixed window)</li>
-<li>Alt-F4 or kill DayZ while the cut is held</li>
-<li>Reconnect — your character has the original inventory, moved items
-are in the world</li>
+<li>Start a private/local test session that you own or administer</li>
+<li>Hit <b>DISRUPT</b> to isolate the connection, or use
+<b>TIMED DISRUPT</b> for a fixed diagnostic window</li>
+<li>Stop the run and export a scenario report for review</li>
 </ol>
 
 """, False),
@@ -253,12 +253,10 @@ device's IP so only game traffic is affected.</p>
 <b style='color:{_CYAN};'>Presets (right)</b> — Pre-built disruption
 profiles. Pick one and the modules + sliders auto-configure:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Red Disconnect</b> — The duplication preset.
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — The full-isolation diagnostic preset.
 Enables lag, drop, bandwidth, throttle, and the stateful DISCONNECT
-timed-cut module in one click. Arm the cut with the DISCONNECT sliders in
-the MODULES card</li>
+timed-cut module in one click for authorized isolation diagnostics.</li>
 <li><b>Lag</b> — Sustained lag + drop. Tune with sliders after selecting</li>
-<li><b>God Mode</b> — Bidirectional pulse-cycle for teleport/invulnerability</li>
 <li><b>Custom</b> — Set your own parameters manually</li>
 </ul>
 
@@ -278,14 +276,13 @@ packets differently:</p>
 <li><b style='color:{_GREEN};'>Drop</b> — Randomly discards a % of packets.
 10–30% is realistic; 50%+ causes heavy desync.</li>
 <li><b style='color:{_GREEN};'>Disconnect</b> — The stateful timed cut
-(arm → cut → release). This is the duplication module — see the
-Duplication Workflow section for how to use it.</li>
+(arm → cut → release). Use it for bounded, repeatable lab diagnostics.</li>
 <li><b style='color:{_GREEN};'>Bandwidth</b> — Caps throughput (KB/s) with
 an optional queue. 0 KB/s is a full stall.</li>
 <li><b style='color:{_GREEN};'>Throttle</b> — Queues packets and releases
 them in bursts, creating "choppy" gameplay.</li>
-<li><b style='color:{_GREEN};'>Duplicate</b> — Sends copies of packets,
-causing potential desyncs.</li>
+<li><b style='color:{_GREEN};'>Duplicate</b> — Sends packet copies to test
+how private lab traffic handles duplicate delivery.</li>
 <li><b style='color:{_GREEN};'>Out of Order</b> — Shuffles packet sequence
 numbers, confusing netcode.</li>
 <li><b style='color:{_GREEN};'>Tamper</b> — Flips random bits in packet
@@ -305,7 +302,7 @@ under DISRUPT / STOP / STOP ALL (no separate card). Set <b>Duration</b>
 (0.5s resolution) and an optional <b>Delay</b>, then use:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li><b style='color:{_PURPLE};'>TIMED DISRUPT</b> — Runs for the set
-duration, then auto-stops. Ideal for reproducible clone-dupe windows.</li>
+duration, then auto-stops. Ideal for reproducible authorized diagnostics.</li>
 <li><b style='color:{_PURPLE};'>RUN MACRO</b> — Chains configured
 disruption steps in sequence (recorded or scripted).</li>
 <li><b style='color:{_AMBER};'>STOP MACRO</b> — Cancels an in-flight
@@ -392,26 +389,25 @@ changed in the status bar</li>
 </ul>
 """, False),
 
-    ("🔄 DUPLICATION WORKFLOW — THE TIMED CUT", f"""
+    ("🔄 TIMED DISCONNECT WORKFLOW — AUTHORIZED DIAGNOSTICS", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-Duplication in DayZ is a server-side persistence race: the server saves your
-character state on a fixed interval, and if your client disconnects at the
-right moment, the server rolls your character back to the last save while
-items you moved persist in the world. DupeZ's job is to <b>open and time
-that disconnect window</b> precisely — it does not modify the game.</p>
+The timed disconnect workflow is for reproducing connection-loss scenarios
+in a private or otherwise authorized lab. DupeZ does not modify the game;
+it creates a bounded, visible network impairment and records enough context
+to explain what happened afterward.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>The duplication preset is Red Disconnect.</b>
+<b style='color:{_CYAN};'>The full-isolation preset is Red Disconnect.</b>
 Selecting it arms the full module stack — 100% drop, 3s lag, zero bandwidth,
-throttle — plus the stateful <b>DISCONNECT</b> module, which is the actual
-timed cut. One preset, one DISRUPT click.</p>
+throttle — plus the stateful <b>DISCONNECT</b> module, which is the timed
+cut used for repeatable diagnostics. One preset, one DISRUPT click.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>The DISCONNECT module — arm → cut → release.</b>
 It exposes three sliders in the MODULES card:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li><b>Chance %</b> — How aggressively packets are dropped during the cut.
-Leave at 100 for a clean sever</li>
+Leave at 100 for a clean isolation test</li>
 <li><b>Arm Delay (ms)</b> — Wait time after you hit DISRUPT before the cut
 lands. Use it to line the cut up with an in-game action</li>
 <li><b>Duration (ms)</b> — How long the cut is held before it auto-releases.
@@ -419,65 +415,55 @@ Leave at <b>0</b> to hold the cut until you hit STOP manually</li>
 </ul>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
-<b style='color:{_AMBER};'>Note:</b> Earlier builds shipped a separate
-"Dupe Engine v2" with a multi-method card (Clone, Drop &amp; Pick, Swap, and
-so on). That was consolidated — every one of those "methods" was just a
-different cut <i>timing</i>, so they are now a single timed cut you control
-directly with the Arm Delay / Duration sliders or the <b>TIMED DISRUPT</b>
-button. There is no method card to look for; pick your timing for the
-technique you are running.</p>
+<b style='color:{_AMBER};'>Note:</b> Earlier builds exposed multiple
+legacy timing modes. They are now consolidated into a single timed cut you
+control directly with the Arm Delay / Duration sliders or the
+<b>TIMED DISRUPT</b> button.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>Character clone (full inventory dupe):</b></p>
+<b style='color:{_CYAN};'>Basic lab run:</b></p>
 <ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li>Scan → select your PC or console in the device table</li>
 <li>Preset → <b>Red Disconnect</b></li>
-<li>Wait for a server persistence save (every 5-15 min, server-dependent)</li>
-<li>Perform your inventory action in-game — drop items, fill a stash, etc.</li>
 <li>Hit <b>DISRUPT</b> to hold the cut, or set a Duration and hit
 <b>TIMED DISRUPT</b> for a fixed window</li>
-<li>Alt-F4 or kill DayZ while the cut is held</li>
-<li>Reconnect — your character has the original inventory, the moved items
-are in the world</li>
+<li>Observe severed/partial/healthy status in Live Stats</li>
+<li>Stop the run and export a scenario report</li>
 </ol>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>Single-item / drop-and-pick:</b> Drop the item so
-the outbound action reaches the server, then arm a short cut — set
-<b>Duration</b> to 1000-3000ms and hit <b>TIMED DISRUPT</b> immediately, or
-DISRUPT then STOP by hand. Pick the item back up before the cut releases.</p>
+<b style='color:{_CYAN};'>Short cut:</b> Set <b>Duration</b> to
+1000-3000ms and hit <b>TIMED DISRUPT</b> to verify that the connection
+recovers cleanly after a bounded impairment.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>Reading the cut:</b> Watch the per-device LED in
 the LIVE STATS card. Red (<b style='color:{_RED};'>severed</b>) means the cut
-landed and the dupe window is open. Amber is a partial cut — the sever has
+landed and the connection is fully isolated. Amber is a partial cut — the sever has
 not fully taken yet.</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
 <b style='color:{_AMBER};'>Tip:</b> Use <b>TIMED DISRUPT</b> for
-reproducible windows — it auto-stops at the Duration you set, so every dupe
-attempt uses an identical cut length.</p>
+reproducible windows — it auto-stops at the Duration you set, so every
+diagnostic run uses an identical cut length.</p>
 """, False),
 
-    ("🛡 ARP SPOOF & A2S CUT VERIFIER (v5.6.0)", f"""
+    ("🛡 LOCAL FORWARDING & A2S CUT VERIFIER (v5.6.0)", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
 When the target is on the <b>same WiFi network</b> as you (not behind a
-hotspot), DupeZ intercepts traffic via <b>ARP cache poisoning</b> instead of
-the forward-path WinDivert layer. v5.6 upgrades this path with a three-frame
-spike per poison cycle designed to survive anti-spoof on modern consumer
-routers.</p>
+hotspot), DupeZ can use a local ARP-forwarding diagnostic path instead of
+the forward-path WinDivert layer. Use this only on networks you own or
+administer.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>What changed in v5.6:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b>Opcode-2 reply with spoofed L2 source</b> — Ethernet source MAC is
-set to the <i>target's</i> MAC, not yours. Defeats ASUS/Netgear/Ubiquiti
-heuristics that drop frames where ARP sender MAC ≠ Ethernet source MAC.</li>
-<li><b>Opcode-1 request variant</b> — Same spoofed layout, ARP opcode 1
-(request) instead of 2 (reply). Handles RFC 826 strict-mode routers that
-ignore unsolicited replies.</li>
-<li><b>Target-facing poison unchanged</b> — The frame that tells the target
-"gateway is at my MAC" is still a standard unicast reply from your real MAC.</li>
+<li><b>Forwarding-path check</b> — Confirms whether the local network permits
+the diagnostic forwarding path.</li>
+<li><b>Compatibility check</b> — Identifies router/client behavior that may
+prevent local-path diagnostics.</li>
+<li><b>Safety check</b> — Falls back to direct self-diagnostics when the
+local path is not appropriate.</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
@@ -485,7 +471,7 @@ ignore unsolicited replies.</li>
 (DayZ, every Source-derived title), DupeZ polls the query port once per
 second while a cut is active. It captures a <b>baseline player count</b> on
 the first reachable response, then watches for a drop. When the count goes
-down, your character was evicted server-side — the cut landed.</p>
+down, the session appears severed — the cut landed.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>Cut state progression</b> (visible in session logs
@@ -498,13 +484,13 @@ matches baseline (cut hasn't landed)</li>
 <li><b style='color:{_AMBER};'>degraded</b> — ping failing but player count
 intact (partial cut, session still alive server-side)</li>
 <li><b style='color:{_RED};'>severed</b> — player count dropped below
-baseline (character evicted, dupe window open)</li>
+baseline (session appears severed)</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>Learning loop:</b> Every session's peak
 <code>max_cut_state</code> is written to the episode recorder. SMART DISRUPT
-now has two aggregations: <b>recommend()</b> (did the dupe stick?) and
+now has two aggregations: <b>recommend()</b> (did the configured outcome occur?) and
 <b>cut_effectiveness()</b> (did the cut even fire?). After 5 labeled episodes
 per (profile, goal) bucket, the auto-tuner uses this to switch presets when
 the current one fails to sever — instead of silently retrying a preset that
@@ -519,23 +505,23 @@ OUI database as a fallback to the 60-entry curated gaming table.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_GREEN};'>✓ WiFi disruption (v5.7.2):</b> Pick a device from
 the network scan — an Xbox, a PS5, another PC — hit DISRUPT, and DupeZ
-disrupts <b>that device</b>. Same-network targets route through ARP spoof
-on the FORWARD layer: the target's traffic is redirected through your
+disrupts <b>that device</b>. Same-network targets route through a local
+forwarding diagnostic path on the FORWARD layer: the target's traffic is redirected through your
 machine, then the disruption modules (drop, lag, throttle, disconnect)
 act on it.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>How it works:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b>ARP spoof + FORWARD layer</b> — DupeZ poisons the ARP caches so
-the target's traffic flows through your PC. WinDivert's FORWARD layer
-intercepts it and the modules disrupt it. Requires Npcap installed; if
+<li><b>Local forwarding + FORWARD layer</b> — DupeZ verifies that the
+authorized test target's traffic can flow through your PC. WinDivert's
+FORWARD layer intercepts it and the modules disrupt it. Requires Npcap installed; if
 it's missing you get a Partial Failure dialog with install guidance
 (no silent no-ops).</li>
 <li><b>Isolation watchdog</b> — Some consumer APs (Eero, Google Nest,
 many ISP gateways, guest WiFi) enable client isolation, which drops
-station-to-station frames so the spoof can't land. DupeZ watches the
-forwarded-packet counter for 8 seconds; if the spoof was emitted but
+station-to-station frames so the local path can't land. DupeZ watches the
+forwarded-packet counter for 8 seconds; if the local-path setup ran but
 nothing comes back, it auto-falls-back to <b>self-disrupt mode</b> and
 shows a toast explaining the switch.</li>
 <li><b>Self-disrupt fallback</b> — When isolation is detected, DupeZ
@@ -560,7 +546,7 @@ pass <code>params["_force_self_disrupt"] = True</code>.</li>
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:4px;'>
 History: v5.6.5 briefly made self-disrupt the default — that broke
 disrupting peer devices like Xbox/PS5 and was reverted in v5.7.2.
-ARP spoof is the default again; self-disrupt is the watchdog's
+local forwarding is the default again; self-disrupt is the watchdog's
 automatic fallback when the AP won't cooperate.</p>
 """, False),
 
@@ -660,9 +646,8 @@ whisper</code> (not bundled in the default build).</p>
 
     ("🎮 GPC / CRONUS ZEN (OPTIONAL)", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-DupeZ can connect to a <b>CronusZEN</b> device for console automation
-alongside network disruption — coordinate controller scripts with packet
-manipulation.</p>
+DupeZ can connect to a <b>CronusZEN</b> device for accessibility helpers
+and diagnostic markers alongside authorized network diagnostics.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Setup:</b> Plug in CronusZEN via USB. DupeZ
@@ -706,8 +691,8 @@ free disk space.</p>
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>SmartScreen blocks the installer</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
-→ Click <b>"More info"</b> → <b>"Run anyway"</b>. DupeZ is not yet
-code-signed with an EV certificate.</p>
+→ Do not override SmartScreen for an untrusted installer. Verify the release
+signature/hash from the official release page, or use a signed build.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>Disruption has no effect in game</b></p>
@@ -720,7 +705,7 @@ the correct direction (inbound/outbound/both) is selected.</p>
 <b style='color:{_RED};'>Game disconnects immediately</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
 → Values are too aggressive. Start with Drop at 10–15% and Lag under 300ms.
-Some games (especially with anti-cheat) have strict tolerance for packet
+Some games have strict tolerance for packet
 anomalies.</p>
 """, False),
 
@@ -737,12 +722,16 @@ Quick reference:</p>
     <td>Kill Switch — panic-stop every disruption</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+E</td>
     <td>Export Data</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+E</td>
+    <td>Export active scenario report</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+,</td>
     <td>Open Settings</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+P</td>
     <td>Custom Preset Editor</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>F2</td>
     <td>Diagnostics</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+F2</td>
+    <td>Network Health summary</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+1</td>
     <td>Switch to Clumsy Control view</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+2</td>

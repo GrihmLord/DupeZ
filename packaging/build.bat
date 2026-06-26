@@ -11,7 +11,7 @@ pushd "%~dp0.."
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.7.6"
+set "DUPEZ_VERSION=5.7.7"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
 
 echo ============================================
@@ -30,12 +30,13 @@ if errorlevel 1 (
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo Installing PyInstaller...
-    pip install pyinstaller
+    pip install pyinstaller==6.19.0
 )
 
 :: ── 2. Install dependencies ─────────────────────────────────────────
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install --require-hashes -r requirements-locked.txt
+if errorlevel 1 exit /b 1
 
 :: ── 3. Build executable ─────────────────────────────────────────────
 echo.

@@ -30,7 +30,13 @@ from app.logs.logger import log_error, log_info, log_warning
 
 __all__ = ["EpisodeRecorder", "DEFAULT_EPISODE_DIR", "rotate_episodes"]
 
-DEFAULT_EPISODE_DIR: Path = Path("app/data/episodes")
+def _default_episode_dir() -> Path:
+    from app.core.data_persistence import _resolve_data_directory
+
+    return Path(_resolve_data_directory()) / "episodes"
+
+
+DEFAULT_EPISODE_DIR: Path = _default_episode_dir()
 _MAX_QUEUE: int = 4096
 _FLUSH_INTERVAL_S: float = 2.0
 

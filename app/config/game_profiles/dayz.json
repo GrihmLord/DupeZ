@@ -1,7 +1,14 @@
 {
+  "schema": "dupez.game-profile.v2",
   "game": "DayZ",
   "engine": "Enfusion",
-  "version_notes": "Calibrated for DayZ 1.29+ (April 2026). Aggressive tuning \u2014 longer cuts, deeper filtering, tighter timing.",
+  "purpose": "Passive DayZ connectivity diagnostics and authorized local-lab network-condition reproduction.",
+  "safety_boundary": {
+    "owned_or_authorized_scope_required": true,
+    "detection_avoidance": false,
+    "unauthorized_public_server_use": false,
+    "game_state_manipulation": false
+  },
   "network": {
     "protocol": "udp",
     "default_port": 2302,
@@ -9,7 +16,7 @@
       2302,
       2305
     ],
-    "steam_ports": [
+    "query_ports": [
       27015,
       27016,
       27017
@@ -32,24 +39,16 @@
     "port_auto_detect": true,
     "port_auto_detect_method": "highest_pps_udp_flow"
   },
-  "tick_model": {
-    "expected_range_hz": [
-      20,
-      120
-    ],
-    "default_estimate_hz": 60,
-    "iat_min_sec": 0.004,
-    "iat_max_sec": 0.5,
-    "packets_per_second_max": 30,
-    "notes": "1.29 servers may run >60Hz due to 400% perf improvement. TickEstimator adapts automatically."
-  },
-  "reliable_udp": {
-    "protocol_style": "gafferon_games",
-    "header_size_bytes": 16,
-    "ack_bitfield_bits": 32,
-    "ack_redundancy_count": 32,
-    "ack_timeout_sec": 1.0,
-    "notes": "Each ack is sent 32 times via bitfield. Need burst >32 packets to cause genuine desync."
+  "passive_diagnostics": {
+    "server_reachability": true,
+    "query_health": true,
+    "latency_ms": true,
+    "jitter_ms": true,
+    "loss_percent": true,
+    "route_summary": true,
+    "adapter_readiness": true,
+    "firewall_hinting": true,
+    "private_server_config_review": true
   },
   "packet_classification": {
     "auto_calibrate": true,
@@ -64,200 +63,113 @@
       "high_pps": 25,
       "medium_pps": 5,
       "low_pps": 5
-    },
-    "size_percentiles": {
-      "keepalive": "P10",
-      "movement": "P40",
-      "state": "P75",
-      "bulk": "P90"
-    }
-  },
-  "game_state_detection": {
-    "auto_calibrate": true,
-    "thresholds": {
-      "disconnected_pps": 2,
-      "menu_pps": 10,
-      "menu_avg_size": 200,
-      "loading_bps": 50000,
-      "loading_avg_size": 500,
-      "combat_pps": 40,
-      "combat_outbound_ratio": 0.8
-    },
-    "baseline_multipliers": {
-      "disconnected": 0.05,
-      "menu": 0.25,
-      "loading_bps": 3.0,
-      "combat_pps": 1.5
     }
   },
   "disruption_defaults": {
-    "lag_delay_ms": 2000,
-    "drop_chance_pct": 95,
+    "lag_delay_ms": 250,
+    "drop_chance_pct": 2,
     "disconnect_chance_pct": 100,
-    "bandwidth_limit_kbps": 1,
+    "bandwidth_limit_kbps": 256,
     "bandwidth_queue": 0,
     "throttle_chance_pct": 100,
-    "throttle_frame_ms": 350,
-    "throttle_drop": true,
     "direction": "both",
-    "tick_sync_direction": "inbound",
-    "pulse_direction": "inbound",
-    "stealth_drop_direction": "inbound",
-    "stealth_lag_direction": "inbound",
-    "godmode_lag_ms": 3500,
-    "godmode_drop_inbound_pct": 0,
-    "godmode_keepalive_interval_ms": 800,
-    "godmode_keepalive_auto_calibrate": true,
-    "godmode_lag_queue_maxlen": 10000,
-    "godmode_pulse_block_ms": 3500,
-    "godmode_pulse_flush_ms": 300,
-    "godmode_flush_stagger_ms": 100,
-    "godmode_flush_gamestate_keep": 4,
-    "notes": "3.5s god mode block creates deep desync. 300ms flush is tight enough that enemies can't react. Stagger 100ms ensures hit reports validate."
-  },
-  "burst_strategy": {
-    "pulse_burst_ticks": 40,
-    "pulse_rest_ticks": 260,
-    "notes": "burst=40 > 32-packet ack-redundancy ceiling so drops actually break state. rest=260 keeps burst/(burst+rest) = 13.3% below the ~15% freeze-detection threshold."
+    "max_duration_sec": 300,
+    "notes": "Compatibility defaults for authorized local-lab network-condition scenarios."
   },
   "disruption_presets": {
     "pc_local": {
       "_network_local": true,
+      "description": "Private local PC lab: mild packet loss and jitter.",
       "methods": [
-        "pulse",
-        "tick_sync",
-        "stealth_drop",
         "drop",
         "lag"
       ],
-      "pulse_burst_ticks": 38,
-      "pulse_rest_ticks": 220,
-      "pulse_drop_chance": 98,
-      "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.3,
-      "pulse_learning": 60,
-      "ts_drop_window_pct": 0.45,
-      "ts_drop_chance": 95,
-      "ts_min_confidence": 0.3,
-      "ts_learning_packets": 60,
-      "tick_sync_direction": "inbound",
-      "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 8,
-      "stealth_cycle_sec": 10,
-      "stealth_drop_direction": "inbound",
-      "lag_delay": 1500,
-      "drop_chance": 98,
-      "direction": "inbound",
-      "notes": "PC-local. Tight confidence 0.30 for clean hardline timing. burst=38 > 32 ack ceiling. avg_loss = 38/258 = 14.7% just under 15% freeze threshold."
+      "drop_chance": 2,
+      "lag_delay": 250,
+      "direction": "both",
+      "max_duration_sec": 300
     },
     "ps5_hotspot": {
       "_network_local": false,
+      "description": "Operator-owned console hotspot lab: inbound-focused jitter observation.",
       "methods": [
-        "pulse",
-        "tick_sync",
-        "stealth_drop",
         "lag"
       ],
-      "pulse_burst_ticks": 40,
-      "pulse_rest_ticks": 250,
-      "pulse_drop_chance": 100,
-      "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.2,
-      "pulse_learning": 50,
-      "ts_drop_window_pct": 0.4,
-      "ts_drop_chance": 95,
-      "ts_min_confidence": 0.2,
-      "ts_learning_packets": 50,
-      "tick_sync_direction": "inbound",
-      "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 10,
-      "stealth_cycle_sec": 10,
-      "stealth_drop_direction": "inbound",
-      "lag_delay": 1500,
+      "lag_delay": 250,
       "direction": "inbound",
-      "disconnect_direction": "both",
-      "iat_min_sec": 0.006,
-      "notes": "PS5 over ICS/hotspot. burst=40 > 32 ack ceiling. avg_loss = 40/290 = 13.8%. 100% drop during burst for maximum desync. INBOUND-only for pulse/tick_sync/stealth_drop/lag (PS5 NAT teardown risk if outbound blocked >3s). DISCONNECT method uses direction=both because the clone-dupe protocol requires suppressing the PS5->server logout packet so the server holds the character as a ghost; operator must keep cut <= 3s to avoid NAT teardown."
-    },
-    "ps5_maximum_cut": {
-      "_network_local": false,
-      "_extends": "ps5_hotspot",
-      "methods": [
-        "disconnect",
-        "pulse",
-        "tick_sync",
-        "stealth_drop",
-        "drop",
-        "lag"
-      ],
-      "pulse_burst_ticks": 40,
-      "pulse_rest_ticks": 250,
-      "pulse_drop_chance": 100,
-      "pulse_direction": "both",
-      "pulse_min_confidence": 0.2,
-      "pulse_learning": 50,
-      "ts_drop_window_pct": 0.4,
-      "ts_drop_chance": 98,
-      "ts_min_confidence": 0.2,
-      "ts_learning_packets": 50,
-      "tick_sync_direction": "both",
-      "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 15,
-      "stealth_cycle_sec": 8,
-      "stealth_drop_direction": "both",
-      "lag_delay": 2500,
-      "drop_chance": 98,
-      "direction": "both",
-      "disconnect_direction": "both",
-      "iat_min_sec": 0.006,
-      "_require_arp_spoof_on_lan": true,
-      "_require_cut_verifier": true,
-      "_stack_order": [
-        "windivert",
-        "arp_spoof",
-        "ip_forward_off"
-      ],
-      "notes": "TRIPLE-STACK MAXIMUM CUT (P4). Fires WinDivert + ARP spoof + IP-forward-disable in parallel for belt-and-suspenders severance. BOTH-direction everything (vs inbound-only on ps5_hotspot) because the goal is total severance, not NAT preservation. Operator MUST keep cut <=3s: this preset WILL trigger NAT teardown if held. Use for one-shot high-value runs where verified severance matters more than repeatability. Cut verifier auto-attaches; green light = roster dropped OR ping gone, red = target still responding."
+      "max_duration_sec": 300
     },
     "xbox_hotspot": {
       "_network_local": false,
+      "description": "Operator-owned Xbox hotspot lab: inbound-focused jitter observation.",
       "methods": [
-        "pulse",
-        "tick_sync",
-        "stealth_drop",
         "lag"
       ],
-      "pulse_burst_ticks": 40,
-      "pulse_rest_ticks": 270,
-      "pulse_drop_chance": 100,
-      "pulse_direction": "inbound",
-      "pulse_min_confidence": 0.2,
-      "pulse_learning": 50,
-      "ts_drop_window_pct": 0.4,
-      "ts_drop_chance": 95,
-      "ts_min_confidence": 0.2,
-      "ts_learning_packets": 50,
-      "tick_sync_direction": "inbound",
-      "stealth_pattern": "wifi_interference",
-      "stealth_base_drop": 8,
-      "stealth_cycle_sec": 10,
-      "stealth_drop_direction": "inbound",
-      "lag_delay": 1500,
+      "lag_delay": 250,
       "direction": "inbound",
-      "iat_min_sec": 0.006,
-      "notes": "Xbox NAT slightly more tolerant. rest=270 for safety margin. avg_loss = 40/310 = 12.9%."
+      "max_duration_sec": 300
     }
   },
-  "nat_keepalive": {
-    "default_interval_ms": 800,
-    "auto_calibrate": true,
-    "min_interval_ms": 200,
-    "max_interval_ms": 5000,
-    "probe_method": "observe_minimum_stable_interval"
+  "authorized_lab_presets": {
+    "pc_local_light_loss": {
+      "_network_local": true,
+      "description": "Mild loss profile for a private local PC lab.",
+      "methods": [
+        "drop"
+      ],
+      "drop_chance": 2,
+      "direction": "both",
+      "max_duration_sec": 300
+    },
+    "console_hotspot_jitter": {
+      "_network_local": false,
+      "description": "Jitter/latency profile for an operator-owned console hotspot lab.",
+      "methods": [
+        "lag"
+      ],
+      "lag_delay": 250,
+      "jitter_ms": 100,
+      "direction": "both",
+      "max_duration_sec": 300
+    },
+    "bandwidth_pressure": {
+      "_network_local": true,
+      "description": "Constrained bandwidth profile for private-server troubleshooting.",
+      "methods": [
+        "bandwidth"
+      ],
+      "bandwidth_limit_kbps": 256,
+      "direction": "both",
+      "max_duration_sec": 300
+    },
+    "short_disconnect": {
+      "_network_local": true,
+      "description": "Short interruption profile for validating client reconnect behavior in a private lab.",
+      "methods": [
+        "disconnect"
+      ],
+      "disconnect_duration_ms": 1000,
+      "direction": "both",
+      "max_duration_sec": 60
+    }
   },
-  "network_bubble": {
-    "radius_meters": 900,
-    "batch_send_create": 10
+  "platform_support": {
+    "pc": {
+      "connection_method": "local",
+      "diagnostic_layer": "NETWORK",
+      "notes": "Local process/device diagnostics only."
+    },
+    "console_hotspot": {
+      "connection_method": "operator_owned_hotspot",
+      "diagnostic_layer": "NETWORK_FORWARD",
+      "requires_authorized_scope": true
+    },
+    "wifi_same_network": {
+      "connection_method": "owned_or_authorized_lan",
+      "diagnostic_layer": "NETWORK_FORWARD",
+      "requires_npcap": true,
+      "requires_authorized_scope": true
+    }
   },
   "a2s_probe": {
     "enabled_by_default": true,
@@ -265,72 +177,17 @@
     "interval_s": 1.0,
     "timeout_s": 1.0,
     "include_roster": false,
-    "notes": "Source A2S_INFO poll during cuts. Auto-labels episode outcome when server player_count drops (hive evicted our session = dupe success). Does not require operator to press MARK DUPE. Host/port are passed via params.a2s_host / params.a2s_port; if absent the probe is skipped. include_roster=false by default because BattlEye strips player names on most DayZ servers."
+    "notes": "Source A2S_INFO polling is used only for passive reachability/query-health reporting. Player roster collection is disabled by default."
   },
-  "anti_cheat": {
-    "name": "BattlEye",
-    "kernel_mode": true,
-    "freeze_threshold_pct": 15,
-    "freeze_window_sec": 8,
-    "freeze_threshold_notes": "DayZ 1.27+ sliding-window connection quality monitor. Sustained avg loss >~15% over ~5-10s triggers player-freeze. All presets keep burst/(burst+rest) below this ceiling.",
-    "detection_vectors": [
-      "PiDDBCache driver signature scan",
-      "MmUnloadedDrivers scan",
-      "WFP filter enumeration (FwpmFilterEnum0)",
-      "Process/DLL module scanning",
-      "Sigma rule 679085d5 (WinDivert filename + IMPHASH)"
-    ],
-    "stealth_recommendations": {
-      "avoid_windivert_default_names": true,
-      "prefer_ndis_backend": true,
-      "behavioral_stealth": true,
-      "timing_randomization": true
-    }
-  },
-  "platform_support": {
-    "ps5": {
-      "connection_method": "ics_hotspot",
-      "gateway_subnet": "192.168.137.0/24",
-      "interception_layer": "NETWORK_FORWARD",
-      "nat_sensitivity": "high",
-      "keepalive_interval_ms": 800
-    },
-    "ps4": {
-      "connection_method": "ics_hotspot",
-      "gateway_subnet": "192.168.137.0/24",
-      "interception_layer": "NETWORK_FORWARD",
-      "nat_sensitivity": "high",
-      "keepalive_interval_ms": 800
-    },
-    "xbox_series": {
-      "connection_method": "ics_hotspot",
-      "gateway_subnet": "192.168.137.0/24",
-      "interception_layer": "NETWORK_FORWARD",
-      "nat_sensitivity": "medium",
-      "keepalive_interval_ms": 1000
-    },
-    "xbox_one": {
-      "connection_method": "ics_hotspot",
-      "gateway_subnet": "192.168.137.0/24",
-      "interception_layer": "NETWORK_FORWARD",
-      "nat_sensitivity": "medium",
-      "keepalive_interval_ms": 1000
-    },
-    "pc": {
-      "connection_method": "local",
-      "gateway_subnet": null,
-      "interception_layer": "NETWORK",
-      "nat_sensitivity": "low",
-      "keepalive_interval_ms": 2000
-    },
-    "wifi_same_network": {
-      "connection_method": "wifi_arp_spoof",
-      "gateway_subnet": null,
-      "interception_layer": "NETWORK_FORWARD",
-      "nat_sensitivity": "medium",
-      "keepalive_interval_ms": 800,
-      "requires_npcap": true,
-      "requires_arp_spoof": true
-    }
+  "reporting": {
+    "redact_raw_targets": true,
+    "redact_mac_addresses": true,
+    "operator_note_review_required": true,
+    "metrics": [
+      "latency_ms",
+      "jitter_ms",
+      "loss_percent",
+      "duration_sec"
+    ]
   }
 }

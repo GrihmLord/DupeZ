@@ -78,8 +78,8 @@ class _TempProfileDir:
                 "expected_range_hz": [20, 120],
                 "notes": "default"
             },
-            "anti_cheat": {
-                "detection_vectors": ["BattlEye kernel driver"]
+            "server_integrity": {
+                "review_notes": ["BattlEye kernel driver"]
             },
             "packet_classification": {
                 "auto_calibrate": False
@@ -161,14 +161,14 @@ class TestImpactRules(unittest.TestCase):
                     break
         self.assertTrue(matched)
 
-    def test_anticheat_rule_matches(self):
-        text = "BattlEye anti-cheat driver scan improvements"
+    def test_server_integrity_rule_matches(self):
+        text = "BattlEye driver scan improvements"
         matched_sections = set()
         for pattern, sections, severity in _IMPACT_RULES:
             import re
             if re.findall(pattern, text):
                 matched_sections.update(sections)
-        self.assertIn("anti_cheat", matched_sections)
+        self.assertIn("server_integrity", matched_sections)
 
     def test_tick_rate_rule(self):
         text = "Improved server FPS and tick rate stability"
@@ -227,7 +227,7 @@ class TestPatchMonitorAnalysis(unittest.TestCase):
             contents="Updated BattlEye anti-cheat with new WinDivert detection"
         )
         impact = self.monitor._analyze_impact(patch)
-        self.assertIn("anti_cheat", impact.affected_sections)
+        self.assertIn("server_integrity", impact.affected_sections)
         self.assertEqual(impact.severity, "critical")
         self.assertTrue(impact.needs_recalibration)
 
@@ -320,7 +320,7 @@ class TestPatchMonitorAutoActions(unittest.TestCase):
             with patch("app.core.patch_monitor._PROFILE_PATH", profile_path):
                 impact = PatchImpact(
                     patch=_make_fake_patch(),
-                    affected_sections=["anti_cheat"],
+                    affected_sections=["server_integrity"],
                     severity="critical",
                     needs_recalibration=False,
                 )
@@ -328,7 +328,7 @@ class TestPatchMonitorAutoActions(unittest.TestCase):
 
                 with open(profile_path) as f:
                     profile = json.load(f)
-                vectors = profile["anti_cheat"]["detection_vectors"]
+                vectors = profile["server_integrity"]["review_notes"]
                 self.assertTrue(
                     any("1.29" in v for v in vectors))
 

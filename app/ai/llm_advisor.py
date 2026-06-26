@@ -103,7 +103,6 @@ def _build_system_prompt() -> str:
     return """You are the DupeZ Smart Disruption Advisor. """ + game_intro + """
 
 Disruption modules (processed in chain order — first consumer wins):
-- godmode: Directional lag — inbound packets lagged so target freezes, outbound pass through for real-time actions. Params: godmode_lag_ms (0-5000), godmode_drop_inbound_pct (0-100), godmode_keepalive_interval_ms (0-5000, default 800 — NAT keepalive)
 - disconnect: Hard kill — drops packets at configurable rate. Params: disconnect_chance (0-100%, default 100 = total blackout)
 - drop: Random packet drop. Params: drop_chance (0-100%)
 - bandwidth: Limit throughput. Params: bandwidth_limit (KB/s), bandwidth_queue (0-1000)
@@ -115,21 +114,21 @@ Disruption modules (processed in chain order — first consumer wins):
 - rst: Inject TCP RST flags. Params: rst_chance (0-100%)
 
 Connection types:
-- hotspot (192.168.137.x): Windows ICS/mobile hotspot. Fragile — needs less aggression. God Mode most effective here (you ARE the gateway).
+- hotspot (192.168.137.x): Windows ICS/mobile hotspot. Fragile — use lower-intensity diagnostics because you control the gateway.
 - lan (192.168.x.x, 10.x.x.x): Resilient — needs aggressive settings.
 - wan: Natural jitter — moderate settings work.
 
 Device types:
-- console (PlayStation, Xbox, Nintendo): Limited network stack, very sensitive to out-of-order/duplicate packets. Best desync targets.
+- console (PlayStation, Xbox, Nintendo): Limited network stack, very sensitive to out-of-order/duplicate packets. Use conservative settings.
 - pc: Resilient, games often have reconnect logic.
 - mobile: Already struggles with packet loss.
 
-Proven DayZ scenarios:
-- Desync/Dupe: lag + duplicate + ood. Lag in passthrough mode queues delayed copies while duplicate floods real-time copies. lag_delay=1500-3000ms, duplicate_count=10-20, ood_chance=70-90. This creates the inventory desync window.
+Authorized DayZ diagnostics:
+- Jitter/loss: lag + drop. lag_delay=500-1500ms, drop_chance=30-60%.
 - Full disconnect: disconnect + drop + bandwidth + throttle. disconnect_chance=100, drop_chance=95, bandwidth_limit=1.
-- God mode: godmode module alone. godmode_lag_ms=2000-4000 for strong freeze. Add godmode_drop_inbound_pct=10-30 for harder freeze. keepalive=800ms default for NAT safety.
-- Soft lag (rubber banding): lag only, 200-600ms, direction=both. No passthrough (lag is solo).
-- General FPS: lag + drop. lag_delay=500-1500ms, drop_chance=30-60%.
+- Pulse diagnostic: use bounded lag/drop/disconnect settings in a private test session.
+- Soft lag: lag only, 200-600ms, direction=both.
+- Reordering pressure: lag + duplicate + ood with conservative settings in private test sessions only.
 
 Direction tuning:
 - "both": all traffic (default)
@@ -357,7 +356,7 @@ class LLMAdvisor:
     _REQUIRED_KEYS = {"methods", "params"}
     _VALID_METHODS = frozenset({
         "lag", "drop", "throttle", "duplicate", "ood", "corrupt",
-        "rst", "disconnect", "bandwidth", "godmode",
+        "rst", "disconnect", "bandwidth",
     })
 
     def _extract_json(self, text: str) -> Optional[dict]:
@@ -416,8 +415,6 @@ class LLMAdvisor:
         "ood_chance": (0, 100), "tamper_chance": (0, 100),
         "rst_chance": (0, 100), "bandwidth_limit": (0, 100000),
         "bandwidth_queue": (0, 1000),
-        "godmode_lag_ms": (0, 5000), "godmode_drop_inbound_pct": (0, 100),
-        "godmode_keepalive_interval_ms": (0, 5000),
     }
 
     def _clamp_params(self, params: dict) -> dict:
@@ -462,12 +459,12 @@ class LLMAdvisor:
             }
 
         # --- Specific disruption goals (narrower matches first) ---
-        if any(w in prompt_lower for w in ["god mode", "godmode", "invincib",
-                                            "invisible", "freeze them", "freeze other",
-                                            "keep moving", "can't see me"]):
-            return self._fallback_godmode(prompt_lower)
+        if any(w in prompt_lower for w in ["pulse diagnostic", "pulse test",
+                                            "inbound lag diagnostic",
+                                            "directional lag"]):
+            return self._fallback_disconnect(prompt_lower)
 
-        if any(w in prompt_lower for w in ["desync", "duplicate", "clone", "flood"]):
+        if any(w in prompt_lower for w in ["reorder", "duplicate packets", "packet duplicate"]):
             return self._fallback_desync(prompt_lower)
 
         if any(w in prompt_lower for w in ["disconnect", "kill", "boot", "kick"]):
@@ -538,8 +535,8 @@ class LLMAdvisor:
 
     def _fallback_desync(self, prompt: str) -> dict:
         i = self._detect_intensity(prompt)
-        # DayZ-specific tuning: higher duplicate count for inventory exploits
-        is_dayz = any(w in prompt for w in ["dayz", "day z", "chernarus", "livonia", "dupe"])
+        # DayZ-specific tuning: moderate duplicate count for private lab traces
+        is_dayz = any(w in prompt for w in ["dayz", "day z", "chernarus", "livonia"])
         dup_count = int(10 + 15 * i) if is_dayz else int(5 + 15 * i)
         lag_ms = int(500 + 1500 * i) if is_dayz else int(300 + 900 * i)
         return self._make_fallback("desync", ["lag", "duplicate", "ood"], {
@@ -554,28 +551,6 @@ class LLMAdvisor:
             "throttle_chance": int(50 + 50 * i),
             "throttle_frame": int(100 + 500 * i), "throttle_drop": True,
         }, i)
-
-    def _fallback_godmode(self, prompt: str) -> dict:
-        """God Mode: inbound-only lag so others freeze while you keep moving."""
-        i = self._detect_intensity(prompt)
-        lag_ms = int(1500 + 2500 * i)
-        drop_pct = int(20 + 30 * (i - 0.8) / 0.2) if i >= 0.8 else 0
-        on_hotspot = any(w in prompt for w in ["hotspot", "ics", "mobile", "tether", "137"])
-        if on_hotspot:
-            lag_ms = int(lag_ms * 0.8)
-        # NAT keepalive: reduce at high intensity, disable at max
-        keepalive_ms = 0 if i >= 0.95 else int(800 - 400 * i)
-        result = self._make_fallback("godmode", ["godmode"], {
-            "godmode_lag_ms": lag_ms, "godmode_drop_inbound_pct": drop_pct,
-            "godmode_keepalive_interval_ms": keepalive_ms,
-        }, i, "Directional lag — inbound packets delayed so others freeze")
-        result["reasoning"] = (
-            f"God Mode at {i:.0%} intensity: {lag_ms}ms inbound lag"
-            f"{f', {drop_pct}% inbound drop' if drop_pct else ''}"
-            f", NAT keepalive={keepalive_ms}ms"
-            f"{' (hotspot-tuned)' if on_hotspot else ''}"
-            " (keyword-parsed, no LLM)")
-        return result
 
     def _fallback_rubberband(self, prompt: str) -> dict:
         """Soft lag — rubber-banding / teleport effect without hard disconnect."""
@@ -627,12 +602,4 @@ class LLMAdvisor:
         for method, tpl, param_key in self._EXPLAIN_MAP:
             if method in methods:
                 parts.append(tpl.format(v=params.get(param_key, '?')) if param_key else tpl)
-        if "godmode" in methods:
-            lag = params.get('godmode_lag_ms', '?')
-            drop = params.get('godmode_drop_inbound_pct', 0)
-            keepalive = params.get('godmode_keepalive_interval_ms', 800)
-            parts.append(f"god mode lags inbound {lag}ms while passing outbound instantly"
-                        f"{f', dropping {drop}% inbound' if drop else ''}"
-                        f"{f', NAT keepalive every {keepalive}ms' if keepalive else ''}")
         return "This configuration " + ", ".join(parts) + "." if parts else "Custom disruption configuration."
-

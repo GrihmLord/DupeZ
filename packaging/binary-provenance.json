@@ -1,0 +1,30 @@
+{
+  "schema": "dupez.bundled-binaries.v1",
+  "reviewed_on": "2026-06-24",
+  "artifacts": [
+    {
+      "path": "app/firewall/WinDivert.dll",
+      "sha256": "6110bfa44667405179c3e15e12af1b62037e447ed59b054b19042032995e6c7e",
+      "size": 47104,
+      "version": "2.2",
+      "source": "https://github.com/basil00/WinDivert",
+      "authenticode": "unsigned"
+    },
+    {
+      "path": "app/firewall/WinDivert64.sys",
+      "sha256": "5c3e7bbb06ebb134bed7b1231fdf3139a2052cbe5e8c8418e54237933b51bb4e",
+      "size": 90288,
+      "version": "2.2",
+      "source": "https://github.com/basil00/WinDivert",
+      "authenticode": "valid"
+    },
+    {
+      "path": "app/firewall/clumsy.exe",
+      "sha256": "a9ea677795e6c92d1ca945d8b7b2ef1d264eeb7dc956feae368c7cf8b99ef37d",
+      "size": 439808,
+      "version": "custom bundled source",
+      "source": "app/firewall/clumsy_src",
+      "authenticode": "unsigned"
+    }
+  ]
+}

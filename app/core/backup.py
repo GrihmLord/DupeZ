@@ -59,6 +59,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import sys
 import zipfile
 from dataclasses import dataclass, field
@@ -251,6 +252,63 @@ def _collect_files() -> List[Path]:
     return sorted(out)
 
 
+def _collect_backup_entries() -> List[Tuple[Path, str]]:
+    """Return source paths paired with stable bundle-relative names."""
+    from app.core.app_paths import config_dir, data_dir, is_installed_runtime
+
+    if not is_installed_runtime():
+        return [
+            (path, path.resolve().relative_to(_repo_root()).as_posix())
+            for path in _collect_files()
+        ]
+
+    entries: List[Tuple[Path, str]] = []
+    seen: set[str] = set()
+    for base, prefix, patterns in (
+        (
+            data_dir(),
+            "app/data",
+            (
+                "*.json",
+                "*.hmac",
+                "*.backup.*.json",
+                "episodes/*.jsonl",
+                "profiles/*.json",
+                "models/*",
+                "audit.jsonl",
+                "dupe_log.jsonl",
+            ),
+        ),
+        (config_dir(), "app/config", ("*.json", "*.hmac")),
+    ):
+        if not base.exists():
+            continue
+        for pattern in patterns:
+            for path in base.glob(pattern):
+                if not path.is_file():
+                    continue
+                rel = f"{prefix}/{path.relative_to(base).as_posix()}"
+                if rel in seen or _is_excluded(rel):
+                    continue
+                seen.add(rel)
+                entries.append((path, rel))
+    return sorted(entries, key=lambda item: item[1])
+
+
+def _restore_destination(entry_path: str) -> Path:
+    """Map stable bundle paths to the current runtime storage roots."""
+    from app.core.app_paths import config_dir, data_dir, is_installed_runtime
+
+    norm = entry_path.replace("\\", "/")
+    if not is_installed_runtime():
+        return (_repo_root() / norm).resolve()
+    if norm.startswith("app/data/"):
+        return (data_dir() / norm.removeprefix("app/data/")).resolve()
+    if norm.startswith("app/config/"):
+        return (config_dir() / norm.removeprefix("app/config/")).resolve()
+    raise BackupError(f"non-restorable path: {entry_path!r}")
+
+
 def _hash_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -343,7 +401,7 @@ def create_backup(out_path, *, encrypt: bool = False) -> Path:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    files = _collect_files()
+    files = _collect_backup_entries()
     if not files:
         log_warning("create_backup: nothing to back up (no matching files)")
 
@@ -359,13 +417,12 @@ def create_backup(out_path, *, encrypt: bool = False) -> Path:
     # is acceptable for the simpler control flow.
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for src in files:
+        for src, rel in files:
             try:
                 data = src.read_bytes()
             except OSError as exc:
                 log_warning(f"create_backup: skipping {src}: {exc}")
                 continue
-            rel = src.resolve().relative_to(_repo_root()).as_posix()
             entry_path = f"files/{rel}"
             zf.writestr(entry_path, data)
             manifest.entries.append(
@@ -435,7 +492,6 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                     f"unsupported bundle schema: {manifest.schema!r}"
                 )
 
-            root = _repo_root()
             total_bytes = 0
             for entry in manifest.entries:
                 # ── SECURITY GATE 1: path allowlist ───────────────────
@@ -504,10 +560,24 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                     result.restored.append(entry.path)
                     continue
 
-                dest = (root / entry.path).resolve()
+                dest = _restore_destination(entry.path)
                 try:
-                    # Refuse to escape the repo tree (zip-slip guard).
-                    dest.relative_to(root.resolve())
+                    from app.core.app_paths import (
+                        config_dir,
+                        data_dir,
+                        is_installed_runtime,
+                    )
+
+                    allowed_roots = (
+                        [data_dir().resolve(), config_dir().resolve()]
+                        if is_installed_runtime()
+                        else [_repo_root().resolve()]
+                    )
+                    if not any(
+                        dest == root or root in dest.parents
+                        for root in allowed_roots
+                    ):
+                        raise ValueError
                 except ValueError:
                     log_error(
                         f"restore_backup: path traversal blocked: {entry.path}"
@@ -516,7 +586,19 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                     continue
 
                 dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(data)
+                tmp_dest = dest.with_suffix(dest.suffix + ".restoring")
+                try:
+                    with tmp_dest.open("wb") as handle:
+                        handle.write(data)
+                        handle.flush()
+                        os.fsync(handle.fileno())
+                    if _hash_bytes(tmp_dest.read_bytes()) != entry.sha256:
+                        raise BackupError(
+                            f"post-write verification failed: {entry.path}"
+                        )
+                    os.replace(tmp_dest, dest)
+                finally:
+                    tmp_dest.unlink(missing_ok=True)
                 result.restored.append(entry.path)
 
         log_info(

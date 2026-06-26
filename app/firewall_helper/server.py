@@ -12,11 +12,6 @@ Critical invariant (ADR-0001 §1.2):
     The module chain runs inside this process. No packet bodies cross the
     IPC boundary. The only things that cross are small JSON control
     messages at ~10 Hz.
-
-Day 1 status: handler table is complete, but the server is not yet wired
-into a real helper entry point. `dupez_helper.py` (next file) launches
-this with stub initialization. Day 2 will replace the stubbed imports
-with real ones and add crash-safe lifecycle handling.
 """
 
 from __future__ import annotations
@@ -25,6 +20,7 @@ import logging
 import threading
 from typing import Any, Callable, Dict, Optional
 
+from app.core.validation import validate_local_target_ip
 from app.firewall_helper.protocol import (
     ERR_BAD_REQUEST,
     ERR_INTERNAL,
@@ -59,7 +55,7 @@ class HelperDispatcher:
     """Translates IPC requests into disruption_manager method calls.
 
     The `disruption_manager` reference is injected at construction time
-    so we can stub it in unit tests without importing WinDivert.
+    so tests can inject a lightweight fake without importing WinDivert.
     """
 
     def __init__(
@@ -140,6 +136,10 @@ class HelperDispatcher:
             return Response.failure(
                 req.request_id, ERR_BAD_REQUEST, "missing 'ip'"
             )
+        try:
+            ip = validate_local_target_ip(ip, context="helper disruption")
+        except ValueError as exc:
+            return Response.failure(req.request_id, ERR_BAD_REQUEST, str(exc))
         methods = args.get("methods")
         params = args.get("params")
         kwargs = args.get("kwargs") or {}
@@ -220,6 +220,10 @@ class HelperDispatcher:
             return Response.failure(
                 req.request_id, ERR_BAD_REQUEST, "missing 'ip'"
             )
+        try:
+            ip = validate_local_target_ip(ip, context="helper firewall block")
+        except ValueError as exc:
+            return Response.failure(req.request_id, ERR_BAD_REQUEST, str(exc))
         result = self._blocker.block_device(ip, block=True)
         return Response.success(req.request_id, bool(result))
 

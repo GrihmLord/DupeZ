@@ -11,11 +11,10 @@ a named pipe for the unelevated GUI process to drive.
 Launch contract:
     dupez_helper.py --role helper [--pipe \\\\.\\pipe\\dupez_firewall_helper]
 
-Day 1 status: this is a scaffold. It imports and starts the real
-disruption_manager singleton (same module the inproc path uses), then
-runs the pipe server and waits for shutdown. Day 2 will harden the
-crash-safe lifecycle and Day 4 will add Job object self-registration so
-the helper dies if the parent GUI dies.
+The helper imports and starts the real disruption manager, authenticates
+the control pipe, watches the exact parent process identity, and performs
+packet/firewall cleanup before exit. A Windows Job object remains the
+preferred future hard binding.
 
 Critical invariant:
     When this process is running, it IS the firewall. The GUI process
@@ -87,7 +86,11 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _parent_watcher(parent_pid: int, shutdown_event) -> None:
+def _parent_watcher(
+    parent_pid: int,
+    shutdown_event,
+    expected_create_time: float | None = None,
+) -> None:
     """Poll for the parent process and request shutdown if it disappears.
 
     This is the Day 1 interim — Day 4 replaces this with a proper Windows
@@ -97,7 +100,15 @@ def _parent_watcher(parent_pid: int, shutdown_event) -> None:
     log = logging.getLogger("parent-watcher")
     log.info("watching parent pid=%d", parent_pid)
     while not shutdown_event.is_set():
-        if not psutil.pid_exists(parent_pid):
+        try:
+            process = psutil.Process(parent_pid)
+            same_process = (
+                expected_create_time is None
+                or abs(process.create_time() - expected_create_time) < 0.001
+            )
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            same_process = False
+        if not same_process:
             log.warning("parent pid=%d gone, initiating shutdown", parent_pid)
             shutdown_event.set()
             return
@@ -178,9 +189,18 @@ def main() -> int:
     # Optional parent-watcher thread.
     if args.parent_pid is not None:
         import threading
+        try:
+            import psutil
+            parent_create_time = psutil.Process(args.parent_pid).create_time()
+        except Exception:
+            parent_create_time = None
         t = threading.Thread(
             target=_parent_watcher,
-            args=(args.parent_pid, dispatcher.shutdown_event),
+            args=(
+                args.parent_pid,
+                dispatcher.shutdown_event,
+                parent_create_time,
+            ),
             name="parent-watcher",
             daemon=True,
         )
@@ -203,6 +223,17 @@ def main() -> int:
             pass
     except KeyboardInterrupt:
         log.info("KeyboardInterrupt, shutting down")
+
+    log.info("restoring helper-owned network state")
+    try:
+        disruption_manager.stop_all_devices()
+    except Exception as e:
+        log.error("error stopping active devices: %s", e)
+    if blocker_module is not None:
+        try:
+            blocker_module.clear_all_dupez_blocks()
+        except Exception as e:
+            log.error("error clearing firewall blocks: %s", e)
 
     log.info("stopping disruption engine")
     try:

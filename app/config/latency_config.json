@@ -55,36 +55,33 @@
 
   "dayz_server_latency": {},
 
-  "duping_latency_profiles": {
-    "stealth": {
-      "name": "Stealth Mode",
+  "diagnostic_latency_profiles": {
+    "light_jitter": {
+      "name": "Light Jitter",
       "latency_variance": 5.0,
       "packet_timing": 10.0,
       "target_latency": 30,
       "max_latency": 50,
-      "detection_risk": "low",
-      "success_rate": 85.0,
-      "description": "Low detection risk, slower execution"
+      "privacy_impact": "low",
+      "description": "Mild jitter profile for authorized local diagnostics"
     },
     "balanced": {
-      "name": "Balanced Mode",
+      "name": "Balanced Diagnostics",
       "latency_variance": 10.0,
       "packet_timing": 5.0,
       "target_latency": 25,
       "max_latency": 40,
-      "detection_risk": "medium",
-      "success_rate": 90.0,
-      "description": "Balanced performance and stealth"
+      "privacy_impact": "low",
+      "description": "Balanced profile for reproducible connection-health testing"
     },
-    "aggressive": {
-      "name": "Aggressive Mode",
+    "heavy_jitter": {
+      "name": "Heavy Jitter",
       "latency_variance": 20.0,
       "packet_timing": 2.0,
       "target_latency": 20,
       "max_latency": 35,
-      "detection_risk": "high",
-      "success_rate": 95.0,
-      "description": "High performance, higher detection risk"
+      "privacy_impact": "medium",
+      "description": "Higher-variance profile for private lab troubleshooting"
     },
     "custom": {
       "name": "Custom Mode",
@@ -92,8 +89,7 @@
       "packet_timing": 3.0,
       "target_latency": 25,
       "max_latency": 45,
-      "detection_risk": "medium",
-      "success_rate": 88.0,
+      "privacy_impact": "operator-reviewed",
       "description": "User-defined configuration"
     }
   },

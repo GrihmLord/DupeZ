@@ -147,6 +147,14 @@ def _condition_open_write(args: tuple) -> bool:
     return False
 
 
+def _condition_unsafe_import(args: tuple) -> bool:
+    try:
+        module_name = str(args[0])
+    except Exception:
+        return True
+    return module_name == "ctypes" or module_name.startswith("ctypes.")
+
+
 _RULES: list[_EventRule] = [
     # Raw sockets / WinDivert-level opens.
     _EventRule(
@@ -187,6 +195,17 @@ _RULES: list[_EventRule] = [
         pattern=re.compile(r"^(exec|compile)$"),
         capability=None,
         reason="dynamic code execution (exec/compile)",
+    ),
+    _EventRule(
+        pattern=re.compile(r"^import$"),
+        capability=None,
+        condition=_condition_unsafe_import,
+        reason="ctypes import can bypass the in-process capability policy",
+    ),
+    _EventRule(
+        pattern=re.compile(r"^ctypes\."),
+        capability=None,
+        reason="native memory/library access bypasses plugin policy",
     ),
 ]
 

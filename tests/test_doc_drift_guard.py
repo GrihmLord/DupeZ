@@ -29,6 +29,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[1]
 _HELP = _ROOT / "app" / "gui" / "panels" / "help_panel.py"
 _CLUMSY = _ROOT / "app" / "gui" / "clumsy_control.py"
+_PRESETS = _ROOT / "app" / "core" / "builtin_presets.py"
 _DASHBOARD = _ROOT / "app" / "gui" / "dashboard.py"
 
 # The tray-toggle is a standalone QShortcut, not a menu QAction, so the
@@ -60,9 +61,9 @@ def _find_value(tree: ast.Module, name: str) -> ast.expr | None:
 
 
 def _preset_names() -> set[str]:
-    """The built-in preset names — keys of clumsy_control.PRESETS."""
-    val = _find_value(_parse(_CLUMSY), "PRESETS")
-    assert isinstance(val, ast.Dict), "clumsy_control.PRESETS is not a dict literal"
+    """The built-in preset names from the backend source of truth."""
+    val = _find_value(_parse(_PRESETS), "BUILTIN_PRESETS")
+    assert isinstance(val, ast.Dict), "BUILTIN_PRESETS is not a dict literal"
     names = {
         k.value for k in val.keys
         if isinstance(k, ast.Constant) and isinstance(k.value, str)
@@ -133,7 +134,7 @@ def test_every_preset_is_documented() -> None:
     help_text = _help_text()
     missing = sorted(p for p in _preset_names() if p not in help_text)
     assert not missing, (
-        f"presets exist in clumsy_control.PRESETS but are not documented "
+        f"presets exist in builtin_presets.BUILTIN_PRESETS but are not documented "
         f"in help_panel.py: {missing}"
     )
 

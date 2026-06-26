@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.7.6"
+set "DUPEZ_VERSION=5.7.7"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -35,11 +35,12 @@ if errorlevel 1 (
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo Installing PyInstaller...
-    pip install pyinstaller
+    pip install pyinstaller==6.19.0
 )
 
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install --require-hashes -r requirements-locked.txt
+if errorlevel 1 exit /b 1
 
 :: ── 2. Clean stale artifacts ────────────────────────────────────────
 :: Kill any running DupeZ instances so their .exe files unlock.
@@ -52,9 +53,8 @@ taskkill /f /im DupeZ-Compat.exe >nul 2>&1
 :: Force-delete with verification. del /q silently no-ops on locked
 :: files, which historically caused PyInstaller's os.remove(self.name)
 :: to fail later in the build with WinError 5 (Access is denied).
-:: Defender real-time scanning is the usual culprit holding the handle
-:: after a fresh build; add dist\ + build\ to Defender exclusions to
-:: avoid this entirely (see release.md / build runbook).
+:: Endpoint protection may briefly hold a fresh artifact. Keep protection
+:: enabled; the cleanup path below waits, renames, and retries safely.
 call :force_delete "dist\DupeZ-GPU.exe"
 if errorlevel 1 (
     echo.
@@ -241,6 +241,13 @@ if exist "dist\DupeZ_Setup.exe.manifest.sig" (
 
 :skip_sign_manifest
 
+python scripts\sbom.py --out dist\DupeZ.sbom.json --product-version "%DUPEZ_VERSION%"
+if errorlevel 1 exit /b 1
+python scripts\vex.py --out dist\DupeZ.vex.json --product-version "%DUPEZ_VERSION%"
+if errorlevel 1 exit /b 1
+copy /y packaging\binary-provenance.json dist\binary-provenance.json >nul
+if errorlevel 1 exit /b 1
+
 :: ── 8. Final report ─────────────────────────────────────────────────
 echo.
 echo [5/5] Build summary
@@ -290,10 +297,8 @@ exit /b 0
 ::
 :: Required because cmd's `del /q` silently no-ops on locked files,
 :: which caused PyInstaller's os.remove(self.name) to fail with
-:: WinError 5 late in the Compat build. Add-MpPreference exclusions
-:: do NOT close existing Defender handles, they only prevent new
-:: scans — so retry-delete alone could not recover from a stale
-:: artifact that was already being scanned when the script started.
+:: WinError 5 late in the Compat build. The rename/retry strategy avoids
+:: weakening endpoint protection while still recovering stale artifacts.
 :force_delete
 set "_FD_TARGET=%~1"
 

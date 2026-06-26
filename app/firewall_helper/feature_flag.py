@@ -59,10 +59,10 @@ def _detect_gpu_available() -> bool:
     if sys.platform != "win32":
         return False
 
-    # Try the renderer_tier DXGI probe first — it's fast and dependency-free
+    # Shared core probe is fast, dependency-free, and safe outside the GUI.
     try:
-        from app.gui.map_host.renderer_tier import _probe_gpu_usable
-        usable, _reason = _probe_gpu_usable()
+        from app.core.gpu_probe import probe_gpu_usable
+        usable, _reason = probe_gpu_usable()
         return usable
     except Exception:
         pass

@@ -3,7 +3,7 @@
 Each model lives in its own submodule with a consistent interface:
     * :class:`BaseModel` — load/predict/fallback contract
     * ``load_default()`` — module-level helper that returns either the
-      trained model or a safe no-op stub when the artefact is missing.
+      trained model or a safe NullModel fallback when the artefact is missing.
 
 The online engine only ever depends on :class:`BaseModel`; training is
 kept out-of-process so production DLL imports stay lean.
@@ -13,10 +13,10 @@ Models:
     * survival_model     — KM baseline + kNN survival (primary). Use
                            :func:`load_default` to get the right model.
 
-Planned (Week 3-6 hardening sprint):
-    * flush_detector     — 1D CNN, predicts imminent hive flush
-    * rpc_classifier     — LightGBM, classifies RPC burst patterns
-    * stealth_keepalive  — VAE, generates idle-indistinguishable traffic
+Future defensive model ideas:
+    * quality_forecaster — predicts degraded connection-health windows
+    * rpc_classifier    — classifies benign packet bursts for diagnostics
+    * baseline_model    — compares local lab traffic to prior healthy runs
 """
 
 from __future__ import annotations

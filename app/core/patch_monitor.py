@@ -136,11 +136,11 @@ _IMPACT_RULES: List[Tuple[re.Pattern[str], List[str], str]] = [
     (re.compile(r"(?i)(desync|synchroniz|rollback|reconcil)"),
      ["reliable_udp", "disruption_defaults", "burst_strategy"], "high"),
 
-    # Anti-cheat
+    # Server integrity / detection-surface changes
     (re.compile(r"(?i)(battleye|anti.?cheat|ban\s*wave|detection|driver\s*scan)"),
-     ["anti_cheat"], "critical"),
+     ["server_integrity"], "critical"),
     (re.compile(r"(?i)(WinDivert|WFP|NDIS|kernel\s*driver|filter\s*enum)"),
-     ["anti_cheat"], "critical"),
+     ["server_integrity"], "critical"),
 
     # Connection / NAT
     (re.compile(r"(?i)(disconnect|kick|timeout|freeze|connection\s*quality)"),
@@ -171,7 +171,7 @@ _SEVERITY_RANK: Dict[str, int] = {
 # Config sections that trigger recalibration
 _CRITICAL_SECTIONS: frozenset[str] = frozenset({
     "network", "reliable_udp", "tick_model",
-    "packet_classification", "anti_cheat",
+    "packet_classification", "server_integrity",
 })
 
 
@@ -505,11 +505,11 @@ class PatchMonitor:
                 "Packet classification may be affected. Auto-calibration "
                 "will re-derive thresholds on next disruption session.")
 
-        if "anti_cheat" in sections:
+        if "server_integrity" in sections:
             recs.append(
-                "CRITICAL: Anti-cheat changes detected. Check BattlEye "
-                "detection vectors. Consider switching to NDIS backend "
-                "if WinDivert detections are mentioned.")
+                "CRITICAL: Server integrity or detection-surface changes "
+                "detected. Pause active diagnostics and review the release "
+                "notes before running any driver-backed capture.")
 
         if "disruption_defaults" in sections:
             recs.append(
@@ -575,19 +575,19 @@ class PatchMonitor:
                         f"Widened tick rate ceiling to {tick_ceiling}Hz "
                         f"(was {old_max}Hz)")
 
-            # If anti-cheat mentioned, update detection vector notes
-            if "anti_cheat" in impact.affected_sections:
-                ac = profile.get("anti_cheat", {})
-                vectors = ac.get("detection_vectors", [])
+            # If server-integrity changes are mentioned, update review notes.
+            if "server_integrity" in impact.affected_sections:
+                ac = profile.get("server_integrity", {})
+                vectors = ac.get("review_notes", [])
                 note = (
                     f"Potential update in {impact.patch.version_tag} -- "
-                    "review detection surface")
+                    "review server integrity and capture safety surface")
                 if note not in vectors:
                     vectors.append(note)
-                    ac["detection_vectors"] = vectors
-                    profile["anti_cheat"] = ac
+                    ac["review_notes"] = vectors
+                    profile["server_integrity"] = ac
                     modified = True
-                    actions.append("Added anti-cheat update note")
+                    actions.append("Added server-integrity update note")
 
             # Enable recalibration flags
             if impact.needs_recalibration:

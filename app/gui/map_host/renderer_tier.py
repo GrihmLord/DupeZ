@@ -314,7 +314,8 @@ def resolve_tier() -> Tier:
         log.warning("renderer tier: tier3_cpu (split arch but GUI has admin token)")
         return "tier3_cpu"
 
-    usable, reason = _probe_gpu_usable()
+    from app.core.gpu_probe import probe_gpu_usable
+    usable, reason = probe_gpu_usable()
     if usable:
         log.info("renderer tier: tier1_hw (%s)", reason)
         return "tier1_hw"

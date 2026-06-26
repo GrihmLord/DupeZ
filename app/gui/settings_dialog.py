@@ -552,6 +552,34 @@ class SettingsDialog(QDialog):
         g3.setLayout(fl3)
         lay.addWidget(g3)
 
+        g4 = QGroupBox("Active Operation Safety")
+        fl4 = QFormLayout()
+        fl4.setVerticalSpacing(10)
+        fl4.setContentsMargins(10, 8, 10, 8)
+
+        self.safety_dry_run_checkbox = QCheckBox(
+            "Validate and audit without changing network traffic"
+        )
+        fl4.addRow("Dry Run:", self.safety_dry_run_checkbox)
+
+        self.max_operation_seconds_spinbox = QSpinBox()
+        self.max_operation_seconds_spinbox.setRange(1, 3600)
+        self.max_operation_seconds_spinbox.setSuffix(" sec")
+        self.max_operation_seconds_spinbox.setToolTip(
+            "Hard auto-stop deadline applied to every active operation"
+        )
+        fl4.addRow("Maximum Duration:", self.max_operation_seconds_spinbox)
+
+        self.allowed_target_cidrs_edit = QTextEdit()
+        self.allowed_target_cidrs_edit.setMaximumHeight(85)
+        self.allowed_target_cidrs_edit.setPlaceholderText(
+            "One owned local CIDR per line, e.g. 192.168.1.0/24"
+        )
+        fl4.addRow("Allowed CIDRs:", self.allowed_target_cidrs_edit)
+
+        g4.setLayout(fl4)
+        lay.addWidget(g4)
+
         lay.addStretch()
         w.setLayout(lay)
         scroll.setWidget(w)
@@ -816,6 +844,8 @@ class SettingsDialog(QDialog):
             (self.encrypt_logs_checkbox, 'encrypt_logs'), (self.debug_mode_checkbox, 'debug_mode'),
             (self.verbose_logging_checkbox, 'verbose_logging'),
             (self.map_renderer_combo, 'map_renderer'),
+            (self.safety_dry_run_checkbox, 'safety_dry_run'),
+            (self.max_operation_seconds_spinbox, 'max_operation_seconds'),
         ]
 
     def _apply_settings_to_widgets(self, s) -> None:
@@ -832,6 +862,9 @@ class SettingsDialog(QDialog):
                 widget.setCurrentText(str(val))
         if hasattr(s, 'whitelist') and s.whitelist:
             self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
+        cidrs = getattr(s, 'allowed_target_cidrs', None)
+        if cidrs:
+            self.allowed_target_cidrs_edit.setPlainText('\n'.join(cidrs))
 
     def _read_widgets_to_dict(self) -> dict:
         """Read all widget values into a dict keyed by setting name."""
@@ -845,6 +878,11 @@ class SettingsDialog(QDialog):
                 d[key] = widget.currentText()
         d['whitelist'] = (self.whitelist_edit.toPlainText().split('\n')
                           if self.whitelist_edit.toPlainText() else [])
+        d['allowed_target_cidrs'] = [
+            line.strip()
+            for line in self.allowed_target_cidrs_edit.toPlainText().splitlines()
+            if line.strip()
+        ]
         return d
 
     def _load_settings(self) -> None:
@@ -859,6 +897,8 @@ class SettingsDialog(QDialog):
         try:
             d = self._read_widgets_to_dict()
             new_settings = AppSettings(**d)
+            from app.core.safety_policy import SafetyPolicy
+            SafetyPolicy.from_settings(new_settings)
             self.new_settings = new_settings
             self.settings_changed.emit({k: d[k] for k in (
                 'theme', 'auto_refresh', 'refresh_interval', 'show_device_icons',
@@ -1053,4 +1093,3 @@ class SettingsDialog(QDialog):
             self.stop_rainbow_btn.setEnabled(rainbow)
         except Exception as e:
             log_error(f"Error updating theme info: {e}")
-

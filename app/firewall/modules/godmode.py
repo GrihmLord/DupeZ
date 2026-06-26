@@ -1,4 +1,4 @@
-"""God Mode module — bidirectional pulse-cycling for DayZ PvP invulnerability.
+"""Legacy pulse module — bidirectional pulse-cycling for DayZ legacy pulse diagnostics.
 
 v6.0: Bidirectional block + IP-based direction + deep packet classifier.
 
@@ -6,8 +6,8 @@ How it works
 ────────────
 During BLOCK phase (e.g. 3 seconds):
   - OUTBOUND (device→server): queued. Server has your STALE position.
-    Other players see a frozen ghost at your last known location.
-    They shoot the ghost — misses your real position.
+    Other players see a delayed state at your last known location.
+    They shoot the delayed state — misses your real position.
   - INBOUND (server→device): queued. You see frozen enemies at their
     last known positions. Line up shots.
   - TCP (both dirs): always passes (BattlEye, Steam auth).
@@ -26,11 +26,11 @@ During FLUSH phase (e.g. 400ms), staggered:
 
 Result:
   - You teleport around (position only updates in bursts)
-  - You're hard to hit (frozen ghost between updates, only briefly
+  - You're hard to hit (delayed state between updates, only briefly
     visible at real position during flush)
   - Your shots register (staggered flush ensures client has fresh
     enemy positions → hit reports are valid against server state)
-  - You take minimal damage (enemies shoot at ghost position)
+  - You take minimal damage (enemies shoot at delayed state position)
 
 Direction detection uses IPv4 header inspection (NOT addr.Outbound)
 because on NETWORK_FORWARD + ICS, all forwarded packets read as
@@ -122,7 +122,7 @@ _FLUSH_POLL_INTERVAL_S: float = 0.001
 _BURST_SIZE: int = 50
 _BURST_PAUSE_S: float = 0.005
 
-DEFAULT_PULSE_BLOCK_MS: int = 3500       # longer block = deeper ghost desync
+DEFAULT_PULSE_BLOCK_MS: int = 3500       # longer block = deeper delayed state desync
 DEFAULT_PULSE_FLUSH_MS: int = 300        # shorter flush = less time enemies react
 DEFAULT_PULSE_FLUSH_MAX_PACKETS: int = 300
 
@@ -164,10 +164,10 @@ _QEntry = Tuple[float, bytearray, WINDIVERT_ADDRESS, PktClass]
 
 
 class GodModeModule(DisruptionModule):
-    """Bidirectional God Mode — pulse-cycling both directions for PvP invulnerability.
+    """Bidirectional Legacy pulse — pulse-cycling both directions for legacy pulse diagnostics.
 
     BLOCK phase:
-      - Outbound game packets queued → server has stale position → ghost
+      - Outbound game packets queued → server has stale position → delayed state
       - Inbound game packets queued → frozen enemies on screen
       - TCP always passes (both dirs) → connection health
       - Keepalives pass at interval (both dirs) → prevent timeout

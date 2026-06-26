@@ -1,5 +1,11 @@
 # DupeZ v6.x Feature Roadmap
 
+> **Archived planning document.** Some proposals below predate the
+> owned/authorized-lab product boundary adopted on June 25, 2026. They are not
+> approved implementation work. The current roadmap and
+> `docs/competitive_audit.md` supersede any server-integrity, bypass/evasion, or
+> unauthorized public-server use proposals in this file.
+
 Scoping doc for the six features Grihm selected from the v5.6.x deep-research pass. Each entry has: scope, architecture, effort estimate, dependencies, and a concrete next-action.
 
 Ordering recommendation at the bottom.
@@ -35,7 +41,7 @@ A `DupeHistoryPanel` widget. Recommended layout:
 Bind any preset to a global hotkey that fires while DupeZ is *not* the foreground window. Primary use case: trigger a cut while the operator is in DayZ at a keyboard or playing on console with the PC hotkey-bridging.
 
 ### Architecture
-- **Registration:** Win32 `RegisterHotKey()` via ctypes. Avoids the `keyboard` PyPI library, which installs a system-wide low-level hook that some anti-cheat heuristics flag.
+- **Registration:** Win32 `RegisterHotKey()` via ctypes. Avoids the `keyboard` PyPI library, which installs a system-wide low-level hook that some server-integrity heuristics flag.
 - **Receiver thread:** dedicated worker thread that pumps Windows messages via `GetMessageW`. Emits a `pyqtSignal` on `WM_HOTKEY` (msg = 0x0312). Main thread translates the hotkey ID to a registered action and dispatches.
 - **Storage:** `app/config/hotkeys.json`, structured as:
   ```json
@@ -152,7 +158,7 @@ Trigger DupeZ cuts from a phone over LAN. Use case: operator is at the console, 
 - The HMAC pairing infrastructure is mostly already in `app/core/second_factor.py` — reusable.
 
 ### Risks
-- **App Store approval.** Apple may reject an app that exists primarily to interact with a "game-network-disruption tool" depending on how it's described. Recommend framing as a generic LAN-trigger remote. Android sideloading bypasses this entirely if needed.
+- **App Store approval.** Apple may reject an app that exists primarily to interact with a "game-network-disruption tool" depending on how it's described. Recommend framing as a generic LAN-trigger remote. Android sideloading has a different review path.
 - **LAN-only constraint.** Mobile networks vary; some carriers NAT clients so the phone can't reach the PC. Document: "must be on same WiFi as DupeZ host." A future Tier 2 could add a Tailscale-style overlay but that's a separate project.
 
 ### Open questions
@@ -161,10 +167,10 @@ Trigger DupeZ cuts from a phone over LAN. Use case: operator is at the console, 
 
 ---
 
-## Feature 15 — Anti-detection telemetry (v5.7.x)
+## Feature 15 — Baseline drift telemetry (v5.7.x)
 
 ### Scope
-Passive monitor that watches DupeZ's own disruption patterns and warns the operator when the packet shape starts looking statistically unusual compared to a calibrated baseline. Goal: catch BattlEye / anti-cheat heuristic drift before it becomes a ban wave.
+Passive monitor that watches DupeZ's own disruption patterns and warns the operator when the packet shape starts looking statistically unusual compared to a calibrated baseline. Goal: catch server-integrity heuristic drift before it becomes an operational risk.
 
 ### Architecture
 
@@ -177,7 +183,7 @@ Passive monitor that watches DupeZ's own disruption patterns and warns the opera
   - **Inter-arrival KS test** — is the inter-packet gap distribution still close to baseline?
   - **Drop-rate Z-score** — is the loss rate within expected jitter for this network class?
   - **Payload-entropy delta** — are dropped/corrupted packets bunching in a way real loss never does?
-- Threshold breach → log a `detection_risk_high` event and surface a toast: "your current preset is drifting outside the baseline by N standard deviations; consider switching presets."
+- Threshold breach → log a `diagnostic_drift_high` event and surface a toast: "your current preset is drifting outside the baseline by N standard deviations; consider switching presets."
 
 **Module location:**
 - `app/security/detection_monitor.py` — calibration + live comparison logic.
@@ -195,7 +201,7 @@ Passive monitor that watches DupeZ's own disruption patterns and warns the opera
 
 ### Risk
 - **False positives.** A noisy network or a particularly aggressive preset will trip the detector even when nothing's actually wrong. The risk score needs to be *advisory*, not blocking. Threshold tuning will take real-world data.
-- **Doesn't actually detect anti-cheat.** It measures distance from the operator's own baseline, which is a proxy. If BattlEye's heuristics change in a way that catches patterns the operator never produced, this won't help. Frame it as "your packet shape is unusual," not "anti-cheat will catch you" — those are different claims.
+- **Doesn't actually detect server policy.** It measures distance from the operator's own baseline, which is a proxy. If BattlEye's heuristics change in a way that catches patterns the operator never produced, this won't help. Frame it as "your packet shape is unusual," not "server policy may flag it" — those are different claims.
 
 ### Open questions
 - Should the detector also auto-suggest a different preset when it trips? Tempting but adds complexity. Recommend: v1 is advisory-only.
@@ -244,7 +250,7 @@ Extend DupeZ beyond DayZ to other survival/online games where network-shape disr
 - Real-world testing per game. The operator (Grihm) or a community tester needs to verify each profile actually produces the desired outcome in-game. This is the long-tail cost; per-game tuning probably takes a week of real play per title.
 
 ### Risks
-- **Each game's anti-cheat is different.** EAC (Rust), BattlEye (DayZ, ARK), proprietary (Valheim). What works on one may flag on another. Per-game baseline + detection monitor (Feature 15) helps here.
+- **Each game's server-integrity stack is different.** EAC (Rust), BattlEye (DayZ, ARK), proprietary (Valheim). What works on one may flag on another. Per-game baseline + detection monitor (Feature 15) helps here.
 - **Game updates break profiles.** When Rust patches its netcode, the profile needs re-tuning. Maintenance burden grows linearly with supported games.
 - **Scope creep.** "Add support for X" requests will be constant. Recommend: ship Rust + ARK first (largest survival audiences after DayZ), then evaluate community demand.
 
@@ -258,7 +264,7 @@ Extend DupeZ beyond DayZ to other survival/online games where network-shape disr
 ```
 v5.6.8  ┃ Save-bug fix + recent_episodes() backend         ← SHIPPING NOW
 v5.6.9  ┃ Dupe-history UI panel + hotkey macros            ← 2-3 day release
-v5.7.0  ┃ Anti-detection telemetry                          ← 1 week release
+v5.7.0  ┃ Baseline drift telemetry                          ← 1 week release
 v5.7.x  ┃ Cross-game profiles (Rust + ARK)                  ← 2 week release
 v5.8.0  ┃ Plugin marketplace                                ← 2 week release
 v5.9.0  ┃ Mobile companion                                  ← 2 week release
@@ -266,7 +272,7 @@ v5.9.0  ┃ Mobile companion                                  ← 2 week release
 
 **Rationale:**
 1. Hotkey macros and the dupe-history UI are low-risk, high-utility, and the user-facing complement to what v5.6.8 ships. Bundle them as v5.6.9.
-2. Anti-detection telemetry feeds every other feature (cross-game tuning, mobile-triggered cuts, marketplace plugins all benefit from the risk signal). Build it before they need it.
+2. Baseline drift telemetry feeds every other feature (cross-game tuning, mobile-triggered cuts, marketplace plugins all benefit from the risk signal). Build it before they need it.
 3. Cross-game support multiplies the addressable surface area and pairs naturally with the plugin marketplace (community-authored game profiles).
 4. Plugin marketplace is the platform play; once it's live, individual feature releases compound because contributors can extend without core changes.
 5. Mobile companion is last because it's the most surface-area-heavy and the least technically reusable across the other features.

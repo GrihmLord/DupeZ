@@ -1,4 +1,4 @@
-"""Disconnect module — stateful cut-with-timer as the primary dupe vector.
+"""Disconnect module — stateful cut-with-timer for lab diagnostics.
 
 State machine:
     ARMED   → arm delay counting down, packets pass through untouched
@@ -6,14 +6,14 @@ State machine:
     DONE    → cut duration elapsed, packets pass through again
 
 When *disconnect_duration_ms* is 0 (default legacy behavior) the module
-stays in CUTTING forever after the arm delay — matches the previous
-"drop everything until you turn it off" semantics.
+stays in CUTTING forever after the arm delay — matching the previous
+"hold the impairment until you stop it" semantics.
 
 When *disconnect_duration_ms* > 0 the module auto-transitions to DONE
 after the cut elapses, so the session can reconnect on its own without
 the operator having to tear down the engine. This is the shape the
-Week 1 sprint needs: arm → cut for N seconds → release, all driven by
-the module itself.
+authorized-diagnostics shape: arm → cut for N seconds → release, all
+driven by the module itself.
 
 Parameters (via *params* dict):
     disconnect_chance       (int):   Drop probability 0-100. Default 100.

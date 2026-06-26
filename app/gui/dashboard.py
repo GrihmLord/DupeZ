@@ -320,6 +320,7 @@ class DupeZDashboard(QMainWindow):
             )
             btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
             btn.clicked.connect(handler)
+            btn.setAccessibleName(attr.removeprefix("btn_").capitalize())
             setattr(self, attr, btn)
 
         tb.addWidget(self.btn_minimize)
@@ -349,6 +350,7 @@ class DupeZDashboard(QMainWindow):
         hl.addWidget(logo)
 
         self.status_indicator = QLabel("\u25cf  CONNECTED")
+        self.status_indicator.setAccessibleName("Application connection status")
         self.status_indicator.setStyleSheet(
             "color: #00ff88; font-weight: 700; font-size: 11px;"
             " letter-spacing: 0.5px; background: transparent;"
@@ -444,6 +446,8 @@ class DupeZDashboard(QMainWindow):
         """Create a sidebar navigation button."""
         btn = QPushButton(icon)
         btn.setToolTip(tooltip)
+        btn.setAccessibleName(tooltip)
+        btn.setAccessibleDescription(f"Open the {tooltip} view")
         btn.setCheckable(True)
         btn.setFixedSize(40, 40)
         btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -683,6 +687,12 @@ class DupeZDashboard(QMainWindow):
         self._add_action(file_menu, "&Scan Network", "Ctrl+S",
                          lambda: self.clumsy_view.start_scan())
         self._add_action(file_menu, "&Export Data", "Ctrl+E", self._export_data)
+        self._add_action(
+            file_menu,
+            "Export Active Scenario &Report…",
+            "Ctrl+Shift+E",
+            self._export_active_scenario_report,
+        )
         file_menu.addSeparator()
         self._add_action(file_menu, "Minimize to &Tray", "", self._minimize_to_tray_action)
         self._add_action(file_menu, "E&xit", "Ctrl+Q", self._tray_quit)
@@ -720,6 +730,8 @@ class DupeZDashboard(QMainWindow):
                          self._show_risk_score)
         self._add_action(tools_menu, "&Diagnostics…", "F2",
                          self._show_diagnostics)
+        self._add_action(tools_menu, "Network &Health…", "Ctrl+F2",
+                         self._show_network_health)
         self._add_action(tools_menu, "&Kill Switch — Panic Stop", "Ctrl+Alt+X",
                          self._kill_switch_panic)
         self._add_action(tools_menu, "Toggle &OBS Overlay Server", "",
@@ -760,6 +772,10 @@ class DupeZDashboard(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.device_status_label = QLabel("Devices: 0")
         self.disruption_status_label = QLabel("Disruptions: 0")
+        self.device_status_label.setAccessibleName("Discovered device count")
+        self.disruption_status_label.setAccessibleName(
+            "Active operation count"
+        )
         self.status_bar.addWidget(self.device_status_label)
         self.status_bar.addPermanentWidget(self.disruption_status_label)
 
@@ -772,6 +788,7 @@ class DupeZDashboard(QMainWindow):
         }
         label_text, color, tooltip = _tier_labels.get(_tier, ("?", "#94a3b8", "Unknown renderer tier"))
         self._gpu_tier_label = QLabel(f"  Map: {label_text}")
+        self._gpu_tier_label.setAccessibleName("Map renderer status")
         self._gpu_tier_label.setStyleSheet(f"color: {color}; font-size: 10px; font-weight: 600;")
         self._gpu_tier_label.setToolTip(tooltip)
         self.status_bar.addPermanentWidget(self._gpu_tier_label)
@@ -912,9 +929,16 @@ class DupeZDashboard(QMainWindow):
         """Create a one-click backup bundle of all DupeZ data."""
         try:
             from app.core.backup import create_backup
+            from app.core.app_paths import backups_dir
+
+            default_dir = backups_dir()
+            default_dir.mkdir(parents=True, exist_ok=True)
             path, _ = QFileDialog.getSaveFileName(
                 self, "Create Backup",
-                f"dupez-backup-{__import__('time').strftime('%Y%m%d_%H%M%S')}.zip",
+                str(
+                    default_dir
+                    / f"dupez-backup-{__import__('time').strftime('%Y%m%d_%H%M%S')}.zip"
+                ),
                 "DupeZ Backup (*.zip);;Encrypted DupeZ Backup (*.zip.dpapi)",
             )
             if not path:
@@ -1030,6 +1054,65 @@ class DupeZDashboard(QMainWindow):
         except Exception as exc:
             log_error(f"diagnostics display failed: {exc}")
             QMessageBox.warning(self, "Diagnostics", f"Could not run: {exc}")
+
+    def _show_network_health(self) -> None:
+        """Display a concise, privacy-preserving health summary."""
+        try:
+            from app.core.network_health import build_network_health_snapshot
+
+            snapshot = build_network_health_snapshot()
+            overall = snapshot["overall"]
+            summary = overall["summary"]
+            adapters = snapshot["network"]["adapters"]
+            route = snapshot["network"]["default_route"]
+            lines = [
+                f"Health score: {overall['score']}/100",
+                f"Status: {overall['status'].upper()}",
+                (
+                    "Checks: "
+                    f"{summary['pass']} pass, {summary['warn']} warn, "
+                    f"{summary['fail']} fail"
+                ),
+                "",
+                (
+                    "Adapters: "
+                    f"{adapters.get('up_adapter_count', '?')}/"
+                    f"{adapters.get('adapter_count', '?')} up"
+                ),
+                f"Default route: {route.get('kind', 'unknown')}",
+                (
+                    "Windows Packet Monitor: "
+                    f"{'available' if snapshot['capabilities']['pktmon_available'] else 'unavailable'}"
+                ),
+                f"Recovery pending: {snapshot['recovery']['pending']}",
+            ]
+            if snapshot["recommendations"]:
+                lines.extend(["", "Recommended next actions:"])
+                lines.extend(
+                    f"• {item}" for item in snapshot["recommendations"]
+                )
+            box = QMessageBox(self)
+            box.setWindowTitle("DupeZ Network Health")
+            box.setAccessibleName("DupeZ Network Health summary")
+            box.setAccessibleDescription(
+                "Network readiness, safety, recovery, and diagnostic results"
+            )
+            box.setIcon(
+                QMessageBox.Icon.Critical
+                if summary["fail"]
+                else QMessageBox.Icon.Warning
+                if summary["warn"]
+                else QMessageBox.Icon.Information
+            )
+            box.setText("\n".join(lines))
+            box.exec()
+        except Exception as exc:
+            log_error(f"network health display failed: {exc}")
+            QMessageBox.warning(
+                self,
+                "Network Health",
+                f"Could not build health snapshot: {exc}",
+            )
 
     def _kill_switch_panic(self) -> None:
         """Immediate panic-stop of all disruptions (manual kill switch)."""
@@ -1148,6 +1231,41 @@ class DupeZDashboard(QMainWindow):
                 self.status_bar.showMessage(f"Exported to {filename}", 3000)
         except Exception as exc:
             log_error(f"Export error: {exc}")
+
+    def _export_active_scenario_report(self) -> None:
+        """Export scope/deadline state without raw targets or parameters."""
+        try:
+            if not self.controller:
+                return
+            directory = QFileDialog.getExistingDirectory(
+                self,
+                "Choose Scenario Report Folder",
+            )
+            if not directory:
+                return
+            from app.core.scenario_report import (
+                build_scenario_report,
+                write_scenario_report,
+            )
+
+            report = build_scenario_report(
+                self.controller.get_active_operations()
+            )
+            path = write_scenario_report(report, output_dir=directory)
+            QMessageBox.information(
+                self,
+                "Scenario Report Exported",
+                "Privacy-preserving report written to:\n"
+                f"{path}\n\n"
+                "Targets are masked and parameter values are fingerprinted.",
+            )
+        except Exception as exc:
+            log_error(f"scenario report export failed: {exc}")
+            QMessageBox.warning(
+                self,
+                "Scenario Report",
+                f"Could not export report: {exc}",
+            )
 
     def _show_hotkeys(self) -> None:
         """Display the hotkey reference dialog.

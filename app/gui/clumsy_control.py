@@ -80,6 +80,8 @@ try:
 except ImportError:
     GPC_AVAILABLE = False
 
+from app.core.builtin_presets import BUILTIN_PRESETS
+
 __all__ = ["ClumsyControlView", "PRESETS", "MODULE_DEFS", "CollapsibleCard"]
 
 # Shared reusable widget — extracted to app/gui/widgets/
@@ -89,51 +91,8 @@ from app.gui.widgets.collapsible_card import CollapsibleCard  # noqa: E402
 # Each preset defines a named disruption configuration with the modules
 # to enable, their parameter values, and a short user-facing description.
 
-PRESETS: Dict[str, Dict[str, Any]] = {
-    "Red Disconnect": {
-        "description": "Hard disconnect — 100% drop, 3s lag, zero bandwidth, throttle, full kill",
-        "methods": ["lag", "drop", "bandwidth", "throttle", "disconnect"],
-        "params": {
-            "lag_delay": 3000, "drop_chance": 100,
-            "bandwidth_limit": 0, "bandwidth_queue": 0,
-            "throttle_chance": 100, "throttle_frame": 600,
-            "throttle_drop": True, "direction": "both",
-            # Stateful cut defaults — 0/0 preserves legacy "drop until stopped"
-            # behavior; set via sliders to arm a timed cut.
-            "disconnect_chance": 100,
-            "disconnect_arm_delay_ms": 0,
-            "disconnect_duration_ms": 0,
-        }
-    },
-    "Lag": {
-        "description": "Heavy sustained lag + drop — tune sliders after selecting (Light ~800/60 · Max ~5000/100)",
-        "methods": ["lag", "drop", "bandwidth", "throttle"],
-        "params": {
-            "lag_delay": 2500, "drop_chance": 90,
-            "bandwidth_limit": 1, "bandwidth_queue": 0,
-            "throttle_chance": 80, "throttle_frame": 400,
-            "throttle_drop": True, "direction": "both",
-        }
-    },
-    "God Mode": {
-        "description": "Bidirectional pulse-cycle — ghost teleport, invulnerable, hits land.",
-        "methods": ["godmode"],
-        "params": {
-            "godmode_pulse": True,
-            "godmode_pulse_block_ms": 3500,   # 3.5s block — deep desync
-            "godmode_pulse_flush_ms": 300,    # 300ms flush — tight window
-            "godmode_flush_stagger_ms": 100,  # fast inbound→outbound stagger
-            "godmode_keepalive_interval_ms": 800,
-            "godmode_flush_gamestate_keep": 4,
-            "direction": "both",
-        }
-    },
-    "Custom": {
-        "description": "Set your own parameters below",
-        "methods": [],
-        "params": {}
-    }
-}
+# Backward-compatible public name; authoritative data lives in app.core.
+PRESETS = BUILTIN_PRESETS
 
 
 # NOTE: Platform-specific presets (pc_local / ps5_hotspot / xbox_hotspot)
@@ -177,6 +136,15 @@ class ClumsyControlView(QWidget):
     scan_started = pyqtSignal()
     scan_finished = pyqtSignal(list)
     _scan_results_ready = pyqtSignal(list)   # internal: thread-safe scan delivery
+
+    @staticmethod
+    def _format_count(n: int) -> str:
+        """Compatibility wrapper for legacy stats formatting tests."""
+        if n >= 1_000_000:
+            return f"{n / 1_000_000:.1f}M"
+        if n >= 1_000:
+            return f"{n / 1_000:.1f}K"
+        return str(n)
 
     @staticmethod
     def _cb_qss(radius=2, color="#00f0ff", margin=False):
@@ -548,9 +516,8 @@ class ClumsyControlView(QWidget):
             parent_layout=self._sections_layout, collapsed=True)
         self._sections_layout.addWidget(self._section_direction)
 
-        # Dupe preset and its dedicated controls tree were removed —
-        # the duplication workflow now runs through the red DISCONNECT
-        # module directly, so no separate dupe UI is needed here.
+        # Legacy multi-mode timing controls were consolidated into the
+        # stateful DISCONNECT module, so no separate timing UI is needed.
 
         # ---- MODULE CONTROLS ----
         # Each module: [enable checkbox] NAME  [param sliders]
@@ -684,7 +651,7 @@ class ClumsyControlView(QWidget):
         # Quick-schedule row
         sched_row1 = QHBoxLayout()
         sched_row1.setSpacing(4)
-        # Duration: sub-second resolution for clone-dupe timing
+        # Duration: sub-second resolution for reproducible lab diagnostics
         self.sched_duration = QDoubleSpinBox()
         self.sched_duration.setRange(0.5, 3600.0)
         self.sched_duration.setDecimals(1)
@@ -731,7 +698,7 @@ class ClumsyControlView(QWidget):
 
         # ---- ML DATA CAPTURE ----
         # Opt-in: writes per-window feature vectors + cut_start/cut_end
-        # events to app/data/episodes/ for offline training. Hot path
+        # events to the per-user episodes folder for offline training. Hot path
         # cost is zero when unchecked.
         _ml_group = QGroupBox("ML DATA CAPTURE")
         _ml_group.setStyleSheet(self._CARD_QSS)
@@ -740,7 +707,8 @@ class ClumsyControlView(QWidget):
         self.record_episodes_cb = QCheckBox("Record session (feature vectors + cut labels)")
         self.record_episodes_cb.setStyleSheet(self._MODULE_CB_QSS)
         self.record_episodes_cb.setToolTip(
-            "Writes JSONL episodes to app/data/episodes/ for training the "
+            "Writes JSONL episodes to the per-user DupeZ data folder for "
+            "training the "
             "cut-duration regressor and flush detector."
         )
         _ml_layout.addWidget(self.record_episodes_cb)
@@ -775,7 +743,7 @@ class ClumsyControlView(QWidget):
         # cheapest possible label schema.
         _outcome_row = QHBoxLayout()
         _outcome_row.setSpacing(6)
-        self.mark_success_btn = QPushButton("✓ MARK DUPE SUCCESS")
+        self.mark_success_btn = QPushButton("✓ MARK POSITIVE OUTCOME")
         self.mark_success_btn.setStyleSheet(
             "QPushButton { background: rgba(0,255,140,0.12); color: #00ff8c; "
             "border: 1px solid rgba(0,255,140,0.35); border-radius: 6px; "
@@ -783,12 +751,12 @@ class ClumsyControlView(QWidget):
             "QPushButton:hover { background: rgba(0,255,140,0.22); }"
         )
         self.mark_success_btn.setToolTip(
-            "Label the current/last cut as a successful dupe "
-            "(hive DID NOT flush → persisted=False, event observed)."
+            "Label the current/last cut as a positive lab outcome "
+            "(persisted=False, event observed)."
         )
         self.mark_success_btn.clicked.connect(
             lambda: self._on_mark_cut_outcome(persisted=False))
-        self.mark_fail_btn = QPushButton("✗ MARK DUPE FAIL")
+        self.mark_fail_btn = QPushButton("✗ MARK NEGATIVE OUTCOME")
         self.mark_fail_btn.setStyleSheet(
             "QPushButton { background: rgba(255,70,70,0.12); color: #ff6666; "
             "border: 1px solid rgba(255,70,70,0.35); border-radius: 6px; "
@@ -796,8 +764,8 @@ class ClumsyControlView(QWidget):
             "QPushButton:hover { background: rgba(255,70,70,0.22); }"
         )
         self.mark_fail_btn.setToolTip(
-            "Label the current/last cut as a failed dupe "
-            "(hive flushed → persisted=True)."
+            "Label the current/last cut as a negative lab outcome "
+            "(persisted=True)."
         )
         self.mark_fail_btn.clicked.connect(
             lambda: self._on_mark_cut_outcome(persisted=True))
@@ -1259,7 +1227,12 @@ class ClumsyControlView(QWidget):
             )
             return
 
-        X, _d, _e, _paths = extract_samples(Path("app/data/episodes"), real_only=True)
+        from app.core.data_persistence import _resolve_data_directory
+
+        X, _d, _e, _paths = extract_samples(
+            Path(_resolve_data_directory()) / "episodes",
+            real_only=True,
+        )
         if len(X) == 0:
             # Model is loaded but has no recent features — use the KM
             # baseline at a neutral feature vector. The wrapper handles
@@ -1269,7 +1242,7 @@ class ClumsyControlView(QWidget):
         else:
             feat = list(X[-1])
 
-        # Survival-axis quantiles: probability of dupe success.
+        # Survival-axis quantiles: probability of the labeled outcome.
         p50, p75, p90 = model.predict_interval(feat, 0.5, 0.9)
         chosen_ms = int(round(p75 * 1000))
         slider = self.sliders.get("disconnect_duration_ms")
@@ -1293,9 +1266,8 @@ class ClumsyControlView(QWidget):
     def _on_mark_cut_outcome(self, persisted: bool) -> None:
         """Forward an outcome label to every live engine.
 
-        ``persisted=False`` means the dupe succeeded (hive did not
-        flush). The label lands on the survival trainer as the event
-        indicator.
+        ``persisted=False`` marks the configured positive lab outcome.
+        The label lands on the survival trainer as the event indicator.
         """
         if not self.controller:
             self.outcome_status.setText("No controller — cannot label cuts.")
@@ -1941,7 +1913,31 @@ class ClumsyControlView(QWidget):
             status_item = self.device_table.item(row, 5)
             if ip_item and status_item:
                 ip = ip_item.data(Qt.ItemDataRole.UserRole) or ip_item.text()
-                text, color = ("DISRUPTED", "#ff4444") if ip in disrupted else ("ONLINE", "#00ff88")
+                if ip in disrupted:
+                    deadline = (
+                        self.controller.get_operation_deadline_status(ip)
+                        if hasattr(
+                            self.controller,
+                            "get_operation_deadline_status",
+                        )
+                        else {}
+                    )
+                    remaining = deadline.get("remaining_seconds")
+                    if remaining is not None:
+                        mins, secs = divmod(int(remaining), 60)
+                        text = f"ACTIVE · {mins}:{secs:02d} LEFT"
+                        status_item.setToolTip(
+                            "Automatic safety stop is armed"
+                        )
+                    else:
+                        text = "ACTIVE · NO DEADLINE"
+                        status_item.setToolTip(
+                            "Warning: no automatic safety stop is visible"
+                        )
+                    color = "#ff4444"
+                else:
+                    text, color = "ONLINE", "#00ff88"
+                    status_item.setToolTip("")
                 status_item.setText(text)
                 status_item.setForeground(QColor(color))
 

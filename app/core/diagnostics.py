@@ -6,8 +6,6 @@ writability, Windows Firewall posture — into a single callable list
 with per-check remediation hints. The UI consumes the list and
 renders pass/fail badges plus "Fix this" buttons.
 
-No new diagnostics. Just centralized.
-
 Each check returns a :class:`CheckResult` with:
 
     name        : human title
@@ -146,8 +144,9 @@ def _check_windivert_files() -> CheckResult:
         fix_hint=(
             "WinDivert files are bundled with DupeZ. If they're missing, "
             "your installer was incomplete or AV quarantined them. "
-            "Re-install from the latest GitHub release and add the "
-            "DupeZ install folder to your antivirus exclusion list."
+            "Re-install from the latest signed GitHub release, verify the "
+            "published hashes, and investigate the quarantine event. Do not "
+            "create a broad antivirus exclusion."
         ),
     )
 
@@ -281,31 +280,136 @@ def _check_data_directory() -> CheckResult:
         )
 
 
-def _check_firewall_exclusion() -> CheckResult:
-    """Best-effort check: is Windows Defender blocking us?
+def _check_secret_store() -> CheckResult:
+    """Secret-store directory must be reachable for durable HMAC keys."""
+    from app.core.secret_store import check_store_health
 
-    We can't actually query Defender from user-mode without admin, so
-    this is a hint check — we look for symptoms (recent quarantine
-    events in our own log) rather than a definitive answer.
-    """
+    health = check_store_health()
+    if health.healthy:
+        return CheckResult(
+            name="Secret store",
+            status=CheckStatus.PASS,
+            message=f"writable: {health.path}",
+        )
+    location = health.safe_path or "%LOCALAPPDATA%\\DupeZ\\secrets"
+    error = health.safe_error or health.error or "unknown error"
+    return CheckResult(
+        name="Secret store",
+        status=CheckStatus.FAIL,
+        message=f"secret store unavailable at {location}: {error}",
+        fix_hint=(
+            "DupeZ cannot reliably persist audit and data-integrity keys. "
+            f"{health.remediation_hint}"
+        ),
+    )
+
+
+def _check_persistence_key() -> CheckResult:
+    """Persistence HMAC should use the durable secret-store key."""
+    try:
+        from app.core.data_persistence import persistence_key_degraded
+        if persistence_key_degraded():
+            return CheckResult(
+                name="Persistence integrity key",
+                status=CheckStatus.WARN,
+                message="using legacy machine-derived fallback key",
+                fix_hint=(
+                    "Persistence integrity still works, but it is weaker "
+                    "than the secret-store-backed design. Repair the secret "
+                    "store and restart DupeZ so data files are re-signed "
+                    "under the durable per-install key."
+                ),
+            )
+        return CheckResult(
+            name="Persistence integrity key",
+            status=CheckStatus.PASS,
+            message="secret-store-backed HMAC key active",
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="Persistence integrity key",
+            status=CheckStatus.WARN,
+            message=f"check failed: {exc}",
+            fix_hint=(
+                "Run the Secret store diagnostic first; persistence key "
+                "health depends on that storage layer."
+            ),
+        )
+
+
+def _check_audit_chain() -> CheckResult:
+    """Audit log should be unsealed, non-degraded, and verifiable."""
+    try:
+        from app.logs.audit import get_audit_logger
+        audit = get_audit_logger()
+        valid, count, error = audit.verify_chain()
+        if audit.is_sealed():
+            return CheckResult(
+                name="Audit chain",
+                status=CheckStatus.FAIL,
+                message="audit logger is sealed after a tamper signal",
+                fix_hint=(
+                    "Investigate the audit files first. Then run "
+                    "`python -m app.cli recovery audit-status` and, only "
+                    "after preserving evidence, reset with "
+                    "`python -m app.cli recovery reset-audit --apply`."
+                ),
+            )
+        if not valid:
+            return CheckResult(
+                name="Audit chain",
+                status=CheckStatus.FAIL,
+                message=f"audit chain failed after {count} entries: {error}",
+                fix_hint=(
+                    "Treat this as a possible tamper or key-loss event. "
+                    "Preserve the audit directory before resetting the chain "
+                    "through the recovery CLI."
+                ),
+            )
+        if audit.degraded:
+            return CheckResult(
+                name="Audit chain",
+                status=CheckStatus.WARN,
+                message=f"chain verifies, but audit key is degraded ({count} entries)",
+                fix_hint=(
+                    "The audit logger is using an ephemeral key because the "
+                    "secret store was unavailable. Repair the secret store "
+                    "and restart DupeZ to restore cross-run verification."
+                ),
+            )
+        return CheckResult(
+            name="Audit chain",
+            status=CheckStatus.PASS,
+            message=f"verified {count} audit entr{'y' if count == 1 else 'ies'}",
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="Audit chain",
+            status=CheckStatus.WARN,
+            message=f"check failed: {exc}",
+            fix_hint=(
+                "Run `python -m app.cli recovery audit-status` for a focused "
+                "audit report."
+            ),
+        )
+
+
+def _check_firewall_exclusion() -> CheckResult:
+    """Report safe endpoint-protection guidance without weakening Defender."""
     if not sys.platform.startswith("win"):
         return CheckResult(
-            name="Windows Defender exclusion",
+            name="Windows Defender posture",
             status=CheckStatus.WARN,
             message="non-Windows host — skipped",
         )
     return CheckResult(
-        name="Windows Defender exclusion",
+        name="Windows Defender posture",
         status=CheckStatus.WARN,
-        message="cannot verify automatically — recommend manual check",
+        message="endpoint-protection status is not queried automatically",
         fix_hint=(
-            "Add the DupeZ install folder to Windows Defender exclusions "
-            "to prevent the dist\\ + build\\ folders from being scanned "
-            "(causes the 'access denied' build failures historically "
-            "seen on Compat-variant rebuilds)."
-        ),
-        fix_command=(
-            'Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\\Programs\\DupeZ"'
+            "Do not add broad Defender exclusions. If a build artifact is "
+            "temporarily locked, wait for scanning to finish, rebuild in a "
+            "clean dedicated directory, and verify signatures and hashes."
         ),
     )
 
@@ -339,7 +443,151 @@ def _check_episode_store() -> CheckResult:
         )
 
 
+def _check_operation_journal() -> CheckResult:
+    """Report whether a prior run left network state requiring recovery."""
+    try:
+        from app.core.operation_journal import OperationJournal
+        journal = OperationJournal()
+        if journal.is_pending():
+            return CheckResult(
+                name="Network recovery journal",
+                status=CheckStatus.FAIL,
+                message="pending network-state restoration detected",
+                fix_hint=(
+                    "Restart DupeZ with the required privileges. Startup will "
+                    "stop packet operations and remove DupeZ firewall rules "
+                    "before enabling background services."
+                ),
+            )
+        return CheckResult(
+            name="Network recovery journal",
+            status=CheckStatus.PASS,
+            message="no pending crash-recovery marker",
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="Network recovery journal",
+            status=CheckStatus.WARN,
+            message=f"check failed: {exc}",
+        )
+
+
+def _check_runtime_storage() -> CheckResult:
+    """Verify installed builds separate mutable state from binaries."""
+    try:
+        from app.core.app_paths import (
+            config_dir,
+            data_dir,
+            ensure_runtime_migration,
+            is_installed_runtime,
+            legacy_runtime_root,
+        )
+
+        if not is_installed_runtime():
+            return CheckResult(
+                name="Runtime storage separation",
+                status=CheckStatus.PASS,
+                message="source checkout uses explicit development paths",
+            )
+        results = ensure_runtime_migration() or ()
+        errors = [
+            error
+            for result in results
+            for error in result.errors
+        ]
+        conflicts = [
+            conflict
+            for result in results
+            for conflict in result.conflicts
+        ]
+        binary_root = legacy_runtime_root().resolve()
+        mutable_roots = [data_dir().resolve(), config_dir().resolve()]
+        if any(root == binary_root or binary_root in root.parents for root in mutable_roots):
+            return CheckResult(
+                name="Runtime storage separation",
+                status=CheckStatus.FAIL,
+                message="mutable state still resolves beneath the binary directory",
+                fix_hint=(
+                    "Set a writable per-user LOCALAPPDATA location and restart "
+                    "DupeZ before running active operations."
+                ),
+            )
+        if errors:
+            return CheckResult(
+                name="Runtime storage separation",
+                status=CheckStatus.FAIL,
+                message=f"legacy migration has {len(errors)} copy error(s)",
+                fix_hint=(
+                    "Preserve the legacy app/data and app/config folders, "
+                    "repair per-user storage permissions, then restart to retry."
+                ),
+            )
+        if conflicts:
+            return CheckResult(
+                name="Runtime storage separation",
+                status=CheckStatus.WARN,
+                message=(
+                    f"per-user storage active; {len(conflicts)} legacy "
+                    "conflict(s) preserved"
+                ),
+                fix_hint=(
+                    "The per-user destination won. Review legacy files before "
+                    "deleting them; DupeZ does not delete migration sources."
+                ),
+            )
+        return CheckResult(
+            name="Runtime storage separation",
+            status=CheckStatus.PASS,
+            message="mutable data and config use per-user storage",
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="Runtime storage separation",
+            status=CheckStatus.FAIL,
+            message=f"storage-path check failed: {exc}",
+            fix_hint="Preserve existing data and inspect per-user storage permissions.",
+        )
+
+
 # ── Registry + public API ────────────────────────────────────────────
+
+def _check_wifi_adapter() -> CheckResult:
+    """Passive WiFi-route detection for user troubleshooting."""
+    try:
+        from app.network.wifi_probe import get_wifi_route_info
+        route = get_wifi_route_info()
+        adapter = route.adapter_name or "unknown adapter"
+        masked_ip = route.masked_local_ip or "unknown local IP"
+        if route.is_wifi:
+            return CheckResult(
+                name="WiFi adapter path",
+                status=CheckStatus.PASS,
+                message=(
+                    f"default route uses WiFi adapter '{adapter}' "
+                    f"({masked_ip})"
+                ),
+            )
+        return CheckResult(
+            name="WiFi adapter path",
+            status=CheckStatus.WARN,
+            message=(
+                f"default route is not detected as WiFi via '{adapter}' "
+                f"({masked_ip}): {route.reason or 'unknown reason'}"
+            ),
+            fix_hint=(
+                "If you expected WiFi, confirm Windows is routing traffic "
+                "through the wireless adapter. Adapter names containing "
+                "Wi-Fi, Wireless, WLAN, or 802.11 are recognized. This is "
+                "a passive diagnostic and does not change network state."
+            ),
+        )
+    except Exception as exc:
+        return CheckResult(
+            name="WiFi adapter path",
+            status=CheckStatus.WARN,
+            message=f"check failed: {exc}",
+        )
+
 
 ALL_CHECKS: List[DiagnosticCheck] = [
     DiagnosticCheck(
@@ -358,6 +606,11 @@ ALL_CHECKS: List[DiagnosticCheck] = [
         runner=_check_npcap,
     ),
     DiagnosticCheck(
+        name="wifi_adapter",
+        description="Passively report whether the default route appears to be WiFi",
+        runner=_check_wifi_adapter,
+    ),
+    DiagnosticCheck(
         name="clumsy",
         description="Verify clumsy.exe fallback availability (optional)",
         runner=_check_clumsy_fallback,
@@ -371,6 +624,31 @@ ALL_CHECKS: List[DiagnosticCheck] = [
         name="data_directory",
         description="Verify the persistence directory is writable",
         runner=_check_data_directory,
+    ),
+    DiagnosticCheck(
+        name="secret_store",
+        description="Verify the OS-backed secret store is writable",
+        runner=_check_secret_store,
+    ),
+    DiagnosticCheck(
+        name="persistence_key",
+        description="Verify persistence integrity uses durable keying",
+        runner=_check_persistence_key,
+    ),
+    DiagnosticCheck(
+        name="audit_chain",
+        description="Verify audit log integrity and degraded state",
+        runner=_check_audit_chain,
+    ),
+    DiagnosticCheck(
+        name="operation_journal",
+        description="Check for network state left pending after a crash",
+        runner=_check_operation_journal,
+    ),
+    DiagnosticCheck(
+        name="runtime_storage",
+        description="Verify mutable state is separated from installed binaries",
+        runner=_check_runtime_storage,
     ),
     DiagnosticCheck(
         name="firewall",

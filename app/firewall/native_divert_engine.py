@@ -621,7 +621,7 @@ class NativeWinDivertEngine:
         """Return live packet counters for this engine instance.
 
         Includes per-module stats for any module that implements ``get_stats()``.
-        This surfaces God Mode classification, queue depth, flush counts, etc.
+        This surfaces module classification, queue depth, release counts, etc.
         """
         stats = {
             "packets_processed": self._packets_processed,
@@ -1026,7 +1026,7 @@ class NativeWinDivertEngine:
                     self._a2s_probe = None
 
             # Cut verifier: active ICMP probe against target_ip. Required
-            # by MAXIMUM CUT preset (_require_cut_verifier=true) and
+            # by guarded verifier presets (_require_cut_verifier=true) and
             # optional elsewhere (opt in with params["enable_cut_verifier"]).
             _want_verifier = bool(
                 self.params.get("enable_cut_verifier")
@@ -1089,7 +1089,7 @@ class NativeWinDivertEngine:
 
             # Flow-health watchdog: if we don't see ANY packets within
             # 3 s of start, the filter is wrong, the target isn't
-            # generating traffic, or ARP poisoning silently failed
+            # generating traffic, or local forwarding setup silently failed
             # (most common dupe-failure cause on switched networks).
             # Runs once, fire-and-forget.
             threading.Thread(
@@ -1284,7 +1284,7 @@ class NativeWinDivertEngine:
     def _flow_health_check(self, window_s: float) -> None:
         """Warn loudly if the WinDivert filter sees zero packets in *window_s*.
 
-        On switched networks, ARP poisoning can fail silently — the
+        On switched networks, local forwarding setup can fail silently — the
         spoof thread reports success but no target traffic actually
         flows through us, so every cut is a no-op. This watchdog
         catches that case and surfaces it instead of leaving the
@@ -1309,21 +1309,22 @@ class NativeWinDivertEngine:
             # Zero packets. Try to tell the operator why.
             arp_hint = ""
             try:
-                # Best-effort: if there's an ArpSpoofer attached and it
-                # claims to be active but we see nothing, the poison
-                # isn't propagating (wrong iface, IP forwarding off,
+                # Best-effort: if there's a local forwarding helper attached
+                # and it claims to be active but we see nothing, the forwarding
+                # path isn't propagating (wrong iface, IP forwarding off,
                 # switch with port-security, etc.).
                 spoofer = getattr(self, "_arp_spoofer", None)
                 if spoofer is not None and getattr(spoofer, "is_active", False):
                     arp_hint = (
-                        " ARP spoofer is ACTIVE but no packets are "
-                        "reaching the filter — poison likely failed "
+                        " Local forwarding helper is ACTIVE but no packets are "
+                        "reaching the filter — setup likely failed "
                         "(check iface, IP forwarding, MAC resolution)."
                     )
                 elif spoofer is None:
                     arp_hint = (
-                        " No ARP spoofer attached — on a switched LAN "
-                        "you may need one to see target traffic."
+                        " No local forwarding helper attached — on a switched "
+                        "LAN you may need the local-path diagnostic mode to "
+                        "see authorized target traffic."
                     )
             except Exception:
                 pass
@@ -1351,12 +1352,11 @@ class NativeWinDivertEngine:
         """Populate params['disconnect_duration_ms'] from the survival model.
 
         STRICTLY gated on ``params["_auto_tune_duration"]`` being truthy.
-        Direct GUI cuts (clone-dupe workflow) leave this flag unset and
-        retain legacy open-ended semantics: cut stays open until the
-        operator releases it, no forced duration, no quiet-window tail.
-        The clone-dupe protocol requires an instant clean release synced
-        to the account-switch beat — any forced duration or quiet window
-        sabotages that timing.
+        Direct GUI diagnostics leave this flag unset and retain legacy
+        open-ended semantics: the impairment stays open until the
+        operator releases it, with no forced duration and no quiet-window
+        tail. This preserves predictable manual timing during authorized
+        lab runs.
 
         Only Smart Mode (which opts in by setting ``_auto_tune_duration``)
         gets model-driven duration. The quiet window must be seeded by the
@@ -1365,7 +1365,7 @@ class NativeWinDivertEngine:
         if "disconnect" not in self.methods:
             return
         if not self.params.get("_auto_tune_duration"):
-            return  # operator / direct-cut path — respect legacy semantics
+            return  # operator / direct diagnostic path — respect legacy semantics
         current = self.params.get("disconnect_duration_ms", 0) or 0
         if current > 0:
             return  # operator pinned a value, respect it
@@ -1439,9 +1439,9 @@ class NativeWinDivertEngine:
         disruption. Packets that survive early modules hit later ones.
         Order: godmode → disconnect → drop → bandwidth → throttle → lag → ood → duplicate → corrupt → rst
 
-        God Mode is special: it handles direction internally (lag inbound,
-        pass outbound) so it goes first.  If godmode is active, other
-        modules only see packets that godmode didn't consume.
+        The legacy pulse-cycle module handles direction internally, so it
+        remains first for backward compatibility. If active, later modules
+        only see packets it did not consume.
         """
         _ensure_modules_loaded()
 
@@ -1458,8 +1458,8 @@ class NativeWinDivertEngine:
             if key in self.params:
                 log_info(f"[ENGINE INIT]   {key} = {self.params[key]}")
 
-        # Enforce optimal module order for maximum disruption.
-        # ("dupe" removed — duplication now runs through the disconnect module.)
+        # Enforce stable module order for deterministic diagnostics.
+        # Legacy timing modes are now consolidated into the disconnect module.
         PRIORITY_ORDER = [
             "godmode", "disconnect", "drop", "bandwidth", "throttle",
             "lag", "ood", "duplicate", "corrupt", "rst",
@@ -1473,8 +1473,8 @@ class NativeWinDivertEngine:
         # continue to downstream modules (creates desync combos).
         #
         # SKIP auto-enable when lag_passthrough is explicitly set in params
-        # (e.g. God Mode presets set it to False because they use duplicate
-        # on outbound-only while lag must consume inbound packets).
+        # (e.g. legacy pulse presets may set it to False because they use
+        # duplicate on outbound-only while lag must consume inbound packets).
         has_downstream = bool({"duplicate", "ood"} & set(self.methods))
         lag_pt_explicit = "lag_passthrough" in self.params
         if has_downstream and not lag_pt_explicit:
@@ -1521,7 +1521,7 @@ class NativeWinDivertEngine:
                     log_info(f"[ENGINE INIT]   └─ flush thread started")
 
                 # Auto-activate modules with state machines (e.g. the
-                # disconnect timed-cut module, God Mode pulse cycler)
+                # disconnect timed-cut module, legacy pulse cycler)
                 if hasattr(mod, 'activate') and callable(getattr(mod, 'activate')):
                     try:
                         mod.activate()
@@ -1578,9 +1578,9 @@ class NativeWinDivertEngine:
         filter.  This means a module configured for "inbound" only will
         never see outbound packets — they skip right past it.
 
-        This is what makes God Mode work: the GodModeModule handles
-        direction internally, but regular modules (lag, drop, etc.) can
-        also be configured per-direction via "{module}_direction" params.
+        The legacy pulse module handles direction internally, but regular
+        modules (lag, drop, etc.) can also be configured per-direction via
+        "{module}_direction" params.
         """
         packet_buf = (ctypes.c_uint8 * MAX_PACKET_SIZE)()
         recv_len = wintypes.UINT(0)

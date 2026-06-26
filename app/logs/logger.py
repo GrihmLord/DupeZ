@@ -98,13 +98,9 @@ class SafeConsoleHandler(logging.StreamHandler):
 
 def _resolve_log_directory() -> str:
     """Return a writable log directory for both dev and frozen exe."""
-    if getattr(sys, "frozen", False):
-        base = os.path.dirname(sys.executable)
-    else:
-        base = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-    return os.path.join(base, "logs")
+    from app.core.app_paths import logs_dir
+
+    return str(logs_dir())
 
 
 class DupeZLogger:
@@ -139,7 +135,7 @@ class DupeZLogger:
     def __init__(self, name: str = "DupeZ", log_dir: str = "") -> None:
         self.name = name
         self.log_dir = Path(log_dir or _resolve_log_directory())
-        self.log_dir.mkdir(exist_ok=True)
+        self.log_dir.mkdir(parents=True, exist_ok=True)
 
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)

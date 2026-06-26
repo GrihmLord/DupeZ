@@ -21,7 +21,7 @@ _CUT_STATE_COLOR = {
     "unknown":   ("#64748b", "UNKNOWN",   "probe not reachable yet"),
     "connected": ("#00ff88", "CONNECTED", "cut hasn't landed — target still in session"),
     "degraded":  ("#fbbf24", "DEGRADED",  "ping failing, session still alive server-side"),
-    "severed":   ("#ff4444", "SEVERED",   "character evicted — dupe window open"),
+    "severed":   ("#ff4444", "SEVERED",   "character evicted — isolation window open"),
 }
 
 
@@ -90,9 +90,9 @@ class StatsPanel(QWidget):
         self._stat_engines_label = self._view._lbl("Engines: 0 active", "#6b7280")
         stats_layout.addWidget(self._stat_engines_label)
 
-        # Auto-detect + ARP-spoof + cut-verifier status banner.
+        # Auto-detect + ARP-local forwarding + cut-verifier status banner.
         # One line per active device. Shows: profile / layer /
-        # ARP-spoof state (with packets sent) / cut-verifier state.
+        # ARP-local forwarding state (with packets sent) / cut-verifier state.
         # Hidden when nothing is active.
         self._stat_target_label = QLabel("")
         self._stat_target_label.setStyleSheet(
@@ -137,8 +137,8 @@ class StatsPanel(QWidget):
         stats_group.setLayout(stats_layout)
         layout.addWidget(stats_group)
 
-        # ── God Mode detail panel (hidden when godmode inactive) ────
-        self._godmode_group = self._view._card("GOD MODE")
+        # ── Legacy pulse detail panel (hidden unless legacy telemetry appears) ────
+        self._godmode_group = self._view._card("LEGACY PULSE")
         gm_layout = QVBoxLayout()
         gm_layout.setSpacing(4)
 
@@ -251,7 +251,7 @@ class StatsPanel(QWidget):
                 _banner_lines.append(self._format_device_banner(
                     display_ip=display_ip,
                     detection=_det,
-                    arp_active=dstats.get("arp_spoof_active"),
+                    arp_active=dstats.get("arp_local forwarding_active"),
                     arp_packets=dstats.get("arp_packets_sent", 0),
                     cut_state=_cut_state,
                 ))
@@ -272,14 +272,14 @@ class StatsPanel(QWidget):
                 self._stat_target_label.setToolTip("")
                 self._stat_target_label.setVisible(False)
 
-            # ── God Mode detail panel ───────────────────────────────
+            # ── Legacy pulse detail panel ──────────────────────────
             self._refresh_godmode_stats(per_device)
 
         except Exception as e:
             log_error(f"Stats refresh error: {e}")
 
     def _refresh_godmode_stats(self, per_device: dict) -> None:
-        """Update God Mode stats panel from module-level stats."""
+        """Update legacy pulse stats panel from module-level stats."""
         gm_stats = None
         for _ip, dstats in per_device.items():
             mod_stats = dstats.get("module_stats", {})
@@ -390,7 +390,7 @@ class StatsPanel(QWidget):
             parts.append(f"ARP:ACTIVE({arp_packets})")
         elif arp_active is False:
             parts.append("ARP:INACTIVE")
-        elif detection.get("needs_arp_spoof"):
+        elif detection.get("needs_arp_local forwarding"):
             parts.append("ARP:REQUIRED(not started)")
 
         if cut_state:

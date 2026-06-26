@@ -53,6 +53,16 @@ STATION_OPTIONS = [
     'Exploder Kit', 'Pox Kit', 'Raider Kit', 'Geared',
     'PVP/Raid Kit', 'Raider/PvP Kit', 'PvP Kit/Raider Kit',
 ]
+DAYZ_MAP_OPTIONS = [
+    'Chernarus', 'Livonia', 'Namalsk', 'Sakhal',
+    'Deer Isle', 'Esseker', 'Banov', 'Pripyat',
+]
+NEEDS_FILTER_OPTIONS = ['Any Needs State', 'Needs Work', 'No Needs']
+VALUE_FILTER_OPTIONS = ['Any Value', 'High Value', 'Medium Value', 'Low Value']
+_NO_NEEDS_VALUES = {'', '-', 'none', 'no needs', 'ready', 'ok', 'n/a'}
+_LOW_VALUE_MARKERS = {'low', 'fresh', 'starter', 'empty', 'throwaway'}
+_MEDIUM_VALUE_MARKERS = {'medium', 'mid', 'moderate'}
+_HIGH_VALUE_MARKERS = {'high', 'valuable', 'priority', 'rare', 'stash', 'geared'}
 STATUS_COLORS = {
     'Ready':           QColor(76, 175, 80),
     'Blood Infection': QColor(244, 67, 54),
@@ -199,6 +209,77 @@ def _canon_station(val: str) -> str:
     """Return the canonical-cased station if *val* matches, else *val* as-is."""
     key = (val or "").strip().lower()
     return _STATION_CANON.get(key, val.strip() if isinstance(val, str) else val)
+
+
+def _account_text_blob(account: Dict[str, Any]) -> str:
+    """Return a lower-cased searchable text blob for one account."""
+    return " ".join(str(account.get(field, "")) for field in ACCOUNT_FIELDS).lower()
+
+
+def _infer_dayz_map(account: Dict[str, Any]) -> str:
+    """Infer the DayZ map from location/notes-style fields."""
+    haystack = " ".join(
+        str(account.get(field, ""))
+        for field in ("location", "notes", "server")
+    ).lower()
+    for map_name in DAYZ_MAP_OPTIONS:
+        if map_name.lower() in haystack:
+            return map_name
+    return "Unknown"
+
+
+def _has_open_needs(account: Dict[str, Any]) -> bool:
+    """True when the account's needs field contains actionable text."""
+    needs = str(account.get("needs", "")).strip().lower()
+    return needs not in _NO_NEEDS_VALUES
+
+
+def _value_bucket(account: Dict[str, Any]) -> str:
+    """Classify free-form value/gear text into a coarse priority bucket."""
+    text = " ".join(
+        str(account.get(field, ""))
+        for field in ("value", "station", "gear", "holding", "loadout")
+    ).lower()
+    if any(marker in text for marker in _HIGH_VALUE_MARKERS):
+        return "High Value"
+    if any(marker in text for marker in _LOW_VALUE_MARKERS):
+        return "Low Value"
+    if any(marker in text for marker in _MEDIUM_VALUE_MARKERS):
+        return "Medium Value"
+    return "Any Value"
+
+
+def _filter_dayz_accounts(
+    accounts: List[Dict[str, Any]],
+    *,
+    search_text: str = "",
+    status: str | None = None,
+    station: str | None = None,
+    map_name: str | None = None,
+    needs_state: str | None = None,
+    value_bucket: str | None = None,
+) -> List[Dict[str, Any]]:
+    """Return accounts matching DayZ-aware tracker filters."""
+    query = (search_text or "").strip().lower()
+    out: List[Dict[str, Any]] = []
+    for account in accounts:
+        if status and account.get("status", "") != status:
+            continue
+        if station and station != "Any Station" and account.get("station", "") != station:
+            continue
+        if map_name and map_name != "Any Map" and _infer_dayz_map(account) != map_name:
+            continue
+        if needs_state == "Needs Work" and not _has_open_needs(account):
+            continue
+        if needs_state == "No Needs" and _has_open_needs(account):
+            continue
+        if value_bucket and value_bucket != "Any Value":
+            if _value_bucket(account) != value_bucket:
+                continue
+        if query and query not in _account_text_blob(account):
+            continue
+        out.append(account)
+    return out
 
 # ── QSS constants ──────────────────────────────────────────────────
 
@@ -402,6 +483,46 @@ class DayZAccountTracker(QWidget):
         chips_layout.addStretch()
         layout.addLayout(chips_layout)
 
+        dayz_filters = QHBoxLayout()
+        dayz_filters.setSpacing(6)
+        dayz_label = QLabel("DayZ:")
+        dayz_label.setStyleSheet("color: #64748b; font-size: 11px; font-weight: bold;")
+        dayz_filters.addWidget(dayz_label)
+
+        self.station_filter_combo = QComboBox()
+        self.station_filter_combo.addItems(["Any Station"] + STATION_OPTIONS)
+        self.station_filter_combo.currentTextChanged.connect(
+            self._on_search_or_filter_changed
+        )
+        dayz_filters.addWidget(self.station_filter_combo)
+
+        self.map_filter_combo = QComboBox()
+        self.map_filter_combo.addItems(["Any Map"] + DAYZ_MAP_OPTIONS + ["Unknown"])
+        self.map_filter_combo.currentTextChanged.connect(
+            self._on_search_or_filter_changed
+        )
+        dayz_filters.addWidget(self.map_filter_combo)
+
+        self.needs_filter_combo = QComboBox()
+        self.needs_filter_combo.addItems(NEEDS_FILTER_OPTIONS)
+        self.needs_filter_combo.currentTextChanged.connect(
+            self._on_search_or_filter_changed
+        )
+        dayz_filters.addWidget(self.needs_filter_combo)
+
+        self.value_filter_combo = QComboBox()
+        self.value_filter_combo.addItems(VALUE_FILTER_OPTIONS)
+        self.value_filter_combo.currentTextChanged.connect(
+            self._on_search_or_filter_changed
+        )
+        dayz_filters.addWidget(self.value_filter_combo)
+
+        clear_filters_btn = QPushButton("Clear Filters")
+        clear_filters_btn.clicked.connect(self._clear_all_filters)
+        dayz_filters.addWidget(clear_filters_btn)
+        dayz_filters.addStretch()
+        layout.addLayout(dayz_filters)
+
         # ── Statistics row ──
         stats_layout = QHBoxLayout()
         stat_defs = [
@@ -599,25 +720,64 @@ class DayZAccountTracker(QWidget):
             chip.setChecked(False)
         self._on_search_or_filter_changed()
 
+    def _clear_all_filters(self) -> None:
+        """Reset search, status chips, and DayZ facet filters."""
+        self._active_status_filter = None
+        for chip in self._status_chips.values():
+            chip.setChecked(False)
+        if hasattr(self, "search_input"):
+            self.search_input.clear()
+        for attr in (
+            "station_filter_combo",
+            "map_filter_combo",
+            "needs_filter_combo",
+            "value_filter_combo",
+        ):
+            combo = getattr(self, attr, None)
+            if combo is not None:
+                combo.setCurrentIndex(0)
+        self._on_search_or_filter_changed()
+
     def _on_search_or_filter_changed(self) -> None:
         """Refilter the table when search text or status chip changes."""
         try:
             search_text = self.search_input.text().strip().lower() if hasattr(self, 'search_input') else ""
-            filtered = list(self.accounts)
-
-            # Apply status chip filter
-            if self._active_status_filter:
-                filtered = [a for a in filtered
-                            if a.get('status', '') == self._active_status_filter]
-
-            # Apply search text filter
-            if search_text:
-                filtered = [a for a in filtered
-                            if any(search_text in a.get(f, '').lower()
-                                   for f in ACCOUNT_FIELDS)]
+            station = (
+                self.station_filter_combo.currentText()
+                if hasattr(self, "station_filter_combo")
+                else "Any Station"
+            )
+            map_name = (
+                self.map_filter_combo.currentText()
+                if hasattr(self, "map_filter_combo")
+                else "Any Map"
+            )
+            needs_state = (
+                self.needs_filter_combo.currentText()
+                if hasattr(self, "needs_filter_combo")
+                else "Any Needs State"
+            )
+            value_bucket = (
+                self.value_filter_combo.currentText()
+                if hasattr(self, "value_filter_combo")
+                else "Any Value"
+            )
+            filtered = _filter_dayz_accounts(
+                self.accounts,
+                search_text=search_text,
+                status=self._active_status_filter,
+                station=station,
+                map_name=map_name,
+                needs_state=needs_state,
+                value_bucket=value_bucket,
+            )
 
             self._setup_account_table(filtered)
             self._update_statistics()
+            if len(filtered) != len(self.accounts):
+                self.status_label.setText(
+                    f"Showing {len(filtered)} of {len(self.accounts)} account(s)"
+                )
         except Exception as e:
             log_error(f"Failed to filter accounts: {e}")
 

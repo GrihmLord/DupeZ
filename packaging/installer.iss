@@ -6,14 +6,9 @@
 ; Desktop shortcuts so users never have to hunt for the exe.
 ;
 ; WHY AN INSTALLER:
-;   Windows Application Control (WDAC) and SmartScreen treat .exe files
-;   downloaded from the internet as untrusted (Mark-of-the-Web / MOTW).
-;   A proper installer:
-;     1. Strips MOTW from all extracted files automatically
-;     2. Installs into a trusted path (Program Files)
-;     3. Creates clean shortcuts (no MOTW inheritance)
-;     4. Registers in Add/Remove Programs with version, publisher, icon
-;     5. When code-signed, passes SmartScreen immediately
+;   A proper installer places files under Program Files, registers clean
+;   uninstall metadata, and supports Authenticode signing. It deliberately
+;   does not delete Mark-of-the-Web metadata or bypass Windows trust checks.
 ;
 ; BUILD (run from repo root):
 ;   1. Build dupez.exe first:   pyinstaller packaging\dupez.spec --noconfirm
@@ -28,7 +23,7 @@
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.7.6"
+#define MyAppVersion   "5.7.7"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"
@@ -192,35 +187,4 @@ begin
 
   // Small delay to let Windows release file handles
   Sleep(500);
-end;
-
-// ── Strip Zone.Identifier (MOTW) from all files after extraction ──
-procedure RemoveMOTW(const Dir: String);
-var
-  FindRec: TFindRec;
-  FilePath: String;
-begin
-  if FindFirst(Dir + '\*', FindRec) then begin
-    try
-      repeat
-        if (FindRec.Name <> '.') and (FindRec.Name <> '..') then begin
-          FilePath := Dir + '\' + FindRec.Name;
-          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
-            RemoveMOTW(FilePath)
-          else
-            DeleteFile(FilePath + ':Zone.Identifier');
-        end;
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-end;
-
-// ── Post-install: strip MOTW from extracted files so launching the
-// app doesn't trigger SmartScreen / "blocked by Windows" prompts.
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-    RemoveMOTW(ExpandConstant('{app}'));
 end;

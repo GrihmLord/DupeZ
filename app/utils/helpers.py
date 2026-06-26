@@ -7,7 +7,6 @@ import os
 import re
 import sys
 import platform
-import subprocess
 import socket
 import psutil
 from typing import Dict, List, Optional, Tuple
@@ -283,29 +282,24 @@ def ping_host(host: str, timeout: float = 1.0) -> Tuple[bool, float]:
         timeout_ms = str(int(timeout * 1000))
         stdout = ""
         rc = -1
-        if _IS_WINDOWS:
-            try:
-                from app.core import safe_subprocess as _safe_sp
+        try:
+            from app.core import safe_subprocess as _safe_sp
+            if _IS_WINDOWS:
                 ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
+                argv = [ping_path, "-n", "1", "-w", timeout_ms, clean_host]
+            else:
+                ping_path = _safe_sp.resolve_system_binary("ping")
+                argv = [ping_path, "-c", "1", "-W", str(int(timeout)), clean_host]
                 res = _safe_sp.run(
-                    [ping_path, "-n", "1", "-w", timeout_ms, clean_host],
+                    argv,
                     timeout=timeout + 1.0,
                     expect_returncode=None,
                     intent="helpers.ping_host",
                 )
-                stdout = res.stdout
-                rc = res.returncode
-            except Exception:
-                return False, 0.0
-        else:
-            import shutil as _shutil
-            ping_exe = _shutil.which("ping") or "/bin/ping"
-            result = subprocess.run(
-                [ping_exe, "-c", "1", "-W", str(int(timeout)), clean_host],
-                capture_output=True, text=True, timeout=timeout + 1,
-            )
-            stdout = result.stdout
-            rc = result.returncode
+            stdout = res.stdout
+            rc = res.returncode
+        except Exception:
+            return False, 0.0
 
         if rc == 0:
             time_match = _PING_TIME_PATTERN.search(stdout)

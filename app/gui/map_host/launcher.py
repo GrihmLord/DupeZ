@@ -222,7 +222,7 @@ def _spawn_unelevated(python_exe: str, args: str) -> bool:
     except Exception as exc:  # noqa: BLE001
         log_error(
             f"map-host: Explorer COM spawn failed ({exc!r}) — "
-            "falling back to subprocess.Popen (inherits admin token, no GPU)"
+            "falling back to managed child spawn (inherits admin token, no GPU)"
         )
         return _spawn_popen(python_exe, args)
 
