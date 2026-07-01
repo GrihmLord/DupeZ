@@ -34,6 +34,7 @@ Public API
     get_secret(kind: str) -> bytes | None
     put_secret(kind: str, value: bytes) -> None
     delete_secret(kind: str) -> bool
+    check_store_health() -> SecretStoreHealth
     wipe_secret_in_memory(secret: bytes) -> None
 
 The ``kind`` is a short identifier like ``"audit.hmac"`` or
@@ -48,11 +49,15 @@ import os
 import secrets as _secrets
 import sys
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 __all__ = [
     "SecretStoreError",
+    "SecretStoreHealth",
+    "check_store_health",
+    "secret_store_repair_plan",
     "get_or_create_secret",
     "get_secret",
     "put_secret",
@@ -66,8 +71,99 @@ class SecretStoreError(RuntimeError):
     """Raised on unrecoverable secret-storage errors (DPAPI fail, ACL fail, ...)."""
 
 
+@dataclass(frozen=True)
+class SecretStoreHealth:
+    """Non-secret health summary for the secret-store backing directory."""
+
+    path: Optional[Path]
+    reachable: bool
+    writable: bool
+    error: str = ""
+    error_code: str = ""
+
+    @property
+    def healthy(self) -> bool:
+        """True when the backing directory exists and accepts writes."""
+        return self.reachable and self.writable and not self.error
+
+    @property
+    def safe_error(self) -> str:
+        """Return error text with user-specific filesystem roots redacted."""
+        return _redact_local_paths(self.error)
+
+    @property
+    def safe_path(self) -> Optional[str]:
+        """Return the store path with user-specific roots redacted."""
+        return _redact_local_paths(str(self.path)) if self.path else None
+
+    @property
+    def remediation_hint(self) -> str:
+        """Return a focused, non-destructive repair hint for the failure."""
+        return _secret_store_remediation_hint(self.error_code)
+
+
 _STORE_LOCK = threading.Lock()
 _KIND_RE = __import__("re").compile(r"^[a-z][a-z0-9]*(\.[a-z0-9]+)*$")
+
+
+def _redact_local_paths(message: str) -> str:
+    """Scrub home/local-appdata paths from user-facing diagnostics."""
+    if not message:
+        return ""
+    redacted = message
+    replacements = []
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        replacements.append((local_appdata, "%LOCALAPPDATA%"))
+    try:
+        replacements.append((str(Path.home()), "~"))
+    except Exception:
+        pass
+    for raw, marker in replacements:
+        if raw:
+            redacted = redacted.replace(raw, marker)
+            redacted = redacted.replace(raw.replace("\\", "\\\\"), marker)
+            redacted = redacted.replace(raw.replace("\\", "/"), marker)
+    return redacted
+
+
+def _classify_store_error(exc: Exception) -> str:
+    """Classify common secret-store failures for diagnostics."""
+    if isinstance(exc, PermissionError):
+        return "permission_denied"
+    if isinstance(exc, FileNotFoundError):
+        return "not_found"
+    if isinstance(exc, OSError):
+        text = str(exc).lower()
+        if "access is denied" in text or "permission denied" in text:
+            return "permission_denied"
+        if "read-only" in text or "readonly" in text:
+            return "read_only"
+    return "unknown"
+
+
+def _secret_store_remediation_hint(error_code: str) -> str:
+    """Map failure class to a clear repair hint without auto-changing ACLs."""
+    if error_code == "permission_denied":
+        return (
+            "Restore access for the current Windows user to "
+            "%LOCALAPPDATA%\\DupeZ\\secrets, or back up and recreate that "
+            "folder after investigating why permissions changed."
+        )
+    if error_code == "read_only":
+        return (
+            "Remove the read-only restriction from the DupeZ secrets folder "
+            "and confirm the current user can create and delete a test file."
+        )
+    if error_code == "not_found":
+        return (
+            "Create the DupeZ secrets folder under %LOCALAPPDATA% and confirm "
+            "the current user owns it."
+        )
+    return (
+        "Inspect the DupeZ secrets folder permissions and storage health, then "
+        "restart DupeZ after the folder accepts writes."
+    )
 
 
 # ── Paths ─────────────────────────────────────────────────────────────
@@ -99,6 +195,77 @@ def _path_for(kind: str) -> Path:
     if not isinstance(kind, str) or not _KIND_RE.match(kind):
         raise ValueError(f"invalid secret kind {kind!r}")
     return store_root() / f"{kind}.bin"
+
+
+def check_store_health() -> SecretStoreHealth:
+    """Probe secret-store directory access without creating a real secret."""
+    try:
+        root = store_root()
+    except Exception as exc:
+        return SecretStoreHealth(
+            path=None,
+            reachable=False,
+            writable=False,
+            error=str(exc),
+            error_code=_classify_store_error(exc),
+        )
+
+    probe = root / ".diagnostics_write_probe.tmp"
+    try:
+        probe.write_bytes(b"probe")
+        probe.unlink(missing_ok=True)
+    except Exception as exc:
+        try:
+            probe.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return SecretStoreHealth(
+            path=root,
+            reachable=True,
+            writable=False,
+            error=str(exc),
+            error_code=_classify_store_error(exc),
+        )
+
+    return SecretStoreHealth(
+        path=root,
+        reachable=True,
+        writable=True,
+    )
+
+
+def secret_store_repair_plan() -> dict:
+    """Return a non-executing, redacted Windows ACL recovery plan."""
+    health = check_store_health()
+    commands = []
+    target = None
+    if os.name == "nt":
+        target = r"%LOCALAPPDATA%\DupeZ\secrets"
+        commands = [
+            f'icacls "{target}"',
+            f'takeown /F "{target}" /R /D Y',
+            (
+                f'icacls "{target}" /inheritance:r '
+                f'/grant:r "%USERNAME%:(OI)(CI)F" /T /C'
+            ),
+        ]
+    return {
+        "healthy": health.healthy,
+        "error_code": health.error_code,
+        "path": health.safe_path or target,
+        "warning": (
+            "These commands are a review plan only and are never executed "
+            "automatically. Preserve the encrypted files before changing ACLs."
+        ),
+        "steps": [
+            "Inspect the current owner and ACL.",
+            "Preserve the encrypted .bin files if they are readable.",
+            "From an elevated terminal, restore ownership to the current user.",
+            "Replace inherited access with current-user full control.",
+            "Run secret-store-status again before restarting DupeZ.",
+        ],
+        "commands": commands,
+    }
 
 
 # ── DPAPI (Windows) ───────────────────────────────────────────────────

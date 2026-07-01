@@ -46,6 +46,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
@@ -156,11 +157,12 @@ def _load_operator_allowlist() -> frozenset[str]:
         import hashlib
         import hmac as _hmac
         import os as _os
-        cfg_dir = _os.path.join(
-            _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))),
-            "config",
+        from app.core.app_paths import config_dir
+
+        cfg_path = _os.path.join(
+            str(config_dir()),
+            "audit_webhook_hosts.json",
         )
-        cfg_path = _os.path.join(cfg_dir, "audit_webhook_hosts.json")
         hmac_path = cfg_path + ".hmac"
         if not (_os.path.isfile(cfg_path) and _os.path.isfile(hmac_path)):
             return frozenset()
@@ -280,7 +282,7 @@ def _validate_webhook_url(url: str) -> str:
 
 # ── Sink base + concrete sinks ───────────────────────────────────────
 
-class AuditSink:
+class AuditSink(ABC):
     """Base class. Subclasses override :meth:`_post`."""
 
     def __init__(
@@ -330,8 +332,9 @@ class AuditSink:
         except Exception as exc:
             log_warning(f"AuditSink {self.__class__.__name__} failed: {exc}")
 
-    def _post(self, event_name: str, payload: Dict[str, Any]) -> None:  # noqa: D401
-        raise NotImplementedError
+    @abstractmethod
+    def _post(self, event_name: str, payload: Dict[str, Any]) -> None:
+        """Send one already-scrubbed audit notification."""
 
 
 class GenericWebhookSink(AuditSink):

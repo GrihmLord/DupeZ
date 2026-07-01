@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import os
 import threading
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
@@ -92,6 +92,14 @@ class AppSettings:
 
     # Security
     whitelist: Optional[list] = None
+    safety_dry_run: bool = False
+    allowed_target_cidrs: list[str] = field(default_factory=lambda: [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+    ])
+    max_operation_seconds: int = 300
 
     def __post_init__(self) -> None:
         if self.whitelist is None:
@@ -109,14 +117,9 @@ class AppState:
 
     def __init__(self, config_file: str = "") -> None:
         if not config_file:
-            import sys
-            if getattr(sys, "frozen", False):
-                base = os.path.dirname(sys.executable)
-            else:
-                base = os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                )
-            config_file = os.path.join(base, "app", "config", "settings.json")
+            from app.config import CONFIG_PATH
+
+            config_file = CONFIG_PATH
 
         self.config_file: str = config_file
         self.devices: List[Device] = []
@@ -266,6 +269,18 @@ class AppState:
     def load_settings(self) -> None:
         """Load settings from JSON file, resilient to corrupt/partial data."""
         try:
+            from app.config import CONFIG_PATH, load_config
+
+            if os.path.normcase(os.path.abspath(self.config_file)) == os.path.normcase(
+                os.path.abspath(CONFIG_PATH)
+            ):
+                data = load_config()
+                known = {fld.name for fld in fields(AppSettings)}
+                filtered = {k: v for k, v in data.items() if k in known}
+                self.settings = AppSettings(**filtered)
+                if data:
+                    log_info("Settings loaded successfully")
+                return
             if os.path.exists(self.config_file):
                 with open(self.config_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
@@ -284,6 +299,17 @@ class AppState:
 
     def save_settings(self) -> None:
         """Persist settings via atomic write (tmp → fsync → replace)."""
+        from app.config import CONFIG_PATH, save_config
+
+        if os.path.normcase(os.path.abspath(self.config_file)) == os.path.normcase(
+            os.path.abspath(CONFIG_PATH)
+        ):
+            try:
+                save_config(asdict(self.settings))
+                log_info("Settings saved successfully")
+            except Exception as e:
+                log_error(f"Failed to save settings: {e}")
+            return
         tmp_path = self.config_file + ".tmp"
         try:
             config_dir = os.path.dirname(self.config_file)

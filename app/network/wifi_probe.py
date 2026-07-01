@@ -1,7 +1,7 @@
 """WiFi adapter detection + AP-isolation watchdog for DupeZ.
 
-When a target is on the same WiFi /24 as the operator and ARP spoof is
-needed to redirect traffic, the spoof can silently fail on consumer APs
+When a target is on the same WiFi /24 as the operator and local forwarding is
+needed to redirect traffic, the local forwarding can silently fail on consumer APs
 that have client isolation enabled (Eero, Google Nest, ISP gateways,
 guest/public networks). The spoofer reports "active" because Npcap-level
 packet emission succeeded, but no station-to-station L2 frames reach the
@@ -9,11 +9,11 @@ target — the AP drops them. Symptom: WinDivert FORWARD layer opens fine,
 captures zero packets, every cut is a no-op.
 
 v5.6.4 stopped lying about success on Npcap-missing / spoofer-start
-failures. v5.6.5 closes the harder case: spoof started cleanly, AP is
+failures. v5.6.5 closes the harder case: local forwarding started cleanly, AP is
 silently dropping it. We do this with a watchdog that observes the
 ArpSpoofer's outbound packet counter and the NativeWinDivertEngine's
 inbound counter for a few seconds after start. When the gap reveals
-isolation (we're emitting poison, but no forwarded traffic is materializing),
+isolation (we're emitting forwarding setup, but no forwarded traffic is materializing),
 the watchdog invokes a callback so the orchestrator can fall back to
 self-disrupt mode (NETWORK layer, drops operator's own egress to target).
 
@@ -46,6 +46,7 @@ from __future__ import annotations
 import socket
 import threading
 import time
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 # Lazy imports for psutil / log — module must be importable in test
@@ -89,6 +90,94 @@ _WIFI_NAME_INDICATORS = (
 )
 
 
+@dataclass(frozen=True)
+class WifiRouteInfo:
+    """Best-effort report for the adapter handling the default route."""
+
+    is_wifi: bool
+    adapter_name: Optional[str] = None
+    local_ip: Optional[str] = None
+    reason: str = ""
+    psutil_available: bool = False
+
+    @property
+    def masked_local_ip(self) -> Optional[str]:
+        """Return local IP masked for logs and diagnostics."""
+        return mask_ip(self.local_ip) if self.local_ip else None
+
+
+def get_wifi_route_info() -> WifiRouteInfo:
+    """Return passive adapter-route information for troubleshooting.
+
+    UDP ``connect`` does not transmit packets here; it asks the OS which
+    local address would be selected for the default route. The structured
+    result lets diagnostics distinguish "not WiFi" from "probe failed".
+    """
+    try:
+        import psutil  # noqa: WPS433 - runtime optional dep, guarded
+    except Exception as exc:
+        return WifiRouteInfo(
+            is_wifi=False,
+            reason=f"psutil unavailable: {exc}",
+            psutil_available=False,
+        )
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+    except Exception as exc:
+        log_warning(f"is_local_adapter_wifi: route probe failed: {exc}")
+        return WifiRouteInfo(
+            is_wifi=False,
+            reason=f"default-route probe failed: {exc}",
+            psutil_available=True,
+        )
+
+    try:
+        adapters = psutil.net_if_addrs()
+    except Exception as exc:
+        log_warning(f"is_local_adapter_wifi: net_if_addrs failed: {exc}")
+        return WifiRouteInfo(
+            is_wifi=False,
+            local_ip=local_ip,
+            reason=f"adapter inventory failed: {exc}",
+            psutil_available=True,
+        )
+
+    adapter_name: Optional[str] = None
+    for name, addrs in adapters.items():
+        for addr in addrs:
+            if getattr(addr, "address", "") == local_ip:
+                adapter_name = name
+                break
+        if adapter_name:
+            break
+
+    if not adapter_name:
+        return WifiRouteInfo(
+            is_wifi=False,
+            local_ip=local_ip,
+            reason="default-route local IP was not found in adapter inventory",
+            psutil_available=True,
+        )
+
+    lower = adapter_name.lower()
+    is_wifi = any(ind in lower for ind in _WIFI_NAME_INDICATORS)
+    reason = (
+        "adapter name matched a WiFi indicator"
+        if is_wifi
+        else "adapter name did not match WiFi indicators"
+    )
+    return WifiRouteInfo(
+        is_wifi=is_wifi,
+        adapter_name=adapter_name,
+        local_ip=local_ip,
+        reason=reason,
+        psutil_available=True,
+    )
+
+
 def is_local_adapter_wifi() -> bool:
     """Return True if the adapter handling the default route is WiFi.
 
@@ -112,46 +201,9 @@ def is_local_adapter_wifi() -> bool:
         client is the ICS host adapter (often a virtual one named like
         "Local Area Connection*"). This probe correctly returns False
         for them, which is what we want — hotspot mode doesn't need
-        ARP spoof and isn't affected by AP isolation.
+        local forwarding and isn't affected by AP isolation.
     """
-    try:
-        import psutil  # noqa: WPS433 — runtime optional dep, guarded
-    except Exception:
-        return False
-
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            # 8.8.8.8 is just a stable non-routable-from-LAN target. UDP
-            # connect doesn't actually transmit — it just configures the
-            # kernel routing table lookup so getsockname() returns the
-            # local IP the OS would use for that destination.
-            s.connect(("8.8.8.8", 80))
-            local_ip = s.getsockname()[0]
-    except Exception as exc:
-        log_warning(f"is_local_adapter_wifi: route probe failed: {exc}")
-        return False
-
-    try:
-        adapters = psutil.net_if_addrs()
-    except Exception as exc:
-        log_warning(f"is_local_adapter_wifi: net_if_addrs failed: {exc}")
-        return False
-
-    adapter_name: Optional[str] = None
-    for name, addrs in adapters.items():
-        for addr in addrs:
-            # AF_INET addresses; psutil's address field is a string here.
-            if getattr(addr, "address", "") == local_ip:
-                adapter_name = name
-                break
-        if adapter_name:
-            break
-
-    if not adapter_name:
-        return False
-
-    lower = adapter_name.lower()
-    return any(ind in lower for ind in _WIFI_NAME_INDICATORS)
+    return get_wifi_route_info().is_wifi
 
 
 # ── Isolation watchdog ──────────────────────────────────────────────
@@ -163,8 +215,8 @@ class IsolationResult:
     importable in degraded test environments. Compare with ``is``, not
     ``==``, to make intent obvious at call sites.
     """
-    WORKING = "working"               # spoof landed; forwarded traffic seen
-    ISOLATION_DETECTED = "isolation"  # spoof emitted, zero forwarded traffic
+    WORKING = "working"               # local forwarding landed; forwarded traffic seen
+    ISOLATION_DETECTED = "isolation"  # local forwarding emitted, zero forwarded traffic
     INCONCLUSIVE = "inconclusive"     # nothing emitted; can't tell
     ABORTED = "aborted"               # engine/spoofer stopped before grace
 
@@ -183,7 +235,7 @@ class IsolationWatchdog:
     ----------
     spoofer:
         ``ArpSpoofer`` instance. Must expose ``_packets_sent`` (int);
-        watchdog uses it to detect "we attempted poison" vs. "we never
+        watchdog uses it to detect "we attempted forwarding setup" vs. "we never
         even tried" — only the former implies isolation.
     engine:
         ``NativeWinDivertEngine`` instance. Must expose
@@ -196,12 +248,12 @@ class IsolationWatchdog:
     grace_s:
         Seconds to wait before sampling. Default 8.0 (v5.7.2, raised
         from 5.0). Long enough that a target console briefly idle in a
-        menu — spoof landed, just no traffic to forward yet — is not
+        menu — local forwarding landed, just no traffic to forward yet — is not
         misclassified as AP isolation and bounced to self-disrupt.
         Still short enough that a genuine isolation case (AP dropping
-        the spoof outright) is caught and the operator gets the
+        the local forwarding outright) is caught and the operator gets the
         fallback toast quickly. The watchdog cannot perfectly
-        distinguish "AP dropped the spoof" from "target idle" — both
+        distinguish "AP dropped the local forwarding" from "target idle" — both
         present as packets_sent>0, packets_processed==0 — so the grace
         window is the tuning knob, and 8s errs toward not bouncing a
         working-but-quiet cut.

@@ -39,6 +39,14 @@ class TestScheduledRule:
         assert rule.repeat_interval == 0
         assert rule.duration_seconds == 60
 
+    def test_duration_and_repeat_interval_are_bounded(self):
+        rule = ScheduledRule(
+            duration_seconds=999999,
+            repeat_interval=999999,
+        )
+        assert rule.duration_seconds == 3600
+        assert rule.repeat_interval == 86400
+
 
 class TestMacroStep:
     """Test MacroStep dataclass."""
@@ -60,6 +68,10 @@ class TestMacroStep:
         step = MacroStep()
         assert step.duration_seconds == 10
         assert step.methods == []
+
+    def test_duration_is_bounded(self):
+        assert MacroStep(duration_seconds=0).duration_seconds == 1
+        assert MacroStep(duration_seconds=999999).duration_seconds == 3600
 
 
 class TestDisruptionMacro:
@@ -104,3 +116,11 @@ class TestDisruptionMacro:
         original_steps = d["steps"].copy()
         DisruptionMacro.from_dict(d)
         assert d["steps"] == original_steps
+
+    def test_repeat_count_and_step_count_are_bounded(self):
+        macro = DisruptionMacro(
+            repeat_count=0,
+            steps=[MacroStep() for _ in range(150)],
+        )
+        assert macro.repeat_count == 1
+        assert len(macro.steps) == 100

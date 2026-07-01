@@ -94,6 +94,9 @@ if (-not (Test-Path $notesFile)) {
     Write-Host "Create the release-notes file before releasing." -ForegroundColor Yellow
     exit 1
 }
+Invoke-Step "Running source release preflight" {
+    python scripts\release_preflight.py --version $Version
+}
 
 # -- 1. Build ---------------------------------------------------------
 if ($SkipBuild) {
@@ -111,12 +114,18 @@ $required = @(
     $installer,
     "dist\DupeZ_Setup.exe",
     "dist\DupeZ_Setup.exe.manifest.json",
-    "dist\DupeZ_Setup.exe.manifest.sig"
+    "dist\DupeZ_Setup.exe.manifest.sig",
+    "dist\DupeZ.sbom.json",
+    "dist\DupeZ.vex.json",
+    "dist\binary-provenance.json"
 )
 foreach ($f in $required) {
     Assert-True (Test-Path $f) "required artifact missing: $f"
 }
-Write-Host "  all 6 release artifacts present." -ForegroundColor Green
+Write-Host "  all 9 release artifacts present." -ForegroundColor Green
+Invoke-Step "Running artifact release preflight" {
+    python scripts\release_preflight.py --version $Version --dist
+}
 
 # -- 2. Branch --------------------------------------------------------
 $headBefore = (git rev-parse HEAD).Trim()
@@ -185,12 +194,15 @@ Invoke-Step "Creating GitHub release" {
         dist\DupeZ_Setup.exe `
         dist\DupeZ_Setup.exe.manifest.json `
         dist\DupeZ_Setup.exe.manifest.sig `
+        dist\DupeZ.sbom.json `
+        dist\DupeZ.vex.json `
+        dist\binary-provenance.json `
         --title "$tag" `
         --notes-file $notesFile
 }
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Green
-Write-Host " $tag SHIPPED -- tag on $tagCommit, 6 assets" -ForegroundColor Green
+Write-Host " $tag SHIPPED -- tag on $tagCommit, 9 assets" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 exit 0

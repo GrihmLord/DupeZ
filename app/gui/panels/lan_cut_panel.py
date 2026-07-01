@@ -1,13 +1,13 @@
 # app/gui/panels/lan_cut_panel.py — NetCut-style LAN severance widget
-"""One-click ARP-spoof severance for any device on the same WiFi /24.
+"""One-click ARP-local forwarding severance for any device on the same WiFi /24.
 
 Unlike the main disruption engine (which layers WinDivert on top of
-ARP spoofing to do timing-based cuts), LAN Cut just:
+local forwarding to do timing-based cuts), LAN Cut just:
 
-  1. Starts ``ArpSpoofer`` (target + gateway poison).
+  1. Starts ``ArpSpoofer`` (target + gateway forwarding setup).
   2. DISABLES IP forwarding.
 
-With poison active and forwarding off, the target device's upstream
+With forwarding setup active and forwarding off, the target device's upstream
 traffic lands at this laptop and is dropped at the IP layer — instant
 total severance, no WinDivert, no disruption modules. This is the
 canonical "NetCut" primitive.
@@ -47,7 +47,7 @@ class LanCutPanel(QWidget):
     def __init__(self, parent_view, parent=None) -> None:
         super().__init__(parent)
         self._view = parent_view
-        self._spoofers: Dict[str, object] = {}   # ip -> ArpSpoofer
+        self._arp_spoofers: Dict[str, object] = {}   # ip -> ArpSpoofer
         self._forwarding_was_on: Optional[bool] = None
         # Server Monitor (A2S badge) state
         self._a2s_probe: Optional[object] = None
@@ -93,7 +93,7 @@ class LanCutPanel(QWidget):
         # ── Server Monitor (A2S badge) ──────────────────────────────
         # Polls A2S_INFO against a game server and shows live player
         # count vs baseline. When the count drops while a cut is
-        # active, that's the dupe window landing.
+        # active, that's the isolation window landing.
         srv_row = QHBoxLayout()
         srv_row.setSpacing(4)
 
@@ -102,7 +102,7 @@ class LanCutPanel(QWidget):
         srv_row.addWidget(srv_label)
 
         self.a2s_host_edit = QLineEdit()
-        self.a2s_host_edit.setPlaceholderText("server IP (e.g. 185.38.150.10)")
+        self.a2s_host_edit.setPlaceholderText("server IP (e.g. 198.51.100.10)")
         self.a2s_host_edit.setStyleSheet(
             "QLineEdit { background:#0a1628; color:#cbd5e1; "
             "border:1px solid #1e293b; border-radius:4px; "
@@ -186,9 +186,9 @@ class LanCutPanel(QWidget):
         gl.addWidget(self.table)
 
         warn = QLabel(
-            "LAN Cut severs the target's internet via ARP cache poison + "
+            "LAN Cut severs the target's internet via ARP cache forwarding setup + "
             "IP-forwarding OFF. Use only on devices you own. Stop promptly "
-            "to avoid leaving poisoned ARP entries."
+            "to avoid leaving stale local forwarding entries."
         )
         warn.setStyleSheet("color: #f59e0b; font-size: 9px; padding: 4px 8px;")
         warn.setWordWrap(True)
@@ -226,7 +226,7 @@ class LanCutPanel(QWidget):
                 continue
             mac = dev.get("mac") or "—"
             host = dev.get("hostname") or dev.get("device_type") or ""
-            active = ip in self._spoofers
+            active = ip in self._arp_spoofers
 
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -254,7 +254,7 @@ class LanCutPanel(QWidget):
     # Cut / restore
     # ------------------------------------------------------------------
     def _toggle(self, ip: str) -> None:
-        if ip in self._spoofers:
+        if ip in self._arp_spoofers:
             self._stop_cut(ip)
         else:
             self._start_cut(ip)
@@ -267,7 +267,7 @@ class LanCutPanel(QWidget):
         if not status.available:
             QMessageBox.warning(
                 self, "LAN Cut unavailable",
-                f"Cannot start ARP spoof — {status.reason}\n\n"
+                f"Cannot start local forwarding — {status.reason}\n\n"
                 f"Install Npcap: {status.install_url}",
             )
             return
@@ -277,11 +277,11 @@ class LanCutPanel(QWidget):
         except Exception as exc:
             log_error(f"[LAN CUT] import failed: {exc}")
             QMessageBox.critical(self, "LAN Cut error",
-                                 f"ARP spoof module unavailable: {exc}")
+                                 f"local forwarding module unavailable: {exc}")
             return
 
         # Remember forwarding state only on the FIRST cut of this session.
-        if not self._spoofers:
+        if not self._arp_spoofers:
             try:
                 self._forwarding_was_on = _get_ip_forwarding_state()
             except Exception:
@@ -291,21 +291,31 @@ class LanCutPanel(QWidget):
         if not spoofer.start():
             QMessageBox.warning(
                 self, "LAN Cut failed",
-                f"Could not start ARP spoof for {ip}. Check logs for details.",
+                f"Could not start local forwarding for {ip}. Check logs for details.",
             )
             return
 
         # Kill the severance: disable IP forwarding so nothing routes through.
         try:
-            _set_ip_forwarding(False)
+            from app.core.operation_journal import OperationJournal
+            OperationJournal().mark_forwarding_change(
+                bool(self._forwarding_was_on)
+            )
+            if not _set_ip_forwarding(False):
+                raise RuntimeError("failed to disable IP forwarding")
         except Exception as exc:
             log_error(f"[LAN CUT] disable forwarding failed: {exc}")
+            try:
+                spoofer.stop()
+            except Exception:
+                pass
+            return
 
-        self._spoofers[ip] = spoofer
+        self._arp_spoofers[ip] = spoofer
         log_info(f"[LAN CUT] severed {ip}")
 
     def _stop_cut(self, ip: str) -> None:
-        spoofer = self._spoofers.pop(ip, None)
+        spoofer = self._arp_spoofers.pop(ip, None)
         if spoofer is None:
             return
         try:
@@ -314,19 +324,21 @@ class LanCutPanel(QWidget):
             log_error(f"[LAN CUT] stop {ip} failed: {exc}")
 
         # If no more cuts, restore forwarding to its prior state
-        if not self._spoofers and self._forwarding_was_on is not None:
+        if not self._arp_spoofers and self._forwarding_was_on is not None:
             try:
                 from app.network.arp_spoof import _set_ip_forwarding
-                _set_ip_forwarding(bool(self._forwarding_was_on))
+                if _set_ip_forwarding(bool(self._forwarding_was_on)):
+                    from app.core.operation_journal import OperationJournal
+                    OperationJournal().clear_forwarding_change()
             except Exception as exc:
                 log_error(f"[LAN CUT] restore forwarding failed: {exc}")
             self._forwarding_was_on = None
         log_info(f"[LAN CUT] restored {ip}")
 
     def _restore_all(self) -> None:
-        if not self._spoofers:
+        if not self._arp_spoofers:
             return
-        for ip in list(self._spoofers.keys()):
+        for ip in list(self._arp_spoofers.keys()):
             self._stop_cut(ip)
             self._refresh_row_for(ip)
         self._refresh_active_count()
@@ -338,7 +350,7 @@ class LanCutPanel(QWidget):
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item and item.text() == ip:
-                active = ip in self._spoofers
+                active = ip in self._arp_spoofers
                 self.table.item(row, 3).setText("CUT" if active else "online")
                 btn = self.table.cellWidget(row, 4)
                 if isinstance(btn, QPushButton):
@@ -347,7 +359,7 @@ class LanCutPanel(QWidget):
                 return
 
     def _refresh_active_count(self) -> None:
-        self.active_label.setText(f"Active cuts: {len(self._spoofers)}")
+        self.active_label.setText(f"Active cuts: {len(self._arp_spoofers)}")
 
     @staticmethod
     def _btn_qss(active: bool) -> str:

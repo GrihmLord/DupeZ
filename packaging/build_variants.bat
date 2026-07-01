@@ -17,7 +17,7 @@ pushd "%~dp0.."
 ::
 :: Prereqs: python, PyInstaller, everything in requirements.txt.
 
-set "DUPEZ_VERSION=5.7.6"
+set "DUPEZ_VERSION=5.7.7"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -35,11 +35,12 @@ if errorlevel 1 (
 python -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
     echo Installing PyInstaller...
-    pip install pyinstaller
+    pip install pyinstaller==6.19.0
 )
 
 echo Installing dependencies...
-pip install -r requirements.txt
+pip install --require-hashes -r requirements-locked.txt
+if errorlevel 1 exit /b 1
 
 :: ── 2. Clean stale artifacts ────────────────────────────────────────
 :: Kill any running DupeZ instances so their .exe files unlock.
@@ -52,9 +53,8 @@ taskkill /f /im DupeZ-Compat.exe >nul 2>&1
 :: Force-delete with verification. del /q silently no-ops on locked
 :: files, which historically caused PyInstaller's os.remove(self.name)
 :: to fail later in the build with WinError 5 (Access is denied).
-:: Defender real-time scanning is the usual culprit holding the handle
-:: after a fresh build; add dist\ + build\ to Defender exclusions to
-:: avoid this entirely (see release.md / build runbook).
+:: Endpoint protection may briefly hold a fresh artifact. Keep protection
+:: enabled; the cleanup path below waits, renames, and retries safely.
 call :force_delete "dist\DupeZ-GPU.exe"
 if errorlevel 1 (
     echo.
@@ -117,13 +117,41 @@ if not exist "dist\DupeZ-Compat.exe" (
 )
 echo       DupeZ-Compat.exe built successfully.
 
-:: ── 5. Strip MOTW from raw exes ─────────────────────────────────────
+:: ── 5. Authenticode sign portable executables ───────────────────────
+:: Microsoft SignTool guidance requires explicit SHA-256 file digest
+:: (/fd) and RFC3161 timestamp digest (/td). Timestamping keeps signatures
+:: valid after certificate expiry and helps SmartScreen reputation attach to
+:: the publisher instead of only to a one-off file hash.
+echo.
+echo [Signing] Authenticode signing portable executables...
+
+set "_SIGNTOOL="
+where signtool >nul 2>&1 && set "_SIGNTOOL=signtool"
+if not defined _SIGNTOOL (
+    echo       signtool not found -- portable executables will remain unsigned.
+    echo       To enable: install Windows SDK and set DUPEZ_SIGN_CERT.
+    goto :skip_authenticode_portables
+)
+if "%DUPEZ_SIGN_CERT%"=="" (
+    echo       DUPEZ_SIGN_CERT not set -- portable executables will remain unsigned.
+    echo       To enable: set DUPEZ_SIGN_CERT=path\to\certificate.pfx
+    goto :skip_authenticode_portables
+)
+
+call :sign_file "dist\DupeZ-GPU.exe"
+if errorlevel 1 exit /b 1
+call :sign_file "dist\DupeZ-Compat.exe"
+if errorlevel 1 exit /b 1
+
+:skip_authenticode_portables
+
+:: ── 6. Strip MOTW from raw exes ─────────────────────────────────────
 echo.
 echo [3/5] Stripping Mark-of-the-Web from build output...
 powershell -NoProfile -Command "Get-ChildItem 'dist' -Recurse | ForEach-Object { Unblock-File $_.FullName -ErrorAction SilentlyContinue }"
 echo       MOTW stripped from dist\ contents.
 
-:: ── 6. Build Inno Setup installer (v5.6.5) ──────────────────────────
+:: ── 7. Build Inno Setup installer (v5.6.5) ──────────────────────────
 :: Up to v5.6.4, build_variants.bat only emitted the two portable
 :: exes; the installer had to be built separately via build.bat or a
 :: manual `iscc packaging\installer.iss` invocation. That bit two
@@ -168,6 +196,8 @@ if not exist "dist\%DUPEZ_INSTALLER%" (
     goto :skip_installer
 )
 echo       Installer built: dist\%DUPEZ_INSTALLER%
+call :sign_file "dist\%DUPEZ_INSTALLER%"
+if errorlevel 1 exit /b 1
 
 :: Emit versionless alias for the stable GitHub-releases-latest URL.
 :: The landing page Download Installer button points at
@@ -179,11 +209,13 @@ if errorlevel 1 (
     echo       WARNING: Failed to create versionless alias dist\DupeZ_Setup.exe
 ) else (
     echo       Versionless alias: dist\DupeZ_Setup.exe ^(landing-page download target^)
+    call :sign_file "dist\DupeZ_Setup.exe"
+    if errorlevel 1 exit /b 1
 )
 
 :skip_installer
 
-:: ── 7. Sign update manifest (v5.6.6+) ───────────────────────────────
+:: ── 8. Sign update manifest (v5.6.6+) ───────────────────────────────
 :: The auto-updater (app/core/updater.py) fail-closes unless each
 :: release ships TWO sidecar files alongside DupeZ_Setup.exe:
 ::
@@ -241,7 +273,14 @@ if exist "dist\DupeZ_Setup.exe.manifest.sig" (
 
 :skip_sign_manifest
 
-:: ── 8. Final report ─────────────────────────────────────────────────
+python scripts\sbom.py --out dist\DupeZ.sbom.json --product-version "%DUPEZ_VERSION%"
+if errorlevel 1 exit /b 1
+python scripts\vex.py --out dist\DupeZ.vex.json --product-version "%DUPEZ_VERSION%"
+if errorlevel 1 exit /b 1
+copy /y packaging\binary-provenance.json dist\binary-provenance.json >nul
+if errorlevel 1 exit /b 1
+
+:: ── 9. Final report ─────────────────────────────────────────────────
 echo.
 echo [5/5] Build summary
 echo ============================================
@@ -271,6 +310,26 @@ popd
 endlocal
 exit /b 0
 
+:: ── Subroutine: sign_file ───────────────────────────────────────────
+:: Usage: call :sign_file "dist\artifact.exe"
+:: Signs only when signtool and DUPEZ_SIGN_CERT are configured.
+:sign_file
+set "_SIGN_TARGET=%~1"
+if not exist "%_SIGN_TARGET%" exit /b 0
+if not defined _SIGNTOOL exit /b 0
+if "%DUPEZ_SIGN_CERT%"=="" exit /b 0
+echo       Signing %_SIGN_TARGET% ...
+if "%DUPEZ_SIGN_PASS%"=="" (
+    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" "%_SIGN_TARGET%"
+) else (
+    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" "%_SIGN_TARGET%"
+)
+if errorlevel 1 (
+    echo       ERROR: Authenticode signing failed for %_SIGN_TARGET%.
+    exit /b 1
+)
+exit /b 0
+
 :: ── Subroutine: force_delete ────────────────────────────────────────
 :: Usage: call :force_delete "path\to\file"
 :: Frees the target path so PyInstaller can write a fresh .exe.
@@ -290,10 +349,8 @@ exit /b 0
 ::
 :: Required because cmd's `del /q` silently no-ops on locked files,
 :: which caused PyInstaller's os.remove(self.name) to fail with
-:: WinError 5 late in the Compat build. Add-MpPreference exclusions
-:: do NOT close existing Defender handles, they only prevent new
-:: scans — so retry-delete alone could not recover from a stale
-:: artifact that was already being scanned when the script started.
+:: WinError 5 late in the Compat build. The rename/retry strategy avoids
+:: weakening endpoint protection while still recovering stale artifacts.
 :force_delete
 set "_FD_TARGET=%~1"
 

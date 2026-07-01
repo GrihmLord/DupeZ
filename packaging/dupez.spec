@@ -116,7 +116,9 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    # Packed privileged bundles are far more likely to be flagged by
+    # Defender/EDR. Prefer transparent, signed release artifacts.
+    upx=False,
     # ── Exclude large Qt DLLs from UPX compression ──────────────────
     # UPX can corrupt large DLLs during decompression, causing
     # "decompression resulted in return code -1" on extraction.

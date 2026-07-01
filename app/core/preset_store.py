@@ -1,7 +1,7 @@
 """Custom preset persistence for DupeZ (v5.6.9).
 
-The built-in presets (Red Disconnect / Lag / God Mode / Custom) live in
-``app/gui/clumsy_control.PRESETS`` as a hard-coded dict. v5.6.9 adds a
+The built-in presets (Red Disconnect / Lag / Custom) live in
+``app.core.builtin_presets`` as a hard-coded dict. v5.6.9 adds a
 parallel store of USER-AUTHORED presets that can be created, edited,
 deleted, exported, and shared.
 
@@ -73,17 +73,16 @@ __all__ = [
 # Names reserved by built-in presets — custom presets cannot collide with these
 # to avoid confusion in the GUI dropdown. Update if PRESETS dict gains entries.
 RESERVED_PRESET_NAMES = frozenset({
-    "Red Disconnect", "Lag", "God Mode", "Custom",
+    "Red Disconnect", "Lag", "Custom",
     # Defensive: lowercase variants in case the GUI changes capitalization
-    "red disconnect", "lag", "god mode", "custom",
+    "red disconnect", "lag", "custom",
 })
 
 # Module-level methods whitelist — must match what the engine actually supports.
 # Update when new disruption modules land in the engine.
 VALID_METHODS = frozenset({
     "drop", "lag", "throttle", "duplicate", "corrupt", "rst",
-    "bandwidth", "disconnect", "ooo", "godmode",
-    "pulse", "tick_sync", "stealth_drop", "stealth_lag",
+    "bandwidth", "disconnect", "ooo",
 })
 
 VALID_DIRECTIONS = frozenset({"inbound", "outbound", "both"})

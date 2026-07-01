@@ -1,6 +1,6 @@
 """Application configuration persistence (v5.7.6: HMAC-protected).
 
-Reads and writes ``settings.json`` located alongside this package.
+Reads and writes ``settings.json`` from the canonical runtime config folder.
 
 v5.7.6 security hardening
 -------------------------
@@ -48,7 +48,10 @@ from typing import Any, Dict
 
 __all__ = ["load_config", "save_config", "CONFIG_PATH", "HMAC_PATH"]
 
-CONFIG_PATH: str = os.path.join(os.path.dirname(__file__), "settings.json")
+from app.core.app_paths import config_dir, ensure_runtime_migration
+
+ensure_runtime_migration()
+CONFIG_PATH: str = str(config_dir() / "settings.json")
 HMAC_PATH: str = CONFIG_PATH + ".hmac"
 
 

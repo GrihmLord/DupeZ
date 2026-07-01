@@ -264,6 +264,9 @@ class TestEmitToSinks:
                 delivered.append((e, p))
 
         class CrashSink(AuditSink):
+            def _post(self, _e: str, _p: dict) -> None:
+                return None
+
             def emit(self, _e: str, _p: dict) -> None:
                 raise RuntimeError("simulated sink crash")
 

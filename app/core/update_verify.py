@@ -101,7 +101,7 @@ MAX_MANIFEST_BYTES = 65_536  # manifest is small JSON — cap hard
 # Generate a keypair:
 #     python scripts/sign-release.py --gen-key priv.pem pub.pem
 #
-# Then replace the placeholder below with the PEM contents of pub.pem.
+# Then add the PEM contents of pub.pem to TRUSTED_PUBKEYS_PEM below.
 # Do NOT commit the private key.  Keep it on an air-gapped machine or
 # in a hardware security module.
 #

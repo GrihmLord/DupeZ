@@ -54,17 +54,12 @@ _METHOD_LABELS = {
     "drop":         "Drop (chance-based packet loss)",
     "lag":          "Lag (delay queue)",
     "throttle":     "Throttle (frame/burst slowdown)",
-    "duplicate":    "Duplicate (replay copies)",
+    "duplicate":    "Packet duplicate (replay copies)",
     "corrupt":      "Corrupt (payload byte flips)",
     "rst":          "RST (TCP reset injection)",
     "bandwidth":    "Bandwidth cap (token bucket)",
     "disconnect":   "Disconnect (stateful timed cut)",
     "ooo":          "Out-of-order (reorder window)",
-    "godmode":      "God Mode (pulse cycle)",
-    "pulse":        "Pulse (timed bidirectional)",
-    "tick_sync":    "Tick-Sync (server-tick aligned drop)",
-    "stealth_drop": "Stealth Drop (jittered loss)",
-    "stealth_lag":  "Stealth Lag (jittered delay)",
 }
 
 

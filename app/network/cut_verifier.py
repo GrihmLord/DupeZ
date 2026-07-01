@@ -16,16 +16,15 @@ Three signal sources, any of which flips the state to ``SEVERED``:
    a drop in ``player_count`` from baseline is treated as SEVERED.
 
 The verifier never blocks the packet hot path. It's a plain background
-thread that uses stdlib subprocess for ping (works on Win/Linux/Mac
-without extra deps) and publishes state transitions via callback.
+thread that uses the safe subprocess wrapper for ping (works on
+Win/Linux/Mac without extra deps) and publishes state transitions via
+callback.
 """
 
 from __future__ import annotations
 
 import ipaddress
 import platform
-import shutil
-import subprocess
 import threading
 import time
 from dataclasses import dataclass
@@ -88,25 +87,20 @@ def ping_once(host: str, timeout_s: float = 1.0) -> bool:
             if _safe_sp is None:
                 return False
             ping_path = _safe_sp.PING or _safe_sp.resolve_system_binary("PING")
-            res = _safe_sp.run(
-                [ping_path, "-n", "1", "-w", str(int(timeout_s * 1000)), clean],
-                timeout=timeout_s + 1.0,
-                capture_output=False,
-                expect_returncode=None,
-                intent="cut_verifier.ping_target",
-            )
-            return res.returncode == 0
+            argv = [ping_path, "-n", "1", "-w", str(int(timeout_s * 1000)), clean]
         else:
-            ping_exe = shutil.which("ping") or "/bin/ping"
-            result = subprocess.run(
-                [ping_exe, "-c", "1", "-W", str(max(1, int(timeout_s))), clean],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=timeout_s + 1.0,
-            )
-            return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        return False
+            if _safe_sp is None:
+                return False
+            ping_path = _safe_sp.resolve_system_binary("ping")
+            argv = [ping_path, "-c", "1", "-W", str(max(1, int(timeout_s))), clean]
+        res = _safe_sp.run(
+            argv,
+            timeout=timeout_s + 1.0,
+            capture_output=False,
+            expect_returncode=None,
+            intent="cut_verifier.ping_target",
+        )
+        return res.returncode == 0
     except _SafeSpErr:
         return False
 

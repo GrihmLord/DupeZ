@@ -1,14 +1,14 @@
-"""Offline training entry point — reads JSONL episodes, fits models.
+"""Offline training entry point — reads JSONL diagnostic episodes.
 
 Run from repo root::
 
     python scripts/train_models.py --episodes app/data/episodes --out app/data/models
 
-Currently a scaffolding stub: enumerates episodes and reports coverage
-so you can see whether there's enough labeled data before dropping in a
-real trainer (sklearn / lightgbm / torch). Keeping this lightweight so a
-fresh checkout can run ``python scripts/train_models.py --dry-run``
-without any ML dependencies installed.
+The script always performs a dependency-free coverage summary first.
+When run without ``--dry-run`` it trains the bundled survival model and,
+when available, the legacy duration regressor fallback. Keeping the
+summary phase lightweight means a fresh checkout can still run
+``python scripts/train_models.py --dry-run`` without ML dependencies.
 """
 
 from __future__ import annotations
@@ -117,8 +117,10 @@ def main() -> int:
             f"KM_p90={surv['p90_s']:.2f}s"
         )
         if surv["n_events"] == 0:
-            print("  [!] 0 dupe-success labels — use the 'Mark dupe success' "
-                  "button in the UI, then re-run.")
+            print(
+                "  [!] 0 positive outcome labels — mark authorized lab "
+                "outcomes in the UI, then re-run."
+            )
 
     # Legacy QRF — kept as a belt-and-braces fallback.
     try:

@@ -31,6 +31,7 @@ from app.logs.logger import log_error, log_warning
 __all__ = [
     "validate_ip",
     "validate_ip_strict",
+    "validate_local_target_ip",
     "validate_filter_string",
     "validate_json_size",
     "safe_json_loads",
@@ -85,10 +86,9 @@ _WINDIVERT_ALLOWED_TOKENS = frozenset({
 # Allowed disruption method names
 VALID_DISRUPTION_METHODS: FrozenSet[str] = frozenset({
     "lag", "drop", "throttle", "duplicate", "ood", "corrupt",
-    "rst", "disconnect", "bandwidth", "godmode",
-    "stealth_drop", "stealth_lag",
+    "rst", "disconnect", "bandwidth",
     "gilbert_elliott", "pareto_jitter", "correlated_drop",
-    "token_bucket", "tick_sync", "pulse",
+    "token_bucket",
 })
 
 # Allowed disruption parameter keys and their type + range
@@ -105,12 +105,6 @@ VALID_PARAM_RANGES: Dict[str, Tuple[type, float, float]] = {
     "rst_chance": (float, 0, 100),
     "bandwidth_limit": (float, 0, 1_000_000),
     "bandwidth_queue": (int, 0, 10_000),
-    "godmode_lag_ms": (float, 0, 120000),
-    "godmode_drop_inbound_pct": (float, 0, 100),
-    "godmode_keepalive_interval_ms": (float, 0, 10000),
-    "godmode_pulse_block_ms": (float, 500, 30000),
-    "godmode_pulse_flush_ms": (float, 100, 5000),
-    "godmode_pulse_flush_max": (int, 10, 5000),
     "lag_keepalive_interval_ms": (float, 0, 10000),
     "disconnect_duration_ms": (float, 0, 60000),
     "disconnect_arm_delay_ms": (float, 0, 30000),
@@ -135,7 +129,8 @@ VALID_SETTING_KEYS: FrozenSet[str] = frozenset({
     "show_notifications", "sound_alerts",
     "cache_duration", "memory_limit", "require_admin",
     "encrypt_logs", "debug_mode", "verbose_logging",
-    "whitelist",
+    "whitelist", "safety_dry_run", "allowed_target_cidrs",
+    "max_operation_seconds",
 })
 
 
@@ -162,6 +157,32 @@ def validate_ip_strict(ip: str, context: str = "") -> str:
     if result is None:
         raise ValueError(f"Invalid IP address{f' ({context})' if context else ''}: {ip!r}")
     return result
+
+
+_LOCAL_TARGET_NETWORKS = (
+    ipaddress.IPv4Network("10.0.0.0/8"),
+    ipaddress.IPv4Network("172.16.0.0/12"),
+    ipaddress.IPv4Network("192.168.0.0/16"),
+    ipaddress.IPv4Network("169.254.0.0/16"),
+)
+
+
+def validate_local_target_ip(ip: str, context: str = "") -> str:
+    """Require an IPv4 target in an explicitly local network range."""
+    normalized = validate_ip_strict(ip, context=context)
+    addr = ipaddress.IPv4Address(normalized)
+    if (
+        addr.is_loopback
+        or addr.is_unspecified
+        or addr.is_multicast
+        or normalized == "255.255.255.255"
+        or not any(addr in network for network in _LOCAL_TARGET_NETWORKS)
+    ):
+        raise ValueError(
+            f"Target must be a local/private IPv4 address"
+            f"{f' ({context})' if context else ''}: {ip!r}"
+        )
+    return normalized
 
 
 # ── WinDivert Filter Validation ──────────────────────────────────────
@@ -367,9 +388,13 @@ def validate_entry_point(entry_point: str, plugin_dir: str) -> str:
 
     # Resolve and verify containment
     full_path = os.path.join(plugin_dir, entry_point)
-    real_path = os.path.realpath(full_path)
-    real_dir = os.path.realpath(plugin_dir)
-    if not real_path.startswith(real_dir + os.sep):
+    real_path = os.path.normcase(os.path.realpath(full_path))
+    real_dir = os.path.normcase(os.path.realpath(plugin_dir))
+    try:
+        contained = os.path.commonpath((real_path, real_dir)) == real_dir
+    except ValueError:
+        contained = False
+    if not contained or real_path == real_dir:
         raise ValueError(f"Entry point escapes plugin directory: {entry_point!r}")
 
     return entry_point
@@ -387,10 +412,14 @@ def validate_safe_path(path: str, base_dir: str,
     if not path or not isinstance(path, str):
         raise ValueError(f"Path is required{f' ({context})' if context else ''}")
 
-    resolved = os.path.realpath(os.path.join(base_dir, path))
-    base_resolved = os.path.realpath(base_dir)
+    resolved = os.path.normcase(os.path.realpath(os.path.join(base_dir, path)))
+    base_resolved = os.path.normcase(os.path.realpath(base_dir))
+    try:
+        contained = os.path.commonpath((resolved, base_resolved)) == base_resolved
+    except ValueError:
+        contained = False
 
-    if not resolved.startswith(base_resolved + os.sep) and resolved != base_resolved:
+    if not contained:
         raise ValueError(
             f"Path traversal detected{f' ({context})' if context else ''}: "
             f"{path!r} resolves outside {base_dir!r}"
@@ -440,10 +469,18 @@ def validate_url(url: str, require_https: bool = False,
     # Block SSRF via IP ranges
     try:
         addr = ipaddress.ip_address(hostname)
-        if addr.is_private or addr.is_loopback or addr.is_link_local:
-            raise ValueError(f"Private/loopback IP in URL: {hostname!r}")
     except ValueError:
-        pass  # hostname is a domain name, not an IP — OK
+        pass
+    else:
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_unspecified
+            or addr.is_multicast
+            or addr.is_reserved
+        ):
+            raise ValueError(f"Private/non-routable IP in URL: {hostname!r}")
 
     return url
 

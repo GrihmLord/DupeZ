@@ -57,3 +57,12 @@ def data_dir(tmp_path):
     d = tmp_path / "data"
     d.mkdir()
     return str(d)
+
+
+@pytest.fixture(autouse=True)
+def isolate_operation_journal(monkeypatch, tmp_path):
+    """Never let tests write the host user's crash-recovery marker."""
+    from app.core import operation_journal
+
+    path = tmp_path / "recovery" / "active-operation.json"
+    monkeypatch.setattr(operation_journal, "default_journal_path", lambda: path)

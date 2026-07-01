@@ -2,7 +2,8 @@
 Safe-by-default subprocess wrapper for DupeZ.
 
 All child-process creation in the codebase SHOULD route through
-:func:`run` (one-shot) or :func:`spawn` (detached) instead of
+:func:`run` (one-shot), :func:`spawn_managed` (long-running with a
+bounded process handle), or :func:`spawn_detached` (fire-and-forget) instead of
 calling :mod:`subprocess` directly. The wrapper enforces a small set
 of invariants that, in aggregate, eliminate the most common
 command-injection and PATH-hijack bug classes:
@@ -38,9 +39,9 @@ fine. Pass ``trusted_executable=True`` to opt out of the absolute-
 path check when the caller has *already* verified the path is what
 they expect.
 
-This module never returns a ``subprocess.Popen`` instance to callers;
-that would let a caller bypass the exit-auditing. The return types
-are plain dataclasses.
+This module never returns a raw ``subprocess.Popen`` instance to
+callers; that would let a caller bypass the exit-auditing. The return
+types are plain dataclasses or small audited wrappers.
 """
 
 from __future__ import annotations
@@ -55,8 +56,10 @@ from typing import Iterable, List, Optional, Sequence, Set
 
 __all__ = [
     "SafeSubprocessError",
+    "ManagedProcess",
     "SubprocessResult",
     "run",
+    "spawn_managed",
     "spawn_detached",
 ]
 
@@ -75,6 +78,53 @@ class SubprocessResult:
     stderr: str
     duration_s: float
     timed_out: bool
+
+
+class ManagedProcess:
+    """Audited wrapper for a long-running child process.
+
+    Exposes only the process operations DupeZ needs for GUI/native
+    helper lifecycles. Callers can poll and kill the process, but they
+    cannot mutate stdio, replace handles, or bypass the spawn policy.
+    """
+
+    def __init__(self, proc: subprocess.Popen, *, intent: str, started_at: float) -> None:
+        self._proc = proc
+        self._intent = intent or "unspecified"
+        self._started_at = started_at
+        self._exit_audited = False
+
+    @property
+    def pid(self) -> int:
+        return int(self._proc.pid)
+
+    @property
+    def returncode(self) -> Optional[int]:
+        return self._proc.returncode
+
+    def poll(self) -> Optional[int]:
+        rc = self._proc.poll()
+        if rc is not None:
+            self._audit_exit(rc, killed=False)
+        return rc
+
+    def kill(self) -> None:
+        try:
+            self._proc.kill()
+        finally:
+            self._audit_exit(self._proc.returncode, killed=True)
+
+    def _audit_exit(self, rc: Optional[int], *, killed: bool) -> None:
+        if self._exit_audited:
+            return
+        self._exit_audited = True
+        _audit("subprocess_exit", {
+            "intent": self._intent,
+            "returncode": rc,
+            "duration_s": round(time.monotonic() - self._started_at, 3),
+            "timed_out": False,
+            "killed": bool(killed),
+        })
 
 
 # ── Policy helpers ───────────────────────────────────────────────
@@ -350,6 +400,47 @@ def spawn_detached(
 
 # ── Convenience: Windows-system-binary resolver ────────────────────
 
+def spawn_managed(
+    argv: Sequence[str],
+    *,
+    cwd: Optional[str] = None,
+    env: Optional[dict] = None,
+    trusted_executable: bool = False,
+    intent: str = "",
+) -> ManagedProcess:
+    """Spawn a long-running child and return an audited process handle."""
+    clean_argv = _validate_argv(argv, trusted_executable=trusted_executable)
+    flags = _windows_creation_flags()
+    startupinfo = _windows_startupinfo()
+    clean_intent = intent or "unspecified"
+
+    _audit("subprocess_spawn_managed", {
+        "intent": clean_intent,
+        "argv_preview": _argv_preview(clean_argv),
+        "trusted_executable": trusted_executable,
+    })
+
+    started_at = time.monotonic()
+    try:
+        proc = subprocess.Popen(
+            clean_argv,
+            shell=False,
+            cwd=cwd,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            creationflags=flags,
+            startupinfo=startupinfo,
+        )
+        return ManagedProcess(proc, intent=clean_intent, started_at=started_at)
+    except OSError as e:
+        raise SafeSubprocessError(
+            f"managed spawn failed ({clean_argv[0]!r}): {e}"
+        ) from e
+
+
 def resolve_system_binary(name: str) -> str:
     """Resolve a Windows system binary to its absolute System32 path.
 
@@ -383,7 +474,7 @@ def resolve_system_binary(name: str) -> str:
 if sys.platform == "win32":  # pragma: no cover — Windows-only
     # Pre-resolve the common offenders once at import time so downstream
     # callers can grab them without re-walking System32 on every invocation.
-    # PING is System32\PING.EXE — used by the ARP spoof layer to populate
+    # PING is System32\PING.EXE — used by the local forwarding layer to populate
     # the local ARP cache before querying it.
     try:
         NETSH = resolve_system_binary("netsh")

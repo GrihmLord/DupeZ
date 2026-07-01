@@ -51,6 +51,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from app.core.builtin_presets import get_builtin_preset
 from app.logs.logger import log_error, log_info, log_warning
 
 
@@ -179,11 +180,7 @@ class CutChainRunner:
     def _run_stage(self, idx: int, stage: Stage) -> None:
         # Build the disrupt call's payload — preset wins, overrides
         # layered on top.
-        try:
-            from app.gui.clumsy_control import PRESETS
-            preset_def = dict(PRESETS.get(stage.preset, {}))
-        except Exception:
-            preset_def = {}
+        preset_def = get_builtin_preset(stage.preset)
         methods = list(stage.methods if stage.methods is not None
                        else preset_def.get("methods", []))
         params = dict(preset_def.get("params", {}))

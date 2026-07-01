@@ -1,5 +1,5 @@
 /* Rainbow Theme for DupeZ */
-/* This file is a placeholder - actual colors are generated dynamically */
+/* Static fallback colors; runtime themes may override these values dynamically. */
 
 /* Main Application */
 QMainWindow {
@@ -453,4 +453,4 @@ QMessageBox {
 QMessageBox QPushButton {
     min-width: 80px;
     min-height: 24px;
-} 
+}

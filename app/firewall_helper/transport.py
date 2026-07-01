@@ -59,7 +59,7 @@ CONNECT_TIMEOUT_MS = 15_000
 FRAME_TIMEOUT_MS = 5_000
 
 
-# ── Import Windows IPC primitives lazily so unit tests on Linux can stub ─
+# ── Import Windows IPC primitives lazily for non-Windows test fakes ─
 
 def _import_win32():
     """Import pywin32 pipe primitives. Raises on non-Windows."""

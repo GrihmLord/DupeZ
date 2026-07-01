@@ -52,6 +52,7 @@ __all__ = [
     "device_cache_manager",
     "save_all_data",
     "get_persistence_info",
+    "persistence_key_degraded",
 ]
 
 
@@ -167,22 +168,11 @@ def _verify_hmac_legacy(data: bytes, expected_hex: str) -> bool:
 # ── Data directory resolution ─────────────────────────────────────────
 
 def _resolve_data_directory() -> str:
-    """Return a writable data directory for both dev and frozen exe.
+    """Return source-tree data in development and per-user data when installed."""
+    from app.core.app_paths import data_dir, ensure_runtime_migration
 
-    When running from source the relative ``app/data`` path is fine.
-    When running as a frozen PyInstaller exe the bundled ``app/data``
-    inside ``_MEIPASS`` is **read-only**, so we store user data next
-    to the exe instead (``<exe_dir>/app/data``).
-    """
-    import sys
-
-    if getattr(sys, "frozen", False):
-        base = os.path.dirname(sys.executable)
-    else:
-        base = os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        )
-    return os.path.join(base, "app", "data")
+    ensure_runtime_migration()
+    return str(data_dir())
 
 
 # ── Configuration ─────────────────────────────────────────────────────
@@ -680,3 +670,9 @@ def save_all_data() -> bool:
 def get_persistence_info() -> Dict[str, Any]:
     """Return diagnostic info about persistence state."""
     return persistence_manager.get_data_info()
+
+
+def persistence_key_degraded() -> bool:
+    """Return True when persistence integrity is using the fallback key."""
+    _get_hmac_key()
+    return _KEY_DEGRADED

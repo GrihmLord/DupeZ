@@ -19,13 +19,13 @@ DEFAULT_DUPLICATE_CHANCE: int = 80
 class DuplicateModule(DisruptionModule):
     """Send packets multiple times to flood the connection.
 
-    **Outbound duplication (primary use case — e.g. God Mode Aggressive):**
+    **Outbound duplication (primary use case — e.g. Legacy pulse Aggressive):**
     Flooding the server with duplicate outbound packets (hit reports,
     position updates, inventory RPCs) can overwhelm the server's RPC
     processing.  The server may process the same client RPC multiple
     times if its deduplication layer doesn't catch the burst.  This is
     the main value: outbound-only duplication with ``duplicate_direction:
-    "outbound"`` floods hit reports during God Mode flush.
+    "outbound"`` creates duplicate packet traces during release.
 
     **Inbound duplication (limited effectiveness):**
     Enfusion uses snapshot-based state replication with delta encoding.

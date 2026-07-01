@@ -13,7 +13,9 @@ Project documentation lives here. Top-level docs (`README.md`, `CHANGELOG.md`, `
 
 ### `release-notes/` — Per-version operator-facing notes
 
-`v5.6.3.md` → `v5.7.4.md` plus older `RELEASE_NOTES_*` and `DEPLOY_CHECKLIST_*` files. The latest is always `v<current>.md` where `<current>` matches `app/__version__.py`.
+`v5.6.3.md` through `v5.7.7.md` plus older `RELEASE_NOTES_*` and
+`DEPLOY_CHECKLIST_*` files. The latest is always `v<current>.md` where
+`<current>` matches `app/__version__.py`.
 
 ### `audits/` — Deep-audit reports
 
@@ -42,9 +44,16 @@ Dated subfolders (e.g. `2026-04-17/`) hold superseded or historically-interestin
 
 ## Standalone docs at this level
 
-- **ROADMAP_v6.md** — Long-horizon v6.x sketch (hotkey macros, anti-detect telemetry, cross-game profiles, plugin marketplace, mobile companion). The active short-horizon roadmap lives at `../ROADMAP.md`.
+- **ROADMAP_v6.md** ? Long-horizon v6.x sketch for trusted-lab diagnostics,
+  cross-game profiles, plugin marketplace, mobile companion, privacy lifecycle,
+  and performance work. The active short-horizon roadmap lives at
+  `../ROADMAP.md`.
 - **competitive_audit.md** — Comparison against adjacent tools.
 - **AUDIT_REPORT_PHASE_C.md**, **AUDIT_v5.7.0.md** — Historical audits (slated for migration to `audits/` next time they're touched).
+
+Historical DOCX reports are retained as binary artifacts for provenance. The
+Markdown README, roadmap, audit, and release-note files are the current
+operator-facing documentation source of truth.
 
 ## Where things go when you add them
 

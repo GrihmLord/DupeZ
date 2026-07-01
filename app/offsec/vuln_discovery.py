@@ -127,6 +127,9 @@ _RULE_EXEMPT_FILES = {
     "app/core/safe_subprocess.py",
     "app/offsec/vuln_discovery.py",   # this file — rule text contains regexes
 }
+_RULE_EXEMPT_PREFIXES = (
+    "app/firewall/clumsy_src/",        # vendored clumsy source and sample scripts
+)
 
 # Per-rule exemptions for files that are themselves the hardened
 # wrapper for the dangerous primitive. Example: model_integrity.py
@@ -144,6 +147,8 @@ def _iter_py_files() -> Iterable[Path]:
     for p in (_REPO_ROOT / "app").rglob("*.py"):
         rel = p.relative_to(_REPO_ROOT).as_posix()
         if rel in _RULE_EXEMPT_FILES:
+            continue
+        if rel.startswith(_RULE_EXEMPT_PREFIXES):
             continue
         if "__pycache__" in rel:
             continue

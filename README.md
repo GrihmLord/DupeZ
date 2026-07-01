@@ -1,8 +1,22 @@
-# DupeZ v5.7.6
+# DupeZ v5.7.7
 
-Per-device network disruption toolkit. Scan your network, pick your targets, manipulate their packets. Direct WinDivert packet manipulation through a PyQt6 dashboard with AI auto-tuning, pulse-cycling god mode, precise dupe engine, tick-synchronized disruption, stealth patterns, and a plugin API.
+DupeZ is a Windows network-condition testing and diagnostics workspace for
+devices and local networks you own or are explicitly authorized to test. It
+combines scoped packet impairment, dry-run previews, automatic stop deadlines,
+crash-safe recovery, live diagnostics, and redacted support tooling in a PyQt6
+desktop application.
 
-Built for the DayZ community — scan your local network, target specific devices, and apply real-time packet disruption with granular control over lag, drops, throttling, duplication, corruption, directional freezing, and inventory duplication. Includes AI auto-tuning, voice commands, scheduled disruptions, macro chains, live traffic monitoring, and a plugin system for community extensions.
+The DayZ-oriented workflow focuses on reproducible connection testing:
+latency, jitter, loss, bandwidth pressure, temporary disconnects, server
+reachability, and local adapter/firewall health. The supported product boundary
+is owned-lab diagnostics only: private servers, local devices, explicit
+authorization, short automatic deadlines, and auditable rollback.
+
+Installed builds keep mutable settings, histories, episodes, trained models,
+logs, captures, reports, and crash dumps under `%LOCALAPPDATA%\DupeZ` rather
+than beside binaries in `Program Files`. Upgrades perform a verified,
+copy-only migration of recognized legacy files. Existing destination files win,
+conflicts are reported, and legacy files are never deleted automatically.
 
 ![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![Python](https://img.shields.io/badge/python-3.10%2B-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
 
@@ -10,7 +24,7 @@ Built for the DayZ community — scan your local network, target specific device
 
 ## Features
 
-### Disruption Engine
+### Safe Network-Condition Engine
 
 DupeZ uses a three-tier fallback for packet disruption:
 
@@ -18,61 +32,29 @@ DupeZ uses a three-tier fallback for packet disruption:
 2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
 3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation.
 
-**10 Disruption Modules:** Drop, Lag (with connection preservation), Throttle, Duplicate, Corrupt, RST Injection, Bandwidth Cap, Disconnect (stateful timed cut — primary dupe vector), Out-of-Order, God Mode (pulse cycling). Tick-synchronized burst/pulse modes layer on top via the tick-sync engine.
+The engine supports bounded lab scenarios such as drop, lag, throttle,
+bandwidth pressure, duplication, corruption, reordering, and temporary
+disconnect. Every controller-started active operation is checked against local
+CIDR policy and receives a hard automatic stop deadline.
 
-**Statistical Models:** Gilbert-Elliott bursty loss, Pareto heavy-tail jitter, Token Bucket rate limiting, Correlated drop with temporal autocorrelation. All produce patterns statistically indistinguishable from real network degradation.
+Safety and support features include:
 
-**Stealth Layer:** Timing randomization (Gaussian jitter), 4 natural degradation patterns (wifi interference, congestion, ISP throttle, distance), session fingerprint rotation. Behavioral camouflage to avoid detection.
+- First-run owned/authorized-network acknowledgement.
+- Dry Run mode that validates and audits without loading the packet engine.
+- Local-address and operator-defined CIDR scope checks.
+- Crash-safe recovery of packet, firewall, and forwarding state.
+- Redacted diagnostics, privacy inventory, and support-bundle exports.
+- Stable CLI JSON schemas for support automation.
 
-### God Mode (v5.2.0)
+Statistical impairment models are available for reproducing burst loss,
+heavy-tail jitter, rate limiting, and correlated loss in controlled tests.
 
-Asymmetric directional disruption with pulse-cycling for indefinite duration. Inbound packets (server → target) are managed by a block/flush cycle while outbound (target → server) always passes through untouched.
+### DayZ Connection Diagnostics
 
-**Three modes:**
-
-| Mode | Block | Flush | Effect |
-|------|-------|-------|--------|
-| Classic | Continuous delay | Timed release | Original behavior, subject to ~10s kick limit |
-| Pulse (default) | 3000ms | 400ms | Indefinite red chain — quality monitor resets during flush windows |
-| Infinite | 5000ms | 300ms | Maximum disruption — aggressive preset with 2s keepalive |
-
-Pulse cycling keeps the sliding-window average below DayZ's kick threshold indefinitely. The target experiences freeze→micro-unfreeze→freeze cycles where the unfreeze window is too short to react but long enough to reset quality metrics.
-
-**Packet classification:** Small inbound packets (<100 bytes) are identified as server keepalive probes and preferentially passed during NAT keepalive windows — maximum connection health signal with minimum game state leakage.
-
-**Teleportation:** During extended block phases, your outbound movement reaches the server continuously. When the flush phase hits, the target's client reconciles the entire position delta at once — visual teleport from the target's perspective.
-
-### Stateful Cut Disconnect (primary dupe vector)
-
-The standalone Dupe Engine v1 was retired in v5.5.0. Dupe functionality now lives in the `disconnect` module as a stateful cut-with-timer — the same three-phase flow (arm → cut → release) exposed via three sliders: `Chance %`, `Arm Delay (ms)`, and `Duration (ms)`. Leaving duration at `0` preserves the legacy "drop until stopped" behavior; setting arm delay + duration arms a timed cut. Pair with the A2S Cut Verifier (see v5.6.0 below) for closed-loop severance confirmation.
-
-### Extended Lag (v5.2.0)
-
-Connection-preserving lag for durations beyond 5 seconds. Auto-activates when lag delay exceeds 5000ms. Periodically passes small keepalive-sized packets while holding large game state packets in the delay queue. Enables 30s+ lag without server timeout.
-
-### Tick-Synchronized Disruption (v5.0.0)
-
-Aligns disruption bursts with server tick boundaries for maximum impact with minimum total packet manipulation. TickEstimator detects server tick rate from packet inter-arrival times. PulseDisruptionModule implements burst/rest cycles that stay below DayZ's 1.27+ freeze system threshold.
-
-### Packet Classification (v5.0.0)
-
-Real-time packet classifier with UDP size/port heuristics, TCP flag analysis, and per-flow frequency tracking. Categories: KEEPALIVE, MOVEMENT, STATE, BULK, VOICE, CONNECTION, UNKNOWN. SelectiveDisruptionFilter wraps any module to target specific categories.
-
-### Asymmetric Direction Presets (v5.0.0)
-
-14 named presets across 6 families: God Mode (standard/stealth/aggressive), Ghost Mode (standard/soft), Desync (standard/heavy), Phantom (standard/aggressive), Statistical (bursty loss/jitter hell/ISP throttle), and Combo (chaos/surgical). Independent inbound/outbound tuning per module.
-
-### AI Smart Mode (v3.1.0+)
-
-Network profiler + rule-based parameter optimizer. Profiles target connections in real-time (RTT, jitter, loss, bandwidth, device type, connection type) and generates optimal disruption configs. 7 goal strategies: Disconnect, Lag, Desync, Throttle, Chaos, God Mode, Auto. Optional LLM advisor via Ollama or any OpenAI-compatible API for natural-language disruption tuning.
-
-### Voice Control (v3.4.0+)
-
-Push-to-talk voice commands powered by OpenAI Whisper (local, offline). Speak a command like "heavy lag on the PS5" or "god mode" and the LLM advisor interprets it into a disruption config. Supports model selection (tiny/base/small) and mic selection.
-
-### GPC / CronusZEN Support (v3.4.0+)
-
-Native GPC script integration for CronusZEN and CronusMAX devices. Parse .gpc files, generate scripts synced with DupeZ disruption timing, export to Zen Studio. 4 built-in templates: Auto Dupe, Rapid Fire, God Mode Actions, Anti Recoil.
+The DayZ workflow combines passive server reachability/query checks with
+latency, jitter, loss, route, adapter, firewall, and driver diagnostics. It is
+intended to help players and private-server operators reproduce and explain
+connection problems without claiming to manipulate public-server game state.
 
 ### Plugin API (v4.0.0+)
 
@@ -102,23 +84,34 @@ Built-in interactive guide with 10+ collapsible sections covering every feature:
 
 The Clumsy Control sections — Preset, Platform, Direction, Modules, and Live Stats — are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow. The scheduler/macro controls sit inline beneath the disrupt buttons; Smart Mode, Voice, and GPC/Cronus live in the Network Tools view.
 
-### ARP Spoof + A2S Cut Verifier (v5.6.0)
+### Local Forwarding + A2S Health Verification (v5.6.0)
 
-Closed-loop cut verification for WiFi same-network targets. ARP poison writes three gateway-facing frames per cycle — opcode-2 reply with L2 source spoofed to the target's MAC, plus an opcode-1 request variant — defeating ASUS/Netgear/Ubiquiti anti-spoof heuristics and RFC 826 strict-mode routers. While a cut is active, the A2S probe polls the Source query port every second, captures a baseline player count on the first reachable poll, and emits `cut_verified` events with states `unknown → connected → degraded → severed`. Peak `max_cut_state` is written to `engine_stop` so the learning loop sees labeled severance data without operator input. `LearningLoop.cut_effectiveness(profile, goal)` surfaces per-bucket severance rates so the auto-tuner can switch presets when the current one can't sever a target class.
+Closed-loop lab verification for owned same-network devices and private DayZ
+servers. The verifier samples Source-query reachability during a bounded
+operation, records whether the private endpoint stayed healthy, degraded, or
+temporarily disconnected, and writes that summarized state to the local
+operation journal. The learning loop consumes only aggregate health outcomes so
+operators can compare lab presets without storing raw targets or packet
+payloads.
 
 Vendor column now resolves against the full IEEE OUI database (~35k entries via scapy MANUFDB) instead of the 60-entry curated table — Ring, HUMAX, Murata, Texas Instruments, Chamberlain, HP, Samsung, Apple, and every other registered manufacturer populate correctly.
 
-### WiFi Peer Disruption Restored (v5.7.2)
+### WiFi Lab Path Reliability (v5.7.2)
 
-Same-WiFi targets (Xbox, PS5, other PCs) are disrupted directly again. v5.6.5 had collapsed the default to self-disrupt — only the operator's own traffic was affected — which silently turned the headline workflow ("scan → pick a device → DISRUPT") into a no-op. v5.7.2 routes `wifi_same_net` back through ARP spoof + FORWARD layer, with the v5.6.5 isolation watchdog retained as an automatic fallback when AP client isolation genuinely drops the spoof (grace window raised 5s → 8s to avoid false-positive fallback on a briefly-idle target). `params["_force_self_disrupt"]` is the explicit opt-in for operators who really do want the old self-disrupt behavior. See ADR-0002 §1 for the full decision history.
+Same-network lab workflows now fail visibly instead of presenting a successful
+operation when client isolation or adapter policy prevents observation. v5.7.2
+keeps the isolation watchdog, raises the grace window to avoid false positives,
+and falls back to clearly announced self-diagnostics when the owned peer path is
+not available. `params["_force_self_disrupt"]` remains an explicit opt-in for
+operators who are intentionally testing only their own traffic.
 
 ### Tools-Menu Surfaces (v5.7.4)
 
 Six feature backends that shipped backend-only in v5.7.0/v5.7.1 are now reachable from the UI:
 
-- **Risk Score** — `Tools → Risk Score…` shows the live 0-100 score with the six-factor breakdown (active cuts, audit volume, kill-switch state, episode rate, anti-cheat presence, network changes).
+- **Risk Score** — `Tools → Risk Score…` shows the live 0-100 score with the six-factor breakdown (active cuts, audit volume, kill-switch state, episode rate, server-integrity signal, network changes).
 - **Diagnostics** — `Tools → Diagnostics…` (F2) runs all 8 self-checks (Npcap, WinDivert handle, IP forwarding, ARP table, audit log, episode store, signing key, update channel) with pass/warn/fail and per-check remediation hints.
-- **Kill Switch — Panic Stop** — `Tools → Kill Switch` (Ctrl+Alt+X) immediately halts every active disruption. The manual half of the kill-switch feature; auto-triggers (anti-cheat / risk threshold / packet rate) still pending a settings panel.
+- **Kill Switch — Panic Stop** — `Tools → Kill Switch` (Ctrl+Alt+X) immediately halts every active disruption. The manual half of the kill-switch feature; auto-triggers (server-integrity / risk threshold / packet rate) still pending a settings panel.
 - **OBS Overlay Server** — `Tools → Toggle OBS Overlay Server` starts/stops the localhost-bound HTTP endpoint and shows the browser-source URL. Auto-starts on launch when `settings.obs_overlay_enabled` is set.
 - **Audit Webhook Fan-Out** — `AuditLogger.log()` now actually emits configured Discord/generic webhook events after the canonical JSONL write. Best-effort, daemon-threaded, never raises into the audit hot path. Configure under Settings → Audit.
 - **Episode Store Rotation** — 90-day / 5000-file retention now enforced once per launch; the JSONL episode store no longer grows unbounded.
@@ -139,7 +132,7 @@ Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uni
 |--------|--------|
 | Red Disconnect | 100% drop + 3000ms lag + 0 KB/s cap + full throttle + hard cut |
 | Lag | Heavy sustained lag + drop — tune sliders after selecting (Light ~800/60 · Max ~5000/100) |
-| God Mode | Bidirectional pulse-cycle — ghost teleport, invulnerable, hits land (3500ms block / 300ms flush / 100ms stagger) |
+| Temporary Disconnect | Short, bounded interruption for authorized lab reconnect testing |
 | Custom | Set your own parameters |
 
 Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in the game profile JSON and are auto-selected at disrupt time based on target subnet, MAC OUI, hostname, and device type — see `app/firewall/target_profile.py::resolve_target_profile`.
@@ -155,7 +148,7 @@ Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in th
 ### Build Dependencies (optional)
 
 - [Inno Setup 6+](https://jrsoftware.org/isinfo.php) — Required only to compile the installer (`iscc` must be on PATH)
-- Code signing certificate — Optional; set `DUPEZ_SIGN_CERT` and `DUPEZ_SIGN_PASS` environment variables to enable signing in `build.bat`
+- Code signing certificate — Optional for local builds, strongly recommended for releases. Set `DUPEZ_SIGN_CERT` and `DUPEZ_SIGN_PASS` to Authenticode-sign `build.bat` outputs and all `build_variants.bat` release executables with SHA-256 timestamping.
 
 ### Firewall Binaries
 
@@ -183,7 +176,84 @@ python dupez.py
 # Run CLI (headless)
 python -m app.cli scan
 python -m app.cli interactive
+
+# Safe maintenance commands (no Administrator required)
+python -m app.cli diagnostics
+python -m app.cli diagnostics --json
+python -m app.cli health
+python -m app.cli health --json
+python -m app.cli pktmon plan --port 2302 --protocol udp
+python -m app.cli pktmon plan --port 2302 --protocol udp --json
+python -m app.cli performance smoke
+python -m app.cli performance smoke --json
+python -m app.cli status --json
+python -m app.cli report active --output-dir .\reports
+python -m app.cli privacy scan
+python -m app.cli privacy scan --json
+python -m app.cli privacy retention
+python -m app.cli privacy retention --max-age packet-capture=3 --json
+python -m app.cli privacy scrub --apply
+python -m app.cli recovery audit-status
+python -m app.cli recovery audit-status --json
+python -m app.cli recovery secret-store-status
+python -m app.cli recovery secret-store-status --json
+python -m app.cli recovery secret-store-repair-plan
+python -m app.cli recovery secret-store-repair-plan --json
+python -m app.cli safety status
+python -m app.cli safety status --json
+python -m app.cli safety acknowledge --owned-authorized-network
+python -m app.cli storage status
+python -m app.cli storage status --json
+python -m app.cli support bundle
+python -m app.cli support bundle --json
 ```
+
+`diagnostics` runs the same health checks exposed in the GUI, including
+secret-store access, persistence integrity key mode, audit-chain health, and a
+passive WiFi adapter route check. The safe JSON commands redact user-specific
+local filesystem roots and report classified error codes such as
+`permission_denied` so support output is useful without exposing local paths.
+`health` combines those checks with aggregate adapter readiness, default-route
+type, Pktmon/PCAPNG capability, safety-policy state, recovery status, a health
+score, and prioritized recommendations. It excludes adapter names, raw IPs,
+MACs, and packet payloads.
+`pktmon plan` previews a filter-required Windows Packet Monitor capture without
+changing system state. Actual capture requires Administrator rights plus both
+`--apply` and `--accept-sensitive-capture`. Captures are capped at 30 seconds,
+32 MB circular storage, NIC components, and 64 bytes per packet. DupeZ refuses
+to alter pre-existing global Pktmon filters and never uploads capture files.
+ETL/PCAPNG artifacts are included in `privacy scan` and quarantine workflows.
+`performance smoke` runs local no-engine benchmarks for storage status,
+retention planning, and scenario-report generation against conservative support
+budgets; add `--include-support-bundle` when you also want to measure full
+redacted support-bundle creation.
+`status --json` includes a privacy-preserving active-operation snapshot with
+masked targets and remaining automatic-stop time. `report active` writes a
+deterministic scenario report using UTC timestamps and IPPM metric terminology.
+Raw targets and parameter values are excluded; parameter sets are represented
+by stable fingerprints so repeated configurations can be compared safely.
+`privacy scan` inventories ignored local runtime artifacts such as audit logs,
+episode telemetry, support bundles, reports, managed backup archives, old
+privacy quarantines, packet captures, logs, crash reports, and device caches.
+`privacy retention` previews conservative age-based cleanup windows for local
+artifacts; add `--apply` to quarantine only expired items, or repeat
+`--max-age CATEGORY=DAYS` to override a category.
+`privacy scrub --apply` quarantines the full inventory under
+`app/data/privacy-quarantine-*`. Add `--include-account-data` only when you
+also want account tracker/profile files to participate. `recovery
+audit-status` reports whether the local tamper-evident audit chain is valid,
+sealed, or running with a degraded key. `recovery secret-store-status` checks
+whether the OS-backed key store is reachable and writable. Add `--json` to
+safe maintenance commands when another tool needs parseable output. `support
+bundle` writes a redacted JSON support artifact containing diagnostics,
+secret-store health, and privacy inventory metadata without raw logs, secrets,
+account contents, raw IPs, MACs, or user-specific local paths. It includes
+privacy category counts and retention eligibility by default; add
+`--include-file-list` only when support needs exact runtime filenames.
+`safety status` reports the versioned authorized-use acknowledgement. Active
+CLI operations require it unless `--dry-run` is used. `storage status` reports
+managed runtime roots, migration marker health, and legacy-file candidate
+counts with local paths redacted in JSON/support output.
 
 ### Build standalone exe
 
@@ -194,7 +264,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.7.6_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.7.7_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -204,12 +274,12 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.7.6_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+Download `DupeZ_v5.7.7_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
 3. Creates Start Menu and Desktop shortcuts
-4. Strips Mark-of-the-Web (MOTW) from all files — prevents Windows Application Control blocking
+4. Preserves Windows trust metadata and relies on signatures/hashes instead of overriding SmartScreen or Windows Application Control
 5. Supports upgrade-in-place — re-run a newer installer without uninstalling first
 6. **In-app auto-update** — DupeZ checks GitHub Releases on launch and can download + install updates directly
 
@@ -261,23 +331,21 @@ app/
 │   └── voice_control.py             # Push-to-talk voice commands via Whisper
 ├── gpc/
 │   ├── gpc_parser.py                # CronusZEN .gpc script parser
-│   ├── gpc_generator.py             # .gpc script generator (4 templates)
+│   ├── gpc_generator.py             # Accessibility/diagnostic .gpc script generator
 │   └── device_bridge.py             # Cronus USB device detection
 ├── firewall/
 │   ├── native_divert_engine.py      # WinDivert packet engine (ctypes, batch API)
 │   ├── clumsy_network_disruptor.py  # Dual-engine orchestrator (native + clumsy)
 │   ├── engine_base.py               # DisruptionManagerBase ABC
 │   ├── packet_classifier.py         # Real-time packet classification engine
-│   ├── tick_sync.py                 # Tick-synchronized disruption + pulse mode
+│   ├── tick_sync.py                 # Legacy timing helper (not public-selectable)
 │   ├── statistical_models.py        # Gilbert-Elliott, Pareto, token bucket, correlated
-│   ├── stealth.py                   # Behavioral stealth + natural patterns
 │   ├── asymmetric_presets.py        # 14 named directional presets
 │   ├── blocker.py                   # netsh firewall rules (fallback)
 │   └── modules/                     # Extracted disruption modules
-│       ├── godmode.py               # Pulse-cycling god mode (v5.2)
 │       ├── lag.py                   # Connection-preserving lag (v5.2)
 │       ├── drop.py                  # Random packet drop
-│       ├── disconnect.py            # Stateful timed cut — primary dupe vector
+│       ├── disconnect.py            # Bounded temporary disconnect module
 │       ├── duplicate.py             # Packet flooding (N+1 copies)
 │       ├── ood.py                   # Out-of-order reordering
 │       ├── corrupt.py               # Payload bit-flip corruption
@@ -311,7 +379,7 @@ app/
 
 plugins/                             # Community plugins (each folder = one plugin)
 └── example_ping_monitor/
-tests/                               # Test suite (807 tests across 43 files, 2 hardware-gated)
+tests/                               # Broad unit/integration suite with hardware-gated checks
 tools/                               # Operator CLI utilities (scan/lag smoketest, etc.)
 bench/                               # Micro-benchmarks for hot paths
 docs/
@@ -335,6 +403,24 @@ DupeZ supports two runtime architectures, selectable at build time:
 - **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails.
 
 The active architecture is displayed in the About dialog as the ARCH field.
+
+### Package boundaries
+
+- `app.gui` owns presentation and may depend on backend services.
+- `app.core` owns orchestration, persistence, diagnostics, presets, and reusable
+  platform capability probes. It must not import `app.gui`.
+- `app.firewall_helper` owns the elevated split-process boundary and must not
+  import `app.gui`.
+- Built-in preset definitions live in `app.core.builtin_presets`; the GUI
+  exposes a compatibility alias but does not own the data.
+- GPU capability detection lives in `app.core.gpu_probe`, allowing the GUI and
+  helper architecture selector to share the probe without crossing layers.
+- `AppController` owns its service lifecycle explicitly. Dependencies can be
+  injected, construction can be inert with `auto_start=False`, and startup,
+  shutdown, scheduler, plugin, engine, and scan-thread ownership are
+  idempotent.
+
+These rules are enforced by `tests/test_architecture_boundaries.py`.
 
 ## Security Architecture
 

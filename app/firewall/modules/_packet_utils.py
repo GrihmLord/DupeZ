@@ -226,7 +226,7 @@ def copy_windivert_addr(addr: WINDIVERT_ADDRESS) -> WINDIVERT_ADDRESS:
 class KeepaliveTracker:
     """Tracks keepalive pass-through timing for both directions.
 
-    Used by God Mode to maintain connection health during packet
+    Used by Legacy pulse to maintain connection health during packet
     blocking phases.
     """
 

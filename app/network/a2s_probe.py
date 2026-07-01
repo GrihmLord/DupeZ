@@ -7,7 +7,7 @@ the hive:
 
 * **A2S_INFO**  — returns current ``player_count``. If it drops by one
   while we're mid-cut, our session got evicted on the server side even
-  though our client still thinks it's connected → classic dupe window.
+  though our client still thinks it's connected → classic isolation window.
 
 * **A2S_PLAYER** — returns the roster. Some servers strip names (BE
   anti-cheat / Nitrado), but when present it's a perfect signal: name

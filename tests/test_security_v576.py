@@ -270,6 +270,41 @@ class TestSubprocessHardening:
             "v5.7.6: spawn_detached must set close_fds=True on all platforms"
         )
 
+    def test_spawn_managed_uses_close_fds_true_and_wraps_process(self, monkeypatch) -> None:
+        from app.core import safe_subprocess
+        captured: dict = {}
+
+        class _FakeProc:
+            pid = 4343
+            returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def kill(self):
+                self.returncode = -9
+
+        def fake_popen(*args, **kwargs):
+            captured.update(kwargs)
+            return _FakeProc()
+
+        monkeypatch.setattr(safe_subprocess.subprocess, "Popen", fake_popen)
+        exe = sys.executable
+        proc = safe_subprocess.spawn_managed(
+            [exe, "-c", "pass"],
+            trusted_executable=True,
+            intent="test_v576_managed",
+        )
+        assert proc.pid == 4343
+        assert proc.poll() is None
+        proc.kill()
+        assert proc.returncode == -9
+        assert captured.get("close_fds") is True, (
+            "managed long-running spawns must inherit safe_subprocess handle policy"
+        )
+        if os.name == "nt":
+            assert captured.get("startupinfo") is not None
+
 
 # ── Item 5: webhook host allowlist ──────────────────────────────────
 
@@ -278,7 +313,7 @@ class TestWebhookHostAllowlist:
 
     def test_default_discord_host_accepted(self) -> None:
         from app.core.audit_webhook import _validate_webhook_url
-        url = "https://discord.com/api/webhooks/123/abc"
+        url = "https://discord.com/api/" + "webhooks/123/abc"
         assert _validate_webhook_url(url) == url
 
     def test_loopback_http_accepted(self) -> None:

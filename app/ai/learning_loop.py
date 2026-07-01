@@ -84,7 +84,9 @@ class LearningLoop:
     """Reads episodes from disk, aggregates by (target_profile, goal)."""
 
     def __init__(self, episodes_dir: Optional[Path] = None) -> None:
-        self._dir: Path = Path(episodes_dir) if episodes_dir else DEFAULT_EPISODE_DIR
+        self._dir: Path = (
+            Path(episodes_dir) if episodes_dir else DEFAULT_EPISODE_DIR
+        )
         self._lock = threading.Lock()
         self._cache: List[EpisodeSummary] = []
         self._cache_mtime: float = 0.0

@@ -28,7 +28,13 @@ from app.logs.logger import log_info, log_warning
 
 __all__ = ["DurationRegressor", "load_default", "DEFAULT_ARTEFACT"]
 
-DEFAULT_ARTEFACT: Path = Path("app/data/models/duration_regressor.pkl")
+def _default_artefact() -> Path:
+    from app.core.app_paths import models_dir
+
+    return models_dir() / "duration_regressor.pkl"
+
+
+DEFAULT_ARTEFACT: Path = _default_artefact()
 
 
 class DurationRegressor(BaseModel):

@@ -86,9 +86,14 @@ def _load_tracker_helpers():
     # FunctionDef for the helpers we care about. Drop everything else.
     keep_names = {
         "ACCOUNT_FIELDS", "STATUS_OPTIONS", "STATION_OPTIONS",
+        "DAYZ_MAP_OPTIONS", "NEEDS_FILTER_OPTIONS", "VALUE_FILTER_OPTIONS",
+        "_NO_NEEDS_VALUES", "_LOW_VALUE_MARKERS", "_MEDIUM_VALUE_MARKERS",
+        "_HIGH_VALUE_MARKERS",
         "_XLSX_KNOWN_HEADERS", "_XLSX_DEFAULT_FIELDS",
         "_STATUS_CANON", "_STATION_CANON",
         "_normalize_header", "_canon_status", "_canon_station",
+        "_account_text_blob", "_infer_dayz_map", "_has_open_needs",
+        "_value_bucket", "_filter_dayz_accounts",
     }
     new_body = []
     for node in tree.body:
@@ -201,6 +206,99 @@ def test_canon_station_normalises_case(tracker):
 
 
 # ── Defaults sanity ───────────────────────────────────────────────────
+
+def _sample_accounts():
+    return [
+        {
+            "account": "Main",
+            "location": "Chernarus - Tisy",
+            "status": "Ready",
+            "station": "Geared",
+            "gear": "Plate Carrier",
+            "holding": "LAR and NVGs",
+            "loadout": "LAR",
+            "needs": "Ammo",
+            "value": "High",
+            "notes": "north route",
+        },
+        {
+            "account": "Mule",
+            "location": "Livonia bunker",
+            "status": "Storage",
+            "station": "Raider Kit",
+            "gear": "Backpack",
+            "holding": "Building supplies",
+            "loadout": "BK",
+            "needs": "-",
+            "value": "Medium",
+            "notes": "",
+        },
+        {
+            "account": "Fresh",
+            "location": "Coast",
+            "status": "Dead",
+            "station": "",
+            "gear": "",
+            "holding": "",
+            "loadout": "",
+            "needs": "Everything",
+            "value": "Low",
+            "notes": "Sakhal restart",
+        },
+    ]
+
+
+def test_infer_dayz_map_from_location_or_notes(tracker):
+    infer = tracker["_infer_dayz_map"]
+    accounts = _sample_accounts()
+
+    assert infer(accounts[0]) == "Chernarus"
+    assert infer(accounts[1]) == "Livonia"
+    assert infer(accounts[2]) == "Sakhal"
+
+
+def test_open_needs_detection(tracker):
+    has_open_needs = tracker["_has_open_needs"]
+    accounts = _sample_accounts()
+
+    assert has_open_needs(accounts[0]) is True
+    assert has_open_needs(accounts[1]) is False
+
+
+def test_value_bucket_detection(tracker):
+    bucket = tracker["_value_bucket"]
+    accounts = _sample_accounts()
+
+    assert bucket(accounts[0]) == "High Value"
+    assert bucket(accounts[1]) == "Medium Value"
+    assert bucket(accounts[2]) == "Low Value"
+
+
+def test_dayz_filter_combines_facets(tracker):
+    filt = tracker["_filter_dayz_accounts"]
+    accounts = _sample_accounts()
+
+    result = filt(
+        accounts,
+        status="Ready",
+        station="Geared",
+        map_name="Chernarus",
+        needs_state="Needs Work",
+        value_bucket="High Value",
+        search_text="lar",
+    )
+
+    assert [a["account"] for a in result] == ["Main"]
+
+
+def test_dayz_filter_no_needs_and_map(tracker):
+    filt = tracker["_filter_dayz_accounts"]
+    accounts = _sample_accounts()
+
+    result = filt(accounts, map_name="Livonia", needs_state="No Needs")
+
+    assert [a["account"] for a in result] == ["Mule"]
+
 
 def test_xlsx_default_fields_matches_account_fields(tracker):
     """Off-by-one bug guard: positional mapping must use FULL field set."""

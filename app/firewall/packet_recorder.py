@@ -7,7 +7,7 @@ training. Does NOT record payload contents (encrypted and useless) —
 only metadata features that characterize traffic shape.
 
 Recording workflow:
-  1. Start recording during God Mode gameplay
+  1. Start recording during Legacy pulse gameplay
   2. Use hotkeys to TAG game events as they happen:
      - F9:  TAG_KILL      (you killed someone)
      - F10: TAG_HIT       (you landed a hit / took damage)
@@ -16,7 +16,7 @@ Recording workflow:
   3. Stop recording → CSV file saved with timestamped packet metadata
      and event tags within ±500ms of each tag timestamp
   4. Offline: train ML model on tagged data to learn traffic signatures
-     for each event type → feed improved model back into God Mode
+     for each event type → feed improved model back into Legacy pulse
 
 CSV columns:
   timestamp, size, payload_size, protocol, direction, src_port, dst_port,
@@ -96,7 +96,7 @@ class PacketRecord:
     size_delta: int = 0
     flow_count: int = 0
     size_variance: float = 0.0
-    pkt_class: str = ""        # God Mode PktClass name
+    pkt_class: str = ""        # Legacy pulse PktClass name
     ml_label: str = ""         # ML classifier label (if active)
     event_tag: str = ""        # Applied retroactively from hotkey tags
 
@@ -158,7 +158,7 @@ DEFAULT_RECORDING_DIR: str = "recordings"
 class PacketRecorder:
     """Records packet metadata and event tags to CSV for offline ML training.
 
-    Thread-safe. Designed to run alongside God Mode in the packet loop.
+    Thread-safe. Designed to run alongside Legacy pulse in the packet loop.
 
     Usage:
         recorder = PacketRecorder()

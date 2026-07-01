@@ -4,16 +4,22 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'packaging/**'
+      - 'scripts/verify_bundled_binaries.py'
       - 'tests/**'
       - '.github/workflows/tests-ci.yml'
-      - 'requirements.txt'
+      - 'requirements.in'
+      - 'requirements-locked.txt'
   push:
     branches: [main]
     paths:
       - 'app/**'
+      - 'packaging/**'
+      - 'scripts/verify_bundled_binaries.py'
       - 'tests/**'
       - '.github/workflows/tests-ci.yml'
-      - 'requirements.txt'
+      - 'requirements.in'
+      - 'requirements-locked.txt'
 
 # Minimum required permissions — no writes to the repo.
 permissions:
@@ -32,10 +38,10 @@ jobs:
         python-version: ['3.11', '3.12']
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -44,7 +50,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install --require-hashes -r requirements-locked.txt
           pip install pytest pytest-cov
 
       - name: Run pytest
@@ -67,8 +73,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: '3.12'
       - name: AST-parse every app/*.py

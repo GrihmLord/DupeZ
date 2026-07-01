@@ -23,7 +23,8 @@
 # Both variants share:
 #   * identical hiddenimports
 #   * identical datas / binaries (WinDivert DLLs, configs, themes)
-#   * identical upx_exclude list (Qt + QtWebEngine DLLs)
+#   * identical UPX policy (disabled; packed privileged bundles produce
+#     unnecessary endpoint-protection false positives)
 #   * identical excludes (torch / whisper / tkinter / etc.)
 #
 # The only differences are:
@@ -281,7 +282,10 @@ def build_variant(
         debug=False,
         bootloader_ignore_signals=False,
         strip=False,
-        upx=True,
+        # Packed executables are a common Defender/EDR false-positive
+        # amplifier, especially when the bundle also carries packet drivers.
+        # Keep release artifacts transparent and signable.
+        upx=False,
         upx_exclude=_upx_excludes(),
         runtime_tmpdir=None,
         console=False,

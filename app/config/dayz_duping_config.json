@@ -1,267 +1,96 @@
 {
-  "duping_profiles": {
-    "stealth": {
-      "description": "Low detection risk, slower execution",
-      "latency_variance": 5.0,
-      "packet_timing": 10.0,
-      "traffic_patterns": ["random", "natural"],
-      "connection_stability": 98.0,
-      "detection_risk": "low",
-      "success_rate": 85.0,
-      "execution_speed": "slow"
+  "schema": "dupez.dayz-connection-diagnostics.v1",
+  "game": "DayZ",
+  "purpose": "Passive connection diagnostics and authorized local-lab network-condition scenarios.",
+  "safety_boundary": {
+    "authorized_scope_required": true,
+    "prohibited_detection_bypass": false,
+    "notes": "This profile is for reproducing latency, jitter, packet loss, bandwidth pressure, route, NAT, firewall, and adapter issues on systems and private servers the operator owns or is explicitly authorized to test.",
+    "unauthorized_public_server_use": false,
+    "game_state_manipulation": false
+  },
+  "network_profile": {
+    "protocol": "udp",
+    "default_game_port": 2302,
+    "common_game_port_range": [
+      2302,
+      2305
+    ],
+    "common_query_ports": [
+      27015,
+      27016,
+      27017
+    ],
+    "auxiliary_ports": [
+      9306,
+      9308
+    ],
+    "port_auto_detect": true,
+    "port_auto_detect_method": "highest_pps_udp_flow"
+  },
+  "passive_diagnostics": {
+    "server_reachability": true,
+    "a2s_query_health": true,
+    "latency_ms": true,
+    "jitter_ms": true,
+    "loss_percent": true,
+    "adapter_readiness": true,
+    "route_summary": true,
+    "firewall_hinting": true,
+    "pktmon_guided_capture": true
+  },
+  "authorized_lab_scenarios": {
+    "light_loss": {
+      "description": "Reproduce mild packet loss in a private lab.",
+      "methods": [
+        "drop"
+      ],
+      "drop_chance_pct": 2,
+      "max_duration_sec": 300
     },
-    "balanced": {
-      "description": "Balanced performance and stealth",
-      "latency_variance": 10.0,
-      "packet_timing": 5.0,
-      "traffic_patterns": ["patterned", "natural"],
-      "connection_stability": 95.0,
-      "detection_risk": "medium",
-      "success_rate": 90.0,
-      "execution_speed": "medium"
+    "jitter_spikes": {
+      "description": "Reproduce intermittent latency spikes in a private lab.",
+      "methods": [
+        "lag"
+      ],
+      "lag_delay_ms": 250,
+      "jitter_ms": 100,
+      "max_duration_sec": 300
     },
-    "aggressive": {
-      "description": "High performance, higher detection risk",
-      "latency_variance": 20.0,
-      "packet_timing": 2.0,
-      "traffic_patterns": ["optimized", "patterned"],
-      "connection_stability": 90.0,
-      "detection_risk": "high",
-      "success_rate": 95.0,
-      "execution_speed": "fast"
+    "bandwidth_pressure": {
+      "description": "Reproduce constrained uplink/downlink conditions in a private lab.",
+      "methods": [
+        "bandwidth"
+      ],
+      "bandwidth_limit_kbps": 256,
+      "max_duration_sec": 300
     },
-    "custom": {
-      "description": "User-defined configuration",
-      "latency_variance": 15.0,
-      "packet_timing": 3.0,
-      "traffic_patterns": ["custom"],
-      "connection_stability": 92.0,
-      "detection_risk": "medium",
-      "success_rate": 88.0,
-      "execution_speed": "medium"
+    "temporary_disconnect": {
+      "description": "Reproduce a short, operator-reviewed connectivity interruption in a private lab.",
+      "methods": [
+        "disconnect"
+      ],
+      "disconnect_duration_ms": 1000,
+      "max_duration_sec": 60
     }
   },
-  "manipulation_techniques": {
-    "timing_manipulation": {
-      "name": "Timing Manipulation",
-      "description": "Adjust packet timing for optimal duping",
-      "enabled": true,
-      "success_rate": 85.0,
-      "detection_risk": "low",
-      "parameters": {
-        "min_delay": 1.0,
-        "max_delay": 50.0,
-        "variance_factor": 0.3
-      }
-    },
-    "traffic_pattern_masking": {
-      "name": "Traffic Pattern Masking",
-      "description": "Mask traffic patterns to appear natural",
-      "enabled": true,
-      "success_rate": 90.0,
-      "detection_risk": "low",
-      "parameters": {
-        "pattern_types": ["random", "natural", "burst"],
-        "masking_strength": 0.8
-      }
-    },
-    "connection_state_management": {
-      "name": "Connection State Management",
-      "description": "Manage connection states for optimal timing",
-      "enabled": true,
-      "success_rate": 80.0,
-      "detection_risk": "medium",
-      "parameters": {
-        "state_transitions": ["idle", "active", "burst"],
-        "transition_delay": 100.0
-      }
-    },
-    "packet_reordering": {
-      "name": "Packet Reordering",
-      "description": "Reorder packets for optimal delivery",
-      "enabled": true,
-      "success_rate": 75.0,
-      "detection_risk": "medium",
-      "parameters": {
-        "reorder_window": 10,
-        "max_reorder_delay": 20.0
-      }
-    },
-    "bandwidth_throttling": {
-      "name": "Bandwidth Throttling",
-      "description": "Throttle bandwidth to create optimal conditions",
-      "enabled": true,
-      "success_rate": 70.0,
-      "detection_risk": "high",
-      "parameters": {
-        "throttle_ratio": 0.7,
-        "burst_allowance": 0.3
-      }
-    }
+  "reporting": {
+    "default_report_schema": "dupez.scenario-report.v1",
+    "redact_raw_targets": true,
+    "redact_mac_addresses": true,
+    "include_operator_notes": "review_required",
+    "recommended_metrics": [
+      "latency_ms",
+      "jitter_ms",
+      "loss_percent",
+      "duration_sec"
+    ]
   },
-  "network_optimization": {
-    "tcp_parameters": {
-      "initial_rto": 2000,
-      "max_syn_retransmissions": 2,
-      "chimney_enabled": true,
-      "ecn_capability": true,
-      "timestamps": false,
-      "max_user_port": 65534
-    },
-    "interface_settings": {
-      "autotuning_level": "normal",
-      "congestion_provider": "default",
-      "receive_side_scaling": true,
-      "receive_side_scaling_state": true
-    },
-    "qos_settings": {
-      "gaming_priority": "high",
-      "reserved_bandwidth": 150,
-      "latency_threshold": 80,
-      "packet_loss_threshold": 0.5
-    }
+  "retention": {
+    "captures_days": 7,
+    "reports_days": 30,
+    "support_bundles_days": 14
   },
-  "duping_methods_v2": {
-    "drop_pick": {
-      "description": "Drop item → outbound RPC → selective inbound cut. Blocks server state confirmation while keeping connection alive.",
-      "engine": "v2",
-      "cut_duration_ms": 5000,
-      "rpc_timeout_ms": 2000,
-      "keepalive_interval_ms": 800,
-      "restore_duration_ms": 800,
-      "cycle_count": 1,
-      "cooldown_ms": 1500,
-      "tick_align": true,
-      "stealth_jitter": true,
-      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
-      "drop_outbound": [],
-      "queue_outbound": ["GAME_STATE"],
-      "success_rate_estimate": 88.0,
-      "detection_risk": "low",
-      "notes": "Safest v2 method. Outbound RPC reaches server, inbound confirmation blocked. Works on 1.29+ servers."
-    },
-    "swap": {
-      "description": "Initiate swap → selective bidirectional state block. Freezes partial swap state on server.",
-      "engine": "v2",
-      "cut_duration_ms": 4000,
-      "rpc_timeout_ms": 1500,
-      "keepalive_interval_ms": 800,
-      "restore_duration_ms": 600,
-      "cycle_count": 1,
-      "cooldown_ms": 1500,
-      "tick_align": true,
-      "stealth_jitter": true,
-      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
-      "drop_outbound": ["GAME_STATE"],
-      "queue_outbound": [],
-      "success_rate_estimate": 82.0,
-      "detection_risk": "medium",
-      "notes": "Blocks state in both directions. Partial swap state persists on server side."
-    },
-    "container": {
-      "description": "Put item in container → selective inbound cut. Server applies transfer, client never sees confirmation.",
-      "engine": "v2",
-      "cut_duration_ms": 5000,
-      "rpc_timeout_ms": 2000,
-      "keepalive_interval_ms": 800,
-      "restore_duration_ms": 800,
-      "cycle_count": 1,
-      "cooldown_ms": 1500,
-      "tick_align": true,
-      "stealth_jitter": true,
-      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
-      "drop_outbound": [],
-      "queue_outbound": ["GAME_STATE"],
-      "success_rate_estimate": 85.0,
-      "detection_risk": "low",
-      "notes": "Similar to drop_pick but for container-based transfers. Inbound block only."
-    },
-    "rift": {
-      "description": "Extended bidirectional state block with pulse cycling. Deep desync via prolonged selective filtering.",
-      "engine": "v2",
-      "cut_duration_ms": 8000,
-      "rpc_timeout_ms": 2000,
-      "keepalive_interval_ms": 600,
-      "restore_duration_ms": 1200,
-      "cycle_count": 2,
-      "cycle_delay_ms": 3000,
-      "cooldown_ms": 2000,
-      "tick_align": true,
-      "stealth_jitter": true,
-      "drop_inbound": ["GAME_STATE", "GAME_BULK"],
-      "drop_outbound": ["GAME_STATE", "GAME_BULK"],
-      "queue_outbound": [],
-      "success_rate_estimate": 90.0,
-      "detection_risk": "medium",
-      "notes": "Most aggressive v2 method. Full bidirectional state block with extended desync. Keepalive pass-through prevents kick."
-    },
-    "legacy": {
-      "description": "Total hard cut — v1 fallback for pre-1.29 servers. Drops ALL packets both directions.",
-      "engine": "v1_compat",
-      "cut_duration_ms": 5000,
-      "rpc_timeout_ms": 0,
-      "keepalive_interval_ms": 0,
-      "restore_duration_ms": 0,
-      "cycle_count": 1,
-      "cooldown_ms": 2000,
-      "tick_align": false,
-      "stealth_jitter": false,
-      "drop_inbound": ["ALL"],
-      "drop_outbound": ["ALL"],
-      "queue_outbound": [],
-      "success_rate_estimate": 65.0,
-      "detection_risk": "high",
-      "notes": "V1 total hard cut. Will trigger disconnect on 1.29+ servers with freeze detection. Only for pre-1.27 servers."
-    }
-  },
-  "duping_methods_v1_deprecated": {
-    "_notice": "Legacy v1 method definitions. Kept for backward compatibility. Use duping_methods_v2 instead.",
-    "standard": {
-      "description": "Standard duping method with balanced settings",
-      "timing_precision": "medium",
-      "network_manipulation": "moderate",
-      "success_rate": 85.0
-    },
-    "advanced": {
-      "description": "Advanced duping with enhanced network control",
-      "timing_precision": "high",
-      "network_manipulation": "aggressive",
-      "success_rate": 92.0
-    },
-    "stealth": {
-      "description": "Stealth mode with minimal network footprint",
-      "timing_precision": "low",
-      "network_manipulation": "minimal",
-      "success_rate": 78.0
-    },
-    "aggressive": {
-      "description": "Aggressive mode for maximum performance",
-      "timing_precision": "very_high",
-      "network_manipulation": "maximum",
-      "success_rate": 95.0
-    }
-  },
-  "session_management": {
-    "default_timeout": 1800,
-    "max_concurrent_sessions": 5,
-    "auto_cleanup": true,
-    "session_logging": true,
-    "performance_monitoring": true
-  },
-  "monitoring": {
-    "metrics_interval": 1.0,
-    "optimization_interval": 5.0,
-    "alert_thresholds": {
-      "connection_stability": 90.0,
-      "latency_variance": 25.0,
-      "packet_timing": 15.0
-    },
-    "logging": {
-      "level": "info",
-      "max_entries": 1000,
-      "auto_export": false
-    }
-  },
-  "last_updated": "2026-04-12T00:00:00Z",
-  "version": "2.0.0"
+  "version": "3.0.0",
+  "last_updated": "2026-06-26T00:00:00Z"
 }

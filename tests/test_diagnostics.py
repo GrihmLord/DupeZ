@@ -26,7 +26,8 @@ class TestRegistry:
         names = {c.name for c in ALL_CHECKS}
         for required in (
             "admin", "windivert", "npcap", "clumsy",
-            "update_pubkey", "data_directory", "firewall", "episode_store",
+            "wifi_adapter", "update_pubkey", "data_directory", "secret_store",
+            "persistence_key", "audit_chain", "firewall", "episode_store",
         ):
             assert required in names, f"missing check: {required}"
 
@@ -75,3 +76,59 @@ class TestRunCheck:
                     f"check {r.name!r} is FAIL with no fix_hint — "
                     f"add one or downgrade to WARN"
                 )
+
+
+class TestWifiAdapterDiagnostic:
+    """WiFi path troubleshooting output stays specific and private."""
+
+    def test_masks_local_ip_in_message(self, monkeypatch) -> None:
+        from app.core import diagnostics
+        from app.network import wifi_probe
+
+        monkeypatch.setattr(
+            wifi_probe,
+            "get_wifi_route_info",
+            lambda: wifi_probe.WifiRouteInfo(
+                is_wifi=False,
+                adapter_name="Ethernet",
+                local_ip="192.168.50.123",
+                reason="adapter name did not match WiFi indicators",
+                psutil_available=True,
+            ),
+        )
+
+        result = diagnostics._check_wifi_adapter()
+
+        assert result.status == CheckStatus.WARN
+        assert "192.168.50.x" in result.message
+        assert "192.168.50.123" not in result.message
+        assert "passive diagnostic" in result.fix_hint
+
+
+class TestDefenderDiagnostic:
+    """Endpoint-protection diagnostics stay passive and actionable."""
+
+    def test_recent_detection_is_reported_without_paths(self, monkeypatch) -> None:
+        from app.core import diagnostics
+        from app.core.defender_posture import DefenderPosture
+
+        monkeypatch.setattr(diagnostics.sys, "platform", "win32")
+        monkeypatch.setattr(
+            "app.core.defender_posture.query_defender_posture",
+            lambda: DefenderPosture(
+                available=True,
+                status="warn",
+                message="Microsoft Defender reported 1 recent detection(s)",
+                recent_detection_count=1,
+                latest_threat_name="PUA:Win32/FalsePositive",
+                latest_detection_time="2026-07-01T12:00:00-05:00",
+            ),
+        )
+
+        result = diagnostics._check_firewall_exclusion()
+
+        assert result.status == CheckStatus.WARN
+        assert "PUA:Win32/FalsePositive" in result.message
+        assert "Protection History" in result.fix_hint
+        assert "exclusions" in result.fix_hint
+        assert "Users/Owner" not in result.message

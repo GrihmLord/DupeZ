@@ -21,7 +21,7 @@ Features extracted per packet (NO payload inspection):
   7. Flow packet count (how many packets on this src:port→dst:port)
   8. Packet size variance (rolling std of last 10 packets same direction)
 
-Classification targets (finer than God Mode's 4-class system):
+Classification targets (finer than Legacy pulse's 4-class system):
   - KEEPALIVE: Connection maintenance heartbeats
   - POSITION_UPDATE: Player/entity position, rotation, velocity
   - HIT_REPORT: Damage/hit registration packets (client→server)
@@ -32,9 +32,9 @@ Classification targets (finer than God Mode's 4-class system):
   - CONTROL: TCP auth, BattlEye, Steam
 
 The classifier starts in OBSERVATION mode, collecting labeled training data
-from God Mode's existing size-based classifier. Once enough data is collected,
+from Legacy pulse's existing size-based classifier. Once enough data is collected,
 it trains and switches to PREDICTION mode, providing finer-grained
-classifications that God Mode can use for smarter packet decisions.
+classifications that Legacy pulse can use for smarter packet decisions.
 
 Usage:
   ml = MLPacketClassifier(target_ip="198.51.100.2")

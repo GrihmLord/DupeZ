@@ -183,6 +183,12 @@ def main(argv: List[str] | None = None) -> int:
     # second-factor provider is enrolled the gate short-circuits
     # silently (first-boot UX); on enrolled installs, verification is
     # mandatory. Set DUPEZ_SECOND_FACTOR_DISABLED=1 only in trusted CI.
+    tactics = args.only or list(_TACTIC_MODULES)
+    tactics = [t for t in tactics if t not in args.skip]
+    if not tactics:
+        print("No tactics selected.", file=sys.stderr)
+        return 2
+
     if os.environ.get("DUPEZ_SECOND_FACTOR_DISABLED") != "1":
         try:
             from app.core.second_factor import (
@@ -209,13 +215,6 @@ def main(argv: List[str] | None = None) -> int:
                 f"second-factor gate error (not blocking first-boot install): {e}",
                 file=sys.stderr,
             )
-
-    # Decide which tactics to run.
-    tactics = args.only or list(_TACTIC_MODULES)
-    tactics = [t for t in tactics if t not in args.skip]
-    if not tactics:
-        print("No tactics selected.", file=sys.stderr)
-        return 2
 
     registry = FindingRegistry()
     # A meta-finding that records the invocation itself — helps audit.

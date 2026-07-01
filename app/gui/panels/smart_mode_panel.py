@@ -97,7 +97,7 @@ class SmartModePanel(QWidget):
         self.smart_goal_combo = QComboBox()
         self.smart_goal_combo.addItems([
             "Auto", "Disconnect", "Lag", "Desync",
-            "Throttle", "Chaos", "God Mode"])
+            "Throttle", "Chaos"])
         self.smart_goal_combo.setStyleSheet(self._view._COMBO_QSS)
         goal_row.addWidget(self.smart_goal_combo, 1)
         smart_layout.addLayout(goal_row)
