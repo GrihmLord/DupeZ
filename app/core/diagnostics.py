@@ -402,14 +402,48 @@ def _check_firewall_exclusion() -> CheckResult:
             status=CheckStatus.WARN,
             message="non-Windows host — skipped",
         )
+    try:
+        from app.core.defender_posture import query_defender_posture
+        posture = query_defender_posture()
+    except Exception as exc:
+        return CheckResult(
+            name="Windows Defender posture",
+            status=CheckStatus.WARN,
+            message=f"Defender posture check failed: {exc}",
+            fix_hint=(
+                "Do not add broad Defender exclusions. Rebuild from a clean "
+                "tree, verify bundled-binary hashes, and inspect the local "
+                "Protection History entry for the exact detection name."
+            ),
+        )
+
+    if not posture.available:
+        return CheckResult(
+            name="Windows Defender posture",
+            status=CheckStatus.WARN,
+            message=posture.message,
+            fix_hint=(
+                "Defender status could not be queried. Keep endpoint "
+                "protection enabled, then verify release hashes, bundled "
+                "binary provenance, and Authenticode signatures manually."
+            ),
+        )
+
+    details: list[str] = [posture.message]
+    if posture.latest_threat_name:
+        details.append(f"latest threat: {posture.latest_threat_name}")
+    if posture.latest_detection_time:
+        details.append(f"at {posture.latest_detection_time}")
+    status = CheckStatus.WARN if posture.status == "warn" else CheckStatus.PASS
     return CheckResult(
         name="Windows Defender posture",
-        status=CheckStatus.WARN,
-        message="endpoint-protection status is not queried automatically",
+        status=status,
+        message="; ".join(details),
         fix_hint=(
-            "Do not add broad Defender exclusions. If a build artifact is "
-            "temporarily locked, wait for scanning to finish, rebuild in a "
-            "clean dedicated directory, and verify signatures and hashes."
+            "If Defender is blocking DupeZ, treat it as evidence first: "
+            "confirm the detection name in Protection History, verify "
+            "packaging/binary-provenance.json, run release preflight, and "
+            "ship a signed non-UPX build. Avoid broad exclusions."
         ),
     )
 

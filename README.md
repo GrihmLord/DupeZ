@@ -148,7 +148,7 @@ Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in th
 ### Build Dependencies (optional)
 
 - [Inno Setup 6+](https://jrsoftware.org/isinfo.php) — Required only to compile the installer (`iscc` must be on PATH)
-- Code signing certificate — Optional; set `DUPEZ_SIGN_CERT` and `DUPEZ_SIGN_PASS` environment variables to enable signing in `build.bat`
+- Code signing certificate — Optional for local builds, strongly recommended for releases. Set `DUPEZ_SIGN_CERT` and `DUPEZ_SIGN_PASS` to Authenticode-sign `build.bat` outputs and all `build_variants.bat` release executables with SHA-256 timestamping.
 
 ### Firewall Binaries
 

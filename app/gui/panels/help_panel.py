@@ -678,15 +678,17 @@ runs the GUI at normal privileges so your GPU handles rendering.</p>
 <b style='color:{_RED};'>"WinDivert.dll missing"</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
 → Verify <code>WinDivert.dll</code> and <code>WinDivert64.sys</code> are in
-<code>app/firewall</code>. Antivirus may quarantine these — add an exception
-for the DupeZ install folder.</p>
+<code>app/firewall</code>. If Defender quarantined them, inspect Protection
+History for the exact detection, verify the published hashes, and reinstall
+from a signed build. Avoid broad antivirus exclusions.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>"Failed to extract" on launch</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
-→ Windows Defender or antivirus is blocking extraction. Exclude
-<code>dupez.exe</code> and <code>%TEMP%</code>. Ensure at least 500 MB of
-free disk space.</p>
+→ Ensure at least 500 MB of free disk space, rebuild without UPX packing,
+and prefer the signed installer over a raw portable exe. If Defender blocks
+the artifact, inspect Protection History and verify release hashes before
+running it.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>SmartScreen blocks the installer</b></p>

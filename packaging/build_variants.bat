@@ -117,13 +117,41 @@ if not exist "dist\DupeZ-Compat.exe" (
 )
 echo       DupeZ-Compat.exe built successfully.
 
-:: ── 5. Strip MOTW from raw exes ─────────────────────────────────────
+:: ── 5. Authenticode sign portable executables ───────────────────────
+:: Microsoft SignTool guidance requires explicit SHA-256 file digest
+:: (/fd) and RFC3161 timestamp digest (/td). Timestamping keeps signatures
+:: valid after certificate expiry and helps SmartScreen reputation attach to
+:: the publisher instead of only to a one-off file hash.
+echo.
+echo [Signing] Authenticode signing portable executables...
+
+set "_SIGNTOOL="
+where signtool >nul 2>&1 && set "_SIGNTOOL=signtool"
+if not defined _SIGNTOOL (
+    echo       signtool not found -- portable executables will remain unsigned.
+    echo       To enable: install Windows SDK and set DUPEZ_SIGN_CERT.
+    goto :skip_authenticode_portables
+)
+if "%DUPEZ_SIGN_CERT%"=="" (
+    echo       DUPEZ_SIGN_CERT not set -- portable executables will remain unsigned.
+    echo       To enable: set DUPEZ_SIGN_CERT=path\to\certificate.pfx
+    goto :skip_authenticode_portables
+)
+
+call :sign_file "dist\DupeZ-GPU.exe"
+if errorlevel 1 exit /b 1
+call :sign_file "dist\DupeZ-Compat.exe"
+if errorlevel 1 exit /b 1
+
+:skip_authenticode_portables
+
+:: ── 6. Strip MOTW from raw exes ─────────────────────────────────────
 echo.
 echo [3/5] Stripping Mark-of-the-Web from build output...
 powershell -NoProfile -Command "Get-ChildItem 'dist' -Recurse | ForEach-Object { Unblock-File $_.FullName -ErrorAction SilentlyContinue }"
 echo       MOTW stripped from dist\ contents.
 
-:: ── 6. Build Inno Setup installer (v5.6.5) ──────────────────────────
+:: ── 7. Build Inno Setup installer (v5.6.5) ──────────────────────────
 :: Up to v5.6.4, build_variants.bat only emitted the two portable
 :: exes; the installer had to be built separately via build.bat or a
 :: manual `iscc packaging\installer.iss` invocation. That bit two
@@ -168,6 +196,8 @@ if not exist "dist\%DUPEZ_INSTALLER%" (
     goto :skip_installer
 )
 echo       Installer built: dist\%DUPEZ_INSTALLER%
+call :sign_file "dist\%DUPEZ_INSTALLER%"
+if errorlevel 1 exit /b 1
 
 :: Emit versionless alias for the stable GitHub-releases-latest URL.
 :: The landing page Download Installer button points at
@@ -179,11 +209,13 @@ if errorlevel 1 (
     echo       WARNING: Failed to create versionless alias dist\DupeZ_Setup.exe
 ) else (
     echo       Versionless alias: dist\DupeZ_Setup.exe ^(landing-page download target^)
+    call :sign_file "dist\DupeZ_Setup.exe"
+    if errorlevel 1 exit /b 1
 )
 
 :skip_installer
 
-:: ── 7. Sign update manifest (v5.6.6+) ───────────────────────────────
+:: ── 8. Sign update manifest (v5.6.6+) ───────────────────────────────
 :: The auto-updater (app/core/updater.py) fail-closes unless each
 :: release ships TWO sidecar files alongside DupeZ_Setup.exe:
 ::
@@ -248,7 +280,7 @@ if errorlevel 1 exit /b 1
 copy /y packaging\binary-provenance.json dist\binary-provenance.json >nul
 if errorlevel 1 exit /b 1
 
-:: ── 8. Final report ─────────────────────────────────────────────────
+:: ── 9. Final report ─────────────────────────────────────────────────
 echo.
 echo [5/5] Build summary
 echo ============================================
@@ -276,6 +308,26 @@ echo.
 
 popd
 endlocal
+exit /b 0
+
+:: ── Subroutine: sign_file ───────────────────────────────────────────
+:: Usage: call :sign_file "dist\artifact.exe"
+:: Signs only when signtool and DUPEZ_SIGN_CERT are configured.
+:sign_file
+set "_SIGN_TARGET=%~1"
+if not exist "%_SIGN_TARGET%" exit /b 0
+if not defined _SIGNTOOL exit /b 0
+if "%DUPEZ_SIGN_CERT%"=="" exit /b 0
+echo       Signing %_SIGN_TARGET% ...
+if "%DUPEZ_SIGN_PASS%"=="" (
+    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" "%_SIGN_TARGET%"
+) else (
+    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" "%_SIGN_TARGET%"
+)
+if errorlevel 1 (
+    echo       ERROR: Authenticode signing failed for %_SIGN_TARGET%.
+    exit /b 1
+)
 exit /b 0
 
 :: ── Subroutine: force_delete ────────────────────────────────────────
