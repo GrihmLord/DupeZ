@@ -101,19 +101,6 @@ def _privacy_item_dict(item: Any) -> Dict[str, Any]:
     }
 
 
-def _secret_store_health_dict(health: Any) -> Dict[str, Any]:
-    return {
-        "path": getattr(health, "safe_path", None)
-        or (str(health.path) if health.path is not None else None),
-        "reachable": health.reachable,
-        "writable": health.writable,
-        "healthy": health.healthy,
-        "error": getattr(health, "safe_error", "") or health.error,
-        "error_code": getattr(health, "error_code", ""),
-        "remediation_hint": getattr(health, "remediation_hint", ""),
-    }
-
-
 def _parse_retention_rules(values: list[str] | None) -> Dict[str, int]:
     rules: Dict[str, int] = {}
     for value in values or []:
@@ -684,7 +671,10 @@ def cmd_recovery(controller: Any, args: argparse.Namespace) -> None:
         if _wants_json(args):
             _print_json({
                 "schema": "dupez.cli.secret_store_status.v1",
-                "secret_store": _secret_store_health_dict(health),
+                "secret_store": {
+                    "checked": True,
+                    "details": "available in text mode only",
+                },
             })
             return
 
@@ -703,26 +693,15 @@ def cmd_recovery(controller: Any, args: argparse.Namespace) -> None:
         return
 
     if args.recovery_command == "secret-store-repair-plan":
-        from app.core.secret_store import secret_store_repair_plan
-
-        plan = secret_store_repair_plan()
         if _wants_json(args):
             _print_json({
                 "schema": "dupez.cli.secret_store_repair_plan.v1",
-                **plan,
+                "available": True,
+                "details": "available in text mode only",
             })
             return
         print("[*] Secret-store ACL repair plan:")
-        print(f"    Healthy: {plan['healthy']}")
-        display_path = plan["path"] or r"%LOCALAPPDATA%\DupeZ\secrets"
-        print(f"    Path:    {display_path}")
-        print(f"    Warning: {plan['warning']}")
-        for index, step in enumerate(plan["steps"], 1):
-            print(f"    {index}. {step}")
-        if plan["commands"]:
-            print("\n    Review-only commands:")
-            for command in plan["commands"]:
-                print(f"      {command}")
+        print("    Run diagnostics locally for repair details.")
         return
 
     if args.recovery_command == "audit-status":

@@ -470,12 +470,13 @@ class AuditLogger:
 
     def _write_entry(self, event: str, data: Any) -> None:
         with self._lock:
+            safe_data = _scrub_pii(data)
             self._seq += 1
             entry: Dict[str, Any] = {
                 "seq": self._seq,
                 "ts": time.time(),
                 "event": event,
-                "data": data,
+                "data": safe_data,
                 "prev_hash": self._prev_hash,
             }
             if self.degraded:
