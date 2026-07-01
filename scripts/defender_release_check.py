@@ -18,14 +18,21 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
+_POWERSHELL = Path(
+    r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+)
 
 
 def _powershell_path() -> Path:
-    system_root = os.environ.get("SystemRoot") or r"C:\Windows"
-    return Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    return _POWERSHELL
 
 
-def _run_powershell(script: str, *, timeout: int = 60) -> tuple[int, str, str]:
+def _run_powershell(
+    script: str,
+    *,
+    timeout: int = 60,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str, str]:
     powershell = _powershell_path()
     if not powershell.is_file():
         return 127, "", "PowerShell not found"
@@ -36,8 +43,17 @@ def _run_powershell(script: str, *, timeout: int = 60) -> tuple[int, str, str]:
         timeout=timeout,
         check=False,
         shell=False,
+        env=env,
     )
     return completed.returncode, completed.stdout, completed.stderr
+
+
+def _resolve_under(path: Path, parent: Path) -> Path:
+    resolved = path.resolve()
+    root = parent.resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError(f"path escapes release directory: {path}")
+    return resolved
 
 
 def _dist_artifacts() -> list[Path]:
@@ -53,25 +69,30 @@ def check_authenticode(paths: list[Path]) -> tuple[list[dict], list[str]]:
         return [], ["Authenticode checks require Windows"]
     if not paths:
         return [], ["no dist/*.exe release artifacts found"]
-    path_literals = ", ".join(
-        "'" + str(path).replace("'", "''") + "'"
-        for path in paths
+    try:
+        safe_paths = [_resolve_under(path, DIST) for path in paths]
+    except ValueError as exc:
+        return [], [str(exc)]
+    env = os.environ.copy()
+    env["DUPEZ_AUTHENTICODE_PATHS"] = json.dumps(
+        [str(path) for path in safe_paths]
     )
-    script = f"""
+    script = r"""
 $ErrorActionPreference = 'Stop'
+$paths = @($env:DUPEZ_AUTHENTICODE_PATHS | ConvertFrom-Json)
 $out = @()
-foreach ($path in @({path_literals})) {{
+foreach ($path in $paths) {
     $sig = Get-AuthenticodeSignature -LiteralPath $path
-    $out += [pscustomobject]@{{
+    $out += [pscustomobject]@{
         name = Split-Path -Leaf $path
         status = $sig.Status.ToString()
-        signer = if ($sig.SignerCertificate) {{ $sig.SignerCertificate.Subject }} else {{ "" }}
-        thumbprint = if ($sig.SignerCertificate) {{ $sig.SignerCertificate.Thumbprint }} else {{ "" }}
-    }}
-}}
+        signer = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "" }
+        thumbprint = if ($sig.SignerCertificate) { $sig.SignerCertificate.Thumbprint } else { "" }
+    }
+}
 $out | ConvertTo-Json -Compress
 """
-    rc, stdout, stderr = _run_powershell(script)
+    rc, stdout, stderr = _run_powershell(script, env=env)
     if rc != 0:
         return [], [f"Authenticode query failed: {stderr.strip()}"]
     try:
@@ -93,11 +114,17 @@ $out | ConvertTo-Json -Compress
 def run_defender_scan(path: Path) -> list[str]:
     if os.name != "nt":
         return ["Defender scan requires Windows"]
-    script = f"""
+    try:
+        safe_path = _resolve_under(path, ROOT)
+    except ValueError as exc:
+        return [str(exc)]
+    env = os.environ.copy()
+    env["DUPEZ_DEFENDER_SCAN_PATH"] = str(safe_path)
+    script = r"""
 $ErrorActionPreference = 'Stop'
-Start-MpScan -ScanType CustomScan -ScanPath '{str(path).replace("'", "''")}'
+Start-MpScan -ScanType CustomScan -ScanPath $env:DUPEZ_DEFENDER_SCAN_PATH
 """
-    rc, _stdout, stderr = _run_powershell(script, timeout=900)
+    rc, _stdout, stderr = _run_powershell(script, timeout=900, env=env)
     if rc != 0:
         return [f"Defender custom scan failed: {stderr.strip()}"]
     return []

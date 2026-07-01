@@ -49,7 +49,9 @@ PyYAML>=6.0.1
 # ── GPC / Cronus Device Bridge ─────────────────────────────────────
 pyserial>=3.5
 
-# ── Voice Control (optional but included in default build) ─────────
-# Pulls torch on first resolve — expect long regen times.
+# ── Voice Control (optional) ───────────────────────────────────────
+# openai-whisper is intentionally not part of the default production lock:
+# it pulls torch/CUDA packages, bloats release artifacts, and is excluded by
+# PyInstaller. The voice UI degrades cleanly when whisper is absent; install it
+# manually on workstations that need local voice control.
 sounddevice>=0.4.6
-openai-whisper>=20231117

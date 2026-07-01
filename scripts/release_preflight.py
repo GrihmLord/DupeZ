@@ -16,6 +16,11 @@ except ImportError:  # direct `python scripts/release_preflight.py`
     from verify_bundled_binaries import verify_manifest
 
 ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / "dist"
+
+_POWERSHELL = Path(
+    r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+)
 
 
 def _read(rel: str) -> str:
@@ -52,8 +57,15 @@ def _check_signtool_policy(rel: str) -> list[str]:
 
 
 def _powershell_path() -> Path:
-    system_root = os.environ.get("SystemRoot") or r"C:\Windows"
-    return Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    return _POWERSHELL
+
+
+def _resolve_under(path: Path, parent: Path) -> Path:
+    resolved = path.resolve()
+    root = parent.resolve()
+    if resolved != root and root not in resolved.parents:
+        raise ValueError(f"path escapes release directory: {path}")
+    return resolved
 
 
 def _query_authenticode(paths: list[Path]) -> tuple[dict[str, str], str]:
@@ -64,21 +76,26 @@ def _query_authenticode(paths: list[Path]) -> tuple[dict[str, str], str]:
     if not powershell.is_file():
         return {}, "PowerShell not found for Authenticode dist checks"
 
-    path_literals = ", ".join(
-        "'" + str(path).replace("'", "''") + "'"
-        for path in paths
+    try:
+        safe_paths = [_resolve_under(path, DIST) for path in paths]
+    except ValueError as exc:
+        return {}, str(exc)
+    env = os.environ.copy()
+    env["DUPEZ_AUTHENTICODE_PATHS"] = json.dumps(
+        [str(path) for path in safe_paths]
     )
-    script = f"""
+    script = r"""
 $ErrorActionPreference = 'Stop'
+$paths = @($env:DUPEZ_AUTHENTICODE_PATHS | ConvertFrom-Json)
 $out = @()
-foreach ($path in @({path_literals})) {{
-    if (-not (Test-Path -LiteralPath $path)) {{ continue }}
+foreach ($path in $paths) {
+    if (-not (Test-Path -LiteralPath $path)) { continue }
     $sig = Get-AuthenticodeSignature -LiteralPath $path
-    $out += [pscustomobject]@{{
+    $out += [pscustomobject]@{
         Name = Split-Path -Leaf $path
         Status = $sig.Status.ToString()
-    }}
-}}
+    }
+}
 $out | ConvertTo-Json -Compress
 """
     try:
@@ -89,6 +106,7 @@ $out | ConvertTo-Json -Compress
             timeout=30,
             check=False,
             shell=False,
+            env=env,
         )
     except Exception as exc:
         return {}, f"Authenticode query failed: {exc}"

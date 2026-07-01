@@ -20,6 +20,7 @@ Opt-in invocations:
     pytest                                        # default excludes this
 
 Environment overrides (optional):
+    DUPEZ_RUN_HARDWARE_SMOKETEST=1
     DUPEZ_SMOKETEST_CIDR=192.168.137.0/24
     DUPEZ_SMOKETEST_LAST_OCTET=42
     DUPEZ_SMOKETEST_LAG_MS=300
@@ -72,6 +73,11 @@ def _windivert_bits_present() -> bool:
 
 @pytest.fixture(scope="module")
 def _require_hardware() -> None:
+    if os.environ.get("DUPEZ_RUN_HARDWARE_SMOKETEST") != "1":
+        pytest.skip(
+            "hardware smoketest is opt-in; set "
+            "DUPEZ_RUN_HARDWARE_SMOKETEST=1 on a prepared Windows host"
+        )
     if not _is_windows():
         pytest.skip("hardware smoketest requires Windows")
     if not _is_admin():

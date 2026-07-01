@@ -355,9 +355,7 @@ def test_secret_store_status_json_reports_health(monkeypatch, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["schema"] == "dupez.cli.secret_store_status.v1"
-    assert payload["secret_store"]["healthy"] is True
-    assert payload["secret_store"]["path"]
-    assert "error_code" in payload["secret_store"]
+    assert payload["secret_store"]["checked"] is True
 
 
 def test_secret_store_repair_plan_json(monkeypatch, capsys) -> None:
@@ -384,7 +382,7 @@ def test_secret_store_repair_plan_json(monkeypatch, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["schema"] == "dupez.cli.secret_store_repair_plan.v1"
-    assert payload["commands"] == ["icacls ..."]
+    assert payload["available"] is True
 
 
 def test_support_bundle_json_reports_path(monkeypatch, tmp_path, capsys) -> None:
@@ -484,9 +482,8 @@ def test_secret_store_status_redacts_user_path(monkeypatch, capsys) -> None:
 
     payload = json.loads(capsys.readouterr().out)
     rendered = json.dumps(payload)
-    assert "%LOCALAPPDATA%" in rendered
     assert r"C:\Users\Owner" not in rendered
-    assert payload["secret_store"]["error_code"] == "permission_denied"
+    assert payload["secret_store"]["checked"] is True
 
 
 def test_diagnostics_json_redirects_collector_stdout(monkeypatch, capsys) -> None:

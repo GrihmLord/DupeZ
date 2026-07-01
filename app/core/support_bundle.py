@@ -17,7 +17,6 @@ from typing import Any, Dict, Optional
 
 from app.core.diagnostics import CheckStatus, run_all_checks
 from app.core.privacy import build_retention_plan, scan_privacy_items
-from app.core.secret_store import check_store_health
 from app.core.storage_status import build_storage_status
 from app.core.updater import CURRENT_VERSION
 from app.utils.helpers import mask_ips_in_text, mask_macs_in_text
@@ -83,19 +82,6 @@ def _diagnostic_result_dict(result: Any) -> Dict[str, Any]:
     })
 
 
-def _secret_store_dict() -> Dict[str, Any]:
-    health = check_store_health()
-    return _sanitize({
-        "path": health.safe_path,
-        "reachable": health.reachable,
-        "writable": health.writable,
-        "healthy": health.healthy,
-        "error": health.safe_error,
-        "error_code": health.error_code,
-        "remediation_hint": health.remediation_hint,
-    })
-
-
 def build_support_bundle(
     *,
     include_account_data: bool = False,
@@ -137,7 +123,10 @@ def build_support_bundle(
             "summary": diagnostic_summary,
             "results": [_diagnostic_result_dict(item) for item in diagnostics],
         },
-        "secret_store": _secret_store_dict(),
+        "secret_store": {
+            "included": False,
+            "reason": "use local diagnostics for key-store health",
+        },
         "storage": _sanitize(build_storage_status()),
         "privacy_inventory": {
             "include_account_data": include_account_data,
@@ -183,9 +172,10 @@ def write_support_bundle(
     root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     path = root / f"support-bundle-{stamp}.json"
+    safe_payload = sanitize_support_value(payload)
     import json
     path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, default=str),
+        json.dumps(safe_payload, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
-    return SupportBundleResult(payload=payload, path=path)
+    return SupportBundleResult(payload=safe_payload, path=path)

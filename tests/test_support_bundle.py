@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 from app.core.diagnostics import CheckResult, CheckStatus
-from app.core.secret_store import SecretStoreHealth
 from app.core.support_bundle import build_support_bundle, write_support_bundle
 
 
@@ -34,20 +33,6 @@ def test_support_bundle_redacts_paths_ips_and_macs(monkeypatch, tmp_path: Path) 
             ),
         ],
     )
-    monkeypatch.setattr(
-        support_bundle,
-        "check_store_health",
-        lambda: SecretStoreHealth(
-            path=Path(r"C:\Users\Owner\AppData\Local\DupeZ\secrets"),
-            reachable=True,
-            writable=False,
-            error=(
-                "[WinError 5] Access is denied: "
-                r"'C:\Users\Owner\AppData\Local\DupeZ\secrets'"
-            ),
-            error_code="permission_denied",
-        ),
-    )
     _write(tmp_path / "audit.jsonl", "{}\n")
 
     payload = build_support_bundle(data_dir=tmp_path)
@@ -66,17 +51,13 @@ def test_support_bundle_redacts_paths_ips_and_macs(monkeypatch, tmp_path: Path) 
     assert payload["retention"]["eligible_files"] == 0
     assert "packet-capture" in payload["retention"]["rules_days"]
     assert payload["storage"]["schema"] == "dupez.storage-status.v1"
+    assert payload["secret_store"]["included"] is False
 
 
 def test_support_bundle_file_list_is_opt_in(monkeypatch, tmp_path: Path) -> None:
     from app.core import support_bundle
 
     monkeypatch.setattr(support_bundle, "run_all_checks", lambda: [])
-    monkeypatch.setattr(
-        support_bundle,
-        "check_store_health",
-        lambda: SecretStoreHealth(path=None, reachable=False, writable=False),
-    )
     _write(tmp_path / "audit.jsonl", "{}\n")
 
     payload = build_support_bundle(data_dir=tmp_path, include_file_list=True)
@@ -90,12 +71,6 @@ def test_write_support_bundle_creates_json_file(monkeypatch, tmp_path: Path) -> 
     from app.core import support_bundle
 
     monkeypatch.setattr(support_bundle, "run_all_checks", lambda: [])
-    monkeypatch.setattr(
-        support_bundle,
-        "check_store_health",
-        lambda: SecretStoreHealth(path=None, reachable=False, writable=False),
-    )
-
     result = write_support_bundle(output_dir=tmp_path, data_dir=tmp_path)
 
     assert result.path is not None
