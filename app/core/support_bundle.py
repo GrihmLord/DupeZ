@@ -183,9 +183,10 @@ def write_support_bundle(
     root.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     path = root / f"support-bundle-{stamp}.json"
+    safe_payload = sanitize_support_value(payload)
     import json
     path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, default=str),
+        json.dumps(safe_payload, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
-    return SupportBundleResult(payload=payload, path=path)
+    return SupportBundleResult(payload=safe_payload, path=path)

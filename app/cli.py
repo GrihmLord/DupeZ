@@ -78,7 +78,10 @@ def _print_banner() -> None:
 
 def _print_json(payload: Dict[str, Any]) -> None:
     """Emit stable JSON for safe maintenance commands."""
-    print(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    from app.core.support_bundle import sanitize_support_value
+
+    safe_payload = sanitize_support_value(payload)
+    print(json.dumps(safe_payload, indent=2, sort_keys=True, default=str))
 
 
 def _diagnostic_result_dict(result: Any) -> Dict[str, Any]:
@@ -704,8 +707,9 @@ def cmd_recovery(controller: Any, args: argparse.Namespace) -> None:
 
     if args.recovery_command == "secret-store-repair-plan":
         from app.core.secret_store import secret_store_repair_plan
+        from app.core.support_bundle import sanitize_support_value
 
-        plan = secret_store_repair_plan()
+        plan = sanitize_support_value(secret_store_repair_plan())
         if _wants_json(args):
             _print_json({
                 "schema": "dupez.cli.secret_store_repair_plan.v1",
