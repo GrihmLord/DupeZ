@@ -114,6 +114,7 @@ def _hidden_imports() -> list:
             "PyQt6.QtWidgets",
             "PyQt6.QtGui",
             "PyQt6.QtCore",
+            "PyQt6.sip",
             "PyQt6.QtWebEngineWidgets",
             "PyQt6.QtWebEngineCore",
             "PyQt6.QtWebChannel",

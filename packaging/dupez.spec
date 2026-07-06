@@ -25,6 +25,7 @@ hidden = (
     collect_submodules('app') +
     [
         'PyQt6.QtWidgets', 'PyQt6.QtGui', 'PyQt6.QtCore',
+        'PyQt6.sip',
         'PyQt6.QtWebEngineWidgets', 'PyQt6.QtWebEngineCore',
         'PyQt6.QtWebChannel',
         'pyqtgraph', 'psutil', 'keyboard', 'PIL',

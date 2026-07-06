@@ -6,6 +6,25 @@ Run this file to start DupeZ.  Works both as a script and as PyInstaller entry.
 import sys
 import os
 
+
+def _safe_stream_write(stream_name: str, message: str) -> None:
+    """Best-effort launcher logging before the real logger is available."""
+    try:
+        stream = getattr(sys, stream_name, None)
+        if stream is not None:
+            stream.write(message)
+    except Exception:
+        pass
+
+
+def _safe_stdout(message: str) -> None:
+    _safe_stream_write("stdout", message)
+
+
+def _safe_stderr(message: str) -> None:
+    _safe_stream_write("stderr", message)
+
+
 # ── Fault handler — catch C-level crashes (v5.6.3) ─────────────────
 # sys.excepthook (installed later in app/main.py) only catches Python
 # exceptions. When WinDivert.dll, Qt6Core.dll, or Chromium's GPU process
@@ -44,7 +63,7 @@ def _maybe_dispatch_helper_role() -> None:
     try:
         import dupez_helper  # noqa: E402
     except Exception as e:
-        sys.stderr.write(f"[dupez] helper dispatch: import failed: {e}\n")
+        _safe_stderr(f"[dupez] helper dispatch: import failed: {e}\n")
         sys.exit(1)
     sys.exit(dupez_helper.main() or 0)
 
@@ -64,7 +83,7 @@ def _maybe_handle_v576_flags() -> None:
             from app.logs.audit import get_audit_logger
             logger = get_audit_logger()
             quarantine = logger.reset_after_tamper()
-            sys.stdout.write(
+            _safe_stdout(
                 f"[dupez] audit chain reset. Quarantined files archived to:\n"
                 f"        {quarantine}\n"
                 f"        A fresh HMAC-chained audit.jsonl will be created "
@@ -72,7 +91,7 @@ def _maybe_handle_v576_flags() -> None:
             )
             sys.exit(0)
         except Exception as e:
-            sys.stderr.write(f"[dupez] --reset-audit failed: {e}\n")
+            _safe_stderr(f"[dupez] --reset-audit failed: {e}\n")
             sys.exit(2)
     if "--verify-self" in sys.argv:
         _here = os.path.dirname(os.path.abspath(__file__))
@@ -81,10 +100,10 @@ def _maybe_handle_v576_flags() -> None:
         try:
             from app.core.self_verify import verify_self
             ok, message = verify_self()
-            sys.stdout.write(f"[dupez] {message}\n")
+            _safe_stdout(f"[dupez] {message}\n")
             sys.exit(0 if ok else 3)
         except Exception as e:
-            sys.stderr.write(f"[dupez] --verify-self failed: {e}\n")
+            _safe_stderr(f"[dupez] --verify-self failed: {e}\n")
             sys.exit(2)
 
 
@@ -171,7 +190,7 @@ def _inproc_self_elevate_if_needed() -> None:
                 err = ctypes.GetLastError()
             except Exception:
                 err = -1
-            sys.stderr.write(
+            _safe_stderr(
                 f"[dupez] UAC elevation failed (ShellExecuteW rc={rc} "
                 f"err={err}). Right-click DupeZ and choose 'Run as "
                 f"administrator', or set DUPEZ_ARCH=split to run unelevated.\n"
@@ -180,7 +199,7 @@ def _inproc_self_elevate_if_needed() -> None:
     except SystemExit:
         raise
     except Exception as e:
-        sys.stderr.write(f"[dupez] self-elevation crashed: {e}\n")
+        _safe_stderr(f"[dupez] self-elevation crashed: {e}\n")
         sys.exit(1)
 
 
@@ -218,10 +237,10 @@ if "DUPEZ_MAP_RENDERER" not in os.environ:
                 _mr = _cfg.get("map_renderer", "auto")
                 if _mr and _mr != "auto":
                     os.environ["DUPEZ_MAP_RENDERER"] = _mr
-                    print(f"[dupez] map_renderer from settings: {_mr}", file=sys.stderr)
+                    _safe_stderr(f"[dupez] map_renderer from settings: {_mr}\n")
                 break
     except Exception as _e:
-        print(f"[dupez] early settings read failed (non-fatal): {_e}", file=sys.stderr)
+        _safe_stderr(f"[dupez] early settings read failed (non-fatal): {_e}\n")
 
 try:
     from app.gui.map_host.renderer_tier import apply_chromium_flags
@@ -234,7 +253,7 @@ except Exception as _tier_err:
     )
     os.environ.setdefault("QT_OPENGL", "software")
     os.environ["DUPEZ_MAP_RENDERER_TIER"] = "tier3_cpu"
-    print(f"[dupez] renderer_tier fallback: {_tier_err}", file=sys.stderr)
+    _safe_stderr(f"[dupez] renderer_tier fallback: {_tier_err}\n")
 
 # NOTE: we previously tried QT_SCALE_FACTOR=1 to kill hi-DPI pixel
 # doubling in the WebEngine, but it also shrunk the native Qt widgets
