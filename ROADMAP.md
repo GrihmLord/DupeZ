@@ -4,6 +4,14 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
+## v5.7.8 ? Launcher packaging hotfix
+
+**Status:** Released
+
+- **Frozen GUI crash fix** ? PyInstaller now explicitly bundles `PyQt6.sip`, closing the packaged startup crash that showed `ModuleNotFoundError: No module named 'PyQt6.sip'`.
+- **Windowed launcher hardening** ? Early `--verify-self`, `--reset-audit`, helper dispatch, and renderer fallback messages now tolerate PyInstaller `console=False` builds where `sys.stdout`/`sys.stderr` are `None`.
+- **Release assets refreshed** ? Portable GPU/Compat builds and installer metadata are versioned as v5.7.8 so the latest release points at the fixed package.
+
 ## v5.7.7 ? Defensive hardening and release polish
 
 **Status:** Released
@@ -17,7 +25,7 @@ This release completes the defensive pivot: public presets and advisor paths now
 
 ---
 
-## v5.7.8 ? Finish the v5.7.4 Wire-Up
+## v5.7.9 ? Finish the v5.7.4 Wire-Up
 
 **Status:** Next up
 
