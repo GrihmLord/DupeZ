@@ -164,7 +164,7 @@ The following are not safe improvement areas and should not be implemented:
 ## Current Blockers
 
 - Runtime secret store access is denied at
-  `C:\Users\Owner\AppData\Local\DupeZ\secrets` during local test runs, causing
+  `%LOCALAPPDATA%\DupeZ\secrets` during local test runs, causing
   fallback key behavior in logs. This is a machine ACL issue, not a repo test
   failure.
 - Hardware validation remains skipped unless run on an elevated Windows host with
