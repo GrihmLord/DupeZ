@@ -8,13 +8,15 @@ import subprocess
 import sys
 
 
-def test_dashboard_constructs_and_shuts_down_offscreen() -> None:
+def test_dashboard_constructs_and_shuts_down_offscreen(tmp_path) -> None:
     root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     env.update({
         "QT_QPA_PLATFORM": "offscreen",
         "DUPEZ_DISABLE_WEBENGINE": "1",
         "DUPEZ_ARCH": "inproc",
+        "DUPEZ_FORCE_USER_DATA": "1",
+        "DUPEZ_USER_ROOT": str(tmp_path / "runtime"),
     })
     script = """
 from PyQt6.QtWidgets import QApplication
