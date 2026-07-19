@@ -13,6 +13,7 @@ from scripts.release_preflight import (
     _check_hermetic_python_policy,
     _check_signtool_policy,
     _query_authenticode,
+    _release_data_archive_names,
     _verify_update_sidecars,
     check_source,
 )
@@ -20,6 +21,17 @@ from scripts.release_preflight import (
 
 def test_release_source_preflight_passes() -> None:
     assert check_source("5.7.9") == []
+
+
+def test_release_data_manifest_is_valid_and_explicit() -> None:
+    names, errors = _release_data_archive_names()
+
+    assert errors == []
+    assert "app.config.settings.json" in names
+    assert "app.resources.dupez.ico" in names
+    assert not any("__pycache__" in name for name in names)
+    assert not any(name.endswith(".py") for name in names)
+    assert not any(name.endswith(".hmac") for name in names)
 
 
 def test_signtool_policy_requires_sha256_timestamp(monkeypatch) -> None:
@@ -96,6 +108,8 @@ def test_frozen_dependency_policy_checks_outer_and_inner_archives(
     class FakeArchive:
         toc = {
             "PYZ.pyz": (),
+            "app\\config\\settings.json": (),
+            "app\\config\\settings.json.hmac": (),
             "llvmlite\\binding\\llvmlite.dll": (),
         }
 
@@ -109,11 +123,13 @@ def test_frozen_dependency_policy_checks_outer_and_inner_archives(
     errors = _check_frozen_dependency_policy(
         [artifact],
         archive_reader_cls=FakeArchive,
+        release_data_names={"app/config/settings.json"},
     )
 
     assert any("app.social" in error for error in errors)
     assert any("llvmlite" in error for error in errors)
     assert any("numba" in error for error in errors)
+    assert any("unmanaged packaged data" in error for error in errors)
 
 
 def test_frozen_dependency_policy_accepts_clean_archive(tmp_path) -> None:
@@ -124,7 +140,11 @@ def test_frozen_dependency_policy_accepts_clean_archive(tmp_path) -> None:
         toc = {"app.core": (), "PyQt6.QtCore": ()}
 
     class FakeArchive:
-        toc = {"PYZ.pyz": (), "python311.dll": ()}
+        toc = {
+            "PYZ.pyz": (),
+            "python311.dll": (),
+            "app\\config\\settings.json": (),
+        }
 
         def __init__(self, _path):
             pass
@@ -136,6 +156,7 @@ def test_frozen_dependency_policy_accepts_clean_archive(tmp_path) -> None:
         _check_frozen_dependency_policy(
             [artifact],
             archive_reader_cls=FakeArchive,
+            release_data_names={"app/config/settings.json"},
         )
         == []
     )
@@ -154,6 +175,7 @@ def test_frozen_dependency_policy_fails_closed_without_pyz(tmp_path) -> None:
     errors = _check_frozen_dependency_policy(
         [artifact],
         archive_reader_cls=FakeArchive,
+        release_data_names=set(),
     )
 
     assert any("exactly one PYZ.pyz" in error for error in errors)

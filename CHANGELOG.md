@@ -27,7 +27,7 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
   recovery cleanup cannot proxy back into the helper's own named pipe.
 - **Packaged Qt startup and build isolation fixed and verified.** Builds
   recreate `.build-venv` from hash-pinned locks, verify `PyQt6.sip`, and
-  reject forbidden packages across both PyInstaller archive layers.
+  reject forbidden packages or unmanaged data across both archive layers.
 - **Single-instance enforcement.** A per-user Windows named mutex prevents
   persistence-lock collisions and helper pipe contention from duplicate GUI
   processes.

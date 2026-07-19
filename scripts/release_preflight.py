@@ -9,7 +9,7 @@ import os
 import re
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Iterable
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -163,6 +163,14 @@ _FORBIDDEN_FROZEN_PREFIXES = (
     "triton",
     "whisper",
 )
+_RELEASE_DATA_MANIFEST = ROOT / "packaging" / "release-data.json"
+_RELEASE_DATA_SCHEMA = "dupez.release-data.v1"
+_MANAGED_FROZEN_DATA_PREFIXES = (
+    "app.assets.",
+    "app.config.",
+    "app.resources.",
+    "app.themes.",
+)
 
 
 def _normalise_frozen_name(name: object) -> str:
@@ -177,13 +185,60 @@ def _matches_frozen_prefix(name: str, prefix: str) -> bool:
     )
 
 
+def _release_data_archive_names() -> tuple[set[str], list[str]]:
+    errors: list[str] = []
+    try:
+        payload = json.loads(
+            _RELEASE_DATA_MANIFEST.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        return set(), [f"invalid packaging/release-data.json: {exc}"]
+    if payload.get("schema") != _RELEASE_DATA_SCHEMA:
+        errors.append("unsupported packaging/release-data.json schema")
+    files = payload.get("files")
+    if not isinstance(files, list) or not files:
+        return set(), errors + [
+            "packaging/release-data.json contains no files"
+        ]
+
+    archive_names: set[str] = set()
+    for value in files:
+        if not isinstance(value, str):
+            errors.append("release-data manifest paths must be strings")
+            continue
+        relative = PurePosixPath(value)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"unsafe release-data manifest path: {value!r}")
+            continue
+        source = ROOT.joinpath(*relative.parts)
+        if not source.is_file():
+            errors.append(f"release-data source file missing: {value}")
+        archive_name = _normalise_frozen_name(relative.as_posix())
+        if not archive_name.startswith(_MANAGED_FROZEN_DATA_PREFIXES):
+            errors.append(f"release-data path outside managed roots: {value}")
+        if archive_name in archive_names:
+            errors.append(f"duplicate release-data manifest path: {value}")
+        archive_names.add(archive_name)
+    return archive_names, errors
+
+
 def _check_frozen_dependency_policy(
     artifacts: Iterable[Path],
     *,
     archive_reader_cls=None,
+    release_data_names: set[str] | None = None,
 ) -> list[str]:
     """Reject release archives contaminated by non-production packages."""
     errors: list[str] = []
+    if release_data_names is None:
+        release_data_names, manifest_errors = _release_data_archive_names()
+        errors.extend(manifest_errors)
+        if manifest_errors:
+            return errors
+    else:
+        release_data_names = {
+            _normalise_frozen_name(name) for name in release_data_names
+        }
     if archive_reader_cls is None:
         try:
             from PyInstaller.archive.readers import CArchiveReader
@@ -225,6 +280,23 @@ def _check_frozen_dependency_policy(
             continue
 
         archive_names = outer_names | inner_names
+        unmanaged_data = sorted(
+            name
+            for name in outer_names
+            if name.startswith(_MANAGED_FROZEN_DATA_PREFIXES)
+            and name not in release_data_names
+        )
+        if unmanaged_data:
+            errors.append(
+                "unmanaged packaged data in "
+                f"{artifact.name}: {', '.join(unmanaged_data[:5])}"
+            )
+        missing_data = sorted(release_data_names - outer_names)
+        if missing_data:
+            errors.append(
+                "required packaged data missing from "
+                f"{artifact.name}: {', '.join(missing_data[:5])}"
+            )
         for prefix in _FORBIDDEN_FROZEN_PREFIXES:
             matches = sorted(
                 name
@@ -446,6 +518,8 @@ def check_source(expected_version: str | None = None) -> list[str]:
         "SECURITY.md",
         ".github/CODEOWNERS",
         "packaging/binary-provenance.json",
+        "packaging/release-data.json",
+        "packaging/release_data.py",
         "packaging/requirements-build.in",
         "packaging/requirements-build-locked.txt",
         "requirements-locked.txt",
@@ -461,6 +535,17 @@ def check_source(expected_version: str | None = None) -> list[str]:
         errors.append(
             "packaging/requirements-build-locked.txt has no SHA-256 hashes"
         )
+    _, release_data_errors = _release_data_archive_names()
+    errors.extend(release_data_errors)
+    for rel in (
+        "packaging/dupez.spec",
+        "packaging/dupez_gpu.spec",
+        "packaging/dupez_compat.spec",
+    ):
+        if "pyinstaller_datas" not in _read(rel):
+            errors.append(
+                f"PyInstaller spec bypasses explicit release data: {rel}"
+            )
 
     for rel in ("packaging/build_common.py", "packaging/dupez.spec"):
         if re.search(r"\bupx\s*=\s*True\b", _read(rel)):

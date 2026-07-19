@@ -23,9 +23,14 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(SPEC)))
 
-from build_common import build_variant  # noqa: E402
+import build_common as shared_build  # noqa: E402
+from release_data import pyinstaller_datas  # noqa: E402
 
-exe = build_variant(
+# Keep release data explicit even when the shared development helper has
+# optional Group Finder changes in the working tree.
+shared_build._datas = lambda: pyinstaller_datas(shared_build.ROOT)
+
+exe = shared_build.build_variant(
     variant="compat",
     exe_name="DupeZ-Compat",
     manifest_path="dupez_compat.manifest",  # requireAdministrator

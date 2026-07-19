@@ -291,7 +291,9 @@ packaging\build_variants.bat
 
 Both build paths fail before signing if a PyInstaller archive contains
 unfinished Group Finder packages or optional voice/scientific dependencies
-that are outside the v5.7.9 production lock.
+that are outside the v5.7.9 production lock. Packaged config, icons, and
+themes must also match `packaging/release-data.json`; generated HMACs,
+bytecode caches, and untracked local files are rejected.
 
 ### Install via Installer (Recommended)
 

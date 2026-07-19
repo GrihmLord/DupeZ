@@ -19,6 +19,9 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 block_cipher = None
 HERE = os.path.abspath(os.path.dirname(SPEC))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
+sys.path.insert(0, HERE)
+
+from release_data import pyinstaller_datas
 
 # ── hidden imports that PyInstaller often misses ────────────────────────
 hidden = (
@@ -42,15 +45,7 @@ hidden = (
 )
 
 # ── data files to bundle alongside the exe ──────────────────────────────
-datas = [
-    # Config JSONs
-    (os.path.join(ROOT, 'app', 'config'),           os.path.join('app', 'config')),
-    # Icons / assets
-    (os.path.join(ROOT, 'app', 'resources'),         os.path.join('app', 'resources')),
-    (os.path.join(ROOT, 'app', 'assets'),            os.path.join('app', 'assets')),
-    # Themes
-    (os.path.join(ROOT, 'app', 'themes'),            os.path.join('app', 'themes')),
-]
+datas = pyinstaller_datas(ROOT)
 
 # ── binary DLLs for WinDivert + Clumsy ──────────────────────────────────
 binaries = []
