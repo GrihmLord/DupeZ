@@ -1,9 +1,10 @@
 """Lag module — buffer packets and release after a configurable delay.
 
-v5.2: Added connection preservation mode for extended lag durations.
+Connection preservation remains available as an explicit native extension.
 When `lag_preserve_connection` is True, the module periodically passes
 through small keepalive-sized packets to prevent server timeout while
-maintaining the lag effect on game state packets.
+maintaining the lag effect on game state packets. It is never inferred from
+the delay because standalone Clumsy delays every matching packet.
 """
 
 from __future__ import annotations
@@ -31,11 +32,6 @@ _FLUSH_POLL_INTERVAL_S: float = 0.001
 DEFAULT_LAG_KEEPALIVE_INTERVAL_MS: int = 1500
 # Packets below this size are likely keepalive probes.
 _KEEPALIVE_SIZE_THRESHOLD: int = 100
-# Maximum lag delay before connection preservation auto-activates (ms).
-# Below this threshold, normal lag works fine without preservation.
-_PRESERVE_AUTO_THRESHOLD_MS: int = 5000
-
-
 class LagModule(DisruptionModule):
     """Buffer packets and release them after a delay.
 
@@ -64,8 +60,8 @@ class LagModule(DisruptionModule):
             Defaults to :data:`DEFAULT_LAG_DELAY_MS`.
         lag_passthrough (bool): When ``True`` queue a copy but don't
             consume the original.  Defaults to ``False``.
-        lag_preserve_connection (bool): Enable connection preservation
-            for extended lag.  Auto-activates when lag_delay > 5000ms.
+        lag_preserve_connection (bool): Explicitly enable connection
+            preservation for extended lag. Defaults to ``False``.
         lag_keepalive_interval_ms (int): Keepalive pass-through interval.
             Defaults to :data:`DEFAULT_LAG_KEEPALIVE_INTERVAL_MS`.
     """
@@ -79,17 +75,19 @@ class LagModule(DisruptionModule):
         )
         self._lag_lock = threading.Lock()
         self._lag_thread: Optional[threading.Thread] = None
-        self._running: bool = True
-        self._send_fn: Optional[Callable[[bytearray, WINDIVERT_ADDRESS], None]] = None
+        self._running: bool = False
+        self._send_fn: Optional[
+            Callable[[bytearray, WINDIVERT_ADDRESS], bool]
+        ] = None
         self._passthrough: bool = params.get("lag_passthrough", False)
 
         # ── Connection preservation ─────────────────────────────────
         delay_ms: int = params.get("lag_delay", DEFAULT_LAG_DELAY_MS)
 
-        # Auto-activate preservation for high lag values
-        auto_preserve = delay_ms >= _PRESERVE_AUTO_THRESHOLD_MS
-        self._preserve: bool = params.get(
-            "lag_preserve_connection", auto_preserve
+        # This native extension must be explicit. Inferring it from a high
+        # delay silently diverges from standalone Clumsy packet semantics.
+        self._preserve: bool = bool(
+            params.get("lag_preserve_connection", False)
         )
 
         keepalive_ms: int = params.get(
@@ -101,6 +99,9 @@ class LagModule(DisruptionModule):
         # Counters
         self._keepalive_passed: int = 0
         self._total_lagged: int = 0
+        self._queued: int = 0
+        self._released: int = 0
+        self._release_failed: int = 0
 
         if self._preserve:
             log_info(
@@ -112,12 +113,15 @@ class LagModule(DisruptionModule):
 
     def start_flush_thread(
         self,
-        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
+        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], bool],
         divert_dll: object,
         handle: object,
     ) -> None:
         """Start background thread that flushes lagged packets."""
+        if self._lag_thread and self._lag_thread.is_alive():
+            return
         self._send_fn = send_fn
+        self._running = True
         self._lag_thread = threading.Thread(
             target=self._flush_loop, daemon=True, name="LagFlush"
         )
@@ -126,17 +130,38 @@ class LagModule(DisruptionModule):
     def _flush_loop(self) -> None:
         """Continuously flush packets whose release time has arrived."""
         while self._running:
-            now = time.time()
+            now = time.monotonic()
             to_send: list[Tuple[float, bytearray, WINDIVERT_ADDRESS]] = []
             with self._lag_lock:
                 while self._lag_queue and self._lag_queue[0][0] <= now:
                     to_send.append(self._lag_queue.popleft())
             for _, pkt_data, addr in to_send:
-                try:
-                    self._send_fn(pkt_data, addr)  # type: ignore[misc]
-                except Exception as exc:
-                    log_error(f"LagModule flush error: {exc}")
+                self._release_packet(pkt_data, addr, "flush")
             time.sleep(_FLUSH_POLL_INTERVAL_S)
+
+    def _release_packet(
+        self,
+        packet_data: bytearray,
+        addr: WINDIVERT_ADDRESS,
+        context: str,
+    ) -> bool:
+        """Release one queued packet and account for verified completion."""
+        sender = self._send_fn
+        if sender is None:
+            with self._lag_lock:
+                self._release_failed += 1
+            return False
+        try:
+            released = bool(sender(packet_data, addr))
+        except Exception as exc:
+            released = False
+            log_error(f"LagModule {context} error: {exc}")
+        with self._lag_lock:
+            if released:
+                self._released += 1
+            else:
+                self._release_failed += 1
+        return released
 
     # ── Helpers ──────────────────────────────────────────────────────
 
@@ -151,10 +176,10 @@ class LagModule(DisruptionModule):
         self,
         packet_data: bytearray,
         addr: WINDIVERT_ADDRESS,
-        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
+        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], bool],
     ) -> bool:
         """Queue the packet for delayed release."""
-        now = time.time()
+        now = time.monotonic()
 
         # ── Connection preservation: pass keepalive-sized packets ────
         if self._preserve and self._keepalive_interval > 0:
@@ -165,7 +190,6 @@ class LagModule(DisruptionModule):
                     return False  # let through immediately
 
         # ── Queue for delayed release ────────────────────────────────
-        self._total_lagged += 1
         delay_ms: int = self.params.get("lag_delay", DEFAULT_LAG_DELAY_MS)
         release_time: float = now + (delay_ms / 1000.0)
 
@@ -178,9 +202,14 @@ class LagModule(DisruptionModule):
         )
 
         with self._lag_lock:
+            if len(self._lag_queue) >= _MAX_QUEUE_SIZE:
+                self._lag_queue.popleft()
+                self._release_failed += 1
             self._lag_queue.append(
                 (release_time, bytearray(packet_data), addr_copy)
             )
+            self._total_lagged += 1
+            self._queued += 1
 
         if self._passthrough:
             return False  # let original continue through module chain
@@ -190,14 +219,16 @@ class LagModule(DisruptionModule):
 
     def get_stats(self) -> dict:
         with self._lag_lock:
-            queue_depth = len(self._lag_queue)
-        return {
-            "total_lagged": self._total_lagged,
-            "keepalive_passed": self._keepalive_passed,
-            "queue_depth": queue_depth,
-            "preserve_connection": self._preserve,
-            "passthrough": self._passthrough,
-        }
+            return {
+                "total_lagged": self._total_lagged,
+                "queued": self._queued,
+                "released": self._released,
+                "release_failed": self._release_failed,
+                "keepalive_passed": self._keepalive_passed,
+                "queue_depth": len(self._lag_queue),
+                "preserve_connection": self._preserve,
+                "passthrough": self._passthrough,
+            }
 
     # ── Shutdown ─────────────────────────────────────────────────────
 
@@ -212,20 +243,14 @@ class LagModule(DisruptionModule):
             remaining = list(self._lag_queue)
             self._lag_queue.clear()
 
-        if self._send_fn:
-            flush_errors: int = 0
-            for _, pkt_data, addr in remaining:
-                try:
-                    self._send_fn(pkt_data, addr)
-                except Exception as exc:
-                    flush_errors += 1
-                    if flush_errors <= 3:
-                        log_error(f"LagModule: shutdown flush failed ({len(pkt_data)}B): {exc}")
-            if flush_errors > 3:
-                log_error(f"LagModule: {flush_errors} total shutdown flush failures")
+        for _, pkt_data, addr in remaining:
+            self._release_packet(pkt_data, addr, "shutdown flush")
 
         log_info(
             f"LagModule stopped: lagged={self._total_lagged}, "
+            f"released={self._released}, "
+            f"release_failed={self._release_failed}, "
             f"keepalive_passed={self._keepalive_passed}, "
             f"preserve={self._preserve}"
         )
+        self._send_fn = None

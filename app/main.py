@@ -11,7 +11,10 @@ import ctypes
 import os
 import re
 import sys
+import time
 import traceback
+
+from dupez_single_instance import guard_gui_startup
 
 __all__ = ["dump_crash", "main"]
 
@@ -108,10 +111,18 @@ except Exception:
 # the Chromium sandbox MUST stay enabled; disabling it pointlessly
 # reduces the defense-in-depth around iZurvive's embedded map context.
 def _should_disable_qt_sandbox() -> bool:
-    # Split mode never elevates the GUI → keep Chromium sandbox on.
-    arch = os.environ.get("DUPEZ_ARCH", "").strip().lower()
-    if arch == "split":
-        return False
+    # Split mode never elevates the GUI → keep Chromium sandbox on. Resolve
+    # the compiled build default as well as the environment override: the GPU
+    # executable normally has no DUPEZ_ARCH variable because "split" is baked
+    # into _build_default.py.
+    try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            return False
+    except Exception:
+        arch = os.environ.get("DUPEZ_ARCH", "").strip().lower()
+        if arch == "split":
+            return False
     # In-proc / Compat path runs High-IL → Chromium requires sandbox off.
     return True
 
@@ -168,7 +179,7 @@ def main() -> None:
             sys.exit(0)
         if _split and not IS_ADMIN:
             log_info("split mode: running GUI at Medium IL; helper "
-                     "will elevate on first firewall op")
+                     "will elevate during controller startup")
     except SystemExit:
         raise
     except Exception as e:
@@ -179,9 +190,19 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # The root launcher acquires this before importing app.main. Keep the
+    # direct ``python -m app.main`` path protected too; the guard is
+    # process-idempotent, so this is a no-op during normal launches.
+    if not guard_gui_startup():
+        return
+
     # --- Phase 1b: Log GPU/renderer tier ---
     _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
-    _arch = os.environ.get("DUPEZ_ARCH", "unknown")
+    try:
+        from app.firewall_helper.feature_flag import get_arch
+        _arch = get_arch()
+    except Exception:
+        _arch = os.environ.get("DUPEZ_ARCH", "unknown")
     log_info(f"Renderer tier: {_tier} | Architecture: {_arch} | Admin: {IS_ADMIN}")
     if _tier == "tier3_cpu" and not IS_ADMIN:
         log_warning(
@@ -234,30 +255,10 @@ def main() -> None:
         splash.show()
         app.processEvents()
 
-        # --- Prewarm the DayZ map widget -----------------------------
-        # Construct DayZMapGUI once, early, on the main thread so the
-        # QWebEngineView boot and the initial iZurvive tile download
-        # run in parallel with the splash init pipeline (WinDivert,
-        # controller, plugins). Dashboard adopts this prewarmed
-        # instance when it builds the view stack, so the map is
-        # already interactive by the time the user clicks the tab.
-        #
-        # The widget is hidden + parented to None; Qt reparents it
-        # into the QStackedWidget automatically via addWidget().
-        # Failures are non-fatal — Dashboard falls back to the cold
-        # construction path.
-        try:
-            from app.gui.dayz_map_gui_new import (
-                DayZMapGUI,
-                set_prewarmed_map_gui,
-            )
-            _prewarmed_map = DayZMapGUI()
-            _prewarmed_map.hide()
-            set_prewarmed_map_gui(_prewarmed_map)
-            app.processEvents()  # let the load request go out immediately
-            log_info("Map: prewarmed DayZMapGUI during splash")
-        except Exception as _prewarm_exc:
-            log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+        # WebEngine prewarm is intentionally deferred until critical startup
+        # has succeeded.
+        # Deferred until the controller has passed critical startup. A native
+        # Chromium/GPU failure must never hide a controller recovery error.
 
         # State container for the completion callback
         _init_done = {"ready": False}
@@ -271,6 +272,7 @@ def main() -> None:
         # Process events while init runs (keeps splash animated)
         while not _init_done["ready"]:
             app.processEvents()
+            time.sleep(0.01)
 
         # Grab the controller created by splash
         controller = splash.controller
@@ -281,11 +283,52 @@ def main() -> None:
         splash.deleteLater()
 
         if init_error and controller is None:
+            log_dir = os.path.join(
+                os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
+                "DupeZ",
+                "logs",
+            )
             QMessageBox.critical(
                 None, "Initialization Failed",
-                f"DupeZ could not start:\n{init_error}"
+                f"DupeZ could not start:\n{init_error}\n\n"
+                f"Diagnostic logs: {log_dir}"
             )
             sys.exit(1)
+
+        startup_health = (
+            controller.get_startup_health()
+            if controller is not None
+            and hasattr(controller, "get_startup_health")
+            else {}
+        )
+        if startup_health.get("recovery_blocked"):
+            QMessageBox.warning(
+                None,
+                "Network Recovery Required",
+                "DupeZ opened in safe mode because a previous network "
+                "operation could not be fully restored.\n\n"
+                "Disruption and firewall controls are disabled for this "
+                "session. Close other DupeZ processes, then restart the "
+                "app. If this persists, review the durable DupeZ logs.\n\n"
+                f"Details: {startup_health.get('message', 'unknown error')}",
+            )
+
+        # Construct Chromium only after the controller is known-good. This
+        # keeps a native WebEngine/GPU failure from hiding an actionable
+        # controller exception. DUPEZ_DISABLE_WEBENGINE=1 provides a safe
+        # placeholder for damaged GPU stacks and deterministic GUI smoke tests.
+        try:
+            from app.gui.dayz_map_gui_new import (
+                DayZMapGUI,
+                set_prewarmed_map_gui,
+            )
+            _prewarmed_map = DayZMapGUI()
+            _prewarmed_map.hide()
+            set_prewarmed_map_gui(_prewarmed_map)
+            app.processEvents()
+            log_info("Map: prewarmed DayZMapGUI after controller startup")
+        except Exception as _prewarm_exc:
+            log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
 
         # --- Phase 3: Main Window ---
         from app.gui.dashboard import DupeZDashboard

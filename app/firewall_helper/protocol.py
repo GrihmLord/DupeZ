@@ -54,6 +54,8 @@ OP_UNBLOCK_DEVICE = "unblock_device"
 OP_IS_IP_BLOCKED = "is_ip_blocked"
 OP_CLEAR_ALL_BLOCKS = "clear_all_blocks"
 OP_GET_BLOCKED_IPS = "get_blocked_ips"
+OP_GET_IP_FORWARDING = "get_ip_forwarding"
+OP_SET_IP_FORWARDING = "set_ip_forwarding"
 
 ALLOWED_OPS = frozenset({
     OP_PING,
@@ -74,6 +76,8 @@ ALLOWED_OPS = frozenset({
     OP_IS_IP_BLOCKED,
     OP_CLEAR_ALL_BLOCKS,
     OP_GET_BLOCKED_IPS,
+    OP_GET_IP_FORWARDING,
+    OP_SET_IP_FORWARDING,
 })
 
 # ── Error codes ─────────────────────────────────────────────────────────

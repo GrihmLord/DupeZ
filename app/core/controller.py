@@ -14,9 +14,14 @@ from typing import Any, Callable, Dict, List, Optional
 
 import psutil
 
-from app.core.scheduler import DisruptionScheduler
+from app.core.cut_chain import (
+    ChainEvent,
+    CutChainRunner,
+    build_automatic_connection_test,
+)
 from app.core.operation_journal import OperationJournal
 from app.core.safety_policy import SafetyPolicy
+from app.core.scheduler import DisruptionScheduler
 from app.core.state import AppSettings, AppState, Device
 from app.firewall import blocker
 from app.logs.logger import log_error, log_info, log_network_scan
@@ -104,6 +109,9 @@ class _InactiveService:
     def get_plugin_info(self) -> list:
         return []
 
+    def get_ui_panel_plugins(self) -> list:
+        return []
+
 
 class AppController:
     """Top-level controller that ties together scanning, disruption,
@@ -154,9 +162,15 @@ class AppController:
         self._save_all = save_all
         self._lifecycle_lock = threading.Lock()
         self._started = False
+        self._engine_initialized = False
+        self._network_operations_blocked_reason: Optional[str] = None
         self._deadline_lock = threading.Lock()
         self._deadline_generation = 0
         self._deadline_timers: Dict[str, _OperationDeadline] = {}
+        self._automatic_state_lock = threading.RLock()
+        self._automatic_transition_lock = threading.RLock()
+        self._automatic_generation = 0
+        self._automatic_runner: Optional[CutChainRunner] = None
         self._recovery_journal = recovery_journal or OperationJournal()
         self._clear_firewall_blocks = clear_firewall_blocks
         self._get_blocked_ips = get_blocked_ips
@@ -196,7 +210,20 @@ class AppController:
                         "plugins, auto-scan, or packet engine"
                     )
                     return
-                self._recover_stale_network_state()
+                try:
+                    self._recover_stale_network_state()
+                except RuntimeError as exc:
+                    # A recovery failure must fail closed for every new
+                    # network mutation, but it must not permanently brick
+                    # unrelated UI/diagnostic features. Keep the controller
+                    # alive in a clearly reportable recovery-blocked state.
+                    self._network_operations_blocked_reason = str(exc)
+                    self._started = True
+                    log_error(
+                        "Controller started in recovery-blocked safe mode: "
+                        f"{exc}"
+                    )
+                    return
                 self.scheduler.start()
                 self._init_plugins()
                 if self.state.settings.auto_scan:
@@ -208,15 +235,30 @@ class AppController:
 
     def _rollback_failed_start(self) -> None:
         """Best-effort cleanup after a partial startup failure."""
-        for name, stop_fn in (
+        steps = [
+            ("automatic workflow", self.stop_automatic_workflow),
             ("auto-scan", self.stop_auto_scan),
             ("scheduler", self.scheduler.stop),
-            ("disruption engine", self._disruption_manager.stop),
-        ):
+        ]
+        # Calling stop() on a split proxy that never initialized attempts to
+        # launch the elevated helper again, turning one startup failure into a
+        # second UAC prompt/15-second wait.
+        if self._engine_initialized:
+            steps.append(("disruption engine", self._stop_engine))
+        for name, stop_fn in steps:
             try:
                 stop_fn()
             except Exception as exc:
                 log_error(f"Startup rollback failed ({name}): {exc}")
+
+    def _stop_engine(self) -> None:
+        """Stop an initialized engine and update lifecycle ownership."""
+        if not self._engine_initialized:
+            return
+        try:
+            self._disruption_manager.stop()
+        finally:
+            self._engine_initialized = False
 
     # ── Disruption engine ───────────────────────────────────────
 
@@ -227,6 +269,7 @@ class AppController:
             return
         try:
             if self._disruption_manager.initialize():
+                self._engine_initialized = True
                 self._disruption_manager.start()
                 log_info("Disruption engine initialized")
             else:
@@ -239,6 +282,103 @@ class AppController:
             raise
 
     # ── Disruption delegation ─────────────────────────────────────
+
+    def start_automatic_workflow(
+        self,
+        ip: str,
+        *,
+        common_params: Optional[Dict[str, Any]] = None,
+        disrupt_kwargs: Optional[Dict[str, Any]] = None,
+        on_event: Optional[Callable[[ChainEvent], None]] = None,
+    ) -> int:
+        """Start one controller-owned automatic connection test.
+
+        Starting a new run synchronously cancels and releases the previous
+        run.  The positive return value is a monotonically increasing
+        generation suitable for guarding asynchronous GUI updates; ``0``
+        means the target was refused before a worker was started.
+        """
+        if not self.network_operations_available:
+            log_error(
+                "Automatic workflow refused while recovery is incomplete: "
+                f"{self._network_operations_blocked_reason}"
+            )
+            return 0
+        try:
+            target_ip = self.safety_policy.validate_target(ip)
+        except ValueError as exc:
+            log_error(f"Automatic workflow refused: {exc}")
+            return 0
+
+        config = build_automatic_connection_test(
+            target_ip,
+            common_params=common_params,
+            disrupt_kwargs=disrupt_kwargs,
+        )
+
+        with self._automatic_transition_lock:
+            self._stop_automatic_workflow_serialized()
+            with self._automatic_state_lock:
+                self._automatic_generation += 1
+                generation = self._automatic_generation
+
+                def _forward_event(event: ChainEvent) -> None:
+                    with self._automatic_state_lock:
+                        if (
+                            generation != self._automatic_generation
+                            or self._automatic_runner is not runner
+                        ):
+                            return
+                        if event.kind in {"complete", "halt", "error"}:
+                            self._automatic_runner = None
+                    if on_event is not None:
+                        try:
+                            on_event(event)
+                        except Exception as exc:
+                            log_error(
+                                "Automatic workflow callback failed: "
+                                f"{exc}"
+                            )
+
+                runner = CutChainRunner(
+                    config,
+                    self,
+                    on_event=_forward_event,
+                )
+                self._automatic_runner = runner
+            runner.start()
+            return generation
+
+    # Name the product action as well as the generic lifecycle API.  Keeping
+    # this tiny alias makes headless callers self-documenting.
+    start_automatic_connection_test = start_automatic_workflow
+
+    def stop_automatic_workflow(self) -> bool:
+        """Cancel and release the current automatic run, if any."""
+        with self._automatic_transition_lock:
+            return self._stop_automatic_workflow_serialized()
+
+    def _stop_automatic_workflow_serialized(self) -> bool:
+        """Stop helper; caller must hold ``_automatic_transition_lock``."""
+        with self._automatic_state_lock:
+            runner = self._automatic_runner
+        if runner is None:
+            with self._automatic_state_lock:
+                self._automatic_generation += 1
+            return False
+
+        runner.stop()
+        with self._automatic_state_lock:
+            if self._automatic_runner is runner:
+                self._automatic_runner = None
+            self._automatic_generation += 1
+        return True
+
+    def is_automatic_workflow_running(self) -> bool:
+        """Return whether the owned automatic runner thread is active."""
+        with self._automatic_state_lock:
+            runner = self._automatic_runner
+            return bool(runner is not None and runner.running)
 
     def disrupt_device(
         self,
@@ -254,6 +394,22 @@ class AppController:
         ``target_device_type``) are forwarded to the underlying engine to
         enable auto-detection of the appropriate disruption profile.
         """
+        if not self.network_operations_available:
+            log_error(
+                "Disruption refused while recovery is incomplete: "
+                f"{self._network_operations_blocked_reason}"
+            )
+            return False
+        chain_runner = kwargs.pop("_cut_chain_runner", None)
+        if chain_runner is None:
+            # A direct/manual disruption replaces the automatic sequence.
+            self.stop_automatic_workflow()
+        else:
+            # Reject a late stage from a detached/cancelled runner.  The
+            # sentinel is controller-internal and never reaches the helper.
+            with self._automatic_state_lock:
+                if self._automatic_runner is not chain_runner:
+                    return False
         try:
             target_ip = self.safety_policy.validate_target(ip)
             timeout = self.safety_policy.bounded_timeout(operation_timeout)
@@ -281,8 +437,17 @@ class AppController:
             self._maybe_clear_recovery_journal()
         return bool(started)
 
-    def stop_disruption(self, ip: str) -> bool:
+    def stop_disruption(self, ip: str, **kwargs: Any) -> bool:
         """Stop disruption on *ip*."""
+        chain_runner = kwargs.pop("_cut_chain_runner", None)
+        if chain_runner is None:
+            self.stop_automatic_workflow()
+        else:
+            # A runner that was cancelled/replaced must never release a
+            # newer same-target stage after a slow backend call completes.
+            with self._automatic_state_lock:
+                if self._automatic_runner is not chain_runner:
+                    return False
         self._cancel_operation_deadline(ip)
         if self.safety_policy.dry_run:
             return True
@@ -293,6 +458,7 @@ class AppController:
 
     def stop_all_disruptions(self) -> bool:
         """Stop all active disruptions."""
+        self.stop_automatic_workflow()
         self._cancel_all_operation_deadlines()
         if self.safety_policy.dry_run:
             return True
@@ -309,6 +475,21 @@ class AppController:
             )
         self._audit_safety_event("stale_network_state_restored", "0.0.0.0", 0)
 
+    @property
+    def network_operations_available(self) -> bool:
+        """Whether the controller may begin new network mutations."""
+        return self._network_operations_blocked_reason is None
+
+    def get_startup_health(self) -> Dict[str, Any]:
+        """Return a privacy-safe startup status for UI diagnostics."""
+        reason = self._network_operations_blocked_reason
+        return {
+            "ready": self._started,
+            "network_operations_available": reason is None,
+            "recovery_blocked": reason is not None,
+            "message": reason or "",
+        }
+
     def _restore_network_state(self) -> bool:
         packet_ok = False
         firewall_ok = False
@@ -317,10 +498,14 @@ class AppController:
             packet_ok = bool(self._disruption_manager.stop_all_devices())
         except Exception as exc:
             log_error(f"Packet-engine restoration failed: {exc}")
+        if not packet_ok:
+            log_error("Packet-engine restoration reported incomplete cleanup")
         try:
             firewall_ok = bool(self._clear_firewall_blocks())
         except Exception as exc:
             log_error(f"Firewall restoration failed: {exc}")
+        if not firewall_ok:
+            log_error("Firewall restoration reported incomplete cleanup")
         original_forwarding = self._recovery_journal.forwarding_original_state()
         if original_forwarding is not None:
             try:
@@ -330,11 +515,21 @@ class AppController:
             except Exception as exc:
                 forwarding_ok = False
                 log_error(f"IP-forwarding restoration failed: {exc}")
+            if not forwarding_ok:
+                log_error("IP-forwarding restoration reported incomplete cleanup")
         if packet_ok and firewall_ok and forwarding_ok:
             self._recovery_journal.clear()
             return not self._recovery_journal.is_pending()
+        failure_reasons = []
+        if not packet_ok:
+            failure_reasons.append("restore_packet_incomplete")
+        if not firewall_ok:
+            failure_reasons.append("restore_firewall_incomplete")
+        if not forwarding_ok:
+            failure_reasons.append("restore_forwarding_incomplete")
         try:
-            self._recovery_journal.mark_pending("restore_incomplete")
+            for reason in failure_reasons:
+                self._recovery_journal.mark_pending(reason)
         except Exception as exc:
             log_error(f"Could not preserve recovery journal: {exc}")
         return False
@@ -592,6 +787,12 @@ class AppController:
         """
         if not ip:
             return False
+        if not self.network_operations_available:
+            log_error(
+                "Firewall block refused while recovery is incomplete: "
+                f"{self._network_operations_blocked_reason}"
+            )
+            return False
         try:
             device = self.state.get_device_by_ip(ip)
             if not device:
@@ -786,11 +987,13 @@ class AppController:
         """Graceful shutdown: plugins → scan → scheduler → engine → save."""
         with self._lifecycle_lock:
             if not self._started:
+                self.stop_automatic_workflow()
                 return
             log_info("Controller shutting down...")
             errors = []
             if self.safety_policy.dry_run:
                 steps = [
+                    ("automatic workflow", self.stop_automatic_workflow),
                     ("operation deadlines", self._cancel_all_operation_deadlines),
                     ("persistence", self._save_all),
                 ]
@@ -799,9 +1002,10 @@ class AppController:
                     ("plugins", self.plugin_loader.unload_all),
                     ("auto-scan", self.stop_auto_scan),
                     ("scheduler", self.scheduler.stop),
+                    ("automatic workflow", self.stop_automatic_workflow),
                     ("operation deadlines", self._cancel_all_operation_deadlines),
                     ("network restoration", self._restore_network_state),
-                    ("disruption engine", self._disruption_manager.stop),
+                    ("disruption engine", self._stop_engine),
                     ("persistence", self._save_all),
                 ]
             for name, stop_fn in steps:

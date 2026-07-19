@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import threading
 import time
-from typing import Any
+from typing import Any, Optional
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QGroupBox,
 )
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSignal, pyqtSlot
 
 from app.logs.logger import log_info, log_error
 
@@ -57,12 +58,15 @@ __all__ = ["VoicePanel"]
 class VoicePanel(QWidget):
     """Voice control UI: init, listen, push-to-talk, model/mic selectors."""
 
+    _voice_probe_done = pyqtSignal(object)
+
     def __init__(self, parent_view, parent=None) -> None:
         super().__init__(parent)
         self._view = parent_view
         self._voice_controller = None
-        # Lazy probe — first panel instantiation. Crash-safe.
-        _probe_voice_available()
+        self._voice_available: Optional[bool] = None
+        self._voice_probe_in_flight = False
+        self._voice_probe_done.connect(self._on_voice_probe_done)
         self._setup_ui()
 
     @property
@@ -81,18 +85,11 @@ class VoicePanel(QWidget):
         vl = QVBoxLayout()
         vl.setSpacing(6)
 
-        if not VOICE_AVAILABLE:
-            missing_label = QLabel("Install sounddevice + openai-whisper to enable")
-            missing_label.setStyleSheet(
-                "color: #6b7280; font-size: 10px; font-style: italic;")
-            vl.addWidget(missing_label)
-            voice_group.setLayout(vl)
-            layout.addWidget(voice_group)
-            return
-
         # Status row
         status_row = QHBoxLayout()
-        self.voice_status_label = QLabel("Voice: Not initialized")
+        self.voice_status_label = QLabel(
+            "Voice: Not initialized — dependencies checked on INIT"
+        )
         self.voice_status_label.setStyleSheet(self._status_qss("#94a3b8"))
         status_row.addWidget(self.voice_status_label, 1)
         vl.addLayout(status_row)
@@ -143,9 +140,44 @@ class VoicePanel(QWidget):
     # Handlers
     # ------------------------------------------------------------------
     def _on_voice_init(self) -> None:
-        """Initialize the voice engine."""
-        if not VOICE_AVAILABLE:
+        """Probe optional dependencies, then initialize the voice engine."""
+        if self._voice_probe_in_flight:
             return
+        if self._voice_available is not True:
+            self._voice_probe_in_flight = True
+            self.btn_voice_init.setEnabled(False)
+            self.voice_status_label.setText("Checking voice dependencies...")
+            self.voice_status_label.setStyleSheet(self._status_qss("#e040fb"))
+
+            def _probe() -> None:
+                self._voice_probe_done.emit(_probe_voice_available())
+
+            threading.Thread(
+                target=_probe,
+                daemon=True,
+                name="VoiceDependencyProbe",
+            ).start()
+            return
+
+        self._start_voice_init()
+
+    @pyqtSlot(object)
+    def _on_voice_probe_done(self, available) -> None:
+        self._voice_probe_in_flight = False
+        self._voice_available = bool(available)
+        self.btn_voice_init.setEnabled(True)
+        if not self._voice_available:
+            self.btn_voice_init.setText("CHECK AGAIN")
+            self.voice_status_label.setText(
+                "Voice unavailable — install sounddevice + openai-whisper"
+            )
+            self.voice_status_label.setStyleSheet(self._status_qss("#ff4444"))
+            return
+        self.btn_voice_init.setText("INIT")
+        self._start_voice_init()
+
+    def _start_voice_init(self) -> None:
+        """Initialize voice after its optional dependencies are confirmed."""
 
         model_name = self.voice_model_combo.currentText()
         self.voice_status_label.setText(f"Loading {model_name} model...")

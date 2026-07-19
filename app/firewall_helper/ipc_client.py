@@ -31,6 +31,7 @@ from app.firewall_helper.protocol import (
     OP_GET_DEVICE_STATUS,
     OP_GET_DISRUPTED_DEVICES,
     OP_GET_ENGINE_STATS,
+    OP_GET_IP_FORWARDING,
     OP_GET_STATUS,
     OP_HOTKEY_TRIGGER,
     OP_INITIALIZE,
@@ -38,6 +39,7 @@ from app.firewall_helper.protocol import (
     OP_PING,
     OP_SHUTDOWN,
     OP_START,
+    OP_SET_IP_FORWARDING,
     OP_STOP,
     OP_STOP_ALL,
     OP_STOP_DEVICE,
@@ -45,9 +47,27 @@ from app.firewall_helper.protocol import (
     Request,
     Response,
 )
-from app.firewall_helper.transport import PipeClient
+from app.firewall_helper.transport import (
+    FRAME_TIMEOUT_MS,
+    MUTATION_TIMEOUT_MS,
+    PipeClient,
+)
 
 log = logging.getLogger(__name__)
+
+_MUTATING_OPS = frozenset({
+    OP_INITIALIZE,
+    OP_START,
+    OP_STOP,
+    OP_DISRUPT_DEVICE,
+    OP_STOP_DEVICE,
+    OP_STOP_ALL,
+    OP_SET_IP_FORWARDING,
+    OP_BLOCK_DEVICE,
+    OP_UNBLOCK_DEVICE,
+    OP_CLEAR_ALL_BLOCKS,
+    OP_SHUTDOWN,
+})
 
 
 class DisruptionManagerProxy:
@@ -175,9 +195,12 @@ class DisruptionManagerProxy:
         self._ensure_helper()
         assert self._client is not None
         request = Request(op=op, args=args or {})
+        timeout_ms = (
+            MUTATION_TIMEOUT_MS if op in _MUTATING_OPS else FRAME_TIMEOUT_MS
+        )
         try:
-            return self._client.call(request)
-        except (ConnectionError, OSError, BrokenPipeError) as e:
+            return self._client.call(request, timeout_ms=timeout_ms)
+        except (ConnectionError, OSError, BrokenPipeError, TimeoutError) as e:
             # Pipe died (helper crashed, killed, or restarted). Reset the
             # proxy so the NEXT call re-runs _ensure_helper() and, if the
             # helper is still alive, rebuilds the client — or, if it's
@@ -212,12 +235,11 @@ class DisruptionManagerProxy:
     def start(self) -> None:
         """Activate the manager. Void-style to match the real manager's
         clean-interface contract — returns None; raises on hard failure."""
-        try:
-            resp = self._call(OP_START)
-            if not resp.ok:
-                log.error("proxy.start failed: %s", resp.error_message)
-        except Exception as e:
-            log.error("proxy.start failed: %s", e)
+        resp = self._call(OP_START)
+        if not resp.ok or not resp.result:
+            message = resp.error_message or "helper rejected engine start"
+            log.error("proxy.start failed: %s", message)
+            raise RuntimeError(message)
 
     def stop(self) -> None:
         """Deactivate the manager. Void-style to match the real contract."""
@@ -267,42 +289,85 @@ class DisruptionManagerProxy:
     def get_disrupted_devices(self) -> List[str]:
         try:
             resp = self._call(OP_GET_DISRUPTED_DEVICES)
-            if resp.ok and isinstance(resp.result, list):
-                return [str(x) for x in resp.result]
-            return []
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected disrupted-device query"
+                )
+            if not isinstance(resp.result, list):
+                raise TypeError("helper returned invalid disrupted-device state")
+            return [str(x) for x in resp.result]
         except Exception as e:
             log.error("proxy.get_disrupted_devices failed: %s", e)
-            return []
+            raise
 
     def get_device_status(self, ip: str) -> Dict:
         try:
             resp = self._call(OP_GET_DEVICE_STATUS, {"ip": ip})
-            if resp.ok and isinstance(resp.result, dict):
-                return resp.result
-            return {}
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected device-status query"
+                )
+            if not isinstance(resp.result, dict):
+                raise TypeError("helper returned invalid device status")
+            return resp.result
         except Exception as e:
             log.error("proxy.get_device_status failed: %s", e)
-            return {}
+            raise
 
     def get_status(self) -> Dict:
         try:
             resp = self._call(OP_GET_STATUS)
-            if resp.ok and isinstance(resp.result, dict):
-                return resp.result
-            return {}
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected engine-status query"
+                )
+            if not isinstance(resp.result, dict):
+                raise TypeError("helper returned invalid engine status")
+            return resp.result
         except Exception as e:
             log.error("proxy.get_status failed: %s", e)
-            return {}
+            raise
 
     def get_engine_stats(self) -> Dict:
         try:
             resp = self._call(OP_GET_ENGINE_STATS)
-            if resp.ok and isinstance(resp.result, dict):
-                return resp.result
-            return {}
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected engine-stats query"
+                )
+            if not isinstance(resp.result, dict):
+                raise TypeError("helper returned invalid engine telemetry")
+            return resp.result
         except Exception as e:
             log.error("proxy.get_engine_stats failed: %s", e)
-            return {}
+            raise
+
+    def get_ip_forwarding_state(self) -> bool:
+        """Return the helper host's current IPv4 forwarding state."""
+        try:
+            resp = self._call(OP_GET_IP_FORWARDING)
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected forwarding query"
+                )
+            if not isinstance(resp.result, bool):
+                raise TypeError("helper returned invalid forwarding state")
+            return resp.result
+        except Exception as e:
+            log.error("proxy.get_ip_forwarding_state failed: %s", e)
+            raise
+
+    def set_ip_forwarding(self, enabled: bool) -> bool:
+        """Set IPv4 forwarding in the elevated helper process."""
+        try:
+            resp = self._call(
+                OP_SET_IP_FORWARDING,
+                {"enabled": bool(enabled)},
+            )
+            return bool(resp.ok and resp.result)
+        except Exception as e:
+            log.error("proxy.set_ip_forwarding failed: %s", e)
+            return False
 
     def hotkey_trigger(self, action: str, payload: Optional[Dict] = None) -> bool:
         """Recorder / GodMode hotkey bridge — main-side global hook fires
@@ -351,12 +416,16 @@ class DisruptionManagerProxy:
     def get_blocked_ips(self) -> List[str]:
         try:
             resp = self._call(OP_GET_BLOCKED_IPS)
-            if resp.ok and isinstance(resp.result, list):
-                return [str(x) for x in resp.result]
-            return []
+            if not resp.ok:
+                raise RuntimeError(
+                    resp.error_message or "helper rejected firewall-state query"
+                )
+            if not isinstance(resp.result, list):
+                raise TypeError("helper returned invalid firewall state")
+            return [str(x) for x in resp.result]
         except Exception as e:
             log.error("proxy.get_blocked_ips failed: %s", e)
-            return []
+            raise
 
     def shutdown_helper(self) -> None:
         """Ask the helper to exit cleanly. Used on GUI shutdown."""

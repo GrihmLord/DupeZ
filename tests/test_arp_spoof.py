@@ -315,6 +315,70 @@ class TestMacForIp:
 # ── IP forwarding state ──────────────────────────────────────────────
 
 class TestIpForwarding:
+    def test_windows_split_get_routes_through_helper(self, monkeypatch):
+        from app.firewall_helper import feature_flag, ipc_client
+
+        class _Proxy:
+            @staticmethod
+            def get_ip_forwarding_state():
+                return True
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: True)
+        monkeypatch.setattr(ipc_client, "get_proxy_manager", lambda: _Proxy())
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *_a, **_kw: (_ for _ in ()).throw(
+                AssertionError("split GUI must not run netsh locally")
+            ),
+        )
+
+        assert arp_spoof._get_ip_forwarding_state() is True
+
+    def test_windows_split_set_routes_through_helper(self, monkeypatch):
+        from app.firewall_helper import feature_flag, ipc_client
+
+        updates = []
+
+        class _Proxy:
+            @staticmethod
+            def set_ip_forwarding(enabled):
+                updates.append(enabled)
+                return True
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: True)
+        monkeypatch.setattr(ipc_client, "get_proxy_manager", lambda: _Proxy())
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *_a, **_kw: (_ for _ in ()).throw(
+                AssertionError("split GUI must not run netsh locally")
+            ),
+        )
+
+        assert arp_spoof._set_ip_forwarding(False) is True
+        assert updates == [False]
+
+    def test_windows_split_query_failure_is_not_misreported_as_disabled(
+        self,
+        monkeypatch,
+    ):
+        from app.firewall_helper import feature_flag, ipc_client
+
+        class _Proxy:
+            @staticmethod
+            def get_ip_forwarding_state():
+                raise TimeoutError("helper stalled")
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: True)
+        monkeypatch.setattr(ipc_client, "get_proxy_manager", lambda: _Proxy())
+
+        with pytest.raises(RuntimeError, match="could not report"):
+            arp_spoof._get_ip_forwarding_state()
+
     def test_linux_reads_proc(self, monkeypatch, tmp_path):
         ip_fwd = tmp_path / "ip_forward"
         ip_fwd.write_text("1\n")
@@ -350,6 +414,8 @@ class TestIpForwarding:
         assert ip_fwd.read_text() == "0"
 
     def test_windows_get_parses_netsh(self, monkeypatch):
+        from app.firewall_helper import feature_flag
+
         # _get_ip_forwarding_state returns on the FIRST line containing
         # "forwarding" — so the test output must put forwarding+enabled
         # on the same line.
@@ -359,6 +425,7 @@ class TestIpForwarding:
             "IP Forwarding:                                Enabled\n"
         )
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
         monkeypatch.setattr(arp_spoof, "_SP_NETSH", r"C:\Windows\System32\netsh.exe")
         monkeypatch.setattr(
             arp_spoof.safe_subprocess, "run",
@@ -367,6 +434,8 @@ class TestIpForwarding:
         assert arp_spoof._get_ip_forwarding_state() is True
 
     def test_windows_set_invokes_netsh(self, monkeypatch):
+        from app.firewall_helper import feature_flag
+
         seen = {}
 
         def _capture(argv, **kw):
@@ -374,6 +443,7 @@ class TestIpForwarding:
             return _StubResult("")
 
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
         monkeypatch.setattr(arp_spoof, "_SP_NETSH", r"C:\Windows\System32\netsh.exe")
         monkeypatch.setattr(arp_spoof.safe_subprocess, "run", _capture)
         assert arp_spoof._set_ip_forwarding(True) is True

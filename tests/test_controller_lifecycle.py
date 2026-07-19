@@ -102,6 +102,9 @@ class _Plugins:
     def get_active_plugins(self):
         return []
 
+    def get_ui_panel_plugins(self):
+        return []
+
 
 class _State:
     def __init__(self) -> None:
@@ -283,6 +286,20 @@ def test_disruption_refuses_public_target_before_engine_call() -> None:
     assert dm.disrupt_calls == []
 
 
+def test_failed_start_keeps_journal_when_helper_state_is_unobservable() -> None:
+    journal = _Journal()
+    controller, dm, *_rest = _controller(recovery_journal=journal)
+    dm.disrupt_device = lambda *_args, **_kwargs: False
+    dm.get_disrupted_devices = lambda: (_ for _ in ()).throw(
+        TimeoutError("helper unavailable")
+    )
+
+    assert controller.disrupt_device("192.168.1.20", ["drop"]) is False
+
+    assert journal.pending is True
+    assert "packet_disruption" in journal.marks
+
+
 def test_dry_run_skips_engine_and_records_no_real_disruption() -> None:
     policy = SafetyPolicy(dry_run=True)
     controller, dm, *_rest = _controller(
@@ -293,6 +310,7 @@ def test_dry_run_skips_engine_and_records_no_real_disruption() -> None:
     assert dm.initialize_calls == 0
     assert controller.disrupt_device("192.168.1.20", ["drop"]) is True
     assert dm.disrupt_calls == []
+    assert controller.plugin_loader.get_ui_panel_plugins() == []
     controller.shutdown()
 
 
@@ -344,6 +362,7 @@ def test_engine_initialization_failure_is_visible() -> None:
         controller.start()
 
     assert controller._started is False
+    assert dm.stop_calls == 0
 
 
 def test_invalid_scope_update_rolls_back_setting() -> None:
@@ -373,16 +392,25 @@ def test_stale_journal_is_restored_before_services_start() -> None:
 
 def test_stale_journal_retained_when_firewall_restore_fails() -> None:
     journal = _Journal(pending=True)
-    controller, dm, *_rest = _controller(
+    controller, dm, _cache, scheduler, *_rest = _controller(
         recovery_journal=journal,
         clear_firewall_blocks=lambda: False,
     )
 
-    with pytest.raises(RuntimeError, match="could not be fully restored"):
-        controller.start()
+    controller.start()
 
     assert dm.stop_all_calls == 1
     assert journal.pending is True
+    assert "restore_firewall_incomplete" in journal.marks
+    assert controller._started is True
+    assert controller.network_operations_available is False
+    health = controller.get_startup_health()
+    assert health["recovery_blocked"] is True
+    assert "could not be fully restored" in health["message"]
+    assert scheduler.start_calls == 0
+    assert controller.disrupt_device("192.168.1.20", ["drop"]) is False
+    assert dm.disrupt_calls == []
+    controller.shutdown()
 
 
 def test_stale_journal_restores_original_forwarding_state() -> None:

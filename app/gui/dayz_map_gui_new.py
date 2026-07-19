@@ -82,6 +82,17 @@ except Exception as _webengine_exc:  # noqa: BLE001 — we really do want everyt
         f"(reason: {_WEBENGINE_IMPORT_ERROR})"
     )
 
+# A deterministic troubleshooting/CI escape hatch. Importing QtWebEngine is
+# safe on supported builds, while constructing QWebEngineView may terminate
+# the process natively on headless or broken GPU stacks before Python can
+# report an exception.
+if os.environ.get("DUPEZ_DISABLE_WEBENGINE", "").strip().lower() in {
+    "1", "true", "yes", "on",
+}:
+    _WEBENGINE_AVAILABLE = False
+    _WEBENGINE_IMPORT_ERROR = "disabled by DUPEZ_DISABLE_WEBENGINE"
+    log_info("QtWebEngine disabled; DayZ map will show a safe placeholder")
+
 # ── Perf mode constants ─────────────────────────────────────────────
 # Software raster (forced by admin-token elevation) makes GPU flags
 # unusable, so map lag has to be attacked at the browser/DOM layer.

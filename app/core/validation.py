@@ -44,6 +44,7 @@ __all__ = [
     "validate_safe_path",
     "validate_url",
     "validate_setting_key",
+    "PUBLIC_DIAGNOSTIC_METHODS",
 ]
 
 
@@ -84,9 +85,13 @@ _WINDIVERT_ALLOWED_TOKENS = frozenset({
 })
 
 # Allowed disruption method names
+PUBLIC_DIAGNOSTIC_METHODS: Tuple[str, ...] = (
+    "lag", "drop", "disconnect", "bandwidth", "throttle",
+    "duplicate", "ood", "corrupt", "rst",
+)
+
 VALID_DISRUPTION_METHODS: FrozenSet[str] = frozenset({
-    "lag", "drop", "throttle", "duplicate", "ood", "corrupt",
-    "rst", "disconnect", "bandwidth",
+    *PUBLIC_DIAGNOSTIC_METHODS,
     "gilbert_elliott", "pareto_jitter", "correlated_drop",
     "token_bucket",
 })

@@ -4,6 +4,60 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.7.9 -- 2026-07-18 (Clumsy parity, controller startup recovery, and release integrity)
+
+### Fixed
+
+- **Automatic engine selection now uses the actual bundled Clumsy process for
+  exactly representable effects.** Lag, Drop, Disconnect, Duplicate, and RST
+  no longer silently take the native path first. DupeZ verifies Clumsy's
+  Local/Remote capture layer, module checkboxes, numeric controls, and Start
+  state before reporting success. Native WinDivert remains the path for
+  native-only behavior and a bounded fallback only where semantics match.
+- **Duplicate count parity.** DupeZ defines `duplicate_count` as extra copies,
+  while Clumsy counts the original packet. Compatibility mode now translates
+  `N` extra copies to Clumsy's `N + 1` total and validates the representable
+  range.
+- **Split-helper mutations no longer time out during legitimate Clumsy
+  startup.** Status queries retain a 5-second bound; engine initialization,
+  disruption starts/stops, firewall changes, and shutdown receive a bounded
+  30-second response budget.
+- **Controller initialization deadlock removed.** Frozen GPU helpers force
+  `DUPEZ_ARCH=inproc` before importing architecture-dependent modules, so
+  recovery cleanup cannot proxy back into the helper's own named pipe.
+- **Packaged Qt startup fixed and verified.** Builds use the repository
+  virtual environment, explicitly import `PyQt6.sip`, and execute a
+  `--verify-runtime-imports` frozen gate.
+- **Single-instance enforcement.** A per-user Windows named mutex prevents
+  persistence-lock collisions and helper pipe contention from duplicate GUI
+  processes.
+- **Startup errors are no longer hidden by the splash screen.** The original
+  controller exception and durable log path are preserved; dependent startup
+  phases abort, and recovery failures enter an explicit network-disabled safe
+  mode.
+- **Qt polling no longer blocks on helper IPC.** Dashboard, Clumsy controls,
+  and stats refreshes run controller calls outside the UI thread and reject
+  stale completions during shutdown.
+- **Broken process scoping now fails closed.** WinDivert does not expose
+  `processId` at NETWORK/NETWORK_FORWARD packet layers, so non-empty legacy
+  `_process_scope` presets are rejected before any engine or ARP state changes.
+- **Release sidecars cannot be stale.** Variant builds delete previous update
+  manifests before signing, and artifact preflight verifies the pinned
+  Ed25519 signature plus manifest version, filename, installer size, and
+  SHA-256.
+
+### Verification and provenance
+
+- Bundled `clumsy.exe` is byte-identical to
+  `kalirenegade-dev/clumsy` v0.3.4; provenance pins commit
+  `bc87e73066168520d76122c9165e99ea703b166c` and the release archive SHA-256.
+- Hardware disruption tests now require an explicit private IP and MAC and
+  never select the first scanned device. Native module checks require an
+  `affected` counter, and a separate opt-in test exercises the real bundled
+  Clumsy process/layer/control automation.
+
+---
+
 ## v5.7.6 -- 2026-05-27 (Maximum Security Tier 1: Downgrade Replay + Settings HMAC + Audit Seal + Subprocess + Webhook Allowlist)
 
 Closes the five highest-ROI gaps from the post-v5.7.5 security review. Each item closes a concrete attack path that would otherwise survive even with v5.7.5's defense-in-depth posture. No user-visible behavior changes for the normal-operation case -- the work is in fail-closed posture for adversarial paths. See `docs/release-notes/v5.7.6.md` and `docs/adr/ADR-0003-v576-security-hardening.md` for full rationale.

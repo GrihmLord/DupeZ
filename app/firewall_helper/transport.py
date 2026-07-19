@@ -57,6 +57,10 @@ DEFAULT_PIPE_NAME = r"\\.\pipe\dupez_firewall_helper"
 # UAC prompt + helper boot; tight on individual frame I/O.
 CONNECT_TIMEOUT_MS = 15_000
 FRAME_TIMEOUT_MS = 5_000
+# Mutating helper operations can include bounded WinDivert startup, stale-state
+# cleanup, Clumsy window discovery/control verification, or netsh teardown.
+# Keep them bounded without reusing the much shorter status-query budget.
+MUTATION_TIMEOUT_MS = 30_000
 
 
 # ── Import Windows IPC primitives lazily for non-Windows test fakes ─
@@ -497,14 +501,64 @@ class PipeClient:
                     pass
                 self._handle = None
 
-    def call(self, request: Request) -> Response:
-        """Send *request* and block until the matching response arrives."""
+    def call(
+        self,
+        request: Request,
+        timeout_ms: int = FRAME_TIMEOUT_MS,
+    ) -> Response:
+        """Send *request* and wait a bounded time for its response.
+
+        Synchronous ``ReadFile`` has no useful response deadline for a byte
+        mode named pipe. Run that one read in a daemon thread and close the
+        handle if the helper stalls. Closing the handle unblocks the Windows
+        read and ensures the next proxy operation performs a fresh handshake.
+        """
         if self._handle is None:
             raise RuntimeError("PipeClient.call before connect()")
+        if timeout_ms <= 0:
+            raise ValueError("PipeClient.call timeout_ms must be positive")
 
         with self._lock:
-            _write_frame(self._handle, self._win32file, request.encode())
-            frame = _read_frame(self._handle, self._win32file, self._pywintypes)
+            # Keep the exact OS handle for this exchange. On timeout
+            # ``self._handle`` is invalidated immediately; the reader thread
+            # must never observe a later replacement connection.
+            request_handle = self._handle
+            _write_frame(request_handle, self._win32file, request.encode())
+            frames: list[Optional[bytes]] = []
+            errors: list[BaseException] = []
+
+            def _read_response() -> None:
+                try:
+                    frames.append(
+                        _read_frame(
+                            request_handle,
+                            self._win32file,
+                            self._pywintypes,
+                        )
+                    )
+                except BaseException as exc:  # propagated on caller thread
+                    errors.append(exc)
+
+            reader = threading.Thread(
+                target=_read_response,
+                name="firewall-helper-response",
+                daemon=True,
+            )
+            reader.start()
+            reader.join(timeout=timeout_ms / 1000.0)
+            if reader.is_alive():
+                self._handle = None
+                try:
+                    self._win32file.CloseHandle(request_handle)
+                except Exception:
+                    pass
+                raise TimeoutError(
+                    f"PipeClient.call timed out after {timeout_ms} ms "
+                    f"(op={request.op})"
+                )
+            if errors:
+                raise errors[0]
+            frame = frames[0] if frames else None
             if frame is None:
                 raise ConnectionError("PipeClient peer disconnected")
             response = Response.decode(frame)

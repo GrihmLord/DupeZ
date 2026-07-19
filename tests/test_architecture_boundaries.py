@@ -39,13 +39,13 @@ def test_backend_packages_do_not_import_gui(package: str) -> None:
 
 
 def test_builtin_preset_resolver_returns_defensive_copies() -> None:
-    original = BUILTIN_PRESETS["Red Disconnect"]["params"]["drop_chance"]
+    original = BUILTIN_PRESETS["Red Disconnect"]["params"]["disconnect_chance"]
     resolved = get_builtin_preset("Red Disconnect")
 
-    resolved["params"]["drop_chance"] = 1
+    resolved["params"]["disconnect_chance"] = 1
     resolved["methods"].append("unexpected")
 
-    assert BUILTIN_PRESETS["Red Disconnect"]["params"]["drop_chance"] == original
+    assert BUILTIN_PRESETS["Red Disconnect"]["params"]["disconnect_chance"] == original
     assert "unexpected" not in BUILTIN_PRESETS["Red Disconnect"]["methods"]
 
 

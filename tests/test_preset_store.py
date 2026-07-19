@@ -152,13 +152,22 @@ class TestValidatePreset:
         with pytest.raises(PresetValidationError, match="_process_scope"):
             validate_preset(p)
 
-    @pytest.mark.parametrize("scope", [None, "", "auto", "dayz"])
-    def test_process_scope_valid_values(self, scope) -> None:
+    @pytest.mark.parametrize("scope", [None, ""])
+    def test_empty_legacy_process_scope_is_tolerated(self, scope) -> None:
         p = CustomPreset(
             name="Scope", methods=["drop"],
             params={"_process_scope": scope} if scope is not None else {},
         )
         validate_preset(p)
+
+    @pytest.mark.parametrize("scope", ["auto", "dayz"])
+    def test_active_process_scope_fails_closed(self, scope) -> None:
+        p = CustomPreset(
+            name="Scope", methods=["drop"],
+            params={"_process_scope": scope},
+        )
+        with pytest.raises(PresetValidationError, match="unsupported"):
+            validate_preset(p)
 
     def test_description_too_long_rejected(self) -> None:
         p = CustomPreset(

@@ -128,22 +128,31 @@ class DupeZSplash(QSplashScreen):
                     # Log but don't abort — most steps are non-fatal
                     err = f"{msg.rstrip('.')} FAILED: {exc}"
                     self._try_log_error(err)
-                # Cinematic progress ramp — slow, smooth ease toward target
+                    # Most preflight steps are optional. The controller is
+                    # not: later steps depend on it or create workers/widgets
+                    # that would immediately need teardown.
+                    if fn.__name__ == "_init_controller":
+                        if not self.init_error:
+                            self.init_error = err
+                        self._error_signal.emit(self.init_error)
+                        self._done_signal.emit()
+                        return
+                # Smooth progress without manufacturing a long startup delay.
                 current = getattr(self, '_last_progress', 0.0)
-                increments = 12
+                increments = 4
                 step = (target_progress - current) / increments
                 for i in range(increments):
                     current += step
                     self._progress_signal.emit(min(current, target_progress))
-                    time.sleep(0.045)
+                    time.sleep(0.02)
                 self._progress_signal.emit(target_progress)
                 self._last_progress = target_progress
-                time.sleep(0.25)  # hold between init steps
+                time.sleep(0.04)
 
             # Hold at 100% so the user sees the finished state
             self._progress_signal.emit(1.0)
             self._status_signal.emit("Ready.")
-            time.sleep(2.0)
+            time.sleep(0.35)
             self._done_signal.emit()
 
         except Exception as exc:
@@ -188,8 +197,8 @@ class DupeZSplash(QSplashScreen):
         initialize the in-process disruption_manager — doing so will fail
         because WinDivert requires admin, and failing here pollutes the
         splash log with scary red "WinDivert engine: unavailable" lines
-        even though the helper (spawned later on first firewall op) will
-        actually own the engine. Just report "deferred" and move on.
+        even though the helper (spawned by controller startup) will actually
+        own the engine. Just report "deferred" and move on.
         """
         try:
             from app.firewall_helper.feature_flag import is_split_mode
@@ -217,7 +226,14 @@ class DupeZSplash(QSplashScreen):
 
     def _init_controller(self) -> None:
         from app.core.controller import AppController
-        self.controller = AppController()
+        try:
+            self.controller = AppController()
+        except Exception as exc:
+            # The pipeline intentionally continues after non-critical steps,
+            # so preserve the controller's real exception here. Previously
+            # _init_finalize replaced it with a generic message.
+            self.init_error = f"Controller failed to initialize: {exc}"
+            raise
         self._try_log_info("AppController initialized")
 
     def _init_plugins(self) -> None:
@@ -244,7 +260,7 @@ class DupeZSplash(QSplashScreen):
 
     def _init_finalize(self) -> None:
         """Last step — verify critical components."""
-        if self.controller is None:
+        if self.controller is None and not self.init_error:
             self.init_error = "Controller failed to initialize"
             self._error_signal.emit(self.init_error)
 

@@ -11,8 +11,9 @@ pushd "%~dp0.."
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.7.8"
+set "DUPEZ_VERSION=5.7.9"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
+set "DUPEZ_PYTHON=%CD%\.venv\Scripts\python.exe"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Build Pipeline
@@ -20,31 +21,45 @@ echo ============================================
 echo.
 
 :: ── 1. Check prerequisites ──────────────────────────────────────────
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python not found. Install Python 3.10+ and add to PATH.
+if not exist "%DUPEZ_PYTHON%" (
+    echo ERROR: Repository virtual environment not found:
+    echo        %DUPEZ_PYTHON%
+    echo Create .venv, install pip, and rerun this script.
     pause
     exit /b 1
 )
 
-python -c "import PyInstaller" >nul 2>&1
+"%DUPEZ_PYTHON%" --version
+if errorlevel 1 exit /b 1
+
+"%DUPEZ_PYTHON%" -c "import PyInstaller" >nul 2>&1
 if errorlevel 1 (
-    echo Installing PyInstaller...
-    pip install pyinstaller==6.19.0
+    echo Installing PyInstaller into the repository virtual environment...
+    "%DUPEZ_PYTHON%" -m pip install pyinstaller==6.19.0
+    if errorlevel 1 exit /b 1
 )
 
 :: ── 2. Install dependencies ─────────────────────────────────────────
 echo Installing dependencies...
-pip install --require-hashes -r requirements-locked.txt
+"%DUPEZ_PYTHON%" -m pip install --require-hashes -r requirements-locked.txt
 if errorlevel 1 exit /b 1
+
+echo Verifying hermetic build imports...
+"%DUPEZ_PYTHON%" -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+if errorlevel 1 (
+    echo ERROR: Required build/runtime imports failed inside .venv.
+    echo        Refusing to build with an incomplete or mixed Python environment.
+    pause
+    exit /b 1
+)
 
 :: ── 3. Build executable ─────────────────────────────────────────────
 echo.
 echo [1/4] Building dupez.exe ...
 :: Remove stale exe so a failed build can't masquerade as success
 if exist "dist\dupez.exe" del /q "dist\dupez.exe"
-:: Invoke via `python -m` to avoid PATH issues with user-site Scripts dir
-python -m PyInstaller packaging\dupez.spec --noconfirm
+:: Invoke through the repository virtual environment to avoid user-site drift.
+"%DUPEZ_PYTHON%" -m PyInstaller packaging\dupez.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — PyInstaller returned an error.

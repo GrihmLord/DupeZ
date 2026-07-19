@@ -386,6 +386,128 @@ class TestGetStats:
         assert "packets_processed" in stats
 
 
+class TestModuleActivityTelemetry:
+    @staticmethod
+    def _engine(methods):
+        return NativeWinDivertEngine(
+            dll_path=r"C:\fake\WinDivert.dll",
+            filter_str="true",
+            methods=methods,
+            params={"_target_ip": "192.168.1.10"},
+        )
+
+    @staticmethod
+    def _module(class_name, stats=None):
+        attrs = {"direction": DIR_BOTH}
+        if stats is not None:
+            attrs["get_stats"] = lambda self: dict(stats)
+        return type(class_name, (), attrs)()
+
+    @staticmethod
+    def _activity(method, **overrides):
+        raw = {
+            "method": method,
+            "direction": DIR_BOTH,
+            "invoked_inbound": 0,
+            "invoked_outbound": 0,
+            "handled_inbound": 0,
+            "handled_outbound": 0,
+        }
+        raw.update(overrides)
+        return raw
+
+    def test_configured_module_starts_pending(self):
+        eng = self._engine(["drop"])
+        eng._modules = [self._module("DropModule")]
+        eng._module_activity = [self._activity("drop")]
+
+        stats = eng.get_stats()
+        assert stats["module_activity"]["drop"]["state"] == "pending"
+        assert stats["effective_methods"] == []
+        assert stats["shadowed_methods"] == []
+
+    def test_upstream_consumer_marks_downstream_shadowed(self):
+        eng = self._engine(["disconnect", "lag"])
+        eng._packets_processed = 10
+        eng._packets_inbound = 10
+        eng._modules = [
+            self._module("DisconnectModule", {"dropped": 10}),
+            self._module("LagModule", {"total_lagged": 0}),
+        ]
+        eng._module_activity = [
+            self._activity(
+                "disconnect", invoked_inbound=10, handled_inbound=10),
+            self._activity("lag"),
+        ]
+
+        stats = eng.get_stats()
+        assert stats["module_activity"]["disconnect"]["state"] == "effective"
+        lag = stats["module_activity"]["lag"]
+        assert lag["state"] == "shadowed"
+        assert lag["shadowed_by"] == "disconnect"
+        assert stats["shadowed_methods"] == ["lag"]
+        assert stats["effective_methods"] == ["disconnect"]
+
+    def test_passthrough_effect_and_downstream_are_both_effective(self):
+        eng = self._engine(["lag", "duplicate"])
+        eng._packets_processed = 8
+        eng._packets_outbound = 8
+        eng._modules = [
+            self._module(
+                "LagModule", {"total_lagged": 8, "released": 8}
+            ),
+            self._module("DuplicateModule"),
+        ]
+        eng._module_activity = [
+            self._activity("lag", invoked_outbound=8),
+            self._activity(
+                "duplicate", invoked_outbound=8, handled_outbound=8),
+        ]
+
+        stats = eng.get_stats()
+        assert stats["module_activity"]["lag"]["affected"] == 8
+        assert stats["module_activity"]["lag"]["handled"] == 0
+        assert stats["effective_methods"] == ["lag", "duplicate"]
+        assert stats["shadowed_methods"] == []
+
+    def test_queued_lag_is_reached_but_not_effective_until_release(self):
+        eng = self._engine(["lag"])
+        eng._packets_processed = 3
+        eng._packets_outbound = 3
+        eng._modules = [self._module(
+            "LagModule",
+            {"total_lagged": 3, "queued": 3, "released": 0},
+        )]
+        eng._module_activity = [self._activity(
+            "lag", invoked_outbound=3, handled_outbound=3,
+        )]
+
+        lag = eng.get_stats()["module_activity"]["lag"]
+        assert lag["state"] == "reached"
+        assert lag["affected"] == 0
+
+    def test_direction_without_relevant_traffic_stays_pending(self):
+        eng = self._engine(["lag"])
+        eng._packets_processed = 5
+        eng._packets_outbound = 5
+        eng._modules = [self._module("LagModule", {"total_lagged": 0})]
+        eng._module_activity = [
+            self._activity("lag", direction=DIR_INBOUND)
+        ]
+        assert eng.get_stats()["module_activity"]["lag"]["state"] == "pending"
+
+    def test_activity_snapshot_is_defensive(self):
+        eng = self._engine(["drop"])
+        eng._modules = [self._module("DropModule")]
+        eng._module_activity = [
+            self._activity("drop", invoked_inbound=2, handled_inbound=1)
+        ]
+        first = eng.get_stats()["module_activity"]["drop"]
+        first["invoked"] = 999
+        second = eng.get_stats()["module_activity"]["drop"]
+        assert second["invoked"] == 2
+
+
 # ── mark_last_cut_outcome ───────────────────────────────────────────
 
 class TestMarkLastCutOutcome:

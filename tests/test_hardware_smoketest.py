@@ -9,7 +9,7 @@ This test is gated behind the ``hardware`` marker and requires:
   * Administrator privileges (WinDivert kernel driver)
   * Npcap installed and operational
   * WinDivert driver present in ``app/firewall/``
-  * At least one reachable device on the local network
+  * An explicitly authorized, reachable private-network target
 
 Skips with a clear reason when any prerequisite is missing so it's safe to
 invoke with ``pytest -m hardware`` from any environment.
@@ -22,15 +22,19 @@ Opt-in invocations:
 Environment overrides (optional):
     DUPEZ_RUN_HARDWARE_SMOKETEST=1
     DUPEZ_SMOKETEST_CIDR=192.168.137.0/24
-    DUPEZ_SMOKETEST_LAST_OCTET=42
+    DUPEZ_SMOKETEST_TARGET_IP=192.168.137.42
+    DUPEZ_SMOKETEST_TARGET_MAC=00:11:22:33:44:55
     DUPEZ_SMOKETEST_LAG_MS=300
     DUPEZ_SMOKETEST_DURATION=6.0
+    DUPEZ_SMOKETEST_MODULE_DURATION=3.0
 """
 from __future__ import annotations
 
 import ctypes
+import ipaddress
 import os
 import platform
+import re
 import sys
 import time
 from typing import Optional
@@ -84,27 +88,38 @@ def _require_hardware() -> None:
         pytest.skip("hardware smoketest requires Administrator privileges")
     if not _windivert_bits_present():
         pytest.skip("WinDivert.dll / WinDivert64.sys missing from app/firewall/")
+    target_ip = os.environ.get("DUPEZ_SMOKETEST_TARGET_IP", "").strip()
+    target_mac = os.environ.get("DUPEZ_SMOKETEST_TARGET_MAC", "").strip()
+    if not target_ip or not target_mac:
+        pytest.skip(
+            "hardware disruption requires explicit authorization: set both "
+            "DUPEZ_SMOKETEST_TARGET_IP and DUPEZ_SMOKETEST_TARGET_MAC"
+        )
+    try:
+        parsed_ip = ipaddress.ip_address(target_ip)
+    except ValueError:
+        pytest.fail("DUPEZ_SMOKETEST_TARGET_IP is not a valid IP address")
+    if not parsed_ip.is_private:
+        pytest.fail("hardware smoketest target must be a private-network IP")
+    if not re.fullmatch(
+        r"(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}",
+        target_mac,
+    ):
+        pytest.fail("DUPEZ_SMOKETEST_TARGET_MAC is not a valid MAC address")
 
 
 # ----------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------
-def _pick_target(devices: list, last_octet: Optional[int]) -> Optional[dict]:
-    """Mirror of ``tools/smoketest_scan_and_lag.py::_pick_target``.
-
-    Kept in sync with the CLI smoketest so failures here surface the same
-    issue the CLI runner would hit.
-    """
-    if last_octet is not None:
-        suffix = f".{last_octet}"
-        for device in devices:
-            if str(device.get("ip", "")).endswith(suffix):
-                return device
-        return None
+def _pick_authorized_target(devices: list) -> Optional[dict]:
+    """Return only the exact IP+MAC pair explicitly authorized by the user."""
+    target_ip = os.environ["DUPEZ_SMOKETEST_TARGET_IP"].strip()
+    target_mac = os.environ["DUPEZ_SMOKETEST_TARGET_MAC"].replace("-", ":").lower()
     for device in devices:
-        if device.get("is_console"):
+        device_mac = str(device.get("mac", "")).replace("-", ":").lower()
+        if str(device.get("ip", "")) == target_ip and device_mac == target_mac:
             return device
-    return devices[0] if devices else None
+    return None
 
 
 def _aggregate_packets(manager) -> int:
@@ -123,6 +138,22 @@ def _aggregate_packets(manager) -> int:
     )
 
 
+def _device_engine_stats(manager, target_ip: str) -> dict:
+    """Return one target's engine snapshot across in-proc and IPC managers."""
+    stats = manager.get_engine_stats() or {}
+    per_device = stats.get("per_device") or {}
+    direct = per_device.get(target_ip)
+    if isinstance(direct, dict):
+        return direct
+    for entry in per_device.values():
+        if isinstance(entry, dict) and entry.get("target_ip") == target_ip:
+            return entry
+    if len(per_device) == 1:
+        only = next(iter(per_device.values()))
+        return only if isinstance(only, dict) else {}
+    return {}
+
+
 # ----------------------------------------------------------------------
 # Test
 # ----------------------------------------------------------------------
@@ -137,8 +168,6 @@ def test_scan_then_lag_then_stop_pipeline(_require_hardware) -> None:
     from app.firewall_helper.feature_flag import get_disruption_manager
 
     network_range = os.environ.get("DUPEZ_SMOKETEST_CIDR") or None
-    last_octet_env = os.environ.get("DUPEZ_SMOKETEST_LAST_OCTET")
-    last_octet = int(last_octet_env) if last_octet_env else None
     lag_ms = int(os.environ.get("DUPEZ_SMOKETEST_LAG_MS", "300"))
     duration_s = float(os.environ.get("DUPEZ_SMOKETEST_DURATION", "6.0"))
 
@@ -150,10 +179,10 @@ def test_scan_then_lag_then_stop_pipeline(_require_hardware) -> None:
         "scan returned zero devices — check WiFi adapter state, "
         "ARP table population, and network range")
 
-    target = _pick_target(devices, last_octet)
+    target = _pick_authorized_target(devices)
     assert target is not None, (
-        f"no device matched last_octet={last_octet} from "
-        f"{len(devices)} scan result(s)")
+        "the explicitly authorized DUPEZ_SMOKETEST_TARGET_IP/MAC pair "
+        f"was not found in {len(devices)} scan result(s)")
 
     target_ip = target["ip"]
     manager = get_disruption_manager()
@@ -161,7 +190,10 @@ def test_scan_then_lag_then_stop_pipeline(_require_hardware) -> None:
     started = manager.disrupt_device(
         target_ip,
         methods=["lag"],
-        params={"lag_delay": lag_ms},
+        params={
+            "lag_delay": lag_ms,
+            "_engine_preference": "native",
+        },
         target_mac=target.get("mac"),
         target_hostname=target.get("hostname"),
     )
@@ -174,6 +206,7 @@ def test_scan_then_lag_then_stop_pipeline(_require_hardware) -> None:
         while time.time() < deadline:
             time.sleep(0.25)
         packets = _aggregate_packets(manager)
+        device_stats = _device_engine_stats(manager, target_ip)
     finally:
         manager.stop_device(target_ip)
 
@@ -181,6 +214,135 @@ def test_scan_then_lag_then_stop_pipeline(_require_hardware) -> None:
         f"engine processed 0 packets over {duration_s:.1f}s on {target_ip} "
         f"— verify WinDivert driver is installed and the target is "
         f"actively transmitting")
+    assert device_stats.get("telemetry_available") is True
+    lag_activity = (device_stats.get("module_activity") or {}).get("lag", {})
+    assert lag_activity.get("invoked", 0) > 0, (
+        "lag was advertised but its invocation counter stayed at zero: "
+        f"{lag_activity}"
+    )
+    assert lag_activity.get("affected", 0) > 0, (
+        "lag received packets but never delayed one: "
+        f"{lag_activity}"
+    )
+
+
+def test_each_advertised_module_receives_hardware_traffic(
+    _require_hardware,
+) -> None:
+    """Run each public module alone and require its counter to increase.
+
+    Modules are intentionally isolated in fresh engines. Testing them as one
+    chain would make a successful upstream consumer hide downstream modules,
+    which is the exact false-positive pattern this regression test guards.
+    """
+    from app.core.validation import PUBLIC_DIAGNOSTIC_METHODS
+    from app.firewall_helper.feature_flag import get_disruption_manager
+    from app.network.enhanced_scanner import EnhancedNetworkScanner
+
+    network_range = os.environ.get("DUPEZ_SMOKETEST_CIDR") or None
+    per_method_s = float(os.environ.get(
+        "DUPEZ_SMOKETEST_MODULE_DURATION", "3.0"))
+
+    devices = EnhancedNetworkScanner().scan_network(
+        network_range=network_range, quick_scan=True)
+    target = _pick_authorized_target(devices)
+    assert target is not None, (
+        "the explicitly authorized target is not active for module counters"
+    )
+
+    target_ip = target["ip"]
+    manager = get_disruption_manager()
+    method_params = {
+        "lag": {"lag_delay": 50},
+        "drop": {"drop_chance": 100},
+        "disconnect": {
+            "disconnect_chance": 100,
+            "disconnect_duration_ms": 500,
+        },
+        "bandwidth": {"bandwidth_limit": 1, "bandwidth_queue": 16},
+        "throttle": {"throttle_chance": 100, "throttle_frame": 100},
+        "duplicate": {"duplicate_chance": 100, "duplicate_count": 1},
+        "ood": {"ood_chance": 100},
+        "corrupt": {"tamper_chance": 100},
+        "rst": {"rst_chance": 100},
+    }
+    failures = []
+
+    for method in PUBLIC_DIAGNOSTIC_METHODS:
+        params = {
+            "direction": "both",
+            "_engine_preference": "native",
+            **method_params[method],
+        }
+        started = manager.disrupt_device(
+            target_ip,
+            methods=[method],
+            params=params,
+            target_mac=target.get("mac"),
+            target_hostname=target.get("hostname"),
+        )
+        if not started:
+            failures.append(f"{method}: engine did not start")
+            continue
+        try:
+            deadline = time.time() + per_method_s
+            activity = {}
+            while time.time() < deadline:
+                activity = (
+                    _device_engine_stats(manager, target_ip)
+                    .get("module_activity", {})
+                    .get(method, {})
+                )
+                if activity.get("affected", 0) > 0:
+                    break
+                time.sleep(0.1)
+            if activity.get("affected", 0) <= 0:
+                failures.append(
+                    f"{method}: affected counter stayed zero ({activity})"
+                )
+        finally:
+            manager.stop_device(target_ip)
+
+    assert not failures, "advertised module counter failures:\n" + "\n".join(
+        failures)
+
+
+def test_bundled_clumsy_gui_automation_starts_verified(
+    _require_hardware,
+) -> None:
+    """Exercise the actual bundled Clumsy process, layer, and controls."""
+    from app.firewall_helper.feature_flag import get_disruption_manager
+    from app.network.enhanced_scanner import EnhancedNetworkScanner
+
+    network_range = os.environ.get("DUPEZ_SMOKETEST_CIDR") or None
+    devices = EnhancedNetworkScanner().scan_network(
+        network_range=network_range,
+        quick_scan=True,
+    )
+    target = _pick_authorized_target(devices)
+    assert target is not None, "explicitly authorized Clumsy target not found"
+
+    target_ip = target["ip"]
+    manager = get_disruption_manager()
+    started = manager.disrupt_device(
+        target_ip,
+        methods=["lag"],
+        params={
+            "direction": "both",
+            "lag_delay": 100,
+            "_engine_preference": "clumsy",
+        },
+        target_mac=target.get("mac"),
+        target_hostname=target.get("hostname"),
+    )
+    assert started, "bundled Clumsy GUI/layer/control verification failed"
+    try:
+        stats = _device_engine_stats(manager, target_ip)
+        assert stats.get("engine") == "clumsy_compatibility"
+        assert stats.get("startup_verified") is True
+        assert stats.get("telemetry_available") is False
+    finally:
+        manager.stop_device(target_ip)
 
 
 def test_vendor_resolution_resolves_known_oui() -> None:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING, Callable
 
 from app.firewall.native_divert_engine import DisruptionModule
@@ -45,22 +46,46 @@ class DuplicateModule(DisruptionModule):
 
     _direction_key: str = "duplicate"
 
+    def __init__(self, params: dict) -> None:
+        super().__init__(params)
+        self._stats_lock = threading.Lock()
+        self._attempts: int = 0
+        self._sent: int = 0
+        self._failed: int = 0
+
     def process(
         self,
         packet_data: bytearray,
         addr: WINDIVERT_ADDRESS,
-        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], None],
+        send_fn: Callable[[bytearray, WINDIVERT_ADDRESS], bool],
     ) -> bool:
         """Send original + *count* copies when the roll hits."""
         count: int = max(1, self.params.get("duplicate_count", DEFAULT_DUPLICATE_COUNT))
 
         if self._roll(self.params.get("duplicate_chance", DEFAULT_DUPLICATE_CHANCE)):
-            try:
-                send_fn(packet_data, addr)
-                for _ in range(count):
-                    send_fn(packet_data, addr)
-            except Exception:
-                pass  # best-effort: partial sends are acceptable for flooding
+            attempts = count + 1
+            sent = 0
+            for _ in range(attempts):
+                try:
+                    if bool(send_fn(packet_data, addr)):
+                        sent += 1
+                except Exception:
+                    # Continue the remaining copies, but expose the failure in
+                    # module telemetry rather than silently claiming success.
+                    pass
+            with self._stats_lock:
+                self._attempts += attempts
+                self._sent += sent
+                self._failed += attempts - sent
             return True
 
         return False
+
+    def get_stats(self) -> dict:
+        """Return verified duplicate-send counters."""
+        with self._stats_lock:
+            return {
+                "attempts": self._attempts,
+                "sent": self._sent,
+                "failed": self._failed,
+            }

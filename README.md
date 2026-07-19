@@ -1,4 +1,4 @@
-# DupeZ v5.7.8
+# DupeZ v5.7.9
 
 DupeZ is a Windows network-condition testing and diagnostics workspace for
 devices and local networks you own or are explicitly authorized to test. It
@@ -26,11 +26,16 @@ conflicts are reported, and legacy files are never deleted automatically.
 
 ### Safe Network-Condition Engine
 
-DupeZ uses a three-tier fallback for packet disruption:
+DupeZ selects and verifies the packet engine automatically:
 
-1. **Native WinDivert Engine** — Pure Python, loads WinDivert.dll directly via ctypes. No GUI window, no external process. Batch API (RecvEx/SendEx) for up to 255 packets per syscall. Fastest startup, lowest overhead.
-2. **Clumsy --silent** — Launches clumsy.exe with `--silent` flag (patched build). Hidden window, force-enables all modules.
-3. **Clumsy GUI Automation** — Falls back to standard clumsy.exe with win32 automation.
+1. **Verified Clumsy Compatibility** — The primary path for effects that the
+   bundled Clumsy executable can represent exactly. DupeZ confirms the
+   Local/Remote capture layer, enabled modules, numeric values, and Start
+   state before hiding the Clumsy window.
+2. **Native WinDivert Engine** — Used for native-only extensions, or as a
+   bounded fallback for the small set of effects with matching semantics.
+   Requests with known semantic differences fail closed instead of silently
+   switching engines. Native mode exposes packet and per-module counters.
 
 The engine supports bounded lab scenarios such as drop, lag, throttle,
 bandwidth pressure, duplication, corruption, reordering, and temporary
@@ -82,7 +87,7 @@ Built-in interactive guide with 10+ collapsible sections covering every feature:
 
 ### Collapsible & Reorderable Sections (v5.2.0)
 
-The Clumsy Control sections — Preset, Platform, Direction, Modules, and Live Stats — are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Collapse what you don't need, reorder to match your workflow. The scheduler/macro controls sit inline beneath the disrupt buttons; Smart Mode, Voice, and GPC/Cronus live in the Network Tools view.
+The Clumsy Control sections — Preset, Direction, Modules, and Live Stats — are wrapped in collapsible cards with ▶/▼ toggle headers and ▲/▼ reorder buttons. Engine and capture-layer selection are backend-owned: DupeZ resolves them from the requested effects and selected target. The scheduler/macro controls sit inline beneath the disrupt buttons; Smart Mode, Voice, and GPC/Cronus live in the Network Tools view.
 
 ### Local Forwarding + A2S Health Verification (v5.6.0)
 
@@ -130,10 +135,20 @@ Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uni
 
 | Preset | Effect |
 |--------|--------|
-| Red Disconnect | 100% drop + 3000ms lag + 0 KB/s cap + full throttle + hard cut |
-| Lag | Heavy sustained lag + drop — tune sliders after selecting (Light ~800/60 · Max ~5000/100) |
-| Temporary Disconnect | Short, bounded interruption for authorized lab reconnect testing |
+| Automatic Connection Test | One click: lag long enough to release delayed traffic, then a bounded 5-second disconnect, then release |
+| Red Disconnect | Pure stateful 100% cut with optional arm delay and duration |
+| Lag | Pure sustained packet delay — tune the delay slider after selecting (Light ~800ms · Max ~5000ms) |
 | Custom | Set your own parameters |
+
+**Automatic Connection Test** is the default one-click workflow. It runs the
+existing pure Lag and Red Disconnect presets as separate bounded stages, stops
+cleanly between them, and always releases the final stage. On the native path,
+it advances only after Lag has actually released delayed traffic and reports a
+failure if either stage affects no packets. The Clumsy path verifies its
+layer, controls, and requested values at startup, but is labeled
+`runtime-unobservable` because standalone Clumsy exposes no packet counters.
+Manual Lag, Red Disconnect, and Custom runs remain available for single-stage
+diagnostics. There is no normal-user engine or capture-layer choice.
 
 Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in the game profile JSON and are auto-selected at disrupt time based on target subnet, MAC OUI, hostname, and device type — see `app/firewall/target_profile.py::resolve_target_profile`.
 
@@ -264,7 +279,7 @@ pip install pyinstaller
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.7.8_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.7.9_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -274,7 +289,7 @@ packaging\build_variants.bat
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.7.8_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+Download `DupeZ_v5.7.9_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon

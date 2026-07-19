@@ -7,26 +7,53 @@ module merely to resolve a preset.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any, Dict
 
-__all__ = ["BUILTIN_PRESETS", "get_builtin_preset"]
+__all__ = [
+    "AUTOMATIC_CONNECTION_TEST",
+    "BUILTIN_PRESETS",
+    "get_builtin_preset",
+]
+
+
+AUTOMATIC_CONNECTION_TEST = "Automatic Connection Test"
 
 
 BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
+    AUTOMATIC_CONNECTION_TEST: {
+        "description": (
+            "One click: delay traffic long enough for delayed packets to "
+            "mature, apply a five-second Red Disconnect, then release the "
+            "connection automatically."
+        ),
+        # This preset is executed by the workflow factory.  It deliberately
+        # has no simultaneous module list: each generated stage is pure.
+        "methods": [],
+        "params": {
+            "lag_delay": 2500,
+            # Keep the one-click recipe identical to standalone Clumsy.
+            # Native-only echo/keepalive behavior must be explicitly selected
+            # by an advanced preset, never inferred from the delay value.
+            "lag_passthrough": False,
+            "lag_preserve_connection": False,
+            "direction": "both",
+        },
+        "workflow": {
+            "factory": "automatic_connection_test",
+            "lag_mature_window_ms": 1000,
+            "max_lag_delay_ms": 5000,
+            "disconnect_duration_ms": 5000,
+            "global_timeout_s": 20.0,
+        },
+    },
     "Red Disconnect": {
         "description": (
-            "Full isolation diagnostic - 100% drop, 3s lag, zero bandwidth, "
-            "throttle, and stateful timed disconnect"
+            "Pure stateful disconnect - 100% cut with optional arm delay "
+            "and duration"
         ),
-        "methods": ["lag", "drop", "bandwidth", "throttle", "disconnect"],
+        "methods": ["disconnect"],
         "params": {
-            "lag_delay": 3000,
-            "drop_chance": 100,
-            "bandwidth_limit": 0,
-            "bandwidth_queue": 0,
-            "throttle_chance": 100,
-            "throttle_frame": 600,
-            "throttle_drop": True,
             "direction": "both",
             "disconnect_chance": 100,
             "disconnect_arm_delay_ms": 0,
@@ -35,18 +62,14 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
     },
     "Lag": {
         "description": (
-            "Heavy sustained lag + drop - tune sliders after selecting "
-            "(Light ~800/60, Max ~5000/100)"
+            "Pure sustained packet delay - tune the delay slider after "
+            "selecting (Light ~800ms, Max ~5000ms)"
         ),
-        "methods": ["lag", "drop", "bandwidth", "throttle"],
+        "methods": ["lag"],
         "params": {
             "lag_delay": 2500,
-            "drop_chance": 90,
-            "bandwidth_limit": 1,
-            "bandwidth_queue": 0,
-            "throttle_chance": 80,
-            "throttle_frame": 400,
-            "throttle_drop": True,
+            "lag_passthrough": False,
+            "lag_preserve_connection": False,
             "direction": "both",
         },
     },
@@ -63,8 +86,4 @@ def get_builtin_preset(name: str) -> Dict[str, Any]:
     preset = BUILTIN_PRESETS.get(name)
     if preset is None:
         return {}
-    return {
-        "description": preset.get("description", ""),
-        "methods": list(preset.get("methods", [])),
-        "params": dict(preset.get("params", {})),
-    }
+    return deepcopy(preset)

@@ -49,6 +49,10 @@ class RSTModule(DisruptionModule):
 
     _direction_key: str = "rst"
 
+    def __init__(self, params: dict) -> None:
+        super().__init__(params)
+        self._affected: int = 0
+
     def process(
         self,
         packet_data: bytearray,
@@ -66,4 +70,8 @@ class RSTModule(DisruptionModule):
                 tcp_flags_offset: int = ihl + 13
                 if tcp_flags_offset < len(packet_data):
                     packet_data[tcp_flags_offset] |= TCP_FLAG_RST
+                    self._affected += 1
         return False
+
+    def get_stats(self) -> dict:
+        return {"affected": self._affected}

@@ -201,12 +201,14 @@ so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 <b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
 the right panel. Available presets:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Red Disconnect</b> — The full-isolation diagnostic preset.
-Full isolation diagnostic: 100% drop, 3s lag, zero bandwidth, throttle,
-plus the stateful DISCONNECT timed-cut module. Use only in an authorized
-lab or on equipment you control.</li>
-<li><b>Lag</b> — Heavy sustained lag + drop. Tune with the sliders after
-selecting (Light ~800ms/60% · Max ~5000ms/100%)</li>
+<li><b style='color:{_CYAN};'>Automatic Connection Test</b> — The default
+one-click sequence: packet delay, a bounded disconnect, then guaranteed
+release. DupeZ chooses the engine and capture layer.</li>
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — A pure stateful 100%
+DISCONNECT cut with optional arm delay and duration. Use only in an
+authorized lab or on equipment you control.</li>
+<li><b>Lag</b> — Pure sustained packet delay. Tune the delay slider after
+selecting (Light ~800ms · Max ~5000ms)</li>
 <li><b>Custom</b> — Set your own modules and parameters manually</li>
 </ul>
 
@@ -230,10 +232,9 @@ Green = cut hasn't landed yet.</p>
 <b style='color:{_CYAN};'>Quick Start — Authorized Lab Diagnostic:</b></p>
 <ol style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li>Scan → select your PC or console</li>
-<li>Preset → <b>Red Disconnect</b></li>
+<li>Leave <b>Automatic Connection Test</b> selected</li>
 <li>Start a private/local test session that you own or administer</li>
-<li>Hit <b>DISRUPT</b> to isolate the connection, or use
-<b>TIMED DISRUPT</b> for a fixed diagnostic window</li>
+<li>Hit <b>DISRUPT</b> once; DupeZ runs lag → bounded disconnect → release</li>
 <li>Stop the run and export a scenario report for review</li>
 </ol>
 
@@ -253,19 +254,25 @@ device's IP so only game traffic is affected.</p>
 <b style='color:{_CYAN};'>Presets (right)</b> — Pre-built disruption
 profiles. Pick one and the modules + sliders auto-configure:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
-<li><b style='color:{_GREEN};'>Red Disconnect</b> — The full-isolation diagnostic preset.
-Enables lag, drop, bandwidth, throttle, and the stateful DISCONNECT
-timed-cut module in one click for authorized isolation diagnostics.</li>
-<li><b>Lag</b> — Sustained lag + drop. Tune with sliders after selecting</li>
+<li><b style='color:{_CYAN};'>Automatic Connection Test</b> — Runs pure Lag
+and pure Red Disconnect as separate, bounded stages and releases at the end.
+Native runs verify a real delayed-packet release and a real disconnect packet
+effect before reporting completion.</li>
+<li><b style='color:{_GREEN};'>Red Disconnect</b> — Enables only the
+stateful DISCONNECT timed-cut module for an unambiguous isolation test.</li>
+<li><b>Lag</b> — Enables only packet delay. Tune the delay slider after selecting</li>
 <li><b>Custom</b> — Set your own parameters manually</li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>Platform card</b> — A single <b>PC LOCAL</b>
-toggle. Leave it <i>unchecked</i> for a PS5, Xbox, or remote PC — DupeZ
-uses the NETWORK_FORWARD layer and targets the device's IP. Check it when
-DayZ runs on <i>this</i> machine: DupeZ switches to the NETWORK layer and
-the target becomes the game server IP instead.</p>
+<b style='color:{_CYAN};'>Automatic engine and target routing</b> — DupeZ
+owns these decisions. Exact standalone-compatible requests use the bundled
+Clumsy process first; DupeZ verifies its layer, modules, values, and Start
+state before hiding it. Native WinDivert handles native-only behavior and only
+receives automatic fallback requests whose semantics match. The selected
+target's live profile determines NETWORK versus NETWORK_FORWARD; there is no
+engine or platform toggle to get wrong. Clumsy live packet effects remain
+labeled runtime-unobservable because that process exposes no packet counters.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Disruption Modules</b> — Each module manipulates
@@ -397,10 +404,16 @@ it creates a bounded, visible network impairment and records enough context
 to explain what happened afterward.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
-<b style='color:{_CYAN};'>The full-isolation preset is Red Disconnect.</b>
-Selecting it arms the full module stack — 100% drop, 3s lag, zero bandwidth,
-throttle — plus the stateful <b>DISCONNECT</b> module, which is the timed
-cut used for repeatable diagnostics. One preset, one DISRUPT click.</p>
+<b style='color:{_CYAN};'>For the complete automatic run, leave Automatic
+Connection Test selected and click DISRUPT once.</b> DupeZ holds Lag long
+enough for delayed packets to mature, switches cleanly to a five-second Red
+Disconnect stage, and releases the connection even if the run is cancelled.</p>
+
+<p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
+<b style='color:{_CYAN};'>The isolation preset is Red Disconnect.</b>
+Selecting it arms only the stateful <b>DISCONNECT</b> module, so no earlier
+dropper can consume packets before the timed cut and no downstream module is
+mistakenly presented as active. One preset, one DISRUPT click.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>The DISCONNECT module — arm → cut → release.</b>

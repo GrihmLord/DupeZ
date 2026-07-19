@@ -45,7 +45,12 @@ class _LoopbackPipeClient:
     def close(self) -> None:  # pragma: no cover
         return None
 
-    def call(self, request: Request) -> Response:
+    def call(
+        self,
+        request: Request,
+        timeout_ms: int = 0,
+    ) -> Response:
+        del timeout_ms
         # Roundtrip through encode/decode so any protocol bugs surface
         # in the harness exactly the same way they would on the wire.
         wire = request.encode().rstrip(b"\n")

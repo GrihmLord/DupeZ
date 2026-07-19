@@ -27,17 +27,35 @@ from __future__ import annotations
 
 import argparse
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import signal
 import sys
 import time
 
-# CRITICAL: unset DUPEZ_ARCH inside the helper process BEFORE any app
-# imports. The helper always runs the real in-process engine; if we
-# inherited DUPEZ_ARCH=split from the parent GUI, blocker.py's feature-
-# flag route would try to proxy back to ourselves, creating an infinite
-# loop. Scrub the variable early.
-os.environ.pop("DUPEZ_ARCH", None)
+def _force_helper_inproc_arch() -> None:
+    """Keep every helper-owned firewall call inside this process.
+
+    Merely deleting ``DUPEZ_ARCH`` is not sufficient in a frozen DupeZ-GPU
+    build: that executable has ``_BUILD_DEFAULT_ARCH = "split"`` compiled
+    into it, so feature_flag.get_arch() falls straight back to split mode.
+    An explicit environment override wins over both the inherited GUI setting
+    and the compiled default.
+    """
+    os.environ["DUPEZ_ARCH"] = "inproc"
+
+
+# The frozen launcher imports this module only after recognizing
+# ``--role helper``. Force the override immediately in that path, before any
+# app module can be imported. A plain library import (for unit tests and
+# tooling) is intentionally side-effect free.
+if "--role" in sys.argv:
+    try:
+        _role_index = sys.argv.index("--role")
+        if sys.argv[_role_index + 1] == "helper":
+            _force_helper_inproc_arch()
+    except (ValueError, IndexError):
+        pass
 
 # Ensure we can import app.* when launched as a script from the repo root.
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -46,18 +64,39 @@ if _REPO_ROOT not in sys.path:
 
 
 def _configure_logging() -> None:
-    log_dir = os.path.join(_REPO_ROOT, "app", "logs")
-    os.makedirs(log_dir, exist_ok=True)
+    # In a one-file PyInstaller build _REPO_ROOT is the ephemeral _MEI
+    # extraction directory. Persist helper diagnostics beside the GUI logs so
+    # they survive helper exit and can explain elevation/IPC failures.
+    log_path = _helper_log_path()
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         handlers=[
-            logging.FileHandler(
-                os.path.join(log_dir, "firewall_helper.log"),
+            RotatingFileHandler(
+                log_path,
+                maxBytes=2 * 1024 * 1024,
+                backupCount=2,
                 encoding="utf-8",
             ),
             logging.StreamHandler(sys.stdout),
         ],
+        force=True,
+    )
+
+
+def _helper_log_path() -> str:
+    """Return a durable helper log path outside PyInstaller's _MEI tree."""
+    state_root = (
+        os.environ.get("LOCALAPPDATA")
+        or os.environ.get("XDG_STATE_HOME")
+        or os.path.expanduser("~")
+    )
+    return os.path.join(
+        state_root,
+        "DupeZ",
+        "logs",
+        "firewall_helper.log",
     )
 
 
@@ -116,6 +155,8 @@ def _parent_watcher(
 
 
 def main() -> int:
+    # Also cover direct calls to main() and ``python dupez_helper.py``.
+    _force_helper_inproc_arch()
     _configure_logging()
     log = logging.getLogger("dupez-helper")
 

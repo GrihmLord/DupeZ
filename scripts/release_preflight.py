@@ -8,15 +8,26 @@ import json
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
+from typing import Iterable
+
+ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / "dist"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.core.update_verify import (
+    SigVerifyError,
+    UpdateManifest,
+    verify_installer_sha256,
+    verify_manifest as verify_update_manifest,
+)
 
 try:
     from scripts.verify_bundled_binaries import verify_manifest
 except ImportError:  # direct `python scripts/release_preflight.py`
     from verify_bundled_binaries import verify_manifest
-
-ROOT = Path(__file__).resolve().parents[1]
-DIST = ROOT / "dist"
 
 _POWERSHELL = Path(
     r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -53,6 +64,93 @@ def _check_signtool_policy(rel: str) -> list[str]:
                 f"weak Authenticode signing command: {rel}:{line_no} "
                 f"missing {', '.join(missing)}"
             )
+    return errors
+
+
+def _check_hermetic_python_policy(rel: str) -> list[str]:
+    """Require release builds to run only through the repository virtualenv."""
+    errors: list[str] = []
+    text = _read(rel)
+    required = (
+        'set "DUPEZ_PYTHON=%CD%\\.venv\\Scripts\\python.exe"',
+        'if not exist "%DUPEZ_PYTHON%"',
+        '"%DUPEZ_PYTHON%" -m pip',
+        '"%DUPEZ_PYTHON%" -m PyInstaller',
+    )
+    for snippet in required:
+        if snippet not in text:
+            errors.append(
+                f"non-hermetic Python build policy in {rel}: "
+                f"missing {snippet}"
+            )
+
+    import_checks = (
+        "import PyInstaller",
+        "import PyQt6.sip",
+        "QtCore",
+        "QtWidgets",
+        "QtWebEngineWidgets",
+    )
+    prebuild_lines = [
+        line
+        for line in text.splitlines()
+        if '"%DUPEZ_PYTHON%" -c ' in line
+    ]
+    combined_checks = "\n".join(prebuild_lines)
+    for required_import in import_checks:
+        if required_import not in combined_checks:
+            errors.append(
+                f"build import preflight missing in {rel}: "
+                f"{required_import}"
+            )
+
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        lowered = stripped.lower()
+        if (
+            not stripped
+            or stripped.startswith("::")
+            or lowered.startswith("rem ")
+            or lowered.startswith("echo ")
+        ):
+            continue
+        if re.match(r"(?i)^(?:python|pip)(?:\.exe)?\b", stripped):
+            errors.append(
+                f"ambient Python command in {rel}:{line_no}: {stripped}"
+            )
+        if re.search(r"(?i)\bscripts\\[^ ]+\.py\b", stripped):
+            if not stripped.startswith('"%DUPEZ_PYTHON%" '):
+                errors.append(
+                    f"project script bypasses .venv in "
+                    f"{rel}:{line_no}: {stripped}"
+                )
+    return errors
+
+
+def _check_frozen_runtime_import_policy() -> list[str]:
+    """Ensure the packaged executable proves its core Qt imports work."""
+    errors: list[str] = []
+    launcher = _read("dupez.py")
+    for token in (
+        "--verify-runtime-imports",
+        "import PyQt6.sip",
+        "QtCore",
+        "QtWidgets",
+        "QtWebEngineWidgets",
+    ):
+        if token not in launcher:
+            errors.append(
+                f"frozen runtime import verifier missing from dupez.py: {token}"
+            )
+
+    variant_build = _read("packaging/build_variants.bat")
+    if (
+        '"dist\\DupeZ-GPU.exe" --verify-runtime-imports'
+        not in variant_build
+    ):
+        errors.append(
+            "GPU build does not run the frozen runtime import verifier"
+        )
     return errors
 
 
@@ -130,6 +228,54 @@ $out | ConvertTo-Json -Compress
     return statuses, ""
 
 
+def _verify_update_sidecars(
+    dist: Path,
+    version: str,
+    *,
+    trusted_pubkeys_pem: Iterable[str] | None = None,
+) -> list[str]:
+    """Verify that updater sidecars authenticate the exact release installer."""
+    installer = dist / "DupeZ_Setup.exe"
+    manifest_path = dist / "DupeZ_Setup.exe.manifest.json"
+    signature_path = dist / "DupeZ_Setup.exe.manifest.sig"
+    if not all(
+        path.is_file()
+        for path in (installer, manifest_path, signature_path)
+    ):
+        return []
+
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        signature_bytes = signature_path.read_bytes()
+        kwargs = {}
+        if trusted_pubkeys_pem is not None:
+            kwargs["trusted_pubkeys_pem"] = trusted_pubkeys_pem
+        manifest: UpdateManifest = verify_update_manifest(
+            manifest_bytes,
+            signature_bytes,
+            **kwargs,
+        )
+    except (OSError, SigVerifyError, ValueError) as exc:
+        return [f"update sidecar verification failed: {exc}"]
+
+    errors: list[str] = []
+    if manifest.version != version:
+        errors.append(
+            "update manifest version mismatch: "
+            f"{manifest.version} != {version}"
+        )
+    if manifest.installer_filename != installer.name:
+        errors.append(
+            "update manifest installer mismatch: "
+            f"{manifest.installer_filename!r} != {installer.name!r}"
+        )
+    try:
+        verify_installer_sha256(str(installer), manifest)
+    except SigVerifyError as exc:
+        errors.append(f"update manifest does not match installer: {exc}")
+    return errors
+
+
 def check_source(expected_version: str | None = None) -> list[str]:
     errors: list[str] = []
     versions = {
@@ -145,15 +291,43 @@ def check_source(expected_version: str | None = None) -> list[str]:
             "packaging/build_variants.bat",
             r'set "DUPEZ_VERSION=(\d+\.\d+\.\d+)"',
         ),
+        "packaging/build.bat": _match_version(
+            "packaging/build.bat",
+            r'set "DUPEZ_VERSION=(\d+\.\d+\.\d+)"',
+        ),
         "packaging/version_info.py": _match_version(
             "packaging/version_info.py",
             r"StringStruct\('FileVersion',\s+'(\d+\.\d+\.\d+)\.0'\)",
+        ),
+        "packaging/dupez.manifest": _match_version(
+            "packaging/dupez.manifest",
+            r'version="(\d+\.\d+\.\d+)\.0"',
+        ),
+        "packaging/dupez_compat.manifest": _match_version(
+            "packaging/dupez_compat.manifest",
+            r'version="(\d+\.\d+\.\d+)\.0"',
+        ),
+        "README.md": _match_version(
+            "README.md",
+            r"^# DupeZ v(\d+\.\d+\.\d+)$",
         ),
     }
     wanted = expected_version or versions["app/__version__.py"]
     for path, version in versions.items():
         if version != wanted:
             errors.append(f"version mismatch: {path}: {version} != {wanted}")
+    for rel, marker in (
+        ("CHANGELOG.md", f"## v{wanted} "),
+        ("ROADMAP.md", f"## v{wanted} "),
+        (f"docs/release-notes/v{wanted}.md", f"# DupeZ v{wanted}"),
+    ):
+        path = ROOT / rel
+        if not path.is_file():
+            errors.append(f"release-version document missing: {rel}")
+        elif marker not in _read(rel):
+            errors.append(
+                f"release-version marker missing from {rel}: {marker!r}"
+            )
 
     for required in (
         "SECURITY.md",
@@ -200,6 +374,9 @@ def check_source(expected_version: str | None = None) -> list[str]:
 
     for rel in ("packaging/build.bat", "packaging/build_variants.bat"):
         errors.extend(_check_signtool_policy(rel))
+        errors.extend(_check_hermetic_python_policy(rel))
+
+    errors.extend(_check_frozen_runtime_import_policy())
 
     variant_build = _read("packaging/build_variants.bat")
     for artifact in (
@@ -259,6 +436,7 @@ def check_dist(version: str) -> list[str]:
             continue
         if not payload.get(key):
             errors.append(f"dist/{name} contains no {key}")
+    errors.extend(_verify_update_sidecars(dist, version))
     signed_artifacts = [
         dist / name
         for name in (

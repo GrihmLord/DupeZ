@@ -1,10 +1,12 @@
 """Parent identity checks for the elevated helper."""
 
 import threading
+from pathlib import Path
 
 import psutil
 
 import dupez_helper
+from app.firewall_helper import feature_flag
 
 
 class _Process:
@@ -38,3 +40,27 @@ def test_parent_watcher_stops_when_parent_unreadable(monkeypatch) -> None:
     dupez_helper._parent_watcher(1234, event, expected_create_time=100.0)
 
     assert event.is_set()
+
+
+def test_helper_forces_inproc_when_frozen_default_is_split(monkeypatch) -> None:
+    """The elevated helper must never proxy privileged calls to itself."""
+    monkeypatch.setenv("DUPEZ_ARCH", "split")
+    monkeypatch.setattr(feature_flag, "_COMPILED_DEFAULT", "split")
+    monkeypatch.setattr(feature_flag, "_DEFAULT_ARCH", "split")
+
+    dupez_helper._force_helper_inproc_arch()
+
+    assert feature_flag.get_arch() == "inproc"
+    assert feature_flag.is_split_mode() is False
+
+
+def test_helper_log_path_survives_frozen_temp_directory(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    path = Path(dupez_helper._helper_log_path())
+
+    assert path == tmp_path / "DupeZ" / "logs" / "firewall_helper.log"
+    assert "_MEI" not in str(path)
