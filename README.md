@@ -275,7 +275,9 @@ counts with local paths redacted in JSON/support output.
 Run from the repo root. All build scripts and PyInstaller specs live in `packaging\` but write output to repo-root `dist\`.
 
 ```powershell
-pip install pyinstaller
+# Prerequisite: .venv uses 64-bit Python 3.11.9.
+# Each script recreates an isolated .build-venv and installs only
+# hash-pinned build/runtime dependencies.
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
@@ -286,6 +288,10 @@ packaging\build_variants.bat
 # Output: dist\DupeZ-GPU.exe (asInvoker, split-arch, GPU map)
 #         dist\DupeZ-Compat.exe (requireAdministrator, inproc, legacy fallback)
 ```
+
+Both build paths fail before signing if a PyInstaller archive contains
+unfinished Group Finder packages or optional voice/scientific dependencies
+that are outside the v5.7.9 production lock.
 
 ### Install via Installer (Recommended)
 

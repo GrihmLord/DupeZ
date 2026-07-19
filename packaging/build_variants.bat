@@ -15,10 +15,16 @@ pushd "%~dp0.."
 :: Run from the repo root:
 ::     build_variants.bat
 ::
-:: Prereqs: a repository-local .venv with Python and pip.
+:: Prereqs: a repository-local .venv with 64-bit Python 3.11.9 and pip.
 
 set "DUPEZ_VERSION=5.7.9"
-set "DUPEZ_PYTHON=%CD%\.venv\Scripts\python.exe"
+set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\.venv\Scripts\python.exe"
+set "DUPEZ_BUILD_VENV=%CD%\.build-venv"
+set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\Scripts\python.exe"
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONNOUSERSITE=1"
+set "PIP_REQUIRE_VIRTUALENV=true"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -26,32 +32,52 @@ echo ============================================
 echo.
 
 :: ── 1. Prereqs ──────────────────────────────────────────────────────
-if not exist "%DUPEZ_PYTHON%" (
-    echo ERROR: Repository virtual environment not found:
-    echo        %DUPEZ_PYTHON%
-    echo Create .venv, install pip, and rerun this script.
+if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
+    echo ERROR: Repository bootstrap interpreter not found:
+    echo        %DUPEZ_BOOTSTRAP_PYTHON%
+    echo Create .venv with 64-bit Python 3.11.9 and rerun this script.
     pause
     exit /b 1
 )
 
-"%DUPEZ_PYTHON%" --version
-if errorlevel 1 exit /b 1
-
-"%DUPEZ_PYTHON%" -c "import PyInstaller" >nul 2>&1
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 11, 9) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
-    echo Installing PyInstaller into the repository virtual environment...
-    "%DUPEZ_PYTHON%" -m pip install pyinstaller==6.19.0
-    if errorlevel 1 exit /b 1
+    echo ERROR: Release builds require 64-bit Python 3.11.9.
+    pause
+    exit /b 1
 )
 
-echo Installing dependencies...
-"%DUPEZ_PYTHON%" -m pip install --require-hashes -r requirements-locked.txt
+if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
+if exist "%DUPEZ_BUILD_VENV%" (
+    echo ERROR: Could not remove stale build environment:
+    echo        %DUPEZ_BUILD_VENV%
+    exit /b 1
+)
+
+echo Creating clean build-only virtual environment...
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
+if errorlevel 1 exit /b 1
+if not exist "%DUPEZ_PYTHON%" (
+    echo ERROR: Build interpreter was not created:
+    echo        %DUPEZ_PYTHON%
+    exit /b 1
+)
+
+"%DUPEZ_PYTHON%" -I --version
+if errorlevel 1 exit /b 1
+
+echo Installing hash-pinned build tooling...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r packaging\requirements-build-locked.txt
+if errorlevel 1 exit /b 1
+
+echo Installing hash-pinned production dependencies...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r requirements-locked.txt
 if errorlevel 1 exit /b 1
 
 echo Verifying hermetic build imports...
-"%DUPEZ_PYTHON%" -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
 if errorlevel 1 (
-    echo ERROR: Required build/runtime imports failed inside .venv.
+    echo ERROR: Required build/runtime imports failed inside .build-venv.
     echo        Refusing to build with an incomplete or mixed Python environment.
     pause
     exit /b 1
@@ -88,7 +114,7 @@ if exist "build\DupeZ-Compat"    rmdir /s /q "build\DupeZ-Compat"
 :: ── 3. Build GPU variant (asInvoker + split) ────────────────────────
 echo.
 echo [1/5] Building DupeZ-GPU.exe ...
-"%DUPEZ_PYTHON%" -m PyInstaller packaging\dupez_gpu.spec --noconfirm
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\dupez_gpu.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-GPU PyInstaller returned an error.
@@ -127,7 +153,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/5] Building DupeZ-Compat.exe ...
-"%DUPEZ_PYTHON%" -m PyInstaller packaging\dupez_compat.spec --noconfirm
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\dupez_compat.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-Compat PyInstaller returned an error.
@@ -141,6 +167,17 @@ if not exist "dist\DupeZ-Compat.exe" (
     exit /b 1
 )
 echo       DupeZ-Compat.exe built successfully.
+echo       Verifying frozen dependency boundary...
+"%DUPEZ_PYTHON%" scripts\release_preflight.py ^
+    --frozen-artifact dist\DupeZ-GPU.exe ^
+    --frozen-artifact dist\DupeZ-Compat.exe
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED - portable executables contain forbidden optional dependencies.
+    pause
+    exit /b 1
+)
+echo       Frozen dependency boundary verified.
 
 :: ── 5. Authenticode sign portable executables ───────────────────────
 :: Microsoft SignTool guidance requires explicit SHA-256 file digest

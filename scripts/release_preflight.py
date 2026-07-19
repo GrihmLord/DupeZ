@@ -68,14 +68,29 @@ def _check_signtool_policy(rel: str) -> list[str]:
 
 
 def _check_hermetic_python_policy(rel: str) -> list[str]:
-    """Require release builds to run only through the repository virtualenv."""
+    """Require a freshly recreated, isolated release-build interpreter."""
     errors: list[str] = []
     text = _read(rel)
     required = (
-        'set "DUPEZ_PYTHON=%CD%\\.venv\\Scripts\\python.exe"',
-        'if not exist "%DUPEZ_PYTHON%"',
-        '"%DUPEZ_PYTHON%" -m pip',
-        '"%DUPEZ_PYTHON%" -m PyInstaller',
+        'set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\\.venv\\Scripts\\python.exe"',
+        'set "DUPEZ_BUILD_VENV=%CD%\\.build-venv"',
+        'set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\\Scripts\\python.exe"',
+        'set "PYTHONHOME="',
+        'set "PYTHONPATH="',
+        'set "PYTHONNOUSERSITE=1"',
+        'set "PIP_REQUIRE_VIRTUALENV=true"',
+        'if not exist "%DUPEZ_BOOTSTRAP_PYTHON%"',
+        'if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q '
+        '"%DUPEZ_BUILD_VENV%"',
+        '"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv '
+        '"%DUPEZ_BUILD_VENV%"',
+        '"%DUPEZ_PYTHON%" -I -m pip',
+        "--only-binary=:all:",
+        "--require-hashes -r packaging\\requirements-build-locked.txt",
+        "--require-hashes -r requirements-locked.txt",
+        '"%DUPEZ_PYTHON%" -I -m PyInstaller',
+        "scripts\\release_preflight.py",
+        "--frozen-artifact",
     )
     for snippet in required:
         if snippet not in text:
@@ -94,7 +109,7 @@ def _check_hermetic_python_policy(rel: str) -> list[str]:
     prebuild_lines = [
         line
         for line in text.splitlines()
-        if '"%DUPEZ_PYTHON%" -c ' in line
+        if '"%DUPEZ_PYTHON%" -I -c ' in line
     ]
     combined_checks = "\n".join(prebuild_lines)
     for required_import in import_checks:
@@ -121,8 +136,106 @@ def _check_hermetic_python_policy(rel: str) -> list[str]:
         if re.search(r"(?i)\bscripts\\[^ ]+\.py\b", stripped):
             if not stripped.startswith('"%DUPEZ_PYTHON%" '):
                 errors.append(
-                    f"project script bypasses .venv in "
+                    f"project script bypasses isolated build interpreter in "
                     f"{rel}:{line_no}: {stripped}"
+                )
+    return errors
+
+
+_FORBIDDEN_FROZEN_PREFIXES = (
+    # v5.7.9 does not ship Group Finder. Revise this explicit release policy
+    # when the feature and its dependency boundary are approved for release.
+    "anyio",
+    "app.social",
+    "httpcore",
+    "httpx",
+    "pydantic",
+    "pydantic_core",
+    "typing_inspection",
+    # Optional voice/scientific stacks are deliberately excluded from the
+    # production lock and must not leak in from a developer environment.
+    "fsspec",
+    "ipython",
+    "jinja2",
+    "llvmlite",
+    "numba",
+    "torch",
+    "triton",
+    "whisper",
+)
+
+
+def _normalise_frozen_name(name: object) -> str:
+    return str(name).replace("\\", ".").replace("/", ".").casefold()
+
+
+def _matches_frozen_prefix(name: str, prefix: str) -> bool:
+    return (
+        name == prefix
+        or name.startswith(f"{prefix}.")
+        or name.startswith(f"{prefix}-")
+    )
+
+
+def _check_frozen_dependency_policy(
+    artifacts: Iterable[Path],
+    *,
+    archive_reader_cls=None,
+) -> list[str]:
+    """Reject release archives contaminated by non-production packages."""
+    errors: list[str] = []
+    if archive_reader_cls is None:
+        try:
+            from PyInstaller.archive.readers import CArchiveReader
+        except Exception as exc:
+            return [
+                "cannot inspect frozen dependency policy because PyInstaller "
+                f"archive support is unavailable: {exc}"
+            ]
+        archive_reader_cls = CArchiveReader
+
+    for artifact in artifacts:
+        if not artifact.is_file():
+            errors.append(f"frozen artifact missing: {artifact}")
+            continue
+        try:
+            archive = archive_reader_cls(str(artifact))
+            outer_names = {
+                _normalise_frozen_name(name) for name in archive.toc
+            }
+            pyz_keys = [
+                name
+                for name in archive.toc
+                if _normalise_frozen_name(name) == "pyz.pyz"
+            ]
+            if len(pyz_keys) != 1:
+                errors.append(
+                    "frozen archive must contain exactly one PYZ.pyz: "
+                    f"{artifact.name}: found {len(pyz_keys)}"
+                )
+                continue
+            embedded = archive.open_embedded_archive(pyz_keys[0])
+            inner_names = {
+                _normalise_frozen_name(name) for name in embedded.toc
+            }
+        except Exception as exc:
+            errors.append(
+                f"cannot inspect frozen archive {artifact.name}: {exc}"
+            )
+            continue
+
+        archive_names = outer_names | inner_names
+        for prefix in _FORBIDDEN_FROZEN_PREFIXES:
+            matches = sorted(
+                name
+                for name in archive_names
+                if _matches_frozen_prefix(name, prefix)
+            )
+            if matches:
+                sample = ", ".join(matches[:3])
+                errors.append(
+                    "forbidden frozen dependency in "
+                    f"{artifact.name}: {prefix} ({sample})"
                 )
     return errors
 
@@ -333,6 +446,8 @@ def check_source(expected_version: str | None = None) -> list[str]:
         "SECURITY.md",
         ".github/CODEOWNERS",
         "packaging/binary-provenance.json",
+        "packaging/requirements-build.in",
+        "packaging/requirements-build-locked.txt",
         "requirements-locked.txt",
     ):
         if not (ROOT / required).is_file():
@@ -340,6 +455,12 @@ def check_source(expected_version: str | None = None) -> list[str]:
 
     if "--hash=sha256:" not in _read("requirements-locked.txt"):
         errors.append("requirements-locked.txt has no SHA-256 hashes")
+    if "--hash=sha256:" not in _read(
+        "packaging/requirements-build-locked.txt"
+    ):
+        errors.append(
+            "packaging/requirements-build-locked.txt has no SHA-256 hashes"
+        )
 
     for rel in ("packaging/build_common.py", "packaging/dupez.spec"):
         if re.search(r"\bupx\s*=\s*True\b", _read(rel)):
@@ -422,6 +543,15 @@ def check_dist(version: str) -> list[str]:
         if not path.is_file() or path.stat().st_size == 0:
             errors.append(f"required release artifact missing/empty: dist/{name}")
 
+    errors.extend(
+        _check_frozen_dependency_policy(
+            [
+                dist / "DupeZ-GPU.exe",
+                dist / "DupeZ-Compat.exe",
+            ]
+        )
+    )
+
     for name, key in (
         ("DupeZ.sbom.json", "components"),
         ("DupeZ.vex.json", "statements"),
@@ -465,7 +595,22 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version")
     parser.add_argument("--dist", action="store_true")
+    parser.add_argument(
+        "--frozen-artifact",
+        action="append",
+        type=Path,
+        help="inspect a PyInstaller executable and exit",
+    )
     args = parser.parse_args()
+
+    if args.frozen_artifact:
+        errors = _check_frozen_dependency_policy(args.frozen_artifact)
+        if errors:
+            for error in errors:
+                print(f"ERROR: {error}")
+            return 1
+        print("Frozen dependency preflight passed.")
+        return 0
 
     errors = check_source(args.version)
     if args.dist:

@@ -25,9 +25,9 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 - **Controller initialization deadlock removed.** Frozen GPU helpers force
   `DUPEZ_ARCH=inproc` before importing architecture-dependent modules, so
   recovery cleanup cannot proxy back into the helper's own named pipe.
-- **Packaged Qt startup fixed and verified.** Builds use the repository
-  virtual environment, explicitly import `PyQt6.sip`, and execute a
-  `--verify-runtime-imports` frozen gate.
+- **Packaged Qt startup and build isolation fixed and verified.** Builds
+  recreate `.build-venv` from hash-pinned locks, verify `PyQt6.sip`, and
+  reject forbidden packages across both PyInstaller archive layers.
 - **Single-instance enforcement.** A per-user Windows named mutex prevents
   persistence-lock collisions and helper pipe contention from duplicate GUI
   processes.

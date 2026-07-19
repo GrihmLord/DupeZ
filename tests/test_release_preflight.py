@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from app.core.update_verify import MANIFEST_SCHEMA, pubkey_fingerprint
 from scripts.release_preflight import (
+    _check_frozen_dependency_policy,
     _check_frozen_runtime_import_policy,
     _check_hermetic_python_policy,
     _check_signtool_policy,
@@ -51,11 +52,21 @@ def test_hermetic_policy_rejects_ambient_python(monkeypatch) -> None:
         release_preflight,
         "_read",
         lambda _rel: """
-set "DUPEZ_PYTHON=%CD%\\.venv\\Scripts\\python.exe"
-if not exist "%DUPEZ_PYTHON%" exit /b 1
-"%DUPEZ_PYTHON%" -m pip install -r requirements-locked.txt
-"%DUPEZ_PYTHON%" -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
-"%DUPEZ_PYTHON%" -m PyInstaller packaging\\dupez.spec
+set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\\.venv\\Scripts\\python.exe"
+set "DUPEZ_BUILD_VENV=%CD%\\.build-venv"
+set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\\Scripts\\python.exe"
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONNOUSERSITE=1"
+set "PIP_REQUIRE_VIRTUALENV=true"
+if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" exit /b 1
+if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
+"%DUPEZ_PYTHON%" -I -m pip install --only-binary=:all: --require-hashes -r packaging\\requirements-build-locked.txt
+"%DUPEZ_PYTHON%" -I -m pip install --only-binary=:all: --require-hashes -r requirements-locked.txt
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\\dupez.spec
+"%DUPEZ_PYTHON%" scripts\\release_preflight.py --frozen-artifact dist\\dupez.exe
 python scripts\\sbom.py
 """,
     )
@@ -63,7 +74,89 @@ python scripts\\sbom.py
     errors = _check_hermetic_python_policy("packaging/build.bat")
 
     assert any("ambient Python command" in error for error in errors)
-    assert any("project script bypasses .venv" in error for error in errors)
+    assert any(
+        "project script bypasses isolated build interpreter" in error
+        for error in errors
+    )
+
+
+def test_frozen_dependency_policy_checks_outer_and_inner_archives(
+    tmp_path,
+) -> None:
+    artifact = tmp_path / "DupeZ-GPU.exe"
+    artifact.write_bytes(b"fixture")
+
+    class FakeEmbeddedArchive:
+        toc = {
+            "app.core": (),
+            "numba.core": (),
+            "app.social.client": (),
+        }
+
+    class FakeArchive:
+        toc = {
+            "PYZ.pyz": (),
+            "llvmlite\\binding\\llvmlite.dll": (),
+        }
+
+        def __init__(self, _path):
+            pass
+
+        def open_embedded_archive(self, name):
+            assert name == "PYZ.pyz"
+            return FakeEmbeddedArchive()
+
+    errors = _check_frozen_dependency_policy(
+        [artifact],
+        archive_reader_cls=FakeArchive,
+    )
+
+    assert any("app.social" in error for error in errors)
+    assert any("llvmlite" in error for error in errors)
+    assert any("numba" in error for error in errors)
+
+
+def test_frozen_dependency_policy_accepts_clean_archive(tmp_path) -> None:
+    artifact = tmp_path / "DupeZ-Compat.exe"
+    artifact.write_bytes(b"fixture")
+
+    class FakeEmbeddedArchive:
+        toc = {"app.core": (), "PyQt6.QtCore": ()}
+
+    class FakeArchive:
+        toc = {"PYZ.pyz": (), "python311.dll": ()}
+
+        def __init__(self, _path):
+            pass
+
+        def open_embedded_archive(self, _name):
+            return FakeEmbeddedArchive()
+
+    assert (
+        _check_frozen_dependency_policy(
+            [artifact],
+            archive_reader_cls=FakeArchive,
+        )
+        == []
+    )
+
+
+def test_frozen_dependency_policy_fails_closed_without_pyz(tmp_path) -> None:
+    artifact = tmp_path / "DupeZ-GPU.exe"
+    artifact.write_bytes(b"fixture")
+
+    class FakeArchive:
+        toc = {"python311.dll": ()}
+
+        def __init__(self, _path):
+            pass
+
+    errors = _check_frozen_dependency_policy(
+        [artifact],
+        archive_reader_cls=FakeArchive,
+    )
+
+    assert any("exactly one PYZ.pyz" in error for error in errors)
 
 
 def test_authenticode_query_non_windows_is_explicit(monkeypatch) -> None:
