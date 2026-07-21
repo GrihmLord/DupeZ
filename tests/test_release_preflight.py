@@ -8,7 +8,10 @@ from scripts.release_preflight import (
 
 
 def test_release_source_preflight_passes() -> None:
-    assert check_source("5.7.7") == []
+    # Let the preflight derive the expected release from app/__version__.py.
+    # Hard-coding the prior release caused every later patch release to fail
+    # CI even when all release-controlled files were correctly synchronized.
+    assert check_source() == []
 
 
 def test_signtool_policy_requires_sha256_timestamp(monkeypatch) -> None:
