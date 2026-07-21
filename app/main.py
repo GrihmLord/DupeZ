@@ -120,9 +120,10 @@ if _should_disable_qt_sandbox():
     os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtCore import QCoreApplication, QEventLoop, QThreadPool, QTimer, Qt
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+from app.core.resource_profile import detect_startup_resource_profile
 from app.core.updater import CURRENT_VERSION
 from app.logs.logger import log_error, log_info, log_shutdown, log_startup, log_warning
 from app.utils.helpers import is_admin
@@ -201,6 +202,15 @@ def main() -> None:
 
         app = QApplication(sys.argv)
 
+        # Bound Qt's global worker pool before any subsystem can enqueue work.
+        # Qt otherwise uses the machine's full logical CPU count, which can
+        # create unnecessary scheduling and stack pressure on constrained PCs.
+        resource_profile = detect_startup_resource_profile()
+        qt_pool = QThreadPool.globalInstance()
+        qt_pool.setMaxThreadCount(resource_profile.qt_max_threads)
+        qt_pool.setExpiryTimeout(resource_profile.qt_expiry_timeout_ms)
+        log_info(f"Startup resource profile: {resource_profile.summary()}")
+
         # Set app icon
         for icon_path in [
             "app/resources/dupez.ico",
@@ -234,56 +244,79 @@ def main() -> None:
         splash.show()
         app.processEvents()
 
-        # --- Prewarm the DayZ map widget -----------------------------
-        # Construct DayZMapGUI once, early, on the main thread so the
-        # QWebEngineView boot and the initial iZurvive tile download
-        # run in parallel with the splash init pipeline (WinDivert,
-        # controller, plugins). Dashboard adopts this prewarmed
-        # instance when it builds the view stack, so the map is
-        # already interactive by the time the user clicks the tab.
-        #
-        # The widget is hidden + parented to None; Qt reparents it
-        # into the QStackedWidget automatically via addWidget().
-        # Failures are non-fatal — Dashboard falls back to the cold
-        # construction path.
-        try:
-            from app.gui.dayz_map_gui_new import (
-                DayZMapGUI,
-                set_prewarmed_map_gui,
-            )
-            _prewarmed_map = DayZMapGUI()
-            _prewarmed_map.hide()
-            set_prewarmed_map_gui(_prewarmed_map)
-            app.processEvents()  # let the load request go out immediately
-            log_info("Map: prewarmed DayZMapGUI during splash")
-        except Exception as _prewarm_exc:
-            log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+        # Prewarming Chromium is useful on capable systems but can consume a
+        # large working set and compete with initialization on weaker systems.
+        # Low-resource mode preserves functionality by using the existing cold
+        # construction path when the map tab is first opened.
+        if resource_profile.prewarm_map:
+            try:
+                from app.gui.dayz_map_gui_new import (
+                    DayZMapGUI,
+                    set_prewarmed_map_gui,
+                )
+                _prewarmed_map = DayZMapGUI()
+                _prewarmed_map.hide()
+                set_prewarmed_map_gui(_prewarmed_map)
+                app.processEvents()
+                log_info("Map: prewarmed DayZMapGUI during splash")
+            except Exception as _prewarm_exc:
+                log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+        else:
+            log_info("Map: prewarm skipped by startup resource profile")
 
-        # State container for the completion callback
-        _init_done = {"ready": False}
+        # Wait for the background pipeline through a nested Qt event loop.
+        # The previous processEvents() busy-loop could pin a CPU core for the
+        # entire splash duration. A watchdog converts hangs into a visible,
+        # bounded startup failure instead of an indefinite frozen splash.
+        startup_loop = QEventLoop()
+        startup_watchdog = QTimer(splash)
+        startup_watchdog.setSingleShot(True)
+        startup_state = {"ready": False, "timed_out": False}
 
         def _on_splash_complete() -> None:
-            """Called on main thread when splash pipeline finishes."""
-            _init_done["ready"] = True
+            startup_state["ready"] = True
+            startup_watchdog.stop()
+            if startup_loop.isRunning():
+                startup_loop.quit()
 
+        def _on_startup_timeout() -> None:
+            if startup_state["ready"]:
+                return
+            startup_state["timed_out"] = True
+            if startup_loop.isRunning():
+                startup_loop.quit()
+
+        startup_watchdog.timeout.connect(_on_startup_timeout)
         splash.run_init_pipeline(on_complete=_on_splash_complete)
+        startup_watchdog.start(resource_profile.startup_timeout_ms)
+        if not startup_state["ready"]:
+            startup_loop.exec()
 
-        # Process events while init runs (keeps splash animated)
-        while not _init_done["ready"]:
-            app.processEvents()
-
-        # Grab the controller created by splash
         controller = splash.controller
         init_error = splash.init_error
 
-        # Close splash
         splash.close()
         splash.deleteLater()
 
-        if init_error and controller is None:
+        if startup_state["timed_out"]:
+            log_error(
+                "Startup initialization timed out after "
+                f"{resource_profile.startup_timeout_ms} ms"
+            )
+            QMessageBox.critical(
+                None,
+                "Initialization Timed Out",
+                "DupeZ initialization exceeded the safe startup deadline. "
+                "No active network operation was started. Restart DupeZ, or "
+                "set DUPEZ_LOW_RESOURCE=1 before launch on a constrained PC.",
+            )
+            sys.exit(1)
+
+        if controller is None:
+            detail = init_error or "Controller failed to initialize"
             QMessageBox.critical(
                 None, "Initialization Failed",
-                f"DupeZ could not start:\n{init_error}"
+                f"DupeZ could not start:\n{detail}"
             )
             sys.exit(1)
 
@@ -374,7 +407,17 @@ def main() -> None:
         except Exception as e:
             log_warning(f"OBS overlay autostart failed (non-fatal): {e}")
 
+        shutdown_state = {"done": False}
+
         def _shutdown_cleanup() -> None:
+            if shutdown_state["done"]:
+                return
+            shutdown_state["done"] = True
+
+            try:
+                hotkey.stop()
+            except Exception as e:
+                log_warning(f"Hotkey shutdown failed (non-fatal): {e}")
             try:
                 from app.core.patch_monitor import stop_background_monitoring
                 stop_background_monitoring()
@@ -382,8 +425,6 @@ def main() -> None:
             except Exception:
                 pass
             try:
-                # v5.7.4: stop the OBS overlay HTTP server if it was
-                # started during Phase 4b.
                 if _overlay_server is not None:
                     _overlay_server.stop()
                     log_info("OBS overlay server stopped")
@@ -400,15 +441,30 @@ def main() -> None:
                 log_info("Disruption engine stopped")
             except Exception as e:
                 log_error(f"Error stopping clumsy on exit: {e}")
-            controller.shutdown()
+            try:
+                controller.shutdown()
+            except Exception as e:
+                log_error(f"Controller shutdown failed: {e}")
+            try:
+                qt_pool.clear()
+                if not qt_pool.waitForDone(3_000):
+                    log_warning("Qt worker pool did not fully drain before exit")
+            except Exception as e:
+                log_warning(f"Qt worker-pool shutdown failed (non-fatal): {e}")
             log_shutdown()
 
         app.aboutToQuit.connect(_shutdown_cleanup)
         sys.exit(app.exec())
 
+    except SystemExit:
+        raise
     except Exception as e:
         log_error(f"Unhandled exception in main: {e}")
-        QMessageBox.critical(None, "Critical Error", f"An error occurred:\n{e}")
+        try:
+            if QApplication.instance() is not None:
+                QMessageBox.critical(None, "Critical Error", f"An error occurred:\n{e}")
+        except Exception:
+            pass
         sys.exit(1)
 
 
