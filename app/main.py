@@ -244,10 +244,25 @@ def main() -> None:
         splash.show()
         app.processEvents()
 
+        def _install_lazy_map(reason: str) -> None:
+            """Register a lightweight map widget for first-tab initialization."""
+            try:
+                from app.gui.dayz_map_gui_new import set_prewarmed_map_gui
+                from app.gui.lazy_dayz_map import LazyDayZMapGUI
+
+                lazy_map = LazyDayZMapGUI()
+                lazy_map.hide()
+                set_prewarmed_map_gui(lazy_map)
+                log_info(f"Map: deferred until first tab open ({reason})")
+            except Exception as lazy_exc:
+                # Dashboard retains its ordinary cold-construction fallback.
+                log_warning(f"Map lazy registration failed (non-fatal): {lazy_exc}")
+
         # Prewarming Chromium is useful on capable systems but can consume a
         # large working set and compete with initialization on weaker systems.
-        # Low-resource mode preserves functionality by using the existing cold
-        # construction path when the map tab is first opened.
+        # Constrained systems receive a lightweight QWidget here; the actual
+        # QWebEngineView and Chromium renderer are constructed only after the
+        # user opens the Map tab.
         if resource_profile.prewarm_map:
             try:
                 from app.gui.dayz_map_gui_new import (
@@ -261,8 +276,9 @@ def main() -> None:
                 log_info("Map: prewarmed DayZMapGUI during splash")
             except Exception as _prewarm_exc:
                 log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+                _install_lazy_map("prewarm failure")
         else:
-            log_info("Map: prewarm skipped by startup resource profile")
+            _install_lazy_map("startup resource profile")
 
         # Wait for the background pipeline through a nested Qt event loop.
         # The previous processEvents() busy-loop could pin a CPU core for the
