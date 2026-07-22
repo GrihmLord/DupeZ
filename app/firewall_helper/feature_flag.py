@@ -1,19 +1,19 @@
 # app/firewall_helper/feature_flag.py
 """
 Resolves the DUPEZ_ARCH feature flag and provides the disruption-manager
-factory that callers use instead of importing `disruption_manager` directly.
+factory that callers use instead of importing a manager singleton directly.
 
-Usage in callers (app/core/controller.py is the only production consumer
-that needs to change in Day 1):
+Usage::
 
     from app.firewall_helper.feature_flag import get_disruption_manager
     disruption_manager = get_disruption_manager()
 
-Under DUPEZ_ARCH=inproc (default) this returns the existing singleton from
-app.firewall.clumsy_network_disruptor — zero behavioural change from today.
-
-Under DUPEZ_ARCH=split this returns a DisruptionManagerProxy that forwards
-every call over a named-pipe IPC to the elevated helper process.
+Under ``DUPEZ_ARCH=inproc`` this returns the owned direct-Clumsy manager from
+``app.firewall.direct_clumsy_manager``. Under ``DUPEZ_ARCH=split`` it returns a
+``DisruptionManagerProxy`` that forwards every call over authenticated named-
+pipe IPC to the elevated helper. The helper imports the same direct manager, so
+engine selection, contention handling, and graceful process ownership remain
+identical across both build variants.
 """
 
 from __future__ import annotations
@@ -25,15 +25,10 @@ ARCH_INPROC = "inproc"
 ARCH_SPLIT = "split"
 
 _VALID_ARCHS = frozenset({ARCH_INPROC, ARCH_SPLIT})
-
 _ENV_VAR = "DUPEZ_ARCH"
 
-# Resolve the compiled-in default. Build variants (DupeZ-GPU vs
-# DupeZ-Compat) are produced by writing ``_build_default.py`` next
-# to this module with ``_BUILD_DEFAULT_ARCH = "split"`` or
-# ``"inproc"`` before invoking PyInstaller. If the file is absent
-# (dev run from source), we fall back to ``inproc`` so nothing
-# changes for developers who haven't opted in.
+# Build variants write _build_default.py next to this module before invoking
+# PyInstaller. Source checkouts fall back to inproc.
 try:
     from app.firewall_helper._build_default import (  # type: ignore
         _BUILD_DEFAULT_ARCH as _COMPILED_DEFAULT,
@@ -47,51 +42,50 @@ _DEFAULT_ARCH = _COMPILED_DEFAULT
 
 
 def _detect_gpu_available() -> bool:
-    """Best-effort GPU detection — True if a usable GPU is present.
+    """Best-effort GPU detection for ambiguous development builds."""
 
-    Used to auto-select ``split`` mode when the build default is ambiguous,
-    so that QWebEngineView can use hardware rasterisation (which requires
-    the GUI process to run at Medium IL, not elevated).
-
-    Probe chain: DXGI ctypes (fast, no deps) → wmic subprocess (fallback).
-    """
     import sys
+
     if sys.platform != "win32":
         return False
 
-    # Shared core probe is fast, dependency-free, and safe outside the GUI.
     try:
         from app.core.gpu_probe import probe_gpu_usable
+
         usable, _reason = probe_gpu_usable()
         return usable
     except Exception:
         pass
 
-    # Fallback: wmic (deprecated but still ships on Win10/11)
     try:
-        from app.core import safe_subprocess as _safe_sp
-        wmic_path = _safe_sp.resolve_system_binary("wbem\\wmic") if False else None
-        # wmic lives at System32\wbem\wmic.exe — resolve_system_binary
-        # expects System32 directly, so construct the path manually.
-        import os as _os
-        sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
-        wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
-        if not _os.path.isfile(wmic_path):
+        from app.core import safe_subprocess as safe_subprocess
+
+        system_root = os.environ.get("SystemRoot") or r"C:\Windows"
+        wmic_path = os.path.join(
+            system_root,
+            "System32",
+            "wbem",
+            "wmic.exe",
+        )
+        if not os.path.isfile(wmic_path):
             return False
-        res = _safe_sp.run(
+        result = safe_subprocess.run(
             [wmic_path, "path", "win32_videocontroller", "get", "name"],
             timeout=5.0,
             expect_returncode=None,
             intent="feature_flag.gpu_probe_wmic",
         )
         lines = [
-            stripped for stripped in (raw.strip() for raw in res.stdout.splitlines())
-            if stripped and stripped.lower() != "name"
+            line
+            for line in (raw.strip() for raw in result.stdout.splitlines())
+            if line and line.lower() != "name"
         ]
-        # Filter out software adapters
         for line in lines:
-            low = line.lower()
-            if "microsoft basic" not in low and "standard vga" not in low:
+            lowered = line.lower()
+            if (
+                "microsoft basic" not in lowered
+                and "standard vga" not in lowered
+            ):
                 return True
         return False
     except Exception:
@@ -99,63 +93,45 @@ def _detect_gpu_available() -> bool:
 
 
 def get_arch() -> str:
-    """Return the active architecture mode, validated.
+    """Return the validated active architecture mode.
 
     Resolution order:
-      1. ``DUPEZ_ARCH`` environment variable (user override).
-      2. Compiled-in default from ``_build_default.py`` (set by
-         build variant — split for DupeZ-GPU, inproc for
-         DupeZ-Compat).
-      3. GPU auto-detection: if a GPU is present, prefer ``split``
-         so the GUI runs at Medium IL and QWebEngineView can use
-         hardware rasterisation.
-      4. Hard fallback to ``inproc``.
-
-    Never raises — feature-flag parsing must never prevent app
-    startup.
+      1. explicit ``DUPEZ_ARCH`` environment override;
+      2. compiled build default;
+      3. GPU auto-detection fallback;
+      4. hard ``inproc`` fallback.
     """
-    # 1. Explicit environment override
-    env_val = os.environ.get(_ENV_VAR, "").strip().lower()
-    if env_val in _VALID_ARCHS:
-        return env_val
 
-    # 2. Compiled-in default
+    environment_value = os.environ.get(_ENV_VAR, "").strip().lower()
+    if environment_value in _VALID_ARCHS:
+        return environment_value
+
     if _DEFAULT_ARCH in _VALID_ARCHS:
         return _DEFAULT_ARCH
 
-    # 3. GPU auto-detection fallback
     try:
         if _detect_gpu_available():
             return ARCH_SPLIT
     except Exception:
         pass
 
-    # 4. Hard fallback
     return ARCH_INPROC
 
 
 def is_split_mode() -> bool:
-    """Convenience: True if DUPEZ_ARCH=split, else False."""
+    """Return whether the GUI uses the elevated-helper architecture."""
+
     return get_arch() == ARCH_SPLIT
 
 
 def get_disruption_manager() -> Any:
-    """Return the active disruption manager instance.
+    """Return the active direct-Clumsy-aware manager or IPC proxy."""
 
-    * inproc mode: the existing in-process singleton. Bit-for-bit identical
-      to today's behaviour — no IPC, no helper, no changes.
-    * split mode: a DisruptionManagerProxy that forwards calls to the
-      elevated helper over a named pipe.
-
-    This indirection is the ONLY production-path touch in Day 1 of the
-    ADR-0001 rollout. Under `inproc` the import path is identical to the
-    current direct import, so the hot path is unchanged.
-    """
     if is_split_mode():
-        # Lazy import to avoid pulling named-pipe code into the inproc path.
         from app.firewall_helper.ipc_client import get_proxy_manager
+
         return get_proxy_manager()
 
-    # Default: return the existing singleton, unchanged.
-    from app.firewall.clumsy_network_disruptor import disruption_manager
+    from app.firewall.direct_clumsy_manager import disruption_manager
+
     return disruption_manager
