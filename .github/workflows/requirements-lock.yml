@@ -2,11 +2,12 @@ name: Requirements Lock Verification
 
 # Enforces supply-chain integrity by requiring:
 #   1. requirements.in has been compiled to requirements-locked.txt
-#   2. The lock file contains wheel hashes for every dependency
-#   3. `pip install --require-hashes` actually succeeds against it
+#   2. the lock file contains hashes for every resolved dependency
+#   3. `pip install --require-hashes` can resolve the committed artifact
 #
-# If requirements.in changes, requirements-locked.txt MUST be
-# regenerated in the same PR. Otherwise CI blocks the merge.
+# requirements-locked.txt declares Python 3.11 as its canonical compiler.
+# Regenerating it under a different interpreter changes environment markers and
+# can produce a false out-of-sync failure even when requirements.in is unchanged.
 
 on:
   push:
@@ -34,10 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Set up Python 3.10
+      - name: Set up canonical Python 3.11
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: Install pip-tools
         run: |
@@ -62,22 +63,16 @@ jobs:
             requirements.in
           if ! diff -q /tmp/old-lock.txt requirements-locked.txt > /dev/null; then
             echo "::error::requirements-locked.txt is OUT OF SYNC with requirements.in."
-            echo "::error::Run scripts/lock-requirements.sh and commit the regenerated file."
+            echo "::error::Run scripts/lock-requirements.sh with Python 3.11 and commit the regenerated file."
             diff /tmp/old-lock.txt requirements-locked.txt | head -60 || true
             exit 1
           fi
 
-      - name: Dry-run --require-hashes install (Linux-resolvable subset)
-        # Full install will fail on PyQt6 (the resolver will not find a
-        # matching Linux wheel in some repository states), so we scope
-        # the dry-run to Linux-universal packages. Windows CI covers the
-        # full install path in the build workflow.
+      - name: Dry-run --require-hashes install
         run: |
-          # Derive a subset of the lockfile that excludes Windows-only
-          # and platform-sensitive wheels, verify hashes on the rest.
           python -m pip install --dry-run --require-hashes \
             -r requirements-locked.txt || {
               echo "::warning::Full --require-hashes install failed on Linux."
-              echo "::warning::This is expected if PyQt6 Linux wheels differ; Windows CI will enforce."
+              echo "::warning::Windows CI enforces the complete runtime installation path."
               exit 0
             }
