@@ -1,12 +1,17 @@
 """Authorized hardware gate for the direct Clumsy event queue.
 
-This proves the exact product path requested by operators:
+This is intentionally separate from unit coverage and the lower-level bundled
+Clumsy smoke test. It proves the exact product path requested by operators:
 AppController -> EventSequenceRunner -> explicit Clumsy event -> verified owned
 Clumsy process -> generation-safe automatic stop.
 
-Persisted local scheduler rules are stopped before the event starts. Hardware
-validation must exercise only the event defined by this test, never an unrelated
-saved timed rule from the operator's normal DupeZ configuration.
+Run only on a prepared Windows Administrator host with one explicitly
+authorized private target::
+
+    set DUPEZ_RUN_HARDWARE_SMOKETEST=1
+    set DUPEZ_SMOKETEST_TARGET_IP=192.168.137.42
+    set DUPEZ_SMOKETEST_TARGET_MAC=00:11:22:33:44:55
+    pytest -q tests/test_direct_clumsy_event_hardware.py -m hardware -s
 """
 
 from __future__ import annotations
@@ -31,6 +36,19 @@ from app.core.disruption_events import (
 )
 
 pytestmark = [pytest.mark.hardware, pytest.mark.slow]
+
+
+class _NoopHardwareScheduler:
+    """Scheduler façade that cannot load or trigger persisted user rules."""
+
+    def __init__(self, **_kwargs) -> None:
+        self.running = False
+
+    def start(self) -> None:
+        self.running = True
+
+    def stop(self) -> None:
+        self.running = False
 
 
 def _require_authorized_hardware() -> tuple[str, str]:
@@ -89,11 +107,12 @@ def test_explicit_direct_clumsy_event_runs_and_releases_cleanly() -> None:
 
     from app.core.controller import AppController
 
-    controller = AppController()
-    # AppController intentionally loads and starts the user's persisted
-    # scheduler. Stop it immediately so an old timed rule cannot overlap this
-    # single-purpose hardware event or mutate the same target generation.
-    controller.scheduler.stop()
+    # Inject the scheduler before AppController auto-start. Calling stop() after
+    # construction is too late: a persisted rule can fire between start() and
+    # the test's next Python statement, racing the same target generation.
+    controller = AppController(
+        scheduler_factory=lambda **kwargs: _NoopHardwareScheduler(**kwargs),
+    )
 
     statuses = []
     complete = threading.Event()
