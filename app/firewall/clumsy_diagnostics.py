@@ -19,6 +19,9 @@ from contextlib import nullcontext
 from typing import Any, Optional
 
 from app.core.validation import validate_local_target_ip
+from app.firewall.clumsy_preset_wire import (
+    install_clumsy_preset_wire_compatibility,
+)
 from app.logs.logger import log_error, log_info
 
 __all__ = ["install_clumsy_diagnostic_bridge"]
@@ -121,9 +124,6 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
         trigger_owned_rst_next_packet,
     )
     from app.firewall.clumsy_full_status import install_full_clumsy_status
-    from app.firewall.clumsy_preset_wire import (
-        install_clumsy_preset_wire_compatibility,
-    )
     from app.firewall.clumsy_private_api_compat import (
         install_private_selector_compatibility,
     )
