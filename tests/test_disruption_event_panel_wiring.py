@@ -21,6 +21,9 @@ class _CheckBox:
     def setChecked(self, value):
         self.checked = bool(value)
 
+    def isChecked(self):
+        return self.checked
+
     def setEnabled(self, value):
         self.enabled = bool(value)
 
@@ -41,7 +44,7 @@ class _Signal:
         self.connections.append(callback)
 
 
-def test_explicit_clumsy_forces_and_locks_bidirectional_controls():
+def test_explicit_clumsy_keeps_verified_direction_controls_editable():
     inbound = _CheckBox(False)
     outbound = _CheckBox(True)
     panel = SimpleNamespace(
@@ -54,11 +57,31 @@ def test_explicit_clumsy_forces_and_locks_bidirectional_controls():
 
     DisruptionEventPanel._enforce_clumsy_direction(panel)
 
-    assert inbound.checked is True
+    assert inbound.checked is False
     assert outbound.checked is True
-    assert inbound.enabled is False
-    assert outbound.enabled is False
-    assert inbound.blocked == [True, False]
+    assert inbound.enabled is True
+    assert outbound.enabled is True
+    assert inbound.blocked == []
+    assert outbound.blocked == []
+
+
+def test_direction_policy_prevents_neither_direction_state():
+    inbound = _CheckBox(False)
+    outbound = _CheckBox(False)
+    panel = SimpleNamespace(
+        engine_preference=ENGINE_CLUMSY,
+        _clumsy_view=SimpleNamespace(
+            dir_inbound=inbound,
+            dir_outbound=outbound,
+        ),
+    )
+
+    DisruptionEventPanel._enforce_clumsy_direction(panel)
+
+    assert inbound.checked is False
+    assert outbound.checked is True
+    assert inbound.enabled is True
+    assert outbound.enabled is True
     assert outbound.blocked == [True, False]
 
 
