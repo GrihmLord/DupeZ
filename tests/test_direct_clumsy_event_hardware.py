@@ -1,17 +1,12 @@
 """Authorized hardware gate for the direct Clumsy event queue.
 
-This is intentionally separate from unit coverage and the lower-level bundled
-Clumsy smoke test. It proves the exact product path requested by operators:
+This proves the exact product path requested by operators:
 AppController -> EventSequenceRunner -> explicit Clumsy event -> verified owned
 Clumsy process -> generation-safe automatic stop.
 
-Run only on a prepared Windows Administrator host with one explicitly
-authorized private target::
-
-    set DUPEZ_RUN_HARDWARE_SMOKETEST=1
-    set DUPEZ_SMOKETEST_TARGET_IP=192.168.137.42
-    set DUPEZ_SMOKETEST_TARGET_MAC=00:11:22:33:44:55
-    pytest -q tests/test_direct_clumsy_event_hardware.py -m hardware -s
+Persisted local scheduler rules are stopped before the event starts. Hardware
+validation must exercise only the event defined by this test, never an unrelated
+saved timed rule from the operator's normal DupeZ configuration.
 """
 
 from __future__ import annotations
@@ -95,6 +90,11 @@ def test_explicit_direct_clumsy_event_runs_and_releases_cleanly() -> None:
     from app.core.controller import AppController
 
     controller = AppController()
+    # AppController intentionally loads and starts the user's persisted
+    # scheduler. Stop it immediately so an old timed rule cannot overlap this
+    # single-purpose hardware event or mutate the same target generation.
+    controller.scheduler.stop()
+
     statuses = []
     complete = threading.Event()
 
