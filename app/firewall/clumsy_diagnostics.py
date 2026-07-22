@@ -9,7 +9,7 @@ off-screen.
 
 The same bridge is installed in both in-process and elevated-helper modes, so
 it is also the single installation point for the staged full-control-tree
-runtime verification.
+runtime verification and deterministic IUP numeric synchronization.
 """
 
 from __future__ import annotations
@@ -117,8 +117,10 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
     from app.firewall.direct_clumsy_runtime import (
         install_direct_clumsy_runtime,
     )
+    from app.firewall.iup_edit_sync import install_iup_edit_sync
 
     install_direct_clumsy_runtime()
+    install_iup_edit_sync()
 
     if getattr(manager, "_clumsy_diagnostic_bridge_installed", False):
         return manager
