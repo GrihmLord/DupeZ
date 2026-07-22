@@ -11,7 +11,6 @@ import ctypes
 import os
 import re
 import sys
-import time
 import traceback
 
 from dupez_single_instance import guard_gui_startup
@@ -131,9 +130,16 @@ if _should_disable_qt_sandbox():
     os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
 
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import QCoreApplication, Qt
+from PyQt6.QtCore import (
+    QCoreApplication,
+    QEventLoop,
+    QThreadPool,
+    QTimer,
+    Qt,
+)
 from PyQt6.QtWidgets import QApplication, QMessageBox
 
+from app.core.resource_profile import detect_startup_resource_profile
 from app.core.updater import CURRENT_VERSION
 from app.logs.logger import log_error, log_info, log_shutdown, log_startup, log_warning
 from app.utils.helpers import is_admin
@@ -222,6 +228,18 @@ def main() -> None:
 
         app = QApplication(sys.argv)
 
+        # Bound Qt's global worker pool before any subsystem can enqueue work.
+        # This reduces stack, scheduler, and memory pressure on constrained PCs.
+        resource_profile = detect_startup_resource_profile()
+        qt_pool = QThreadPool.globalInstance()
+        qt_pool.setMaxThreadCount(resource_profile.qt_max_threads)
+        qt_pool.setExpiryTimeout(
+            resource_profile.qt_expiry_timeout_ms
+        )
+        log_info(
+            f"Startup resource profile: {resource_profile.summary()}"
+        )
+
         # Set app icon
         for icon_path in [
             "app/resources/dupez.ico",
@@ -251,47 +269,112 @@ def main() -> None:
 
         # --- Show splash screen and run init pipeline ---
         from app.gui.splash import DupeZSplash
+
         splash = DupeZSplash()
         splash.show()
         app.processEvents()
 
-        # WebEngine prewarm is intentionally deferred until critical startup
-        # has succeeded.
-        # Deferred until the controller has passed critical startup. A native
-        # Chromium/GPU failure must never hide a controller recovery error.
-
-        # State container for the completion callback
-        _init_done = {"ready": False}
+        # Keep controller initialization ahead of Chromium construction. A
+        # native WebEngine/GPU failure must never hide recovery or helper
+        # startup failures.
+        startup_loop = QEventLoop()
+        startup_watchdog = QTimer(splash)
+        startup_watchdog.setSingleShot(True)
+        startup_state = {"ready": False, "timed_out": False}
 
         def _on_splash_complete() -> None:
-            """Called on main thread when splash pipeline finishes."""
-            _init_done["ready"] = True
+            startup_state["ready"] = True
+            startup_watchdog.stop()
+            if startup_loop.isRunning():
+                startup_loop.quit()
 
+        def _on_startup_timeout() -> None:
+            if startup_state["ready"]:
+                return
+            startup_state["timed_out"] = True
+            if startup_loop.isRunning():
+                startup_loop.quit()
+
+        startup_watchdog.timeout.connect(_on_startup_timeout)
         splash.run_init_pipeline(on_complete=_on_splash_complete)
+        startup_watchdog.start(resource_profile.startup_timeout_ms)
 
-        # Process events while init runs (keeps splash animated)
-        while not _init_done["ready"]:
-            app.processEvents()
-            time.sleep(0.01)
+        if not startup_state["ready"]:
+            startup_loop.exec()
 
-        # Grab the controller created by splash
         controller = splash.controller
         init_error = splash.init_error
 
-        # Close splash
+        if startup_state["timed_out"]:
+            # Stop progression between initialization phases and briefly allow
+            # the daemon worker to observe cancellation. A currently blocked
+            # native call cannot be force-killed safely from the GUI thread.
+            try:
+                splash.cancel_init_pipeline()
+                splash.wait_for_init_pipeline(1.0)
+            except Exception as cancel_exc:
+                log_warning(
+                    "Splash cancellation failed after timeout "
+                    f"(non-fatal): {cancel_exc}"
+                )
+
+            # Refresh after the bounded cancellation wait because controller
+            # construction may have completed while the timeout was handled.
+            controller = splash.controller
+
+            if controller is not None:
+                try:
+                    controller.shutdown()
+                except Exception as shutdown_exc:
+                    log_warning(
+                        "Controller cleanup failed after startup timeout "
+                        f"(non-fatal): {shutdown_exc}"
+                    )
+
+            try:
+                from app.firewall_helper.feature_flag import (
+                    get_disruption_manager,
+                )
+
+                get_disruption_manager().stop()
+            except Exception as disruption_exc:
+                log_warning(
+                    "Disruption cleanup failed after startup timeout "
+                    f"(non-fatal): {disruption_exc}"
+                )
+
+            splash.close()
+            splash.deleteLater()
+
+            log_error(
+                "Startup initialization timed out after "
+                f"{resource_profile.startup_timeout_ms} ms"
+            )
+            QMessageBox.critical(
+                None,
+                "Initialization Timed Out",
+                "DupeZ initialization exceeded its safe startup deadline. "
+                "Network and controller cleanup was requested. Restart DupeZ "
+                "and review the diagnostic logs. On a constrained PC, set "
+                "DUPEZ_LOW_RESOURCE=1 before launching.",
+            )
+            sys.exit(1)
+
         splash.close()
         splash.deleteLater()
 
-        if init_error and controller is None:
+        if controller is None:
+            detail = init_error or "Controller failed to initialize"
             log_dir = os.path.join(
                 os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
                 "DupeZ",
                 "logs",
             )
             QMessageBox.critical(
-                None, "Initialization Failed",
-                f"DupeZ could not start:\n{init_error}\n\n"
-                f"Diagnostic logs: {log_dir}"
+                None,
+                "Initialization Failed",
+                f"DupeZ could not start:\n{detail}\n\n"
+                f"Diagnostic logs: {log_dir}",
             )
             sys.exit(1)
 
@@ -313,22 +396,46 @@ def main() -> None:
                 f"Details: {startup_health.get('message', 'unknown error')}",
             )
 
-        # Construct Chromium only after the controller is known-good. This
-        # keeps a native WebEngine/GPU failure from hiding an actionable
-        # controller exception. DUPEZ_DISABLE_WEBENGINE=1 provides a safe
-        # placeholder for damaged GPU stacks and deterministic GUI smoke tests.
-        try:
-            from app.gui.dayz_map_gui_new import (
-                DayZMapGUI,
-                set_prewarmed_map_gui,
-            )
-            _prewarmed_map = DayZMapGUI()
-            _prewarmed_map.hide()
-            set_prewarmed_map_gui(_prewarmed_map)
-            app.processEvents()
-            log_info("Map: prewarmed DayZMapGUI after controller startup")
-        except Exception as _prewarm_exc:
-            log_warning(f"Map prewarm failed (non-fatal): {_prewarm_exc}")
+        def _install_lazy_map(reason: str) -> None:
+            """Register a lightweight retryable map placeholder."""
+            try:
+                from app.gui.dayz_map_gui_new import set_prewarmed_map_gui
+                from app.gui.lazy_dayz_map import LazyDayZMapGUI
+
+                lazy_map = LazyDayZMapGUI()
+                lazy_map.hide()
+                set_prewarmed_map_gui(lazy_map)
+                log_info(f"Map: deferred until first tab open ({reason})")
+            except Exception as lazy_exc:
+                # Dashboard retains its normal cold-construction fallback.
+                log_warning(
+                    f"Map lazy registration failed (non-fatal): {lazy_exc}"
+                )
+
+        # Construct Chromium only after controller recovery is known-good.
+        # Capable systems retain prewarming; constrained systems defer the
+        # QWebEngineView and Chromium renderer until the Map tab is opened.
+        if resource_profile.prewarm_map:
+            try:
+                from app.gui.dayz_map_gui_new import (
+                    DayZMapGUI,
+                    set_prewarmed_map_gui,
+                )
+
+                _prewarmed_map = DayZMapGUI()
+                _prewarmed_map.hide()
+                set_prewarmed_map_gui(_prewarmed_map)
+                app.processEvents()
+                log_info(
+                    "Map: prewarmed DayZMapGUI after controller startup"
+                )
+            except Exception as prewarm_exc:
+                log_warning(
+                    f"Map prewarm failed (non-fatal): {prewarm_exc}"
+                )
+                _install_lazy_map("prewarm failure")
+        else:
+            _install_lazy_map("startup resource profile")
 
         # --- Phase 3: Main Window ---
         from app.gui.dashboard import DupeZDashboard
@@ -417,41 +524,82 @@ def main() -> None:
         except Exception as e:
             log_warning(f"OBS overlay autostart failed (non-fatal): {e}")
 
+        shutdown_state = {"done": False}
+
         def _shutdown_cleanup() -> None:
+            if shutdown_state["done"]:
+                return
+            shutdown_state["done"] = True
+
+            try:
+                hotkey.stop()
+            except Exception as exc:
+                log_warning(
+                    f"Hotkey shutdown failed (non-fatal): {exc}"
+                )
+
             try:
                 from app.core.patch_monitor import stop_background_monitoring
+
                 stop_background_monitoring()
                 log_info("Patch monitor stopped")
             except Exception:
                 pass
+
             try:
-                # v5.7.4: stop the OBS overlay HTTP server if it was
-                # started during Phase 4b.
                 if _overlay_server is not None:
                     _overlay_server.stop()
                     log_info("OBS overlay server stopped")
             except Exception:
                 pass
+
             try:
-                # Use the feature-flag factory so split-mode tears down the
-                # elevated helper cleanly over IPC instead of no-op'ing the
-                # in-process singleton (which isn't the real engine under
-                # DUPEZ_ARCH=split). Under inproc this is identical to the
-                # old direct import.
-                from app.firewall_helper.feature_flag import get_disruption_manager
+                # Use the architecture factory so split mode stops the
+                # elevated helper and in-process mode stops the local engine.
+                from app.firewall_helper.feature_flag import (
+                    get_disruption_manager,
+                )
+
                 get_disruption_manager().stop()
                 log_info("Disruption engine stopped")
-            except Exception as e:
-                log_error(f"Error stopping clumsy on exit: {e}")
-            controller.shutdown()
+            except Exception as exc:
+                log_error(f"Error stopping disruption engine on exit: {exc}")
+
+            try:
+                controller.shutdown()
+            except Exception as exc:
+                log_error(f"Controller shutdown failed: {exc}")
+
+            try:
+                qt_pool.clear()
+                if not qt_pool.waitForDone(3_000):
+                    log_warning(
+                        "Qt worker pool did not fully drain before exit"
+                    )
+            except Exception as exc:
+                log_warning(
+                    "Qt worker-pool shutdown failed "
+                    f"(non-fatal): {exc}"
+                )
+
             log_shutdown()
 
         app.aboutToQuit.connect(_shutdown_cleanup)
         sys.exit(app.exec())
 
+    except SystemExit:
+        raise
     except Exception as e:
         log_error(f"Unhandled exception in main: {e}")
-        QMessageBox.critical(None, "Critical Error", f"An error occurred:\n{e}")
+        try:
+            if QApplication.instance() is not None:
+                QMessageBox.critical(
+                    None,
+                    "Critical Error",
+                    f"An error occurred:\n{e}",
+                )
+        except Exception:
+            pass
         sys.exit(1)
 
 

@@ -76,6 +76,8 @@ class DupeZSplash(QSplashScreen):
         # Init results (set by pipeline)
         self.controller = None
         self.init_error: Optional[str] = None
+        self._cancel_event = threading.Event()
+        self._init_thread: Optional[threading.Thread] = None
 
         # Signals → slots
         self._status_signal.connect(self._set_status)
@@ -96,16 +98,49 @@ class DupeZSplash(QSplashScreen):
     # ── Public API ────────────────────────────────────────────────
 
     def run_init_pipeline(self, on_complete: Callable[[], None]) -> None:
-        """Start the background init thread.  ``on_complete`` is called
-        on the main thread when done (success or failure)."""
+        """Start the background initialization worker."""
         self._on_complete = on_complete
-        t = threading.Thread(target=self._pipeline, daemon=True, name="SplashInit")
-        t.start()
+        self._cancel_event.clear()
+        self._init_thread = threading.Thread(
+            target=self._pipeline,
+            daemon=True,
+            name="SplashInit",
+        )
+        self._init_thread.start()
+
+    def cancel_init_pipeline(self) -> None:
+        """Request cancellation between initialization phases."""
+        self._cancel_event.set()
+
+    def wait_for_init_pipeline(self, timeout_seconds: float = 1.0) -> bool:
+        """Wait briefly for cooperative cancellation.
+
+        Native calls already in progress cannot be interrupted safely. The
+        worker remains daemonized so a terminal startup failure cannot keep the
+        process alive.
+        """
+        thread = self._init_thread
+        if thread is None:
+            return True
+        thread.join(max(0.0, float(timeout_seconds)))
+        return not thread.is_alive()
 
     # ── Pipeline (runs on background thread) ─────────────────────
 
     def _pipeline(self) -> None:
         """Sequential init steps.  Each step: emit status → do work → emit progress."""
+        # Some focused tests call this method with a lightweight object rather
+        # than a fully constructed DupeZSplash. Treat a missing cancellation
+        # event as "not cancelled" so startup error handling remains testable
+        # and partially initialized splash objects fail predictably.
+        cancel_event = getattr(self, "_cancel_event", None)
+
+        def _cancel_requested() -> bool:
+            return bool(
+                cancel_event is not None
+                and cancel_event.is_set()
+            )
+
         steps: List[Tuple[str, float, Callable[[], None]]] = [
             ("Starting logging system...",       0.08, self._init_logging),
             ("Checking admin privileges...",      0.15, self._init_admin_check),
@@ -121,6 +156,13 @@ class DupeZSplash(QSplashScreen):
         ]
         try:
             for msg, target_progress, fn in steps:
+                if _cancel_requested():
+                    self.init_error = (
+                        self.init_error or "Initialization cancelled"
+                    )
+                    self._done_signal.emit()
+                    return
+
                 self._status_signal.emit(msg)
                 try:
                     fn()
@@ -137,6 +179,14 @@ class DupeZSplash(QSplashScreen):
                         self._error_signal.emit(self.init_error)
                         self._done_signal.emit()
                         return
+
+                if _cancel_requested():
+                    self.init_error = (
+                        self.init_error or "Initialization cancelled"
+                    )
+                    self._done_signal.emit()
+                    return
+
                 # Smooth progress without manufacturing a long startup delay.
                 current = getattr(self, '_last_progress', 0.0)
                 increments = 4
@@ -148,6 +198,11 @@ class DupeZSplash(QSplashScreen):
                 self._progress_signal.emit(target_progress)
                 self._last_progress = target_progress
                 time.sleep(0.04)
+
+            if _cancel_requested():
+                self.init_error = self.init_error or "Initialization cancelled"
+                self._done_signal.emit()
+                return
 
             # Hold at 100% so the user sees the finished state
             self._progress_signal.emit(1.0)

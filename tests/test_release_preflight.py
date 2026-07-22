@@ -20,7 +20,9 @@ from scripts.release_preflight import (
 
 
 def test_release_source_preflight_passes() -> None:
-    assert check_source("5.7.9") == []
+    # Derive the expected version from app/__version__.py so later patch
+    # releases do not fail because this test retained an obsolete literal.
+    assert check_source() == []
 
 
 def test_release_data_manifest_is_valid_and_explicit() -> None:
