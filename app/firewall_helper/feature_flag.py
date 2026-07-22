@@ -3,7 +3,9 @@
 
 Both architectures expose the same direct-Clumsy-aware surface. In split mode,
 the diagnostic-window action rides the existing authenticated generic control
-opcode rather than widening the privileged protocol.
+opcode rather than widening the privileged protocol. The Clumsy-specific status
+name aliases the existing overall status opcode, whose helper implementation
+already returns the direct manager's complete Clumsy status dictionary.
 """
 
 from __future__ import annotations
@@ -100,17 +102,24 @@ def is_split_mode() -> bool:
     return get_arch() == ARCH_SPLIT
 
 
-def _install_proxy_diagnostic_method(manager: Any) -> Any:
-    if hasattr(manager, "show_clumsy_diagnostic_window"):
-        return manager
+def _install_proxy_direct_clumsy_methods(manager: Any) -> Any:
+    """Expose direct-Clumsy convenience methods over existing IPC opcodes."""
 
-    def show_clumsy_diagnostic_window(target_ip: str) -> bool:
-        return bool(manager.hotkey_trigger(
-            "show_clumsy_diagnostic_window",
-            {"target_ip": target_ip},
-        ))
+    if not hasattr(manager, "show_clumsy_diagnostic_window"):
+        def show_clumsy_diagnostic_window(target_ip: str) -> bool:
+            return bool(manager.hotkey_trigger(
+                "show_clumsy_diagnostic_window",
+                {"target_ip": target_ip},
+            ))
 
-    manager.show_clumsy_diagnostic_window = show_clumsy_diagnostic_window
+        manager.show_clumsy_diagnostic_window = show_clumsy_diagnostic_window
+
+    if not hasattr(manager, "get_clumsy_status"):
+        # OP_GET_STATUS dispatches to manager.get_status(), whose direct-manager
+        # implementation delegates to get_clumsy_status(). No new privileged
+        # opcode or wider helper attack surface is needed.
+        manager.get_clumsy_status = manager.get_status
+
     return manager
 
 
@@ -120,7 +129,7 @@ def get_disruption_manager() -> Any:
     if is_split_mode():
         from app.firewall_helper.ipc_client import get_proxy_manager
 
-        return _install_proxy_diagnostic_method(get_proxy_manager())
+        return _install_proxy_direct_clumsy_methods(get_proxy_manager())
 
     from app.firewall.clumsy_diagnostics import (
         install_clumsy_diagnostic_bridge,
