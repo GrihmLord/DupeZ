@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 from app.gui.panels.ai_panel import AIPanel
 
 
-def test_smart_apply_proxy_is_rebound_to_engine_layer_wrapper():
+def test_smart_apply_proxy_is_rebound_to_full_clumsy_route_wrapper():
     original_calls = []
 
     def original_apply(profile, recommendation):
@@ -24,6 +24,13 @@ def test_smart_apply_proxy_is_rebound_to_engine_layer_wrapper():
     clumsy_view = SimpleNamespace(
         _panel_smart_apply_and_disrupt=original_apply,
     )
+    advanced_panel = SimpleNamespace(
+        augment_params=lambda params: {
+            **params,
+            "_clumsy_filter_predicate": "true",
+            "lag_direction": "both",
+        }
+    )
     event_panel = SimpleNamespace(
         augment_params=lambda params: {
             **params,
@@ -35,6 +42,7 @@ def test_smart_apply_proxy_is_rebound_to_engine_layer_wrapper():
     panel = SimpleNamespace(
         _advisor=object(),
         _clumsy_view=clumsy_view,
+        clumsy_advanced_panel=advanced_panel,
         event_panel=event_panel,
     )
 
@@ -56,6 +64,8 @@ def test_smart_apply_proxy_is_rebound_to_engine_layer_wrapper():
             {"platform": "pc"},
             {
                 "lag_delay": 900,
+                "_clumsy_filter_predicate": "true",
+                "lag_direction": "both",
                 "_engine_preference": "clumsy",
                 "_network_local": True,
                 "_network_layer_explicit": True,
@@ -63,7 +73,7 @@ def test_smart_apply_proxy_is_rebound_to_engine_layer_wrapper():
         )
     ]
     # The recommendation object remains reusable and does not retain transient
-    # UI routing metadata after the call.
+    # UI routing or advanced-control metadata after the call.
     assert recommendation.params == {"lag_delay": 900}
 
 
