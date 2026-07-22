@@ -15,6 +15,8 @@ Invariants:
 * Stop requests Clumsy's Stop state and window close before killing only the
   exact owned PID as a bounded fallback.
 * Explicit event capture layers survive target-profile tuning.
+* The owned GUI is launched visible long enough to verify its controls, then
+  the existing compatibility engine hides it after Start is confirmed.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 
+from app.core.safe_gui_subprocess import spawn_managed_gui
 from app.firewall import clumsy_network_disruptor as legacy
 from app.logs.logger import log_error, log_info, log_warning
 
@@ -68,13 +71,92 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
     ) -> None:
         super().__init__(clumsy_exe, clumsy_dir, filter_str, methods, params)
         self._last_error = ""
+        self._last_stage = "not_started"
         self._stop_mode = "not_stopped"
         self._contention_pids: tuple[int, ...] = ()
+        self._failure_diagnostics: list[dict[str, Any]] = []
 
-    def _fail(self, message: str) -> bool:
+    def _fail(self, message: str, *, stage: str = "failed") -> bool:
+        self._last_stage = stage
         self._last_error = str(message)
         log_error(message)
         return False
+
+    def _capture_failure_diagnostics(self) -> None:
+        """Capture a bounded Win32 control tree before cleanup destroys it."""
+
+        process = self._proc
+        if process is None or not hasattr(legacy.ctypes, "windll"):
+            return
+        try:
+            pid = int(process.pid)
+            user32 = legacy.ctypes.windll.user32
+            records: list[dict[str, Any]] = []
+
+            def describe(hwnd: int, *, top_level: bool) -> None:
+                if len(records) >= 120:
+                    return
+                class_buffer = legacy.ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(hwnd, class_buffer, 256)
+                text = legacy._get_window_text(hwnd)[:120]
+                try:
+                    control_id = int(user32.GetDlgCtrlID(hwnd))
+                except Exception:
+                    control_id = -1
+                records.append(
+                    {
+                        "top_level": bool(top_level),
+                        "class": class_buffer.value[:80],
+                        "text": text,
+                        "control_id": control_id,
+                        "visible": bool(user32.IsWindowVisible(hwnd)),
+                        "enabled": bool(user32.IsWindowEnabled(hwnd)),
+                    }
+                )
+
+            def enumerate_children(parent_hwnd: int) -> None:
+                def child_callback(child_hwnd, _lparam):
+                    describe(int(child_hwnd), top_level=False)
+                    return len(records) < 120
+
+                user32.EnumChildWindows(
+                    parent_hwnd,
+                    legacy.WNDENUMPROC(child_callback),
+                    0,
+                )
+
+            def window_callback(hwnd, _lparam):
+                window_pid = legacy.wintypes.DWORD()
+                user32.GetWindowThreadProcessId(
+                    hwnd,
+                    legacy.ctypes.byref(window_pid),
+                )
+                if int(window_pid.value) == pid:
+                    describe(int(hwnd), top_level=True)
+                    enumerate_children(int(hwnd))
+                return len(records) < 120
+
+            user32.EnumWindows(legacy.WNDENUMPROC(window_callback), 0)
+            self._failure_diagnostics = records
+            if records:
+                summary = "; ".join(
+                    f"{item['class']}:{item['text']!r}:visible={item['visible']}"
+                    for item in records[:20]
+                )
+                log_error(
+                    "Direct Clumsy control snapshot before cleanup: " + summary
+                )
+            else:
+                log_error(
+                    "Direct Clumsy control snapshot found no windows for owned "
+                    f"PID={pid}"
+                )
+        except Exception as exc:
+            log_warning(f"Direct Clumsy diagnostic snapshot failed: {exc}")
+
+    def _cleanup(self) -> None:
+        self._capture_failure_diagnostics()
+        super()._cleanup()
 
     def start(self) -> bool:
         """Start the exact bundled process without global process sweeps."""
@@ -82,7 +164,9 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
         self._startup_verified = False
         self._runtime_verified = False
         self._last_error = ""
+        self._last_stage = "compatibility"
         self._stop_mode = "not_stopped"
+        self._failure_diagnostics = []
 
         with _PROCESS_TRANSITION_LOCK:
             try:
@@ -93,10 +177,12 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                 if not compatibility.representable:
                     return self._fail(
                         "Direct Clumsy refused a non-equivalent request: "
-                        f"{compatibility.reason}"
+                        f"{compatibility.reason}",
+                        stage="compatibility",
                     )
                 self.methods = list(compatibility.methods)
 
+                self._last_stage = "contention_check"
                 # Never terminate a process we did not create. A standalone
                 # Clumsy window remains available for diagnostics.
                 self._contention_pids = _running_clumsy_pids()
@@ -104,9 +190,11 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                     return self._fail(
                         "Direct Clumsy is already running outside this event "
                         f"(PID count={len(self._contention_pids)}). Stop that "
-                        "session or select Native/Auto; no process was killed."
+                        "session or select Native/Auto; no process was killed.",
+                        stage="contention_check",
                     )
 
+                self._last_stage = "configuration"
                 self._write_config()
                 self._write_presets()
                 for filename, minimum_size in (
@@ -116,31 +204,40 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                     path = os.path.join(self.clumsy_dir, filename)
                     if not os.path.isfile(path):
                         return self._fail(
-                            f"Direct Clumsy configuration missing: {path}"
+                            f"Direct Clumsy configuration missing: {path}",
+                            stage="configuration",
                         )
                     if os.path.getsize(path) < minimum_size:
                         return self._fail(
-                            f"Direct Clumsy configuration is incomplete: {path}"
+                            f"Direct Clumsy configuration is incomplete: {path}",
+                            stage="configuration",
                         )
 
                 executable = os.path.abspath(self.clumsy_exe)
                 if legacy._safe_sp is None:
                     return self._fail(
                         "Direct Clumsy cannot start because safe_subprocess "
-                        "is unavailable"
+                        "is unavailable",
+                        stage="launch",
                     )
 
                 use_silent = self._detect_silent_support(executable)
                 argv = [executable, "--silent"] if use_silent else [executable]
-                self._proc = legacy._safe_sp.spawn_managed(
+                self._last_stage = "visible_gui_launch"
+                # Clumsy's controls can only be discovered after its IUP window
+                # becomes visible. The generic managed launcher applies
+                # STARTUPINFO/SW_HIDE, which made the old integration search for
+                # a window it had itself hidden. This dedicated launcher keeps
+                # every other subprocess invariant and omits only SW_HIDE.
+                self._proc = spawn_managed_gui(
                     argv,
                     cwd=self.clumsy_dir,
                     trusted_executable=False,
-                    intent="clumsy.direct_owned_launch",
+                    intent="clumsy.direct_owned_visible_launch",
                 )
                 log_info(
-                    "Direct Clumsy launched as owned child: "
-                    f"PID={self._proc.pid}"
+                    "Direct Clumsy launched as visible owned child for "
+                    f"verification: PID={self._proc.pid}"
                 )
 
                 if use_silent:
@@ -150,21 +247,33 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                         self._proc = None
                         return self._fail(
                             "Direct Clumsy silent launch exited immediately "
-                            f"(rc={return_code})"
+                            f"(rc={return_code})",
+                            stage="silent_launch",
                         )
                     self._startup_verified = True
+                    self._last_stage = "running"
                     return True
 
+                self._last_stage = "gui_verification"
                 if not self._start_gui_automation():
+                    diagnostic_summary = ""
+                    if self._failure_diagnostics:
+                        diagnostic_summary = " Controls observed: " + "; ".join(
+                            f"{item['class']}:{item['text']!r}"
+                            for item in self._failure_diagnostics[:12]
+                        )
                     self._last_error = (
                         self._last_error
-                        or "Clumsy controls or Start state could not be verified; "
-                        "review the DupeZ log and use diagnostic window mode."
+                        or "Clumsy GUI/layer/control/Start verification failed "
+                        f"during {self._last_stage}.{diagnostic_summary}"
                     )
                     return False
+                self._last_stage = "running"
                 return True
             except Exception as exc:
-                self._last_error = f"Direct Clumsy start failed: {exc}"
+                self._last_error = (
+                    f"Direct Clumsy start failed during {self._last_stage}: {exc}"
+                )
                 log_error(self._last_error)
                 self._cleanup()
                 return False
@@ -263,6 +372,8 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
             ),
             filter_expression=self.filter_str,
             last_error=self._last_error,
+            failure_stage=self._last_stage,
+            diagnostic_controls=list(self._failure_diagnostics[:30]),
             stop_mode=self._stop_mode,
             contention_detected=bool(self._contention_pids),
             contention_process_count=len(self._contention_pids),
@@ -493,6 +604,8 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
                 "verification_state",
                 "capture_layer",
                 "last_error",
+                "failure_stage",
+                "diagnostic_controls",
                 "stop_mode",
                 "owned_process",
             ):
