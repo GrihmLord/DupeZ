@@ -55,9 +55,10 @@ jobs:
         env:
           DUPEZ_OFFSEC_CONSENT: ""
           DUPEZ_SECOND_FACTOR_DISABLED: "1"
+          PYTHONFAULTHANDLER: "1"
         run: |
           set +e
-          python -m pytest tests/ -q --maxfail=5 \
+          python -X faulthandler -m pytest tests/ -vv --maxfail=5 \
             --junitxml=pytest-${{ matrix.python-version }}.xml \
             --cov=app.core.second_factor \
             --cov=app.gui.dayz_account_tracker \
@@ -70,8 +71,8 @@ jobs:
         if: steps.pytest.outputs.exit_code != '0'
         shell: bash
         run: |
-          echo "::group::Last 300 lines of pytest output"
-          tail -n 300 pytest-${{ matrix.python-version }}.log || true
+          echo "::group::Last 400 lines of pytest output"
+          tail -n 400 pytest-${{ matrix.python-version }}.log || true
           echo "::endgroup::"
 
       - name: Upload pytest diagnostics
