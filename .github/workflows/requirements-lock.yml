@@ -6,8 +6,6 @@ name: Requirements Lock Verification
 #   3. `pip install --require-hashes` can resolve the committed artifact
 #
 # requirements-locked.txt declares Python 3.11 as its canonical compiler.
-# Regenerating it under a different interpreter changes environment markers and
-# can produce a false out-of-sync failure even when requirements.in is unchanged.
 
 on:
   push:
@@ -53,22 +51,50 @@ jobs:
             exit 1
           fi
 
-      - name: Verify lockfile is in sync with requirements.in
+      - name: Resolve canonical lock and capture drift
+        id: lock_drift
+        shell: bash
         run: |
-          cp requirements-locked.txt /tmp/old-lock.txt
+          set -euo pipefail
+          cp requirements-locked.txt /tmp/committed-requirements-locked.txt
           pip-compile \
             --generate-hashes \
             --resolver=backtracking \
-            --output-file=requirements-locked.txt \
+            --output-file=/tmp/generated-requirements-locked.txt \
             requirements.in
-          if ! diff -q /tmp/old-lock.txt requirements-locked.txt > /dev/null; then
+          if diff -u \
+              /tmp/committed-requirements-locked.txt \
+              /tmp/generated-requirements-locked.txt \
+              > /tmp/requirements-lock.diff; then
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "requirements-locked.txt is in sync."
+          else
+            echo "drift=true" >> "$GITHUB_OUTPUT"
             echo "::error::requirements-locked.txt is OUT OF SYNC with requirements.in."
-            echo "::error::Run scripts/lock-requirements.sh with Python 3.11 and commit the regenerated file."
-            diff /tmp/old-lock.txt requirements-locked.txt | head -60 || true
-            exit 1
+            echo "::error::Download the requirements-lock-drift artifact for the exact generated lock and unified diff."
+            head -80 /tmp/requirements-lock.diff || true
           fi
 
+      - name: Upload lock drift diagnostics
+        if: steps.lock_drift.outputs.drift == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: requirements-lock-drift-${{ github.run_id }}
+          path: |
+            /tmp/committed-requirements-locked.txt
+            /tmp/generated-requirements-locked.txt
+            /tmp/requirements-lock.diff
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail on lock drift
+        if: steps.lock_drift.outputs.drift == 'true'
+        run: |
+          echo "Regenerate requirements-locked.txt with canonical Python 3.11."
+          exit 1
+
       - name: Dry-run --require-hashes install
+        if: steps.lock_drift.outputs.drift != 'true'
         run: |
           python -m pip install --dry-run --require-hashes \
             -r requirements-locked.txt || {
