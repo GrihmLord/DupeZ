@@ -1,19 +1,9 @@
 # app/firewall_helper/feature_flag.py
-"""
-Resolves the DUPEZ_ARCH feature flag and provides the disruption-manager
-factory that callers use instead of importing a manager singleton directly.
+"""Resolve the DupeZ firewall architecture and return its manager façade.
 
-Usage::
-
-    from app.firewall_helper.feature_flag import get_disruption_manager
-    disruption_manager = get_disruption_manager()
-
-Under ``DUPEZ_ARCH=inproc`` this returns the owned direct-Clumsy manager from
-``app.firewall.direct_clumsy_manager``. Under ``DUPEZ_ARCH=split`` it returns a
-``DisruptionManagerProxy`` that forwards every call over authenticated named-
-pipe IPC to the elevated helper. The helper imports the same direct manager, so
-engine selection, contention handling, and graceful process ownership remain
-identical across both build variants.
+Both architectures expose the same direct-Clumsy-aware surface. In split mode,
+the diagnostic-window action rides the existing authenticated generic control
+opcode rather than widening the privileged protocol.
 """
 
 from __future__ import annotations
@@ -27,8 +17,6 @@ ARCH_SPLIT = "split"
 _VALID_ARCHS = frozenset({ARCH_INPROC, ARCH_SPLIT})
 _ENV_VAR = "DUPEZ_ARCH"
 
-# Build variants write _build_default.py next to this module before invoking
-# PyInstaller. Source checkouts fall back to inproc.
 try:
     from app.firewall_helper._build_default import (  # type: ignore
         _BUILD_DEFAULT_ARCH as _COMPILED_DEFAULT,
@@ -93,45 +81,50 @@ def _detect_gpu_available() -> bool:
 
 
 def get_arch() -> str:
-    """Return the validated active architecture mode.
-
-    Resolution order:
-      1. explicit ``DUPEZ_ARCH`` environment override;
-      2. compiled build default;
-      3. GPU auto-detection fallback;
-      4. hard ``inproc`` fallback.
-    """
+    """Return the validated active architecture mode."""
 
     environment_value = os.environ.get(_ENV_VAR, "").strip().lower()
     if environment_value in _VALID_ARCHS:
         return environment_value
-
     if _DEFAULT_ARCH in _VALID_ARCHS:
         return _DEFAULT_ARCH
-
     try:
         if _detect_gpu_available():
             return ARCH_SPLIT
     except Exception:
         pass
-
     return ARCH_INPROC
 
 
 def is_split_mode() -> bool:
-    """Return whether the GUI uses the elevated-helper architecture."""
-
     return get_arch() == ARCH_SPLIT
 
 
+def _install_proxy_diagnostic_method(manager: Any) -> Any:
+    if hasattr(manager, "show_clumsy_diagnostic_window"):
+        return manager
+
+    def show_clumsy_diagnostic_window(target_ip: str) -> bool:
+        return bool(manager.hotkey_trigger(
+            "show_clumsy_diagnostic_window",
+            {"target_ip": target_ip},
+        ))
+
+    manager.show_clumsy_diagnostic_window = show_clumsy_diagnostic_window
+    return manager
+
+
 def get_disruption_manager() -> Any:
-    """Return the active direct-Clumsy-aware manager or IPC proxy."""
+    """Return the direct-Clumsy-aware manager or authenticated IPC proxy."""
 
     if is_split_mode():
         from app.firewall_helper.ipc_client import get_proxy_manager
 
-        return get_proxy_manager()
+        return _install_proxy_diagnostic_method(get_proxy_manager())
 
+    from app.firewall.clumsy_diagnostics import (
+        install_clumsy_diagnostic_bridge,
+    )
     from app.firewall.direct_clumsy_manager import disruption_manager
 
-    return disruption_manager
+    return install_clumsy_diagnostic_bridge(disruption_manager)
