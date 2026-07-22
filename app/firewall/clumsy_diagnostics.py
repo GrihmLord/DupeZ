@@ -121,6 +121,9 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
         trigger_owned_rst_next_packet,
     )
     from app.firewall.clumsy_full_status import install_full_clumsy_status
+    from app.firewall.clumsy_preset_wire import (
+        install_clumsy_preset_wire_compatibility,
+    )
     from app.firewall.clumsy_private_api_compat import (
         install_private_selector_compatibility,
     )
@@ -131,15 +134,18 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
     from app.firewall.iup_toggle_sync import install_iup_toggle_sync
 
     # Order matters: full-controls installs the non-numeric control bridge,
-    # then the deterministic toggle adapter replaces its callback helper. Both
-    # edit and toggle callbacks therefore use synchronous parent notifications
-    # in Compat and elevated-helper modes. Status forwards only bounded control
-    # metadata. The final compatibility adapter never accepts unscoped input;
-    # it can only recover the one private target the manager already owns.
+    # then deterministic toggle and preset-wire adapters replace the fragile
+    # callback/name paths. Numeric and toggle callbacks use synchronous parent
+    # notifications in Compat and elevated-helper modes, while display labels
+    # remain separate from the fork's unquoted IUP attribute wire names. Status
+    # forwards only bounded control metadata. The final compatibility adapter
+    # never accepts unscoped input; it can only recover the one private target
+    # the manager already owns.
     install_direct_clumsy_runtime()
     install_iup_edit_sync()
     install_clumsy_full_controls()
     install_iup_toggle_sync()
+    install_clumsy_preset_wire_compatibility()
     install_full_clumsy_status()
     install_private_selector_compatibility()
 
