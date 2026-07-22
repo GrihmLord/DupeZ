@@ -15,8 +15,9 @@ compatibility helpers and the exact bundled binary while adding:
 * unchanged strict verification of layer, module toggles, sub-controls,
   numeric callbacks, and Start->Stop transition.
 
-The installer is called by the common diagnostics bridge, so Compat/in-process
-and GPU/elevated-helper architectures receive the identical implementation.
+Detailed errors produced by the control adapters are retained. A stage-level
+fallback is used only when the failing adapter did not provide its own control
+name, expected value, observed value, or Win32 callback result.
 """
 
 from __future__ import annotations
@@ -119,10 +120,34 @@ def _wait_for_control_tree(engine: ManagedClumsyEngine) -> bool:
     return False
 
 
+def _retain_adapter_error(
+    engine: ManagedClumsyEngine,
+    fallback: str,
+) -> str:
+    detail = str(getattr(engine, "_last_error", "") or "").strip()
+    if detail:
+        return detail
+    return fallback
+
+
+def _fail_stage(
+    engine: ManagedClumsyEngine,
+    fallback: str,
+) -> bool:
+    engine._last_error = _retain_adapter_error(engine, fallback)
+    log_error(
+        f"Clumsy startup failed during {engine._last_stage}: "
+        f"{engine._last_error}"
+    )
+    engine._cleanup()
+    return False
+
+
 def _staged_start_gui_automation(engine: ManagedClumsyEngine) -> bool:
     """Verify the entire fork GUI before reporting an active disruption."""
 
     engine._startup_verified = False
+    engine._last_error = ""
     try:
         engine._last_stage = "window_discovery"
         if engine._proc is None:
@@ -151,10 +176,12 @@ def _staged_start_gui_automation(engine: ManagedClumsyEngine) -> bool:
 
         engine._last_stage = "control_tree_readiness"
         if not _wait_for_control_tree(engine):
-            log_error(engine._last_error)
-            engine._cleanup()
-            return False
+            return _fail_stage(
+                engine,
+                "Clumsy Functions control tree did not become ready",
+            )
 
+        engine._last_error = ""
         engine._last_stage = "network_layer"
         if not engine._select_network_layer():
             requested = (
@@ -162,47 +189,46 @@ def _staged_start_gui_automation(engine: ManagedClumsyEngine) -> bool:
                 if engine.params.get("_network_local")
                 else "Remote / NETWORK_FORWARD"
             )
-            engine._last_error = (
+            return _fail_stage(
+                engine,
                 "Clumsy could not confirm the requested capture layer: "
-                f"{requested}"
+                f"{requested}",
             )
-            engine._cleanup()
-            return False
 
+        engine._last_error = ""
         engine._last_stage = "module_toggles"
         if not engine._enable_modules():
-            engine._last_error = (
-                "Clumsy did not confirm every requested top-level module toggle"
+            return _fail_stage(
+                engine,
+                "Clumsy did not confirm every requested top-level module toggle",
             )
-            engine._cleanup()
-            return False
 
+        engine._last_error = ""
         engine._last_stage = "sub_checkboxes"
         if not engine._click_sub_checkboxes():
-            engine._last_error = (
-                "Clumsy did not confirm every requested module sub-checkbox"
+            return _fail_stage(
+                engine,
+                "Clumsy did not confirm every requested module sub-checkbox",
             )
-            engine._cleanup()
-            return False
 
+        engine._last_error = ""
         engine._last_stage = "numeric_inputs"
         if not engine._set_input_values():
-            engine._last_error = (
-                "Clumsy did not confirm every requested numeric input callback"
+            return _fail_stage(
+                engine,
+                "Clumsy did not confirm every requested numeric input callback",
             )
-            engine._cleanup()
-            return False
 
+        engine._last_error = ""
         engine._last_stage = "start_filtering"
         started = engine._click_start_button()
         if not started:
             started = engine._try_keybind_fallback()
         if not started:
-            engine._last_error = (
-                "Clumsy Start control did not transition to Stop"
+            return _fail_stage(
+                engine,
+                "Clumsy Start control did not transition to Stop",
             )
-            engine._cleanup()
-            return False
 
         time.sleep(0.1)
         exit_code = _process_exit_code(engine)
