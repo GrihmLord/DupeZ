@@ -143,6 +143,54 @@ def test_existing_stop_buttons_are_wired_to_stop_panel_queue():
     assert stop_all_signal.connections == [callback]
 
 
+def test_pending_stop_keeps_competing_controls_locked():
+    runner = SimpleNamespace(
+        running=True,
+        stop=MagicMock(),
+    )
+    stop_button = _Widget()
+    status = SimpleNamespace(setText=MagicMock())
+    set_running = MagicMock()
+    panel = SimpleNamespace(
+        _runner=runner,
+        _set_queue_running=set_running,
+        stop_button=stop_button,
+        queue_status=status,
+    )
+
+    DisruptionEventPanel.stop_runner(panel)
+
+    runner.stop.assert_called_once_with()
+    assert panel._runner is runner
+    set_running.assert_called_once_with(True)
+    assert stop_button.enabled is False
+    status.setText.assert_called_with(
+        "Queue stopping… waiting for the current engine operation"
+    )
+
+
+def test_completed_stop_releases_runner_and_controls():
+    runner = SimpleNamespace(
+        running=False,
+        stop=MagicMock(),
+    )
+    status = SimpleNamespace(setText=MagicMock())
+    set_running = MagicMock()
+    panel = SimpleNamespace(
+        _runner=runner,
+        _set_queue_running=set_running,
+        stop_button=_Widget(),
+        queue_status=status,
+    )
+
+    DisruptionEventPanel.stop_runner(panel)
+
+    runner.stop.assert_called_once_with()
+    assert panel._runner is None
+    set_running.assert_called_once_with(False)
+    status.setText.assert_called_with("Queue stopped")
+
+
 def test_diagnostic_action_falls_back_to_controller_private_manager():
     show = MagicMock(return_value=True)
     status_label = SimpleNamespace(setText=MagicMock())
