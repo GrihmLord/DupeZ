@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import gc
+import weakref
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from PyQt6.QtCore import QCoreApplication, QEvent
 from PyQt6.QtWidgets import QApplication, QCheckBox, QDoubleSpinBox
 
 from app.gui.panels.clumsy_advanced_panel import ClumsyAdvancedPanel
@@ -50,6 +53,14 @@ def _view():
     return view, manager
 
 
+def _flush_deferred_deletes(qapp) -> None:
+    QCoreApplication.sendPostedEvents(
+        None,
+        QEvent.Type.DeferredDelete,
+    )
+    qapp.processEvents()
+
+
 def test_panel_defaults_to_true_and_both_directions(qapp):
     view, _manager = _view()
     panel = ClumsyAdvancedPanel(view, settings=MemorySettings())
@@ -67,7 +78,7 @@ def test_panel_defaults_to_true_and_both_directions(qapp):
     assert params["_clumsy_trigger_mode"] == "toggle"
 
     panel.deleteLater()
-    qapp.processEvents()
+    _flush_deferred_deletes(qapp)
 
 
 def test_panel_wraps_manual_collect_params_and_persists_overrides(qapp):
@@ -100,7 +111,27 @@ def test_panel_wraps_manual_collect_params_and_persists_overrides(qapp):
     )
 
     panel.deleteLater()
-    qapp.processEvents()
+    _flush_deferred_deletes(qapp)
+
+
+def test_param_adapter_restores_original_collector_on_qt_destroy(qapp):
+    view, _manager = _view()
+    original = view._collect_params
+    panel = ClumsyAdvancedPanel(view, settings=MemorySettings())
+    panel_reference = weakref.ref(panel)
+
+    assert view._collect_params is not original
+    assert view._collect_params()["_clumsy_filter_predicate"] == "true"
+
+    panel.deleteLater()
+    _flush_deferred_deletes(qapp)
+
+    assert view._collect_params is original
+    assert not hasattr(view, "_clumsy_advanced_param_adapter")
+
+    del panel
+    gc.collect()
+    assert panel_reference() is None
 
 
 def test_timer_mode_keeps_event_duration_coherent(qapp):
@@ -121,7 +152,7 @@ def test_timer_mode_keeps_event_duration_coherent(qapp):
 
     panel.deleteLater()
     event_panel.duration_spin.deleteLater()
-    qapp.processEvents()
+    _flush_deferred_deletes(qapp)
 
 
 def test_live_rst_button_uses_authenticated_manager_action(qapp):
@@ -137,4 +168,4 @@ def test_live_rst_button_uses_authenticated_manager_action(qapp):
     assert "one-shot armed" in panel.status_label.text().lower()
 
     panel.deleteLater()
-    qapp.processEvents()
+    _flush_deferred_deletes(qapp)
