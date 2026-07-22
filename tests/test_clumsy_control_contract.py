@@ -177,7 +177,10 @@ def test_named_config_writer_sanitizes_record_name(tmp_path):
     controls._write_config_with_named_scope(engine)
     content = (tmp_path / "config.txt").read_text(encoding="utf-8")
     assert content.count("\n") == 1
-    assert content.startswith("MyTarget Injected: ip.SrcAddr")
+    name, separator, expression = content.partition(": ")
+    assert name == "MyTargetInjected"
+    assert separator == ": "
+    assert expression.startswith("ip.SrcAddr == 192.168.137.2")
 
 
 def test_owned_rst_action_requires_live_managed_engine(monkeypatch, tmp_path):
