@@ -114,11 +114,16 @@ def _install_proxy_direct_clumsy_methods(manager: Any) -> Any:
 
         manager.show_clumsy_diagnostic_window = show_clumsy_diagnostic_window
 
-    if not hasattr(manager, "get_clumsy_status"):
+    status_method = getattr(manager, "get_status", None)
+    if (
+        not hasattr(manager, "get_clumsy_status")
+        and callable(status_method)
+    ):
         # OP_GET_STATUS dispatches to manager.get_status(), whose direct-manager
         # implementation delegates to get_clumsy_status(). No new privileged
-        # opcode or wider helper attack surface is needed.
-        manager.get_clumsy_status = manager.get_status
+        # opcode or wider helper attack surface is needed. Diagnostic-only test
+        # adapters are intentionally tolerated when they do not expose status.
+        manager.get_clumsy_status = status_method
 
     return manager
 
