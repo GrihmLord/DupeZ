@@ -57,6 +57,7 @@ class AIPanel(QWidget):
         self._advisor = ConfiguredLLMAdvisor.from_settings()
         self._provider_result.connect(self._apply_provider_result)
         self.destroyed.connect(lambda _obj=None: self._advisor.cancel_pending())
+        self._expose_live_disruption_manager()
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -98,6 +99,21 @@ class AIPanel(QWidget):
         layout.addStretch(1)
         scroll.setWidget(inner)
         outer.addWidget(scroll)
+
+    def _expose_live_disruption_manager(self) -> None:
+        """Expose the controller's active manager to diagnostic UI controls.
+
+        ``AppController`` intentionally stores the architecture-selected manager
+        on ``_disruption_manager``. The event panel previously looked only for a
+        nonexistent public attribute, so its diagnostic button was permanently
+        unavailable even while direct Clumsy was running. Expose the exact live
+        instance without creating or importing a second manager.
+        """
+
+        controller = getattr(self._clumsy_view, "controller", None)
+        manager = getattr(controller, "_disruption_manager", None)
+        if controller is not None and manager is not None:
+            controller.disruption_manager = manager
 
     def _build_provider_group(self, parent: QWidget) -> QGroupBox:
         group = QGroupBox("SMART OPS PROVIDER", parent)
@@ -214,8 +230,10 @@ class AIPanel(QWidget):
             previous.cancel_pending()
         smart_panel._smart_advisor = self._advisor
 
-        original = smart_panel.apply_and_disrupt
-        if getattr(smart_panel, "_direct_route_wrapper", None) is None:
+        wrapper = getattr(smart_panel, "_direct_route_wrapper", None)
+        if wrapper is None:
+            original = smart_panel.apply_and_disrupt
+
             def routed_apply(profile, recommendation):
                 original_params = recommendation.params
                 recommendation.params = self.event_panel.augment_params(
@@ -226,8 +244,14 @@ class AIPanel(QWidget):
                 finally:
                     recommendation.params = original_params
 
-            smart_panel._direct_route_wrapper = routed_apply
-            smart_panel.apply_and_disrupt = routed_apply
+            wrapper = routed_apply
+            smart_panel._direct_route_wrapper = wrapper
+            smart_panel.apply_and_disrupt = wrapper
+
+        # ClumsyControlView caches this callable before AIPanel is constructed
+        # and its click proxy invokes the cached value. Rebind that cache to the
+        # routed callable or Smart recommendations bypass engine/layer choices.
+        self._clumsy_view._panel_smart_apply_and_disrupt = wrapper
 
     def _sync_provider_fields(self, _index: int = -1) -> None:
         provider = str(self.provider_combo.currentData() or "none")
