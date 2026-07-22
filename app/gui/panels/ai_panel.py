@@ -1,5 +1,5 @@
 # app/gui/panels/ai_panel.py — Consolidated AI / Smart Ops panel
-"""Unified Smart Ops, direct engine, event, ML, voice, and provider controls."""
+"""Unified Smart Ops, direct Clumsy, event, ML, voice, and provider controls."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.ai.secure_llm_runtime import ConfiguredLLMAdvisor, SecureLLMConfig
+from app.gui.panels.clumsy_advanced_panel import ClumsyAdvancedPanel
 from app.gui.panels.disruption_event_panel import DisruptionEventPanel
 from app.logs.logger import log_error
 
@@ -75,9 +76,17 @@ class AIPanel(QWidget):
         layout.setSpacing(10)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        # Direct engine routing affects manual actions, queued events, and
-        # SmartEngine recommendations.
+        # Advanced values wrap ClumsyControlView._collect_params first. The event
+        # panel then adds engine/layer routing, preserving one deterministic
+        # parameter path for manual actions, Smart Ops, and persisted queues.
+        self.clumsy_advanced_panel = ClumsyAdvancedPanel(
+            clumsy_view,
+            parent=inner,
+        )
+        layout.addWidget(self.clumsy_advanced_panel)
+
         self.event_panel = DisruptionEventPanel(clumsy_view, parent=inner)
+        self.clumsy_advanced_panel.bind_event_panel(self.event_panel)
         layout.addWidget(self.event_panel)
 
         layout.addWidget(self._build_provider_group(inner))
@@ -101,14 +110,7 @@ class AIPanel(QWidget):
         outer.addWidget(scroll)
 
     def _expose_live_disruption_manager(self) -> None:
-        """Expose the controller's active manager to diagnostic UI controls.
-
-        ``AppController`` intentionally stores the architecture-selected manager
-        on ``_disruption_manager``. The event panel previously looked only for a
-        nonexistent public attribute, so its diagnostic button was permanently
-        unavailable even while direct Clumsy was running. Expose the exact live
-        instance without creating or importing a second manager.
-        """
+        """Expose the controller's exact active manager to control actions."""
 
         controller = getattr(self._clumsy_view, "controller", None)
         manager = getattr(controller, "_disruption_manager", None)
@@ -236,8 +238,11 @@ class AIPanel(QWidget):
 
             def routed_apply(profile, recommendation):
                 original_params = recommendation.params
-                recommendation.params = self.event_panel.augment_params(
+                advanced = self.clumsy_advanced_panel.augment_params(
                     original_params
+                )
+                recommendation.params = self.event_panel.augment_params(
+                    advanced
                 )
                 try:
                     return original(profile, recommendation)
@@ -248,9 +253,7 @@ class AIPanel(QWidget):
             smart_panel._direct_route_wrapper = wrapper
             smart_panel.apply_and_disrupt = wrapper
 
-        # ClumsyControlView caches this callable before AIPanel is constructed
-        # and its click proxy invokes the cached value. Rebind that cache to the
-        # routed callable or Smart recommendations bypass engine/layer choices.
+        # ClumsyControlView caches this callable before AIPanel is constructed.
         self._clumsy_view._panel_smart_apply_and_disrupt = wrapper
 
     def _sync_provider_fields(self, _index: int = -1) -> None:
@@ -292,7 +295,9 @@ class AIPanel(QWidget):
             return True
         except Exception as exc:
             log_error(f"Smart Ops provider configuration failed: {exc}")
-            self.provider_status.setText(f"Provider configuration failed: {exc}")
+            self.provider_status.setText(
+                f"Provider configuration failed: {exc}"
+            )
             return False
 
     @pyqtSlot()
