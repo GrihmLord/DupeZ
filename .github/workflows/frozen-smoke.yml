@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: frozen-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-frozen-variants:
     name: GPU and Compat frozen boundary
@@ -47,7 +51,10 @@ jobs:
 
       - name: Build canonical unsigned variants
         shell: cmd
-        run: packaging\build_variants.bat
+        # The release batch file contains interactive `pause` statements on
+        # error for local operators. Feed one newline so CI reports the real
+        # non-zero exit instead of hanging until the job timeout.
+        run: echo. | call packaging\build_variants.bat
 
       - name: Verify expected portable artifacts
         shell: pwsh
