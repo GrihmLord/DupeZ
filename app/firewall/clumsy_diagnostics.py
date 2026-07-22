@@ -1,11 +1,15 @@
-# app/firewall/clumsy_diagnostics.py — diagnostic control adapter
-"""Install the diagnostic action shared by both firewall architectures.
+# app/firewall/clumsy_diagnostics.py — diagnostic and runtime adapter
+"""Install the direct-Clumsy runtime and diagnostic actions.
 
 Clumsy is hidden by making its window transparent, removing it from normal
 application switching, moving it to ``(-32000, -32000)``, and finally calling
 ``ShowWindow(SW_HIDE)``. A useful diagnostic action must reverse every one of
 those changes; simply calling ``ShowWindow`` leaves the process invisible and
 off-screen.
+
+The same bridge is installed in both in-process and elevated-helper modes, so
+it is also the single installation point for the staged full-control-tree
+runtime verification.
 """
 
 from __future__ import annotations
@@ -46,8 +50,6 @@ def _restore_owned_window(manager: Any, target_ip: str) -> bool:
         user32 = legacy.ctypes.windll.user32
         style = int(user32.GetWindowLongW(hwnd, legacy.GWL_EXSTYLE))
 
-        # Restore opacity before removing WS_EX_LAYERED, then restore normal
-        # taskbar/Alt+Tab behavior by removing WS_EX_TOOLWINDOW as well.
         user32.SetLayeredWindowAttributes(
             hwnd,
             0,
@@ -110,13 +112,13 @@ def _restore_owned_window(manager: Any, target_ip: str) -> bool:
 
 
 def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
-    """Attach an authenticated diagnostic-window action to *manager*.
+    """Install the staged runtime and authenticated diagnostic action."""
 
-    The split helper already exposes an authenticated, allow-listed generic
-    control opcode for small operator actions. Reusing it avoids widening the
-    privileged protocol. Existing hotkey behavior is preserved for all other
-    actions.
-    """
+    from app.firewall.direct_clumsy_runtime import (
+        install_direct_clumsy_runtime,
+    )
+
+    install_direct_clumsy_runtime()
 
     if getattr(manager, "_clumsy_diagnostic_bridge_installed", False):
         return manager
