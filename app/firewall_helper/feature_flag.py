@@ -123,6 +123,11 @@ def _install_proxy_direct_clumsy_methods(manager: Any) -> Any:
     return manager
 
 
+# Backward-compatible private name retained for existing tests and internal
+# integrations. It now installs the complete direct-Clumsy proxy surface.
+_install_proxy_diagnostic_method = _install_proxy_direct_clumsy_methods
+
+
 def get_disruption_manager() -> Any:
     """Return the direct-Clumsy-aware manager or authenticated IPC proxy."""
 
