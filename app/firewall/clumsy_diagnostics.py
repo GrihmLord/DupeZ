@@ -9,8 +9,8 @@ off-screen.
 
 The same bridge is installed in both in-process and elevated-helper modes. It
 is therefore the single installation point for staged control-tree readiness,
-deterministic IUP numeric synchronization, the complete 0.3.4 control adapter,
-and owned diagnostic/RST actions.
+deterministic IUP numeric/toggle synchronization, the complete 0.3.4 control
+adapter, and owned diagnostic/RST actions.
 """
 
 from __future__ import annotations
@@ -128,15 +128,18 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
         install_direct_clumsy_runtime,
     )
     from app.firewall.iup_edit_sync import install_iup_edit_sync
+    from app.firewall.iup_toggle_sync import install_iup_toggle_sync
 
-    # Order matters: full-controls wraps the staged GUI path and retains the
-    # deterministic EDIT callback installed immediately before it. Status then
-    # forwards only bounded control metadata. The final compatibility adapter
-    # never accepts unscoped input; it can only recover the one private target
-    # the manager already owns.
+    # Order matters: full-controls installs the non-numeric control bridge,
+    # then the deterministic toggle adapter replaces its callback helper. Both
+    # edit and toggle callbacks therefore use synchronous parent notifications
+    # in Compat and elevated-helper modes. Status forwards only bounded control
+    # metadata. The final compatibility adapter never accepts unscoped input;
+    # it can only recover the one private target the manager already owns.
     install_direct_clumsy_runtime()
     install_iup_edit_sync()
     install_clumsy_full_controls()
+    install_iup_toggle_sync()
     install_full_clumsy_status()
     install_private_selector_compatibility()
 
