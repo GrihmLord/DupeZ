@@ -27,15 +27,17 @@ def _engine(tmp_path, methods=None, params=None):
     )
 
 
-def test_direct_start_never_calls_global_taskkill(monkeypatch, tmp_path):
+def test_direct_start_uses_visible_audited_launcher_and_never_global_taskkill(
+    monkeypatch,
+    tmp_path,
+):
     engine = _engine(tmp_path)
     process = SimpleNamespace(pid=1234, poll=lambda: None, kill=MagicMock())
-    safe_subprocess = SimpleNamespace(
-        spawn_managed=MagicMock(return_value=process),
-    )
+    visible_spawn = MagicMock(return_value=process)
 
     monkeypatch.setattr(direct, "_running_clumsy_pids", lambda: ())
-    monkeypatch.setattr(legacy, "_safe_sp", safe_subprocess)
+    monkeypatch.setattr(direct, "spawn_managed_gui", visible_spawn)
+    monkeypatch.setattr(legacy, "_safe_sp", SimpleNamespace())
     monkeypatch.setattr(
         legacy,
         "_kill_all_clumsy",
@@ -46,8 +48,12 @@ def test_direct_start_never_calls_global_taskkill(monkeypatch, tmp_path):
 
     assert engine.start() is True
     legacy._kill_all_clumsy.assert_not_called()
-    safe_subprocess.spawn_managed.assert_called_once()
+    visible_spawn.assert_called_once()
+    assert visible_spawn.call_args.kwargs["intent"] == (
+        "clumsy.direct_owned_visible_launch"
+    )
     assert engine._proc is process
+    assert engine.get_stats()["failure_stage"] == "running"
 
 
 def test_external_clumsy_contention_fails_without_spawning(monkeypatch, tmp_path):
@@ -55,18 +61,47 @@ def test_external_clumsy_contention_fails_without_spawning(monkeypatch, tmp_path
     spawn = MagicMock()
 
     monkeypatch.setattr(direct, "_running_clumsy_pids", lambda: (41, 42))
-    monkeypatch.setattr(
-        legacy,
-        "_safe_sp",
-        SimpleNamespace(spawn_managed=spawn),
-    )
+    monkeypatch.setattr(direct, "spawn_managed_gui", spawn)
+    monkeypatch.setattr(legacy, "_safe_sp", SimpleNamespace())
 
     assert engine.start() is False
     spawn.assert_not_called()
     stats = engine.get_stats()
     assert stats["contention_detected"] is True
     assert stats["contention_process_count"] == 2
+    assert stats["failure_stage"] == "contention_check"
     assert "no process was killed" in stats["last_error"].lower()
+
+
+def test_gui_failure_surfaces_stage_and_control_snapshot(monkeypatch, tmp_path):
+    engine = _engine(tmp_path)
+    process = SimpleNamespace(pid=321, poll=lambda: None, kill=MagicMock())
+    monkeypatch.setattr(direct, "_running_clumsy_pids", lambda: ())
+    monkeypatch.setattr(direct, "spawn_managed_gui", lambda *args, **kwargs: process)
+    monkeypatch.setattr(legacy, "_safe_sp", SimpleNamespace())
+    monkeypatch.setattr(engine, "_detect_silent_support", lambda _path: False)
+
+    def fail_gui():
+        engine._failure_diagnostics = [
+            {
+                "top_level": True,
+                "class": "IupDialog",
+                "text": "clumsy Keybind Edition",
+                "control_id": 0,
+                "visible": True,
+                "enabled": True,
+            }
+        ]
+        engine._proc = None
+        return False
+
+    monkeypatch.setattr(engine, "_start_gui_automation", fail_gui)
+
+    assert engine.start() is False
+    stats = engine.get_stats()
+    assert stats["failure_stage"] == "gui_verification"
+    assert "IupDialog" in stats["last_error"]
+    assert stats["diagnostic_controls"][0]["visible"] is True
 
 
 def test_stop_prefers_graceful_owned_process_exit(monkeypatch, tmp_path):
