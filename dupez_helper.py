@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 # dupez_helper.py
-"""
-DupeZ elevated firewall helper entry point (ADR-0001).
+"""DupeZ elevated firewall helper entry point (ADR-0001).
 
-This executable runs at High IL under the ``DUPEZ_ARCH=split`` architecture.
-It owns WinDivert and the direct Clumsy child-process lifecycle, exposing only
-small authenticated control messages over the named pipe. Packet bodies never
-cross the IPC boundary.
+This executable runs at High IL under ``DUPEZ_ARCH=split``. It owns WinDivert
+and the direct Clumsy child-process lifecycle. Only authenticated control-plane
+messages cross the named pipe; packet bodies remain inside the helper.
 """
 
 from __future__ import annotations
@@ -26,7 +24,6 @@ def _force_helper_inproc_arch() -> None:
     os.environ["DUPEZ_ARCH"] = "inproc"
 
 
-# The frozen launcher imports this module only after recognizing helper role.
 if "--role" in sys.argv:
     try:
         role_index = sys.argv.index("--role")
@@ -41,8 +38,6 @@ if _REPO_ROOT not in sys.path:
 
 
 def _helper_log_path() -> str:
-    """Return a durable helper log path outside PyInstaller's _MEI tree."""
-
     state_root = (
         os.environ.get("LOCALAPPDATA")
         or os.environ.get("XDG_STATE_HOME")
@@ -94,9 +89,7 @@ def _parse_args() -> argparse.Namespace:
         "--parent-pid",
         type=int,
         default=None,
-        help=(
-            "Parent GUI process PID. Helper exits if that exact process dies."
-        ),
+        help="Parent GUI PID. Helper exits if that exact process dies.",
     )
     return parser.parse_args()
 
@@ -135,11 +128,10 @@ def main() -> int:
     _force_helper_inproc_arch()
     _configure_logging()
     log = logging.getLogger("dupez-helper")
-
     args = _parse_args()
 
-    # Task Scheduler launches cannot carry a dynamic parent PID. In that path,
-    # consume the sentinel written by the GUI-side helper launcher.
+    # Task Scheduler launches cannot carry a dynamic parent PID. Consume the
+    # GUI-written sentinel in that path.
     if args.parent_pid is None:
         sentinel = os.path.join(
             os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
@@ -160,11 +152,15 @@ def main() -> int:
         args.parent_pid,
     )
 
-    # Import the direct-Clumsy-aware singleton. The helper owns this instance,
-    # so direct Clumsy and native WinDivert use the same policy as Compat mode
-    # without proxying back into another helper.
     try:
+        from app.firewall.clumsy_diagnostics import (
+            install_clumsy_diagnostic_bridge,
+        )
         from app.firewall.direct_clumsy_manager import disruption_manager
+
+        disruption_manager = install_clumsy_diagnostic_bridge(
+            disruption_manager
+        )
     except Exception as exc:
         log.exception("failed to import disruption_manager: %s", exc)
         return 2
