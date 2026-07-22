@@ -73,6 +73,25 @@ jobs:
           }
           Get-Item $artifacts | Select-Object Name, Length
 
+      - name: Execute full runtime verifier in GPU and Compat
+        shell: pwsh
+        run: |
+          $variants = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe'
+          )
+          foreach ($variant in $variants) {
+            $process = Start-Process `
+              -FilePath (Resolve-Path $variant) `
+              -ArgumentList '--verify-runtime-imports' `
+              -Wait `
+              -PassThru
+            if ($process.ExitCode -ne 0) {
+              throw "Frozen runtime import verification failed for $variant with exit code $($process.ExitCode)"
+            }
+            Write-Host "Full runtime imports verified: $variant"
+          }
+
       - name: Re-run frozen archive preflight
         shell: pwsh
         run: |
