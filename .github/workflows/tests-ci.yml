@@ -21,15 +21,11 @@ on:
       - 'requirements.in'
       - 'requirements-locked.txt'
 
-# Minimum required permissions — no writes to the repo.
 permissions:
   contents: read
 
 jobs:
   pytest:
-    # Run on Windows because DupeZ is Windows-first; most security
-    # primitives (DPAPI, named pipes) have no POSIX equivalent, so we
-    # pay the runner-minute cost to test the production OS.
     runs-on: windows-latest
     timeout-minutes: 20
     strategy:
@@ -54,30 +50,47 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run pytest
+        id: pytest
         shell: bash
         env:
-          # Ensure offsec layer refuses to run in CI.
           DUPEZ_OFFSEC_CONSENT: ""
-          # Second-factor gate is disabled in CI so tests that hit
-          # gated surfaces (elevation, plugins.loader, offsec.runner)
-          # don't stall on a prompt. The gate itself is exercised in
-          # tests/test_second_factor.py with the env var NOT set.
           DUPEZ_SECOND_FACTOR_DISABLED: "1"
         run: |
+          set +e
           python -m pytest tests/ -q --maxfail=5 \
             --junitxml=pytest-${{ matrix.python-version }}.xml \
             --cov=app.core.second_factor \
             --cov=app.gui.dayz_account_tracker \
-            --cov-report=term
+            --cov-report=term 2>&1 | tee pytest-${{ matrix.python-version }}.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
 
-      - name: Upload pytest diagnostics on failure
-        if: failure()
+      - name: Show pytest failure tail
+        if: steps.pytest.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "::group::Last 300 lines of pytest output"
+          tail -n 300 pytest-${{ matrix.python-version }}.log || true
+          echo "::endgroup::"
+
+      - name: Upload pytest diagnostics
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: pytest-failure-${{ matrix.python-version }}-${{ github.run_id }}
-          path: pytest-${{ matrix.python-version }}.xml
-          if-no-files-found: warn
+          name: pytest-diagnostics-${{ matrix.python-version }}-${{ github.run_id }}
+          path: |
+            pytest-${{ matrix.python-version }}.xml
+            pytest-${{ matrix.python-version }}.log
+          if-no-files-found: error
           retention-days: 7
+
+      - name: Fail pytest job
+        if: steps.pytest.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "pytest failed with exit code ${{ steps.pytest.outputs.exit_code }}"
+          exit 1
 
   ast-lint:
     runs-on: ubuntu-latest
@@ -102,5 +115,5 @@ jobs:
               for f, err in fails:
                   print(f'SYNTAX FAIL {f}: {err}')
               sys.exit(1)
-          print(f'AST OK: scanned all files')
+          print('AST OK: scanned all files')
           "
