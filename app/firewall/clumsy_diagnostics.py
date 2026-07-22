@@ -1,16 +1,15 @@
 # app/firewall/clumsy_diagnostics.py — diagnostic and runtime adapter
 """Install direct-Clumsy runtime controls and authenticated actions.
 
-Clumsy is hidden by making its window transparent, removing it from normal
-application switching, moving it to ``(-32000, -32000)``, and finally calling
-``ShowWindow(SW_HIDE)``. A useful diagnostic action must reverse every one of
-those changes; simply calling ``ShowWindow`` leaves the process invisible and
-off-screen.
+Clumsy is normally born hidden, then kept transparent, removed from normal
+application switching, and moved to ``(-32000, -32000)`` before any controls are
+driven. A useful diagnostic action must reverse every one of those changes;
+simply calling ``ShowWindow`` leaves the process invisible and off-screen.
 
 The same bridge is installed in both in-process and elevated-helper modes. It
-is therefore the single installation point for staged control-tree readiness,
-deterministic IUP numeric/toggle synchronization, the complete 0.3.4 control
-adapter, and owned diagnostic/RST actions.
+is therefore the single installation point for hidden PID-owned discovery,
+staged control-tree readiness, deterministic IUP numeric/toggle synchronization,
+the complete 0.3.4 control adapter, and owned diagnostic/RST actions.
 """
 
 from __future__ import annotations
@@ -19,6 +18,9 @@ from contextlib import nullcontext
 from typing import Any, Optional
 
 from app.core.validation import validate_local_target_ip
+from app.firewall.clumsy_hidden_window import (
+    install_hidden_clumsy_window_discovery,
+)
 from app.firewall.clumsy_preset_wire import (
     install_clumsy_preset_wire_compatibility,
 )
@@ -133,14 +135,14 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
     from app.firewall.iup_edit_sync import install_iup_edit_sync
     from app.firewall.iup_toggle_sync import install_iup_toggle_sync
 
-    # Order matters: full-controls installs the non-numeric control bridge,
-    # then deterministic toggle and preset-wire adapters replace the fragile
-    # callback/name paths. Numeric and toggle callbacks use synchronous parent
-    # notifications in Compat and elevated-helper modes, while display labels
-    # remain separate from the fork's unquoted IUP attribute wire names. Status
-    # forwards only bounded control metadata. The final compatibility adapter
-    # never accepts unscoped input; it can only recover the one private target
-    # the manager already owns.
+    # Order matters. Hidden PID-owned discovery is installed before the staged
+    # runtime so the SW_HIDE child can be found and concealed without a flash.
+    # Full-controls then installs the non-numeric bridge; deterministic toggle
+    # and preset-wire adapters replace the fragile callback/name paths. Numeric
+    # and toggle callbacks use synchronous parent notifications in Compat and
+    # elevated-helper modes, while display labels remain separate from the
+    # fork's unquoted IUP wire names. Status forwards only bounded metadata.
+    install_hidden_clumsy_window_discovery()
     install_direct_clumsy_runtime()
     install_iup_edit_sync()
     install_clumsy_full_controls()
