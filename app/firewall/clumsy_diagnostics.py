@@ -1,5 +1,5 @@
 # app/firewall/clumsy_diagnostics.py — diagnostic and runtime adapter
-"""Install the direct-Clumsy runtime and diagnostic actions.
+"""Install direct-Clumsy runtime controls and authenticated actions.
 
 Clumsy is hidden by making its window transparent, removing it from normal
 application switching, moving it to ``(-32000, -32000)``, and finally calling
@@ -7,9 +7,10 @@ application switching, moving it to ``(-32000, -32000)``, and finally calling
 those changes; simply calling ``ShowWindow`` leaves the process invisible and
 off-screen.
 
-The same bridge is installed in both in-process and elevated-helper modes, so
-it is also the single installation point for the staged full-control-tree
-runtime verification and deterministic IUP numeric synchronization.
+The same bridge is installed in both in-process and elevated-helper modes. It
+is therefore the single installation point for staged control-tree readiness,
+deterministic IUP numeric synchronization, the complete 0.3.4 control adapter,
+and owned diagnostic/RST actions.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from app.logs.logger import log_error, log_info
 __all__ = ["install_clumsy_diagnostic_bridge"]
 
 _ACTION_SHOW_WINDOW = "show_clumsy_diagnostic_window"
+_ACTION_RST_NEXT_PACKET = "clumsy_rst_next_packet"
 _SW_RESTORE = 9
 _SWP_NOSIZE = 0x0001
 _SWP_NOZORDER = 0x0004
@@ -112,15 +114,22 @@ def _restore_owned_window(manager: Any, target_ip: str) -> bool:
 
 
 def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
-    """Install the staged runtime and authenticated diagnostic action."""
+    """Install the full runtime and authenticated owned-process actions."""
 
+    from app.firewall.clumsy_full_controls import (
+        install_clumsy_full_controls,
+        trigger_owned_rst_next_packet,
+    )
     from app.firewall.direct_clumsy_runtime import (
         install_direct_clumsy_runtime,
     )
     from app.firewall.iup_edit_sync import install_iup_edit_sync
 
+    # Order matters: full-controls wraps the staged GUI path and retains the
+    # deterministic EDIT callback installed immediately before it.
     install_direct_clumsy_runtime()
     install_iup_edit_sync()
+    install_clumsy_full_controls()
 
     if getattr(manager, "_clumsy_diagnostic_bridge_installed", False):
         return manager
@@ -143,10 +152,11 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
         return bool(callable(original_show) and original_show(validated))
 
     def hotkey_trigger(action: str, payload: Optional[dict] = None) -> bool:
+        target_ip = str((payload or {}).get("target_ip") or "")
         if action == _ACTION_SHOW_WINDOW:
-            return show_clumsy_diagnostic_window(
-                str((payload or {}).get("target_ip") or "")
-            )
+            return show_clumsy_diagnostic_window(target_ip)
+        if action == _ACTION_RST_NEXT_PACKET:
+            return trigger_owned_rst_next_packet(manager, target_ip)
         if callable(original_hotkey):
             return bool(original_hotkey(action, payload or {}))
         return False
