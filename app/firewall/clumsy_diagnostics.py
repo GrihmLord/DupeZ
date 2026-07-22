@@ -120,6 +120,7 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
         install_clumsy_full_controls,
         trigger_owned_rst_next_packet,
     )
+    from app.firewall.clumsy_full_status import install_full_clumsy_status
     from app.firewall.clumsy_private_api_compat import (
         install_private_selector_compatibility,
     )
@@ -129,12 +130,14 @@ def install_clumsy_diagnostic_bridge(manager: Any) -> Any:
     from app.firewall.iup_edit_sync import install_iup_edit_sync
 
     # Order matters: full-controls wraps the staged GUI path and retains the
-    # deterministic EDIT callback installed immediately before it. The final
-    # compatibility adapter never accepts unscoped input; it can only recover
-    # the one private target the manager already owns.
+    # deterministic EDIT callback installed immediately before it. Status then
+    # forwards only bounded control metadata. The final compatibility adapter
+    # never accepts unscoped input; it can only recover the one private target
+    # the manager already owns.
     install_direct_clumsy_runtime()
     install_iup_edit_sync()
     install_clumsy_full_controls()
+    install_full_clumsy_status()
     install_private_selector_compatibility()
 
     if getattr(manager, "_clumsy_diagnostic_bridge_installed", False):
