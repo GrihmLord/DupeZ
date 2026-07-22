@@ -84,7 +84,10 @@ def _apply_clumsy_slider_policy(panel: Any) -> None:
         slider.setValue(max(minimum, min(maximum, slider.value())))
 
 
-def _allow_verified_per_module_directions(panel: Any) -> None:
+def _allow_verified_per_module_directions(
+    panel: Any,
+    *_signal_args: Any,
+) -> None:
     """Keep global direction editable; advanced rows provide final authority."""
 
     inbound = getattr(panel._clumsy_view, "dir_inbound", None)
