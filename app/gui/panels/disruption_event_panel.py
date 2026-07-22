@@ -64,8 +64,10 @@ class DisruptionEventPanel(QGroupBox):
         self.setStyleSheet(self._group_qss())
         self._build_ui()
         self._install_param_adapter()
+        self._wire_emergency_controls()
         self._refresh_list()
         self._update_route_status()
+        self._set_queue_running(False)
 
     def _load_sequence(self) -> EventSequence:
         existing = self._store.list_sequences()
@@ -206,26 +208,90 @@ class DisruptionEventPanel(QGroupBox):
         view._direct_event_param_adapter = self
         view._collect_params = collect_with_routing
 
+    def _wire_emergency_controls(self) -> None:
+        """Make the existing STOP controls halt a panel-owned queue too."""
+
+        for name in ("btn_stop", "btn_stop_all"):
+            button = getattr(self._clumsy_view, name, None)
+            if button is not None:
+                button.clicked.connect(self.stop_runner)
+
+    def _set_queue_running(self, running: bool) -> None:
+        """Prevent manual starts and queue edits from racing an active queue."""
+
+        self.run_button.setEnabled(not running)
+        self.stop_button.setEnabled(running)
+        for widget in (
+            self.engine_combo,
+            self.layer_combo,
+            self.delay_spin,
+            self.duration_spin,
+            self.failure_combo,
+            self.add_button,
+            self.remove_button,
+            self.up_button,
+            self.down_button,
+            self.event_list,
+        ):
+            widget.setEnabled(not running)
+
+        # Leave STOP and STOP ALL enabled for emergency release, but disable
+        # other start paths that could replace the target generation mid-queue.
+        for name in (
+            "btn_disrupt",
+            "btn_sched_once",
+            "btn_run_macro",
+        ):
+            button = getattr(self._clumsy_view, name, None)
+            if button is not None:
+                button.setEnabled(not running)
+
+    def _enforce_clumsy_direction(self) -> None:
+        """Make explicit Clumsy selection immediately representable.
+
+        The verified bundled-Clumsy path currently guarantees equivalence only
+        for bidirectional requests. The legacy effect UI defaults to outbound,
+        which made an explicit Clumsy selection fail unless the operator knew
+        to toggle inbound manually. Set and lock both controls while Clumsy is
+        explicit; restore normal editing for Auto and Native.
+        """
+
+        inbound = getattr(self._clumsy_view, "dir_inbound", None)
+        outbound = getattr(self._clumsy_view, "dir_outbound", None)
+        explicit_clumsy = self.engine_preference == ENGINE_CLUMSY
+        for checkbox in (inbound, outbound):
+            if checkbox is None:
+                continue
+            if explicit_clumsy:
+                checkbox.blockSignals(True)
+                try:
+                    checkbox.setChecked(True)
+                finally:
+                    checkbox.blockSignals(False)
+            checkbox.setEnabled(not explicit_clumsy)
+
     def add_current_event(self) -> None:
         methods = list(self._clumsy_view._get_active_methods())
         if not methods:
             QMessageBox.warning(self, "No Effects", "Enable at least one effect.")
             return
         params = dict(self._clumsy_view._collect_params())
-        # Event routing is stored in first-class fields rather than duplicated
-        # inside the persisted payload.
         params.pop("_engine_preference", None)
         params.pop("_network_local", None)
         params.pop("_network_layer_explicit", None)
         event = DisruptionEvent(
-            name=" + ".join(method.replace("_", " ").title() for method in methods),
+            name=" + ".join(
+                method.replace("_", " ").title() for method in methods
+            ),
             methods=methods,
             params=params,
             engine_preference=self.engine_preference,
             network_layer=self.network_layer,
             start_delay_seconds=self.delay_spin.value(),
             duration_seconds=self.duration_spin.value(),
-            failure_policy=str(self.failure_combo.currentData() or FAILURE_HALT),
+            failure_policy=str(
+                self.failure_combo.currentData() or FAILURE_HALT
+            ),
         )
         self._sequence.events.append(event)
         self._save_and_refresh(select_event_id=event.event_id)
@@ -240,7 +306,11 @@ class DisruptionEventPanel(QGroupBox):
     def move_selected_event(self, offset: int) -> None:
         row = self.event_list.currentRow()
         destination = row + int(offset)
-        if row < 0 or destination < 0 or destination >= len(self._sequence.events):
+        if (
+            row < 0
+            or destination < 0
+            or destination >= len(self._sequence.events)
+        ):
             return
         event = self._sequence.events.pop(row)
         self._sequence.events.insert(destination, event)
@@ -294,7 +364,11 @@ class DisruptionEventPanel(QGroupBox):
             QMessageBox.warning(self, "Empty Queue", "Add an event first.")
             return
         if self._runner is not None and self._runner.running:
-            QMessageBox.information(self, "Queue Running", "Stop the current queue first.")
+            QMessageBox.information(
+                self,
+                "Queue Running",
+                "Stop the current queue first.",
+            )
             return
         controller = self._clumsy_view.controller
         if controller is None:
@@ -310,8 +384,10 @@ class DisruptionEventPanel(QGroupBox):
             on_status=self._status_ready.emit,
         )
         if self._runner.start():
+            self._set_queue_running(True)
             self.queue_status.setText("Queue starting…")
         else:
+            self._set_queue_running(False)
             self.queue_status.setText("Queue did not start")
 
     def stop_runner(self) -> None:
@@ -319,15 +395,20 @@ class DisruptionEventPanel(QGroupBox):
         self._runner = None
         if runner is not None:
             runner.stop()
+        self._set_queue_running(False)
         self.queue_status.setText("Queue stopped")
 
     def show_diagnostic_window(self) -> None:
         targets = list(self._clumsy_view._get_targets())
         if len(targets) != 1:
-            self.queue_status.setText("Select the one active Clumsy target first")
+            self.queue_status.setText(
+                "Select the one active Clumsy target first"
+            )
             return
         controller = self._clumsy_view.controller
         manager = getattr(controller, "disruption_manager", None)
+        if manager is None:
+            manager = getattr(controller, "_disruption_manager", None)
         show = getattr(manager, "show_clumsy_diagnostic_window", None)
         if not callable(show):
             self.queue_status.setText(
@@ -353,23 +434,26 @@ class DisruptionEventPanel(QGroupBox):
             f"{status.kind.upper()}: {name}{engine}{detail}"
         )
         if status.kind in {"complete", "stopped", "halted", "error"}:
+            self._set_queue_running(False)
             if self._runner is not None and not self._runner.running:
                 self._runner = None
 
     def _update_route_status(self, _index: int = -1) -> None:
+        self._enforce_clumsy_direction()
         engine = self.engine_preference
         layer = self.network_layer
         if engine == ENGINE_CLUMSY:
             engine_text = (
-                "Direct Clumsy is explicit: no engine substitution and only "
-                "one active Clumsy event per helper."
+                "Direct Clumsy is explicit: both directions are enabled and "
+                "locked, no engine substitution is allowed, and only one "
+                "Clumsy event may be active per helper."
             )
         elif engine == ENGINE_NATIVE:
             engine_text = "Native WinDivert is explicit: no Clumsy fallback."
         else:
             engine_text = (
-                "Auto prefers verified Clumsy controls, then uses Native only "
-                "for equivalent effects."
+                "Auto prefers verified Clumsy controls when direction is both, "
+                "then uses Native only for equivalent effects."
             )
         layer_text = (
             "Target profile chooses Local/Remote."
