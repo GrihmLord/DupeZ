@@ -3,25 +3,18 @@
 
 The legacy compatibility engine proved that the bundled Clumsy controls can be
 configured and verified, but it used a global ``taskkill /IM clumsy.exe`` sweep
-before every start and a force-kill-only stop path.  That made an otherwise
-working standalone Clumsy installation appear unreliable inside DupeZ:
-starting a second target could kill the first session (or an unrelated
-standalone session), while the manager registry still claimed the old target
-was active.
+before every start and a force-kill-only stop path. This module preserves its
+packet semantics while giving DupeZ exact process ownership.
 
-This module keeps the existing packet semantics and safety policy while making
-process ownership explicit:
+Invariants:
 
 * DupeZ never kills an unrelated ``clumsy.exe`` process.
-* Only one direct Clumsy session may be active in a DupeZ helper process.
-* Auto mode may fall back to native WinDivert only for the existing
-  semantics-preserving method set.
-* Explicit Clumsy selection fails closed with an actionable contention error.
-* Stop clicks Clumsy's Stop control, asks the window to close, waits briefly,
-  and kills only the exact child PID as a final fallback.
-
-Both the in-process Compat build and the elevated split helper import the
-singleton from this module, so their engine policy is identical.
+* Only one direct Clumsy session may be active in a helper process.
+* Auto may fall back to native only for semantics-preserving methods.
+* Explicit Clumsy selection fails closed with an actionable error.
+* Stop requests Clumsy's Stop state and window close before killing only the
+  exact owned PID as a bounded fallback.
+* Explicit event capture layers survive target-profile tuning.
 """
 
 from __future__ import annotations
@@ -29,6 +22,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 import psutil
@@ -48,18 +42,13 @@ _SW_RESTORE = 9
 
 
 def _running_clumsy_pids() -> tuple[int, ...]:
-    """Return live Clumsy process IDs without exposing command lines.
-
-    Process enumeration is best-effort. Access-denied entries are ignored, but
-    a positively identified process is treated as contention because Clumsy and
-    native WinDivert cannot safely share the same capture handle assumptions.
-    """
+    """Return live Clumsy process IDs without exposing command lines."""
 
     pids: list[int] = []
     for process in psutil.process_iter(("pid", "name")):
         try:
             name = str(process.info.get("name") or "").lower()
-            if name == "clumsy.exe" or name == "clumsy":
+            if name in {"clumsy.exe", "clumsy"}:
                 pids.append(int(process.info["pid"]))
         except (psutil.NoSuchProcess, psutil.AccessDenied, KeyError, TypeError):
             continue
@@ -109,9 +98,7 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                 self.methods = list(compatibility.methods)
 
                 # Never terminate a process we did not create. A standalone
-                # Clumsy window is a useful diagnostic tool, so report the
-                # conflict and let the caller decide whether Auto may use the
-                # native equivalent.
+                # Clumsy window remains available for diagnostics.
                 self._contention_pids = _running_clumsy_pids()
                 if self._contention_pids:
                     return self._fail(
@@ -143,9 +130,6 @@ class ManagedClumsyEngine(legacy.ClumsyEngine):
                         "is unavailable"
                     )
 
-                # The current bundled build has no verifiable CLI layer
-                # selection, so _detect_silent_support deliberately returns
-                # False and routes through the fully verified GUI path.
                 use_silent = self._detect_silent_support(executable)
                 argv = [executable, "--silent"] if use_silent else [executable]
                 self._proc = legacy._safe_sp.spawn_managed(
@@ -306,6 +290,62 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
                 and getattr(info.get("engine"), "alive", False)
             )
 
+    def disconnect_device_clumsy(
+        self,
+        target_ip: str,
+        methods: Optional[List[str]] = None,
+        params: Optional[Dict] = None,
+        preset: Optional[str] = None,
+        target_mac: Optional[str] = None,
+        target_hostname: Optional[str] = None,
+        target_device_type: Optional[str] = None,
+    ) -> bool:
+        """Preserve an explicit event layer while retaining profile tuning."""
+
+        effective_params = deepcopy(dict(params or {})) if params is not None else None
+        explicit_layer = bool(
+            effective_params
+            and effective_params.get("_network_layer_explicit")
+        )
+        if explicit_layer and preset is None:
+            try:
+                from app.firewall.target_profile import resolve_target_profile
+
+                detection = resolve_target_profile(
+                    target_ip=target_ip,
+                    mac=target_mac,
+                    hostname=target_hostname,
+                    device_type=target_device_type,
+                )
+                preset = detection.profile
+                effective_params.setdefault("_target_profile", detection.profile)
+                effective_params.setdefault(
+                    "_network_class",
+                    getattr(detection, "connection_mode", "unknown"),
+                )
+                effective_params.setdefault("_platform", detection.platform)
+                log_info(
+                    "Explicit event layer preserved with target profile "
+                    f"{detection.profile!r}"
+                )
+            except Exception as exc:
+                self._last_engine_error = (
+                    "Explicit capture layer could not resolve target tuning: "
+                    f"{exc}"
+                )
+                log_error(self._last_engine_error)
+                return False
+
+        return super().disconnect_device_clumsy(
+            target_ip,
+            methods,
+            effective_params,
+            preset=preset,
+            target_mac=target_mac,
+            target_hostname=target_hostname,
+            target_device_type=target_device_type,
+        )
+
     def _start_selected_engine(
         self,
         *,
@@ -357,8 +397,7 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
                 log_error(self._last_engine_error)
                 return None
 
-            active_targets = self._active_clumsy_targets()
-            if active_targets:
+            if self._active_clumsy_targets():
                 self._last_engine_error = (
                     "Direct Clumsy already owns one active event. Stop it "
                     "before starting another explicit Clumsy event."
@@ -446,6 +485,7 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
         with self._device_lock:
             info = self.disrupted_devices.get(target_ip, {})
             engine = info.get("engine")
+            status["generation"] = info.get("generation")
         if engine is not None and hasattr(engine, "get_stats"):
             engine_stats = dict(engine.get_stats())
             for key in (
