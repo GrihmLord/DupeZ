@@ -391,10 +391,32 @@ class DisruptionEventPanel(QGroupBox):
             self.queue_status.setText("Queue did not start")
 
     def stop_runner(self) -> None:
+        """Request queue stop without exposing a competing start race.
+
+        A packet-engine start can remain inside a bounded native/GUI call for
+        longer than the runner's two-second join. Keep the UI locked and retain
+        the runner reference until its terminal status arrives; otherwise the
+        operator could start a newer manual action while the old queue still
+        owns an in-flight start operation.
+        """
+
         runner = self._runner
+        if runner is None:
+            self._set_queue_running(False)
+            self.queue_status.setText("Queue stopped")
+            return
+
+        runner.stop()
+        if runner.running:
+            self._runner = runner
+            self._set_queue_running(True)
+            self.stop_button.setEnabled(False)
+            self.queue_status.setText(
+                "Queue stopping… waiting for the current engine operation"
+            )
+            return
+
         self._runner = None
-        if runner is not None:
-            runner.stop()
         self._set_queue_running(False)
         self.queue_status.setText("Queue stopped")
 
