@@ -75,11 +75,37 @@ _maybe_dispatch_helper_role()
 # These run BEFORE elevation / GUI bootstrap so the operator can drive
 # them from a regular shell without booting the whole stack.
 def _verify_runtime_imports() -> tuple[str, ...]:
-    """Import frozen Qt runtime modules required by every GUI build."""
+    """Import every frozen Qt/direct-Clumsy boundary required by both builds."""
     import PyQt6.sip
     from PyQt6 import QtCore, QtWebEngineWidgets, QtWidgets
 
-    modules = (PyQt6.sip, QtCore, QtWidgets, QtWebEngineWidgets)
+    import dupez_helper
+    from app.core import clumsy_controls
+    from app.firewall import (
+        clumsy_diagnostics,
+        clumsy_full_controls,
+        clumsy_private_api_compat,
+        iup_edit_sync,
+    )
+    from app.gui.panels import (
+        clumsy_advanced_panel,
+        clumsy_event_ui_policy,
+    )
+
+    modules = (
+        PyQt6.sip,
+        QtCore,
+        QtWidgets,
+        QtWebEngineWidgets,
+        clumsy_controls,
+        clumsy_diagnostics,
+        clumsy_full_controls,
+        clumsy_private_api_compat,
+        iup_edit_sync,
+        clumsy_advanced_panel,
+        clumsy_event_ui_policy,
+        dupez_helper,
+    )
     return tuple(module.__name__ for module in modules)
 
 
