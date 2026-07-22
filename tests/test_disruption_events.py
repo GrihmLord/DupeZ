@@ -205,8 +205,10 @@ def test_continue_failure_policy_advances_to_next_event():
 
 
 def test_event_panel_adapter_restores_explicit_gui_routing(tmp_path):
-    application = QApplication.instance() or QApplication([])
-    del application
+    # Keep the Python wrapper alive until every QWidget created below has been
+    # destroyed. Dropping the last QApplication reference first causes Qt to
+    # abort the interpreter rather than raise a Python exception.
+    _application = QApplication.instance() or QApplication([])
     fake_view = SimpleNamespace(
         _collect_params=lambda: {"lag_delay": 1000},
         _get_active_methods=lambda: ["lag"],
@@ -231,3 +233,4 @@ def test_event_panel_adapter_restores_explicit_gui_routing(tmp_path):
     assert params["_network_local"] is False
     assert params["_network_layer_explicit"] is True
     panel.deleteLater()
+    _application.processEvents()
