@@ -1,33 +1,24 @@
-name: Signed Release Finalization
+name: Signed Release Artifact Finalization
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Exact semantic version to finalize'
+        description: 'Exact semantic version to build and attest'
         required: true
         default: '5.7.9'
         type: string
-      mode:
-        description: 'Validate locally, stage a draft, or publish the verified draft'
-        required: true
-        default: 'Validate'
-        type: choice
-        options:
-          - Validate
-          - Draft
-          - Publish
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: signed-release-${{ inputs.version }}
+  group: signed-release-artifacts-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
   finalize:
-    name: Build, sign, scan, attest, and stage release
+    name: Build, sign, scan, and attest release artifacts
     runs-on: [self-hosted, windows, release-signing]
     timeout-minutes: 90
     environment: production-release
@@ -35,7 +26,6 @@ jobs:
       PYTHONNOUSERSITE: '1'
       PYTHONPATH: ''
       PYTHONHOME: ''
-      GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - name: Require main and exact release version
@@ -107,7 +97,7 @@ jobs:
           .\scripts\finalize_release.ps1 `
             -Version '${{ inputs.version }}'
 
-      - name: Execute full runtime verifier in both signed frozen variants
+      - name: Execute package-boundary verifier in both signed variants
         shell: pwsh
         run: |
           $variants = @(
@@ -121,12 +111,12 @@ jobs:
               -Wait `
               -PassThru
             if ($process.ExitCode -ne 0) {
-              throw "Signed frozen runtime verification failed for $variant with exit code $($process.ExitCode)."
+              throw "Signed frozen import verification failed for $variant with exit code $($process.ExitCode)."
             }
-            Write-Host "Signed frozen runtime verified: $variant"
+            Write-Host "Signed frozen imports verified: $variant"
           }
 
-      - name: Re-run final dist preflight after signed runtime execution
+      - name: Re-run final dist preflight after signed execution
         shell: pwsh
         run: |
           .\.venv\Scripts\python.exe -I scripts\release_preflight.py `
@@ -136,16 +126,16 @@ jobs:
             throw 'Final signed dist preflight failed.'
           }
 
-      - name: Stage or publish verified release
-        if: ${{ inputs.mode != 'Validate' }}
+      - name: Explain remaining exact-artifact gates
         shell: pwsh
         run: |
-          .\scripts\stage_release.ps1 `
-            -Mode '${{ inputs.mode }}' `
-            -Version '${{ inputs.version }}' `
-            -Repository '${{ github.repository }}'
+          Write-Host 'Signed artifacts are complete, but publication is intentionally not performed here.'
+          Write-Host 'Run scripts\validate_frozen_runtime.ps1 for GPU from a standard desktop session.'
+          Write-Host 'Run scripts\validate_frozen_runtime.ps1 for Compat from Administrator PowerShell.'
+          Write-Host 'Run scripts\record_manual_release_validation.ps1 after the full walkthrough.'
+          Write-Host 'Then run scripts\stage_release.ps1 locally to create a draft or publish.'
 
-      - name: Upload release evidence
+      - name: Upload non-executable release evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
