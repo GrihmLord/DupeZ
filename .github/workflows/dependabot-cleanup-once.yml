@@ -1,0 +1,115 @@
+name: Dependabot Cleanup Once
+
+on:
+  push:
+    branches:
+      - automation/dependabot-cleanup
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  security-events: read
+
+jobs:
+  verify-and-clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      REPORT_PR: '46'
+      CLEANUP_BRANCH: automation/dependabot-cleanup
+    steps:
+      - name: Checkout cleanup branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Wait for all Dependabot alerts to close
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=''
+          for attempt in $(seq 1 30); do
+            count=$(gh api "/repos/${REPOSITORY}/dependabot/alerts?state=open&per_page=100" --jq 'length')
+            echo "Attempt ${attempt}: ${count} open Dependabot alert(s)"
+            if [ "$count" = '0' ]; then
+              break
+            fi
+            sleep 20
+          done
+
+          if [ "$count" != '0' ]; then
+            gh pr comment "$REPORT_PR" --repo "$REPOSITORY" --body "Dependabot cleanup stopped: GitHub still reports ${count} open alert(s) after the patched lock merged. No branches were deleted."
+            exit 1
+          fi
+
+      - name: Close remaining Dependabot pull requests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t prs < <(
+            gh pr list --repo "$REPOSITORY" --state open --limit 100 \
+              --json number,headRefName \
+              --jq '.[] | select(.headRefName | startswith("dependabot/")) | .number'
+          )
+
+          for pr in "${prs[@]:-}"; do
+            [ -n "$pr" ] || continue
+            gh pr close "$pr" --repo "$REPOSITORY" --comment "Closed after the consolidated dependency-security fix merged in PR #46."
+          done
+
+      - name: Delete dependency branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          deleted=()
+
+          mapfile -t remote_branches < <(
+            git ls-remote --heads origin \
+              'refs/heads/dependabot/*' \
+              'refs/heads/security/v5.7.9-dependency-fixes' |
+            awk '{sub("refs/heads/", "", $2); print $2}' |
+            sort -u
+          )
+
+          for branch in "${remote_branches[@]:-}"; do
+            [ -n "$branch" ] || continue
+            if [ "$branch" = 'main' ]; then
+              echo 'Refusing to delete main.' >&2
+              exit 1
+            fi
+            git push origin --delete "$branch"
+            deleted+=("$branch")
+          done
+
+          printf '%s\n' "${deleted[@]:-}" > "$RUNNER_TEMP/deleted-branches.txt"
+
+      - name: Report successful cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          deleted=$(sed '/^$/d' "$RUNNER_TEMP/deleted-branches.txt" | sed 's/^/- `/' | sed 's/$/`/' || true)
+          if [ -z "$deleted" ]; then
+            deleted='- No matching dependency branches remained.'
+          fi
+
+          gh pr comment "$REPORT_PR" --repo "$REPOSITORY" --body "$(cat <<EOF
+Dependabot remediation and branch cleanup completed.
+
+- Open Dependabot alerts: **0**
+- Consolidated fix merged to \`main\`: \`9df89a099fb0fc14aad6442f3587351df382d230\`
+- Dependency branches deleted:
+${deleted}
+
+The disposable cleanup branch is deleting itself next.
+EOF
+          )"
+
+      - name: Delete disposable cleanup branch
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin --delete "$CLEANUP_BRANCH"
