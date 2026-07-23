@@ -21,7 +21,7 @@ def _engine(tmp_path, params):
     return ManagedClumsyEngine(
         str(executable),
         str(tmp_path),
-        "ip.SrcAddr == 192.168.137.2 or ip.DstAddr == 192.168.137.2",
+        "ip.SrcAddr == 192.168.50.77 or ip.DstAddr == 192.168.50.77",
         ["lag"],
         params,
     )

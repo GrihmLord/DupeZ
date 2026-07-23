@@ -18,7 +18,7 @@ def _write(path: Path, text: str = "{}") -> Path:
 def test_support_bundle_redacts_paths_ips_and_macs(monkeypatch, tmp_path: Path) -> None:
     from app.core import support_bundle
 
-    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Owner\AppData\Local")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\ExampleUser\AppData\Local")
     monkeypatch.setattr(
         support_bundle,
         "run_all_checks",
@@ -27,7 +27,7 @@ def test_support_bundle_redacts_paths_ips_and_macs(monkeypatch, tmp_path: Path) 
                 name="Network",
                 status=CheckStatus.WARN,
                 message=(
-                    r"target 192.168.1.55 at C:\Users\Owner\AppData\Local "
+                    r"target 192.168.1.55 at C:\Users\ExampleUser\AppData\Local "
                     "mac aa:bb:cc:dd:ee:ff"
                 ),
             ),
@@ -43,7 +43,7 @@ def test_support_bundle_redacts_paths_ips_and_macs(monkeypatch, tmp_path: Path) 
     assert "192.168.1.x" in rendered
     assert "aa:bb:cc:dd:ee:ff" not in rendered
     assert "aa:bb:cc:**:**:**" in rendered
-    assert r"C:\Users\Owner" not in rendered
+    assert r"C:\Users\ExampleUser" not in rendered
     assert "%LOCALAPPDATA%" in rendered
     assert payload["privacy_inventory"]["total_files"] == 1
     assert payload["privacy_inventory"]["items"] == []

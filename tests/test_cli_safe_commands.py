@@ -420,7 +420,7 @@ def test_support_bundle_json_reports_write_error(monkeypatch, capsys) -> None:
         support_bundle,
         "write_support_bundle",
         lambda **_kw: (_ for _ in ()).throw(
-            PermissionError(r"C:\Users\Owner\AppData\Local\blocked")
+            PermissionError(r"C:\Users\ExampleUser\AppData\Local\blocked")
         ),
     )
 
@@ -434,7 +434,7 @@ def test_support_bundle_json_reports_write_error(monkeypatch, capsys) -> None:
     assert out["schema"] == "dupez.cli.support_bundle.v1"
     assert out["ok"] is False
     assert out["path"] is None
-    assert r"C:\Users\Owner" not in rendered
+    assert r"C:\Users\ExampleUser" not in rendered
 
 
 def test_diagnostics_json_reports_summary(monkeypatch, capsys) -> None:
@@ -466,23 +466,23 @@ def test_secret_store_status_redacts_user_path(monkeypatch, capsys) -> None:
     import app.core.secret_store as secret_store
 
     health = secret_store.SecretStoreHealth(
-        path=Path(r"C:\Users\Owner\AppData\Local\DupeZ\secrets"),
+        path=Path(r"C:\Users\ExampleUser\AppData\Local\DupeZ\secrets"),
         reachable=True,
         writable=False,
         error=(
             "[WinError 5] Access is denied: "
-            "'C:\\Users\\Owner\\AppData\\Local\\DupeZ\\secrets'"
+            "'C:\\Users\\ExampleUser\\AppData\\Local\\DupeZ\\secrets'"
         ),
         error_code="permission_denied",
     )
-    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Owner\AppData\Local")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\ExampleUser\AppData\Local")
     monkeypatch.setattr(secret_store, "check_store_health", lambda: health)
 
     cli.cmd_recovery(None, argparse_namespace("secret-store-status", json=True))
 
     payload = json.loads(capsys.readouterr().out)
     rendered = json.dumps(payload)
-    assert r"C:\Users\Owner" not in rendered
+    assert r"C:\Users\ExampleUser" not in rendered
     assert payload["secret_store"]["checked"] is True
 
 
@@ -614,7 +614,7 @@ def test_storage_status_json_is_redacted(monkeypatch, capsys) -> None:
     from app import cli
     import app.core.storage_status as storage_status
 
-    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Owner\AppData\Local")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\ExampleUser\AppData\Local")
     monkeypatch.setattr(
         storage_status,
         "build_storage_status",
@@ -622,7 +622,7 @@ def test_storage_status_json_is_redacted(monkeypatch, capsys) -> None:
             "schema": "dupez.storage-status.v1",
             "runtime": {
                 "installed": True,
-                "legacy_runtime_root": r"C:\Users\Owner\AppData\Local\DupeZ",
+                "legacy_runtime_root": r"C:\Users\ExampleUser\AppData\Local\DupeZ",
             },
             "roots": {},
             "migration": {"markers": {}, "legacy_candidates": {}},
@@ -636,7 +636,7 @@ def test_storage_status_json_is_redacted(monkeypatch, capsys) -> None:
     rendered = json.dumps(payload)
     assert payload["schema"] == "dupez.storage-status.v1"
     assert "%LOCALAPPDATA%" in rendered
-    assert r"C:\Users\Owner" not in rendered
+    assert r"C:\Users\ExampleUser" not in rendered
 
 
 def test_performance_smoke_json_reports_checks(monkeypatch, capsys) -> None:

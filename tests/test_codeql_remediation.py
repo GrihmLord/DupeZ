@@ -69,3 +69,26 @@ def test_logger_scrubs_exception_and_context_before_output(tmp_path) -> None:
             handler.close()
             wrapped.logger.removeHandler(handler)
         logging.Logger.manager.loggerDict.pop(wrapped.logger.name, None)
+
+
+def test_audit_key_fallback_does_not_log_exception_payload(
+    monkeypatch, tmp_path
+) -> None:
+    from app.core import secret_store
+    from app.logs import audit as audit_module
+
+    canary = r"C:\Users\SensitiveUser\AppData\Local\DupeZ\secrets"
+    messages: list[str] = []
+
+    def fail_to_load_key(*_args, **_kwargs):
+        raise PermissionError(canary)
+
+    monkeypatch.setattr(secret_store, "get_or_create_secret", fail_to_load_key)
+    monkeypatch.setattr(audit_module, "log_error", messages.append)
+
+    logger = audit_module.AuditLogger(audit_dir=str(tmp_path))
+    rendered = "\n".join(messages)
+
+    assert logger.degraded is True
+    assert canary not in rendered
+    assert "PermissionError" in rendered

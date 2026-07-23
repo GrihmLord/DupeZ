@@ -131,4 +131,4 @@ class TestDefenderDiagnostic:
         assert "PUA:Win32/FalsePositive" in result.message
         assert "Protection History" in result.fix_hint
         assert "exclusions" in result.fix_hint
-        assert "Users/Owner" not in result.message
+        assert "Users/ExampleUser" not in result.message

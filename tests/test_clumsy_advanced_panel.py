@@ -47,7 +47,7 @@ def _view():
         dir_outbound=outbound,
         controller=controller,
         _collect_params=lambda: {"lag_delay": 170},
-        _get_targets=lambda: ["192.168.137.2"],
+        _get_targets=lambda: ["192.168.50.77"],
     )
     return view, manager
 
@@ -161,7 +161,7 @@ def test_live_rst_button_uses_authenticated_manager_action(qapp):
 
     manager.hotkey_trigger.assert_called_once_with(
         "clumsy_rst_next_packet",
-        {"target_ip": "192.168.137.2"},
+        {"target_ip": "192.168.50.77"},
     )
     assert "one-shot armed" in panel.status_label.text().lower()
 
