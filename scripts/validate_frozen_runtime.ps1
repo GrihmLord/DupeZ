@@ -10,9 +10,10 @@ Administrator PowerShell session because it intentionally uses the in-process
 packet-engine architecture.
 
 For the selected variant this script runs both normal and forced-low-resource
-profiles, waits for the real dashboard, opens the Map through DupeZ's Ctrl+2
-shortcut, exits through DupeZ's Ctrl+Q force-quit action, checks helper/child
-cleanup, rejects crash dumps, and writes hash-bound JSON evidence to dist/.
+profiles, follows the exact PyInstaller one-file process tree to the dashboard
+owner, opens the Map through DupeZ's Ctrl+2 shortcut, exits through DupeZ's
+Ctrl+Q force-quit action, checks helper/child cleanup, rejects crash dumps, and
+writes hash-bound JSON evidence to dist/.
 #>
 
 [CmdletBinding()]
@@ -75,7 +76,6 @@ $exePath = (Resolve-Path -LiteralPath $exePath).Path
 if (-not ("DupeZ.ReleaseWindowApi" -as [type])) {
     Add-Type -TypeDefinition @"
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -192,7 +192,7 @@ function Wait-ForLogPattern {
     }
 }
 
-function Get-DescendantProcessIds {
+function Get-ProcessTreeSnapshot {
     param([int]$RootPid)
 
     $all = @(
@@ -204,27 +204,49 @@ function Get-DescendantProcessIds {
     $changed = $true
     while ($changed) {
         $changed = $false
-        foreach ($process in $all) {
+        foreach ($candidate in $all) {
             if (
-                $known.Contains([int]$process.ParentProcessId) -and
-                -not $known.Contains([int]$process.ProcessId)
+                $known.Contains([int]$candidate.ParentProcessId) -and
+                -not $known.Contains([int]$candidate.ProcessId)
             ) {
-                [void]$known.Add([int]$process.ProcessId)
+                [void]$known.Add([int]$candidate.ProcessId)
                 $changed = $true
             }
         }
     }
     return @(
         $all | Where-Object {
-            $_.ProcessId -ne $RootPid -and
             $known.Contains([int]$_.ProcessId)
         }
     )
 }
 
-function Assert-NoFrozenProcesses {
+function Find-DashboardInProcessTree {
+    param([int]$RootPid)
+
+    $tree = @(Get-ProcessTreeSnapshot -RootPid $RootPid)
+    foreach ($candidate in $tree) {
+        $hwnd = [DupeZ.ReleaseWindowApi]::FindDashboard(
+            [uint32]$candidate.ProcessId
+        )
+        if ($hwnd -ne [IntPtr]::Zero) {
+            return [ordered]@{
+                hwnd = $hwnd
+                owner_pid = [int]$candidate.ProcessId
+                tree = $tree
+            }
+        }
+    }
+    return [ordered]@{
+        hwnd = [IntPtr]::Zero
+        owner_pid = 0
+        tree = $tree
+    }
+}
+
+function Get-DistFrozenProcesses {
     $names = @("DupeZ-GPU.exe", "DupeZ-Compat.exe", "dupez.exe")
-    $running = @(
+    return @(
         Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
             Where-Object {
                 $_.Name -in $names -and
@@ -235,12 +257,34 @@ function Assert-NoFrozenProcesses {
                 )
             }
     )
+}
+
+function Assert-NoFrozenProcesses {
+    $running = @(Get-DistFrozenProcesses)
     if ($running.Count -gt 0) {
         $running |
             Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine |
             Format-Table -AutoSize
         throw "A DupeZ frozen process from the dist directory is already running."
     }
+}
+
+function Wait-ForFrozenProcessFamilyExit {
+    param([int]$TimeoutSeconds = 15)
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    do {
+        $running = @(Get-DistFrozenProcesses)
+        if ($running.Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 250
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    $running |
+        Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine |
+        Format-Table -AutoSize
+    throw "Frozen shutdown leaked one or more GUI/helper processes."
 }
 
 function Write-Acknowledgement {
@@ -325,14 +369,19 @@ foreach ($profile in $profiles) {
         }
 
         $dashboard = [IntPtr]::Zero
+        $dashboardOwnerPid = 0
+        $processTree = @()
         $startupDeadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
         while ([DateTime]::UtcNow -lt $startupDeadline) {
-            if ($process.HasExited) {
-                throw "$exeName exited before dashboard creation with code $($process.ExitCode)."
-            }
-            $dashboard = [DupeZ.ReleaseWindowApi]::FindDashboard([uint32]$process.Id)
+            $found = Find-DashboardInProcessTree -RootPid $process.Id
+            $dashboard = $found.hwnd
+            $dashboardOwnerPid = [int]$found.owner_pid
+            $processTree = @($found.tree)
             if ($dashboard -ne [IntPtr]::Zero) {
                 break
+            }
+            if ($process.HasExited -and $processTree.Count -le 1) {
+                throw "$exeName exited before dashboard creation with code $($process.ExitCode)."
             }
             Start-Sleep -Milliseconds 200
             $process.Refresh()
@@ -351,8 +400,14 @@ foreach ($profile in $profiles) {
             throw "Dashboard appeared but the successful-start log was not observed."
         }
 
-        $process.Refresh()
-        $descendants = @(Get-DescendantProcessIds -RootPid $process.Id)
+        $processTree = @(Get-ProcessTreeSnapshot -RootPid $process.Id)
+        $guiProcess = Get-Process -Id $dashboardOwnerPid -ErrorAction SilentlyContinue
+        if ($null -eq $guiProcess) {
+            try { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue } catch {}
+            throw "The dashboard-owning PyInstaller process disappeared unexpectedly."
+        }
+        $guiProcess.Refresh()
+        $guiWorkingSetBytes = [int64]$guiProcess.WorkingSet64
         $startupDurationMs = [int](
             ([DateTime]::UtcNow - $startedUtc).TotalMilliseconds
         )
@@ -400,28 +455,7 @@ foreach ($profile in $profiles) {
         if ($process.ExitCode -ne 0) {
             throw "$exeName exited with code $($process.ExitCode)."
         }
-
-        $childDeadline = [DateTime]::UtcNow.AddSeconds(15)
-        $leakedChildren = @()
-        do {
-            $leakedChildren = @(
-                foreach ($child in $descendants) {
-                    if (Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue) {
-                        $child
-                    }
-                }
-            )
-            if ($leakedChildren.Count -eq 0) {
-                break
-            }
-            Start-Sleep -Milliseconds 250
-        } while ([DateTime]::UtcNow -lt $childDeadline)
-        if ($leakedChildren.Count -gt 0) {
-            $leakedChildren |
-                Select-Object ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine |
-                Format-Table -AutoSize
-            throw "Frozen shutdown leaked one or more child/helper processes."
-        }
+        Wait-ForFrozenProcessFamilyExit -TimeoutSeconds 15
 
         $crashes = @(
             Get-ChildItem -LiteralPath $runtimeRoot -Recurse -File -ErrorAction SilentlyContinue |
@@ -440,7 +474,8 @@ foreach ($profile in $profiles) {
             commit = $commit
             started_at_utc = $startedUtc.ToString("o")
             startup_duration_ms = $startupDurationMs
-            gui_pid = $process.Id
+            launcher_pid = $process.Id
+            gui_pid = $dashboardOwnerPid
             dashboard_hwnd = [int64]$dashboard
             architecture_expectation = if ($Variant -eq "GPU") {
                 "split-medium-integrity-gui"
@@ -449,9 +484,9 @@ foreach ($profile in $profiles) {
                 "inproc-high-integrity"
             }
             launched_from_admin = $isAdmin
-            working_set_bytes = [int64]$process.PeakWorkingSet64
-            child_processes_observed = @(
-                $descendants | ForEach-Object {
+            working_set_bytes = $guiWorkingSetBytes
+            process_tree_observed = @(
+                $processTree | ForEach-Object {
                     [ordered]@{
                         pid = [int]$_.ProcessId
                         parent_pid = [int]$_.ParentProcessId
