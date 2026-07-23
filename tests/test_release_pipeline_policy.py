@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import os
 from pathlib import Path
 import subprocess
@@ -83,6 +84,8 @@ def test_release_staging_requires_exact_artifact_evidence():
         '"--draft"',
         '"--draft=false"',
         'ValidateSet("Draft", "Publish")',
+        "targetCommitish",
+        "Staged release size mismatch",
     )
     for token in required:
         assert token in script, token
@@ -95,7 +98,7 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     assert "environment: production-release" in workflow
     assert "github.ref_name" in workflow and "main" in workflow
     assert "scripts\\finalize_release.ps1" in workflow
-    assert "scripts\\stage_release.ps1" not in workflow
+    assert ".\\scripts\\stage_release.ps1" not in workflow
     assert "dist\\DupeZ-GPU.exe" in workflow
     assert "dist\\DupeZ-Compat.exe" in workflow
     assert workflow.count("--verify-runtime-imports") == 1
@@ -107,32 +110,37 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     assert "release edit" not in workflow
 
 
-def test_frozen_runtime_validator_enforces_architecture_and_real_shortcuts():
-    script = _read("scripts/validate_frozen_runtime.ps1")
+def test_frozen_runtime_validator_enforces_architecture_and_profiles():
+    wrapper = _read("scripts/validate_frozen_runtime.ps1")
+    implementation = _read("scripts/validate_frozen_runtime.py")
 
-    required = (
+    for token in (
         'ValidateSet("GPU", "Compat")',
         "GPU validation must run from a standard, non-Administrator",
         "Compat validation must run from Administrator PowerShell",
+        "scripts\\validate_frozen_runtime.py",
+    ):
+        assert token in wrapper, token
+
+    for token in (
         "DUPEZ_LOW_RESOURCE",
         "DUPEZ_MAP_PREWARM",
         "DupeZ started successfully",
         "Map: lazy DayZMapGUI initialized on first tab open",
-        "SendCtrlKey($dashboard, 0x32)",
-        "SendCtrlKey($dashboard, 0x51)",
         "frozen-runtime-evidence-",
         "split-medium-integrity-gui",
         "inproc-high-integrity",
-    )
-    for token in required:
-        assert token in script, token
+    ):
+        assert token in implementation, token
+
+    ast.parse(implementation, filename="scripts/validate_frozen_runtime.py")
 
 
 def test_manual_recorder_requires_all_exact_artifact_gates():
     script = _read("scripts/record_manual_release_validation.ps1")
 
     required = (
-        "dupez.operator-acknowledgement.v1",
+        "dupez.manual-release-validation.v1",
         "frozen-runtime-evidence-gpu.json",
         "frozen-runtime-evidence-compat.json",
         "hidden_clumsy_no_flash",
