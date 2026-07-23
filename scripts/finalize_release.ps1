@@ -1,36 +1,20 @@
 #requires -Version 5.1
-<#[
+<#+
 .SYNOPSIS
-Build, sign, scan, attest, and optionally stage a DupeZ GitHub release.
+Build, sign, scan, and attest DupeZ release artifacts on the protected Windows
+signing host.
 
 .DESCRIPTION
-This script is intended for the protected Windows release-signing host. It
-never generates or exports signing keys. The existing Authenticode PFX and the
-Ed25519 private key matching the public key pinned in app/core/update_verify.py
-must already exist outside the repository.
-
-Modes:
-  Validate  Build and run every local release gate; do not touch GitHub.
-  Draft     Create/update a GitHub draft release after all gates pass.
-  Publish   Publish an already-complete draft after re-running all gates.
-
-Examples:
-  powershell -ExecutionPolicy Bypass -File scripts\finalize_release.ps1
-  powershell -ExecutionPolicy Bypass -File scripts\finalize_release.ps1 -Mode Draft
-  powershell -ExecutionPolicy Bypass -File scripts\finalize_release.ps1 -Mode Publish
+The Authenticode PFX and the Ed25519 private key matching the updater public key
+already pinned in app/core/update_verify.py must exist outside the repository.
+This script never generates, exports, uploads, or prints either key. GitHub draft
+staging is intentionally handled later by scripts/stage_release.ps1.
 #>
 
 [CmdletBinding()]
 param(
-    [ValidateSet("Validate", "Draft", "Publish")]
-    [string]$Mode = "Validate",
-
     [ValidatePattern("^\d+\.\d+\.\d+$")]
     [string]$Version = "5.7.9",
-
-    [string]$Repository = "GrihmLord/DupeZ",
-
-    [string]$Tag = "",
 
     [switch]$AllowNonMainValidation
 )
@@ -50,8 +34,8 @@ function Invoke-Checked {
         [Parameter(Mandatory = $false)]
         [string[]]$ArgumentList = @(),
 
-        [Parameter(Mandatory = $false)]
-        [string]$Description = $FilePath
+        [Parameter(Mandatory = $true)]
+        [string]$Description
     )
 
     Write-Host "`n=== $Description ==="
@@ -61,7 +45,7 @@ function Invoke-Checked {
     }
 }
 
-function Resolve-Executable {
+function Resolve-Tool {
     param(
         [Parameter(Mandatory = $true)]
         [string[]]$Candidates,
@@ -85,9 +69,10 @@ function Resolve-Executable {
     throw "$Name was not found."
 }
 
-function Assert-SecretPathOutsideRepository {
+function Require-ExternalSecretFile {
     param(
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
         [string]$Path,
 
         [Parameter(Mandatory = $true)]
@@ -98,27 +83,26 @@ function Assert-SecretPathOutsideRepository {
         throw "$Name is not configured."
     }
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "$Name does not exist at the configured path."
+        throw "$Name does not reference an existing file."
     }
-
     $resolved = (Resolve-Path -LiteralPath $Path).Path
-    $relative = [System.IO.Path]::GetRelativePath($repoRoot, $resolved)
-    if (
-        -not $relative.StartsWith("..") -and
-        -not [System.IO.Path]::IsPathRooted($relative)
-    ) {
+    $repoPrefix = $repoRoot.TrimEnd('\') + '\'
+    if ($resolved.StartsWith(
+        $repoPrefix,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
         throw "$Name must be stored outside the repository."
     }
     return $resolved
 }
 
-function Get-ReleaseArtifacts {
-    param([string]$ResolvedVersion)
+function Get-RequiredArtifacts {
+    param([string]$ReleaseVersion)
 
     $names = @(
         "DupeZ-GPU.exe",
         "DupeZ-Compat.exe",
-        "DupeZ_v${ResolvedVersion}_Setup.exe",
+        "DupeZ_v${ReleaseVersion}_Setup.exe",
         "DupeZ_Setup.exe",
         "DupeZ_Setup.exe.manifest.json",
         "DupeZ_Setup.exe.manifest.sig",
@@ -141,20 +125,17 @@ function Get-ReleaseArtifacts {
     )
 }
 
-function Assert-AuthenticodeReleaseArtifacts {
+function Test-AuthenticodeArtifacts {
     param([System.IO.FileInfo[]]$Artifacts)
 
-    $executableArtifacts = @(
-        $Artifacts | Where-Object { $_.Extension -ieq ".exe" }
-    )
     $records = @()
-    foreach ($artifact in $executableArtifacts) {
+    foreach ($artifact in @($Artifacts | Where-Object { $_.Extension -ieq ".exe" })) {
         $signature = Get-AuthenticodeSignature -LiteralPath $artifact.FullName
         if ($signature.Status -ne "Valid") {
             throw "Authenticode validation failed for $($artifact.Name): $($signature.Status)"
         }
         if ($null -eq $signature.SignerCertificate) {
-            throw "Authenticode signer certificate missing for $($artifact.Name)."
+            throw "Signer certificate missing for $($artifact.Name)."
         }
         if ($null -eq $signature.TimeStamperCertificate) {
             throw "RFC3161 timestamp certificate missing for $($artifact.Name)."
@@ -173,20 +154,17 @@ function Assert-AuthenticodeReleaseArtifacts {
 
 function Resolve-MpCmdRun {
     $platformRoot = Join-Path $env:ProgramData "Microsoft\Windows Defender\Platform"
-    $platformCandidates = @(
+    $candidates = @(
         Get-ChildItem -Path $platformRoot -Filter MpCmdRun.exe -Recurse -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTimeUtc -Descending |
             Select-Object -ExpandProperty FullName
     )
-    $legacy = Join-Path $env:ProgramFiles "Windows Defender\MpCmdRun.exe"
-    return Resolve-Executable -Candidates (@($platformCandidates) + @($legacy)) -Name "Microsoft Defender MpCmdRun.exe"
+    $candidates += Join-Path $env:ProgramFiles "Windows Defender\MpCmdRun.exe"
+    return Resolve-Tool -Candidates $candidates -Name "Microsoft Defender MpCmdRun.exe"
 }
 
-function Invoke-DefenderReleaseScan {
-    param(
-        [Parameter(Mandatory = $true)]
-        [System.IO.FileInfo[]]$Artifacts
-    )
+function Invoke-DefenderScan {
+    param([System.IO.FileInfo[]]$Artifacts)
 
     Write-Host "`n=== MICROSOFT DEFENDER RELEASE SCAN ==="
     $status = Get-MpComputerStatus
@@ -196,17 +174,15 @@ function Invoke-DefenderReleaseScan {
     if (-not $status.RealTimeProtectionEnabled) {
         throw "Microsoft Defender real-time protection is not enabled."
     }
-
     try {
         Update-MpSignature | Out-Null
     }
     catch {
-        Write-Warning "Defender signature update failed; checking installed signature age."
+        Write-Warning "Defender signature update failed; installed signature age will be enforced."
     }
-
     $status = Get-MpComputerStatus
-    $signatureAge = (Get-Date) - $status.AntivirusSignatureLastUpdated
-    if ($signatureAge.TotalHours -gt 48) {
+    $age = (Get-Date) - $status.AntivirusSignatureLastUpdated
+    if ($age.TotalHours -gt 48) {
         throw "Defender antivirus signatures are older than 48 hours."
     }
 
@@ -229,7 +205,7 @@ function Invoke-DefenderReleaseScan {
             ""
         )
         if ($exitCode -ne 0) {
-            throw "Defender custom scan failed for $($artifact.Name) with exit code $exitCode."
+            throw "Defender scan failed for $($artifact.Name) with exit code $exitCode."
         }
     }
 
@@ -245,16 +221,9 @@ function Invoke-DefenderReleaseScan {
 
 function Write-ReleaseEvidence {
     param(
-        [Parameter(Mandatory = $true)]
         [System.IO.FileInfo[]]$Artifacts,
-
-        [Parameter(Mandatory = $true)]
         [object[]]$Authenticode,
-
-        [Parameter(Mandatory = $true)]
         [object]$Defender,
-
-        [Parameter(Mandatory = $true)]
         [string]$Commit
     )
 
@@ -270,12 +239,11 @@ function Write-ReleaseEvidence {
     )
 
     $sumPath = Join-Path $repoRoot "dist\SHA256SUMS.txt"
-    $sumLines = @(
+    Set-Content -LiteralPath $sumPath -Encoding ASCII -Value @(
         foreach ($record in $hashRecords) {
             "$($record.sha256)  $($record.name)"
         }
     )
-    Set-Content -LiteralPath $sumPath -Encoding ASCII -Value $sumLines
 
     $attestation = [ordered]@{
         schema = "dupez.release-attestation.v1"
@@ -283,11 +251,6 @@ function Write-ReleaseEvidence {
         version = $Version
         commit = $Commit
         generated_at = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-        builder = [ordered]@{
-            machine = $env:COMPUTERNAME
-            windows = [Environment]::OSVersion.VersionString
-            powershell = $PSVersionTable.PSVersion.ToString()
-        }
         artifacts = $hashRecords
         authenticode = $Authenticode
         defender = $Defender
@@ -297,111 +260,54 @@ function Write-ReleaseEvidence {
             pinned_key_fingerprint = "4e9c3c6731efbaa8"
         }
     }
-    $attestationPath = Join-Path $repoRoot "dist\release-attestation.json"
     $attestation | ConvertTo-Json -Depth 8 |
-        Set-Content -LiteralPath $attestationPath -Encoding UTF8
-
-    return @(
-        Get-Item -LiteralPath $sumPath,
-        Get-Item -LiteralPath $attestationPath,
-        Get-Item -LiteralPath (Join-Path $repoRoot "dist\DefenderScan.txt")
-    )
-}
-
-function Invoke-GitHubReleaseStage {
-    param(
-        [Parameter(Mandatory = $true)]
-        [System.IO.FileInfo[]]$Assets,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Commit
-    )
-
-    $gh = Resolve-Executable -Candidates @("gh") -Name "GitHub CLI"
-    if ([string]::IsNullOrWhiteSpace($env:GITHUB_TOKEN) -and [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
-        throw "GITHUB_TOKEN or GH_TOKEN is required for Draft/Publish mode."
-    }
-
-    $resolvedTag = if ($Tag) { $Tag } else { "v$Version" }
-    $notes = Join-Path $repoRoot "docs\release-notes\v$Version.md"
-    if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
-        throw "Release notes missing: docs\release-notes\v$Version.md"
-    }
-
-    $releaseJson = & $gh release view $resolvedTag --repo $Repository --json isDraft,tagName 2>$null
-    $releaseExists = $LASTEXITCODE -eq 0
-    if ($releaseExists) {
-        $release = $releaseJson | ConvertFrom-Json
-        if (-not $release.isDraft) {
-            throw "Release $resolvedTag is already published; refusing to replace immutable assets."
-        }
-    }
-    else {
-        Invoke-Checked -FilePath $gh -Description "CREATE GITHUB DRAFT RELEASE" -ArgumentList @(
-            "release", "create", $resolvedTag,
-            "--repo", $Repository,
-            "--draft",
-            "--target", $Commit,
-            "--title", "DupeZ v$Version",
-            "--notes-file", $notes
-        )
-    }
-
-    $uploadArguments = @("release", "upload", $resolvedTag, "--repo", $Repository, "--clobber")
-    $uploadArguments += @($Assets | ForEach-Object { $_.FullName })
-    Invoke-Checked -FilePath $gh -Description "UPLOAD VERIFIED DRAFT RELEASE ASSETS" -ArgumentList $uploadArguments
-
-    if ($Mode -eq "Publish") {
-        Invoke-Checked -FilePath $gh -Description "PUBLISH VERIFIED RELEASE" -ArgumentList @(
-            "release", "edit", $resolvedTag,
-            "--repo", $Repository,
-            "--draft=false",
-            "--latest"
-        )
-    }
+        Set-Content -LiteralPath (Join-Path $repoRoot "dist\release-attestation.json") -Encoding UTF8
 }
 
 Write-Host "============================================"
 Write-Host " DupeZ v$Version Strict Release Finalizer"
-Write-Host " Mode: $Mode"
 Write-Host "============================================"
 
-if ($Tag -and $Tag -ne "v$Version") {
-    throw "Tag must be v$Version for this release."
+$isAdmin = (
+    New-Object Security.Principal.WindowsPrincipal(
+        [Security.Principal.WindowsIdentity]::GetCurrent()
+    )
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $isAdmin) {
+    throw "Release finalization must run from Administrator PowerShell."
 }
 
-$git = Resolve-Executable -Candidates @("git") -Name "Git"
-$python = Resolve-Executable -Candidates @(
+$git = Resolve-Tool -Candidates @("git") -Name "Git"
+$python = Resolve-Tool -Candidates @(
     (Join-Path $repoRoot ".venv\Scripts\python.exe")
 ) -Name "repository Python 3.11.9"
-$signtool = Resolve-Executable -Candidates @("signtool") -Name "Windows SDK SignTool"
-$iscc = Resolve-Executable -Candidates @(
-    $env:DUPEZ_ISCC,
-    "iscc",
-    (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"),
-    (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
-) -Name "Inno Setup ISCC.exe"
-
-$signingCertificate = Assert-SecretPathOutsideRepository -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
-$updaterPrivateKey = Assert-SecretPathOutsideRepository -Path $env:DUPEZ_SIGN_PRIVKEY -Name "DUPEZ_SIGN_PRIVKEY"
-$env:DUPEZ_SIGN_CERT = $signingCertificate
-$env:DUPEZ_SIGN_PRIVKEY = $updaterPrivateKey
-$env:DUPEZ_ISCC = $iscc
-
-$currentBranch = (& $git branch --show-current).Trim()
-$commit = (& $git rev-parse HEAD).Trim()
-if ($LASTEXITCODE -ne 0 -or -not $commit) {
-    throw "Could not resolve the current Git commit."
+[void](Resolve-Tool -Candidates @("signtool") -Name "Windows SDK SignTool")
+$isccCandidates = @()
+if ($env:DUPEZ_ISCC) {
+    $isccCandidates += $env:DUPEZ_ISCC
 }
+$isccCandidates += "iscc"
+if (${env:ProgramFiles(x86)}) {
+    $isccCandidates += Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+}
+if ($env:ProgramFiles) {
+    $isccCandidates += Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe"
+}
+$iscc = Resolve-Tool -Candidates $isccCandidates -Name "Inno Setup ISCC.exe"
+
+$env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
+$env:DUPEZ_SIGN_PRIVKEY = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_PRIVKEY -Name "DUPEZ_SIGN_PRIVKEY"
+$env:DUPEZ_ISCC = $iscc
+$env:DUPEZ_RELEASE_STRICT = "1"
+
+$branch = (& $git branch --show-current).Trim()
+$commit = (& $git rev-parse HEAD).Trim()
 if (@(& $git status --porcelain).Count -ne 0) {
     & $git status --short
     throw "Repository must be clean before a release build."
 }
-if ($Mode -ne "Validate" -and $currentBranch -ne "main") {
-    throw "Draft/Publish mode must run from main; current branch is $currentBranch."
-}
-if ($Mode -eq "Validate" -and -not $AllowNonMainValidation -and $currentBranch -ne "main") {
-    throw "Validation defaults to main. Pass -AllowNonMainValidation only for a pre-merge candidate."
+if (-not $AllowNonMainValidation -and $branch -ne "main") {
+    throw "Release finalization must run from main; current branch is $branch."
 }
 
 Invoke-Checked -FilePath $python -Description "VERIFY RELEASE PYTHON" -ArgumentList @(
@@ -411,28 +317,17 @@ Invoke-Checked -FilePath $python -Description "VERIFY RELEASE PYTHON" -ArgumentL
 Invoke-Checked -FilePath $python -Description "SOURCE RELEASE PREFLIGHT" -ArgumentList @(
     "-I", "scripts\release_preflight.py", "--version", $Version
 )
-
-$env:DUPEZ_RELEASE_STRICT = "1"
 Invoke-Checked -FilePath (Join-Path $repoRoot "packaging\build_variants.bat") -Description "BUILD AND SIGN RELEASE ARTIFACTS"
 
-$artifacts = Get-ReleaseArtifacts -ResolvedVersion $Version
-$authenticode = Assert-AuthenticodeReleaseArtifacts -Artifacts $artifacts
-$defender = Invoke-DefenderReleaseScan -Artifacts $artifacts
+$artifacts = Get-RequiredArtifacts -ReleaseVersion $Version
+$authenticode = Test-AuthenticodeArtifacts -Artifacts $artifacts
+$defender = Invoke-DefenderScan -Artifacts $artifacts
 
 Invoke-Checked -FilePath $python -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList @(
-    "-I", "scripts\release_preflight.py",
-    "--version", $Version,
-    "--dist"
+    "-I", "scripts\release_preflight.py", "--version", $Version, "--dist"
 )
-
-$evidence = Write-ReleaseEvidence -Artifacts $artifacts -Authenticode $authenticode -Defender $defender -Commit $commit
-$releaseAssets = @($artifacts) + @($evidence)
-
-if ($Mode -in @("Draft", "Publish")) {
-    Invoke-GitHubReleaseStage -Assets $releaseAssets -Commit $commit
-}
+Write-ReleaseEvidence -Artifacts $artifacts -Authenticode $authenticode -Defender $defender -Commit $commit
 
 Write-Host "`nSTRICT RELEASE FINALIZATION: PASS" -ForegroundColor Green
 Write-Host "Commit: $commit"
-Write-Host "Artifacts: $($releaseAssets.Count)"
-Write-Host "Mode: $Mode"
+Write-Host "Artifacts: $($artifacts.Count)"
