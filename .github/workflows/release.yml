@@ -101,10 +101,47 @@ jobs:
             throw 'Inno Setup ISCC.exe is not available on the signing runner.'
           }
 
-      - name: Run fail-closed release finalizer
+      - name: Build, sign, scan, and attest locally
         shell: pwsh
         run: |
           .\scripts\finalize_release.ps1 `
+            -Mode Validate `
+            -Version '${{ inputs.version }}'
+
+      - name: Execute full runtime verifier in both signed frozen variants
+        shell: pwsh
+        run: |
+          $variants = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe'
+          )
+          foreach ($variant in $variants) {
+            $process = Start-Process `
+              -FilePath (Resolve-Path $variant) `
+              -ArgumentList '--verify-runtime-imports' `
+              -Wait `
+              -PassThru
+            if ($process.ExitCode -ne 0) {
+              throw "Signed frozen runtime verification failed for $variant with exit code $($process.ExitCode)."
+            }
+            Write-Host "Signed frozen runtime verified: $variant"
+          }
+
+      - name: Re-run final dist preflight after signed runtime execution
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe -I scripts\release_preflight.py `
+            --version '${{ inputs.version }}' `
+            --dist
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Final signed dist preflight failed.'
+          }
+
+      - name: Stage or publish verified release
+        if: ${{ inputs.mode != 'Validate' }}
+        shell: pwsh
+        run: |
+          .\scripts\stage_release.ps1 `
             -Mode '${{ inputs.mode }}' `
             -Version '${{ inputs.version }}' `
             -Repository '${{ github.repository }}'
