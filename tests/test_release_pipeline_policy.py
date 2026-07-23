@@ -63,33 +63,90 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
     assert "--gen-key" not in script
 
 
-def test_release_staging_refuses_published_asset_replacement():
+def test_release_staging_requires_exact_artifact_evidence():
     script = _read("scripts/stage_release.ps1")
 
-    assert "scripts\\release_preflight.py" in script
-    assert "--dist" in script
-    assert "SHA256SUMS.txt" in script
-    assert "already published" in script
-    assert "immutable assets will not be replaced" in script
-    assert '"--draft"' in script
-    assert '"--draft=false"' in script
-    assert 'ValidateSet("Draft", "Publish")' in script
+    required = (
+        "scripts\\release_preflight.py",
+        "--dist",
+        "SHA256SUMS.txt",
+        "frozen-runtime-evidence-gpu.json",
+        "frozen-runtime-evidence-compat.json",
+        "manual-release-validation.json",
+        "dupez.frozen-runtime-validation.v1",
+        "dupez.manual-release-validation.v1",
+        "release-validation-attestation.json",
+        "split-medium-integrity-gui",
+        "inproc-high-integrity",
+        "already published",
+        "immutable assets will not be replaced",
+        '"--draft"',
+        '"--draft=false"',
+        'ValidateSet("Draft", "Publish")',
+    )
+    for token in required:
+        assert token in script, token
 
 
-def test_release_workflow_keeps_keys_on_protected_self_hosted_runner():
+def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     workflow = _read(".github/workflows/release.yml")
 
     assert "runs-on: [self-hosted, windows, release-signing]" in workflow
     assert "environment: production-release" in workflow
     assert "github.ref_name" in workflow and "main" in workflow
     assert "scripts\\finalize_release.ps1" in workflow
-    assert "scripts\\stage_release.ps1" in workflow
+    assert "scripts\\stage_release.ps1" not in workflow
     assert "dist\\DupeZ-GPU.exe" in workflow
     assert "dist\\DupeZ-Compat.exe" in workflow
     assert workflow.count("--verify-runtime-imports") == 1
     assert "secrets.DUPEZ_SIGN_CERT" not in workflow
     assert "secrets.DUPEZ_SIGN_PRIVKEY" not in workflow
-    assert "contents: write" in workflow
+    assert "contents: read" in workflow
+    assert "contents: write" not in workflow
+    assert "release create" not in workflow
+    assert "release edit" not in workflow
+
+
+def test_frozen_runtime_validator_enforces_architecture_and_real_shortcuts():
+    script = _read("scripts/validate_frozen_runtime.ps1")
+
+    required = (
+        'ValidateSet("GPU", "Compat")',
+        "GPU validation must run from a standard, non-Administrator",
+        "Compat validation must run from Administrator PowerShell",
+        "DUPEZ_LOW_RESOURCE",
+        "DUPEZ_MAP_PREWARM",
+        "DupeZ started successfully",
+        "Map: lazy DayZMapGUI initialized on first tab open",
+        "SendCtrlKey($dashboard, 0x32)",
+        "SendCtrlKey($dashboard, 0x51)",
+        "frozen-runtime-evidence-",
+        "split-medium-integrity-gui",
+        "inproc-high-integrity",
+    )
+    for token in required:
+        assert token in script, token
+
+
+def test_manual_recorder_requires_all_exact_artifact_gates():
+    script = _read("scripts/record_manual_release_validation.ps1")
+
+    required = (
+        "dupez.operator-acknowledgement.v1",
+        "frozen-runtime-evidence-gpu.json",
+        "frozen-runtime-evidence-compat.json",
+        "hidden_clumsy_no_flash",
+        "gpu_diagnostic_restore",
+        "compat_diagnostic_restore",
+        "map_failure_retry",
+        "installer_fresh_install",
+        "installer_upgrade",
+        "installer_uninstall",
+        "manual-release-validation.json",
+        "Type YES for each gate",
+    )
+    for token in required:
+        assert token in script, token
 
 
 def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
@@ -106,6 +163,8 @@ def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
     "relative",
     (
         "scripts/finalize_release.ps1",
+        "scripts/validate_frozen_runtime.ps1",
+        "scripts/record_manual_release_validation.ps1",
         "scripts/stage_release.ps1",
     ),
 )
