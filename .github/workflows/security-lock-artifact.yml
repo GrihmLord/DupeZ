@@ -9,7 +9,7 @@ on:
       - ".github/workflows/security-lock-artifact.yml"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: security-lock-artifact-${{ github.event.pull_request.number }}
@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.head_ref }}
 
       - name: Set up canonical release Python 3.11.9
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -99,6 +101,21 @@ jobs:
           print("hash uniqueness pass")
           '@ | Set-Content validate_security_lock.py -Encoding UTF8
           python validate_security_lock.py
+
+      - name: Commit verified lock to the PR branch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements-locked.txt
+          git diff --cached --check
+          if (git diff --cached --quiet) {
+            Write-Host "Verified lock is already committed."
+          }
+          else {
+            git commit -m "security: regenerate runtime lock for patched dependencies"
+            git push origin "HEAD:${{ github.head_ref }}"
+          }
 
       - name: Upload regenerated lock
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
