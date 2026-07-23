@@ -19,7 +19,7 @@ concurrency:
 jobs:
   verify-and-clean:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
       REPOSITORY: ${{ github.repository }}
@@ -30,22 +30,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Require zero open Dependabot alerts
+      - name: Read and report open Dependabot count
+        id: alerts
         shell: bash
         run: |
           set -euo pipefail
-          count=''
-          for attempt in $(seq 1 30); do
-            count=$(gh api "/repos/${REPOSITORY}/dependabot/alerts?state=open&per_page=100" --jq 'length')
-            echo "Attempt ${attempt}: ${count} open Dependabot alert(s)"
-            if [ "$count" = '0' ]; then
-              break
-            fi
-            sleep 20
-          done
-
+          count=$(gh api "/repos/${REPOSITORY}/dependabot/alerts?state=open&per_page=100" --jq 'length')
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          gh pr comment "$REPORT_PR" --repo "$REPOSITORY" --body "Post-merge Dependabot verification: GitHub currently reports **${count} open alert(s)**. Branch deletion proceeds only when this count is zero."
           if [ "$count" != '0' ]; then
-            gh pr comment "$REPORT_PR" --repo "$REPOSITORY" --body "Dependabot cleanup stopped: GitHub still reports ${count} open alert(s) after the patched lock merged. No branches were deleted."
             exit 1
           fi
 
