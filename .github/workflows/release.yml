@@ -1,0 +1,125 @@
+name: Signed Release Finalization
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact semantic version to finalize'
+        required: true
+        default: '5.7.9'
+        type: string
+      mode:
+        description: 'Validate locally, stage a draft, or publish the verified draft'
+        required: true
+        default: 'Validate'
+        type: choice
+        options:
+          - Validate
+          - Draft
+          - Publish
+
+permissions:
+  contents: write
+
+concurrency:
+  group: signed-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    name: Build, sign, scan, attest, and stage release
+    runs-on: [self-hosted, windows, release-signing]
+    timeout-minutes: 90
+    environment: production-release
+    env:
+      PYTHONNOUSERSITE: '1'
+      PYTHONPATH: ''
+      PYTHONHOME: ''
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Require main and exact release version
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_name }}' -ne 'main') {
+            throw 'Signed release finalization must be dispatched from main.'
+          }
+          if ('${{ inputs.version }}' -ne '5.7.9') {
+            throw 'This workflow revision can finalize only v5.7.9.'
+          }
+
+      - name: Checkout exact main commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Setup canonical release Python 3.11.9
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+
+      - name: Create repository bootstrap venv
+        shell: pwsh
+        run: |
+          if (Test-Path .venv) {
+            Remove-Item .venv -Recurse -Force
+          }
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -I -S -c `
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,11,9) and struct.calcsize('P')==8 else 1)"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Canonical Python 3.11.9 x64 verification failed.'
+          }
+
+      - name: Verify protected signing-host configuration
+        shell: pwsh
+        run: |
+          $required = @(
+            'DUPEZ_SIGN_CERT',
+            'DUPEZ_SIGN_PRIVKEY'
+          )
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw "$name is not configured on the protected signing runner."
+            }
+            if (-not (Test-Path -LiteralPath $value -PathType Leaf)) {
+              throw "$name does not reference an existing file."
+            }
+          }
+          if (-not (Get-Command signtool -ErrorAction SilentlyContinue)) {
+            throw 'Windows SDK SignTool is not available on the signing runner.'
+          }
+          $iscc = @(
+            $env:DUPEZ_ISCC,
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
+          if (-not $iscc -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            throw 'Inno Setup ISCC.exe is not available on the signing runner.'
+          }
+
+      - name: Run fail-closed release finalizer
+        shell: pwsh
+        run: |
+          .\scripts\finalize_release.ps1 `
+            -Mode '${{ inputs.mode }}' `
+            -Version '${{ inputs.version }}' `
+            -Repository '${{ github.repository }}'
+
+      - name: Upload release evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-release-evidence-${{ inputs.version }}-${{ github.run_id }}
+          path: |
+            dist/SHA256SUMS.txt
+            dist/release-attestation.json
+            dist/DefenderScan.txt
+            dist/DupeZ.sbom.json
+            dist/DupeZ.vex.json
+            dist/binary-provenance.json
+          if-no-files-found: error
+          retention-days: 90
