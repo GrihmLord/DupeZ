@@ -530,6 +530,22 @@ def _get_ip_forwarding_state() -> bool:
         except Exception:
             return False
 
+    # The split GUI is deliberately unelevated. Keep this privileged query in
+    # the helper; the helper forces DUPEZ_ARCH=inproc, so this cannot recurse.
+    try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return bool(get_proxy_manager().get_ip_forwarding_state())
+    except Exception as exc:
+        log_error(f"Helper IP-forwarding query failed: {exc}")
+        # False is a valid state, so converting a transport failure to False
+        # can make cleanup disable forwarding that was already enabled before
+        # DupeZ started. Keep the state unobservable and abort the mutation.
+        raise RuntimeError(
+            "elevated helper could not report IP-forwarding state"
+        ) from exc
+
     if not _SP_NETSH:
         return False
     try:
@@ -561,6 +577,17 @@ def _set_ip_forwarding(enable: bool) -> bool:
         except Exception as e:
             log_error(f"Failed to set IP forwarding (Linux): {e}")
             return False
+
+    # netsh requires elevation. Route the entire operation through the helper
+    # in split mode, including crash-recovery and the LAN-cut panel.
+    try:
+        from app.firewall_helper.feature_flag import is_split_mode
+        if is_split_mode():
+            from app.firewall_helper.ipc_client import get_proxy_manager
+            return bool(get_proxy_manager().set_ip_forwarding(bool(enable)))
+    except Exception as exc:
+        log_error(f"Helper IP-forwarding update failed: {exc}")
+        return False
 
     state = "enabled" if enable else "disabled"
     if not _SP_NETSH:

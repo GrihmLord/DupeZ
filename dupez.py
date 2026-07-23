@@ -71,10 +71,55 @@ def _maybe_dispatch_helper_role() -> None:
 _maybe_dispatch_helper_role()
 
 
-# ── v5.7.6: operator escape hatches (--reset-audit, --verify-self) ─
+# ── Operator maintenance flags (run before elevation / GUI bootstrap) ─
 # These run BEFORE elevation / GUI bootstrap so the operator can drive
 # them from a regular shell without booting the whole stack.
+def _verify_runtime_imports() -> tuple[str, ...]:
+    """Import every frozen Qt/direct-Clumsy boundary required by both builds."""
+    import PyQt6.sip
+    from PyQt6 import QtCore, QtWebEngineWidgets, QtWidgets
+
+    import dupez_helper
+    from app.core import clumsy_controls
+    from app.firewall import (
+        clumsy_diagnostics,
+        clumsy_full_controls,
+        clumsy_private_api_compat,
+        iup_edit_sync,
+    )
+    from app.gui.panels import (
+        clumsy_advanced_panel,
+        clumsy_event_ui_policy,
+    )
+
+    modules = (
+        PyQt6.sip,
+        QtCore,
+        QtWidgets,
+        QtWebEngineWidgets,
+        clumsy_controls,
+        clumsy_diagnostics,
+        clumsy_full_controls,
+        clumsy_private_api_compat,
+        iup_edit_sync,
+        clumsy_advanced_panel,
+        clumsy_event_ui_policy,
+        dupez_helper,
+    )
+    return tuple(module.__name__ for module in modules)
+
+
 def _maybe_handle_v576_flags() -> None:
+    if "--verify-runtime-imports" in sys.argv:
+        try:
+            imported = ", ".join(_verify_runtime_imports())
+            _safe_stdout(f"[dupez] runtime imports verified: {imported}\n")
+            sys.exit(0)
+        except Exception as e:
+            _safe_stderr(
+                f"[dupez] --verify-runtime-imports failed: {e}\n"
+            )
+            sys.exit(4)
     if "--reset-audit" in sys.argv:
         _here = os.path.dirname(os.path.abspath(__file__))
         if _here not in sys.path:
@@ -204,6 +249,15 @@ def _inproc_self_elevate_if_needed() -> None:
 
 
 _inproc_self_elevate_if_needed()
+
+# Acquire after any in-proc UAC hand-off so the short-lived Medium-IL parent
+# does not retain the GUI mutex. This is intentionally before renderer-tier,
+# Qt, or app.main imports. Helper and maintenance launches have already
+# dispatched above, and the guard independently recognizes those bypasses.
+from dupez_single_instance import guard_gui_startup  # noqa: E402
+
+if not guard_gui_startup():
+    sys.exit(0)
 
 # ── QtWebEngine bootstrap (ADR-0001 §4.7) ──────────────────────────
 # Chromium GPU init deadlocks under an admin token, so the tier resolver

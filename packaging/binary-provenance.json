@@ -1,6 +1,6 @@
 {
   "schema": "dupez.bundled-binaries.v1",
-  "reviewed_on": "2026-06-24",
+  "reviewed_on": "2026-07-18",
   "artifacts": [
     {
       "path": "app/firewall/WinDivert.dll",
@@ -22,8 +22,11 @@
       "path": "app/firewall/clumsy.exe",
       "sha256": "a9ea677795e6c92d1ca945d8b7b2ef1d264eeb7dc956feae368c7cf8b99ef37d",
       "size": 439808,
-      "version": "custom bundled source",
-      "source": "app/firewall/clumsy_src",
+      "version": "0.3.4",
+      "source": "https://github.com/kalirenegade-dev/clumsy/releases/tag/0.3.4",
+      "source_commit": "bc87e73066168520d76122c9165e99ea703b166c",
+      "release_asset": "Clumsy.0.3.4.zip",
+      "release_asset_sha256": "7ceb4dca24c428c90eb62f6b5a995a7db2a03a1be8d37a7e803887123be65af8",
       "authenticode": "unsigned"
     }
   ]

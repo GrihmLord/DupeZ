@@ -20,6 +20,15 @@ def pytest_configure(config):
         _REPO_BASETEMP.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(_REPO_BASETEMP)
 
+    # Never let config persistence mutate tracked source files. Patch only
+    # app.config's persistence targets so data/backup path tests retain their
+    # normal source-checkout semantics.
+    runtime_root = Path(tempfile.mkdtemp(prefix="dupez-pytest-config-"))
+    from app import config as config_module
+
+    config_module.CONFIG_PATH = str(runtime_root / "settings.json")
+    config_module.HMAC_PATH = str(runtime_root / "settings.json.hmac")
+
     # v5.7.6 -- webhook host allowlist escape hatch for tests using
     # https://example.invalid/*. Shipped product never sets this var.
     os.environ.setdefault(

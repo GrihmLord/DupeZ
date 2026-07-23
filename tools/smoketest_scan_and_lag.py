@@ -4,10 +4,13 @@ Smoke test: WiFi device discovery → lag disruption → stop.
 Run as Administrator on the Windows host where DupeZ will operate.
 Requires: Npcap, WinDivert driver installed.
 
-    python tools/smoketest_scan_and_lag.py --target-last-octet 42 --lag-ms 300 --duration 10
+    python tools/smoketest_scan_and_lag.py \
+        --target-ip 192.168.137.42 \
+        --target-mac 00:11:22:33:44:55 \
+        --engine clumsy --lag-ms 300 --duration 10
 
-If --target-last-octet is omitted, it lags the first console device found
-(Xbox/PlayStation/Switch/Nintendo match in the MAC OUI table).
+The exact private IP and MAC are mandatory. The tool never selects an
+arbitrary scanned device.
 
 Exit codes:
   0  — scan returned ≥1 device AND lag started AND stopped cleanly
@@ -20,10 +23,11 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
+import re
 import sys
 import time
-from typing import Optional
 
 # Make the repo root importable whether invoked from repo root or elsewhere.
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,18 +38,33 @@ from app.network.enhanced_scanner import EnhancedNetworkScanner
 from app.firewall_helper.feature_flag import get_disruption_manager
 
 
-def _pick_target(devices: list[dict], last_octet: Optional[int]) -> Optional[dict]:
-    if last_octet is not None:
-        suffix = f".{last_octet}"
-        for d in devices:
-            ip = d.get("ip", "")
-            if ip.endswith(suffix):
-                return d
-        return None
-    for d in devices:
-        if d.get("is_console"):
-            return d
-    return devices[0] if devices else None
+def _private_ip(value: str) -> str:
+    try:
+        parsed = ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    if not parsed.is_private:
+        raise argparse.ArgumentTypeError("target must be a private-network IP")
+    return str(parsed)
+
+
+def _mac(value: str) -> str:
+    normalized = value.replace("-", ":").lower()
+    if not re.fullmatch(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}", normalized):
+        raise argparse.ArgumentTypeError("invalid MAC address")
+    return normalized
+
+
+def _pick_target(
+    devices: list[dict],
+    target_ip: str,
+    target_mac: str,
+) -> dict | None:
+    for device in devices:
+        device_mac = str(device.get("mac", "")).replace("-", ":").lower()
+        if str(device.get("ip", "")) == target_ip and device_mac == target_mac:
+            return device
+    return None
 
 
 def main() -> int:
@@ -53,8 +72,16 @@ def main() -> int:
     ap.add_argument("--network", default=None,
                     help="Optional CIDR filter (e.g. 192.168.137.0/24). "
                          "Default: no filter — returns every ARP entry.")
-    ap.add_argument("--target-last-octet", type=int, default=None,
-                    help="Pick device whose IP ends in this octet; else first console")
+    ap.add_argument("--target-ip", type=_private_ip, required=True,
+                    help="Exact authorized private-network target IP")
+    ap.add_argument("--target-mac", type=_mac, required=True,
+                    help="Exact authorized target MAC")
+    ap.add_argument(
+        "--engine",
+        choices=("clumsy", "native"),
+        default="clumsy",
+        help="Engine to validate (default: actual bundled Clumsy)",
+    )
     ap.add_argument("--lag-ms", type=int, default=300,
                     help="Lag delay in milliseconds")
     ap.add_argument("--duration", type=float, default=10.0,
@@ -76,9 +103,9 @@ def main() -> int:
         print("[FAIL] scan empty — check WiFi adapter, ARP table, and network range")
         return 1
 
-    target = _pick_target(devices, args.target_last_octet)
+    target = _pick_target(devices, args.target_ip, args.target_mac)
     if not target:
-        print(f"[FAIL] no device matched last-octet={args.target_last_octet}")
+        print("[FAIL] exact authorized IP/MAC pair was not found")
         return 2
     target_ip = target["ip"]
     print(f"[TARGET] {target_ip}  mac={target.get('mac')}  "
@@ -89,7 +116,11 @@ def main() -> int:
     started = manager.disrupt_device(
         target_ip,
         methods=["lag"],
-        params={"lag_delay": args.lag_ms},
+        params={
+            "lag_delay": args.lag_ms,
+            "direction": "both",
+            "_engine_preference": args.engine,
+        },
         target_mac=target.get("mac"),
         target_hostname=target.get("hostname"),
     )
@@ -122,9 +153,27 @@ def main() -> int:
         print(f"  t={elapsed:4.1f}s packets={_packet_count()}")
 
     packets = _packet_count()
+    engine_stats = manager.get_engine_stats() or {}
+    device_stats = (engine_stats.get("per_device") or {}).get(target_ip, {})
 
     print(f"[STOP] stopping lag on {target_ip} (final packets={packets})")
     manager.stop_device(target_ip)
+    if args.engine == "clumsy":
+        if (
+            device_stats.get("engine") != "clumsy_compatibility"
+            or device_stats.get("startup_verified") is not True
+        ):
+            print(
+                "[FAIL] Clumsy process/layer/control startup was not verified: "
+                f"{device_stats}"
+            )
+            return 4
+        print(
+            "[OK] bundled Clumsy process, capture layer, module, value, and "
+            "Start-state controls verified. Runtime packet counters are "
+            "unavailable in standalone Clumsy."
+        )
+        return 0
     if packets == 0:
         print(f"[FAIL] engine processed 0 packets — lag did not intercept traffic. "
               f"Verify WinDivert driver and that {target_ip} is actively transmitting.")

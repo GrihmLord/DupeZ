@@ -8,15 +8,26 @@ import json
 import os
 import re
 import subprocess
-from pathlib import Path
+import sys
+from pathlib import Path, PurePosixPath
+from typing import Iterable
+
+ROOT = Path(__file__).resolve().parents[1]
+DIST = ROOT / "dist"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from app.core.update_verify import (
+    SigVerifyError,
+    UpdateManifest,
+    verify_installer_sha256,
+    verify_manifest as verify_update_manifest,
+)
 
 try:
     from scripts.verify_bundled_binaries import verify_manifest
 except ImportError:  # direct `python scripts/release_preflight.py`
     from verify_bundled_binaries import verify_manifest
-
-ROOT = Path(__file__).resolve().parents[1]
-DIST = ROOT / "dist"
 
 _POWERSHELL = Path(
     r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
@@ -53,6 +64,278 @@ def _check_signtool_policy(rel: str) -> list[str]:
                 f"weak Authenticode signing command: {rel}:{line_no} "
                 f"missing {', '.join(missing)}"
             )
+    return errors
+
+
+def _check_hermetic_python_policy(rel: str) -> list[str]:
+    """Require a freshly recreated, isolated release-build interpreter."""
+    errors: list[str] = []
+    text = _read(rel)
+    required = (
+        'set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\\.venv\\Scripts\\python.exe"',
+        'set "DUPEZ_BUILD_VENV=%CD%\\.build-venv"',
+        'set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\\Scripts\\python.exe"',
+        'set "PYTHONHOME="',
+        'set "PYTHONPATH="',
+        'set "PYTHONNOUSERSITE=1"',
+        'set "PIP_REQUIRE_VIRTUALENV=true"',
+        'if not exist "%DUPEZ_BOOTSTRAP_PYTHON%"',
+        'if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q '
+        '"%DUPEZ_BUILD_VENV%"',
+        '"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv '
+        '"%DUPEZ_BUILD_VENV%"',
+        '"%DUPEZ_PYTHON%" -I -m pip',
+        "--only-binary=:all:",
+        "--require-hashes -r packaging\\requirements-build-locked.txt",
+        "--require-hashes -r requirements-locked.txt",
+        '"%DUPEZ_PYTHON%" -I -m PyInstaller',
+        "scripts\\release_preflight.py",
+        "--frozen-artifact",
+    )
+    for snippet in required:
+        if snippet not in text:
+            errors.append(
+                f"non-hermetic Python build policy in {rel}: "
+                f"missing {snippet}"
+            )
+
+    import_checks = (
+        "import PyInstaller",
+        "import PyQt6.sip",
+        "QtCore",
+        "QtWidgets",
+        "QtWebEngineWidgets",
+    )
+    prebuild_lines = [
+        line
+        for line in text.splitlines()
+        if '"%DUPEZ_PYTHON%" -I -c ' in line
+    ]
+    combined_checks = "\n".join(prebuild_lines)
+    for required_import in import_checks:
+        if required_import not in combined_checks:
+            errors.append(
+                f"build import preflight missing in {rel}: "
+                f"{required_import}"
+            )
+
+    for line_no, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        lowered = stripped.lower()
+        if (
+            not stripped
+            or stripped.startswith("::")
+            or lowered.startswith("rem ")
+            or lowered.startswith("echo ")
+        ):
+            continue
+        if re.match(r"(?i)^(?:python|pip)(?:\.exe)?\b", stripped):
+            errors.append(
+                f"ambient Python command in {rel}:{line_no}: {stripped}"
+            )
+        if re.search(r"(?i)\bscripts\\[^ ]+\.py\b", stripped):
+            if not stripped.startswith('"%DUPEZ_PYTHON%" '):
+                errors.append(
+                    f"project script bypasses isolated build interpreter in "
+                    f"{rel}:{line_no}: {stripped}"
+                )
+    return errors
+
+
+_FORBIDDEN_FROZEN_PREFIXES = (
+    # v5.7.9 does not ship Group Finder. Revise this explicit release policy
+    # when the feature and its dependency boundary are approved for release.
+    "anyio",
+    "app.social",
+    "httpcore",
+    "httpx",
+    "pydantic",
+    "pydantic_core",
+    "typing_inspection",
+    # Optional voice/scientific stacks are deliberately excluded from the
+    # production lock and must not leak in from a developer environment.
+    "fsspec",
+    "ipython",
+    "jinja2",
+    "llvmlite",
+    "numba",
+    "torch",
+    "triton",
+    "whisper",
+)
+_RELEASE_DATA_MANIFEST = ROOT / "packaging" / "release-data.json"
+_RELEASE_DATA_SCHEMA = "dupez.release-data.v1"
+_MANAGED_FROZEN_DATA_PREFIXES = (
+    "app.assets.",
+    "app.config.",
+    "app.resources.",
+    "app.themes.",
+)
+
+
+def _normalise_frozen_name(name: object) -> str:
+    return str(name).replace("\\", ".").replace("/", ".").casefold()
+
+
+def _matches_frozen_prefix(name: str, prefix: str) -> bool:
+    return (
+        name == prefix
+        or name.startswith(f"{prefix}.")
+        or name.startswith(f"{prefix}-")
+    )
+
+
+def _release_data_archive_names() -> tuple[set[str], list[str]]:
+    errors: list[str] = []
+    try:
+        payload = json.loads(
+            _RELEASE_DATA_MANIFEST.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError) as exc:
+        return set(), [f"invalid packaging/release-data.json: {exc}"]
+    if payload.get("schema") != _RELEASE_DATA_SCHEMA:
+        errors.append("unsupported packaging/release-data.json schema")
+    files = payload.get("files")
+    if not isinstance(files, list) or not files:
+        return set(), errors + [
+            "packaging/release-data.json contains no files"
+        ]
+
+    archive_names: set[str] = set()
+    for value in files:
+        if not isinstance(value, str):
+            errors.append("release-data manifest paths must be strings")
+            continue
+        relative = PurePosixPath(value)
+        if relative.is_absolute() or ".." in relative.parts:
+            errors.append(f"unsafe release-data manifest path: {value!r}")
+            continue
+        source = ROOT.joinpath(*relative.parts)
+        if not source.is_file():
+            errors.append(f"release-data source file missing: {value}")
+        archive_name = _normalise_frozen_name(relative.as_posix())
+        if not archive_name.startswith(_MANAGED_FROZEN_DATA_PREFIXES):
+            errors.append(f"release-data path outside managed roots: {value}")
+        if archive_name in archive_names:
+            errors.append(f"duplicate release-data manifest path: {value}")
+        archive_names.add(archive_name)
+    return archive_names, errors
+
+
+def _check_frozen_dependency_policy(
+    artifacts: Iterable[Path],
+    *,
+    archive_reader_cls=None,
+    release_data_names: set[str] | None = None,
+) -> list[str]:
+    """Reject release archives contaminated by non-production packages."""
+    errors: list[str] = []
+    if release_data_names is None:
+        release_data_names, manifest_errors = _release_data_archive_names()
+        errors.extend(manifest_errors)
+        if manifest_errors:
+            return errors
+    else:
+        release_data_names = {
+            _normalise_frozen_name(name) for name in release_data_names
+        }
+    if archive_reader_cls is None:
+        try:
+            from PyInstaller.archive.readers import CArchiveReader
+        except Exception as exc:
+            return [
+                "cannot inspect frozen dependency policy because PyInstaller "
+                f"archive support is unavailable: {exc}"
+            ]
+        archive_reader_cls = CArchiveReader
+
+    for artifact in artifacts:
+        if not artifact.is_file():
+            errors.append(f"frozen artifact missing: {artifact}")
+            continue
+        try:
+            archive = archive_reader_cls(str(artifact))
+            outer_names = {
+                _normalise_frozen_name(name) for name in archive.toc
+            }
+            pyz_keys = [
+                name
+                for name in archive.toc
+                if _normalise_frozen_name(name) == "pyz.pyz"
+            ]
+            if len(pyz_keys) != 1:
+                errors.append(
+                    "frozen archive must contain exactly one PYZ.pyz: "
+                    f"{artifact.name}: found {len(pyz_keys)}"
+                )
+                continue
+            embedded = archive.open_embedded_archive(pyz_keys[0])
+            inner_names = {
+                _normalise_frozen_name(name) for name in embedded.toc
+            }
+        except Exception as exc:
+            errors.append(
+                f"cannot inspect frozen archive {artifact.name}: {exc}"
+            )
+            continue
+
+        archive_names = outer_names | inner_names
+        unmanaged_data = sorted(
+            name
+            for name in outer_names
+            if name.startswith(_MANAGED_FROZEN_DATA_PREFIXES)
+            and name not in release_data_names
+        )
+        if unmanaged_data:
+            errors.append(
+                "unmanaged packaged data in "
+                f"{artifact.name}: {', '.join(unmanaged_data[:5])}"
+            )
+        missing_data = sorted(release_data_names - outer_names)
+        if missing_data:
+            errors.append(
+                "required packaged data missing from "
+                f"{artifact.name}: {', '.join(missing_data[:5])}"
+            )
+        for prefix in _FORBIDDEN_FROZEN_PREFIXES:
+            matches = sorted(
+                name
+                for name in archive_names
+                if _matches_frozen_prefix(name, prefix)
+            )
+            if matches:
+                sample = ", ".join(matches[:3])
+                errors.append(
+                    "forbidden frozen dependency in "
+                    f"{artifact.name}: {prefix} ({sample})"
+                )
+    return errors
+
+
+def _check_frozen_runtime_import_policy() -> list[str]:
+    """Ensure the packaged executable proves its core Qt imports work."""
+    errors: list[str] = []
+    launcher = _read("dupez.py")
+    for token in (
+        "--verify-runtime-imports",
+        "import PyQt6.sip",
+        "QtCore",
+        "QtWidgets",
+        "QtWebEngineWidgets",
+    ):
+        if token not in launcher:
+            errors.append(
+                f"frozen runtime import verifier missing from dupez.py: {token}"
+            )
+
+    variant_build = _read("packaging/build_variants.bat")
+    if (
+        '"dist\\DupeZ-GPU.exe" --verify-runtime-imports'
+        not in variant_build
+    ):
+        errors.append(
+            "GPU build does not run the frozen runtime import verifier"
+        )
     return errors
 
 
@@ -130,6 +413,54 @@ $out | ConvertTo-Json -Compress
     return statuses, ""
 
 
+def _verify_update_sidecars(
+    dist: Path,
+    version: str,
+    *,
+    trusted_pubkeys_pem: Iterable[str] | None = None,
+) -> list[str]:
+    """Verify that updater sidecars authenticate the exact release installer."""
+    installer = dist / "DupeZ_Setup.exe"
+    manifest_path = dist / "DupeZ_Setup.exe.manifest.json"
+    signature_path = dist / "DupeZ_Setup.exe.manifest.sig"
+    if not all(
+        path.is_file()
+        for path in (installer, manifest_path, signature_path)
+    ):
+        return []
+
+    try:
+        manifest_bytes = manifest_path.read_bytes()
+        signature_bytes = signature_path.read_bytes()
+        kwargs = {}
+        if trusted_pubkeys_pem is not None:
+            kwargs["trusted_pubkeys_pem"] = trusted_pubkeys_pem
+        manifest: UpdateManifest = verify_update_manifest(
+            manifest_bytes,
+            signature_bytes,
+            **kwargs,
+        )
+    except (OSError, SigVerifyError, ValueError) as exc:
+        return [f"update sidecar verification failed: {exc}"]
+
+    errors: list[str] = []
+    if manifest.version != version:
+        errors.append(
+            "update manifest version mismatch: "
+            f"{manifest.version} != {version}"
+        )
+    if manifest.installer_filename != installer.name:
+        errors.append(
+            "update manifest installer mismatch: "
+            f"{manifest.installer_filename!r} != {installer.name!r}"
+        )
+    try:
+        verify_installer_sha256(str(installer), manifest)
+    except SigVerifyError as exc:
+        errors.append(f"update manifest does not match installer: {exc}")
+    return errors
+
+
 def check_source(expected_version: str | None = None) -> list[str]:
     errors: list[str] = []
     versions = {
@@ -145,20 +476,52 @@ def check_source(expected_version: str | None = None) -> list[str]:
             "packaging/build_variants.bat",
             r'set "DUPEZ_VERSION=(\d+\.\d+\.\d+)"',
         ),
+        "packaging/build.bat": _match_version(
+            "packaging/build.bat",
+            r'set "DUPEZ_VERSION=(\d+\.\d+\.\d+)"',
+        ),
         "packaging/version_info.py": _match_version(
             "packaging/version_info.py",
             r"StringStruct\('FileVersion',\s+'(\d+\.\d+\.\d+)\.0'\)",
+        ),
+        "packaging/dupez.manifest": _match_version(
+            "packaging/dupez.manifest",
+            r'version="(\d+\.\d+\.\d+)\.0"',
+        ),
+        "packaging/dupez_compat.manifest": _match_version(
+            "packaging/dupez_compat.manifest",
+            r'version="(\d+\.\d+\.\d+)\.0"',
+        ),
+        "README.md": _match_version(
+            "README.md",
+            r"^# DupeZ v(\d+\.\d+\.\d+)$",
         ),
     }
     wanted = expected_version or versions["app/__version__.py"]
     for path, version in versions.items():
         if version != wanted:
             errors.append(f"version mismatch: {path}: {version} != {wanted}")
+    for rel, marker in (
+        ("CHANGELOG.md", f"## v{wanted} "),
+        ("ROADMAP.md", f"## v{wanted} "),
+        (f"docs/release-notes/v{wanted}.md", f"# DupeZ v{wanted}"),
+    ):
+        path = ROOT / rel
+        if not path.is_file():
+            errors.append(f"release-version document missing: {rel}")
+        elif marker not in _read(rel):
+            errors.append(
+                f"release-version marker missing from {rel}: {marker!r}"
+            )
 
     for required in (
         "SECURITY.md",
         ".github/CODEOWNERS",
         "packaging/binary-provenance.json",
+        "packaging/release-data.json",
+        "packaging/release_data.py",
+        "packaging/requirements-build.in",
+        "packaging/requirements-build-locked.txt",
         "requirements-locked.txt",
     ):
         if not (ROOT / required).is_file():
@@ -166,6 +529,23 @@ def check_source(expected_version: str | None = None) -> list[str]:
 
     if "--hash=sha256:" not in _read("requirements-locked.txt"):
         errors.append("requirements-locked.txt has no SHA-256 hashes")
+    if "--hash=sha256:" not in _read(
+        "packaging/requirements-build-locked.txt"
+    ):
+        errors.append(
+            "packaging/requirements-build-locked.txt has no SHA-256 hashes"
+        )
+    _, release_data_errors = _release_data_archive_names()
+    errors.extend(release_data_errors)
+    for rel in (
+        "packaging/dupez.spec",
+        "packaging/dupez_gpu.spec",
+        "packaging/dupez_compat.spec",
+    ):
+        if "pyinstaller_datas" not in _read(rel):
+            errors.append(
+                f"PyInstaller spec bypasses explicit release data: {rel}"
+            )
 
     for rel in ("packaging/build_common.py", "packaging/dupez.spec"):
         if re.search(r"\bupx\s*=\s*True\b", _read(rel)):
@@ -200,6 +580,9 @@ def check_source(expected_version: str | None = None) -> list[str]:
 
     for rel in ("packaging/build.bat", "packaging/build_variants.bat"):
         errors.extend(_check_signtool_policy(rel))
+        errors.extend(_check_hermetic_python_policy(rel))
+
+    errors.extend(_check_frozen_runtime_import_policy())
 
     variant_build = _read("packaging/build_variants.bat")
     for artifact in (
@@ -245,6 +628,15 @@ def check_dist(version: str) -> list[str]:
         if not path.is_file() or path.stat().st_size == 0:
             errors.append(f"required release artifact missing/empty: dist/{name}")
 
+    errors.extend(
+        _check_frozen_dependency_policy(
+            [
+                dist / "DupeZ-GPU.exe",
+                dist / "DupeZ-Compat.exe",
+            ]
+        )
+    )
+
     for name, key in (
         ("DupeZ.sbom.json", "components"),
         ("DupeZ.vex.json", "statements"),
@@ -259,6 +651,7 @@ def check_dist(version: str) -> list[str]:
             continue
         if not payload.get(key):
             errors.append(f"dist/{name} contains no {key}")
+    errors.extend(_verify_update_sidecars(dist, version))
     signed_artifacts = [
         dist / name
         for name in (
@@ -287,7 +680,22 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version")
     parser.add_argument("--dist", action="store_true")
+    parser.add_argument(
+        "--frozen-artifact",
+        action="append",
+        type=Path,
+        help="inspect a PyInstaller executable and exit",
+    )
     args = parser.parse_args()
+
+    if args.frozen_artifact:
+        errors = _check_frozen_dependency_policy(args.frozen_artifact)
+        if errors:
+            for error in errors:
+                print(f"ERROR: {error}")
+            return 1
+        print("Frozen dependency preflight passed.")
+        return 0
 
     errors = check_source(args.version)
     if args.dist:

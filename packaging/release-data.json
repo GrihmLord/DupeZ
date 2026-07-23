@@ -1,0 +1,28 @@
+{
+  "schema": "dupez.release-data.v1",
+  "files": [
+    "app/assets/icon.ico",
+    "app/assets/icon_fixed.ico",
+    "app/config/dayz_duping_config.json",
+    "app/config/dayz_firewall.json",
+    "app/config/dayz_loot.json",
+    "app/config/dayz_markers.json",
+    "app/config/dayz_servers.json",
+    "app/config/dayz_tips_tricks.json",
+    "app/config/game_profiles/dayz.json",
+    "app/config/gaming_rules.json",
+    "app/config/latency_config.json",
+    "app/config/memory_optimization.json",
+    "app/config/network_optimization.json",
+    "app/config/network_rules.json",
+    "app/config/profiles.json",
+    "app/config/settings.json",
+    "app/config/stability_config.json",
+    "app/resources/dupez.ico",
+    "app/resources/dupez.png",
+    "app/themes/dark.qss",
+    "app/themes/hacker.qss",
+    "app/themes/light.qss",
+    "app/themes/rainbow.qss"
+  ]
+}

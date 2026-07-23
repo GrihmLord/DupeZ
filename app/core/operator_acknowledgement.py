@@ -36,7 +36,14 @@ def default_acknowledgement_path() -> Path:
 
 
 def acknowledgement_status(path: Optional[Path] = None) -> dict:
-    """Return a stable, privacy-preserving acknowledgement status."""
+    """Return a stable, privacy-preserving acknowledgement status.
+
+    ``utf-8-sig`` accepts both DupeZ's normal BOM-free JSON and the UTF-8 BOM
+    emitted by Windows PowerShell 5.1. Release validation creates isolated
+    acknowledgement files from PowerShell, so accepting the optional BOM keeps
+    that path equivalent without weakening schema/version checks.
+    """
+
     target = Path(path) if path is not None else default_acknowledgement_path()
     status = {
         "schema": SCHEMA,
@@ -45,7 +52,7 @@ def acknowledgement_status(path: Optional[Path] = None) -> dict:
         "acknowledged_at": None,
     }
     try:
-        payload = json.loads(target.read_text(encoding="utf-8"))
+        payload = json.loads(target.read_text(encoding="utf-8-sig"))
     except (OSError, json.JSONDecodeError):
         return status
     if not isinstance(payload, dict):

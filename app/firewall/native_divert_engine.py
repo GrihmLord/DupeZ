@@ -5,15 +5,18 @@ Native WinDivert Engine — direct packet manipulation without clumsy.exe.
 Replaces clumsy.exe GUI automation with direct WinDivert.dll calls via ctypes.
 No GUI, no window, no flash. Just packet interception and manipulation.
 
-Implements the same disruption methods as clumsy:
-  - drop:       Randomly drop packets (chance %)
+Implements the same disruption primitives and public processing order as
+Clumsy. Deferred packets resume at the next module in that order instead of
+bypassing the remainder of the chain.
+
   - lag:        Buffer packets and release after delay (ms)
+  - drop:       Randomly drop packets (chance %)
+  - disconnect: Stateful timed packet cut (100% by default)
+  - bandwidth:  Limit throughput to X KB/s
   - throttle:   Only pass packets at intervals (frame ms, chance %)
   - duplicate:  Send packets multiple times (count, chance %)
   - ood:        Reorder packets randomly (chance %)
   - corrupt:    Flip random bits in payload (chance %)
-  - bandwidth:  Limit throughput to X KB/s
-  - disconnect: Drop nearly all packets (95%+ drop)
   - rst:        Inject TCP RST to kill connections (chance %)
 
 WinDivert API (loaded from WinDivert.dll):
@@ -27,6 +30,7 @@ WinDivert API (loaded from WinDivert.dll):
 from __future__ import annotations
 
 import ctypes
+import inspect
 import os
 import random
 import socket
@@ -406,7 +410,7 @@ class DisruptionModule:
         self,
         packet_data: bytearray,
         addr: WINDIVERT_ADDRESS,
-        send_fn: Callable[[bytearray, Any], None],
+        send_fn: Callable[[bytearray, Any], bool],
     ) -> bool:
         """Process a packet. Return True if packet was handled (sent or dropped).
         Return False to pass through to next module or default send."""
@@ -502,18 +506,38 @@ class NativeWinDivertEngine:
         except ImportError:
             self.methods = methods
             self.params = params
+        # A module may only appear once in a live chain. Preserve the first
+        # caller-supplied occurrence; _init_modules applies the stable Clumsy
+        # priority order after this defensive de-duplication.
+        self.methods = list(dict.fromkeys(self.methods or ()))
 
         self._divert = None       # WinDivertDLL instance
         self._handle = None       # WinDivert HANDLE
         self._thread = None       # Packet processing thread
         self._running = False
         self._modules = []        # Active disruption modules
+        self._module_continuations: list[
+            Callable[[bytearray, WINDIVERT_ADDRESS], bool]
+        ] = []
+        # Deferred flush threads and the capture thread may traverse the
+        # chain concurrently. A re-entrant lock keeps stateful downstream
+        # modules deterministic while still allowing Duplicate/OOD to call
+        # their continuation recursively.
+        self._pipeline_lock = threading.RLock()
+        # One lightweight lifetime counter dict per module, populated in
+        # _init_modules and incremented by the packet thread.  get_stats()
+        # turns these raw counters into the public activity DTO.
+        self._module_activity: list[Dict[str, Any]] = []
         self._recorder_hotkeys = None  # RecorderHotkeys instance
         self._packets_processed = 0
         self._packets_dropped = 0
         self._packets_inbound = 0
         self._packets_outbound = 0
         self._packets_passed = 0
+        self._send_attempted = 0
+        self._send_succeeded = 0
+        self._send_failed = 0
+        self._send_short = 0
 
         # Pre-allocated send buffer — avoids per-packet ctypes allocation.
         # Protected by _send_lock since flush threads also call _send_packet.
@@ -629,8 +653,14 @@ class NativeWinDivertEngine:
             "packets_inbound": self._packets_inbound,
             "packets_outbound": self._packets_outbound,
             "packets_passed": self._packets_passed,
+            "send_attempted": self._send_attempted,
+            "send_succeeded": self._send_succeeded,
+            "send_failed": self._send_failed,
+            "send_short": self._send_short,
             "alive": self.alive,
             "target_ip": self.target_ip,
+            "engine": "native",
+            "telemetry_available": True,
             "methods": list(self.methods),
         }
         # Collect per-module stats (godmode, lag, dupe, etc.)
@@ -644,6 +674,50 @@ class NativeWinDivertEngine:
                     log_error(f"NativeEngine: {mod.__class__.__name__}.get_stats() failed: {exc}")
         if module_stats:
             stats["module_stats"] = module_stats
+
+        activity = self._get_module_activity(module_stats)
+        stats["module_activity"] = {
+            entry["method"]: entry for entry in activity
+        }
+        stats["configured_methods"] = [
+            entry["method"] for entry in activity
+        ]
+        stats["effective_methods"] = [
+            entry["method"] for entry in activity
+            if entry["state"] == "effective"
+        ]
+        stats["shadowed_methods"] = [
+            entry["method"] for entry in activity
+            if entry["state"] == "shadowed"
+        ]
+        all_effective = bool(activity) and all(
+            entry["state"] == "effective" for entry in activity
+        )
+        runtime_verified = bool(
+            self.alive
+            and self._packets_processed > 0
+            and all_effective
+            and self._send_failed == 0
+        )
+        if not self.alive:
+            verification_state = "inactive"
+        elif self._packets_processed <= 0:
+            verification_state = "waiting_for_traffic"
+        elif self._send_failed > 0:
+            verification_state = "send_failure"
+        elif stats["shadowed_methods"]:
+            verification_state = "shadowed"
+        elif not all_effective:
+            verification_state = "effect_not_verified"
+        else:
+            verification_state = "verified"
+        stats.update({
+            "startup_verified": bool(self.alive),
+            "runtime_verification_available": True,
+            "runtime_verified": runtime_verified,
+            "local_effect_verified": runtime_verified,
+            "verification_state": verification_state,
+        })
         # Attach traffic analyzer stats if available
         if self._traffic_analyzer is not None:
             try:
@@ -720,6 +794,130 @@ class NativeWinDivertEngine:
             except Exception:
                 pass
         return stats
+
+    @staticmethod
+    def _directions_overlap(first: str, second: str) -> bool:
+        """Return whether two module direction filters share traffic."""
+        return (
+            first == DIR_BOTH
+            or second == DIR_BOTH
+            or first == second
+        )
+
+    @staticmethod
+    def _effect_count(
+        method: str,
+        handled: int,
+        module_snapshot: Dict[str, Any],
+    ) -> int:
+        """Derive a method's observable effect count from its native stats."""
+        if method == "duplicate" and "sent" in module_snapshot:
+            sent = module_snapshot.get("sent", 0)
+            if isinstance(sent, (int, float)):
+                return max(0, int(sent))
+        # A lagged packet is only proven effective after its deferred copy
+        # successfully resumes through the remaining chain.  Merely placing
+        # it in the queue must not produce a green "effective" claim.
+        if method == "lag":
+            released = module_snapshot.get("released", 0)
+            if isinstance(released, (int, float)):
+                return max(0, int(released))
+            return 0
+
+        candidates = [handled]
+        method_keys = {
+            "disconnect": ("dropped", "packets_dropped"),
+            "corrupt": ("affected",),
+            "rst": ("affected",),
+        }
+        for key in method_keys.get(method, ()):
+            value = module_snapshot.get(key, 0)
+            if isinstance(value, (int, float)):
+                candidates.append(max(0, int(value)))
+        return max(candidates)
+
+    def _get_module_activity(
+        self,
+        module_stats: Optional[Dict[str, Dict[str, Any]]] = None,
+    ) -> list[Dict[str, Any]]:
+        """Build an honest, public per-module activity snapshot.
+
+        ``pending`` means no traffic for the module's direction has arrived;
+        ``reached`` means process() ran but no effect is yet evidenced;
+        ``effective`` means the module consumed or modified at least one
+        packet; and ``shadowed`` means observed traffic was consumed earlier
+        in the same chain before this module could run.
+        """
+        snapshots = module_stats or {}
+        result: list[Dict[str, Any]] = []
+        prior: list[Dict[str, Any]] = []
+
+        for index, raw in enumerate(self._module_activity):
+            method = str(raw.get("method", "unknown"))
+            direction = str(raw.get("direction", DIR_BOTH))
+            invoked_in = int(raw.get("invoked_inbound", 0))
+            invoked_out = int(raw.get("invoked_outbound", 0))
+            handled_in = int(raw.get("handled_inbound", 0))
+            handled_out = int(raw.get("handled_outbound", 0))
+            invoked = invoked_in + invoked_out
+            handled = handled_in + handled_out
+
+            if direction == DIR_INBOUND:
+                relevant = self._packets_inbound
+            elif direction == DIR_OUTBOUND:
+                relevant = self._packets_outbound
+            else:
+                relevant = self._packets_processed
+
+            mod = self._modules[index] if index < len(self._modules) else None
+            class_name = mod.__class__.__name__ if mod is not None else ""
+            module_snapshot = snapshots.get(class_name, {})
+            affected = self._effect_count(method, handled, module_snapshot)
+
+            shadowed_by = None
+            if affected > 0:
+                state = "effective"
+            elif invoked > 0:
+                state = "reached"
+            elif relevant <= 0:
+                state = "pending"
+            else:
+                for earlier in prior:
+                    if direction == DIR_INBOUND:
+                        earlier_handled = earlier["handled_inbound"]
+                    elif direction == DIR_OUTBOUND:
+                        earlier_handled = earlier["handled_outbound"]
+                    else:
+                        earlier_handled = earlier["handled"]
+                    if (
+                        earlier_handled > 0
+                        and self._directions_overlap(
+                            str(earlier["direction"]), direction)
+                    ):
+                        shadowed_by = earlier["method"]
+                        break
+                state = "shadowed" if shadowed_by else "not_reached"
+
+            entry: Dict[str, Any] = {
+                "method": method,
+                "direction": direction,
+                "state": state,
+                "invoked": invoked,
+                "matched": invoked,
+                "affected": affected,
+                "handled": handled,
+                "consumed": handled,
+                "invoked_inbound": invoked_in,
+                "invoked_outbound": invoked_out,
+                "handled_inbound": handled_in,
+                "handled_outbound": handled_out,
+            }
+            if shadowed_by:
+                entry["shadowed_by"] = shadowed_by
+            result.append(entry)
+            prior.append(entry)
+
+        return result
 
     def start(self) -> bool:
         """Open WinDivert handle and start packet processing thread."""
@@ -1126,15 +1324,19 @@ class NativeWinDivertEngine:
 
         Shutdown order matters:
           1. Set _running=False so packet loop stops processing new packets
-          2. Close WinDivert handle to unblock recv() in packet loop
-          3. Join packet thread — loop exits on closed handle
-          4. Stop modules (flush queued lag/godmode packets through handle)
-             NOTE: modules flush via _send_packet which needs _divert but
-             the handle is closed, so we reopen briefly or skip.
-             Actually: we stop modules BEFORE closing handle so flushes work.
+          2. Wait for any in-flight chain traversal to finish
+          3. Stop modules in order and drain queues through continuations
+          4. Close the WinDivert handle to unblock recv()
+          5. Join the packet thread
         """
         log_info("NativeEngine: stopping...")
         self._running = False
+
+        # Wait for any packet already traversing the chain to finish before
+        # module shutdown begins. The packet loop re-checks _running while it
+        # owns this lock, so it cannot enqueue work after queues are drained.
+        with self._pipeline_lock:
+            pass
 
         # Audit trail
         try:
@@ -1173,15 +1375,10 @@ class NativeWinDivertEngine:
                 pass
             self._recorder_hotkeys = None
 
-        # Stop modules first — flush threads need the handle still open
-        # to send queued packets (GodMode flush, Lag flush, OOD flush)
-        for mod in self._modules:
-            if hasattr(mod, 'stop'):
-                try:
-                    mod.stop(send_fn=self._send_packet)
-                except TypeError:
-                    # Module.stop() doesn't accept send_fn — call without it
-                    mod.stop()
+        # Stop modules in chain order while the handle remains open. Earlier
+        # queues drain through their per-module continuation, so downstream
+        # modules remain available until preceding work reaches them.
+        self._stop_modules()
 
         # Now close handle to unblock the packet loop's recv()
         if self._handle and self._handle != INVALID_HANDLE_VALUE:
@@ -1237,13 +1434,46 @@ class NativeWinDivertEngine:
             self._feature_extractor = None
 
     def _cleanup(self) -> None:
+        # start() can fail after _init_modules has launched flush threads.
+        # Drain them before closing the handle so partial starts cannot leak
+        # daemon threads or strand queued packets.
+        self._running = False
+        with self._pipeline_lock:
+            pass
+        self._stop_modules()
         if self._handle and self._handle != INVALID_HANDLE_VALUE:
             try:
                 self._divert.close(self._handle)
             except Exception:
                 pass
             self._handle = None
-        self._running = False
+
+    def _stop_modules(self) -> None:
+        """Stop active modules without bypassing their downstream chain."""
+        for index, mod in enumerate(self._modules):
+            stop_fn = getattr(mod, "stop", None)
+            if not callable(stop_fn):
+                continue
+            try:
+                try:
+                    accepts_sender = "send_fn" in inspect.signature(
+                        stop_fn
+                    ).parameters
+                except (TypeError, ValueError):
+                    accepts_sender = False
+                if accepts_sender:
+                    if index < len(self._module_continuations):
+                        sender = self._module_continuations[index]
+                    else:
+                        sender = self._send_packet
+                    stop_fn(send_fn=sender)
+                else:
+                    stop_fn()
+            except Exception as exc:
+                log_error(
+                    f"NativeEngine: {mod.__class__.__name__}.stop() "
+                    f"failed: {exc}"
+                )
 
     # ── ML integration ────────────────────────────────────────────────
 
@@ -1435,9 +1665,10 @@ class NativeWinDivertEngine:
     def _init_modules(self) -> None:
         """Create disruption module instances based on selected methods.
 
-        Module order matters — aggressive droppers go first to maximize
-        disruption. Packets that survive early modules hit later ones.
-        Order: godmode → disconnect → drop → bandwidth → throttle → lag → ood → duplicate → corrupt → rst
+        Public modules follow standalone Clumsy exactly:
+        lag → drop → disconnect → bandwidth → throttle → duplicate → ood
+        → corrupt → rst. Native-only modules keep deterministic placement
+        around that public chain.
 
         The legacy pulse-cycle module handles direction internally, so it
         remains first for backward compatibility. If active, later modules
@@ -1458,78 +1689,111 @@ class NativeWinDivertEngine:
             if key in self.params:
                 log_info(f"[ENGINE INIT]   {key} = {self.params[key]}")
 
-        # Enforce stable module order for deterministic diagnostics.
-        # Legacy timing modes are now consolidated into the disconnect module.
-        PRIORITY_ORDER = [
-            "godmode", "disconnect", "drop", "bandwidth", "throttle",
-            "lag", "ood", "duplicate", "corrupt", "rst",
+        # Public relative order is the standalone Clumsy pipeline. Keep the
+        # legacy native GodMode slot before it, and retain first-occurrence
+        # order for every other native-only method after it.
+        clumsy_order = [
+            "lag", "drop", "disconnect", "bandwidth", "throttle",
+            "duplicate", "ood", "corrupt", "rst",
         ]
-        ordered_methods = [m for m in PRIORITY_ORDER if m in self.methods]
-        ordered_methods += [m for m in self.methods if m not in ordered_methods]
+        requested = list(dict.fromkeys(self.methods))
+        ordered_methods = ["godmode"] if "godmode" in requested else []
+        ordered_methods.extend(
+            method for method in clumsy_order if method in requested
+        )
+        ordered_methods.extend(
+            method for method in requested
+            if method != "godmode" and method not in clumsy_order
+        )
         log_info(f"[ENGINE INIT] Ordered chain: {ordered_methods}")
 
-        # Auto-detect lag passthrough mode: if lag is stacked with
-        # duplicate or ood, lag queues a delayed copy but lets the original
-        # continue to downstream modules (creates desync combos).
-        #
-        # SKIP auto-enable when lag_passthrough is explicitly set in params
-        # (e.g. legacy pulse presets may set it to False because they use
-        # duplicate on outbound-only while lag must consume inbound packets).
-        has_downstream = bool({"duplicate", "ood"} & set(self.methods))
-        lag_pt_explicit = "lag_passthrough" in self.params
-        if has_downstream and not lag_pt_explicit:
-            self.params["lag_passthrough"] = True
-            log_info("[ENGINE INIT] AUTO-ENABLED lag passthrough "
-                     "(duplicate/ood present, lag_passthrough not set)")
-        elif has_downstream and lag_pt_explicit:
-            log_info(f"[ENGINE INIT] lag_passthrough explicitly set to "
-                     f"{self.params['lag_passthrough']} — auto-detect skipped")
+        # Consume-and-delay is the normal Clumsy behavior. Passthrough queues
+        # an extra delayed copy while allowing the original forward, so it is
+        # enabled only by an explicit caller choice.
+        if "lag_passthrough" in self.params:
+            log_info(
+                "[ENGINE INIT] lag_passthrough explicitly set to "
+                f"{self.params['lag_passthrough']}"
+            )
         else:
-            log_info("[ENGINE INIT] No duplicate/ood — lag passthrough not needed")
+            log_info("[ENGINE INIT] lag_passthrough defaults to False")
 
-        # Auto-tune: if the caller asked for a survival-model-predicted
-        # cut duration (either implicitly by leaving disconnect_duration_ms
-        # at 0, or explicitly via params["_auto_tune_duration"]), query
-        # the trained model and fill the param in. Falls through to the
-        # legacy open-ended cut semantics if the model isn't ready.
+        # Auto-tune only when the caller explicitly requests a learned cut
+        # duration.  A zero duration by itself remains open-ended so the
+        # automatic workflow's own stage timer and standalone Clumsy retain
+        # identical semantics.
         self._auto_tune_duration_if_requested()
 
         self._modules = []
+        self._module_activity = []
+        self._module_continuations = []
         for method_name in ordered_methods:
             cls = MODULE_MAP.get(method_name)
             if cls:
                 mod = cls(self.params)
                 self._modules.append(mod)
-
-                # Detailed per-module debug
-                passthrough_tag = ""
-                if hasattr(mod, '_passthrough') and mod._passthrough:
-                    passthrough_tag = " [PASSTHROUGH]"
-                dir_key = getattr(mod, '_direction_key', '')
-                dir_override = self.params.get(f"{dir_key}_direction", "NOT SET")
-                dir_global = self.params.get("direction", "both")
-                log_info(f"[ENGINE INIT] Module '{method_name}':"
-                         f" direction={mod.direction}"
-                         f" (override={dir_override}, global={dir_global})"
-                         f"{passthrough_tag}")
-
-                # Start flush threads for modules that have them
-                if hasattr(mod, 'start_flush_thread'):
-                    mod.start_flush_thread(
-                        self._send_packet, self._divert, self._handle
-                    )
-                    log_info(f"[ENGINE INIT]   └─ flush thread started")
-
-                # Auto-activate modules with state machines (e.g. the
-                # disconnect timed-cut module, legacy pulse cycler)
-                if hasattr(mod, 'activate') and callable(getattr(mod, 'activate')):
-                    try:
-                        mod.activate()
-                        log_info(f"[ENGINE INIT]   └─ auto-activated")
-                    except Exception as ae:
-                        log_error(f"[ENGINE INIT]   └─ activate FAILED: {ae}")
+                activity = {
+                    "method": method_name,
+                    "direction": mod.direction,
+                    "invoked_inbound": 0,
+                    "invoked_outbound": 0,
+                    "handled_inbound": 0,
+                    "handled_outbound": 0,
+                }
+                self._module_activity.append(activity)
+                # Direct reference avoids a method-name lookup in the packet
+                # hot path. Modules are ordinary Python objects, so attaching
+                # private engine telemetry is safe and isolated per instance.
+                mod._dupez_activity = activity
             else:
                 log_info(f"[ENGINE INIT] UNKNOWN module '{method_name}' — skipped!")
+
+        # The complete module list must exist before any queue thread starts.
+        # Every sender resumes immediately after its owning module, preserving
+        # the same downstream path for immediate and deferred packets.
+        self._module_continuations = [
+            self._make_module_continuation(index + 1)
+            for index in range(len(self._modules))
+        ]
+
+        for index, mod in enumerate(self._modules):
+            method_name = self._module_activity[index]["method"]
+            passthrough_tag = ""
+            if getattr(mod, "_passthrough", False):
+                passthrough_tag = " [PASSTHROUGH]"
+            dir_key = getattr(mod, "_direction_key", "")
+            dir_override = self.params.get(
+                f"{dir_key}_direction", "NOT SET"
+            )
+            dir_global = self.params.get("direction", "both")
+            log_info(
+                f"[ENGINE INIT] Module '{method_name}':"
+                f" direction={mod.direction}"
+                f" (override={dir_override}, global={dir_global})"
+                f"{passthrough_tag}"
+            )
+
+            # Activate state machines only after the full chain and all
+            # continuations are available.
+            activate = getattr(mod, "activate", None)
+            if callable(activate):
+                try:
+                    activate()
+                    log_info("[ENGINE INIT]   └─ auto-activated")
+                except Exception as exc:
+                    log_error(
+                        f"[ENGINE INIT]   └─ activate FAILED: {exc}"
+                    )
+
+        for index, mod in enumerate(self._modules):
+            start_flush = getattr(mod, "start_flush_thread", None)
+            if callable(start_flush):
+                start_flush(
+                    self._module_continuations[index],
+                    self._divert,
+                    self._handle,
+                )
+                log_info("[ENGINE INIT]   └─ flush thread started")
 
         log_info(f"[ENGINE INIT] Final chain: "
                  f"{[f'{m.__class__.__name__}(dir={m.direction})' for m in self._modules]}")
@@ -1549,26 +1813,132 @@ class NativeWinDivertEngine:
                 log_info(f"[ENGINE INIT] {direction_name} packets: NO modules match → pass through")
         log_info("=" * 60)
 
-    def _send_packet(self, packet_data, addr) -> None:
+    def _make_module_continuation(
+        self,
+        start_index: int,
+    ) -> Callable[[bytearray, WINDIVERT_ADDRESS], bool]:
+        """Return a sender that resumes at *start_index* in this chain."""
+        def _continue(
+            packet_data: bytearray,
+            addr: WINDIVERT_ADDRESS,
+        ) -> bool:
+            return self._resume_packet(packet_data, addr, start_index)
+
+        return _continue
+
+    def _run_module_chain(
+        self,
+        packet_data: bytearray,
+        addr: WINDIVERT_ADDRESS,
+        start_index: int = 0,
+    ) -> tuple[bool, Optional[str]]:
+        """Run modules from *start_index* and report the first consumer."""
+        is_outbound = bool(addr.Outbound)
+        with self._pipeline_lock:
+            for index in range(start_index, len(self._modules)):
+                mod = self._modules[index]
+                if not mod.matches_direction(addr):
+                    continue
+
+                activity = getattr(mod, "_dupez_activity", None)
+                if activity is not None:
+                    counter = (
+                        "invoked_outbound"
+                        if is_outbound else "invoked_inbound"
+                    )
+                    activity[counter] += 1
+
+                if index < len(self._module_continuations):
+                    continuation = self._module_continuations[index]
+                else:
+                    continuation = self._make_module_continuation(index + 1)
+                if mod.process(packet_data, addr, continuation):
+                    if activity is not None:
+                        counter = (
+                            "handled_outbound"
+                            if is_outbound else "handled_inbound"
+                        )
+                        activity[counter] += 1
+                    return True, mod.__class__.__name__
+        return False, None
+
+    def _resume_packet(
+        self,
+        packet_data: bytearray,
+        addr: WINDIVERT_ADDRESS,
+        start_index: int,
+    ) -> bool:
+        """Continue a deferred or module-generated packet downstream."""
+        consumed, _ = self._run_module_chain(
+            packet_data, addr, start_index=start_index
+        )
+        if consumed:
+            return True
+        return self._send_packet(packet_data, addr)
+
+    def _send_packet(self, packet_data, addr) -> bool:
         """Send a packet through WinDivert (recalculates checksums).
 
         Uses a pre-allocated send buffer to avoid per-packet ctypes array
         allocation — critical for throughput on DayZ's ~60 tick UDP stream.
-        Lock-protected because flush threads also call this.
+        Lock-protected because flush threads also call this. Success requires
+        both a truthy WinDivert result and an exact byte count.
         """
-        if not self._handle:
-            return  # handle closed, nothing to send to
-        try:
-            pkt_len = len(packet_data)
-            with self._send_lock:
+        pkt_len = len(packet_data)
+        with self._send_lock:
+            self._send_attempted += 1
+            if not self._handle or self._divert is None:
+                self._send_failed += 1
+                return False
+            if pkt_len > MAX_PACKET_SIZE:
+                self._send_failed += 1
+                log_error(
+                    f"NativeEngine: refused oversized send ({pkt_len}B)"
+                )
+                return False
+            try:
                 ctypes.memmove(self._send_buf, bytes(packet_data), pkt_len)
-                self._divert.calc_checksums(self._send_buf, pkt_len,
-                                             ctypes.byref(addr), 0)
+                checksum_ok = self._divert.calc_checksums(
+                    self._send_buf, pkt_len, ctypes.byref(addr), 0
+                )
+                if not checksum_ok:
+                    self._send_failed += 1
+                    log_error(
+                        "NativeEngine: checksum calculation failed "
+                        f"({pkt_len}B)"
+                    )
+                    return False
                 self._send_len.value = 0
-                self._divert.send(self._handle, self._send_buf, pkt_len,
-                                   ctypes.byref(self._send_len), ctypes.byref(addr))
-        except Exception as exc:
-            log_error(f"NativeEngine: _send_packet failed ({len(packet_data)}B): {exc}")
+                send_ok = self._divert.send(
+                    self._handle,
+                    self._send_buf,
+                    pkt_len,
+                    ctypes.byref(self._send_len),
+                    ctypes.byref(addr),
+                )
+                if not send_ok:
+                    self._send_failed += 1
+                    log_error(
+                        "NativeEngine: WinDivertSend failed "
+                        f"({pkt_len}B, error={ctypes.get_last_error()})"
+                    )
+                    return False
+                if self._send_len.value != pkt_len:
+                    self._send_short += 1
+                    self._send_failed += 1
+                    log_error(
+                        "NativeEngine: WinDivert short send "
+                        f"({self._send_len.value}/{pkt_len}B)"
+                    )
+                    return False
+                self._send_succeeded += 1
+                return True
+            except Exception as exc:
+                self._send_failed += 1
+                log_error(
+                    f"NativeEngine: _send_packet failed ({pkt_len}B): {exc}"
+                )
+                return False
 
     def _packet_loop(self) -> None:
         """Main packet capture/process/reinject loop.
@@ -1748,25 +2118,19 @@ class NativeWinDivertEngine:
                 trace_count = _outbound_trace_count if is_outbound else _inbound_trace_count
                 do_trace = trace_count < _TRACE_LIMIT
 
-                # Run through disruption module chain.
-                consumed = False
-                consumed_by = None
-                for mod in self._modules:
-                    # Skip module if direction doesn't match
-                    matches = mod.matches_direction(addr)
-                    if do_trace:
-                        mod_name = mod.__class__.__name__
-                        if not matches:
-                            pass  # don't log skips to avoid spam
-                        # log when module processes
-                    if not matches:
-                        continue
-                    result = mod.process(packet_data, addr, self._send_packet)
-                    if result:
-                        consumed = True
-                        consumed_by = mod.__class__.__name__
-                        self._packets_dropped += 1
-                        break  # packet consumed
+                # Run through the same resumable chain used by delayed and
+                # module-generated packets.
+                with self._pipeline_lock:
+                    if not self._running:
+                        # stop() raced with a completed recv(). Reinject the
+                        # captured packet unchanged before the handle closes.
+                        self._send_packet(packet_data, addr)
+                        break
+                    consumed, consumed_by = self._run_module_chain(
+                        packet_data, addr
+                    )
+                if consumed:
+                    self._packets_dropped += 1
 
                 # Detailed trace for first N packets per direction
                 if do_trace:

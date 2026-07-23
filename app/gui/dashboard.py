@@ -11,10 +11,19 @@ from __future__ import annotations
 
 import gc
 import os
+import threading
 import webbrowser
 from typing import Any, List, Optional
 
-from PyQt6.QtCore import Q_ARG, QMetaObject, QPoint, Qt, QTimer, pyqtSlot
+from PyQt6.QtCore import (
+    Q_ARG,
+    QMetaObject,
+    QPoint,
+    Qt,
+    QTimer,
+    pyqtSignal,
+    pyqtSlot,
+)
 from PyQt6.QtGui import QAction, QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
     QDialog,
@@ -207,11 +216,24 @@ class DupeZDashboard(QMainWindow):
     panel extensions.
     """
 
+    _dashboard_snapshot_ready = pyqtSignal(int, int, object)
+    _dashboard_snapshot_failed = pyqtSignal(int, str)
+
     def __init__(self, controller: Any = None) -> None:
         super().__init__()
         self.controller = controller
         self._minimize_to_tray: bool = True
         self._force_quit: bool = False
+        self._dashboard_poll_generation = 0
+        self._dashboard_poll_in_flight = False
+        self._device_count_snapshot = 0
+        self._disrupted_devices_snapshot: frozenset[str] = frozenset()
+        self._dashboard_snapshot_ready.connect(
+            self._apply_dashboard_status_snapshot
+        )
+        self._dashboard_snapshot_failed.connect(
+            self._apply_dashboard_status_error
+        )
 
         # Frameless drag/resize state
         self._drag_pos: Optional[QPoint] = None
@@ -220,6 +242,7 @@ class DupeZDashboard(QMainWindow):
         self._start_geometry = None
 
         self._setup_ui()
+        self._apply_startup_health()
         self._setup_menu()
         self._setup_status_bar()
         self._setup_tray()
@@ -236,10 +259,6 @@ class DupeZDashboard(QMainWindow):
         self._stats_timer = QTimer(self)
         self._stats_timer.timeout.connect(self._update_header_stats)
         self._stats_timer.start(2000)
-
-        self._tray_timer = QTimer(self)
-        self._tray_timer.timeout.connect(self._update_tray_tooltip)
-        self._tray_timer.start(5000)
 
     # ── UI Construction ─────────────────────────────────────────────
 
@@ -371,6 +390,23 @@ class DupeZDashboard(QMainWindow):
         hl.addWidget(self.ram_label)
 
         parent_layout.addWidget(header)
+
+    def _apply_startup_health(self) -> None:
+        """Surface controller recovery-safe mode in the persistent header."""
+        if self.controller is None or not hasattr(
+            self.controller,
+            "get_startup_health",
+        ):
+            return
+        health = self.controller.get_startup_health()
+        if not health.get("recovery_blocked"):
+            return
+        self.status_indicator.setText("●  SAFE MODE — NETWORK DISABLED")
+        self.status_indicator.setStyleSheet(
+            "color: #fbbf24; font-weight: 700; font-size: 11px;"
+            " letter-spacing: 0.5px; background: transparent;"
+        )
+        self.status_indicator.setToolTip(str(health.get("message", "")))
 
     def _build_content_area(self, parent_layout: QVBoxLayout) -> None:
         """Sidebar rail + stacked view container."""
@@ -623,13 +659,11 @@ class DupeZDashboard(QMainWindow):
         self.close()
 
     def _update_tray_tooltip(self) -> None:
-        """Refresh tray tooltip with current disruption count."""
+        """Render the tray from the last completed background snapshot."""
         if not self.tray_icon:
             return
         try:
-            count = 0
-            if self.controller:
-                count = len(self.controller.get_disrupted_devices())
+            count = len(self._disrupted_devices_snapshot)
             tip = (
                 f"DupeZ \u2014 {count} active disruption{'s' if count != 1 else ''}"
                 if count > 0
@@ -794,21 +828,81 @@ class DupeZDashboard(QMainWindow):
         self.status_bar.addPermanentWidget(self._gpu_tier_label)
 
     def _update_status_bar(self) -> None:
-        """Refresh device/disruption counts."""
-        try:
-            if not self.controller:
-                return
-            devices = self.controller.get_devices()
-            self.device_status_label.setText(f"Devices: {len(devices)}")
-            disrupted = self.controller.get_disrupted_devices()
-            self.disruption_status_label.setText(f"Disruptions: {len(disrupted)}")
-            style = (
-                "color: #ff4444; font-weight: bold;" if disrupted
-                else "color: #94a3b8;"
+        """Request the shared status-bar/tray snapshot off the Qt thread."""
+        controller = self.controller
+        if controller is None or self._dashboard_poll_in_flight:
+            return
+
+        self._dashboard_poll_generation += 1
+        generation = self._dashboard_poll_generation
+        self._dashboard_poll_in_flight = True
+
+        def _fetch() -> None:
+            try:
+                devices = controller.get_devices()
+                disrupted = controller.get_disrupted_devices()
+                self._dashboard_snapshot_ready.emit(
+                    generation,
+                    len(devices),
+                    disrupted,
+                )
+            except Exception as exc:
+                self._dashboard_snapshot_failed.emit(
+                    generation,
+                    f"{type(exc).__name__}: {exc}",
+                )
+
+        threading.Thread(
+            target=_fetch,
+            daemon=True,
+            name="DupeZDashboardStatusRefresh",
+        ).start()
+
+    @pyqtSlot(int, int, object)
+    def _apply_dashboard_status_snapshot(
+        self,
+        generation: int,
+        device_count: int,
+        disrupted: object,
+    ) -> None:
+        """Update status bar and tray from the newest worker result."""
+        if generation != self._dashboard_poll_generation:
+            return
+        self._dashboard_poll_in_flight = False
+        if not isinstance(disrupted, (list, tuple, set, frozenset)):
+            self._apply_dashboard_status_error(
+                generation,
+                "controller returned invalid disrupted-device state",
             )
-            self.disruption_status_label.setStyleSheet(style)
-        except Exception as exc:
-            log_error(f"Status bar update error: {exc}")
+            return
+        self._device_count_snapshot = max(0, int(device_count))
+        self._disrupted_devices_snapshot = frozenset(
+            ip for ip in disrupted if isinstance(ip, str) and ip
+        )
+
+        self.device_status_label.setText(
+            f"Devices: {self._device_count_snapshot}"
+        )
+        count = len(self._disrupted_devices_snapshot)
+        self.disruption_status_label.setText(f"Disruptions: {count}")
+        self.disruption_status_label.setStyleSheet(
+            "color: #ff4444; font-weight: bold;"
+            if count
+            else "color: #94a3b8;"
+        )
+        self._update_tray_tooltip()
+
+    @pyqtSlot(int, str)
+    def _apply_dashboard_status_error(
+        self,
+        generation: int,
+        message: str,
+    ) -> None:
+        """Release the guard after a failed snapshot without clearing state."""
+        if generation != self._dashboard_poll_generation:
+            return
+        self._dashboard_poll_in_flight = False
+        log_error(f"Dashboard status refresh error: {message}")
 
     # ── Signal wiring ───────────────────────────────────────────────
 
@@ -1708,9 +1802,12 @@ class DupeZDashboard(QMainWindow):
             return
 
         try:
+            self._dashboard_poll_generation += 1
+            self._dashboard_poll_in_flight = False
             self._status_timer.stop()
             self._stats_timer.stop()
-            self._tray_timer.stop()
+            if hasattr(self, "clumsy_view"):
+                self.clumsy_view.stop_background_refresh()
 
             if self.tray_icon:
                 self.tray_icon.hide()

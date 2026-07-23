@@ -193,10 +193,10 @@ class TestPresetUnderscoreKeyAllowlist:
 
     def test_allowed_underscore_keys_pass(self) -> None:
         from app.core.preset_store import CustomPreset, validate_preset
-        # _ports and _process_scope ARE legitimate preset features.
+        # _ports is a legitimate preset feature.
         p = CustomPreset(
             name="Legit", methods=["drop"],
-            params={"_ports": [2302], "_process_scope": "auto"},
+            params={"_ports": [2302]},
         )
         validate_preset(p)  # must not raise
 

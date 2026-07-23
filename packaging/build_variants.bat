@@ -15,9 +15,16 @@ pushd "%~dp0.."
 :: Run from the repo root:
 ::     build_variants.bat
 ::
-:: Prereqs: python, PyInstaller, everything in requirements.txt.
+:: Prereqs: a repository-local .venv with 64-bit Python 3.11.9 and pip.
 
-set "DUPEZ_VERSION=5.7.8"
+set "DUPEZ_VERSION=5.7.9"
+set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\.venv\Scripts\python.exe"
+set "DUPEZ_BUILD_VENV=%CD%\.build-venv"
+set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\Scripts\python.exe"
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONNOUSERSITE=1"
+set "PIP_REQUIRE_VIRTUALENV=true"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -25,22 +32,56 @@ echo ============================================
 echo.
 
 :: ── 1. Prereqs ──────────────────────────────────────────────────────
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python not found. Install Python 3.10+ and add to PATH.
+if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
+    echo ERROR: Repository bootstrap interpreter not found:
+    echo        %DUPEZ_BOOTSTRAP_PYTHON%
+    echo Create .venv with 64-bit Python 3.11.9 and rerun this script.
     pause
     exit /b 1
 )
 
-python -c "import PyInstaller" >nul 2>&1
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 11, 9) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
-    echo Installing PyInstaller...
-    pip install pyinstaller==6.19.0
+    echo ERROR: Release builds require 64-bit Python 3.11.9.
+    pause
+    exit /b 1
 )
 
-echo Installing dependencies...
-pip install --require-hashes -r requirements-locked.txt
+if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
+if exist "%DUPEZ_BUILD_VENV%" (
+    echo ERROR: Could not remove stale build environment:
+    echo        %DUPEZ_BUILD_VENV%
+    exit /b 1
+)
+
+echo Creating clean build-only virtual environment...
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
 if errorlevel 1 exit /b 1
+if not exist "%DUPEZ_PYTHON%" (
+    echo ERROR: Build interpreter was not created:
+    echo        %DUPEZ_PYTHON%
+    exit /b 1
+)
+
+"%DUPEZ_PYTHON%" -I --version
+if errorlevel 1 exit /b 1
+
+echo Installing hash-pinned build tooling...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r packaging\requirements-build-locked.txt
+if errorlevel 1 exit /b 1
+
+echo Installing hash-pinned production dependencies...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r requirements-locked.txt
+if errorlevel 1 exit /b 1
+
+echo Verifying hermetic build imports...
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+if errorlevel 1 (
+    echo ERROR: Required build/runtime imports failed inside .build-venv.
+    echo        Refusing to build with an incomplete or mixed Python environment.
+    pause
+    exit /b 1
+)
 
 :: ── 2. Clean stale artifacts ────────────────────────────────────────
 :: Kill any running DupeZ instances so their .exe files unlock.
@@ -73,7 +114,7 @@ if exist "build\DupeZ-Compat"    rmdir /s /q "build\DupeZ-Compat"
 :: ── 3. Build GPU variant (asInvoker + split) ────────────────────────
 echo.
 echo [1/5] Building DupeZ-GPU.exe ...
-python -m PyInstaller packaging\dupez_gpu.spec --noconfirm
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\dupez_gpu.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-GPU PyInstaller returned an error.
@@ -87,6 +128,16 @@ if not exist "dist\DupeZ-GPU.exe" (
     exit /b 1
 )
 echo       DupeZ-GPU.exe built successfully.
+echo       Verifying frozen runtime imports...
+"dist\DupeZ-GPU.exe" --verify-runtime-imports
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED - DupeZ-GPU.exe cannot import its bundled Qt runtime.
+    echo The executable is not releasable.
+    pause
+    exit /b 1
+)
+echo       Frozen runtime imports verified.
 
 :: ── 4. Build Compat variant (requireAdministrator + inproc) ─────────
 :: Belt-and-suspenders: ensure DupeZ-Compat.exe is gone after GPU build
@@ -102,7 +153,7 @@ if errorlevel 1 (
 
 echo.
 echo [2/5] Building DupeZ-Compat.exe ...
-python -m PyInstaller packaging\dupez_compat.spec --noconfirm
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\dupez_compat.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-Compat PyInstaller returned an error.
@@ -116,6 +167,17 @@ if not exist "dist\DupeZ-Compat.exe" (
     exit /b 1
 )
 echo       DupeZ-Compat.exe built successfully.
+echo       Verifying frozen dependency boundary...
+"%DUPEZ_PYTHON%" scripts\release_preflight.py ^
+    --frozen-artifact dist\DupeZ-GPU.exe ^
+    --frozen-artifact dist\DupeZ-Compat.exe
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED - portable executables contain forbidden optional dependencies.
+    pause
+    exit /b 1
+)
+echo       Frozen dependency boundary verified.
 
 :: ── 5. Authenticode sign portable executables ───────────────────────
 :: Microsoft SignTool guidance requires explicit SHA-256 file digest
@@ -236,6 +298,21 @@ if errorlevel 1 (
 echo.
 echo [Signing] Signing update manifest...
 
+:: Never let a previous release's valid-looking sidecars survive this build.
+:: The dist preflight verifies signature, version, filename, size, and hash,
+:: but deleting first also makes an unsigned local build fail visibly instead
+:: of appearing to carry current updater metadata.
+del /Q "dist\DupeZ_Setup.exe.manifest.json" >nul 2>&1
+del /Q "dist\DupeZ_Setup.exe.manifest.sig" >nul 2>&1
+if exist "dist\DupeZ_Setup.exe.manifest.json" (
+    echo       ERROR: Could not remove stale update manifest.
+    exit /b 1
+)
+if exist "dist\DupeZ_Setup.exe.manifest.sig" (
+    echo       ERROR: Could not remove stale update signature.
+    exit /b 1
+)
+
 if "%DUPEZ_SIGN_PRIVKEY%"=="" (
     echo       DUPEZ_SIGN_PRIVKEY not set — skipping manifest signing.
     echo       Auto-update will fail-closed for clients on this release.
@@ -254,7 +331,7 @@ if not exist "dist\DupeZ_Setup.exe" (
     goto :skip_sign_manifest
 )
 
-python scripts\sign-release.py --sign ^
+"%DUPEZ_PYTHON%" scripts\sign-release.py --sign ^
     --priv "%DUPEZ_SIGN_PRIVKEY%" ^
     --installer "dist\DupeZ_Setup.exe" ^
     --version "%DUPEZ_VERSION%"
@@ -273,9 +350,9 @@ if exist "dist\DupeZ_Setup.exe.manifest.sig" (
 
 :skip_sign_manifest
 
-python scripts\sbom.py --out dist\DupeZ.sbom.json --product-version "%DUPEZ_VERSION%"
+"%DUPEZ_PYTHON%" scripts\sbom.py --out dist\DupeZ.sbom.json --product-version "%DUPEZ_VERSION%"
 if errorlevel 1 exit /b 1
-python scripts\vex.py --out dist\DupeZ.vex.json --product-version "%DUPEZ_VERSION%"
+"%DUPEZ_PYTHON%" scripts\vex.py --out dist\DupeZ.vex.json --product-version "%DUPEZ_VERSION%"
 if errorlevel 1 exit /b 1
 copy /y packaging\binary-provenance.json dist\binary-provenance.json >nul
 if errorlevel 1 exit /b 1

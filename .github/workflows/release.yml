@@ -1,0 +1,151 @@
+name: Signed Release Artifact Finalization
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact semantic version to build and attest'
+        required: true
+        default: '5.7.9'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release-artifacts-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    name: Build, sign, scan, and attest release artifacts
+    runs-on: [self-hosted, windows, release-signing]
+    timeout-minutes: 90
+    environment: production-release
+    env:
+      PYTHONNOUSERSITE: '1'
+      PYTHONPATH: ''
+      PYTHONHOME: ''
+
+    steps:
+      - name: Require main and exact release version
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_name }}' -ne 'main') {
+            throw 'Signed release finalization must be dispatched from main.'
+          }
+          if ('${{ inputs.version }}' -ne '5.7.9') {
+            throw 'This workflow revision can finalize only v5.7.9.'
+          }
+
+      - name: Checkout exact main commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Setup canonical release Python 3.11.9
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+
+      - name: Create repository bootstrap venv
+        shell: pwsh
+        run: |
+          if (Test-Path .venv) {
+            Remove-Item .venv -Recurse -Force
+          }
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -I -S -c `
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,11,9) and struct.calcsize('P')==8 else 1)"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Canonical Python 3.11.9 x64 verification failed.'
+          }
+
+      - name: Verify protected signing-host configuration
+        shell: pwsh
+        run: |
+          $required = @(
+            'DUPEZ_SIGN_CERT',
+            'DUPEZ_SIGN_PRIVKEY'
+          )
+          foreach ($name in $required) {
+            $value = [Environment]::GetEnvironmentVariable($name)
+            if ([string]::IsNullOrWhiteSpace($value)) {
+              throw "$name is not configured on the protected signing runner."
+            }
+            if (-not (Test-Path -LiteralPath $value -PathType Leaf)) {
+              throw "$name does not reference an existing file."
+            }
+          }
+          if (-not (Get-Command signtool -ErrorAction SilentlyContinue)) {
+            throw 'Windows SDK SignTool is not available on the signing runner.'
+          }
+          $iscc = @(
+            $env:DUPEZ_ISCC,
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
+          if (-not $iscc -and -not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            throw 'Inno Setup ISCC.exe is not available on the signing runner.'
+          }
+
+      - name: Build, sign, scan, and attest locally
+        shell: pwsh
+        run: |
+          .\scripts\finalize_release.ps1 `
+            -Version '${{ inputs.version }}'
+
+      - name: Execute package-boundary verifier in both signed variants
+        shell: pwsh
+        run: |
+          $variants = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe'
+          )
+          foreach ($variant in $variants) {
+            $process = Start-Process `
+              -FilePath (Resolve-Path $variant) `
+              -ArgumentList '--verify-runtime-imports' `
+              -Wait `
+              -PassThru
+            if ($process.ExitCode -ne 0) {
+              throw "Signed frozen import verification failed for $variant with exit code $($process.ExitCode)."
+            }
+            Write-Host "Signed frozen imports verified: $variant"
+          }
+
+      - name: Re-run final dist preflight after signed execution
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python.exe -I scripts\release_preflight.py `
+            --version '${{ inputs.version }}' `
+            --dist
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Final signed dist preflight failed.'
+          }
+
+      - name: Explain remaining exact-artifact gates
+        shell: pwsh
+        run: |
+          Write-Host 'Signed artifacts are complete, but publication is intentionally not performed here.'
+          Write-Host 'Run scripts\validate_frozen_runtime.ps1 for GPU from a standard desktop session.'
+          Write-Host 'Run scripts\validate_frozen_runtime.ps1 for Compat from Administrator PowerShell.'
+          Write-Host 'Run scripts\record_manual_release_validation.ps1 after the full walkthrough.'
+          Write-Host 'Then run scripts\stage_release.ps1 locally to create a draft or publish.'
+
+      - name: Upload non-executable release evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-release-evidence-${{ inputs.version }}-${{ github.run_id }}
+          path: |
+            dist/SHA256SUMS.txt
+            dist/release-attestation.json
+            dist/DefenderScan.txt
+            dist/DupeZ.sbom.json
+            dist/DupeZ.vex.json
+            dist/binary-provenance.json
+          if-no-files-found: error
+          retention-days: 90

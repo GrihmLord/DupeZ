@@ -3,13 +3,14 @@
 Clumsy Network Disruptor — packet disruption for DupeZ.
 
 Two engines:
-  1. NativeWinDivertEngine (primary) — loads WinDivert.dll directly via
-     ctypes, intercepts packets in Python with zero GUI. No window, no
-     flash, completely invisible. Implements all 9 disruption modules.
+  1. ClumsyEngine (automatic compatibility path) — launches clumsy.exe,
+     verifies its layer, controls, values, and Start state via Win32
+     SendMessageW, then hides the window. It is preferred whenever the
+     request can be represented exactly.
 
-  2. ClumsyEngine (fallback) — launches clumsy.exe (kalirenegade-dev
-     v0.3.4), automates its GUI via Win32 SendMessageW, then hides the
-     window off-screen. Used only when the native engine fails to load.
+  2. NativeWinDivertEngine — loads WinDivert.dll directly via ctypes and
+     implements all public disruption modules with counter telemetry. It is
+     selected for native-only behavior or a semantics-preserving fallback.
 
 Architecture (clumsy.exe, from reading main.c):
   main() flow:
@@ -37,6 +38,7 @@ import time
 import threading
 import traceback
 import ctypes
+from dataclasses import dataclass
 
 # Route process launches through safe_subprocess for path-pinning,
 # audit events, hidden windows, and handle-inheritance policy.
@@ -75,9 +77,21 @@ __all__ = [
     "WM_CHAR",
     "WM_KEYDOWN",
     "WM_KEYUP",
+    "WM_COMMAND",
     "EM_SETSEL",
     "VK_DELETE",
     "BST_CHECKED",
+    "CB_GETCOUNT",
+    "CB_GETCURSEL",
+    "CB_GETLBTEXT",
+    "CB_GETLBTEXTLEN",
+    "CB_SETCURSEL",
+    "CBN_SELCHANGE",
+    "ENGINE_AUTO",
+    "ENGINE_NATIVE",
+    "ENGINE_CLUMSY",
+    "ClumsyCompatibilityDecision",
+    "assess_clumsy_compatibility",
     "MODULE_CHECKBOX_TEXT",
     "EDIT_INDEX_MAP",
     "WNDENUMPROC",
@@ -104,9 +118,39 @@ WM_SETTEXT          = 0x000C
 WM_CHAR             = 0x0102
 WM_KEYDOWN          = 0x0100
 WM_KEYUP            = 0x0101
+WM_COMMAND          = 0x0111
 EM_SETSEL            = 0x00B1
 VK_DELETE            = 0x2E
 BST_CHECKED          = 0x0001
+
+# Combo-box messages used to select Clumsy's WinDivert layer.  Setting the
+# selected index alone is insufficient: IUP only updates the C ``NetworkType``
+# global when it receives the CBN_SELCHANGE notification.
+CB_GETCURSEL         = 0x0147
+CB_GETLBTEXT         = 0x0148
+CB_GETLBTEXTLEN      = 0x0149
+CB_GETCOUNT          = 0x0146
+CB_SETCURSEL         = 0x014E
+CBN_SELCHANGE        = 1
+CB_ERR               = -1
+
+# Public engine-preference values carried in params["_engine_preference"].
+ENGINE_AUTO          = "auto"
+ENGINE_NATIVE        = "native"
+ENGINE_CLUMSY        = "clumsy"
+_ENGINE_PREFERENCES  = frozenset({ENGINE_AUTO, ENGINE_NATIVE, ENGINE_CLUMSY})
+
+# These public modules have matching user-facing semantics on the native
+# implementation and bundled Clumsy after parameter normalization. Other
+# Clumsy modules buffer/reorder/corrupt packets differently, so Auto must not
+# silently switch those requests to native if the compatibility engine fails.
+_NATIVE_CLUMSY_FALLBACK_METHODS = frozenset({
+    "lag",
+    "drop",
+    "disconnect",
+    "duplicate",
+    "rst",
+})
 
 # Module name → clumsy UI checkbox text (from the screenshot)
 MODULE_CHECKBOX_TEXT = {
@@ -152,6 +196,49 @@ EDIT_INDEX_MAP = {
     9:  "ood_chance",
     10: "tamper_chance",
     11: "rst_chance",
+}
+
+_EDIT_PARAM_METHOD = {
+    "lag_delay": "lag",
+    "drop_chance": "drop",
+    "bandwidth_queue": "bandwidth",
+    "bandwidth_limit": "bandwidth",
+    "throttle_frame": "throttle",
+    "throttle_chance": "throttle",
+    "duplicate_count": "duplicate",
+    "duplicate_chance": "duplicate",
+    "ood_chance": "ood",
+    "tamper_chance": "corrupt",
+    "rst_chance": "rst",
+}
+
+_EDIT_PARAM_DEFAULTS = {
+    "lag_delay": 1500,
+    "drop_chance": 95,
+    "bandwidth_queue": 0,
+    "bandwidth_limit": 1,
+    "throttle_frame": 400,
+    "throttle_chance": 100,
+    "duplicate_count": 10,
+    "duplicate_chance": 80,
+    "ood_chance": 80,
+    "tamper_chance": 60,
+    "rst_chance": 90,
+}
+
+_MODULE_DIRECTION_KEYS = {
+    "lag": ("lag_direction",),
+    "drop": ("drop_direction",),
+    "disconnect": ("disconnect_direction",),
+    "bandwidth": ("bandwidth_direction",),
+    "throttle": ("throttle_direction",),
+    "duplicate": ("duplicate_direction",),
+    "ood": ("ood_direction",),
+    # Native currently keys this module as ``tamper``.  Reject the public
+    # ``corrupt`` spelling too so a future key-alias fix cannot silently make
+    # an explicit Clumsy selection asymmetric.
+    "corrupt": ("tamper_direction", "corrupt_direction"),
+    "rst": ("rst_direction",),
 }
 
 # EnumWindows callback type
@@ -236,6 +323,249 @@ def _find_children_by_class(parent_hwnd, class_name: str) -> list:
 
     user32.EnumChildWindows(parent_hwnd, WNDENUMPROC(_cb), 0)
     return results
+
+
+def _combobox_items(combo_hwnd, user32=None) -> list[str]:
+    """Return the visible item strings from a native Win32 combo box."""
+    user32 = user32 or ctypes.windll.user32
+    count = int(user32.SendMessageW(combo_hwnd, CB_GETCOUNT, 0, 0))
+    if count <= 0:
+        return []
+    items: list[str] = []
+    for index in range(count):
+        length = int(user32.SendMessageW(
+            combo_hwnd, CB_GETLBTEXTLEN, index, 0))
+        if length < 0:
+            return []
+        buf = ctypes.create_unicode_buffer(length + 1)
+        result = int(user32.SendMessageW(
+            combo_hwnd, CB_GETLBTEXT, index, buf))
+        if result == CB_ERR:
+            return []
+        items.append(buf.value)
+    return items
+
+
+def _select_combobox_item(combo_hwnd, index: int, user32=None) -> bool:
+    """Select *index* and emit the notification consumed by IUP.
+
+    ``CB_SETCURSEL`` changes only the widget's visual selection.  Clumsy's
+    layer choice lives in a separate C global updated by its ACTION callback,
+    so we explicitly send ``WM_COMMAND / CBN_SELCHANGE`` to the combo's real
+    notification parent and verify the resulting index.
+    """
+    user32 = user32 or ctypes.windll.user32
+    try:
+        user32.GetParent.restype = wintypes.HWND
+        user32.GetParent.argtypes = [wintypes.HWND]
+        user32.GetDlgCtrlID.argtypes = [wintypes.HWND]
+    except (AttributeError, TypeError):
+        # Lightweight fakes used by unit tests expose plain callables.
+        pass
+    selected = int(user32.SendMessageW(
+        combo_hwnd, CB_SETCURSEL, int(index), 0))
+    if selected == CB_ERR:
+        return False
+
+    parent_hwnd = user32.GetParent(combo_hwnd)
+    control_id = int(user32.GetDlgCtrlID(combo_hwnd)) & 0xFFFF
+    wparam = (CBN_SELCHANGE << 16) | control_id
+    user32.SendMessageW(
+        parent_hwnd, WM_COMMAND, wparam, combo_hwnd)
+    actual = int(user32.SendMessageW(
+        combo_hwnd, CB_GETCURSEL, 0, 0))
+    return actual == int(index)
+
+
+@dataclass(frozen=True)
+class ClumsyCompatibilityDecision:
+    """Pure result describing whether Clumsy can preserve a request."""
+
+    representable: bool
+    methods: tuple[str, ...]
+    reasons: tuple[str, ...]
+
+    @property
+    def reason(self) -> str:
+        """Return all incompatibilities as one operator-facing message."""
+        return "; ".join(self.reasons)
+
+
+def assess_clumsy_compatibility(
+    methods: Any,
+    params: Any,
+) -> ClumsyCompatibilityDecision:
+    """Return whether a native request has an equivalent Clumsy form.
+
+    This function performs no I/O, logging, or mutation.  The returned method
+    tuple is de-duplicated in caller order so both Auto fallback and explicit
+    Clumsy startup use one deterministic module set.
+    """
+    reasons: list[str] = []
+    deduplicated: list[str] = []
+
+    if not isinstance(methods, (list, tuple)):
+        reasons.append("methods must be a list or tuple")
+    else:
+        seen: set[str] = set()
+        for method in methods:
+            if not isinstance(method, str):
+                reasons.append(f"non-string method is unsupported: {method!r}")
+                continue
+            if method not in seen:
+                seen.add(method)
+                deduplicated.append(method)
+
+    if not deduplicated:
+        reasons.append("at least one disruption method is required")
+
+    unsupported = [
+        method for method in deduplicated
+        if method not in MODULE_CHECKBOX_TEXT
+    ]
+    if unsupported:
+        reasons.append(
+            "Clumsy has no equivalent core module for "
+            + ", ".join(repr(method) for method in unsupported)
+        )
+
+    if not isinstance(params, dict):
+        reasons.append("params must be a dictionary")
+        return ClumsyCompatibilityDecision(
+            representable=False,
+            methods=tuple(deduplicated),
+            reasons=tuple(reasons),
+        )
+
+    if params.get("direction", "both") != "both":
+        reasons.append("Clumsy compatibility requires direction='both'")
+
+    method_set = set(deduplicated)
+    for method in deduplicated:
+        for key in _MODULE_DIRECTION_KEYS.get(method, ()):
+            if key in params and params[key] != "both":
+                reasons.append(
+                    f"Clumsy cannot preserve per-module direction {key}="
+                    f"{params[key]!r}"
+                )
+
+    if "disconnect" in method_set:
+        chance = params.get("disconnect_chance", 100)
+        try:
+            chance_is_full = int(chance) == 100
+        except (TypeError, ValueError, OverflowError):
+            chance_is_full = False
+        if not chance_is_full:
+            reasons.append(
+                "Clumsy Disconnect is fixed at 100%; "
+                f"disconnect_chance={chance!r} is not equivalent"
+            )
+
+        for key in (
+            "disconnect_arm_delay_ms",
+            "disconnect_duration_ms",
+            "disconnect_quiet_after_ms",
+        ):
+            raw_value = params.get(key, 0) or 0
+            try:
+                is_zero = float(raw_value) == 0.0
+            except (TypeError, ValueError, OverflowError):
+                is_zero = False
+            if not is_zero:
+                reasons.append(
+                    f"Clumsy has no equivalent for {key}={raw_value!r}"
+                )
+
+        if params.get("_auto_tune_duration"):
+            reasons.append(
+                "Clumsy has no equivalent for automatic disconnect duration"
+            )
+
+    if "lag" in method_set:
+        passthrough = bool(params.get("lag_passthrough", False))
+        if passthrough:
+            reasons.append("Clumsy has no equivalent for lag passthrough")
+
+        raw_delay = params.get("lag_delay", 1500)
+        try:
+            delay_ms = float(raw_delay)
+        except (TypeError, ValueError, OverflowError):
+            delay_ms = None
+            reasons.append(f"lag_delay={raw_delay!r} is not numeric")
+
+        preserve_connection = bool(
+            params.get("lag_preserve_connection", False)
+        )
+        if preserve_connection:
+            reasons.append(
+                "Clumsy has no equivalent for lag connection preservation"
+            )
+        if delay_ms is not None and not 0 <= delay_ms <= 15_000:
+            reasons.append(
+                "bundled Clumsy supports lag_delay only from 0 to 15000ms; "
+                f"got {raw_delay!r}"
+            )
+
+    if "duplicate" in method_set:
+        raw_count = params.get("duplicate_count", 10)
+        try:
+            extra_count = int(raw_count)
+        except (TypeError, ValueError, OverflowError):
+            extra_count = None
+            reasons.append(
+                f"duplicate_count={raw_count!r} is not an integer"
+            )
+        if extra_count is not None and not 1 <= extra_count <= 49:
+            reasons.append(
+                "duplicate_count is defined as extra copies; bundled Clumsy "
+                "can represent 1 to 49 extra copies (2 to 50 total); "
+                f"got {raw_count!r}"
+            )
+
+    if params.get("_process_scope"):
+        reasons.append(
+            "process-scoped packet filters are unsupported at WinDivert "
+            "NETWORK/NETWORK_FORWARD layers"
+        )
+
+    return ClumsyCompatibilityDecision(
+        representable=not reasons,
+        methods=tuple(deduplicated),
+        reasons=tuple(reasons),
+    )
+
+
+def _normalize_engine_preference(value: Any) -> str:
+    """Return a supported engine preference, defaulting safely to auto."""
+    normalized = str(value or ENGINE_AUTO).strip().lower()
+    if normalized not in _ENGINE_PREFERENCES:
+        log_warning(
+            f"Unknown engine preference {value!r}; using {ENGINE_AUTO!r}")
+        return ENGINE_AUTO
+    return normalized
+
+
+def _clumsy_numeric_value(param_key: str, value: Any) -> int:
+    """Translate DupeZ public numeric semantics to Clumsy UI semantics."""
+    parsed = int(value)
+    if param_key == "duplicate_count":
+        # DupeZ exposes EXTRA copies. Clumsy's count includes the original.
+        return parsed + 1
+    return parsed
+
+
+def _checkbox_matches_state(
+    hwnd: Any,
+    expected_state: int,
+    user32: Any = None,
+) -> bool:
+    """Return whether a checkbox's visible state matches the request."""
+    user32 = user32 or ctypes.windll.user32
+    try:
+        state = int(user32.SendMessageW(hwnd, BM_GETCHECK, 0, 0))
+    except Exception:
+        return False
+    return state == int(expected_state)
 
 def _click_button(hwnd) -> bool:
     """Click a button via SendMessageW(BM_CLICK). Works cross-process."""
@@ -345,8 +675,8 @@ def _kill_all_clumsy() -> None:
 class ClumsyEngine:
     """Launch clumsy.exe and click its Start button via Win32 GUI automation.
 
-    Fallback engine used when native WinDivert fails. The clumsy window
-    will flash briefly on screen before being hidden.
+    Automatic compatibility engine for exactly representable requests. The
+    Clumsy window may flash briefly before DupeZ verifies and hides it.
 
     Strategy:
       1. Write presets.ini + config.txt
@@ -364,6 +694,8 @@ class ClumsyEngine:
         self.params = params
         self._proc = None
         self._hwnd = None
+        self._startup_verified = False
+        self._runtime_verified = False
 
     # ---- helpers ----
 
@@ -403,7 +735,21 @@ class ClumsyEngine:
 
     def start(self) -> bool:
         """Kill old clumsy, write config, launch, click Start, hide."""
+        self._startup_verified = False
+        self._runtime_verified = False
         try:
+            compatibility = assess_clumsy_compatibility(
+                self.methods,
+                self.params,
+            )
+            if not compatibility.representable:
+                log_error(
+                    "ClumsyEngine: request is not safely representable: "
+                    f"{compatibility.reason}"
+                )
+                return False
+            self.methods = list(compatibility.methods)
+
             # Step 0: Kill ANY existing clumsy.exe
             _kill_all_clumsy()
 
@@ -489,20 +835,28 @@ class ClumsyEngine:
             return False
 
     def _detect_silent_support(self, exe_path: str) -> bool:
-        """Check if clumsy.exe has been rebuilt with --silent support.
+        """Return whether silent mode can honor the requested layer.
 
-        We look for the string '--silent' in the binary. The modified
-        clumsy has this string literal in main() for arg detection.
+        Current Clumsy builds have no command-line contract for selecting
+        Local versus Remote.  Compatibility mode therefore deliberately uses
+        the GUI automation path, where the selection and callback can be
+        verified before filtering starts.  Keep the binary probe for an
+        actionable log if a future bundled binary reintroduces ``--silent``.
         """
         try:
             with open(exe_path, 'rb') as f:
                 content = f.read()
             if b'--silent' in content:
-                log_info("ClumsyEngine: --silent flag detected in binary")
-                return True
+                log_info(
+                    "ClumsyEngine: --silent detected but disabled because "
+                    "its Local/Remote layer cannot be verified"
+                )
             else:
-                log_info("ClumsyEngine: --silent NOT found in binary (original clumsy)")
-                return False
+                log_info(
+                    "ClumsyEngine: --silent NOT found in binary "
+                    "(using verified GUI automation)"
+                )
+            return False
         except Exception as e:
             log_info(f"ClumsyEngine: could not check binary for --silent: {e}")
             return False
@@ -512,6 +866,7 @@ class ClumsyEngine:
 
         Used when --silent mode is not supported by the clumsy.exe binary.
         """
+        self._startup_verified = False
         try:
             # Find the clumsy window
             self._hwnd = _find_window_by_pid(self._proc.pid, timeout=2.0)
@@ -533,12 +888,55 @@ class ClumsyEngine:
             title = _get_window_text(self._hwnd)
             log_info(f"ClumsyEngine GUI: found window hwnd={self._hwnd} title='{title}'")
 
-            # Enable modules, click sub-checkboxes, type input values
-            for step in (self._enable_modules, self._click_sub_checkboxes, self._set_input_values):
+            # The Clumsy source sets the network combo's visible value but
+            # IUP does not invoke its ACTION callback for programmatic VALUE
+            # changes.  Without this verified notification NetworkType stays
+            # at zero (NETWORK_FORWARD), even when the UI says Local.
+            if not self._select_network_layer():
+                requested = (
+                    "Local / NETWORK"
+                    if self.params.get("_network_local")
+                    else "Remote / NETWORK_FORWARD"
+                )
+                log_error(
+                    "ClumsyEngine GUI: could not apply requested network "
+                    f"layer ({requested}); refusing to start a silent no-op"
+                )
+                self._cleanup()
+                return False
+
+            # Every advertised control must be confirmed before filtering.
+            try:
+                modules_enabled = self._enable_modules()
+            except Exception as exc:
+                log_error(f"ClumsyEngine GUI: _enable_modules error: {exc}")
+                modules_enabled = False
+            if not modules_enabled:
+                log_error(
+                    "ClumsyEngine GUI: not every requested module was confirmed; "
+                    "refusing to advertise an inactive disruption"
+                )
+                self._cleanup()
+                return False
+
+            for step, label in (
+                (self._click_sub_checkboxes, "sub-checkboxes"),
+                (self._set_input_values, "numeric inputs"),
+            ):
                 try:
-                    step()
-                except Exception as e:
-                    log_error(f"ClumsyEngine GUI: {step.__name__} error: {e}")
+                    verified = step()
+                except Exception as exc:
+                    log_error(
+                        f"ClumsyEngine GUI: {step.__name__} error: {exc}"
+                    )
+                    verified = False
+                if not verified:
+                    log_error(
+                        "ClumsyEngine GUI: requested "
+                        f"{label} could not be confirmed; refusing to start"
+                    )
+                    self._cleanup()
+                    return False
 
             # Click the Start button
             started = self._click_start_button()
@@ -547,13 +945,17 @@ class ClumsyEngine:
 
             if not started:
                 log_error("ClumsyEngine GUI: could not start filtering")
+                self._cleanup()
                 return False
 
             time.sleep(0.1)
             if self._proc.poll() is not None:
                 log_error(f"ClumsyEngine GUI: process died (rc={self._proc.returncode})")
                 self._proc = None
+                self._startup_verified = False
                 return False
+
+            self._startup_verified = True
 
             # Hide the window
             _hide_window(self._hwnd)
@@ -567,6 +969,52 @@ class ClumsyEngine:
             log_error(traceback.format_exc())
             self._cleanup()
             return False
+
+    def _select_network_layer(self) -> bool:
+        """Select and verify Clumsy's Local or Remote WinDivert layer."""
+        want_local = bool(self.params.get("_network_local", False))
+        desired_word = "local" if want_local else "remote"
+
+        combos = _find_children_by_class(self._hwnd, "COMBOBOX")
+        for combo_hwnd in combos:
+            items = _combobox_items(combo_hwnd)
+            lowered = [item.lower() for item in items]
+            local_indices = [
+                i for i, item in enumerate(lowered) if "(local)" in item
+            ]
+            remote_indices = [
+                i for i, item in enumerate(lowered) if "(remote)" in item
+            ]
+            # Requiring both labels avoids accidentally changing the preset,
+            # trigger-mode, or timer combo boxes in this modified build.
+            if not local_indices or not remote_indices:
+                continue
+            index = local_indices[0] if want_local else remote_indices[0]
+            if not _select_combobox_item(combo_hwnd, index):
+                log_error(
+                    f"ClumsyEngine: network combo rejected {desired_word} "
+                    f"selection (index={index}, items={items})"
+                )
+                return False
+            actual_text = _get_window_text(combo_hwnd).lower()
+            if desired_word not in actual_text:
+                log_error(
+                    "ClumsyEngine: network combo index changed but label "
+                    f"verification failed (wanted={desired_word}, "
+                    f"actual={actual_text!r})"
+                )
+                return False
+            log_info(
+                "ClumsyEngine: network layer CONFIRMED "
+                f"{'NETWORK (Local)' if want_local else 'NETWORK_FORWARD (Remote)'}"
+            )
+            return True
+
+        log_error(
+            "ClumsyEngine: Local/Remote network COMBOBOX not found; "
+            f"found {len(combos)} combo control(s)"
+        )
+        return False
 
     def _click_start_button(self) -> bool:
         """Find the 'Start' button in clumsy's window and click it.
@@ -647,45 +1095,63 @@ class ClumsyEngine:
 
         log_info(f"_enable_modules: {enabled_count}/{len(self.methods)} "
                  "modules physically enabled")
-        return enabled_count > 0
+        return bool(self.methods) and enabled_count == len(self.methods)
 
-    def _click_sub_checkboxes(self) -> None:
-        """Click sub-checkboxes that need explicit toggling for C variable sync.
+    def _click_sub_checkboxes(self) -> bool:
+        """Apply and verify active-module sub-checkbox state.
 
-        preset1_config() uses IupSetAttribute which does NOT fire ACTION
-        callbacks. We must click to fire uiSyncToggle → InterlockedExchange16.
-
-        Sub-checks: (param_key, checkbox_text, c_default)
-          - dropThrottled = 0 (OFF) ← click if user wants throttle+drop
-          - doChecksum = 1 (ON) ← click only if user wants OFF
+        ``preset1_config`` updates visible state without firing the callbacks
+        that synchronize Clumsy's C variables.  Active non-default requests
+        therefore need a verified click; default requests still need their
+        visible state confirmed.
         """
         p = self.params
         sub_checks = [
-            ("throttle_drop", "Drop Throttled", 0),
-            ("tamper_checksum", "Redo Checksum", 1),
+            ("throttle", "throttle_drop", "Drop Throttled", 0),
+            ("corrupt", "tamper_checksum", "Redo Checksum", 1),
         ]
+        all_verified = True
 
-        for param_key, cb_text, c_default in sub_checks:
+        for method, param_key, cb_text, c_default in sub_checks:
+            if method not in self.methods:
+                continue
             desired = bool(p.get(param_key, False))
             need_click = (c_default == 0 and desired) or (c_default == 1 and not desired)
-            if not need_click:
-                log_info(f"  Sub-checkbox '{cb_text}': no click needed "
-                         f"(default={c_default}, desired={desired})")
-                continue
-
             cb_hwnd = self._find_checkbox(cb_text)
             if not cb_hwnd:
-                log_error(f"  Sub-checkbox '{cb_text}' NOT FOUND — "
-                          f"C variable stays at default ({c_default})")
+                log_error(
+                    f"  Sub-checkbox '{cb_text}' NOT FOUND; "
+                    "requested state cannot be verified"
+                )
+                all_verified = False
                 continue
 
-            log_info(f"  Clicking sub-checkbox '{cb_text}' "
-                     f"(hwnd={cb_hwnd}, default={c_default}→desired={desired})")
             expected = BST_CHECKED if desired else 0
-            self._click_and_verify(cb_hwnd, cb_text, expected_state=expected)
+            if need_click:
+                log_info(
+                    f"  Clicking sub-checkbox '{cb_text}' "
+                    f"(hwnd={cb_hwnd}, default={c_default}, desired={desired})"
+                )
+                verified = self._click_and_verify(
+                    cb_hwnd,
+                    cb_text,
+                    expected_state=expected,
+                )
+            else:
+                verified = _checkbox_matches_state(cb_hwnd, expected)
+                log_info(
+                    f"  Sub-checkbox '{cb_text}': default-state "
+                    f"verification={'CONFIRMED' if verified else 'FAILED'} "
+                    f"(default={c_default}, desired={desired})"
+                )
 
-    def _set_input_values(self) -> None:
-        """Type numeric values into clumsy's EDIT controls via WM_CHAR.
+            if not verified:
+                all_verified = False
+
+        return all_verified
+
+    def _set_input_values(self) -> bool:
+        """Type and verify active-module numeric values via WM_CHAR.
 
         CRITICAL: IupSetAttribute (used by preset1_config) changes the
         VISUAL text but does NOT fire VALUECHANGED_CB. The callback is
@@ -704,19 +1170,34 @@ class ClumsyEngine:
             text = _get_window_text(hwnd)
             log_info(f"  EDIT[{i}] hwnd={hwnd} current='{text}'")
 
-        # Map each EDIT index to a param key and type the value
+        # Inactive modules commonly retain saved GUI values.  Only controls
+        # belonging to requested effects must be present and synchronized.
         values_set = 0
+        values_requested = 0
+        all_verified = True
         for idx, param_key in EDIT_INDEX_MAP.items():
+            method = _EDIT_PARAM_METHOD[param_key]
+            if method not in self.methods:
+                continue
+
+            values_requested += 1
             if idx >= len(edits):
                 log_error(f"  EDIT[{idx}] ({param_key}): index out of range "
                           f"(only {len(edits)} EDITs found)")
+                all_verified = False
                 continue
 
-            value = p.get(param_key)
-            if value is None:
-                continue  # param not set by GUI, leave default
+            value = p.get(param_key, _EDIT_PARAM_DEFAULTS[param_key])
+            try:
+                value_str = str(_clumsy_numeric_value(param_key, value))
+            except (TypeError, ValueError, OverflowError):
+                log_error(
+                    f"  EDIT[{idx}] ({param_key}): invalid numeric value "
+                    f"{value!r}"
+                )
+                all_verified = False
+                continue
 
-            value_str = str(int(value))
             hwnd = edits[idx]
             old_text = _get_window_text(hwnd)
 
@@ -729,8 +1210,13 @@ class ClumsyEngine:
             else:
                 log_error(f"  EDIT[{idx}] ({param_key}): MISMATCH — "
                           f"typed '{value_str}' but got '{result}'")
+                all_verified = False
 
-        log_info(f"_set_input_values: {values_set} values typed successfully")
+        log_info(
+            "_set_input_values: "
+            f"{values_set}/{values_requested} requested values verified"
+        )
+        return all_verified and values_set == values_requested
 
     def _try_keybind_fallback(self) -> bool:
         """Fallback: simulate '[' key multiple times via SendInput."""
@@ -791,21 +1277,58 @@ class ClumsyEngine:
                     log_error(f"ClumsyEngine: kill fallback failed: {kill_exc}")
             self._proc = None
         self._hwnd = None
+        self._startup_verified = False
+        self._runtime_verified = False
         log_info("ClumsyEngine stopped")
 
     @property
     def alive(self) -> bool:
         return self._proc is not None and self._proc.poll() is None
 
+    def get_stats(self) -> Dict[str, Any]:
+        """Return honest compatibility-engine metadata.
+
+        The bundled Clumsy process does not expose packet or per-module
+        counters.  Returning explicit zero counters keeps it visible in the
+        manager while ``telemetry_available=False`` prevents the GUI from
+        presenting configured modules as verified effects.
+        """
+        alive = self.alive
+        return {
+            "packets_processed": 0,
+            "packets_dropped": 0,
+            "packets_inbound": 0,
+            "packets_outbound": 0,
+            "packets_passed": 0,
+            "alive": alive,
+            "target_ip": self.params.get("_target_ip", "unknown"),
+            "engine": "clumsy_compatibility",
+            "telemetry_available": False,
+            "startup_verified": bool(self._startup_verified and alive),
+            "runtime_verified": bool(self._runtime_verified),
+            "runtime_verification_available": False,
+            "local_effect_verified": False,
+            "verification_state": (
+                "runtime_unobservable" if alive else "inactive"
+            ),
+            "methods": list(self.methods),
+            "configured_methods": list(self.methods),
+            "effective_methods": [],
+            "shadowed_methods": [],
+        }
+
     # ---- cleanup ----
 
     def _cleanup(self) -> None:
+        self._startup_verified = False
+        self._runtime_verified = False
         if self._proc:
             try:
                 self._proc.kill()
             except Exception:
                 pass
             self._proc = None
+        self._hwnd = None
 
     # ---- config file writers ----
 
@@ -860,7 +1383,12 @@ class ClumsyEngine:
         thr_fr   = int(p.get("throttle_frame", 400))  if "throttle" in methods else 0
         thr_dr   = str(p.get("throttle_drop", False)).lower()
         dup_ch   = int(p.get("duplicate_chance", 80)) if "duplicate" in methods else 0
-        dup_ct   = int(p.get("duplicate_count", 10))  if "duplicate" in methods else 0
+        dup_extra = (
+            int(p.get("duplicate_count", 10))
+            if "duplicate" in methods
+            else 0
+        )
+        dup_ct   = dup_extra + 1 if "duplicate" in methods else 0
         ood_ch   = int(p.get("ood_chance", 80))        if "ood"       in methods else 0
         tam_ch   = int(p.get("tamper_chance", 60))     if ("corrupt" in methods or "tamper" in methods) else 0
         tam_cs   = str(p.get("tamper_checksum", False)).lower()
@@ -885,7 +1413,9 @@ class ClumsyEngine:
 
         log_info(f"presets.ini Preset1: methods={methods}, dir={direction}, "
                  f"lag={lag_del}, drop={drop_ch}%, rst={rst_ch}%, "
-                 f"thr={thr_ch}%/{thr_fr}ms, dup={dup_ct}x/{dup_ch}%, ood={ood_ch}%")
+                 f"thr={thr_ch}%/{thr_fr}ms, "
+                 f"dup={dup_extra} extra ({dup_ct} total)/{dup_ch}%, "
+                 f"ood={ood_ch}%")
 
         content = (f"[General]\nKeybind = [\n\n[Preset1]\nPresetName = DupeZ\n"
                    f"Lag_Inbound = {_f['lag'][0]}\nLag_Outbound = {_f['lag'][1]}\nLag_Delay = {lag_del}\n"
@@ -942,6 +1472,9 @@ class ClumsyNetworkDisruptor:
         self.is_running = False
         self.disrupted_devices: Dict[str, dict] = {}
         self._device_lock = threading.Lock()
+        # Registry incarnations are monotonic so asynchronous watchdog
+        # callbacks can prove they still belong to the engine they observed.
+        self._disruption_generation = 0
         self.clumsy_exe = None
         self.windivert_dll = None
         self.windivert_sys = None
@@ -993,6 +1526,136 @@ class ClumsyNetworkDisruptor:
 
     def _get_clumsy_dir(self) -> str:
         return os.path.dirname(os.path.abspath(self.clumsy_exe))
+
+    def _start_selected_engine(
+        self,
+        *,
+        filter_str: str,
+        methods: List[str],
+        params: Dict[str, Any],
+    ) -> tuple[Optional[Any], str, str]:
+        """Start the requested engine and return ``(engine, actual, requested)``.
+
+        Auto prefers the bundled Clumsy engine whenever the request can be
+        represented exactly. That makes normal Lag/Disconnect/Duplicate
+        behavior match standalone Clumsy without an operator-facing engine
+        switch. Native remains the primary implementation for extensions
+        Clumsy cannot represent. Explicit choices never switch engines.
+        """
+        preference = _normalize_engine_preference(
+            params.get("_engine_preference", ENGINE_AUTO))
+        compatibility = assess_clumsy_compatibility(methods, params)
+
+        def _try_native() -> Optional[Any]:
+            if NATIVE_ENGINE_AVAILABLE:
+                log_info(
+                    "Trying native WinDivert engine "
+                    f"(preference={preference})..."
+                )
+                native_engine = None
+                try:
+                    native_engine = NativeWinDivertEngine(
+                        dll_path=self.windivert_dll,
+                        filter_str=filter_str,
+                        methods=methods,
+                        params=params,
+                    )
+                    if native_engine.start():
+                        log_info("Native WinDivert engine started successfully")
+                        return native_engine
+                    log_error("Native engine start returned False")
+                except Exception as exc:
+                    log_error(f"Native engine start failed: {exc}")
+                if native_engine is not None:
+                    try:
+                        native_engine.stop()
+                    except Exception:
+                        pass
+            else:
+                log_error("Native engine requested but unavailable")
+            return None
+
+        def _try_clumsy() -> Optional[Any]:
+            if not compatibility.representable:
+                log_error(
+                    "Clumsy compatibility refused this request because it "
+                    "would change packet semantics: "
+                    f"{compatibility.reason}"
+                )
+                return None
+            if not self.clumsy_exe or not os.path.isfile(self.clumsy_exe):
+                log_error(
+                    "Clumsy compatibility requested but clumsy.exe is missing: "
+                    f"{self.clumsy_exe}"
+                )
+                return None
+            log_info(
+                "Using Clumsy compatibility engine "
+                f"(preference={preference}, standalone module order)..."
+            )
+            clumsy_engine = ClumsyEngine(
+                clumsy_exe=self.clumsy_exe,
+                clumsy_dir=self._get_clumsy_dir(),
+                filter_str=filter_str,
+                methods=list(compatibility.methods),
+                params=params,
+            )
+            if clumsy_engine.start():
+                return clumsy_engine
+            log_error("Clumsy compatibility engine start FAILED")
+            try:
+                clumsy_engine.stop()
+            except Exception:
+                pass
+            return None
+
+        if preference == ENGINE_CLUMSY:
+            engine = _try_clumsy()
+            return engine, ENGINE_CLUMSY if engine else "", preference
+
+        if preference == ENGINE_NATIVE:
+            engine = _try_native()
+            if engine is None:
+                log_error(
+                    "Explicit Native WinDivert selection failed; "
+                    "Clumsy fallback is disabled for explicit choices"
+                )
+            return engine, ENGINE_NATIVE if engine else "", preference
+
+        # Automatic policy: exact standalone behavior first.
+        if compatibility.representable:
+            engine = _try_clumsy()
+            if engine is not None:
+                return engine, ENGINE_CLUMSY, preference
+
+            requested_methods = set(compatibility.methods)
+            if not requested_methods.issubset(
+                _NATIVE_CLUMSY_FALLBACK_METHODS
+            ):
+                log_error(
+                    "Automatic Clumsy startup failed and native fallback was "
+                    "refused because it would change semantics for: "
+                    + ", ".join(sorted(
+                        requested_methods
+                        - _NATIVE_CLUMSY_FALLBACK_METHODS
+                    ))
+                )
+                return None, "", preference
+            log_warning(
+                "Automatic Clumsy startup failed; trying the bounded native "
+                "equivalent"
+            )
+        else:
+            log_info(
+                "Request uses native-only behavior; selecting native engine "
+                f"({compatibility.reason})"
+            )
+
+        engine = _try_native()
+        if engine is not None:
+            return engine, ENGINE_NATIVE, preference
+
+        return None, "", preference
 
     # Core disruption
     def disconnect_device_clumsy(self, target_ip: str,
@@ -1140,6 +1803,16 @@ class ClumsyNetworkDisruptor:
             )
             safe_methods = ["disconnect"]
         methods = safe_methods
+
+        # processId is unavailable at WinDivert NETWORK/NETWORK_FORWARD.
+        # Reject this obsolete preset flag before touching engines or ARP.
+        if params.get("_process_scope"):
+            log_error(
+                "Process-scoped disruption is unavailable: WinDivert does "
+                "not expose processId at packet interception layers. Remove "
+                "_process_scope from the preset; no disruption was started."
+            )
+            return False
 
         try:
             if target_ip in self.disrupted_devices:
@@ -1383,35 +2056,6 @@ class ClumsyNetworkDisruptor:
                         f"{len(port_atoms)} port atom(s)"
                     )
 
-            # v5.6.9 #4: process-scoped disruption. When the preset sets
-            # ``_process_scope`` to "dayz" (always) or "auto" (follow
-            # foreground), wrap the filter with a processId clause so
-            # only DayZ-class processes get caught. Falls back loudly
-            # to the unscoped filter when no DayZ PIDs are running, to
-            # avoid silently no-op'ing every cut.
-            _scope = params.get("_process_scope") or ""
-            if _scope:
-                try:
-                    from app.firewall.process_scope import (
-                        apply_process_scope,
-                        find_dayz_pids,
-                        get_foreground_pid,
-                    )
-                    filt_expr = apply_process_scope(
-                        filt_expr,
-                        _scope,
-                        dayz_pids=find_dayz_pids(),
-                        foreground_pid=get_foreground_pid(),
-                    )
-                    log_info(
-                        f"[PRESET] process scope applied: {_scope!r}"
-                    )
-                except Exception as exc:
-                    log_warning(
-                        f"[PRESET] process scope wrap failed: {exc} — "
-                        f"continuing with unscoped filter"
-                    )
-
             mode_label = "PC-LOCAL (NETWORK)" if is_local else "REMOTE (NETWORK_FORWARD)"
             if _arp_spoofer:
                 mode_label += " + LOCAL FORWARDING"
@@ -1420,59 +2064,44 @@ class ClumsyNetworkDisruptor:
                      f"  direction={params.get('direction', 'both')}"
                      f"  filter={filt_expr}\n{'='*50}")
 
-            # FORWARD-layer cannot originate keepalives on the device's
-            # behalf — the local Windows stack can't forge the device's
-            clumsy_dir = self._get_clumsy_dir()
+            # Pass the fully resolved target and capture layer to whichever
+            # engine the operator selected.
             eng_params = dict(params)
             eng_params["_target_ip"] = target_ip
             eng_params["_network_local"] = is_local
 
-            engine = None
+            engine, actual_engine, requested_engine = self._start_selected_engine(
+                filter_str=filt_expr,
+                methods=methods,
+                params=eng_params,
+            )
 
-            # Strategy 1: Native WinDivert engine (no GUI, no window)
-            if NATIVE_ENGINE_AVAILABLE:
-                log_info("Trying native WinDivert engine (no clumsy.exe)...")
-                try:
-                    native_engine = NativeWinDivertEngine(
-                        dll_path=self.windivert_dll,
-                        filter_str=filt_expr,
-                        methods=methods,
-                        params=eng_params,
-                    )
-                    if native_engine.start():
-                        engine = native_engine
-                        # Give the engine a handle to the live spoofer so
-                        # its flow-health watchdog can produce actionable
-                        # diagnostics ("ARP active but no packets" vs
-                        # "no spoofer, switched LAN may need one").
-                        try:
-                            native_engine._arp_spoofer = _arp_spoofer
-                        except Exception:
-                            pass
-                        log_info("Native WinDivert engine started successfully")
-                    else:
-                        log_error("Native engine start returned False — "
-                                  "falling back to clumsy.exe")
-                except Exception as e:
-                    log_error(f"Native engine error: {e} — falling back to clumsy.exe")
-
-            # Strategy 2: Clumsy.exe GUI automation (fallback)
             if engine is None:
-                log_info("Using clumsy.exe GUI automation engine...")
-                engine = ClumsyEngine(
-                    clumsy_exe=self.clumsy_exe,
-                    clumsy_dir=clumsy_dir,
-                    filter_str=filt_expr,
-                    methods=methods,
-                    params=eng_params,
-                )
-                if not engine.start():
-                    log_error("ClumsyEngine start FAILED")
-                    return False
+                if _arp_spoofer is not None:
+                    try:
+                        _arp_spoofer.stop()
+                    except Exception as cleanup_exc:
+                        log_error(
+                            "Engine startup failed and local-forwarding "
+                            f"cleanup also failed: {cleanup_exc}"
+                        )
+                return False
+
+            # Native telemetry can correlate a live local-forwarding path.
+            # The compatibility process has no corresponding counter hook.
+            if actual_engine == ENGINE_NATIVE:
+                try:
+                    engine._arp_spoofer = _arp_spoofer
+                except Exception:
+                    pass
 
             with self._device_lock:
+                self._disruption_generation += 1
                 self.disrupted_devices[target_ip] = {
                     "engine": engine,
+                    "generation": self._disruption_generation,
+                    "engine_name": actual_engine,
+                    "engine_preference": requested_engine,
                     "methods": methods,
                     "params": params,
                     "start_time": time.time(),
@@ -1606,6 +2235,15 @@ class ClumsyNetworkDisruptor:
             methods: original method list, forwarded to the fallback restart.
             params: original params dict, forwarded to the fallback restart.
         """
+        with self._device_lock:
+            active = self.disrupted_devices.get(target_ip)
+            if active is None or active.get("engine") is not engine:
+                log_info(
+                    f"[WiFi] skipped stale watchdog for {mask_ip(target_ip)}"
+                )
+                return
+            expected_generation = active.get("generation")
+
         try:
             from app.network.wifi_probe import (
                 IsolationResult,
@@ -1625,7 +2263,13 @@ class ClumsyNetworkDisruptor:
                 # INCONCLUSIVE case loudly enough.
                 return
             try:
-                self._fallback_to_self_disrupt(target_ip, methods, params)
+                self._fallback_to_self_disrupt(
+                    target_ip,
+                    methods,
+                    params,
+                    expected_generation=expected_generation,
+                    expected_engine=engine,
+                )
             except Exception as exc:
                 log_error(
                     f"[WiFi-FALLBACK] {mask_ip(target_ip)} self-disrupt "
@@ -1644,9 +2288,25 @@ class ClumsyNetworkDisruptor:
             grace_s=grace_s,
             target_ip=target_ip,
         )
+        armed = False
         with self._device_lock:
-            if target_ip in self.disrupted_devices:
-                self.disrupted_devices[target_ip]["wifi_watchdog"] = watchdog
+            active = self.disrupted_devices.get(target_ip)
+            if (
+                active is not None
+                and active.get("generation") == expected_generation
+                and active.get("engine") is engine
+            ):
+                active["wifi_watchdog"] = watchdog
+                armed = True
+        if not armed:
+            try:
+                watchdog.cancel()
+            except Exception:
+                pass
+            log_info(
+                f"[WiFi] discarded stale watchdog for {mask_ip(target_ip)}"
+            )
+            return
         watchdog.start()
         log_info(
             f"[WiFi] isolation watchdog armed for {mask_ip(target_ip)} "
@@ -1658,6 +2318,9 @@ class ClumsyNetworkDisruptor:
         target_ip: str,
         methods: List[str],
         params: Dict,
+        *,
+        expected_generation: int,
+        expected_engine: Any,
     ) -> None:
         """Swap the active FORWARD+ARP engine for a NETWORK-layer self-disrupt engine.
 
@@ -1672,9 +2335,20 @@ class ClumsyNetworkDisruptor:
         """
         with self._device_lock:
             info = self.disrupted_devices.get(target_ip)
-        if not info:
+            is_current = (
+                info is not None
+                and info.get("generation") == expected_generation
+                and info.get("engine") is expected_engine
+                and not info.get("wifi_fallback_transition")
+            )
+            if is_current:
+                # A reconnect or newer start may replace this entry while the
+                # fallback engine starts. This marker rejects duplicate
+                # callbacks before either one tears down the active engine.
+                info["wifi_fallback_transition"] = True
+        if not is_current:
             log_info(
-                f"[WiFi-FALLBACK] {mask_ip(target_ip)} already released — "
+                f"[WiFi-FALLBACK] {mask_ip(target_ip)} callback is stale — "
                 f"aborting self-disrupt restart"
             )
             return
@@ -1763,21 +2437,55 @@ class ClumsyNetworkDisruptor:
             except Exception:
                 pass
             with self._device_lock:
-                self.disrupted_devices.pop(target_ip, None)
+                current = self.disrupted_devices.get(target_ip)
+                if (
+                    current is info
+                    and current.get("generation") == expected_generation
+                    and current.get("engine") is expected_engine
+                    and current.get("wifi_fallback_transition")
+                ):
+                    self.disrupted_devices.pop(target_ip, None)
             return
 
         # 4. Swap in the new engine. Preserve detection info so the GUI
         # still has context; drop arp_spoofer + watchdog refs since
         # neither applies to self-disrupt mode.
+        committed = False
         with self._device_lock:
-            if target_ip in self.disrupted_devices:
-                self.disrupted_devices[target_ip].update({
+            current = self.disrupted_devices.get(target_ip)
+            if (
+                current is info
+                and current.get("generation") == expected_generation
+                and current.get("engine") is expected_engine
+                and current.get("wifi_fallback_transition")
+            ):
+                self._disruption_generation += 1
+                current.update({
                     "engine": new_engine,
+                    "generation": self._disruption_generation,
+                    "engine_name": ENGINE_NATIVE,
                     "params": new_params,
                     "arp_spoofer": None,
                     "wifi_watchdog": None,
                     "wifi_self_disrupt": True,
+                    "wifi_fallback_transition": False,
                 })
+                committed = True
+
+        if not committed:
+            # A release/restart won the race while the replacement was
+            # starting. Do not overwrite its entry or leak this engine.
+            try:
+                new_engine.stop()
+            except Exception as exc:
+                log_warning(
+                    f"[WiFi-FALLBACK] stale replacement stop raised: {exc}"
+                )
+            log_info(
+                f"[WiFi-FALLBACK] {mask_ip(target_ip)} changed during "
+                f"restart — discarded stale replacement"
+            )
+            return
 
         log_info(
             f"[WiFi-FALLBACK] {mask_ip(target_ip)} now in SELF-DISRUPT "
@@ -1789,9 +2497,29 @@ class ClumsyNetworkDisruptor:
     def clear_all_disruptions_clumsy(self) -> bool:
         with self._device_lock:
             ips = list(self.disrupted_devices.keys())
+        all_stopped = True
         for ip in ips:
-            self.reconnect_device_clumsy(ip)
-        return True
+            try:
+                if not self.reconnect_device_clumsy(ip):
+                    all_stopped = False
+            except Exception as exc:
+                all_stopped = False
+                log_error(
+                    f"Unexpected error clearing disruption for "
+                    f"{mask_ip(ip)}: {exc}"
+                )
+
+        with self._device_lock:
+            remaining = list(self.disrupted_devices)
+        if remaining:
+            all_stopped = False
+            log_error(
+                f"Disruption cleanup incomplete: "
+                f"{len(remaining)} active registry entr"
+                f"{'y remains' if len(remaining) == 1 else 'ies remain'}"
+            )
+
+        return all_stopped
 
     def get_disrupted_devices_clumsy(self) -> List[str]:
         with self._device_lock:
@@ -1799,8 +2527,33 @@ class ClumsyNetworkDisruptor:
                     if info.get("engine") and not info["engine"].alive]
             dead_infos = {ip: self.disrupted_devices.pop(ip) for ip in dead}
         for ip, info in dead_infos.items():
-            if info.get("engine"):
-                info["engine"].stop()
+            watchdog = info.get("wifi_watchdog")
+            if watchdog is not None:
+                try:
+                    watchdog.cancel()
+                except Exception as exc:
+                    log_warning(
+                        f"Dead disruption watchdog cleanup failed for "
+                        f"{mask_ip(ip)}: {exc}"
+                    )
+            engine = info.get("engine")
+            if engine is not None:
+                try:
+                    engine.stop()
+                except Exception as exc:
+                    log_warning(
+                        f"Dead disruption engine cleanup failed for "
+                        f"{mask_ip(ip)}: {exc}"
+                    )
+            arp_spoofer = info.get("arp_spoofer")
+            if arp_spoofer is not None:
+                try:
+                    arp_spoofer.stop()
+                except Exception as exc:
+                    log_warning(
+                        f"Dead disruption ARP cleanup failed for "
+                        f"{mask_ip(ip)}: {exc}"
+                    )
         with self._device_lock:
             return list(self.disrupted_devices.keys())
 
@@ -1812,6 +2565,8 @@ class ClumsyNetworkDisruptor:
         eng = info.get("engine")
         return {
             "disrupted": True,
+            "engine": info.get("engine_name", "unknown"),
+            "engine_preference": info.get("engine_preference", ENGINE_AUTO),
             "methods": info.get("methods", []),
             "params": info.get("params", {}),
             "start_time": info.get("start_time", 0),
@@ -1833,6 +2588,7 @@ class ClumsyNetworkDisruptor:
             "disrupted_devices": dev_list,
             "is_admin": self._is_admin(),
             "initialized": self._initialized,
+            "engine_preferences": [ENGINE_AUTO, ENGINE_NATIVE, ENGINE_CLUMSY],
         }
 
     _STAT_KEYS = ("packets_processed", "packets_dropped", "packets_inbound",
@@ -1857,6 +2613,13 @@ class ClumsyNetworkDisruptor:
                     if _det is not None:
                         stats = dict(stats)
                         stats["detection"] = _det
+                    stats = dict(stats)
+                    stats.setdefault(
+                        "engine", info.get("engine_name", "unknown"))
+                    stats.setdefault(
+                        "engine_preference",
+                        info.get("engine_preference", ENGINE_AUTO),
+                    )
                     # Also surface spoofer liveness so the GUI can
                     # show a warning if the spoofer dropped but the
                     # engine kept running.
@@ -1875,6 +2638,8 @@ class ClumsyNetworkDisruptor:
         return totals
 
     def start_clumsy(self) -> None:
+        if self.is_running:
+            return
         self.is_running = True
         engine_name = "native WinDivert" if NATIVE_ENGINE_AVAILABLE else "clumsy.exe"
         log_info(f"Disruptor started (engine={engine_name})")

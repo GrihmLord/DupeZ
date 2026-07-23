@@ -8,7 +8,7 @@ The dialog deliberately does NOT recreate the full slider UI from
 clumsy_control. For numeric param tuning the operator should pick the
 preset in the main view and use the existing sliders + the "Save as
 Custom Preset…" button. This dialog focuses on the LIFECYCLE: name,
-description, method selection, port list, process scope, save / load /
+description, method selection, port list, save / load /
 export / import / delete.
 
 Wiring (one-liner from the main GUI):
@@ -132,10 +132,6 @@ class PresetEditorDialog(QDialog):
         )
         form.addRow("Ports (v5.6.9 #3):", self.ports_edit)
 
-        self.scope_combo = QComboBox()
-        self.scope_combo.addItems(["(none)", "auto", "dayz"])
-        form.addRow("Process scope (v5.6.9 #4):", self.scope_combo)
-
         self.params_edit = QTextEdit()
         self.params_edit.setPlaceholderText(
             "Extra params as JSON (optional). Merged with the fields "
@@ -190,7 +186,6 @@ class PresetEditorDialog(QDialog):
             cb.setChecked(False)
         self.direction_combo.setCurrentText("both")
         self.ports_edit.clear()
-        self.scope_combo.setCurrentText("(none)")
         self.params_edit.clear()
 
     def _load_form(self, p: CustomPreset) -> None:
@@ -206,8 +201,6 @@ class PresetEditorDialog(QDialog):
             str(e if isinstance(e, int) else e.get("port", "")) for e in ports
         )
         self.ports_edit.setText(ports_str)
-        scope = p.params.get("_process_scope") or ""
-        self.scope_combo.setCurrentText(scope if scope else "(none)")
         # Hide the "managed" keys from the JSON box to avoid double-edits.
         extra = {
             k: v for k, v in p.params.items()
@@ -238,9 +231,6 @@ class PresetEditorDialog(QDialog):
                 except ValueError:
                     raise PresetValidationError(f"port not an integer: {part!r}")
 
-        scope_text = self.scope_combo.currentText()
-        scope = "" if scope_text == "(none)" else scope_text
-
         # Merge extras (JSON box) with managed fields. Managed keys
         # win on collision — operator's intent in the dedicated fields
         # trumps stale JSON in the free-text box.
@@ -263,8 +253,6 @@ class PresetEditorDialog(QDialog):
         params["direction"] = self.direction_combo.currentText()
         if ports:
             params["_ports"] = ports
-        if scope:
-            params["_process_scope"] = scope
 
         return CustomPreset(
             name=name, description=desc, methods=methods, params=params,

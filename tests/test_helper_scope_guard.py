@@ -4,9 +4,12 @@ from app.firewall_helper.protocol import (
     ERR_BAD_REQUEST,
     OP_BLOCK_DEVICE,
     OP_DISRUPT_DEVICE,
+    OP_GET_IP_FORWARDING,
+    OP_SET_IP_FORWARDING,
     Request,
 )
 from app.firewall_helper.server import HelperDispatcher
+from app.network import arp_spoof
 
 
 class _Manager:
@@ -53,3 +56,42 @@ def test_helper_rejects_public_firewall_target() -> None:
     assert response.ok is False
     assert response.error_code == ERR_BAD_REQUEST
     assert blocker.calls == []
+
+
+def test_helper_routes_ip_forwarding_inside_elevated_process(
+    monkeypatch,
+) -> None:
+    updates = []
+    monkeypatch.setattr(
+        arp_spoof,
+        "_get_ip_forwarding_state",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        arp_spoof,
+        "_set_ip_forwarding",
+        lambda enabled: updates.append(enabled) or True,
+    )
+    dispatcher = HelperDispatcher(_Manager())
+
+    get_response = dispatcher.dispatch(Request(op=OP_GET_IP_FORWARDING))
+    set_response = dispatcher.dispatch(
+        Request(op=OP_SET_IP_FORWARDING, args={"enabled": False})
+    )
+
+    assert get_response.ok is True
+    assert get_response.result is True
+    assert set_response.ok is True
+    assert set_response.result is True
+    assert updates == [False]
+
+
+def test_helper_rejects_non_boolean_forwarding_state() -> None:
+    dispatcher = HelperDispatcher(_Manager())
+
+    response = dispatcher.dispatch(
+        Request(op=OP_SET_IP_FORWARDING, args={"enabled": "false"})
+    )
+
+    assert response.ok is False
+    assert response.error_code == ERR_BAD_REQUEST

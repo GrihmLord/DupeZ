@@ -43,7 +43,11 @@ from app.firewall.clumsy_network_disruptor import (
     SW_HIDE,
     WS_EX_LAYERED,
     WS_EX_TOOLWINDOW,
+    ClumsyEngine,
     ClumsyNetworkDisruptor,
+    ENGINE_AUTO,
+    ENGINE_CLUMSY,
+    ENGINE_NATIVE,
 )
 
 
@@ -90,6 +94,217 @@ class TestConstants:
         assert WS_EX_LAYERED == 0x00080000
         assert LWA_ALPHA == 0x02
         assert SW_HIDE == 0
+
+
+class TestClumsyLayerSelection:
+    @pytest.mark.parametrize(
+        "want_local, expected_index, expected_text",
+        [
+            (True, 0, "(Local)_This_Device"),
+            (False, 1, "(Remote)_Shared_Devices"),
+        ],
+    )
+    def test_selects_and_verifies_requested_layer(
+        self,
+        monkeypatch,
+        want_local,
+        expected_index,
+        expected_text,
+    ):
+        engine = ClumsyEngine(
+            "clumsy.exe", ".", "true", ["lag"],
+            {"_network_local": want_local},
+        )
+        engine._hwnd = 100
+        selected = []
+        monkeypatch.setattr(
+            cnd, "_find_children_by_class", lambda _parent, _name: [200])
+        monkeypatch.setattr(
+            cnd,
+            "_combobox_items",
+            lambda _combo: [
+                "(Local)_This_Device",
+                "(Remote)_Shared_Devices",
+            ],
+        )
+        monkeypatch.setattr(
+            cnd,
+            "_select_combobox_item",
+            lambda combo, index: selected.append((combo, index)) or True,
+        )
+        monkeypatch.setattr(cnd, "_get_window_text", lambda _hwnd: expected_text)
+
+        assert engine._select_network_layer() is True
+        assert selected == [(200, expected_index)]
+
+    def test_missing_network_combo_fails_closed(self, monkeypatch):
+        engine = ClumsyEngine(
+            "clumsy.exe", ".", "true", ["lag"],
+            {"_network_local": True},
+        )
+        engine._hwnd = 100
+        monkeypatch.setattr(
+            cnd, "_find_children_by_class", lambda _parent, _name: [200])
+        monkeypatch.setattr(
+            cnd, "_combobox_items", lambda _combo: ["Preset 1", "Preset 2"])
+        assert engine._select_network_layer() is False
+
+    def test_gui_start_aborts_before_modules_when_layer_is_unverified(
+        self, monkeypatch,
+    ):
+        engine = ClumsyEngine(
+            "clumsy.exe", ".", "true", ["lag"],
+            {"_network_local": True},
+        )
+        engine._proc = MagicMock(pid=123)
+        engine._proc.poll.return_value = None
+        monkeypatch.setattr(cnd, "_find_window_by_pid", lambda *_a, **_k: 100)
+        monkeypatch.setattr(cnd, "_get_window_text", lambda _hwnd: "clumsy")
+        engine._select_network_layer = MagicMock(return_value=False)
+        engine._enable_modules = MagicMock(return_value=True)
+        engine._cleanup = MagicMock()
+
+        assert engine._start_gui_automation() is False
+        engine._enable_modules.assert_not_called()
+        engine._cleanup.assert_called_once()
+
+    def test_combobox_selection_emits_iup_change_notification(self):
+        class _FakeUser32:
+            def __init__(self):
+                self.selected = -1
+                self.commands = []
+
+            def SendMessageW(self, hwnd, message, wparam, lparam):
+                if message == cnd.CB_SETCURSEL:
+                    self.selected = int(wparam)
+                    return self.selected
+                if message == cnd.CB_GETCURSEL:
+                    return self.selected
+                if message == cnd.WM_COMMAND:
+                    self.commands.append((hwnd, wparam, lparam))
+                    return 0
+                raise AssertionError(f"unexpected message {message:#x}")
+
+            @staticmethod
+            def GetParent(_hwnd):
+                return 300
+
+            @staticmethod
+            def GetDlgCtrlID(_hwnd):
+                return 7
+
+        user32 = _FakeUser32()
+        assert cnd._select_combobox_item(200, 1, user32=user32) is True
+        assert user32.commands == [
+            (300, (cnd.CBN_SELCHANGE << 16) | 7, 200)
+        ]
+
+
+class TestEnginePreference:
+    @staticmethod
+    def _manager_with_clumsy(tmp_path):
+        exe = tmp_path / "clumsy.exe"
+        exe.write_bytes(b"stub")
+        manager = ClumsyNetworkDisruptor()
+        manager.clumsy_exe = str(exe)
+        return manager
+
+    def test_auto_prefers_exact_clumsy_path(self, monkeypatch, tmp_path):
+        manager = self._manager_with_clumsy(tmp_path)
+        native = MagicMock()
+        native.start.return_value = True
+        native_ctor = MagicMock(return_value=native)
+        clumsy = MagicMock()
+        clumsy.start.return_value = True
+        clumsy_ctor = MagicMock(return_value=clumsy)
+        monkeypatch.setattr(cnd, "NATIVE_ENGINE_AVAILABLE", True)
+        monkeypatch.setattr(cnd, "NativeWinDivertEngine", native_ctor)
+        monkeypatch.setattr(cnd, "ClumsyEngine", clumsy_ctor)
+
+        engine, actual, requested = manager._start_selected_engine(
+            filter_str="true", methods=["lag"],
+            params={"_engine_preference": ENGINE_AUTO},
+        )
+        assert engine is clumsy
+        assert (actual, requested) == (ENGINE_CLUMSY, ENGINE_AUTO)
+        clumsy_ctor.assert_called_once()
+        native_ctor.assert_not_called()
+
+    def test_auto_falls_back_to_native_equivalent(self, monkeypatch, tmp_path):
+        manager = self._manager_with_clumsy(tmp_path)
+        native = MagicMock()
+        native.start.return_value = True
+        clumsy = MagicMock()
+        clumsy.start.return_value = False
+        monkeypatch.setattr(cnd, "NATIVE_ENGINE_AVAILABLE", True)
+        monkeypatch.setattr(
+            cnd, "NativeWinDivertEngine", MagicMock(return_value=native))
+        monkeypatch.setattr(
+            cnd, "ClumsyEngine", MagicMock(return_value=clumsy))
+
+        engine, actual, requested = manager._start_selected_engine(
+            filter_str="true", methods=["lag"],
+            params={"_engine_preference": ENGINE_AUTO},
+        )
+        assert engine is native
+        assert (actual, requested) == (ENGINE_NATIVE, ENGINE_AUTO)
+        clumsy.stop.assert_called_once()
+
+    def test_explicit_clumsy_never_constructs_native(
+        self, monkeypatch, tmp_path,
+    ):
+        manager = self._manager_with_clumsy(tmp_path)
+        native_ctor = MagicMock()
+        clumsy = MagicMock()
+        clumsy.start.return_value = True
+        monkeypatch.setattr(cnd, "NATIVE_ENGINE_AVAILABLE", True)
+        monkeypatch.setattr(cnd, "NativeWinDivertEngine", native_ctor)
+        monkeypatch.setattr(
+            cnd, "ClumsyEngine", MagicMock(return_value=clumsy))
+
+        engine, actual, requested = manager._start_selected_engine(
+            filter_str="true", methods=["lag", "duplicate"],
+            params={
+                "_engine_preference": ENGINE_CLUMSY,
+                "lag_passthrough": False,
+                "lag_preserve_connection": False,
+            },
+        )
+        assert engine is clumsy
+        assert (actual, requested) == (ENGINE_CLUMSY, ENGINE_CLUMSY)
+        native_ctor.assert_not_called()
+
+    def test_explicit_native_does_not_fallback(
+        self, monkeypatch, tmp_path,
+    ):
+        manager = self._manager_with_clumsy(tmp_path)
+        native = MagicMock()
+        native.start.return_value = False
+        clumsy_ctor = MagicMock()
+        monkeypatch.setattr(cnd, "NATIVE_ENGINE_AVAILABLE", True)
+        monkeypatch.setattr(
+            cnd, "NativeWinDivertEngine", MagicMock(return_value=native))
+        monkeypatch.setattr(cnd, "ClumsyEngine", clumsy_ctor)
+
+        engine, actual, requested = manager._start_selected_engine(
+            filter_str="true", methods=["lag"],
+            params={"_engine_preference": ENGINE_NATIVE},
+        )
+        assert engine is None
+        assert actual == ""
+        assert requested == ENGINE_NATIVE
+        clumsy_ctor.assert_not_called()
+
+    def test_clumsy_stats_are_explicitly_unverified(self):
+        engine = ClumsyEngine(
+            "clumsy.exe", ".", "true", ["lag", "duplicate"],
+            {"_target_ip": "192.0.2.10"},
+        )
+        stats = engine.get_stats()
+        assert stats["engine"] == "clumsy_compatibility"
+        assert stats["telemetry_available"] is False
+        assert stats["effective_methods"] == []
+        assert stats["methods"] == ["lag", "duplicate"]
 
 
 # ── ClumsyNetworkDisruptor construction ──────────────────────────────
@@ -310,11 +525,51 @@ class TestClearAll:
 
         def _stub_reconnect(ip):
             cleared.append(ip)
+            mgr.disrupted_devices.pop(ip)
             return True
 
         mgr.reconnect_device_clumsy = _stub_reconnect  # type: ignore[assignment]
         assert mgr.clear_all_disruptions_clumsy() is True
         assert sorted(cleared) == ["10.0.0.0", "10.0.0.1", "10.0.0.2"]
+
+    def test_returns_false_when_any_reconnect_fails(self):
+        mgr = ClumsyNetworkDisruptor()
+        for ip in ("10.0.0.1", "10.0.0.2"):
+            mgr.disrupted_devices[ip] = {"engine": _FakeEngine()}
+
+        def _stub_reconnect(ip):
+            mgr.disrupted_devices.pop(ip)
+            return ip != "10.0.0.2"
+
+        mgr.reconnect_device_clumsy = _stub_reconnect  # type: ignore[assignment]
+        assert mgr.clear_all_disruptions_clumsy() is False
+        assert mgr.disrupted_devices == {}
+
+    def test_returns_false_when_registry_entry_remains(self):
+        mgr = ClumsyNetworkDisruptor()
+        mgr.disrupted_devices["10.0.0.1"] = {"engine": _FakeEngine()}
+        mgr.reconnect_device_clumsy = lambda ip: True  # type: ignore[assignment]
+
+        assert mgr.clear_all_disruptions_clumsy() is False
+        assert list(mgr.disrupted_devices) == ["10.0.0.1"]
+
+    def test_continues_after_unexpected_reconnect_error(self):
+        mgr = ClumsyNetworkDisruptor()
+        for ip in ("10.0.0.1", "10.0.0.2"):
+            mgr.disrupted_devices[ip] = {"engine": _FakeEngine()}
+        attempted: List[str] = []
+
+        def _stub_reconnect(ip):
+            attempted.append(ip)
+            mgr.disrupted_devices.pop(ip)
+            if ip == "10.0.0.1":
+                raise RuntimeError("stop failed")
+            return True
+
+        mgr.reconnect_device_clumsy = _stub_reconnect  # type: ignore[assignment]
+        assert mgr.clear_all_disruptions_clumsy() is False
+        assert attempted == ["10.0.0.1", "10.0.0.2"]
+        assert mgr.disrupted_devices == {}
 
     def test_stop_all_devices_alias(self):
         mgr = ClumsyNetworkDisruptor()

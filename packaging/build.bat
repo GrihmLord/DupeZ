@@ -11,8 +11,15 @@ pushd "%~dp0.."
 :: Bump this ONE place per release. installer.iss and version_info.py
 :: also carry their own copies (Inno Setup macro + PyInstaller version
 :: resource respectively) — keep all three in sync.
-set "DUPEZ_VERSION=5.7.8"
+set "DUPEZ_VERSION=5.7.9"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
+set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\.venv\Scripts\python.exe"
+set "DUPEZ_BUILD_VENV=%CD%\.build-venv"
+set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\Scripts\python.exe"
+set "PYTHONHOME="
+set "PYTHONPATH="
+set "PYTHONNOUSERSITE=1"
+set "PIP_REQUIRE_VIRTUALENV=true"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Build Pipeline
@@ -20,31 +27,65 @@ echo ============================================
 echo.
 
 :: ── 1. Check prerequisites ──────────────────────────────────────────
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Python not found. Install Python 3.10+ and add to PATH.
+if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
+    echo ERROR: Repository bootstrap interpreter not found:
+    echo        %DUPEZ_BOOTSTRAP_PYTHON%
+    echo Create .venv with 64-bit Python 3.11.9 and rerun this script.
     pause
     exit /b 1
 )
 
-python -c "import PyInstaller" >nul 2>&1
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 11, 9) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
-    echo Installing PyInstaller...
-    pip install pyinstaller==6.19.0
+    echo ERROR: Release builds require 64-bit Python 3.11.9.
+    pause
+    exit /b 1
 )
 
-:: ── 2. Install dependencies ─────────────────────────────────────────
-echo Installing dependencies...
-pip install --require-hashes -r requirements-locked.txt
+if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
+if exist "%DUPEZ_BUILD_VENV%" (
+    echo ERROR: Could not remove stale build environment:
+    echo        %DUPEZ_BUILD_VENV%
+    exit /b 1
+)
+
+echo Creating clean build-only virtual environment...
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
 if errorlevel 1 exit /b 1
+if not exist "%DUPEZ_PYTHON%" (
+    echo ERROR: Build interpreter was not created:
+    echo        %DUPEZ_PYTHON%
+    exit /b 1
+)
+
+"%DUPEZ_PYTHON%" -I --version
+if errorlevel 1 exit /b 1
+
+echo Installing hash-pinned build tooling...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r packaging\requirements-build-locked.txt
+if errorlevel 1 exit /b 1
+
+:: ── 2. Install dependencies ─────────────────────────────────────────
+echo Installing hash-pinned production dependencies...
+"%DUPEZ_PYTHON%" -I -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r requirements-locked.txt
+if errorlevel 1 exit /b 1
+
+echo Verifying hermetic build imports...
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+if errorlevel 1 (
+    echo ERROR: Required build/runtime imports failed inside .build-venv.
+    echo        Refusing to build with an incomplete or mixed Python environment.
+    pause
+    exit /b 1
+)
 
 :: ── 3. Build executable ─────────────────────────────────────────────
 echo.
 echo [1/4] Building dupez.exe ...
 :: Remove stale exe so a failed build can't masquerade as success
 if exist "dist\dupez.exe" del /q "dist\dupez.exe"
-:: Invoke via `python -m` to avoid PATH issues with user-site Scripts dir
-python -m PyInstaller packaging\dupez.spec --noconfirm
+:: Invoke through the isolated build environment to avoid user-site drift.
+"%DUPEZ_PYTHON%" -I -m PyInstaller packaging\dupez.spec --noconfirm
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — PyInstaller returned an error.
@@ -60,6 +101,15 @@ if not exist "dist\dupez.exe" (
 )
 
 echo       dupez.exe built successfully.
+echo       Verifying frozen dependency boundary...
+"%DUPEZ_PYTHON%" scripts\release_preflight.py --frozen-artifact dist\dupez.exe
+if errorlevel 1 (
+    echo.
+    echo BUILD FAILED - dupez.exe contains forbidden optional dependencies.
+    pause
+    exit /b 1
+)
+echo       Frozen dependency boundary verified.
 
 :: ── 4. Code signing (optional — skip if no cert) ────────────────────
 echo.

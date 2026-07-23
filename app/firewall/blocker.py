@@ -249,6 +249,12 @@ def clear_all_dupez_blocks() -> bool:
                       intent="blocker.delete_rule_by_name")
         )
         log_info(f"Cleared {deleted}/{len(rule_names)} DupeZ firewall blocks")
+        if deleted != len(rule_names):
+            log_error(
+                f"Firewall cleanup incomplete: "
+                f"{len(rule_names) - deleted} DupeZ rule(s) could not be deleted"
+            )
+            return False
         return True
 
     except _SafeSpErr as e:

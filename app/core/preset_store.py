@@ -177,6 +177,9 @@ def validate_preset(p: CustomPreset, *, allow_reserved: bool = False) -> None:
     # rejected at validation time, so it can never reach save or the
     # engine. Non-underscore params (drop_chance, lag_delay, etc.) are
     # unaffected — they're plain tuning values.
+    # `_process_scope` remains parser-recognized only so old presets with an
+    # empty value can be loaded and resaved; non-empty values are rejected
+    # below because packet-layer PID filters are unsupported.
     allowed_underscore = {"_ports", "_process_scope"}
     rogue = sorted(
         k for k in p.params
@@ -240,12 +243,13 @@ def validate_preset(p: CustomPreset, *, allow_reserved: bool = False) -> None:
                     f"params._ports entry must be int or "
                     f"{{proto, port}} dict, got {type(entry).__name__}"
                 )
-    # _process_scope: optional string, "auto" | "dayz" | "" | None
+    # Process IDs are unavailable at WinDivert's packet interception layers.
+    # Empty legacy values are tolerated; active values fail closed.
     scope = p.params.get("_process_scope")
-    if scope not in (None, "", "auto", "dayz"):
+    if scope not in (None, ""):
         raise PresetValidationError(
-            f"params._process_scope invalid: {scope!r} "
-            f"(allowed: None, '', 'auto', 'dayz')"
+            "params._process_scope is unsupported at WinDivert packet "
+            f"layers: {scope!r}; remove it from the preset"
         )
 
 

@@ -49,6 +49,10 @@ class CorruptModule(DisruptionModule):
 
     _direction_key: str = "tamper"
 
+    def __init__(self, params: dict) -> None:
+        super().__init__(params)
+        self._affected: int = 0
+
     def process(
         self,
         packet_data: bytearray,
@@ -62,4 +66,8 @@ class CorruptModule(DisruptionModule):
         ):
             offset = random.randint(MIN_PAYLOAD_OFFSET, len(packet_data) - 1)
             packet_data[offset] ^= random.randint(1, 255)
+            self._affected += 1
         return False  # still needs to be sent by the engine
+
+    def get_stats(self) -> dict:
+        return {"affected": self._affected}

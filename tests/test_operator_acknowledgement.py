@@ -31,6 +31,28 @@ def test_record_and_read_acknowledgement(tmp_path) -> None:
     }
 
 
+def test_windows_powershell_utf8_bom_is_accepted(tmp_path) -> None:
+    from app.core.operator_acknowledgement import (
+        POLICY_VERSION,
+        SCHEMA,
+        acknowledgement_status,
+    )
+
+    path = tmp_path / "operator-ack.json"
+    payload = {
+        "schema": SCHEMA,
+        "policy_version": POLICY_VERSION,
+        "acknowledged": True,
+        "acknowledged_at": 1_700_000_001,
+    }
+    path.write_text(
+        json.dumps(payload),
+        encoding="utf-8-sig",
+    )
+
+    assert acknowledgement_status(path) == payload
+
+
 def test_old_policy_version_requires_acknowledgement_again(tmp_path) -> None:
     from app.core.operator_acknowledgement import (
         SCHEMA,

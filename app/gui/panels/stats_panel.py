@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import threading
+
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
     QTableWidgetItem, QHeaderView, QGroupBox, QProgressBar,
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from app.logs.logger import log_error
 
@@ -28,9 +30,16 @@ _CUT_STATE_COLOR = {
 class StatsPanel(QWidget):
     """Real-time packet statistics dashboard."""
 
+    _stats_ready = pyqtSignal(int, object)
+    _stats_failed = pyqtSignal(int, str)
+
     def __init__(self, parent_view, parent=None) -> None:
         super().__init__(parent)
         self._view = parent_view  # back-ref to ClumsyControlView
+        self._stats_generation = 0
+        self._stats_in_flight = False
+        self._stats_ready.connect(self._apply_stats_result)
+        self._stats_failed.connect(self._apply_stats_error)
         self._setup_ui()
 
     # ------------------------------------------------------------------
@@ -200,13 +209,50 @@ class StatsPanel(QWidget):
     # Refresh
     # ------------------------------------------------------------------
     def refresh(self) -> None:
-        """Refresh the stats dashboard with live engine data."""
+        """Fetch live engine data without blocking the Qt event loop."""
         controller = self._view.controller
         if not controller or not hasattr(controller, 'get_engine_stats'):
             return
-        try:
-            stats = controller.get_engine_stats()
+        if self._stats_in_flight:
+            return
+        self._stats_generation += 1
+        generation = self._stats_generation
+        self._stats_in_flight = True
 
+        def _fetch() -> None:
+            try:
+                self._stats_ready.emit(
+                    generation,
+                    controller.get_engine_stats(),
+                )
+            except Exception as exc:
+                self._stats_failed.emit(generation, str(exc))
+
+        threading.Thread(
+            target=_fetch,
+            daemon=True,
+            name="DupeZStatsRefresh",
+        ).start()
+
+    def stop_refresh(self) -> None:
+        """Invalidate any late worker result during parent shutdown."""
+        self._stats_generation += 1
+        self._stats_in_flight = False
+
+    def _apply_stats_error(self, generation: int, message: str) -> None:
+        if generation != self._stats_generation:
+            return
+        self._stats_in_flight = False
+        log_error(f"Stats refresh error: {message}")
+
+    def _apply_stats_result(self, generation: int, stats: object) -> None:
+        if generation != self._stats_generation:
+            return
+        self._stats_in_flight = False
+        if not isinstance(stats, dict):
+            log_error("Stats refresh error: engine returned non-dict telemetry")
+            return
+        try:
             _keys = ("packets_processed", "packets_dropped", "packets_passed",
                      "packets_inbound", "packets_outbound")
             _widgets = (self._stat_processed, self._stat_dropped, self._stat_passed,
@@ -242,18 +288,22 @@ class StatsPanel(QWidget):
                 self._stat_device_table.setItem(
                     row, 2, QTableWidgetItem(
                         self._format_count(dstats.get("packets_dropped", 0))))
-                methods = ", ".join(dstats.get("methods", []))
-                self._stat_device_table.setItem(
-                    row, 3, QTableWidgetItem(methods))
+                methods_text, methods_tip = self._format_module_activity(
+                    dstats)
+                methods_item = QTableWidgetItem(methods_text)
+                methods_item.setToolTip(methods_tip)
+                self._stat_device_table.setItem(row, 3, methods_item)
 
                 _det = dstats.get("detection") or {}
                 _cut_state = dstats.get("cut_state")
                 _banner_lines.append(self._format_device_banner(
                     display_ip=display_ip,
                     detection=_det,
-                    arp_active=dstats.get("arp_local forwarding_active"),
+                    arp_active=dstats.get("arp_spoof_active"),
                     arp_packets=dstats.get("arp_packets_sent", 0),
                     cut_state=_cut_state,
+                    engine=dstats.get("engine"),
+                    verification_state=dstats.get("verification_state"),
                 ))
                 _state_key = (str(_cut_state).lower()
                               if _cut_state else "unknown")
@@ -363,12 +413,66 @@ class StatsPanel(QWidget):
         self._gm_kick_bar.setValue(min(risk, 100))
 
     @staticmethod
+    def _format_module_activity(dstats: dict) -> tuple[str, str]:
+        """Render configured methods without claiming unverified effects."""
+        configured = list(
+            dstats.get("configured_methods")
+            or dstats.get("methods")
+            or []
+        )
+        activity = dstats.get("module_activity") or {}
+
+        if not activity:
+            names = ", ".join(configured) or "none"
+            if dstats.get("telemetry_available") is False:
+                engine = dstats.get("engine", "compatibility engine")
+                return (
+                    f"{names} (unverified)",
+                    f"{engine} does not expose per-module packet counters.",
+                )
+            return names, "Per-module activity has not been reported."
+
+        labels = []
+        detail = []
+        for method in configured:
+            item = activity.get(method) or {}
+            state = item.get("state", "pending")
+            invoked = int(item.get("invoked", 0) or 0)
+            affected = int(item.get("affected", 0) or 0)
+            shadowed_by = item.get("shadowed_by")
+
+            if state == "effective":
+                label = f"{method} ✓"
+            elif state == "shadowed":
+                label = f"{method} blocked"
+            elif state == "reached":
+                label = f"{method} reached"
+            elif state == "not_reached":
+                label = f"{method} not reached"
+            else:
+                label = f"{method} pending"
+            labels.append(label)
+
+            line = (
+                f"{method}: {state}; invoked={invoked}; "
+                f"affected={affected}; direction="
+                f"{item.get('direction', 'both')}"
+            )
+            if shadowed_by:
+                line += f"; blocked by {shadowed_by}"
+            detail.append(line)
+
+        return "; ".join(labels), "\n".join(detail)
+
+    @staticmethod
     def _format_device_banner(
         display_ip: str,
         detection: dict,
         arp_active,
         arp_packets: int,
         cut_state,
+        engine=None,
+        verification_state=None,
     ) -> str:
         """Render one device's status banner line as HTML with a coloured
         cut-state LED prepended.
@@ -386,11 +490,18 @@ class StatsPanel(QWidget):
         layer = detection.get("layer", "?")
         parts = [f"{display_ip}&nbsp;&nbsp;{profile}/{layer}"]
 
+        if engine:
+            parts.append(f"ENGINE:{engine}")
+
+        if verification_state:
+            verification_label = str(verification_state).upper()
+            parts.append(f"VERIFY:{verification_label}")
+
         if arp_active is True:
             parts.append(f"ARP:ACTIVE({arp_packets})")
         elif arp_active is False:
             parts.append("ARP:INACTIVE")
-        elif detection.get("needs_arp_local forwarding"):
+        elif detection.get("needs_arp_spoof"):
             parts.append("ARP:REQUIRED(not started)")
 
         if cut_state:

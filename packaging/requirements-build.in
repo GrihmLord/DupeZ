@@ -1,0 +1,9 @@
+# Release-build tooling only. Runtime dependencies belong in ../requirements.in.
+#
+# Regenerate packaging/requirements-build-locked.txt with:
+#   .venv\Scripts\python.exe -m piptools compile --allow-unsafe
+#     --generate-hashes --resolver=backtracking --strip-extras
+#     --output-file=packaging/requirements-build-locked.txt
+#     packaging/requirements-build.in
+
+pyinstaller==6.19.0

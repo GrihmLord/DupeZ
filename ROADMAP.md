@@ -4,6 +4,22 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
+## v5.7.9 — Clumsy parity and startup recovery
+
+**Status:** Release candidate
+
+- **Standalone-compatible automatic path** — Exact core effects use the
+  bundled Clumsy v0.3.4 process first, with verified layer, controls, values,
+  and Start state.
+- **Controller startup recovery** — Split-helper recursion, GUI duplicate
+  instances, blocking Qt status calls, and hidden splash exceptions are fixed.
+- **Release integrity** — Frozen Qt imports are tested, stale updater
+  sidecars are deleted, and signed manifests are checked against the exact
+  installer bytes.
+- **Hardware safety** — Opt-in disruption tests require an explicitly
+  authorized private IP/MAC pair and never select a scanned device
+  implicitly.
+
 ## v5.7.8 ? Launcher packaging hotfix
 
 **Status:** Released
@@ -25,7 +41,7 @@ This release completes the defensive pivot: public presets and advisor paths now
 
 ---
 
-## v5.7.9 ? Finish the v5.7.4 Wire-Up
+## v5.8.0 — Finish the v5.7.4 Wire-Up
 
 **Status:** Next up
 

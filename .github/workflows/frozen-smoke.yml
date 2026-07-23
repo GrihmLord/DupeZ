@@ -1,0 +1,113 @@
+name: Frozen Variant Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'packaging/**'
+      - 'scripts/**'
+      - 'dupez.py'
+      - 'dupez_helper.py'
+      - 'dupez_single_instance.py'
+      - 'requirements-locked.txt'
+      - '.github/workflows/frozen-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: frozen-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-frozen-variants:
+    name: GPU and Compat frozen boundary
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONNOUSERSITE: '1'
+      PYTHONPATH: ''
+      PYTHONHOME: ''
+      DUPEZ_SIGN_CERT: ''
+      DUPEZ_SIGN_PASS: ''
+      DUPEZ_SIGN_PRIVKEY: ''
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Setup canonical release Python 3.11.9
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+
+      - name: Create repository bootstrap venv
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -I -S -c `
+            "import struct, sys; assert sys.version_info[:3] == (3, 11, 9); assert struct.calcsize('P') == 8"
+
+      - name: Build canonical unsigned variants
+        shell: cmd
+        # The release batch file contains interactive `pause` statements on
+        # error for local operators. Feed one newline so CI reports the real
+        # non-zero exit instead of hanging until the job timeout.
+        run: echo. | call packaging\build_variants.bat
+
+      - name: Verify expected portable artifacts
+        shell: pwsh
+        run: |
+          $artifacts = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe',
+            'dist\DupeZ.sbom.json',
+            'dist\DupeZ.vex.json',
+            'dist\binary-provenance.json'
+          )
+          foreach ($artifact in $artifacts) {
+            if (-not (Test-Path $artifact)) {
+              throw "Missing frozen-build artifact: $artifact"
+            }
+          }
+          Get-Item $artifacts | Select-Object Name, Length
+
+      - name: Execute full runtime verifier in GPU and Compat
+        shell: pwsh
+        run: |
+          $variants = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe'
+          )
+          foreach ($variant in $variants) {
+            $process = Start-Process `
+              -FilePath (Resolve-Path $variant) `
+              -ArgumentList '--verify-runtime-imports' `
+              -Wait `
+              -PassThru
+            if ($process.ExitCode -ne 0) {
+              throw "Frozen runtime import verification failed for $variant with exit code $($process.ExitCode)"
+            }
+            Write-Host "Full runtime imports verified: $variant"
+          }
+
+      - name: Re-run frozen archive preflight
+        shell: pwsh
+        run: |
+          .\.build-venv\Scripts\python.exe -I scripts\release_preflight.py `
+            --frozen-artifact dist\DupeZ-GPU.exe `
+            --frozen-artifact dist\DupeZ-Compat.exe
+
+      - name: Upload compact build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: frozen-build-diagnostics-${{ github.run_id }}
+          path: |
+            build\**\warn-*.txt
+            build\**\xref-*.html
+            dist\DupeZ.sbom.json
+            dist\DupeZ.vex.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -21,15 +21,15 @@ on:
       - 'requirements.in'
       - 'requirements-locked.txt'
 
-# Minimum required permissions — no writes to the repo.
 permissions:
   contents: read
 
+concurrency:
+  group: tests-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest:
-    # Run on Windows because DupeZ is Windows-first; most security
-    # primitives (DPAPI, named pipes) have no POSIX equivalent, so we
-    # pay the runner-minute cost to test the production OS.
     runs-on: windows-latest
     timeout-minutes: 20
     strategy:
@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -54,27 +54,55 @@ jobs:
           pip install pytest pytest-cov
 
       - name: Run pytest
+        id: pytest
         shell: bash
         env:
-          # Ensure offsec layer refuses to run in CI.
           DUPEZ_OFFSEC_CONSENT: ""
-          # Second-factor gate is disabled in CI so tests that hit
-          # gated surfaces (elevation, plugins.loader, offsec.runner)
-          # don't stall on a prompt. The gate itself is exercised in
-          # tests/test_second_factor.py with the env var NOT set.
           DUPEZ_SECOND_FACTOR_DISABLED: "1"
+          PYTHONFAULTHANDLER: "1"
         run: |
-          python -m pytest tests/ -q --maxfail=5 \
+          set +e
+          python -X faulthandler -m pytest tests/ -vv --maxfail=5 \
+            --junitxml=pytest-${{ matrix.python-version }}.xml \
             --cov=app.core.second_factor \
             --cov=app.gui.dayz_account_tracker \
-            --cov-report=term
+            --cov-report=term 2>&1 | tee pytest-${{ matrix.python-version }}.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Show pytest failure tail
+        if: steps.pytest.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "::group::Last 400 lines of pytest output"
+          tail -n 400 pytest-${{ matrix.python-version }}.log || true
+          echo "::endgroup::"
+
+      - name: Upload pytest diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pytest-diagnostics-${{ matrix.python-version }}-${{ github.run_id }}
+          path: |
+            pytest-${{ matrix.python-version }}.xml
+            pytest-${{ matrix.python-version }}.log
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Fail pytest job
+        if: steps.pytest.outputs.exit_code != '0'
+        shell: bash
+        run: |
+          echo "pytest failed with exit code ${{ steps.pytest.outputs.exit_code }}"
+          exit 1
 
   ast-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
       - name: AST-parse every app/*.py
@@ -92,5 +120,5 @@ jobs:
               for f, err in fails:
                   print(f'SYNTAX FAIL {f}: {err}')
               sys.exit(1)
-          print(f'AST OK: scanned all files')
+          print('AST OK: scanned all files')
           "

@@ -164,6 +164,10 @@ class DisconnectModule(DisruptionModule):
                 "quiet_s": self._quiet_s,
             }
 
+    def get_stats(self) -> dict:
+        """Engine telemetry alias using the common module contract."""
+        return self.stats()
+
     def force_cut_end(self, persisted: Optional[bool] = None) -> None:
         """Externally terminate an in-progress cut — used by the engine on
         shutdown so open-ended cuts (``duration_ms == 0``) still emit a

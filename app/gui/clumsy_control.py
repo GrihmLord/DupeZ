@@ -3,7 +3,7 @@
 
 ``ClumsyControlView`` is the primary DupeZ interaction surface: a split-pane
 with a device table on the left and the disruption controls on the right —
-the PRESET, PLATFORM, DIRECTION, MODULES, and LIVE STATS collapsible cards,
+the PRESET, DIRECTION, MODULES, and LIVE STATS cards,
 plus the inline scheduler/macro row. Smart Mode, Voice, and GPC were moved
 out to the Network Tools view (the AI / Smart Ops and GPC / Cronus Zen
 tabs); they are not part of this view.
@@ -40,7 +40,6 @@ from PyQt6.QtWidgets import (
 )
 
 from app.core.data_persistence import nickname_manager
-from app.firewall.clumsy_network_disruptor import disruption_manager
 from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip as _log_mask_ip
 
@@ -60,17 +59,6 @@ try:
 except ImportError:
     PROFILES_AVAILABLE = False
 
-# Voice control — do NOT call is_voice_available() at module import time.
-# It walks into whisper → torch, and torch's c10.dll crashes the interpreter
-# with an access violation (WinError 1114) on broken installs — uncatchable
-# from Python. The probe happens lazily inside ClumsyControlView instead.
-try:
-    from app.ai.voice_control import VoiceController, VoiceConfig, is_voice_available  # noqa: F401
-    _VOICE_IMPORTABLE = True
-except Exception:  # noqa: BLE001
-    _VOICE_IMPORTABLE = False
-VOICE_AVAILABLE: bool = False  # populated lazily on first view instantiation
-
 # GPC / CronusZEN integration
 try:
     from app.gpc.gpc_generator import (GPCGenerator, list_templates,
@@ -80,7 +68,10 @@ try:
 except ImportError:
     GPC_AVAILABLE = False
 
-from app.core.builtin_presets import BUILTIN_PRESETS
+from app.core.builtin_presets import (
+    AUTOMATIC_CONNECTION_TEST,
+    BUILTIN_PRESETS,
+)
 
 __all__ = ["ClumsyControlView", "PRESETS", "MODULE_DEFS", "CollapsibleCard"]
 
@@ -93,6 +84,12 @@ from app.gui.widgets.collapsible_card import CollapsibleCard  # noqa: E402
 
 # Backward-compatible public name; authoritative data lives in app.core.
 PRESETS = BUILTIN_PRESETS
+
+_NORMAL_GUI_FORBIDDEN_PARAMS = frozenset({
+    "_engine_preference",
+    "_force_self_disrupt",
+    "_network_local",
+})
 
 
 # NOTE: Platform-specific presets (pc_local / ps5_hotspot / xbox_hotspot)
@@ -136,6 +133,9 @@ class ClumsyControlView(QWidget):
     scan_started = pyqtSignal()
     scan_finished = pyqtSignal(list)
     _scan_results_ready = pyqtSignal(list)   # internal: thread-safe scan delivery
+    _automatic_event_ready = pyqtSignal(int, object)
+    _status_snapshot_ready = pyqtSignal(int, object, object)
+    _status_snapshot_failed = pyqtSignal(int, str)
 
     @staticmethod
     def _format_count(n: int) -> str:
@@ -203,6 +203,14 @@ class ClumsyControlView(QWidget):
         self._disruption_timers: Dict[str, float] = {}
         self._ip_hidden: bool = False
         self._row_checkboxes: List[Tuple[QCheckBox, str]] = []
+        self._automatic_ui_generation = 0
+        self._automatic_target_ip: Optional[str] = None
+        self._status_poll_generation = 0
+        self._status_poll_in_flight = False
+        self._clumsy_status_snapshot: Dict[str, Any] = {}
+        self._disrupted_devices_snapshot: frozenset[str] = frozenset()
+        self._status_snapshot_ready.connect(self._apply_status_snapshot)
+        self._status_snapshot_failed.connect(self._apply_status_snapshot_error)
 
         # Lazy-initialised by extracted panels
         self._voice_controller: Any = None
@@ -210,26 +218,17 @@ class ClumsyControlView(QWidget):
         self._gpc_last_source: str = ""
         self._gpc_monitor: Any = None
 
-        # Lazy voice availability probe — first view instantiation.
-        # Wrapped broadly because whisper/torch can crash with WinError 1114.
-        global VOICE_AVAILABLE
-        if _VOICE_IMPORTABLE and not VOICE_AVAILABLE:
-            try:
-                VOICE_AVAILABLE = bool(is_voice_available())
-            except Exception as _exc:  # noqa: BLE001
-                log_error(f"ClumsyControlView: is_voice_available() raised {type(_exc).__name__}: {_exc}")
-                VOICE_AVAILABLE = False
-
         self._build_ui()
         self._connect_signals()
+        self._apply_network_availability()
 
         # Auto-refresh disruption status
-        self.status_timer = QTimer()
+        self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self._refresh_disruption_status)
         self.status_timer.start(2000)
 
         # Session timer display
-        self.session_timer = QTimer()
+        self.session_timer = QTimer(self)
         self.session_timer.timeout.connect(self._update_session_timers)
         self.session_timer.start(1000)
 
@@ -238,10 +237,49 @@ class ClumsyControlView(QWidget):
             self.controller.scheduler._on_macro_step = self._on_macro_step_event
 
         # Stats dashboard refresh
-        self.stats_refresh_timer = QTimer()
+        self.stats_refresh_timer = QTimer(self)
         self.stats_refresh_timer.timeout.connect(
             lambda: self._stats_panel.refresh() if hasattr(self, '_stats_panel') else None)
         self.stats_refresh_timer.start(1500)
+
+    def _apply_network_availability(self) -> None:
+        """Disable new mutations when startup recovery is fail-closed."""
+        available = bool(
+            self.controller is None
+            or getattr(
+                self.controller,
+                "network_operations_available",
+                True,
+            )
+        )
+        if available:
+            return
+        reason = "Previous network state has not been fully restored."
+        for attr in ("btn_disrupt", "btn_sched_once", "btn_run_macro"):
+            button = getattr(self, attr, None)
+            if button is not None:
+                button.setEnabled(False)
+                button.setToolTip(reason)
+        self.sched_status.setText("SAFE MODE: new network operations disabled")
+        self.sched_status.setStyleSheet(
+            "color: #fbbf24; font-size: 11px; font-weight: bold;"
+        )
+
+    def stop_background_refresh(self) -> None:
+        """Stop GUI refresh timers and reject any late status result."""
+        self._status_poll_generation += 1
+        self._status_poll_in_flight = False
+        for timer_name in (
+            "status_timer",
+            "session_timer",
+            "stats_refresh_timer",
+        ):
+            timer = getattr(self, timer_name, None)
+            if timer is not None:
+                timer.stop()
+        stats_panel = getattr(self, "_stats_panel", None)
+        if stats_panel is not None and hasattr(stats_panel, "stop_refresh"):
+            stats_panel.stop_refresh()
 
     # ── UI Construction ──────────────────────────────────────────────
 
@@ -426,7 +464,9 @@ class ClumsyControlView(QWidget):
         self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
         self.preset_combo.activated.connect(self._on_preset_index_changed)
         preset_layout.addWidget(self.preset_combo)
-        self.preset_desc = QLabel(PRESETS["Red Disconnect"]["description"])
+        self.preset_desc = QLabel(
+            PRESETS[AUTOMATIC_CONNECTION_TEST]["description"]
+        )
         self.preset_desc.setStyleSheet(self._MUTED_PAD_QSS)
         self.preset_desc.setWordWrap(True)
         preset_layout.addWidget(self.preset_desc)
@@ -475,29 +515,6 @@ class ClumsyControlView(QWidget):
         # Smart Mode tri-state (off/learn/assist) — flipped by AIPanel, read
         # on DISRUPT by _collect_params. Default off preserves prior behavior.
         self._smart_mode_auto_tune = False
-
-        # Platform mode toggle — PC Local vs Remote (console/hotspot)
-        platform_group = self._card("PLATFORM")
-        platform_layout = QHBoxLayout()
-        self.pc_local_check = QCheckBox("PC LOCAL")
-        self.pc_local_check.setToolTip(
-            "Enable when DayZ runs on THIS machine (not a console/remote PC).\n"
-            "Uses NETWORK layer instead of NETWORK_FORWARD.\n"
-            "Target IP becomes the game server IP, not a device IP.\n"
-            "Leave unchecked for PS5, Xbox, or remote PC over hotspot.")
-        self.pc_local_check.setStyleSheet(
-            "color: #e0e0e0; font-size: 11px; font-weight: bold;")
-        self.pc_local_label = QLabel("PS5 / Xbox / Remote PC")
-        self.pc_local_label.setStyleSheet("color: #64748b; font-size: 10px;")
-        self.pc_local_check.stateChanged.connect(self._on_platform_changed)
-        platform_layout.addWidget(self.pc_local_check)
-        platform_layout.addStretch()
-        platform_layout.addWidget(self.pc_local_label)
-        platform_group.setLayout(platform_layout)
-        self._section_platform = CollapsibleCard(
-            "PLATFORM", platform_group,
-            parent_layout=self._sections_layout, collapsed=True)
-        self._sections_layout.addWidget(self._section_platform)
 
         # Global direction toggle
         dir_group = self._card("DIRECTION")
@@ -846,8 +863,8 @@ class ClumsyControlView(QWidget):
         )
         main_layout.addWidget(splitter)
 
-        # Apply Red Disconnect preset on startup (hardest disconnect)
-        self._on_preset_changed("Red Disconnect")
+        # The one-click workflow is the first and default built-in.
+        self._on_preset_changed(AUTOMATIC_CONNECTION_TEST)
 
     # ── Signal wiring ──────────────────────────────────────────────
 
@@ -859,6 +876,7 @@ class ClumsyControlView(QWidget):
         self.btn_stop.clicked.connect(self._on_stop)
         self.btn_stop_all.clicked.connect(self._on_stop_all)
         self._scan_results_ready.connect(self._update_device_table)
+        self._automatic_event_ready.connect(self._on_automatic_event)
 
     # ── Scanning ────────────────────────────────────────────────────
 
@@ -910,15 +928,6 @@ class ClumsyControlView(QWidget):
 
         self._apply_device_filter()
 
-    def _on_platform_changed(self, state: int) -> None:
-        """Update label when PC LOCAL checkbox toggles."""
-        if self.pc_local_check.isChecked():
-            self.pc_local_label.setText("DayZ on THIS PC — target = server IP")
-            self.pc_local_label.setStyleSheet("color: #22d3ee; font-size: 10px;")
-        else:
-            self.pc_local_label.setText("PS5 / Xbox / Remote PC")
-            self.pc_local_label.setStyleSheet("color: #64748b; font-size: 10px;")
-
     def _on_network_filter_changed(self, text: str) -> None:
         """Refilter device table when network combo changes."""
         self._apply_device_filter()
@@ -929,7 +938,7 @@ class ClumsyControlView(QWidget):
         self._row_checkboxes = []
 
         network_filter = self.network_combo.currentText()
-        disrupted = self.controller.get_disrupted_devices() if self.controller else []
+        disrupted = self._disrupted_devices_snapshot
 
         visible_count = 0
         def _attr(obj, key, default=''):
@@ -1201,6 +1210,103 @@ class ClumsyControlView(QWidget):
 
     # ── Disruption actions ────────────────────────────────────────────
 
+    def _start_automatic_connection_test(self, targets: List[str]) -> None:
+        """Start the single-target controller-owned automatic workflow."""
+        if len(targets) != 1:
+            QMessageBox.warning(
+                self,
+                "One Target Required",
+                "Automatic Connection Test runs on exactly one selected "
+                "device. Clear the other selections and try again.",
+            )
+            return
+        if not self.controller or not hasattr(
+            self.controller, "start_automatic_workflow"
+        ):
+            QMessageBox.warning(
+                self,
+                "Automatic Test Unavailable",
+                "The controller does not support the automatic workflow.",
+            )
+            return
+
+        target_ip = targets[0]
+        params = self._collect_params()
+        metadata = self._lookup_device_meta(target_ip)
+        self._automatic_ui_generation += 1
+        ui_generation = self._automatic_ui_generation
+        self._automatic_target_ip = target_ip
+
+        def _on_event(event: object) -> None:
+            self._automatic_event_ready.emit(ui_generation, event)
+
+        generation = self.controller.start_automatic_workflow(
+            target_ip,
+            common_params=params,
+            disrupt_kwargs=metadata,
+            on_event=_on_event,
+        )
+        if not generation:
+            self._automatic_ui_generation += 1
+            self._automatic_target_ip = None
+            QMessageBox.warning(
+                self,
+                "Automatic Test Failed",
+                "The automatic connection test could not be started. "
+                "Check the selected target and logs.",
+            )
+            return
+
+        self._disruption_timers[target_ip] = time.time()
+        self.sched_status.setText("Automatic: preparing Lag (1/2)")
+        self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
+        self._refresh_device_table_status()
+
+    @pyqtSlot(int, object)
+    def _on_automatic_event(self, generation: int, event: object) -> None:
+        """Render only progress belonging to the current GUI generation."""
+        if generation != self._automatic_ui_generation:
+            return
+        kind = getattr(event, "kind", "")
+        stage_idx = int(getattr(event, "stage_idx", -1))
+        detail = str(getattr(event, "detail", "") or "")
+
+        if kind == "stage_start":
+            if stage_idx == 0:
+                text = "Automatic: Lag active; maturing delayed traffic (1/2)"
+            else:
+                text = "Automatic: Red Disconnect active (2/2)"
+            self.sched_status.setText(text)
+            self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
+            return
+        if kind == "stage_end":
+            stage_name = "Lag" if stage_idx == 0 else "Disconnect"
+            if detail.startswith(("lag verified", "disconnect verified")):
+                label = f"{stage_name} verified"
+            elif "runtime unobservable" in detail:
+                label = f"{stage_name} configured (runtime unobservable)"
+            else:
+                label = f"{stage_name} complete"
+            self.sched_status.setText(f"Automatic: {label}")
+            self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
+            return
+
+        target_ip = self._automatic_target_ip
+        if target_ip:
+            self._disruption_timers.pop(target_ip, None)
+        self._automatic_target_ip = None
+        if kind == "complete":
+            self.sched_status.setText("Automatic: complete — connection released")
+            self.sched_status.setStyleSheet(self._SCHED_PINK_QSS)
+        elif kind == "halt":
+            self.sched_status.setText("Automatic: stopped — connection released")
+            self.sched_status.setStyleSheet(self._MUTED_QSS)
+        else:
+            suffix = f" ({detail})" if detail else ""
+            self.sched_status.setText(f"Automatic: failed{suffix}")
+            self.sched_status.setStyleSheet("color: #ff4444; font-size: 11px;")
+        self._refresh_device_table_status()
+
     def _on_suggest_duration(self) -> None:
         """Query the survival model for p90-success cut length.
 
@@ -1310,9 +1416,6 @@ class ClumsyControlView(QWidget):
         for key, cb in self.extra_checks.items():
             params[key] = cb.isChecked()
 
-        # Platform mode
-        params["_network_local"] = self.pc_local_check.isChecked()
-
         # ML data capture (opt-in; also flipped by Smart Mode tri-state)
         if getattr(self, "record_episodes_cb", None) is not None:
             params["_record_episodes"] = self.record_episodes_cb.isChecked()
@@ -1344,9 +1447,14 @@ class ClumsyControlView(QWidget):
         if preset:
             gui_keys = self.sliders.keys() | self.extra_checks.keys() | {"direction"}
             for k, v in preset.get("params", {}).items():
-                if k not in gui_keys:
+                if k not in gui_keys and k not in _NORMAL_GUI_FORBIDDEN_PARAMS:
                     params[k] = v
 
+        # Profiles and legacy presets may still contain old routing/engine
+        # keys.  The normal-user GUI never forwards them; backend detection is
+        # authoritative for every start.
+        for key in _NORMAL_GUI_FORBIDDEN_PARAMS:
+            params.pop(key, None)
         return params
 
     def _on_disrupt(self) -> None:
@@ -1356,11 +1464,19 @@ class ClumsyControlView(QWidget):
             QMessageBox.warning(self, "No Target", "Select a device from the list first.")
             return
 
+        preset_name = self.preset_combo.currentText()
+        if preset_name == AUTOMATIC_CONNECTION_TEST:
+            self._start_automatic_connection_test(targets)
+            return
+
+        # Any direct/manual start replaces and invalidates automatic progress.
+        self._automatic_ui_generation += 1
+        self._automatic_target_ip = None
+
         methods = self._get_active_methods()
         params = self._collect_params()
 
         # ── Comprehensive disruption debug ──
-        preset_name = self.preset_combo.currentText()
         log_info("=" * 60)
         log_info("[DISRUPT] BUTTON PRESSED")
         log_info(f"[DISRUPT] Preset: '{preset_name}'")
@@ -1439,7 +1555,21 @@ class ClumsyControlView(QWidget):
     def _on_stop(self) -> None:
         """Stop disruption on selected target(s)."""
         targets = self._get_targets()
-        if not targets or not self.controller:
+        if not self.controller:
+            return
+        automatic_target = self._automatic_target_ip
+        self._automatic_ui_generation += 1
+        self._automatic_target_ip = None
+        if hasattr(self.controller, "stop_automatic_workflow"):
+            self.controller.stop_automatic_workflow()
+        if automatic_target:
+            self.sched_status.setText(
+                "Automatic: stopped — connection released"
+            )
+            self.sched_status.setStyleSheet(self._MUTED_QSS)
+        if not targets and automatic_target:
+            targets = [automatic_target]
+        if not targets:
             return
         for ip in targets:
             self.controller.stop_disruption(ip)
@@ -1451,6 +1581,16 @@ class ClumsyControlView(QWidget):
     def _on_stop_all(self) -> None:
         """Emergency-stop all active disruptions."""
         if self.controller:
+            automatic_target = self._automatic_target_ip
+            self._automatic_ui_generation += 1
+            self._automatic_target_ip = None
+            if hasattr(self.controller, "stop_automatic_workflow"):
+                self.controller.stop_automatic_workflow()
+            if automatic_target:
+                self.sched_status.setText(
+                    "Automatic: stopped — connection released"
+                )
+                self.sched_status.setStyleSheet(self._MUTED_QSS)
             self.controller.stop_all_disruptions()
             self._disruption_timers.clear()
             log_info("All disruptions stopped")
@@ -1465,6 +1605,14 @@ class ClumsyControlView(QWidget):
             QMessageBox.warning(self, "No Target", "Select a device first.")
             return
         if not self.controller:
+            return
+        if self.preset_combo.currentText() == AUTOMATIC_CONNECTION_TEST:
+            QMessageBox.information(
+                self,
+                "Use DISRUPT",
+                "Automatic Connection Test controls its own bounded timing. "
+                "Use the main DISRUPT button to run it.",
+            )
             return
 
         from app.core.scheduler import ScheduledRule
@@ -1585,8 +1733,15 @@ class ClumsyControlView(QWidget):
     def _on_stop_macro(self) -> None:
         """Stop the active macro."""
         if self.controller:
+            automatic_target = self._automatic_target_ip
+            self._automatic_ui_generation += 1
+            self._automatic_target_ip = None
+            if hasattr(self.controller, "stop_automatic_workflow"):
+                self.controller.stop_automatic_workflow()
             self.controller.scheduler.stop_macro()
-            self.sched_status.setText("Macro stopped")
+            self.sched_status.setText(
+                "Automatic stopped" if automatic_target else "Macro stopped"
+            )
             self.sched_status.setStyleSheet(self._MUTED_QSS)
 
     # ── Profile management ──────────────────────────────────────────
@@ -1740,15 +1895,6 @@ class ClumsyControlView(QWidget):
         self.dir_inbound.setChecked(direction in ("inbound", "both"))
         self.dir_outbound.setChecked(direction in ("outbound", "both"))
 
-        # Platform mode — JSON-backed platform presets (pc_local, ps5_hotspot,
-        # xbox_hotspot) carry _network_local so the NETWORK vs NETWORK_FORWARD
-        # layer is locked to the preset's intent. Presets that don't specify
-        # it leave the checkbox untouched so user intent survives.
-        if hasattr(self, "pc_local_check") and "_network_local" in params:
-            self.pc_local_check.blockSignals(True)
-            self.pc_local_check.setChecked(bool(params["_network_local"]))
-            self.pc_local_check.blockSignals(False)
-
         # Extra checkboxes (tamper_checksum, throttle_drop, etc.)
         # Reset to False when preset doesn't specify them, so they don't bleed
         for key, cb in self.extra_checks.items():
@@ -1883,10 +2029,93 @@ class ClumsyControlView(QWidget):
     # ── Status refresh ──────────────────────────────────────────────
 
     def _refresh_disruption_status(self) -> None:
-        """Update the engine status label from the disruption manager."""
+        """Request one controller status snapshot outside the Qt thread."""
+        controller = self.controller
+        if controller is None:
+            self._render_disruption_status({})
+            return
+        if self._status_poll_in_flight:
+            return
+
+        self._status_poll_generation += 1
+        generation = self._status_poll_generation
+        self._status_poll_in_flight = True
+
+        def _fetch() -> None:
+            try:
+                status = controller.get_clumsy_status()
+                disrupted = controller.get_disrupted_devices()
+                self._status_snapshot_ready.emit(
+                    generation,
+                    status,
+                    disrupted,
+                )
+            except Exception as exc:
+                self._status_snapshot_failed.emit(
+                    generation,
+                    f"{type(exc).__name__}: {exc}",
+                )
+
+        threading.Thread(
+            target=_fetch,
+            daemon=True,
+            name="DupeZClumsyStatusRefresh",
+        ).start()
+
+    @pyqtSlot(int, object, object)
+    def _apply_status_snapshot(
+        self,
+        generation: int,
+        status: object,
+        disrupted: object,
+    ) -> None:
+        """Apply only the newest worker result on the Qt thread."""
+        if generation != self._status_poll_generation:
+            return
+        self._status_poll_in_flight = False
+
+        if not isinstance(status, dict):
+            self._apply_status_snapshot_error(
+                generation,
+                "controller returned non-dict engine status",
+            )
+            return
+
+        if not isinstance(disrupted, (list, tuple, set, frozenset)):
+            self._apply_status_snapshot_error(
+                generation,
+                "controller returned invalid disrupted-device state",
+            )
+            return
+        snapshot = frozenset(
+            ip for ip in disrupted if isinstance(ip, str) and ip
+        )
+
+        self._clumsy_status_snapshot = dict(status)
+        self._disrupted_devices_snapshot = snapshot
+        self._render_disruption_status(self._clumsy_status_snapshot)
+        self._refresh_device_table_status()
+
+    @pyqtSlot(int, str)
+    def _apply_status_snapshot_error(
+        self,
+        generation: int,
+        message: str,
+    ) -> None:
+        """Release the in-flight guard while preserving last-known devices."""
+        if generation != self._status_poll_generation:
+            return
+        self._status_poll_in_flight = False
+        log_error(f"Disruption status refresh error: {message}")
+        self.clumsy_status_label.setText(f"Engine: Error - {message}")
+        self.clumsy_status_label.setStyleSheet(
+            "color: #ff4444; font-size: 11px; padding: 4px;"
+        )
+
+    def _render_disruption_status(self, status: Dict[str, Any]) -> None:
+        """Render a previously fetched engine status snapshot."""
         _qss = lambda c, bold=False: f"color: {c}; font-size: 11px; padding: 4px;{' font-weight: bold;' if bold else ''}"
         try:
-            status = disruption_manager.get_status()
             admin, exe, dll = (status.get(k, False)
                                for k in ("is_admin", "clumsy_exe_exists", "windivert_dll_exists"))
             if admin and exe and dll:
@@ -1907,7 +2136,8 @@ class ClumsyControlView(QWidget):
 
 
     def _refresh_device_table_status(self) -> None:
-        disrupted = self.controller.get_disrupted_devices() if self.controller else []
+        """Render disruption state from the last completed worker snapshot."""
+        disrupted = self._disrupted_devices_snapshot
         for row in range(self.device_table.rowCount()):
             ip_item = self.device_table.item(row, 1)
             status_item = self.device_table.item(row, 5)

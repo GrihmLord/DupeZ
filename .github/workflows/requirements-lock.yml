@@ -1,12 +1,13 @@
 name: Requirements Lock Verification
 
-# Enforces supply-chain integrity by requiring:
-#   1. requirements.in has been compiled to requirements-locked.txt
-#   2. The lock file contains wheel hashes for every dependency
-#   3. `pip install --require-hashes` actually succeeds against it
+# Supply-chain gate for the committed release lock.
 #
-# If requirements.in changes, requirements-locked.txt MUST be
-# regenerated in the same PR. Otherwise CI blocks the merge.
+# Do not compare the lock against a fresh resolution of broad ranges: that
+# turns every new upstream publication into an unrelated release upgrade.
+# Instead, validate that each direct requirement is represented by a compatible
+# exact pin with hashes, then ask pip to resolve/install the committed hashed
+# graph without changing it. Windows CI covers the complete platform-specific
+# runtime path.
 
 on:
   push:
@@ -15,69 +16,52 @@ on:
       - "requirements.in"
       - "requirements-locked.txt"
       - "scripts/lock-requirements.*"
+      - "scripts/verify_requirements_lock.py"
       - ".github/workflows/requirements-lock.yml"
   pull_request:
     paths:
       - "requirements.in"
       - "requirements-locked.txt"
       - "scripts/lock-requirements.*"
+      - "scripts/verify_requirements_lock.py"
       - ".github/workflows/requirements-lock.yml"
 
 permissions:
   contents: read
 
+concurrency:
+  group: requirements-lock-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify-lock:
-    name: Lockfile in sync and installable
+    name: Lockfile contract and installability
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+      - name: Set up canonical Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
-      - name: Install pip-tools
+      - name: Upgrade pip tooling
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pip-tools
 
-      - name: Verify lockfile contains hashes
+      - name: Verify direct requirements against hashed pins
         run: |
-          if ! grep -q -- "--hash=sha256:" requirements-locked.txt; then
-            echo "::error::requirements-locked.txt contains no --hash= entries."
-            echo "::error::Run scripts/lock-requirements.sh and commit the result."
-            exit 1
-          fi
+          python scripts/verify_requirements_lock.py \
+            --requirements requirements.in \
+            --lock requirements-locked.txt
 
-      - name: Verify lockfile is in sync with requirements.in
+      - name: Dry-run committed hashed graph
         run: |
-          cp requirements-locked.txt /tmp/old-lock.txt
-          pip-compile \
-            --generate-hashes \
-            --resolver=backtracking \
-            --output-file=requirements-locked.txt \
-            requirements.in
-          if ! diff -q /tmp/old-lock.txt requirements-locked.txt > /dev/null; then
-            echo "::error::requirements-locked.txt is OUT OF SYNC with requirements.in."
-            echo "::error::Run scripts/lock-requirements.sh and commit the regenerated file."
-            diff /tmp/old-lock.txt requirements-locked.txt | head -60 || true
-            exit 1
-          fi
-
-      - name: Dry-run --require-hashes install (Linux-resolvable subset)
-        # Full install will fail on PyQt6 (the resolver will not find a
-        # matching Linux wheel in some repository states), so we scope
-        # the dry-run to Linux-universal packages. Windows CI covers the
-        # full install path in the build workflow.
-        run: |
-          # Derive a subset of the lockfile that excludes Windows-only
-          # and platform-sensitive wheels, verify hashes on the rest.
           python -m pip install --dry-run --require-hashes \
             -r requirements-locked.txt || {
-              echo "::warning::Full --require-hashes install failed on Linux."
-              echo "::warning::This is expected if PyQt6 Linux wheels differ; Windows CI will enforce."
+              echo "::warning::Full hashed install is not resolvable on Linux."
+              echo "::warning::This may be caused by Windows-only or platform-sensitive wheels."
+              echo "::warning::The Windows test/build workflows remain authoritative for the complete runtime graph."
               exit 0
             }

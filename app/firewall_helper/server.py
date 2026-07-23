@@ -32,6 +32,7 @@ from app.firewall_helper.protocol import (
     OP_GET_DEVICE_STATUS,
     OP_GET_DISRUPTED_DEVICES,
     OP_GET_ENGINE_STATS,
+    OP_GET_IP_FORWARDING,
     OP_GET_STATUS,
     OP_HOTKEY_TRIGGER,
     OP_INITIALIZE,
@@ -39,6 +40,7 @@ from app.firewall_helper.protocol import (
     OP_PING,
     OP_SHUTDOWN,
     OP_START,
+    OP_SET_IP_FORWARDING,
     OP_STOP,
     OP_STOP_ALL,
     OP_STOP_DEVICE,
@@ -85,6 +87,8 @@ class HelperDispatcher:
             OP_IS_IP_BLOCKED: self._h_is_ip_blocked,
             OP_CLEAR_ALL_BLOCKS: self._h_clear_all_blocks,
             OP_GET_BLOCKED_IPS: self._h_get_blocked_ips,
+            OP_GET_IP_FORWARDING: self._h_get_ip_forwarding,
+            OP_SET_IP_FORWARDING: self._h_set_ip_forwarding,
         }
 
     @property
@@ -264,6 +268,31 @@ class HelperDispatcher:
             return err
         return Response.success(
             req.request_id, list(self._blocker.get_blocked_ips())
+        )
+
+    def _h_get_ip_forwarding(self, req: Request) -> Response:
+        """Read forwarding state inside the elevated helper."""
+        from app.network.arp_spoof import _get_ip_forwarding_state
+
+        return Response.success(
+            req.request_id,
+            bool(_get_ip_forwarding_state()),
+        )
+
+    def _h_set_ip_forwarding(self, req: Request) -> Response:
+        """Restore forwarding state inside the elevated helper."""
+        enabled = (req.args or {}).get("enabled")
+        if not isinstance(enabled, bool):
+            return Response.failure(
+                req.request_id,
+                ERR_BAD_REQUEST,
+                "'enabled' must be a boolean",
+            )
+        from app.network.arp_spoof import _set_ip_forwarding
+
+        return Response.success(
+            req.request_id,
+            bool(_set_ip_forwarding(enabled)),
         )
 
 

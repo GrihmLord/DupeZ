@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 
@@ -24,6 +25,8 @@ def _sha256(path: Path) -> str:
 def verify_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> list[str]:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     errors: list[str] = []
+    if data.get("schema") != "dupez.bundled-binaries.v1":
+        errors.append(f"unsupported provenance schema: {data.get('schema')!r}")
     for entry in data.get("artifacts", []):
         rel_path = entry.get("path", "")
         path = ROOT / rel_path
@@ -38,6 +41,18 @@ def verify_manifest(manifest_path: Path = DEFAULT_MANIFEST) -> list[str]:
         actual_hash = _sha256(path)
         if actual_hash != str(entry.get("sha256", "")).lower():
             errors.append(f"sha256 mismatch: {rel_path}: {actual_hash}")
+        if rel_path == "app/firewall/clumsy.exe":
+            source = str(entry.get("source", ""))
+            commit = str(entry.get("source_commit", ""))
+            asset_hash = str(entry.get("release_asset_sha256", ""))
+            if not source.startswith("https://github.com/"):
+                errors.append("clumsy.exe provenance must pin a GitHub release")
+            if not re.fullmatch(r"[0-9a-f]{40}", commit):
+                errors.append("clumsy.exe provenance has no pinned source commit")
+            if not re.fullmatch(r"[0-9a-f]{64}", asset_hash):
+                errors.append(
+                    "clumsy.exe provenance has no release-asset SHA-256"
+                )
     return errors
 
 
