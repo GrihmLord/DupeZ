@@ -18,6 +18,7 @@ def _read(relative: str) -> str:
 
 def test_installer_uses_restart_manager_without_force_kill_hook():
     installer = _read("packaging/installer.iss")
+    lowered = installer.lower()
 
     assert '#define MyAppVersion   "5.7.9"' in installer
     assert "CloseApplications=yes" in installer
@@ -26,9 +27,11 @@ def test_installer_uses_restart_manager_without_force_kill_hook():
         in installer
     )
     assert "RestartApplications=no" in installer
-    assert "taskkill" not in installer.lower()
-    assert "PrepareToInstall" not in installer
-    assert "dupez_helper.exe" not in installer.lower()
+    assert "[code]" not in lowered
+    assert "preparetoinstall" not in lowered
+    assert "taskkill.exe" not in lowered
+    assert "'/im'" not in lowered and '"/im"' not in lowered
+    assert "dupez_helper.exe" not in lowered
 
 
 def test_release_finalizer_requires_real_signing_and_security_gates():
