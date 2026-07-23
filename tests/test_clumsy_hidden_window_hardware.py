@@ -110,8 +110,16 @@ def test_owned_clumsy_is_hidden_until_authenticated_diagnostic_restore() -> None
     target_ip, target = _authorized_target()
 
     from app.core.controller import AppController
+    from app.firewall.clumsy_diagnostics import install_clumsy_diagnostic_bridge
+    from app.firewall.direct_clumsy_manager import DirectClumsyNetworkDisruptor
 
+    # This proof needs direct access to the exact owned HWND. A split-mode IPC
+    # proxy intentionally does not expose process locks or window handles, so
+    # inject a fresh fully bridged in-process manager for this source hardware
+    # test. Split/helper architecture boundaries are validated separately.
+    manager = install_clumsy_diagnostic_bridge(DirectClumsyNetworkDisruptor())
     controller = AppController(
+        disruption_manager=manager,
         scheduler_factory=lambda **kwargs: _NoopHardwareScheduler(**kwargs),
     )
     statuses = []
@@ -166,9 +174,6 @@ def test_owned_clumsy_is_hidden_until_authenticated_diagnostic_restore() -> None
             + repr([(item.kind, item.detail) for item in statuses])
         )
 
-        manager = getattr(controller, "disruption_manager", None)
-        if manager is None:
-            manager = controller._disruption_manager
         engine = _owned_engine(manager, target_ip)
         hwnd = int(getattr(engine, "_hwnd", 0) or 0)
         assert hwnd > 0, "owned Clumsy engine has no verified HWND"
