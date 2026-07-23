@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - automation/dependabot-cleanup
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -11,8 +14,13 @@ permissions:
   issues: write
   security-events: read
 
+concurrency:
+  group: dependabot-cleanup-global
+  cancel-in-progress: true
+
 jobs:
   verify-and-clean:
+    if: github.event_name == 'push' || github.head_ref == 'automation/dependabot-cleanup'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
