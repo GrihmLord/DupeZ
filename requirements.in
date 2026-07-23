@@ -15,7 +15,8 @@
 PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
 PyQtGraph>=0.13.0
-Pillow>=9.5.0
+# v5.7.9 security floor; keep this release on the 12.3 line.
+Pillow>=12.3.0,<12.4
 
 # ── System & Process ────────────────────────────────────────────────
 psutil>=5.9.0
@@ -29,9 +30,14 @@ pywin32>=306; sys_platform == 'win32'
 # ── Network ──────────────────────────────────────────────────────────
 scapy>=2.6.0
 requests>=2.28.0
+# Security floors for Requests' direct runtime dependencies. Narrow upper
+# bounds minimize release drift while clearing the v5.7.9 advisories.
+urllib3>=2.7.0,<2.8
+idna>=3.15,<3.16
 
 # mDNS hostname resolution — 4th-stage fallback in the hostname chain.
-zeroconf>=0.130.0
+# Stay on the patched 0.149.16 compatibility line for v5.7.9.
+zeroconf>=0.149.16,<0.149.17
 
 # ── Data / Export ────────────────────────────────────────────────────
 openpyxl>=3.1.0
@@ -41,7 +47,8 @@ pandas>=2.0.0
 # ── Cryptography ────────────────────────────────────────────────────
 # AES-256-GCM envelope encryption for secrets, Ed25519 for update
 # manifest verification (see app/core/updater.py signed-manifest path).
-cryptography>=43.0.0
+# 48.0.1 is the first patched release; avoid the unrelated 49.x jump.
+cryptography>=48.0.1,<48.1
 
 # ── Config ───────────────────────────────────────────────────────────
 PyYAML>=6.0.1
