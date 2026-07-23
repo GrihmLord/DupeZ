@@ -40,7 +40,7 @@ concurrency:
 jobs:
   hardware-smoketest:
     runs-on: [self-hosted, windows, admin, windivert]
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       DUPEZ_RUN_HARDWARE_SMOKETEST: '1'
       DUPEZ_SMOKETEST_CIDR: ${{ github.event.inputs.cidr || vars.DUPEZ_SMOKETEST_CIDR }}
@@ -49,6 +49,7 @@ jobs:
       DUPEZ_SMOKETEST_LAG_MS: ${{ vars.DUPEZ_SMOKETEST_LAG_MS || '100' }}
       DUPEZ_SMOKETEST_DURATION: ${{ vars.DUPEZ_SMOKETEST_DURATION || '3.0' }}
       DUPEZ_SMOKETEST_MODULE_DURATION: ${{ vars.DUPEZ_SMOKETEST_MODULE_DURATION || '3.0' }}
+      DUPEZ_SMOKETEST_FULL_TIMER_SECONDS: '4'
 
     steps:
       - name: Checkout
@@ -103,12 +104,14 @@ jobs:
             }
           }
 
-      - name: Run authorized native, direct Clumsy, and event-queue smoke
+      - name: Run authorized native, full Clumsy, hidden-window, and event-queue gates
         shell: pwsh
         run: |
           $tests = @(
             'tests/test_hardware_smoketest.py',
-            'tests/test_direct_clumsy_event_hardware.py'
+            'tests/test_direct_clumsy_event_hardware.py',
+            'tests/test_clumsy_full_controls_hardware.py',
+            'tests/test_clumsy_hidden_window_hardware.py'
           )
           python -X faulthandler -m pytest `
             -q `
@@ -118,6 +121,16 @@ jobs:
             $tests 2>&1 | Tee-Object -FilePath smoketest.log
           if ($LASTEXITCODE -ne 0) {
             throw "Authorized hardware smoke failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Assert no owned Clumsy process leaked
+        if: always()
+        shell: pwsh
+        run: |
+          $leaked = @(Get-CimInstance Win32_Process -Filter "Name = 'clumsy.exe'" -ErrorAction SilentlyContinue)
+          if ($leaked.Count -gt 0) {
+            $leaked | Select-Object ProcessId, ExecutablePath | Format-Table -AutoSize
+            throw 'Hardware workflow left a clumsy.exe process running.'
           }
 
       - name: Upload hardware diagnostics
