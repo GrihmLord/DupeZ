@@ -116,7 +116,7 @@ $gatePrompts = [ordered]@{
 }
 
 $completed = [ordered]@{}
-Write-Host "`nDupeZ v$Version manual validation — exact commit $commit"
+Write-Host "`nDupeZ v$Version manual validation - exact commit $commit"
 Write-Host "GPU SHA256:       $gpuHash"
 Write-Host "Compat SHA256:    $compatHash"
 Write-Host "Installer SHA256: $installerHash"
