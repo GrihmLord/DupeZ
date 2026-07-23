@@ -352,6 +352,12 @@ _PLACEHOLDER_QSS: str = (
 )
 
 
+def _is_izurvive_host(host: str) -> bool:
+    """Return whether *host* is iZurvive or one of its subdomains."""
+    normalized = host.lower().rstrip(".")
+    return normalized == "izurvive.com" or normalized.endswith(".izurvive.com")
+
+
 # ── AdBlockInterceptor ──────────────────────────────────────────────
 
 if _WEBENGINE_AVAILABLE:
@@ -378,7 +384,7 @@ if _WEBENGINE_AVAILABLE:
 
             # Fast path: skip both loops for obvious map tile requests
             # (iZurvive serves from izurvive.com / its CDN subdomains).
-            if host.endswith("izurvive.com"):
+            if _is_izurvive_host(host):
                 return
 
             # Suffix match: walk up the host label by label, hit a set.

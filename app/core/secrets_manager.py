@@ -33,7 +33,7 @@ Storage Format (secrets.enc.json):
 CNSA 2.0 Compliance:
   - AES-256-GCM for encryption
   - PBKDF2-SHA-512 (600k iterations) for key derivation
-  - SHA-384 for integrity
+  - authenticated encryption for ciphertext integrity
   - secrets/os.urandom for all random material
 """
 
@@ -55,8 +55,6 @@ from app.core.crypto import (
     generate_nonce,
     generate_salt,
     derive_key,
-    hash_sha384,
-    compute_data_integrity,
 )
 from app.logs.logger import log_info, log_error, log_warning
 
@@ -363,7 +361,6 @@ class SecretsManager:
                 "created_at": now,
                 "expires_at": now + ttl_seconds if ttl_seconds > 0 else 0,
                 "rotated": False,
-                "integrity": hash_sha384(plaintext),
             }
 
             with self._lock:
@@ -426,12 +423,6 @@ class SecretsManager:
             kek = self._derive_kek(salt)
             plaintext = _aes_gcm_decrypt(kek, ciphertext, nonce, tag)
             value = plaintext.decode("utf-8")
-
-            # Verify integrity
-            stored_hash = entry.get("integrity", "")
-            if stored_hash and hash_sha384(plaintext) != stored_hash:
-                log_error(f"SecretsManager: integrity check failed for '{name}'")
-                return None
 
             # Re-register with scrubber (in case of restart)
             _scrubber.register(value)

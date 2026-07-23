@@ -222,8 +222,8 @@ class DupeZLogger:
             self._error_count += 1
         if exception:
             self.logger.error(
-                f"{message} - Exception: {exception}",
-                exc_info=True, extra=kwargs,
+                "DupeZ operation failed with exception type %s",
+                type(exception).__name__,
             )
         else:
             self._log_with_context(logging.ERROR, message, **kwargs)
@@ -234,8 +234,8 @@ class DupeZLogger:
             self._error_count += 1
         if exception:
             self.logger.critical(
-                f"{message} - Exception: {exception}",
-                exc_info=True, extra=kwargs,
+                "Critical DupeZ operation failed with exception type %s",
+                type(exception).__name__,
             )
         else:
             self._log_with_context(logging.CRITICAL, message, **kwargs)
@@ -247,7 +247,9 @@ class DupeZLogger:
         accidental leakage of API keys, tokens, or credentials.
         """
         if kwargs:
-            ctx = " | ".join(f"{k}={v}" for k, v in kwargs.items())
+            ctx = " | ".join(
+                f"{k}={_scrub_log_message(str(v))}" for k, v in kwargs.items()
+            )
             full_message = f"{message} | Context: {ctx}"
         else:
             full_message = message
@@ -259,7 +261,9 @@ class DupeZLogger:
 
     @staticmethod
     def _ctx(**kwargs: Any) -> str:
-        return " | ".join(f"{k}={v}" for k, v in kwargs.items())
+        return " | ".join(
+            f"{k}={_scrub_log_message(str(v))}" for k, v in kwargs.items()
+        )
 
     def performance(self, operation: str, duration: float, **kwargs: Any) -> None:
         """Record a performance measurement."""
