@@ -62,6 +62,7 @@ def test_logger_scrubs_exception_and_context_before_output(tmp_path) -> None:
         )
         assert canary not in rendered
         assert "[REDACTED]" in rendered
+        assert "RuntimeError" in rendered
     finally:
         get_scrubber().unregister(canary)
         for handler in list(wrapped.logger.handlers):
