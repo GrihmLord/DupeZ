@@ -105,7 +105,6 @@ jobs:
         shell: pwsh
         run: |
           .\scripts\finalize_release.ps1 `
-            -Mode Validate `
             -Version '${{ inputs.version }}'
 
       - name: Execute full runtime verifier in both signed frozen variants
