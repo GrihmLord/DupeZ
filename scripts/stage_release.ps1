@@ -331,8 +331,18 @@ if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
 }
 
 # A local tag may exist before the release record. It must already resolve to
-# this exact commit; a stale tag is never moved implicitly.
-$tagCommit = (& $git rev-parse -q --verify "refs/tags/$tag^{commit}" 2>$null).Trim()
+# this exact commit; a stale tag is never moved implicitly. An absent tag is the
+# normal first-draft case and must remain an empty string rather than a null
+# method call under StrictMode.
+$tagCommitOutput = @(
+    & $git rev-parse -q --verify "refs/tags/$tag^{commit}" 2>$null
+)
+$tagCommit = if ($tagCommitOutput.Count -gt 0) {
+    ([string]$tagCommitOutput[0]).Trim()
+}
+else {
+    ""
+}
 if ($tagCommit -and $tagCommit -ne $commit) {
     throw "Existing tag $tag points to $tagCommit instead of $commit."
 }
