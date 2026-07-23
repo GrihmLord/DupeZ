@@ -6,4 +6,4 @@
 #     --output-file=packaging/requirements-build-locked.txt
 #     packaging/requirements-build.in
 
-pyinstaller==6.19.0
+pyinstaller==6.21.0
