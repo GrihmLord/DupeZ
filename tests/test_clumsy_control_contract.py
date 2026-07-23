@@ -41,7 +41,7 @@ def _engine(tmp_path, methods=None, params=None):
     return ManagedClumsyEngine(
         str(executable),
         str(tmp_path),
-        "ip.SrcAddr == 192.168.137.2 or ip.DstAddr == 192.168.137.2",
+        "ip.SrcAddr == 192.168.50.77 or ip.DstAddr == 192.168.50.77",
         list(methods or ["lag"]),
         effective,
     )
@@ -62,19 +62,19 @@ def test_additional_filter_defaults_true_and_cannot_escape_scope():
 
 
 def test_scoped_filter_true_keeps_exact_private_target():
-    base = "ip.SrcAddr == 192.168.137.2 or ip.DstAddr == 192.168.137.2"
-    assert controls.compose_scoped_filter(base, "192.168.137.2", "true") == base
+    base = "ip.SrcAddr == 192.168.50.77 or ip.DstAddr == 192.168.50.77"
+    assert controls.compose_scoped_filter(base, "192.168.50.77", "true") == base
 
     narrowed = controls.compose_scoped_filter(
         base,
-        "192.168.137.2",
+        "192.168.50.77",
         "udp and udp.DstPort == 3074",
     )
     assert narrowed.startswith(f"({base}) and (")
     assert narrowed.endswith("udp and udp.DstPort == 3074)")
 
     with pytest.raises(ValueError, match="mandatory exact-target"):
-        controls.compose_scoped_filter("true", "192.168.137.2", "true")
+        controls.compose_scoped_filter("true", "192.168.50.77", "true")
     with pytest.raises(ValueError):
         controls.compose_scoped_filter(base, "8.8.8.8", "true")
 
@@ -180,7 +180,7 @@ def test_named_config_writer_sanitizes_record_name(tmp_path):
     name, separator, expression = content.partition(": ")
     assert name == "MyTargetInjected"
     assert separator == ": "
-    assert expression.startswith("ip.SrcAddr == 192.168.137.2")
+    assert expression.startswith("ip.SrcAddr == 192.168.50.77")
 
 
 def test_owned_rst_action_requires_live_managed_engine(monkeypatch, tmp_path):
@@ -190,18 +190,18 @@ def test_owned_rst_action_requires_live_managed_engine(monkeypatch, tmp_path):
     )
     assert controls.trigger_owned_rst_next_packet(
         manager,
-        "192.168.137.2",
+        "192.168.50.77",
     ) is False
 
     engine = _engine(tmp_path, methods=["rst"])
     engine._proc = SimpleNamespace(poll=lambda: None)
     engine._hwnd = 77
-    manager.disrupted_devices["192.168.137.2"] = {"engine": engine}
+    manager.disrupted_devices["192.168.50.77"] = {"engine": engine}
     click = MagicMock(return_value=True)
     monkeypatch.setattr(controls, "_click_rst_next_packet", click)
 
     assert controls.trigger_owned_rst_next_packet(
         manager,
-        "192.168.137.2",
+        "192.168.50.77",
     ) is True
     click.assert_called_once_with(engine)

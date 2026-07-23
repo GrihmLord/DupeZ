@@ -90,9 +90,9 @@ def _ipv4_packet(src: str, dst: str, proto: int = 17,
 # ── _ipv4_addrs_u32 ─────────────────────────────────────────────────
 
 def test_ipv4_addrs_u32_basic():
-    pkt = _ipv4_packet("192.168.137.2", "203.0.113.10")
+    pkt = _ipv4_packet("192.168.50.77", "203.0.113.10")
     src, dst = _ipv4_addrs_u32(pkt)
-    assert src == int.from_bytes(socket.inet_aton("192.168.137.2"), "big")
+    assert src == int.from_bytes(socket.inet_aton("192.168.50.77"), "big")
     assert dst == int.from_bytes(socket.inet_aton("203.0.113.10"), "big")
 
 
@@ -126,7 +126,7 @@ def _stub_environment():
 
 def test_forward_layer_direction_device_outbound():
     """PS5 → server packet: src == device IP → outbound."""
-    device_ip = "192.168.137.2"
+    device_ip = "192.168.50.77"
     server_ip = "203.0.113.10"
     pkt = _ipv4_packet(device_ip, server_ip)
     src_u32, dst_u32 = _ipv4_addrs_u32(pkt)
@@ -139,7 +139,7 @@ def test_forward_layer_direction_device_outbound():
 
 def test_forward_layer_direction_device_inbound():
     """Server → PS5 packet: dst == device IP → inbound."""
-    device_ip = "192.168.137.2"
+    device_ip = "192.168.50.77"
     server_ip = "203.0.113.10"
     pkt = _ipv4_packet(server_ip, device_ip)
     src_u32, dst_u32 = _ipv4_addrs_u32(pkt)
@@ -153,7 +153,7 @@ def test_forward_layer_unrelated_traffic_rejected():
     """Third-party traffic on the hotspot subnet should match neither."""
     pkt = _ipv4_packet("192.168.137.3", "1.1.1.1")
     src_u32, dst_u32 = _ipv4_addrs_u32(pkt)
-    target_u32 = int.from_bytes(socket.inet_aton("192.168.137.2"), "big")
+    target_u32 = int.from_bytes(socket.inet_aton("192.168.50.77"), "big")
     assert src_u32 != target_u32 and dst_u32 != target_u32
 
 

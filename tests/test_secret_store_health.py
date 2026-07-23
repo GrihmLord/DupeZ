@@ -47,7 +47,7 @@ def test_check_store_health_reports_unreachable_store(
 def test_health_redacts_local_appdata_from_user_facing_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    local_appdata = r"C:\Users\Owner\AppData\Local"
+    local_appdata = r"C:\Users\ExampleUser\AppData\Local"
     monkeypatch.setenv("LOCALAPPDATA", local_appdata)
 
     health = secret_store.SecretStoreHealth(
@@ -56,33 +56,33 @@ def test_health_redacts_local_appdata_from_user_facing_fields(
         writable=False,
         error=(
             "[WinError 5] Access is denied: "
-            "'C:\\Users\\Owner\\AppData\\Local\\DupeZ\\secrets'"
+            "'C:\\Users\\ExampleUser\\AppData\\Local\\DupeZ\\secrets'"
         ),
         error_code="permission_denied",
     )
 
     assert "%LOCALAPPDATA%" in (health.safe_path or "")
     assert "%LOCALAPPDATA%" in health.safe_error
-    assert r"C:\Users\Owner" not in (health.safe_path or "")
-    assert r"C:\Users\Owner" not in health.safe_error
+    assert r"C:\Users\ExampleUser" not in (health.safe_path or "")
+    assert r"C:\Users\ExampleUser" not in health.safe_error
 
 
 def test_repair_plan_is_review_only_and_redacted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     health = secret_store.SecretStoreHealth(
-        path=Path(r"C:\Users\Owner\AppData\Local\DupeZ\secrets"),
+        path=Path(r"C:\Users\ExampleUser\AppData\Local\DupeZ\secrets"),
         reachable=True,
         writable=False,
         error_code="permission_denied",
     )
     monkeypatch.setattr(secret_store, "check_store_health", lambda: health)
     monkeypatch.setattr(secret_store.os, "name", "nt")
-    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Owner\AppData\Local")
+    monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\ExampleUser\AppData\Local")
 
     plan = secret_store.secret_store_repair_plan()
 
     assert plan["healthy"] is False
     assert "never executed automatically" in plan["warning"]
     assert any("icacls" in command for command in plan["commands"])
-    assert all(r"C:\Users\Owner" not in command for command in plan["commands"])
+    assert all(r"C:\Users\ExampleUser" not in command for command in plan["commands"])

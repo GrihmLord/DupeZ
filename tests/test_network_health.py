@@ -18,7 +18,7 @@ def test_health_snapshot_score_and_privacy(monkeypatch) -> None:
             CheckResult(
                 "Warning",
                 CheckStatus.WARN,
-                r"adapter at 192.168.1.25 under C:\Users\Owner",
+                r"adapter at 192.168.1.25 under C:\Users\ExampleUser",
                 "Review 192.168.1.25",
             ),
             CheckResult("Broken", CheckStatus.FAIL, "not ready", "Repair it"),
@@ -66,7 +66,7 @@ def test_health_snapshot_score_and_privacy(monkeypatch) -> None:
     }
     assert snapshot["capabilities"]["pcapng_export_supported"] is True
     assert "192.168.1.25" not in rendered
-    assert r"C:\Users\Owner" not in rendered
+    assert r"C:\Users\ExampleUser" not in rendered
     assert snapshot["privacy"]["packet_payloads_included"] is False
 
 
@@ -81,7 +81,7 @@ def test_health_snapshot_redacts_adapter_display_names(monkeypatch) -> None:
             CheckResult(
                 "WiFi adapter path",
                 CheckStatus.PASS,
-                "default route uses WiFi adapter 'Owner Private Wi-Fi'",
+                "default route uses WiFi adapter 'Example Private Wi-Fi'",
             ),
         ],
     )
@@ -97,7 +97,7 @@ def test_health_snapshot_redacts_adapter_display_names(monkeypatch) -> None:
 
     rendered = json.dumps(health.build_network_health_snapshot())
 
-    assert "Owner Private Wi-Fi" not in rendered
+    assert "Example Private Wi-Fi" not in rendered
     assert "adapter '<redacted>'" in rendered
 
 
@@ -106,7 +106,7 @@ def test_adapter_summary_contains_no_identifiers(monkeypatch) -> None:
 
     fake_psutil = SimpleNamespace(
         net_if_stats=lambda: {
-            "Owner Wi-Fi": SimpleNamespace(isup=True, speed=866),
+            "Example Wi-Fi": SimpleNamespace(isup=True, speed=866),
             "Ethernet": SimpleNamespace(isup=False, speed=1000),
         },
         net_io_counters=lambda: SimpleNamespace(
@@ -125,4 +125,4 @@ def test_adapter_summary_contains_no_identifiers(monkeypatch) -> None:
     assert summary["adapter_count"] == 2
     assert summary["up_adapter_count"] == 1
     assert summary["max_link_speed_mbps"] == 866
-    assert "Owner Wi-Fi" not in json.dumps(summary)
+    assert "Example Wi-Fi" not in json.dumps(summary)

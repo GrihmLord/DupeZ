@@ -37,7 +37,7 @@ The protected Windows signing host must provide, outside the repository:
 From Administrator PowerShell on `main`:
 
 ```powershell
-Set-Location C:\Users\Owner\dev\tools\DupeZ
+Set-Location X:\path\to\DupeZ
 git switch main
 git pull --ff-only
 
@@ -67,7 +67,7 @@ Run against the exact signed files produced above.
 ### GPU — standard non-Administrator desktop PowerShell
 
 ```powershell
-Set-Location C:\Users\Owner\dev\tools\DupeZ
+Set-Location X:\path\to\DupeZ
 .\scripts\validate_frozen_runtime.ps1 -Variant GPU
 ```
 
@@ -79,7 +79,7 @@ cleanup. It writes `dist\frozen-runtime-evidence-gpu.json`.
 ### Compat — Administrator PowerShell
 
 ```powershell
-Set-Location C:\Users\Owner\dev\tools\DupeZ
+Set-Location X:\path\to\DupeZ
 .\scripts\validate_frozen_runtime.ps1 -Variant Compat
 ```
 

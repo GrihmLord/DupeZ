@@ -204,8 +204,8 @@ class AuditLogger:
             self._key = bytes(key)
         except Exception as e:  # pragma: no cover — exceptional path
             log_error(
-                f"AuditLogger: failed to load HMAC key from secret_store "
-                f"({e}); falling back to ephemeral in-process key"
+                "AuditLogger: failed to load HMAC key from secret_store "
+                f"({type(e).__name__}); falling back to ephemeral in-process key"
             )
             import secrets as _secrets
             self._key = _secrets.token_bytes(AUDIT_KEY_SIZE)

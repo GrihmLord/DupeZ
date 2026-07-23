@@ -150,7 +150,7 @@ class TestWebhookURLValidation:
     def test_file_scheme_rejected(self) -> None:
         from app.core.audit_webhook import DiscordWebhookSink, WebhookURLError
         with pytest.raises(WebhookURLError, match="file://|scheme"):
-            DiscordWebhookSink("file:///C:/Users/Owner/secrets.enc.json")
+            DiscordWebhookSink("file:///C:/Users/ExampleUser/secrets.enc.json")
 
     def test_ftp_scheme_rejected(self) -> None:
         from app.core.audit_webhook import GenericWebhookSink, WebhookURLError
