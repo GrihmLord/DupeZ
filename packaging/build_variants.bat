@@ -25,6 +25,7 @@ set "PYTHONHOME="
 set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
 set "PIP_REQUIRE_VIRTUALENV=true"
+if not defined DUPEZ_SIGN_TIMESTAMP_URL set "DUPEZ_SIGN_TIMESTAMP_URL=http://timestamp.digicert.com"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Variant Build
@@ -129,14 +130,21 @@ if not exist "dist\DupeZ-GPU.exe" (
 )
 echo       DupeZ-GPU.exe built successfully.
 echo       Verifying frozen runtime imports...
+set "DUPEZ_VERIFY_REPORT=%TEMP%\dupez-verify-%RANDOM%-%RANDOM%.json"
+del /Q "%DUPEZ_VERIFY_REPORT%" >nul 2>&1
 "dist\DupeZ-GPU.exe" --verify-runtime-imports
 if errorlevel 1 (
     echo.
     echo BUILD FAILED - DupeZ-GPU.exe cannot import its bundled Qt runtime.
+    if exist "%DUPEZ_VERIFY_REPORT%" type "%DUPEZ_VERIFY_REPORT%"
+    del /Q "%DUPEZ_VERIFY_REPORT%" >nul 2>&1
+    set "DUPEZ_VERIFY_REPORT="
     echo The executable is not releasable.
     pause
     exit /b 1
 )
+del /Q "%DUPEZ_VERIFY_REPORT%" >nul 2>&1
+set "DUPEZ_VERIFY_REPORT="
 echo       Frozen runtime imports verified.
 
 :: ── 4. Build Compat variant (requireAdministrator + inproc) ─────────
@@ -188,7 +196,10 @@ echo.
 echo [Signing] Authenticode signing portable executables...
 
 set "_SIGNTOOL="
-where signtool >nul 2>&1 && set "_SIGNTOOL=signtool"
+if defined DUPEZ_SIGNTOOL if exist "%DUPEZ_SIGNTOOL%" set "_SIGNTOOL=%DUPEZ_SIGNTOOL%"
+if not defined _SIGNTOOL (
+    where signtool >nul 2>&1 && set "_SIGNTOOL=signtool"
+)
 if not defined _SIGNTOOL (
     echo       signtool not found -- portable executables will remain unsigned.
     echo       To enable: install Windows SDK and set DUPEZ_SIGN_CERT.
@@ -261,7 +272,8 @@ echo       Installer built: dist\%DUPEZ_INSTALLER%
 call :sign_file "dist\%DUPEZ_INSTALLER%"
 if errorlevel 1 exit /b 1
 
-:: Emit versionless alias for the stable GitHub-releases-latest URL.
+:: Emit the versionless alias after signing so it is byte-identical to the
+:: versioned installer and carries the exact same signature and timestamp.
 :: The landing page Download Installer button points at
 :: https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe
 :: so this alias MUST exist on every release or the button 404s. Bit us
@@ -271,8 +283,6 @@ if errorlevel 1 (
     echo       WARNING: Failed to create versionless alias dist\DupeZ_Setup.exe
 ) else (
     echo       Versionless alias: dist\DupeZ_Setup.exe ^(landing-page download target^)
-    call :sign_file "dist\DupeZ_Setup.exe"
-    if errorlevel 1 exit /b 1
 )
 
 :skip_installer
@@ -397,9 +407,9 @@ if not defined _SIGNTOOL exit /b 0
 if "%DUPEZ_SIGN_CERT%"=="" exit /b 0
 echo       Signing %_SIGN_TARGET% ...
 if "%DUPEZ_SIGN_PASS%"=="" (
-    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" "%_SIGN_TARGET%"
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" "%_SIGN_TARGET%"
 ) else (
-    "%_SIGNTOOL%" sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" "%_SIGN_TARGET%"
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" "%_SIGN_TARGET%"
 )
 if errorlevel 1 (
     echo       ERROR: Authenticode signing failed for %_SIGN_TARGET%.

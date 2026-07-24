@@ -25,6 +25,37 @@ def _safe_stderr(message: str) -> None:
     _safe_stream_write("stderr", message)
 
 
+def _write_verify_report(
+    check: str,
+    *,
+    ok: bool,
+    error: BaseException | None = None,
+) -> None:
+    """Write opt-in, path-free diagnostics for frozen maintenance checks."""
+    report_path = os.environ.get("DUPEZ_VERIFY_REPORT")
+    if not report_path:
+        return
+
+    report: dict[str, object] = {
+        "check": check,
+        "ok": ok,
+    }
+    if error is not None:
+        report["error_type"] = type(error).__name__
+        missing_module = getattr(error, "name", None)
+        if isinstance(missing_module, str) and missing_module:
+            report["missing_module"] = missing_module
+
+    try:
+        import json
+
+        with open(report_path, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(report, handle, sort_keys=True)
+            handle.write("\n")
+    except (OSError, TypeError, ValueError):
+        pass
+
+
 # ── Fault handler — catch C-level crashes (v5.6.3) ─────────────────
 # sys.excepthook (installed later in app/main.py) only catches Python
 # exceptions. When WinDivert.dll, Qt6Core.dll, or Chromium's GPU process
@@ -113,11 +144,14 @@ def _maybe_handle_v576_flags() -> None:
     if "--verify-runtime-imports" in sys.argv:
         try:
             imported = ", ".join(_verify_runtime_imports())
+            _write_verify_report("runtime-imports", ok=True)
             _safe_stdout(f"[dupez] runtime imports verified: {imported}\n")
             sys.exit(0)
         except Exception as e:
+            _write_verify_report("runtime-imports", ok=False, error=e)
             _safe_stderr(
-                f"[dupez] --verify-runtime-imports failed: {e}\n"
+                "[dupez] --verify-runtime-imports failed: "
+                f"{type(e).__name__}\n"
             )
             sys.exit(4)
     if "--reset-audit" in sys.argv:
@@ -145,10 +179,12 @@ def _maybe_handle_v576_flags() -> None:
         try:
             from app.core.self_verify import verify_self
             ok, message = verify_self()
+            _write_verify_report("self", ok=ok)
             _safe_stdout(f"[dupez] {message}\n")
             sys.exit(0 if ok else 3)
         except Exception as e:
-            _safe_stderr(f"[dupez] --verify-self failed: {e}\n")
+            _write_verify_report("self", ok=False, error=e)
+            _safe_stderr(f"[dupez] --verify-self failed: {type(e).__name__}\n")
             sys.exit(2)
 
 

@@ -391,6 +391,22 @@ if ($verified.targetCommitish -ne $commit) {
     throw "Staged release target changed after upload."
 }
 $remoteAssets = @($verified.assets)
+$expectedNames = @($assets | ForEach-Object { $_.Name })
+if ($remoteAssets.Count -ne $assets.Count) {
+    throw (
+        "Staged release asset count mismatch: expected=$($assets.Count), " +
+        "remote=$($remoteAssets.Count)."
+    )
+}
+$unexpectedAssets = @(
+    $remoteAssets | Where-Object { $_.name -notin $expectedNames }
+)
+if ($unexpectedAssets.Count -gt 0) {
+    throw (
+        "Staged release contains unexpected assets: " +
+        (($unexpectedAssets | ForEach-Object { $_.name }) -join ", ")
+    )
+}
 foreach ($asset in $assets) {
     $remote = @(
         $remoteAssets | Where-Object { $_.name -eq $asset.Name }
@@ -404,6 +420,49 @@ foreach ($asset in $assets) {
             "$($asset.Length), remote=$($remote[0].size)"
         )
     }
+}
+
+$downloadRoot = Join-Path (
+    [System.IO.Path]::GetTempPath()
+) ("dupez-release-verify-" + [System.Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $downloadRoot | Out-Null
+try {
+    Invoke-Checked `
+        -FilePath $gh `
+        -Description "DOWNLOAD STAGED RELEASE FOR HASH VERIFICATION" `
+        -ArgumentList @(
+            "release", "download", $tag,
+            "--repo", $Repository,
+            "--dir", $downloadRoot
+        )
+
+    $downloadedAssets = @(
+        Get-ChildItem -LiteralPath $downloadRoot -File
+    )
+    if ($downloadedAssets.Count -ne $assets.Count) {
+        throw (
+            "Downloaded release asset count mismatch: expected=" +
+            "$($assets.Count), downloaded=$($downloadedAssets.Count)."
+        )
+    }
+    foreach ($asset in $assets) {
+        $downloadedPath = Join-Path $downloadRoot $asset.Name
+        if (-not (Test-Path -LiteralPath $downloadedPath -PathType Leaf)) {
+            throw "Downloaded release is missing $($asset.Name)."
+        }
+        $downloaded = Get-Item -LiteralPath $downloadedPath
+        if ([int64]$downloaded.Length -ne [int64]$asset.Length) {
+            throw "Downloaded release size mismatch for $($asset.Name)."
+        }
+        $localHash = Get-Sha256 -Path $asset.FullName
+        $downloadedHash = Get-Sha256 -Path $downloaded.FullName
+        if ($downloadedHash -ne $localHash) {
+            throw "Downloaded release SHA-256 mismatch for $($asset.Name)."
+        }
+    }
+}
+finally {
+    Remove-Item -LiteralPath $downloadRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 if ($Mode -eq "Publish") {

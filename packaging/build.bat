@@ -20,6 +20,7 @@ set "PYTHONHOME="
 set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
 set "PIP_REQUIRE_VIRTUALENV=true"
+if not defined DUPEZ_SIGN_TIMESTAMP_URL set "DUPEZ_SIGN_TIMESTAMP_URL=http://timestamp.digicert.com"
 
 echo ============================================
 echo  DupeZ v%DUPEZ_VERSION% -- Build Pipeline
@@ -116,8 +117,12 @@ echo.
 echo [2/4] Code signing...
 
 :: Check for signtool
-where signtool >nul 2>&1
-if errorlevel 1 (
+set "_SIGNTOOL="
+if defined DUPEZ_SIGNTOOL if exist "%DUPEZ_SIGNTOOL%" set "_SIGNTOOL=%DUPEZ_SIGNTOOL%"
+if not defined _SIGNTOOL (
+    where signtool >nul 2>&1 && set "_SIGNTOOL=signtool"
+)
+if not defined _SIGNTOOL (
     echo       signtool not found — skipping code signing.
     echo       To enable: install Windows SDK, then set DUPEZ_SIGN_CERT.
     goto :skip_sign
@@ -133,9 +138,9 @@ if "%DUPEZ_SIGN_CERT%"=="" (
 
 echo       Signing dist\dupez.exe ...
 if "%DUPEZ_SIGN_PASS%"=="" (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\dupez.exe
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\dupez.exe
 ) else (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\dupez.exe
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\dupez.exe
 )
 
 if errorlevel 1 (
@@ -164,12 +169,28 @@ if errorlevel 1 (
 )
 echo       Installer built: dist\%DUPEZ_INSTALLER%
 
-:: Emit versionless installer alias for stable download URLs.
+:: Emit the versionless installer alias after signing so both names are
+:: byte-identical and carry the same Authenticode signature and timestamp.
 :: This lets the landing page (and any external link) point at
 :: https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe
 :: forever without needing to re-edit the link every release. The versioned
 :: copy (DupeZ_v%DUPEZ_VERSION%_Setup.exe) is still shipped for auditability
 :: and as the canonical download in release notes.
+:: Sign the installer too (flattened — batch can't handle triple-nested if-not blocks)
+if not defined DUPEZ_SIGN_CERT goto :copy_installer_alias
+if not defined _SIGNTOOL goto :copy_installer_alias
+echo       Signing installer...
+if defined DUPEZ_SIGN_PASS (
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\%DUPEZ_INSTALLER%
+) else (
+    "%_SIGNTOOL%" sign /tr "%DUPEZ_SIGN_TIMESTAMP_URL%" /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\%DUPEZ_INSTALLER%
+)
+if errorlevel 1 (
+    echo       ERROR: Authenticode signing failed for dist\%DUPEZ_INSTALLER%.
+    exit /b 1
+)
+
+:copy_installer_alias
 if exist "dist\%DUPEZ_INSTALLER%" (
     copy /Y "dist\%DUPEZ_INSTALLER%" "dist\DupeZ_Setup.exe" >nul
     if errorlevel 1 (
@@ -177,19 +198,6 @@ if exist "dist\%DUPEZ_INSTALLER%" (
     ) else (
         echo       Versionless alias: dist\DupeZ_Setup.exe
     )
-)
-
-:: Sign the installer too (flattened — batch can't handle triple-nested if-not blocks)
-if not defined DUPEZ_SIGN_CERT goto :skip_installer
-where signtool >nul 2>&1
-if errorlevel 1 goto :skip_installer
-echo       Signing installer...
-if defined DUPEZ_SIGN_PASS (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\%DUPEZ_INSTALLER%
-    if exist "dist\DupeZ_Setup.exe" signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" /p "%DUPEZ_SIGN_PASS%" dist\DupeZ_Setup.exe
-) else (
-    signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\%DUPEZ_INSTALLER%
-    if exist "dist\DupeZ_Setup.exe" signtool sign /tr http://timestamp.digicert.com /td sha256 /fd sha256 /f "%DUPEZ_SIGN_CERT%" dist\DupeZ_Setup.exe
 )
 
 :skip_installer

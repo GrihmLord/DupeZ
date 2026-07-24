@@ -41,10 +41,13 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
     required = (
         "DUPEZ_SIGN_CERT",
         "DUPEZ_SIGN_PRIVKEY",
+        "DUPEZ_SIGNTOOL",
         "Windows SDK SignTool",
+        "Windows Kits\\10\\bin",
         "Inno Setup ISCC.exe",
         "Get-AuthenticodeSignature",
         "TimeStamperCertificate",
+        "verify /pa /all /tw /q",
         "Get-MpComputerStatus",
         "Update-MpSignature",
         "-DisableRemediation",
@@ -53,7 +56,7 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
         "--dist",
         "SHA256SUMS.txt",
         "release-attestation.json",
-        "4e9c3c6731efbaa8",
+        "4e9c3c6731efbaa8",  # pragma: allowlist secret
     )
     for token in required:
         assert token in script, token
@@ -86,6 +89,9 @@ def test_release_staging_requires_exact_artifact_evidence():
         'ValidateSet("Draft", "Publish")',
         "targetCommitish",
         "Staged release size mismatch",
+        "unexpected assets",
+        "DOWNLOAD STAGED RELEASE FOR HASH VERIFICATION",
+        "Downloaded release SHA-256 mismatch",
     )
     for token in required:
         assert token in script, token
@@ -96,6 +102,10 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
 
     assert "runs-on: [self-hosted, windows, release-signing]" in workflow
     assert "environment: production-release" in workflow
+    assert "Mask signing-host identity in release logs" in workflow
+    assert 'Write-Output "::add-mask::$value"' in workflow
+    assert "$env:USERPROFILE" in workflow
+    assert "$env:COMPUTERNAME" in workflow
     assert "github.ref_name" in workflow and "main" in workflow
     assert "scripts\\finalize_release.ps1" in workflow
     assert ".\\scripts\\stage_release.ps1" not in workflow
@@ -106,8 +116,54 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     assert "secrets.DUPEZ_SIGN_PRIVKEY" not in workflow
     assert "contents: read" in workflow
     assert "contents: write" not in workflow
+    assert "id-token: write" in workflow
+    assert "attestations: write" in workflow
+    assert "artifact-metadata: write" in workflow
+    assert (
+        "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+        in workflow
+    )
+    assert "subject-checksums: dist/SHA256SUMS.txt" in workflow
+    assert "sbom-path: dist/DupeZ.sbom.json" in workflow
     assert "release create" not in workflow
     assert "release edit" not in workflow
+
+
+def test_legacy_release_driver_cannot_tag_or_publish():
+    script = _read("scripts/release.ps1")
+
+    assert "is retired and cannot publish" in script
+    assert "scripts\\finalize_release.ps1" in script
+    assert "scripts\\stage_release.ps1" in script
+    assert "gh release create" not in script
+    assert "git tag" not in script
+    assert "git push" not in script
+
+
+def test_installer_alias_is_copied_after_versioned_signing():
+    build = _read("packaging/build_variants.bat")
+    sign_index = build.index('call :sign_file "dist\\%DUPEZ_INSTALLER%"')
+    copy_index = build.index(
+        'copy /Y "dist\\%DUPEZ_INSTALLER%" "dist\\DupeZ_Setup.exe"'
+    )
+
+    assert sign_index < copy_index
+    assert 'call :sign_file "dist\\DupeZ_Setup.exe"' not in build
+    assert "DUPEZ_SIGNTOOL" in build
+    assert "DUPEZ_SIGN_TIMESTAMP_URL" in build
+
+
+def test_frozen_verifier_diagnostics_are_opt_in_and_path_free():
+    launcher = _read("dupez.py")
+    build = _read("packaging/build_variants.bat")
+
+    assert 'os.environ.get("DUPEZ_VERIFY_REPORT")' in launcher
+    assert '"error_type"' in launcher
+    assert '"missing_module"' in launcher
+    assert "str(error)" not in launcher
+    assert "--verify-runtime-imports failed: {e}" not in launcher
+    assert "--verify-self failed: {e}" not in launcher
+    assert "DUPEZ_VERIFY_REPORT" in build
 
 
 def test_frozen_runtime_validator_enforces_architecture_and_profiles():
@@ -171,6 +227,7 @@ def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
     "relative",
     (
         "scripts/finalize_release.ps1",
+        "scripts/release.ps1",
         "scripts/validate_frozen_runtime.ps1",
         "scripts/record_manual_release_validation.ps1",
         "scripts/stage_release.ps1",
