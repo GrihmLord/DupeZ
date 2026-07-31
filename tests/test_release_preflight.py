@@ -2,7 +2,11 @@
 
 import hashlib
 import json
+import os
+import shutil
+import sys
 
+import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
@@ -11,6 +15,7 @@ from scripts.release_preflight import (
     _check_frozen_dependency_policy,
     _check_frozen_runtime_import_policy,
     _check_hermetic_python_policy,
+    _check_installer_alias,
     _check_signtool_policy,
     _query_authenticode,
     _release_data_archive_names,
@@ -57,6 +62,21 @@ def test_release_builds_enforce_hermetic_python_and_runtime_imports() -> None:
     for rel in ("packaging/build.bat", "packaging/build_variants.bat"):
         assert _check_hermetic_python_policy(rel) == []
     assert _check_frozen_runtime_import_policy() == []
+
+
+def test_stable_installer_alias_must_match_versioned_bytes(tmp_path) -> None:
+    versioned = tmp_path / "DupeZ_v5.7.9_Setup.exe"
+    stable = tmp_path / "DupeZ_Setup.exe"
+    versioned.write_bytes(b"signed-installer-a")
+    stable.write_bytes(b"signed-installer-a")
+
+    assert _check_installer_alias(tmp_path, "5.7.9") == []
+
+    stable.write_bytes(b"signed-installer-b")
+    errors = _check_installer_alias(tmp_path, "5.7.9")
+
+    assert errors
+    assert "SHA-256 mismatch" in errors[0]
 
 
 def test_hermetic_policy_rejects_ambient_python(monkeypatch) -> None:
@@ -192,6 +212,23 @@ def test_authenticode_query_non_windows_is_explicit(monkeypatch) -> None:
 
     assert statuses == {}
     assert "require Windows" in error
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Authenticode is Windows-only")
+def test_authenticode_query_preserves_each_artifact(monkeypatch, tmp_path) -> None:
+    from scripts import release_preflight
+
+    first = tmp_path / "first.exe"
+    second = tmp_path / "second.exe"
+    shutil.copyfile(sys.executable, first)
+    shutil.copyfile(sys.executable, second)
+    monkeypatch.setattr(release_preflight, "DIST", tmp_path)
+
+    statuses, error = _query_authenticode([first, second])
+
+    assert error == ""
+    assert statuses.keys() == {"first.exe", "second.exe"}
+    assert all(status for status in statuses.values())
 
 
 def _write_signed_update_fixture(

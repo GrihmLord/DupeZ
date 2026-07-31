@@ -69,6 +69,32 @@ function Resolve-Tool {
     throw "$Name was not found."
 }
 
+function Get-WindowsSdkSignToolCandidates {
+    $sdkRoots = @()
+    if (${env:ProgramFiles(x86)}) {
+        $sdkRoots += Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"
+    }
+    if ($env:ProgramFiles) {
+        $sdkRoots += Join-Path $env:ProgramFiles "Windows Kits\10\bin"
+    }
+
+    $candidates = @()
+    foreach ($sdkRoot in $sdkRoots) {
+        if (-not (Test-Path -LiteralPath $sdkRoot -PathType Container)) {
+            continue
+        }
+        $candidates += @(
+            Get-ChildItem `
+                -Path (Join-Path $sdkRoot "*\x64\signtool.exe") `
+                -File `
+                -ErrorAction SilentlyContinue |
+                Sort-Object FullName -Descending |
+                Select-Object -ExpandProperty FullName
+        )
+    }
+    return @($candidates | Select-Object -Unique)
+}
+
 function Require-ExternalSecretFile {
     param(
         [Parameter(Mandatory = $false)]
@@ -126,10 +152,20 @@ function Get-RequiredArtifacts {
 }
 
 function Test-AuthenticodeArtifacts {
-    param([System.IO.FileInfo[]]$Artifacts)
+    param(
+        [System.IO.FileInfo[]]$Artifacts,
+        [string]$SignTool
+    )
 
     $records = @()
     foreach ($artifact in @($Artifacts | Where-Object { $_.Extension -ieq ".exe" })) {
+        & $SignTool verify /pa /all /tw /q $artifact.FullName
+        if ($LASTEXITCODE -ne 0) {
+            throw (
+                "SignTool verification failed for $($artifact.Name) with " +
+                "exit code $LASTEXITCODE."
+            )
+        }
         $signature = Get-AuthenticodeSignature -LiteralPath $artifact.FullName
         if ($signature.Status -ne "Valid") {
             throw "Authenticode validation failed for $($artifact.Name): $($signature.Status)"
@@ -257,7 +293,7 @@ function Write-ReleaseEvidence {
         updater_manifest = [ordered]@{
             filename = "DupeZ_Setup.exe.manifest.json"
             signature = "DupeZ_Setup.exe.manifest.sig"
-            pinned_key_fingerprint = "4e9c3c6731efbaa8"
+            pinned_key_fingerprint = "4e9c3c6731efbaa8" # pragma: allowlist secret
         }
     }
     $attestation | ConvertTo-Json -Depth 8 |
@@ -281,7 +317,11 @@ $git = Resolve-Tool -Candidates @("git") -Name "Git"
 $python = Resolve-Tool -Candidates @(
     (Join-Path $repoRoot ".venv\Scripts\python.exe")
 ) -Name "repository Python 3.11.9"
-[void](Resolve-Tool -Candidates @("signtool") -Name "Windows SDK SignTool")
+$signToolCandidates = @($env:DUPEZ_SIGNTOOL, "signtool")
+$signToolCandidates += Get-WindowsSdkSignToolCandidates
+$signTool = Resolve-Tool `
+    -Candidates $signToolCandidates `
+    -Name "Windows SDK SignTool"
 $isccCandidates = @()
 if ($env:DUPEZ_ISCC) {
     $isccCandidates += $env:DUPEZ_ISCC
@@ -297,6 +337,7 @@ $iscc = Resolve-Tool -Candidates $isccCandidates -Name "Inno Setup ISCC.exe"
 
 $env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
 $env:DUPEZ_SIGN_PRIVKEY = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_PRIVKEY -Name "DUPEZ_SIGN_PRIVKEY"
+$env:DUPEZ_SIGNTOOL = $signTool
 $env:DUPEZ_ISCC = $iscc
 $env:DUPEZ_RELEASE_STRICT = "1"
 
@@ -320,7 +361,9 @@ Invoke-Checked -FilePath $python -Description "SOURCE RELEASE PREFLIGHT" -Argume
 Invoke-Checked -FilePath (Join-Path $repoRoot "packaging\build_variants.bat") -Description "BUILD AND SIGN RELEASE ARTIFACTS"
 
 $artifacts = Get-RequiredArtifacts -ReleaseVersion $Version
-$authenticode = Test-AuthenticodeArtifacts -Artifacts $artifacts
+$authenticode = Test-AuthenticodeArtifacts `
+    -Artifacts $artifacts `
+    -SignTool $signTool
 $defender = Invoke-DefenderScan -Artifacts $artifacts
 
 Invoke-Checked -FilePath $python -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList @(

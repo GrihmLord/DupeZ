@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -369,7 +370,7 @@ def _query_authenticode(paths: list[Path]) -> tuple[dict[str, str], str]:
     )
     script = r"""
 $ErrorActionPreference = 'Stop'
-$paths = @($env:DUPEZ_AUTHENTICODE_PATHS | ConvertFrom-Json)
+$paths = $env:DUPEZ_AUTHENTICODE_PATHS | ConvertFrom-Json
 $out = @()
 foreach ($path in $paths) {
     if (-not (Test-Path -LiteralPath $path)) { continue }
@@ -459,6 +460,33 @@ def _verify_update_sidecars(
     except SigVerifyError as exc:
         errors.append(f"update manifest does not match installer: {exc}")
     return errors
+
+
+def _check_installer_alias(dist: Path, version: str) -> list[str]:
+    """Require the stable installer alias to be an exact byte-for-byte copy."""
+    versioned = dist / f"DupeZ_v{version}_Setup.exe"
+    stable = dist / "DupeZ_Setup.exe"
+    if not versioned.is_file() or not stable.is_file():
+        return []
+    if versioned.stat().st_size != stable.stat().st_size:
+        return [
+            "stable installer alias differs from the versioned installer: "
+            "size mismatch"
+        ]
+
+    def digest(path: Path) -> str:
+        hasher = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    if digest(versioned) != digest(stable):
+        return [
+            "stable installer alias differs from the versioned installer: "
+            "SHA-256 mismatch"
+        ]
+    return []
 
 
 def check_source(expected_version: str | None = None) -> list[str]:
@@ -589,7 +617,6 @@ def check_source(expected_version: str | None = None) -> list[str]:
         r'call :sign_file "dist\DupeZ-GPU.exe"',
         r'call :sign_file "dist\DupeZ-Compat.exe"',
         r'call :sign_file "dist\%DUPEZ_INSTALLER%"',
-        r'call :sign_file "dist\DupeZ_Setup.exe"',
     ):
         if artifact not in variant_build:
             errors.append(
@@ -652,6 +679,7 @@ def check_dist(version: str) -> list[str]:
         if not payload.get(key):
             errors.append(f"dist/{name} contains no {key}")
     errors.extend(_verify_update_sidecars(dist, version))
+    errors.extend(_check_installer_alias(dist, version))
     signed_artifacts = [
         dist / name
         for name in (

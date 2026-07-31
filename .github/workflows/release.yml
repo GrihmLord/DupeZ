@@ -11,6 +11,9 @@ on:
 
 permissions:
   contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 concurrency:
   group: signed-release-artifacts-${{ inputs.version }}
@@ -28,6 +31,26 @@ jobs:
       PYTHONHOME: ''
 
     steps:
+      - name: Mask signing-host identity in release logs
+        shell: pwsh
+        run: |
+          $privateValues = @(
+            $env:USERNAME,
+            $env:USERDOMAIN,
+            $env:COMPUTERNAME,
+            $env:USERPROFILE,
+            $env:LOCALAPPDATA,
+            $env:APPDATA,
+            $env:TEMP,
+            $env:TMP,
+            $env:RUNNER_WORKSPACE,
+            $env:GITHUB_WORKSPACE
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -Unique
+          foreach ($value in $privateValues) {
+            Write-Output "::add-mask::$value"
+          }
+
       - name: Require main and exact release version
         shell: pwsh
         run: |
@@ -79,9 +102,37 @@ jobs:
               throw "$name does not reference an existing file."
             }
           }
-          if (-not (Get-Command signtool -ErrorAction SilentlyContinue)) {
+          $signToolCandidates = @()
+          if ($env:DUPEZ_SIGNTOOL) {
+            $signToolCandidates += $env:DUPEZ_SIGNTOOL
+          }
+          $signToolCommand = Get-Command signtool -ErrorAction SilentlyContinue
+          if ($signToolCommand) {
+            $signToolCandidates += $signToolCommand.Source
+          }
+          $sdkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          if (Test-Path -LiteralPath $sdkRoot -PathType Container) {
+            $signToolCandidates += @(
+              Get-ChildItem `
+                -Path (Join-Path $sdkRoot '*\x64\signtool.exe') `
+                -File `
+                -ErrorAction SilentlyContinue |
+                Sort-Object FullName -Descending |
+                Select-Object -ExpandProperty FullName
+            )
+          }
+          $signTool = @(
+            $signToolCandidates |
+              Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
+              Select-Object -Unique
+          ) | Select-Object -First 1
+          if (-not $signTool) {
             throw 'Windows SDK SignTool is not available on the signing runner.'
           }
+          "DUPEZ_SIGNTOOL=$signTool" | Out-File `
+            -FilePath $env:GITHUB_ENV `
+            -Encoding utf8 `
+            -Append
           $iscc = @(
             $env:DUPEZ_ISCC,
             (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
@@ -125,6 +176,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw 'Final signed dist preflight failed.'
           }
+
+      - name: Attest signed release build provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-checksums: dist/SHA256SUMS.txt
+
+      - name: Attest signed release SBOM
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            dist/DupeZ-GPU.exe
+            dist/DupeZ-Compat.exe
+            dist/DupeZ_v${{ inputs.version }}_Setup.exe
+            dist/DupeZ_Setup.exe
+          sbom-path: dist/DupeZ.sbom.json
 
       - name: Explain remaining exact-artifact gates
         shell: pwsh

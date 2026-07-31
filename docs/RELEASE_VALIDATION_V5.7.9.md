@@ -30,7 +30,8 @@ The protected Windows signing host must provide, outside the repository:
 - its password through `DUPEZ_SIGN_PASS` when required;
 - the existing Ed25519 private key matching updater fingerprint
   `4e9c3c6731efbaa8` through `DUPEZ_SIGN_PRIVKEY`;
-- Windows SDK SignTool;
+- Windows SDK SignTool in `PATH`, through `DUPEZ_SIGNTOOL`, or in the standard
+  versioned Windows Kits x64 directory;
 - Inno Setup 6 `ISCC.exe`;
 - current Microsoft Defender with real-time protection enabled.
 
@@ -57,8 +58,11 @@ The finalizer fails unless it can build and verify:
 - `SHA256SUMS.txt`, `release-attestation.json`, and `DefenderScan.txt`.
 
 The protected GitHub workflow `.github/workflows/release.yml` may perform this
-same build/sign/scan/attest stage. It has read-only repository permission and
-cannot create or publish a release.
+same build/sign/scan/attest stage. It has read-only repository content
+permission, cannot create or publish a release, and emits GitHub/Sigstore build
+provenance plus an SBOM attestation for the exact signed subjects. Signing-host
+identity and profile-path values are masked before build output reaches the job
+log.
 
 ## 3. Architecture-correct frozen lifecycle validation
 
@@ -134,7 +138,9 @@ $env:GH_TOKEN = "<release-scoped token>"
 Staging re-runs distribution preflight, validates both frozen evidence files and
 the manual attestation, and emits a sanitized public
 `release-validation-attestation.json`. Raw machine/operator evidence remains
-private. If `v5.7.9` is already published, asset replacement is refused.
+private. It rejects stale extra assets, downloads the complete draft, and
+compares every downloaded SHA-256 digest with the local exact artifact before
+publication. If `v5.7.9` is already published, asset replacement is refused.
 
 Inspect the draft assets, notes, signatures, hashes, installer size/version, and
 updater sidecars before publication.
