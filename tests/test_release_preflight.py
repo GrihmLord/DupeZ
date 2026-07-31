@@ -10,7 +10,11 @@ import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-from app.core.update_verify import MANIFEST_SCHEMA, pubkey_fingerprint
+from app.core.update_verify import (
+    MANIFEST_SCHEMA,
+    TRUSTED_PUBKEYS_PEM,
+    pubkey_fingerprint,
+)
 from scripts.release_preflight import (
     _check_frozen_dependency_policy,
     _check_frozen_runtime_import_policy,
@@ -28,6 +32,16 @@ def test_release_source_preflight_passes() -> None:
     # Derive the expected version from app/__version__.py so later patch
     # releases do not fail because this test retained an obsolete literal.
     assert check_source() == []
+
+
+def test_v579_recovery_rotation_key_is_pinned() -> None:
+    fingerprints = {
+        pubkey_fingerprint(public_pem).hex()
+        for public_pem in TRUSTED_PUBKEYS_PEM
+    }
+
+    assert "4e9c3c6731efbaa8" in fingerprints  # pragma: allowlist secret
+    assert "5555f0e8c31a40ed" in fingerprints  # pragma: allowlist secret
 
 
 def test_release_data_manifest_is_valid_and_explicit() -> None:
