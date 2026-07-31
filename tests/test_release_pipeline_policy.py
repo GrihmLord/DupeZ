@@ -56,7 +56,7 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
         "--dist",
         "SHA256SUMS.txt",
         "release-attestation.json",
-        "4e9c3c6731efbaa8",  # pragma: allowlist secret
+        "5555f0e8c31a40ed",  # pragma: allowlist secret
     )
     for token in required:
         assert token in script, token

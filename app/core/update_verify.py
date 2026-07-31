@@ -116,6 +116,13 @@ TRUSTED_PUBKEYS_PEM: List[str] = [
     "-----BEGIN PUBLIC KEY-----\n"
     "MCowBQYDK2VwAyEA5hWX33y0ja2IOHeoJBwNB+dwucVJ0WHQ7YdWtGrg9Sw=\n"
     "-----END PUBLIC KEY-----\n",
+    # v5.7.9 recovery rotation: the original private key was unavailable on
+    # every registered signing host and in the protected secret inventory.
+    # v5.7.9 is therefore the manual-upgrade trust bridge for this key.
+    # Fingerprint (8-byte SHA-256 prefix, hex): 5555f0e8c31a40ed.
+    "-----BEGIN PUBLIC KEY-----\n"
+    "MCowBQYDK2VwAyEAIZXL+OQR2yIJeOdnHa+DIJEZ6kKykWwVN1/jCUNKO6A=\n"  # pragma: allowlist secret
+    "-----END PUBLIC KEY-----\n",
 ]
 
 

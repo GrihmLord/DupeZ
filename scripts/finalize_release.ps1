@@ -293,7 +293,7 @@ function Write-ReleaseEvidence {
         updater_manifest = [ordered]@{
             filename = "DupeZ_Setup.exe.manifest.json"
             signature = "DupeZ_Setup.exe.manifest.sig"
-            pinned_key_fingerprint = "4e9c3c6731efbaa8" # pragma: allowlist secret
+            pinned_key_fingerprint = "5555f0e8c31a40ed" # pragma: allowlist secret
         }
     }
     $attestation | ConvertTo-Json -Depth 8 |

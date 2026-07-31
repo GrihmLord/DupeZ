@@ -28,12 +28,19 @@ The protected Windows signing host must provide, outside the repository:
 
 - an Authenticode PFX through `DUPEZ_SIGN_CERT`;
 - its password through `DUPEZ_SIGN_PASS` when required;
-- the existing Ed25519 private key matching updater fingerprint
-  `4e9c3c6731efbaa8` through `DUPEZ_SIGN_PRIVKEY`;
+- the replacement Ed25519 private key matching updater fingerprint
+  `5555f0e8c31a40ed` through `DUPEZ_SIGN_PRIVKEY`;
 - Windows SDK SignTool in `PATH`, through `DUPEZ_SIGNTOOL`, or in the standard
   versioned Windows Kits x64 directory;
 - Inno Setup 6 `ISCC.exe`;
 - current Microsoft Defender with real-time protection enabled.
+
+The historical updater private key could not be recovered from any signing
+host or protected secret inventory. The old public key remains pinned for
+verification compatibility, but v5.7.8 and older clients cannot authenticate a
+manifest signed only by the replacement key. v5.7.9 is therefore a manual
+download trust bridge; after installation, subsequent releases can use normal
+signed in-app updates under fingerprint `5555f0e8c31a40ed`.
 
 From Administrator PowerShell on `main`:
 

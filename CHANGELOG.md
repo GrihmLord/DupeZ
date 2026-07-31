@@ -48,6 +48,13 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ### Verification and provenance
 
+- **Updater signing-key recovery rotation.** The historical Ed25519 private key
+  was unavailable on every registered signing host and in the protected secret
+  inventory. v5.7.9 retains the historical public key for verification and adds
+  replacement fingerprint `5555f0e8c31a40ed`. Because older clients do not pin
+  the replacement key, v5.7.9 is a one-time manual upgrade; signed in-app
+  updates resume for subsequent releases.
+
 - Bundled `clumsy.exe` is byte-identical to
   `kalirenegade-dev/clumsy` v0.3.4; provenance pins commit
   `bc87e73066168520d76122c9165e99ea703b166c` and the release archive SHA-256.
