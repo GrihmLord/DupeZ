@@ -53,6 +53,7 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
         "-DisableRemediation",
         "-ReturnHR",
         "scripts\\release_preflight.py",
+        ".build-venv\\Scripts\\python.exe",
         "--dist",
         "SHA256SUMS.txt",
         "release-attestation.json",
