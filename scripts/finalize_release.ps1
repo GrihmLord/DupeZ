@@ -5,10 +5,10 @@ Build, sign, scan, and attest DupeZ release artifacts on the protected Windows
 signing host.
 
 .DESCRIPTION
-The Authenticode PFX and the Ed25519 private key matching the updater public key
-already pinned in app/core/update_verify.py must exist outside the repository.
-This script never generates, exports, uploads, or prints either key. GitHub draft
-staging is intentionally handled later by scripts/stage_release.ps1.
+The Ed25519 private key matching the updater public key pinned in
+app/core/update_verify.py must exist outside the repository. Authenticode also
+requires an external PFX unless -AllowUnsigned is explicitly selected. This
+script never generates, exports, uploads, or prints either key.
 #>
 
 [CmdletBinding()]
@@ -16,7 +16,9 @@ param(
     [ValidatePattern("^\d+\.\d+\.\d+$")]
     [string]$Version = "5.7.9",
 
-    [switch]$AllowNonMainValidation
+    [switch]$AllowNonMainValidation,
+
+    [switch]$AllowUnsigned
 )
 
 Set-StrictMode -Version Latest
@@ -188,6 +190,23 @@ function Test-AuthenticodeArtifacts {
     return $records
 }
 
+function Get-UnsignedAuthenticodeRecords {
+    param([System.IO.FileInfo[]]$Artifacts)
+
+    return @(
+        foreach ($artifact in @($Artifacts | Where-Object { $_.Extension -ieq ".exe" })) {
+            [ordered]@{
+                name = $artifact.Name
+                status = "Unsigned"
+                signer_subject = $null
+                signer_thumbprint = $null
+                timestamp_subject = $null
+                timestamp_thumbprint = $null
+            }
+        }
+    )
+}
+
 function Resolve-MpCmdRun {
     $platformRoot = Join-Path $env:ProgramData "Microsoft\Windows Defender\Platform"
     $candidates = @(
@@ -287,6 +306,7 @@ function Write-ReleaseEvidence {
         version = $Version
         commit = $Commit
         generated_at = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        distribution_signing_mode = if ($AllowUnsigned) { "unsigned" } else { "authenticode" }
         artifacts = $hashRecords
         authenticode = $Authenticode
         defender = $Defender
@@ -317,11 +337,14 @@ $git = Resolve-Tool -Candidates @("git") -Name "Git"
 $python = Resolve-Tool -Candidates @(
     (Join-Path $repoRoot ".venv\Scripts\python.exe")
 ) -Name "repository Python 3.11.9"
-$signToolCandidates = @($env:DUPEZ_SIGNTOOL, "signtool")
-$signToolCandidates += Get-WindowsSdkSignToolCandidates
-$signTool = Resolve-Tool `
-    -Candidates $signToolCandidates `
-    -Name "Windows SDK SignTool"
+$signTool = $null
+if (-not $AllowUnsigned) {
+    $signToolCandidates = @($env:DUPEZ_SIGNTOOL, "signtool")
+    $signToolCandidates += Get-WindowsSdkSignToolCandidates
+    $signTool = Resolve-Tool `
+        -Candidates $signToolCandidates `
+        -Name "Windows SDK SignTool"
+}
 $isccCandidates = @()
 if ($env:DUPEZ_ISCC) {
     $isccCandidates += $env:DUPEZ_ISCC
@@ -335,9 +358,17 @@ if ($env:ProgramFiles) {
 }
 $iscc = Resolve-Tool -Candidates $isccCandidates -Name "Inno Setup ISCC.exe"
 
-$env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
+if ($AllowUnsigned) {
+    $env:DUPEZ_SIGN_CERT = ""
+    $env:DUPEZ_SIGN_PASS = ""
+}
+else {
+    $env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
+}
 $env:DUPEZ_SIGN_PRIVKEY = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_PRIVKEY -Name "DUPEZ_SIGN_PRIVKEY"
-$env:DUPEZ_SIGNTOOL = $signTool
+if ($signTool) {
+    $env:DUPEZ_SIGNTOOL = $signTool
+}
 $env:DUPEZ_ISCC = $iscc
 $env:DUPEZ_RELEASE_STRICT = "1"
 
@@ -358,19 +389,25 @@ Invoke-Checked -FilePath $python -Description "VERIFY RELEASE PYTHON" -ArgumentL
 Invoke-Checked -FilePath $python -Description "SOURCE RELEASE PREFLIGHT" -ArgumentList @(
     "-I", "scripts\release_preflight.py", "--version", $Version
 )
-Invoke-Checked -FilePath (Join-Path $repoRoot "packaging\build_variants.bat") -Description "BUILD AND SIGN RELEASE ARTIFACTS"
+Invoke-Checked -FilePath (Join-Path $repoRoot "packaging\build_variants.bat") -Description "BUILD RELEASE ARTIFACTS"
 
 $artifacts = Get-RequiredArtifacts -ReleaseVersion $Version
-$authenticode = Test-AuthenticodeArtifacts `
-    -Artifacts $artifacts `
-    -SignTool $signTool
+$authenticode = if ($AllowUnsigned) {
+    Get-UnsignedAuthenticodeRecords -Artifacts $artifacts
+}
+else {
+    Test-AuthenticodeArtifacts -Artifacts $artifacts -SignTool $signTool
+}
 $defender = Invoke-DefenderScan -Artifacts $artifacts
 
-Invoke-Checked -FilePath $python -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList @(
-    "-I", "scripts\release_preflight.py", "--version", $Version, "--dist"
-)
+$preflightArguments = @("-I", "scripts\release_preflight.py", "--version", $Version, "--dist")
+if ($AllowUnsigned) {
+    $preflightArguments += "--allow-unsigned"
+}
+Invoke-Checked -FilePath $python -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList $preflightArguments
 Write-ReleaseEvidence -Artifacts $artifacts -Authenticode $authenticode -Defender $defender -Commit $commit
 
 Write-Host "`nSTRICT RELEASE FINALIZATION: PASS" -ForegroundColor Green
 Write-Host "Commit: $commit"
 Write-Host "Artifacts: $($artifacts.Count)"
+Write-Host "Distribution signing mode: $(if ($AllowUnsigned) { 'UNSIGNED' } else { 'Authenticode' })"

@@ -1,0 +1,149 @@
+name: Emergency Unsigned Public Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Exact semantic version to publish'
+        required: true
+        default: '5.7.9'
+        type: string
+      confirmation:
+        description: 'Type RELEASE UNSIGNED to acknowledge Windows publisher warnings'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: unsigned-public-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build, verify, attest, and publish unsigned release
+    runs-on: [self-hosted, windows, release-signing]
+    timeout-minutes: 90
+    environment: production-release
+    env:
+      PYTHONNOUSERSITE: '1'
+      PYTHONPATH: ''
+      PYTHONHOME: ''
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Mask release-host identity in logs
+        shell: pwsh
+        run: |
+          $privateValues = @(
+            $env:USERNAME, $env:USERDOMAIN, $env:COMPUTERNAME,
+            $env:USERPROFILE, $env:LOCALAPPDATA, $env:APPDATA,
+            $env:TEMP, $env:TMP, $env:RUNNER_WORKSPACE, $env:GITHUB_WORKSPACE
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique
+          foreach ($value in $privateValues) { Write-Output "::add-mask::$value" }
+
+      - name: Require exact acknowledgement, main, and version
+        shell: pwsh
+        run: |
+          if ('${{ inputs.confirmation }}' -ne 'RELEASE UNSIGNED') {
+            throw 'Unsigned release acknowledgement was not exact.'
+          }
+          if ('${{ github.ref_name }}' -ne 'main') {
+            throw 'Unsigned public release must be dispatched from main.'
+          }
+          if ('${{ inputs.version }}' -ne '5.7.9') {
+            throw 'This emergency workflow can publish only v5.7.9.'
+          }
+
+      - name: Checkout exact main commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Setup canonical release Python 3.11.9
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+
+      - name: Create repository bootstrap venv
+        shell: pwsh
+        run: |
+          if (Test-Path .venv) { Remove-Item .venv -Recurse -Force }
+          python -m venv .venv
+
+      - name: Verify updater signing key and build tools
+        shell: pwsh
+        run: |
+          $privateKey = [Environment]::GetEnvironmentVariable('DUPEZ_SIGN_PRIVKEY')
+          if ([string]::IsNullOrWhiteSpace($privateKey) -or -not (Test-Path -LiteralPath $privateKey -PathType Leaf)) {
+            throw 'DUPEZ_SIGN_PRIVKEY is not available on the release runner.'
+          }
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path -LiteralPath $iscc -PathType Leaf)) {
+            throw 'Inno Setup ISCC.exe is not available.'
+          }
+
+      - name: Build, scan, and finalize explicitly unsigned assets
+        shell: pwsh
+        run: .\scripts\finalize_release.ps1 -Version '${{ inputs.version }}' -AllowUnsigned
+
+      - name: Execute package-boundary verifier
+        shell: pwsh
+        run: |
+          foreach ($variant in @('dist\DupeZ-GPU.exe', 'dist\DupeZ-Compat.exe')) {
+            $process = Start-Process -FilePath (Resolve-Path $variant) -ArgumentList '--verify-runtime-imports' -Wait -PassThru
+            if ($process.ExitCode -ne 0) {
+              throw "Frozen import verification failed for $variant with exit code $($process.ExitCode)."
+            }
+          }
+
+      - name: Attest release build provenance
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-checksums: dist/SHA256SUMS.txt
+
+      - name: Attest release SBOM
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4.2.0
+        with:
+          subject-path: |
+            dist/DupeZ-GPU.exe
+            dist/DupeZ-Compat.exe
+            dist/DupeZ_v${{ inputs.version }}_Setup.exe
+            dist/DupeZ_Setup.exe
+          sbom-path: dist/DupeZ.sbom.json
+
+      - name: Publish immutable unsigned v5.7.9 release
+        shell: pwsh
+        run: |
+          $tag = 'v${{ inputs.version }}'
+          gh release view $tag --repo '${{ github.repository }}' *> $null
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release $tag already exists; refusing to replace assets."
+          }
+          $assets = @(
+            'dist\DupeZ-GPU.exe',
+            'dist\DupeZ-Compat.exe',
+            'dist\DupeZ_v${{ inputs.version }}_Setup.exe',
+            'dist\DupeZ_Setup.exe',
+            'dist\DupeZ_Setup.exe.manifest.json',
+            'dist\DupeZ_Setup.exe.manifest.sig',
+            'dist\DupeZ.sbom.json',
+            'dist\DupeZ.vex.json',
+            'dist\binary-provenance.json',
+            'dist\SHA256SUMS.txt',
+            'dist\release-attestation.json',
+            'dist\DefenderScan.txt'
+          )
+          gh release create $tag @assets `
+            --repo '${{ github.repository }}' `
+            --target '${{ github.sha }}' `
+            --title 'DupeZ v${{ inputs.version }} (Unsigned)' `
+            --notes-file 'docs\release-notes\v${{ inputs.version }}.md' `
+            --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }
