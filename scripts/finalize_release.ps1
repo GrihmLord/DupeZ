@@ -400,11 +400,14 @@ else {
 }
 $defender = Invoke-DefenderScan -Artifacts $artifacts
 
+$distPython = Resolve-Tool -Candidates @(
+    (Join-Path $repoRoot ".build-venv\Scripts\python.exe")
+) -Name "release build Python"
 $preflightArguments = @("-I", "scripts\release_preflight.py", "--version", $Version, "--dist")
 if ($AllowUnsigned) {
     $preflightArguments += "--allow-unsigned"
 }
-Invoke-Checked -FilePath $python -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList $preflightArguments
+Invoke-Checked -FilePath $distPython -Description "FINAL DIST RELEASE PREFLIGHT" -ArgumentList $preflightArguments
 Write-ReleaseEvidence -Artifacts $artifacts -Authenticode $authenticode -Defender $defender -Commit $commit
 
 Write-Host "`nSTRICT RELEASE FINALIZATION: PASS" -ForegroundColor Green
