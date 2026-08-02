@@ -636,7 +636,7 @@ def check_source(expected_version: str | None = None) -> list[str]:
     return errors
 
 
-def check_dist(version: str) -> list[str]:
+def check_dist(version: str, *, allow_unsigned: bool = False) -> list[str]:
     errors: list[str] = []
     required = (
         "DupeZ-GPU.exe",
@@ -690,7 +690,7 @@ def check_dist(version: str) -> list[str]:
         )
         if (dist / name).is_file()
     ]
-    if signed_artifacts:
+    if signed_artifacts and not allow_unsigned:
         statuses, error = _query_authenticode(signed_artifacts)
         if error:
             errors.append(error)
@@ -708,6 +708,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--version")
     parser.add_argument("--dist", action="store_true")
+    parser.add_argument(
+        "--allow-unsigned",
+        action="store_true",
+        help="allow an explicitly disclosed unsigned public-launch build",
+    )
     parser.add_argument(
         "--frozen-artifact",
         action="append",
@@ -729,7 +734,7 @@ def main() -> int:
     if args.dist:
         if not args.version:
             parser.error("--dist requires --version")
-        errors.extend(check_dist(args.version))
+        errors.extend(check_dist(args.version, allow_unsigned=args.allow_unsigned))
     if errors:
         for error in errors:
             print(f"ERROR: {error}")

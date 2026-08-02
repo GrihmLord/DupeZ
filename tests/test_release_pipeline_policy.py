@@ -67,6 +67,29 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
     assert "--gen-key" not in script
 
 
+def test_emergency_unsigned_release_is_explicit_and_retains_security_evidence():
+    workflow = _read(".github/workflows/unsigned-public-release.yml")
+    finalizer = _read("scripts/finalize_release.ps1")
+    preflight = _read("scripts/release_preflight.py")
+
+    for token in (
+        "RELEASE UNSIGNED",
+        "-AllowUnsigned",
+        "DUPEZ_SIGN_PRIVKEY",
+        "--verify-runtime-imports",
+        "subject-checksums: dist/SHA256SUMS.txt",
+        "sbom-path: dist/DupeZ.sbom.json",
+        "DefenderScan.txt",
+        "--latest",
+    ):
+        assert token in workflow, token
+
+    assert "contents: write" in workflow
+    assert "release create" in workflow
+    assert "distribution_signing_mode" in finalizer
+    assert '"--allow-unsigned"' in preflight
+
+
 def test_release_staging_requires_exact_artifact_evidence():
     script = _read("scripts/stage_release.ps1")
 
