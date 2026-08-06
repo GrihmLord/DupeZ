@@ -53,8 +53,11 @@ Set-StrictMode -Version Latest
 Set-Location "$repoRoot"
 Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
 try {
-	powershell -NoProfile -ExecutionPolicy Bypass -File "$launcherPath" -Phase admin-finalize -Version $Version -AllowUnsigned
-	exit `$LASTEXITCODE
+	Write-Host "BEGIN elevated admin-finalize run"
+	& "$launcherPath" -Phase admin-finalize -Version $Version -AllowUnsigned
+	`$ec = `$LASTEXITCODE
+	Write-Host "END elevated admin-finalize run (exit=`$ec)"
+	exit `$ec
 }
 catch {
 	Write-Error `$_
