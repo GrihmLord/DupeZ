@@ -48,7 +48,7 @@ function Write-GateState([string]$path, [pscustomobject]$state) {
 Assert-MainClean
 
 $launcherPath = Join-Path $repoRoot "scripts\release_gate_launcher.ps1"
-$sequencePath = Join-Path $repoRoot "scripts\blocked_release_gates_sequence.ps1"
+$finalizePath = Join-Path $repoRoot "scripts\finalize_release.ps1"
 $statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
 $logPath = Join-Path $repoRoot "dist\admin-finalize-elevated.log"
 $elevatedRunnerPath = Join-Path $repoRoot "dist\run_admin_finalize_elevated.ps1"
@@ -61,7 +61,7 @@ Remove-Item -LiteralPath "$logPath" -Force -ErrorAction SilentlyContinue
 Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
 try {
 	Write-Host "BEGIN elevated admin-finalize run"
-	powershell -NoProfile -ExecutionPolicy Bypass -File "$sequencePath" -Phase admin-finalize -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
 	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
 	exit `$ec
