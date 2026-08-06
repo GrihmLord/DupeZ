@@ -88,7 +88,7 @@ try {
 	Write-Host "BEGIN elevated admin-finalize run"
 	`$env:DUPEZ_SIGN_PRIVKEY = '$escapedPrivKeyPath'
 	Write-Host "DUPEZ_SIGN_PRIVKEY configured in elevated process."
-	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -FilePath "$logPath" -Append
 	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
 	exit `$ec
