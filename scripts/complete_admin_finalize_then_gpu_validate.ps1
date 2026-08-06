@@ -1,0 +1,115 @@
+[CmdletBinding()]
+param(
+	[ValidatePattern("^\d+\.\d+\.\d+$")]
+	[string]$Version = "5.7.9"
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+Set-Location $repoRoot
+
+function Test-IsAdmin {
+	return (
+		New-Object Security.Principal.WindowsPrincipal(
+			[Security.Principal.WindowsIdentity]::GetCurrent()
+		)
+	).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Assert-MainClean {
+	$git = (Get-Command git -ErrorAction Stop).Source
+	$branch = (& $git branch --show-current).Trim()
+	if ($branch -ne "main") {
+		throw "This helper must run from main. Current branch: $branch"
+	}
+	$statusLines = @(& $git status --porcelain)
+	$allowed = "?? scripts/complete_admin_finalize_then_gpu_validate.ps1"
+	$blocking = @($statusLines | Where-Object { $_ -ne $allowed })
+	if ($blocking.Count -ne 0) {
+		& $git status --short
+		throw "This helper requires a clean working tree."
+	}
+}
+
+function Read-GateState([string]$path) {
+	if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+		return $null
+	}
+	return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+}
+
+Assert-MainClean
+
+$launcherPath = Join-Path $repoRoot "scripts\release_gate_launcher.ps1"
+$statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
+$logPath = Join-Path $repoRoot "dist\admin-finalize-elevated.log"
+$elevatedRunnerPath = Join-Path $repoRoot "dist\run_admin_finalize_elevated.ps1"
+
+$elevatedRunner = @"
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = "Stop"
+Set-Location "$repoRoot"
+Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
+try {
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$launcherPath" -Phase admin-finalize -Version $Version -AllowUnsigned
+	exit `$LASTEXITCODE
+}
+catch {
+	Write-Error `$_
+	exit 1
+}
+finally {
+	Stop-Transcript | Out-Null
+}
+"@
+
+Set-Content -LiteralPath $elevatedRunnerPath -Value $elevatedRunner -Encoding UTF8
+
+Write-Host "Launching elevated admin-finalize..."
+try {
+	$proc = Start-Process -FilePath "powershell" -Verb RunAs -Wait -PassThru -ArgumentList @(
+		"-NoProfile",
+		"-ExecutionPolicy", "Bypass",
+		"-File", ('"' + $elevatedRunnerPath + '"')
+	)
+}
+catch {
+	Write-Error "Elevation was canceled or failed to start."
+	throw
+}
+finally {
+	Remove-Item -LiteralPath $elevatedRunnerPath -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "Elevated exit code: $($proc.ExitCode)"
+
+$state = Read-GateState -path $statePath
+$phaseStatus = $null
+if ($null -ne $state -and $null -ne $state.phases) {
+	$prop = $state.phases.PSObject.Properties["admin-finalize"]
+	if ($null -ne $prop) {
+		$phaseStatus = [string]$prop.Value
+	}
+}
+
+if ($phaseStatus -ne "DONE") {
+	Write-Host "admin-finalize did not complete successfully."
+	if (Test-Path -LiteralPath $logPath -PathType Leaf) {
+		Write-Host "\nLast error lines from elevated run:"
+		Get-Content -LiteralPath $logPath -Tail 120
+	}
+	exit 1
+}
+
+if (Test-IsAdmin) {
+	Write-Host "admin-finalize is DONE, but this shell is elevated."
+	Write-Host "Run gpu-validate from a non-admin shell:"
+	Write-Host "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_gate_launcher.ps1 -Phase auto -Version $Version -AllowUnsigned"
+	exit 0
+}
+
+Write-Host "admin-finalize is DONE. Advancing to next phase..."
+powershell -NoProfile -ExecutionPolicy Bypass -File $launcherPath -Phase auto -Version $Version -AllowUnsigned
+exit $LASTEXITCODE
