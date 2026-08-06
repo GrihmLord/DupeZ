@@ -48,12 +48,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
-if exist "%DUPEZ_BUILD_VENV%" (
-    echo ERROR: Could not remove stale build environment:
-    echo        %DUPEZ_BUILD_VENV%
-    exit /b 1
-)
+call :force_remove_dir "%DUPEZ_BUILD_VENV%"
+if errorlevel 1 exit /b 1
 
 echo Creating clean build-only virtual environment...
 "%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
@@ -477,3 +473,35 @@ if %_FD_TRIES% GEQ 10 (
 )
 powershell -NoProfile -Command "Start-Sleep -Milliseconds 1000" >nul 2>&1
 goto :force_delete_retry
+
+:: ── Subroutine: force_remove_dir ───────────────────────────────────
+:: Usage: call :force_remove_dir "path\to\directory"
+:: Frees the target directory path even when transient file locks block delete.
+:force_remove_dir
+set "_FRD_TARGET=%~1"
+if not exist "%_FRD_TARGET%" exit /b 0
+
+:: Attempt 1 — rename out of the way so the canonical path is free.
+set "_FRD_STALE=%_FRD_TARGET%.stale-%RANDOM%%RANDOM%"
+move /y "%_FRD_TARGET%" "%_FRD_STALE%" >nul 2>&1
+if not exist "%_FRD_TARGET%" (
+    rmdir /s /q "%_FRD_STALE%" >nul 2>&1
+    exit /b 0
+)
+
+:: Attempt 2 — direct remove retries on the original path.
+set "_FRD_TRIES=0"
+:force_remove_dir_retry
+rmdir /s /q "%_FRD_TARGET%" >nul 2>&1
+if not exist "%_FRD_TARGET%" exit /b 0
+set /a _FRD_TRIES+=1
+if %_FRD_TRIES% GEQ 10 (
+    echo.
+    echo ERROR: Could not remove stale build environment:
+    echo        %_FRD_TARGET%
+    echo A process is holding files in this directory.
+    echo Close Python/PyInstaller sessions and retry.
+    exit /b 1
+)
+powershell -NoProfile -Command "Start-Sleep -Milliseconds 1000" >nul 2>&1
+goto :force_remove_dir_retry
