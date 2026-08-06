@@ -40,6 +40,22 @@ function Read-GateState([string]$path) {
 	return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
 }
 
+function Resolve-EnvValue([string]$name) {
+	$processValue = [Environment]::GetEnvironmentVariable($name, "Process")
+	if (-not [string]::IsNullOrWhiteSpace($processValue)) {
+		return $processValue
+	}
+	$userValue = [Environment]::GetEnvironmentVariable($name, "User")
+	if (-not [string]::IsNullOrWhiteSpace($userValue)) {
+		return $userValue
+	}
+	$machineValue = [Environment]::GetEnvironmentVariable($name, "Machine")
+	if (-not [string]::IsNullOrWhiteSpace($machineValue)) {
+		return $machineValue
+	}
+	return ""
+}
+
 function Write-GateState([string]$path, [pscustomobject]$state) {
 	$state.updated_at_utc = [DateTime]::UtcNow.ToString("o")
 	$state | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
@@ -53,6 +69,15 @@ $statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
 $logPath = Join-Path $repoRoot "dist\admin-finalize-elevated.log"
 $elevatedRunnerPath = Join-Path $repoRoot "dist\run_admin_finalize_elevated.ps1"
 
+$resolvedPrivKeyPath = Resolve-EnvValue -name "DUPEZ_SIGN_PRIVKEY"
+if ([string]::IsNullOrWhiteSpace($resolvedPrivKeyPath)) {
+	throw "DUPEZ_SIGN_PRIVKEY is not configured in Process/User/Machine environment."
+}
+if (-not (Test-Path -LiteralPath $resolvedPrivKeyPath -PathType Leaf)) {
+	throw "DUPEZ_SIGN_PRIVKEY does not reference an existing file: $resolvedPrivKeyPath"
+}
+$escapedPrivKeyPath = $resolvedPrivKeyPath.Replace("`"", "``\"")
+
 $elevatedRunner = @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference = "Stop"
@@ -61,6 +86,8 @@ Remove-Item -LiteralPath "$logPath" -Force -ErrorAction SilentlyContinue
 Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
 try {
 	Write-Host "BEGIN elevated admin-finalize run"
+	$env:DUPEZ_SIGN_PRIVKEY = "$escapedPrivKeyPath"
+	Write-Host "DUPEZ_SIGN_PRIVKEY configured in elevated process."
 	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
 	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
@@ -83,7 +110,7 @@ try {
 		"-NoProfile",
 		"-ExecutionPolicy", "Bypass",
 		"-File", ('"' + $elevatedRunnerPath + '"')
-	)
+	) -WindowStyle Hidden
 }
 catch {
 	Write-Error "Elevation was canceled or failed to start."
