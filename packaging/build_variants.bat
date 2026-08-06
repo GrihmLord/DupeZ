@@ -48,6 +48,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
 call :force_remove_dir "%DUPEZ_BUILD_VENV%"
 if errorlevel 1 exit /b 1
 
