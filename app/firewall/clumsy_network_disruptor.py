@@ -2,15 +2,15 @@
 """
 Clumsy Network Disruptor — packet disruption for DupeZ.
 
-Two engines:
-  1. ClumsyEngine (automatic compatibility path) — launches clumsy.exe,
+One DupeZ control plane with two capability-selected adapters:
+  1. ClumsyEngine (Kalirenegade reference path) — launches clumsy.exe,
      verifies its layer, controls, values, and Start state via Win32
      SendMessageW, then hides the window. It is preferred whenever the
-     request can be represented exactly.
+     request contains only canonical standard effects.
 
-  2. NativeWinDivertEngine — loads WinDivert.dll directly via ctypes and
-     implements all public disruption modules with counter telemetry. It is
-     selected for native-only behavior or a semantics-preserving fallback.
+  2. NativeWinDivertEngine — the temporary DupeZ extension host. It is
+     selected only for explicitly namespaced DupeZ-only capabilities. A
+     Kalirenegade startup failure never causes Native substitution.
 
 Architecture (clumsy.exe, from reading main.c):
   main() flow:
@@ -52,6 +52,13 @@ from ctypes import wintypes
 from typing import Any, Dict, List, Optional
 from app.logs.logger import log_info, log_warning, log_error
 from app.utils.helpers import mask_ip, _NO_WINDOW, is_admin
+from app.firewall.disruption_request import DisruptionRequest
+from app.firewall.execution_plan import (
+    Backend,
+    ExecutionPlan,
+    UnsupportedExecutionPlan,
+    resolve_execution_plan,
+)
 
 # Native WinDivert engine — primary engine (no GUI, no window)
 try:
@@ -139,18 +146,6 @@ ENGINE_AUTO          = "auto"
 ENGINE_NATIVE        = "native"
 ENGINE_CLUMSY        = "clumsy"
 _ENGINE_PREFERENCES  = frozenset({ENGINE_AUTO, ENGINE_NATIVE, ENGINE_CLUMSY})
-
-# These public modules have matching user-facing semantics on the native
-# implementation and bundled Clumsy after parameter normalization. Other
-# Clumsy modules buffer/reorder/corrupt packets differently, so Auto must not
-# silently switch those requests to native if the compatibility engine fails.
-_NATIVE_CLUMSY_FALLBACK_METHODS = frozenset({
-    "lag",
-    "drop",
-    "disconnect",
-    "duplicate",
-    "rst",
-})
 
 # Module name → clumsy UI checkbox text (from the screenshot)
 MODULE_CHECKBOX_TEXT = {
@@ -1533,18 +1528,27 @@ class ClumsyNetworkDisruptor:
         filter_str: str,
         methods: List[str],
         params: Dict[str, Any],
+        plan: Optional[ExecutionPlan] = None,
     ) -> tuple[Optional[Any], str, str]:
-        """Start the requested engine and return ``(engine, actual, requested)``.
+        """Start the one backend selected by capability; never substitute."""
 
-        Auto prefers the bundled Clumsy engine whenever the request can be
-        represented exactly. That makes normal Lag/Disconnect/Duplicate
-        behavior match standalone Clumsy without an operator-facing engine
-        switch. Native remains the primary implementation for extensions
-        Clumsy cannot represent. Explicit choices never switch engines.
-        """
-        preference = _normalize_engine_preference(
-            params.get("_engine_preference", ENGINE_AUTO))
-        compatibility = assess_clumsy_compatibility(methods, params)
+        try:
+            if plan is None:
+                request = DisruptionRequest.from_legacy(
+                    target_id=params.get("_target_ip"),
+                    filter_string=filter_str,
+                    methods=methods,
+                    params=params,
+                )
+                plan = resolve_execution_plan(request)
+        except (ValueError, UnsupportedExecutionPlan) as exc:
+            log_error(f"Capability resolution rejected the request: {exc}")
+            return None, "", str(params.get("_engine_preference", ENGINE_AUTO))
+
+        preference = plan.request.engine_policy.value
+        compatibility = assess_clumsy_compatibility(
+            list(plan.backend_methods), params
+        )
 
         def _try_native() -> Optional[Any]:
             if NATIVE_ENGINE_AVAILABLE:
@@ -1557,7 +1561,7 @@ class ClumsyNetworkDisruptor:
                     native_engine = NativeWinDivertEngine(
                         dll_path=self.windivert_dll,
                         filter_str=filter_str,
-                        methods=methods,
+                        methods=list(plan.backend_methods),
                         params=params,
                     )
                     if native_engine.start():
@@ -1609,53 +1613,12 @@ class ClumsyNetworkDisruptor:
                 pass
             return None
 
-        if preference == ENGINE_CLUMSY:
+        if plan.backend is Backend.KALIRENEGADE:
             engine = _try_clumsy()
             return engine, ENGINE_CLUMSY if engine else "", preference
 
-        if preference == ENGINE_NATIVE:
-            engine = _try_native()
-            if engine is None:
-                log_error(
-                    "Explicit Native WinDivert selection failed; "
-                    "Clumsy fallback is disabled for explicit choices"
-                )
-            return engine, ENGINE_NATIVE if engine else "", preference
-
-        # Automatic policy: exact standalone behavior first.
-        if compatibility.representable:
-            engine = _try_clumsy()
-            if engine is not None:
-                return engine, ENGINE_CLUMSY, preference
-
-            requested_methods = set(compatibility.methods)
-            if not requested_methods.issubset(
-                _NATIVE_CLUMSY_FALLBACK_METHODS
-            ):
-                log_error(
-                    "Automatic Clumsy startup failed and native fallback was "
-                    "refused because it would change semantics for: "
-                    + ", ".join(sorted(
-                        requested_methods
-                        - _NATIVE_CLUMSY_FALLBACK_METHODS
-                    ))
-                )
-                return None, "", preference
-            log_warning(
-                "Automatic Clumsy startup failed; trying the bounded native "
-                "equivalent"
-            )
-        else:
-            log_info(
-                "Request uses native-only behavior; selecting native engine "
-                f"({compatibility.reason})"
-            )
-
         engine = _try_native()
-        if engine is not None:
-            return engine, ENGINE_NATIVE, preference
-
-        return None, "", preference
+        return engine, ENGINE_NATIVE if engine else "", preference
 
     # Core disruption
     def disconnect_device_clumsy(self, target_ip: str,
@@ -1793,16 +1756,20 @@ class ClumsyNetworkDisruptor:
             else:
                 methods = ["drop", "lag", "bandwidth", "throttle"]
 
-        from app.core.validation import validate_methods
-
-        safe_methods = validate_methods(list(methods or []))
-        if not safe_methods:
-            log_error(
-                "No public diagnostic methods remained after validation; "
-                "falling back to bounded temporary disconnect"
+        # Resolve the backend before initialization, elevation, ARP changes,
+        # or process launch. Unknown/mixed requests fail closed here.
+        try:
+            early_request = DisruptionRequest.from_legacy(
+                target_id=target_ip,
+                filter_string="capability-preflight",
+                methods=list(methods or []),
+                params=params,
             )
-            safe_methods = ["disconnect"]
-        methods = safe_methods
+            early_plan = resolve_execution_plan(early_request)
+        except (ValueError, UnsupportedExecutionPlan) as exc:
+            log_error(f"Disruption request rejected before launch: {exc}")
+            return False
+        methods = list(early_plan.backend_methods)
 
         # processId is unavailable at WinDivert NETWORK/NETWORK_FORWARD.
         # Reject this obsolete preset flag before touching engines or ARP.

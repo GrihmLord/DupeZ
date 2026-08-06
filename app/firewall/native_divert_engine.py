@@ -55,13 +55,6 @@ except Exception:  # pragma: no cover
     _safe_sp = None
     _SafeSpErr = Exception  # type: ignore[assignment,misc]
 
-# Recorder hotkeys — event tagging during packet recording
-try:
-    from app.firewall.recorder_hotkeys import RecorderHotkeys
-    _RECORDER_HOTKEYS_AVAILABLE = True
-except ImportError:
-    _RECORDER_HOTKEYS_AVAILABLE = False
-
 # Traffic pattern analyzer — passive observer for live stats & game state
 try:
     from app.ai.traffic_analyzer import TrafficPatternAnalyzer
@@ -528,7 +521,6 @@ class NativeWinDivertEngine:
         # _init_modules and incremented by the packet thread.  get_stats()
         # turns these raw counters into the public activity DTO.
         self._module_activity: list[Dict[str, Any]] = []
-        self._recorder_hotkeys = None  # RecorderHotkeys instance
         self._packets_processed = 0
         self._packets_dropped = 0
         self._packets_inbound = 0
@@ -1012,20 +1004,6 @@ class NativeWinDivertEngine:
 
             self._init_modules()
 
-            # Wire recorder hotkeys to GodModeModule (if present)
-            if _RECORDER_HOTKEYS_AVAILABLE and "godmode" in self.methods:
-                for mod in self._modules:
-                    if mod.__class__.__name__ == "GodModeModule":
-                        self._recorder_hotkeys = RecorderHotkeys(godmode_module=mod)
-                        if self._recorder_hotkeys.start():
-                            log_info("[Engine] RecorderHotkeys active — "
-                                     "F5=record, F9=kill, F10=hit, F11=death, F12=inv")
-                        else:
-                            log_info("[Engine] RecorderHotkeys failed to start "
-                                     "(keyboard module may not be available)")
-                            self._recorder_hotkeys = None
-                        break
-
             # Wire DisconnectModule state transitions into the recorder
             # so cut_start / cut_end are labeled alongside feature windows.
             if self._episode_recorder is not None:
@@ -1062,6 +1040,16 @@ class NativeWinDivertEngine:
                         "engine_start",
                         target_ip=self.target_ip,
                         methods=list(self.methods),
+                        params={
+                            key: value
+                            for key, value in self.params.items()
+                            if not str(key).startswith("_")
+                            and key not in {"server_ip", "a2s_host"}
+                            and isinstance(
+                                value,
+                                (int, float, bool, str, list, tuple),
+                            )
+                        },
                         target_profile=self.params.get(
                             "_target_profile", "unknown"),
                         network_class=self.params.get(
@@ -1366,15 +1354,6 @@ class NativeWinDivertEngine:
                 log_warning(f"[A2S] probe stop failed: {exc}")
             self._a2s_probe = None
 
-        # Stop recorder hotkeys before modules shut down
-        if self._recorder_hotkeys is not None:
-            try:
-                self._recorder_hotkeys.stop()
-                log_info("[Engine] RecorderHotkeys stopped")
-            except Exception:
-                pass
-            self._recorder_hotkeys = None
-
         # Stop modules in chain order while the handle remains open. Earlier
         # queues drain through their per-module continuation, so downstream
         # modules remain available until preceding work reaches them.
@@ -1670,9 +1649,8 @@ class NativeWinDivertEngine:
         → corrupt → rst. Native-only modules keep deterministic placement
         around that public chain.
 
-        The legacy pulse-cycle module handles direction internally, so it
-        remains first for backward compatibility. If active, later modules
-        only see packets it did not consume.
+        Quarantined legacy pulse module is intentionally absent from the module
+        registry and cannot be selected through this engine.
         """
         _ensure_modules_loaded()
 
@@ -1689,21 +1667,19 @@ class NativeWinDivertEngine:
             if key in self.params:
                 log_info(f"[ENGINE INIT]   {key} = {self.params[key]}")
 
-        # Public relative order is the standalone Clumsy pipeline. Keep the
-        # legacy native GodMode slot before it, and retain first-occurrence
-        # order for every other native-only method after it.
+        # Public relative order is the standalone Clumsy pipeline. Retain
+        # first-occurrence order for every native-only method after it.
         clumsy_order = [
             "lag", "drop", "disconnect", "bandwidth", "throttle",
             "duplicate", "ood", "corrupt", "rst",
         ]
         requested = list(dict.fromkeys(self.methods))
-        ordered_methods = ["godmode"] if "godmode" in requested else []
-        ordered_methods.extend(
+        ordered_methods = [
             method for method in clumsy_order if method in requested
-        )
+        ]
         ordered_methods.extend(
             method for method in requested
-            if method != "godmode" and method not in clumsy_order
+            if method not in clumsy_order
         )
         log_info(f"[ENGINE INIT] Ordered chain: {ordered_methods}")
 

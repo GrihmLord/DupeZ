@@ -90,8 +90,14 @@ PUBLIC_DIAGNOSTIC_METHODS: Tuple[str, ...] = (
     "duplicate", "ood", "corrupt", "rst",
 )
 
+NATIVE_EXTENSION_METHODS: Tuple[str, ...] = (
+    "dupez.godmode",
+    "dupez.custom_lag",
+)
+
 VALID_DISRUPTION_METHODS: FrozenSet[str] = frozenset({
     *PUBLIC_DIAGNOSTIC_METHODS,
+    *NATIVE_EXTENSION_METHODS,
     "gilbert_elliott", "pareto_jitter", "correlated_drop",
     "token_bucket",
 })
@@ -111,6 +117,14 @@ VALID_PARAM_RANGES: Dict[str, Tuple[type, float, float]] = {
     "bandwidth_limit": (float, 0, 1_000_000),
     "bandwidth_queue": (int, 0, 10_000),
     "lag_keepalive_interval_ms": (float, 0, 10000),
+    # Dedicated resilience diagnostics must release at or before 30 seconds.
+    "lag_max_active_ms": (float, 0, 29000),
+    "extension_active_ms": (float, 1000, 29000),
+    "extension_block_ms": (float, 50, 5000),
+    "extension_release_ms": (float, 10, 2000),
+    "extension_release_batch": (int, 1, 2048),
+    "extension_queue_max": (int, 128, 10000),
+    "extension_keepalive_interval_ms": (float, 250, 5000),
     "disconnect_duration_ms": (float, 0, 60000),
     "disconnect_arm_delay_ms": (float, 0, 30000),
     "direction": (str, 0, 0),  # special case — validated separately

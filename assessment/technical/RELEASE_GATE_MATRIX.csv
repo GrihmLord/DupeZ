@@ -1,0 +1,14 @@
+gate_id,gate_name,status,evidence,notes
+0,SCOPE_OWNERSHIP_PROVENANCE,PASS,assessment/governance docs,Scope and revision documented
+1,IDENTITY_AND_DISTRIBUTION,PARTIAL,dist inventory + preflight,Signing/publisher not fully validated
+2,BUILD_PACKAGE_INSTALL,PARTIAL,pytest+preflight,Exact packaged artifact test incomplete
+3,UPGRADE_MIGRATION_ROLLBACK,BLOCKED,scripts/blocked_release_gates_sequence.ps1 gpu-validate and admin-compat phases,Run blocked-gates sequencer after admin-finalize on main clean state
+4,FUNCTIONAL_AND_CONTRACT_BEHAVIOR,PASS,pytest full suite,Source-level and integration behavior validated
+5,LIFECYCLE_STATE_OFFLINE,PARTIAL,startup smoke + tests,Full lifecycle matrix not exhaustively executed
+6,SECURITY_PRIVACY_PLATFORM_BOUNDARIES,PARTIAL,policy tests + code review,No authorized active security testing
+7,PERFORMANCE_RESOURCE_USE,PARTIAL,test runtime observations,No dedicated perf campaign in this run
+8,ACCESSIBILITY_LOCALIZATION_FORM_FACTORS,PARTIAL,limited evidence,Manual platform accessibility pass pending
+9,OBSERVABILITY_SYMBOLICATION_RECOVERY,PARTIAL,scripts and logs reviewed,Frozen release crash symbolication not validated end-to-end
+10,SUPPLY_CHAIN_ARTIFACT_INTEGRITY,FAIL,release_preflight --dist and scripts/blocked_release_gates_sequence.ps1 admin-finalize phase,Unsigned artifacts and missing sidecars until protected finalization succeeds
+11,DISTRIBUTION_READINESS,BLOCKED,scripts/blocked_release_gates_sequence.ps1 admin-stage-draft/admin-stage-publish phases,Requires main + clean tree + tokens + signed artifacts
+12,HUMAN_DECISION_RESIDUAL_RISK,PARTIAL,assessment findings,Requires named decision authority sign-off

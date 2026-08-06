@@ -1,0 +1,5 @@
+{
+  "status": "present_in_dist",
+  "artifact": "dist/DupeZ.sbom.json",
+  "note": "Existing SBOM artifact detected; exact-signature alignment blocked pending finalization"
+}

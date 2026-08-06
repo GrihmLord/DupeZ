@@ -210,8 +210,15 @@ class SmartModePanel(QWidget):
                 profile, goal=goal, intensity=intensity)
             self._view._invoke_main(slot, profile, rec)
 
+        device_info = None
+        lookup = getattr(self._view, "_lookup_device_meta", None)
+        if callable(lookup):
+            device_info = lookup(self._view.selected_ip)
         self._smart_profiler.profile_async(
-            self._view.selected_ip, callback=_on_profile_done)
+            self._view.selected_ip,
+            callback=_on_profile_done,
+            device_info=device_info,
+        )
 
     def _on_smart_profile(self) -> None:
         self._smart_run(
@@ -288,6 +295,10 @@ class SmartModePanel(QWidget):
         self.update_ui(profile, rec)
 
         if self._view.controller and self._view.selected_ip:
+            # A previous Smart session may still be active if another target is
+            # started without pressing Stop first. Close it before replacing the
+            # identifier so every completed run reaches the learning history.
+            self.end_active_session()
             success = self._view.controller.disrupt_device(
                 self._view.selected_ip, rec.methods, rec.params)
             if success:
@@ -307,6 +318,17 @@ class SmartModePanel(QWidget):
                     f"Smart disruption failed on {self._view.selected_ip}.\n"
                     "Check admin privileges, WinDivert files, and logs.")
 
+    def end_active_session(self) -> None:
+        """Persist the active Smart session, if any, and refresh its learner."""
+
+        session_id = self._active_session_id
+        if not session_id or self._smart_tracker is None:
+            return
+        self._active_session_id = None
+        self._smart_tracker.end_session(session_id)
+        if self._smart_engine is not None:
+            self._smart_engine.refresh_history()
+
     @pyqtSlot(object)
     def apply_llm_result(self, result) -> None:
         """Apply LLM advisor result to the controls (main thread)."""
@@ -314,6 +336,11 @@ class SmartModePanel(QWidget):
         if not result:
             self.smart_info_label.setText(
                 "AI advisor returned no result. Try rephrasing.")
+            return
+        if result.get("action") == "clarify":
+            self.smart_info_label.setText(
+                "AI needs a specific diagnostic request. No settings changed."
+            )
             return
 
         rec = DisruptionRecommendation(
@@ -360,7 +387,13 @@ class SmartModePanel(QWidget):
 
         try:
             stats = self._learning_loop.cut_effectiveness(
-                target_profile=target_profile, goal=goal)
+                target_profile=target_profile,
+                goal=goal,
+                network_class=(
+                    getattr(profile, "connection_type", "unknown")
+                    or "unknown"
+                ),
+            )
         except Exception as exc:  # noqa: BLE001 — UI hint is best-effort
             log_error(f"cut_effectiveness lookup failed: {exc}")
             return ""
@@ -397,6 +430,11 @@ class SmartModePanel(QWidget):
         """
         device = (getattr(profile, "device_type", "") or "").lower()
         conn = (getattr(profile, "connection_type", "") or "").lower()
+        platform = (getattr(profile, "platform", "") or "").lower()
+        if platform in ("ps5", "ps4"):
+            return "ps5_hotspot" if "hotspot" in conn else "ps5_lan"
+        if platform in ("xbox_series", "xbox_one", "xbox"):
+            return "xbox_hotspot" if "hotspot" in conn else "xbox_lan"
         if "ps5" in device or "playstation" in device:
             return "ps5_hotspot" if "hotspot" in conn else "ps5_lan"
         if "xbox" in device:

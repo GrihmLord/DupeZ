@@ -56,6 +56,8 @@ class AIPanel(QWidget):
         self._voice_panel = voice_panel
         self._provider_generation = 0
         self._advisor = ConfiguredLLMAdvisor.from_settings()
+        if voice_panel is not None and hasattr(voice_panel, "set_advisor"):
+            voice_panel.set_advisor(self._advisor)
         self._provider_result.connect(self._apply_provider_result)
         self.destroyed.connect(lambda _obj=None: self._advisor.cancel_pending())
         self._expose_live_disruption_manager()

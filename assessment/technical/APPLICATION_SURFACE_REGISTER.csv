@@ -1,0 +1,4 @@
+surface_id,product,surface_type,platform,framework,runtime,package_identifier,version,distribution_channel,signing_owner,update_authority,release_artifact,evidence_status
+S-001,DupeZ,QT_PYTHON,WINDOWS,PyQt6,Python 3.11,DupeZ,5.7.9,DIRECT_DOWNLOAD,release_owner,release_owner,dist/DupeZ-GPU.exe,PARTIAL
+S-002,DupeZ,QT_PYTHON,WINDOWS,PyQt6,Python 3.11,DupeZ-Compat,5.7.9,DIRECT_DOWNLOAD,release_owner,release_owner,dist/DupeZ-Compat.exe,BLOCKED
+S-003,DupeZ,CLI,WINDOWS,Python scripts,Python 3.11,dupez scripts,5.7.9,LOCAL,maintainer,maintainer,scripts/*.ps1,PARTIAL

@@ -1,0 +1,4 @@
+evidence_id,category,source,description,authenticity,grade,status,related_phase
+E-001,repository,local workspace,Source tree and tests,LOCAL_DIRECT,A,RECEIVED,0-22
+E-002,test_run,local execution,pytest full suite 1293 passed 8 skipped,REPRODUCIBLE,A,RECEIVED,5,22
+E-003,preflight,local execution,release_preflight source pass dist fail,REPRODUCIBLE,A,RECEIVED,5,11,22

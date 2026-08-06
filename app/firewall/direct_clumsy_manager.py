@@ -10,7 +10,7 @@ Invariants:
 
 * DupeZ never kills an unrelated ``clumsy.exe`` process.
 * Only one direct Clumsy session may be active in a helper process.
-* Auto may fall back to native only for semantics-preserving methods.
+* Auto is deterministic capability resolution, never runtime substitution.
 * Explicit Clumsy selection fails closed with an actionable error.
 * Stop requests Clumsy's Stop state and window close before killing only the
   exact owned PID as a bounded fallback.
@@ -31,6 +31,13 @@ import psutil
 
 from app.core.safe_gui_subprocess import spawn_managed_gui
 from app.firewall import clumsy_network_disruptor as legacy
+from app.firewall.disruption_request import DisruptionRequest
+from app.firewall.execution_plan import (
+    Backend,
+    ExecutionPlan,
+    UnsupportedExecutionPlan,
+    resolve_execution_plan,
+)
 from app.logs.logger import log_error, log_info, log_warning
 
 __all__ = [
@@ -463,11 +470,31 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
         filter_str: str,
         methods: List[str],
         params: Dict[str, Any],
+        plan: Optional[ExecutionPlan] = None,
     ) -> tuple[Optional[Any], str, str]:
-        preference = legacy._normalize_engine_preference(
-            params.get("_engine_preference", legacy.ENGINE_AUTO)
+        try:
+            if plan is None:
+                request = DisruptionRequest.from_legacy(
+                    target_id=params.get("_target_ip"),
+                    filter_string=filter_str,
+                    methods=methods,
+                    params=params,
+                )
+                plan = resolve_execution_plan(request)
+        except (ValueError, UnsupportedExecutionPlan) as exc:
+            self._last_engine_error = (
+                f"Capability resolution rejected the request: {exc}"
+            )
+            log_error(self._last_engine_error)
+            requested = str(
+                params.get("_engine_preference", legacy.ENGINE_AUTO)
+            )
+            return None, "", requested
+
+        preference = plan.request.engine_policy.value
+        compatibility = legacy.assess_clumsy_compatibility(
+            list(plan.backend_methods), params
         )
-        compatibility = legacy.assess_clumsy_compatibility(methods, params)
         self._last_requested_engine = preference
         self._last_actual_engine = ""
         self._last_engine_error = ""
@@ -482,7 +509,7 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
                 native_engine = legacy.NativeWinDivertEngine(
                     dll_path=self.windivert_dll,
                     filter_str=filter_str,
-                    methods=methods,
+                    methods=list(plan.backend_methods),
                     params=params,
                 )
                 if native_engine.start():
@@ -544,7 +571,7 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
             return None
 
         with self._engine_transition_lock:
-            if preference == legacy.ENGINE_CLUMSY:
+            if plan.backend is Backend.KALIRENEGADE:
                 engine = try_clumsy()
                 return (
                     engine,
@@ -552,42 +579,12 @@ class DirectClumsyNetworkDisruptor(legacy.ClumsyNetworkDisruptor):
                     preference,
                 )
 
-            if preference == legacy.ENGINE_NATIVE:
-                engine = try_native()
-                return (
-                    engine,
-                    legacy.ENGINE_NATIVE if engine else "",
-                    preference,
-                )
-
-            if compatibility.representable:
-                engine = try_clumsy()
-                if engine is not None:
-                    return engine, legacy.ENGINE_CLUMSY, preference
-
-                requested_methods = set(compatibility.methods)
-                if not requested_methods.issubset(
-                    legacy._NATIVE_CLUMSY_FALLBACK_METHODS
-                ):
-                    self._last_engine_error = (
-                        self._last_engine_error
-                        or "Native fallback would change packet semantics"
-                    )
-                    return None, "", preference
-                log_warning(
-                    "Direct Clumsy was unavailable; Auto is trying the "
-                    "bounded native equivalent"
-                )
-            else:
-                log_info(
-                    "Event requires native-only behavior: "
-                    f"{compatibility.reason}"
-                )
-
             engine = try_native()
-            if engine is not None:
-                return engine, legacy.ENGINE_NATIVE, preference
-            return None, "", preference
+            return (
+                engine,
+                legacy.ENGINE_NATIVE if engine else "",
+                preference,
+            )
 
     def get_device_status_clumsy(self, target_ip: str) -> Dict:
         status = dict(super().get_device_status_clumsy(target_ip))

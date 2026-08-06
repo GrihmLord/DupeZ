@@ -44,6 +44,13 @@ QUARANTINED_METHODS = {
 QUARANTINED_PARAM_PREFIXES = ("godmode_", "pulse_", "tick_sync_", "stealth_")
 
 
+def test_only_namespaced_godmode_is_in_the_native_module_registry():
+    from app.firewall.modules import CORE_MODULE_MAP
+
+    assert "godmode" not in CORE_MODULE_MAP
+    assert "dupez.godmode" in CORE_MODULE_MAP
+
+
 def test_list_presets_contains_shipped_presets():
     presets = list_disruption_presets("dayz")
     for name in SHIPPED_PRESETS:

@@ -1,0 +1,5 @@
+scenario,status,evidence,notes
+cold_launch,PARTIAL,startup smoke,Only source-level smoke validated
+shutdown_clean,PASS,startup smoke + tests,Verified no-tray/offscreen guard path
+upgrade_existing_install,BLOCKED,not executed,Requires packaged installer validation
+rollback_failure,BLOCKED,not executed,Requires protected release flow

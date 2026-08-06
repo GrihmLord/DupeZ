@@ -230,7 +230,7 @@ class TestEnginePreference:
         clumsy_ctor.assert_called_once()
         native_ctor.assert_not_called()
 
-    def test_auto_falls_back_to_native_equivalent(self, monkeypatch, tmp_path):
+    def test_auto_fails_closed_when_clumsy_start_fails(self, monkeypatch, tmp_path):
         manager = self._manager_with_clumsy(tmp_path)
         native = MagicMock()
         native.start.return_value = True
@@ -246,9 +246,8 @@ class TestEnginePreference:
             filter_str="true", methods=["lag"],
             params={"_engine_preference": ENGINE_AUTO},
         )
-        assert engine is native
-        assert (actual, requested) == (ENGINE_NATIVE, ENGINE_AUTO)
-        clumsy.stop.assert_called_once()
+        assert engine is None
+        assert (actual, requested) == ("", ENGINE_AUTO)
 
     def test_explicit_clumsy_never_constructs_native(
         self, monkeypatch, tmp_path,

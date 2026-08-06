@@ -595,6 +595,10 @@ class DupeZDashboard(QMainWindow):
 
     def _setup_tray_hotkey(self) -> None:
         """Register Ctrl+Shift+D to toggle window visibility."""
+        if not self._minimize_to_tray:
+            return
+        if os.environ.get("QT_QPA_PLATFORM", "").strip().lower() == "offscreen":
+            return
         if not KEYBOARD_AVAILABLE or hotkey_manager is None:
             return
         try:

@@ -183,6 +183,14 @@ class TestLLMAdvisor:
         result = advisor.ask("pulse diagnostic on my hotspot")
         assert result["goal"] == "disconnect"
 
+    def test_unknown_prompt_requires_clarification_without_action(self):
+        from app.ai.llm_advisor import LLMAdvisor
+        advisor = LLMAdvisor()
+        result = advisor.ask("please handle this somehow")
+        assert result["goal"] == "clarify"
+        assert result["action"] == "clarify"
+        assert result["methods"] == []
+
 
 # ======================================================================
 # 5. Smart Engine

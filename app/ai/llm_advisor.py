@@ -55,7 +55,7 @@ class LLMConfig:
         """Migrate plaintext api_key into encrypted secrets store."""
         if self.api_key:
             try:
-                from app.core.secrets_manager import get_secrets_manager, _LLM_SECRET_NAME
+                from app.core.secrets_manager import get_secrets_manager
                 sm = get_secrets_manager()
                 sm.store(_LLM_SECRET_NAME, self.api_key)
                 self.api_key = ""  # clear plaintext
@@ -69,7 +69,7 @@ class LLMConfig:
         Returns empty string if no key is stored or it has expired.
         """
         try:
-            from app.core.secrets_manager import get_secrets_manager, _LLM_SECRET_NAME
+            from app.core.secrets_manager import get_secrets_manager
             sm = get_secrets_manager()
             return sm.retrieve(_LLM_SECRET_NAME) or ""
         except Exception:
@@ -113,6 +113,17 @@ Disruption modules (processed in chain order — first consumer wins):
 - corrupt: Flip random bits in payload. Params: tamper_chance (0-100%)
 - rst: Inject TCP RST flags. Params: rst_chance (0-100%)
 
+Backend ownership rules:
+- Standard effects above are owned by the pinned Kalirenegade Clumsy backend.
+- dupez.custom_lag is the bounded connection-resilience extension. Params:
+  lag_delay, lag_max_active_ms (maximum 29000),
+  lag_keepalive_interval_ms, lag_preserve_connection=true.
+- dupez.godmode is the bounded private-network pulse/resilience lab. It is
+  experimental, has a maximum active window of 29000 ms, and does not claim
+    invulnerability, hit-registration manipulation, security-policy bypass, or
+  protection from a game/server timeout.
+- Never mix a standard effect with a dupez.* extension in one request.
+
 Connection types:
 - hotspot (192.168.137.x): Windows ICS/mobile hotspot. Fragile — use lower-intensity diagnostics because you control the gateway.
 - lan (192.168.x.x, 10.x.x.x): Resilient — needs aggressive settings.
@@ -129,6 +140,8 @@ Authorized DayZ diagnostics:
 - Pulse diagnostic: use bounded lag/drop/disconnect settings in a private test session.
 - Soft lag: lag only, 200-600ms, direction=both.
 - Reordering pressure: lag + duplicate + ood with conservative settings in private test sessions only.
+- Connection resilience: dupez.custom_lag only, maximum 29000 ms, in a private test session.
+- Bounded pulse/resilience lab: dupez.godmode only, maximum 29000 ms, in a private test session.
 
 Direction tuning:
 - "both": all traffic (default)
@@ -357,6 +370,7 @@ class LLMAdvisor:
     _VALID_METHODS = frozenset({
         "lag", "drop", "throttle", "duplicate", "ood", "corrupt",
         "rst", "disconnect", "bandwidth",
+        "dupez.custom_lag", "dupez.godmode",
     })
 
     def _extract_json(self, text: str) -> Optional[dict]:
@@ -415,6 +429,14 @@ class LLMAdvisor:
         "ood_chance": (0, 100), "tamper_chance": (0, 100),
         "rst_chance": (0, 100), "bandwidth_limit": (0, 100000),
         "bandwidth_queue": (0, 1000),
+        "lag_max_active_ms": (0, 29000),
+        "lag_keepalive_interval_ms": (100, 10000),
+        "godmode_max_active_ms": (1000, 29000),
+        "godmode_block_ms": (100, 5000),
+        "godmode_release_ms": (50, 2000),
+        "godmode_release_batch": (1, 1024),
+        "godmode_queue_max": (64, 16384),
+        "godmode_keepalive_interval_ms": (100, 10000),
     }
 
     def _clamp_params(self, params: dict) -> dict:
@@ -459,6 +481,18 @@ class LLMAdvisor:
             }
 
         # --- Specific disruption goals (narrower matches first) ---
+        if any(w in prompt_lower for w in [
+            "connection resilience", "resilience lab",
+            "preserve connection", "stay connected",
+        ]):
+            return self._fallback_resilience(prompt_lower)
+
+        if any(w in prompt_lower for w in ["bounded pulse lab", "godmode lab"]):
+            return self._fallback_godmode_lab(prompt_lower)
+
+        if "god" in prompt_lower and "mode" in prompt_lower and "lab" in prompt_lower:
+            return self._fallback_godmode_lab(prompt_lower)
+
         if any(w in prompt_lower for w in ["pulse diagnostic", "pulse test",
                                             "inbound lag diagnostic",
                                             "directional lag"]):
@@ -490,7 +524,18 @@ class LLMAdvisor:
         if any(w in prompt_lower for w in ["chaos", "everything", "destroy", "nuke"]):
             return self._fallback_chaos(prompt_lower)
 
-        return self._fallback_disconnect(prompt_lower)
+        return {
+            "goal": "clarify",
+            "name": "Clarification needed",
+            "description": "No network action was selected.",
+            "methods": [],
+            "params": {},
+            "action": "clarify",
+            "reasoning": (
+                "The offline interpreter did not recognize a specific, "
+                "authorized diagnostic request."
+            ),
+        }
 
     def _detect_intensity(self, prompt: str) -> float:
         """Detect intensity from keywords."""
@@ -530,8 +575,42 @@ class LLMAdvisor:
     def _fallback_lag(self, prompt: str) -> dict:
         i = self._detect_intensity(prompt)
         return self._make_fallback("lag", ["lag", "drop"], {
-            "lag_delay": int(300 + 2000 * i), "drop_chance": int(20 + 50 * i),
+            "lag_delay": int(300 + 2000 * i),
+            "drop_chance": int(20 + 50 * i),
         }, i)
+
+    def _fallback_resilience(self, prompt: str) -> dict:
+        i = self._detect_intensity(prompt)
+        return self._make_fallback(
+            "connection resilience",
+            ["dupez.custom_lag"],
+            {
+                "lag_delay": int(300 + 1700 * i),
+                "lag_preserve_connection": True,
+                "lag_keepalive_interval_ms": 1500,
+                "lag_max_active_ms": 25_000,
+            },
+            i,
+            "Bounded private-network connection-resilience diagnostic",
+        )
+
+    def _fallback_godmode_lab(self, prompt: str) -> dict:
+        i = self._detect_intensity(prompt)
+        return self._make_fallback(
+            "bounded pulse lab",
+            ["dupez.godmode"],
+            {
+                "godmode_max_active_ms": 25_000,
+                "godmode_block_ms": int(700 + 700 * i),
+                "godmode_release_ms": 250,
+                "godmode_release_batch": 256,
+                "godmode_queue_max": 4096,
+                "godmode_keepalive_interval_ms": 1500,
+                "godmode_preserve_connection": True,
+            },
+            i,
+            "Experimental bounded pulse/resilience diagnostic for a private network",
+        )
 
     def _fallback_desync(self, prompt: str) -> dict:
         i = self._detect_intensity(prompt)

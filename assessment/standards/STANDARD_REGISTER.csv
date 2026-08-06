@@ -1,0 +1,5 @@
+standard_id,reference,version_or_date,applicability,status
+R8,NIST SP 800-218 (SSDF),1.1,APPLICABLE,REFERENCED
+R18,Microsoft App Signing and SignTool,current,APPLICABLE,REFERENCED
+R21,Python Packaging User Guide,current,APPLICABLE,REFERENCED
+R22,PyInstaller operating mode/common pitfalls,current,APPLICABLE,REFERENCED
