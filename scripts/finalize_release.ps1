@@ -124,6 +124,30 @@ function Require-ExternalSecretFile {
     return $resolved
 }
 
+function Resolve-EnvVar {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $value = [Environment]::GetEnvironmentVariable($Name, "Process")
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        return $value
+    }
+
+    $value = [Environment]::GetEnvironmentVariable($Name, "User")
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        return $value
+    }
+
+    $value = [Environment]::GetEnvironmentVariable($Name, "Machine")
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        return $value
+    }
+
+    return ""
+}
+
 function Get-RequiredArtifacts {
     param([string]$ReleaseVersion)
 
@@ -363,9 +387,9 @@ if ($AllowUnsigned) {
     $env:DUPEZ_SIGN_PASS = ""
 }
 else {
-    $env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_CERT -Name "DUPEZ_SIGN_CERT"
+    $env:DUPEZ_SIGN_CERT = Require-ExternalSecretFile -Path (Resolve-EnvVar -Name "DUPEZ_SIGN_CERT") -Name "DUPEZ_SIGN_CERT"
 }
-$env:DUPEZ_SIGN_PRIVKEY = Require-ExternalSecretFile -Path $env:DUPEZ_SIGN_PRIVKEY -Name "DUPEZ_SIGN_PRIVKEY"
+$env:DUPEZ_SIGN_PRIVKEY = Require-ExternalSecretFile -Path (Resolve-EnvVar -Name "DUPEZ_SIGN_PRIVKEY") -Name "DUPEZ_SIGN_PRIVKEY"
 if ($signTool) {
     $env:DUPEZ_SIGNTOOL = $signTool
 }
