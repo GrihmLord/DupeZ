@@ -40,9 +40,15 @@ function Read-GateState([string]$path) {
 	return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
 }
 
+function Write-GateState([string]$path, [pscustomobject]$state) {
+	$state.updated_at_utc = [DateTime]::UtcNow.ToString("o")
+	$state | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $path -Encoding UTF8
+}
+
 Assert-MainClean
 
 $launcherPath = Join-Path $repoRoot "scripts\release_gate_launcher.ps1"
+$sequencePath = Join-Path $repoRoot "scripts\blocked_release_gates_sequence.ps1"
 $statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
 $logPath = Join-Path $repoRoot "dist\admin-finalize-elevated.log"
 $elevatedRunnerPath = Join-Path $repoRoot "dist\run_admin_finalize_elevated.ps1"
@@ -51,10 +57,11 @@ $elevatedRunner = @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference = "Stop"
 Set-Location "$repoRoot"
+Remove-Item -LiteralPath "$logPath" -Force -ErrorAction SilentlyContinue
 Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
 try {
 	Write-Host "BEGIN elevated admin-finalize run"
-	& "$launcherPath" -Phase admin-finalize -Version $Version -AllowUnsigned
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$sequencePath" -Phase admin-finalize -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
 	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
 	exit `$ec
@@ -87,6 +94,29 @@ finally {
 }
 
 Write-Host "Elevated exit code: $($proc.ExitCode)"
+
+if ($proc.ExitCode -eq 0) {
+	$stateForWrite = Read-GateState -path $statePath
+	if ($null -eq $stateForWrite) {
+		$stateForWrite = [pscustomobject]@{
+			schema = "dupez.blocked-release-gates-progress.v1"
+			version = $Version
+			updated_at_utc = [DateTime]::UtcNow.ToString("o")
+			phases = [pscustomobject]@{}
+		}
+	}
+	if ($null -eq $stateForWrite.phases) {
+		$stateForWrite | Add-Member -NotePropertyName phases -NotePropertyValue ([pscustomobject]@{})
+	}
+	$existing = $stateForWrite.phases.PSObject.Properties["admin-finalize"]
+	if ($null -eq $existing) {
+		$stateForWrite.phases | Add-Member -NotePropertyName "admin-finalize" -NotePropertyValue "DONE"
+	}
+	else {
+		$stateForWrite.phases."admin-finalize" = "DONE"
+	}
+	Write-GateState -path $statePath -state $stateForWrite
+}
 
 $state = Read-GateState -path $statePath
 $phaseStatus = $null
