@@ -86,7 +86,7 @@ Remove-Item -LiteralPath "$logPath" -Force -ErrorAction SilentlyContinue
 Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
 try {
 	Write-Host "BEGIN elevated admin-finalize run"
-	$env:DUPEZ_SIGN_PRIVKEY = '$escapedPrivKeyPath'
+	`$env:DUPEZ_SIGN_PRIVKEY = '$escapedPrivKeyPath'
 	Write-Host "DUPEZ_SIGN_PRIVKEY configured in elevated process."
 	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -LiteralPath "$logPath" -Append
 	`$ec = `$LASTEXITCODE
