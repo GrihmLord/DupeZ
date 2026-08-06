@@ -1199,9 +1199,9 @@ class ClumsyControlView(QWidget):
 
     def _end_smart_session(self) -> None:
         """End smart session tracking if active."""
-        if SMART_ENGINE_AVAILABLE and getattr(self, '_active_session_id', None):
-            self._smart_tracker.end_session(self._active_session_id)
-            self._active_session_id = None
+        panel = getattr(self, "_smart_panel", None)
+        if SMART_ENGINE_AVAILABLE and panel is not None:
+            panel.end_active_session()
 
     def _invoke_main(self, slot: str, *args) -> None:
         """Thread-safe invokeMethod shorthand — marshals to main thread."""
@@ -1420,11 +1420,9 @@ class ClumsyControlView(QWidget):
         if getattr(self, "record_episodes_cb", None) is not None:
             params["_record_episodes"] = self.record_episodes_cb.isChecked()
 
-        # Auto-tune — enabled by Smart Mode "Assist". Engine reads this gate
-        # in _auto_tune_duration_if_requested() and tunes duration from the
-        # learning loop's prior-episode stats.
-        if getattr(self, "_smart_mode_auto_tune", False):
-            params["_auto_tune_duration"] = True
+        # Smart Mode may still learn and rank recommendations, but standard
+        # effects must remain exactly representable by Kalirenegade Clumsy.
+        # Native-only duration tuning is therefore not injected here.
 
         # Direction
         inb = self.dir_inbound.isChecked()

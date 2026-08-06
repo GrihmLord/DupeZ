@@ -150,6 +150,11 @@ class SmartDisruptionEngine:
         except (json.JSONDecodeError, OSError) as e:
             log_error(f"SmartEngine: failed to load history: {e}")
 
+    def refresh_history(self) -> None:
+        """Reload completed sessions before generating later recommendations."""
+
+        self._load_history()
+
     def recommend(self, profile, goal: str = "auto",
                   intensity: float = 0.8) -> DisruptionRecommendation:
         """Generate optimal disruption recommendation.
@@ -237,6 +242,11 @@ class SmartDisruptionEngine:
         """
         device = (getattr(profile, "device_type", "") or "").lower()
         conn = (getattr(profile, "connection_type", "") or "").lower()
+        platform = (getattr(profile, "platform", "") or "").lower()
+        if platform in ("ps5", "ps4"):
+            return f"ps5_{'hotspot' if conn == 'hotspot' else 'lan'}"
+        if platform in ("xbox_series", "xbox_one", "xbox"):
+            return f"xbox_{'hotspot' if conn == 'hotspot' else 'lan'}"
         if device == "console":
             # Best-effort platform detection from hostname/vendor if present
             host = (getattr(profile, "hostname", "") or "").lower()
@@ -294,7 +304,14 @@ class SmartDisruptionEngine:
 
         try:
             target_profile = self._derive_target_profile_key(profile)
-            current = loop.cut_effectiveness(target_profile, goal)
+            network_class = (
+                getattr(profile, "connection_type", "unknown") or "unknown"
+            )
+            current = loop.cut_effectiveness(
+                target_profile,
+                goal,
+                network_class=network_class,
+            )
         except Exception as exc:
             log_error(f"SmartEngine: cut_effectiveness lookup failed: {exc}")
             return rec
@@ -312,7 +329,11 @@ class SmartDisruptionEngine:
             if alternate_goal == goal:
                 continue
             try:
-                alt_stats = loop.cut_effectiveness(target_profile, alternate_goal)
+                alt_stats = loop.cut_effectiveness(
+                    target_profile,
+                    alternate_goal,
+                    network_class=network_class,
+                )
             except Exception:
                 continue
             if not alt_stats or not alt_stats.get("sufficient_data"):
@@ -359,11 +380,9 @@ class SmartDisruptionEngine:
     def _strategy_disconnect(self, profile, intensity: float) -> DisruptionRecommendation:
         """Kill the connection entirely.
 
-        Activates the survival-model auto-tune for ``disconnect_duration_ms``
-        and ``disconnect_arm_delay_ms`` on the resulting recommendation —
-        the engine consults :func:`app.ai.models.survival_model.load_default`
-        at start() and fills in a p90-success cut length. Falls back to
-        the 15 s empirical floor if the model artefact is absent.
+        Standard disconnect remains a Kalirenegade-owned effect. Duration is
+        controlled by the event/session lifecycle rather than by a Native-only
+        survival-model parameter, so deterministic backend routing is kept.
         """
         rec = DisruptionRecommendation(
             name="Smart Disconnect",
@@ -429,22 +448,15 @@ class SmartDisruptionEngine:
             ]
             rec.estimated_effectiveness = self._scale(90, 100, intensity)
 
-        # Survival-model auto-tune — engine fills disconnect_duration_ms
-        # from the trained curve at start(). 0 here means "ask the model,"
-        # NativeEngine respects any non-zero operator override.
+        # Keep standard effects representable by the canonical Clumsy backend.
+        # The control plane owns any timed stop; these zero values document that
+        # the packet backend itself has no hidden arm, cut, or quiet phase.
         rec.params.setdefault("disconnect_duration_ms", 0)
         rec.params.setdefault("disconnect_arm_delay_ms", 0)
-        # Post-cut quiet window DEFAULTS TO 0 so manual authorized-lab
-        # diagnostics get an instant clean release. A quiet tail keeps
-        # dropping inbound packets after release and can blur the timing
-        # signal. Leave it available only as an explicit lab override.
         rec.params.setdefault("disconnect_quiet_after_ms", 0)
-        rec.params["_auto_tune_duration"] = True
-        rec.params["_auto_tune_target_p"] = self._scale(0.75, 0.95, intensity)
         rec.reasoning.append(
-            f"Auto-tune: survival model sets cut length for "
-            f"p{int(rec.params['_auto_tune_target_p']*100)} success "
-            f"(hive floor 15s, hard-kick floor 30s)"
+            "Timed stop, when requested, is owned by the DupeZ session "
+            "controller; the Clumsy packet semantics remain unchanged"
         )
 
         return rec

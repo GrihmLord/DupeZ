@@ -19,7 +19,7 @@ from app.firewall.modules.bandwidth import BandwidthModule
 from app.firewall.modules.ood import OODModule
 from app.firewall.modules.rst import RSTModule
 from app.firewall.modules.disconnect import DisconnectModule
-from app.firewall.modules.godmode import GodModeModule
+from app.firewall.extensions.godmode import GodModeExtensionModule
 
 # Core module registry — maps method name strings to module classes.
 # Phase 1/3/7 modules (statistical_models, tick_sync, stealth) register
@@ -37,12 +37,15 @@ CORE_MODULE_MAP = {
     "ood":        OODModule,
     "rst":        RSTModule,
     "disconnect": DisconnectModule,
-    "godmode":    GodModeModule,
+    # Namespaced Native-only extensions. Standard legacy keys remain solely
+    # as a development harness; production routing selects Kalirenegade.
+    "dupez.custom_lag": LagModule,
+    "dupez.godmode": GodModeExtensionModule,
 }
 
 __all__ = [
     "DropModule", "LagModule", "DuplicateModule", "ThrottleModule",
     "CorruptModule", "BandwidthModule", "OODModule", "RSTModule",
-    "DisconnectModule", "GodModeModule",
+    "DisconnectModule", "GodModeExtensionModule",
     "CORE_MODULE_MAP",
 ]

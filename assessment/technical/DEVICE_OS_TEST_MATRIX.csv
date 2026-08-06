@@ -1,0 +1,3 @@
+surface,os,arch,test_status,notes
+DupeZ-GPU,Windows,x64,PARTIAL,Source/tests validated; frozen artifact missing in current dist
+DupeZ-Compat,Windows,x64,BLOCKED,Frozen artifact missing in current dist

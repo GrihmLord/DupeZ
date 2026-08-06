@@ -64,6 +64,7 @@ class VoicePanel(QWidget):
         super().__init__(parent)
         self._view = parent_view
         self._voice_controller = None
+        self._advisor = None
         self._voice_available: Optional[bool] = None
         self._voice_probe_in_flight = False
         self._voice_probe_done.connect(self._on_voice_probe_done)
@@ -72,6 +73,11 @@ class VoicePanel(QWidget):
     @property
     def voice_controller(self) -> Any:
         return self._voice_controller
+
+    def set_advisor(self, advisor: Any) -> None:
+        """Use the same securely configured advisor as the Smart Ops panel."""
+
+        self._advisor = advisor
 
     # ------------------------------------------------------------------
     # UI construction
@@ -184,7 +190,9 @@ class VoicePanel(QWidget):
         self.voice_status_label.setStyleSheet(self._status_qss("#e040fb"))
         self.btn_voice_init.setEnabled(False)
 
-        advisor = LLMAdvisor() if _LLM_AVAILABLE else None
+        advisor = self._advisor
+        if advisor is None and _LLM_AVAILABLE:
+            advisor = LLMAdvisor()
         config = VoiceConfig(model_name=model_name)
 
         mic_data = self.voice_mic_combo.currentData()
@@ -264,7 +272,13 @@ class VoicePanel(QWidget):
     @pyqtSlot(object)
     def apply_command(self, config) -> None:
         """Apply voice command on the main thread (Qt-safe)."""
+        if not isinstance(config, dict):
+            self.set_status("Voice command was not understood — no action taken")
+            return
         action = config.get("action")
+        if action == "clarify":
+            self.set_status("Please name a specific diagnostic — no action taken")
+            return
         if action == "stop":
             self._view._on_stop()
             return
@@ -272,10 +286,18 @@ class VoicePanel(QWidget):
             self._view._on_disrupt()
             return
 
-        methods = config.get("methods", [])
-        params = config.get("params", {})
+        from app.core.validation import validate_disruption_config
+
+        validated = validate_disruption_config(config)
+        if validated is None:
+            self.set_status("Voice command was rejected — no action taken")
+            return
+        methods = validated["methods"]
+        params = validated["params"]
         if methods and self._view.selected_ip and self._view.controller:
-            log_info(f"VoiceCommand: applying {config.get('name', 'voice config')}")
+            log_info(
+                f"VoiceCommand: applying {validated.get('name', 'voice config')}"
+            )
             self._view.controller.disrupt_device(
                 self._view.selected_ip, methods, params)
             self._view._disruption_timers[self._view.selected_ip] = time.time()

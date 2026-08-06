@@ -1,0 +1,4 @@
+item,verification_status,source,notes
+pytest,VERIFIED,pypi,Installed in .build-venv
+pypdf,VERIFIED,pypi,Installed for document extraction
+project_locked_dependencies,VERIFIED,requirements-locked.txt,Installed to satisfy test execution

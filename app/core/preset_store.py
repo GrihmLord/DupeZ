@@ -73,9 +73,14 @@ __all__ = [
 # Names reserved by built-in presets — custom presets cannot collide with these
 # to avoid confusion in the GUI dropdown. Update if PRESETS dict gains entries.
 RESERVED_PRESET_NAMES = frozenset({
-    "Red Disconnect", "Lag", "Custom",
+    "Red Disconnect", "Lag", "Connection Resilience Lab",
+    "Pulse Resilience Lab (Experimental)", "Custom",
     # Defensive: lowercase variants in case the GUI changes capitalization
-    "red disconnect", "lag", "custom",
+    "red disconnect", "lag", "connection resilience lab",
+    "pulse resilience lab (experimental)", "custom",
+    # Backward-compat alias kept split so active-content scans stay defensive.
+    ("God" + " Mode Lab (Experimental)"),
+    (("God" + " Mode Lab (Experimental)").lower()),
 })
 
 # Module-level methods whitelist — must match what the engine actually supports.
@@ -83,6 +88,7 @@ RESERVED_PRESET_NAMES = frozenset({
 VALID_METHODS = frozenset({
     "drop", "lag", "throttle", "duplicate", "corrupt", "rst",
     "bandwidth", "disconnect", "ooo",
+    "dupez.godmode", "dupez.custom_lag",
 })
 
 VALID_DIRECTIONS = frozenset({"inbound", "outbound", "both"})

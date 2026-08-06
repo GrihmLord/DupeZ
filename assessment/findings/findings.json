@@ -1,0 +1,35 @@
+{
+  "summary": {
+    "critical": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 1,
+    "informational": 0
+  },
+  "items": [
+    {
+      "id": "F-001",
+      "severity": "HIGH",
+      "title": "Dist release preflight failure for signed artifact readiness",
+      "status": "OPEN"
+    },
+    {
+      "id": "F-002",
+      "severity": "MEDIUM",
+      "title": "Protected release scripts blocked by execution policy context",
+      "status": "OPEN"
+    },
+    {
+      "id": "F-003",
+      "severity": "MEDIUM",
+      "title": "Non-technical diligence evidence not provided",
+      "status": "OPEN"
+    },
+    {
+      "id": "F-004",
+      "severity": "LOW",
+      "title": "Partial performance and accessibility evidence in current run",
+      "status": "OPEN"
+    }
+  ]
+}

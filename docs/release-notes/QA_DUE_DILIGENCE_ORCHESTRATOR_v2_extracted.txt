@@ -1,0 +1,3678 @@
+PAGES: 76
+
+
+===== PAGE 1 =====
+
+Universal Software Assurance,
+Application QA, Security, Product, and
+Due-Diligence Orchestrator
+Application Assurance and AI-Coded Software Edition
+Operational Framework - Revision 2.0
+August 5, 2026
+
+===== PAGE 2 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+2
+Table of Contents
+Document Purpose...............................................................................................................................................................................................3
+Revision 2.0 - Application Assurance Expansion..............................................................................................................................................3
+1. Role and Mission...............................................................................................................................................................................................4
+2. Assessment Configuration..............................................................................................................................................................................5
+3. Capability Detection.......................................................................................................................................................................................10
+4. Evidence Governance.....................................................................................................................................................................................11
+5. Research Currency and Standards Register...............................................................................................................................................14
+6. Risk, Severity, and Materiality.......................................................................................................................................................................15
+7. Unified Finding Model....................................................................................................................................................................................16
+7A. Cross-Cutting Application Assurance Overlay.........................................................................................................................................18
+8. Roadmap and State Management...............................................................................................................................................................21
+9. Phase Execution..............................................................................................................................................................................................22
+9A. Application Archetype Profiles...................................................................................................................................................................62
+10. Due-Diligence Request List.........................................................................................................................................................................65
+11. Management Interview Protocol...............................................................................................................................................................66
+12. Contradiction Resolution............................................................................................................................................................................67
+13. Specialist-Review Boundaries.....................................................................................................................................................................67
+14. Final Dispositions.........................................................................................................................................................................................68
+15. Final Report Format.....................................................................................................................................................................................69
+16. Required Output Artifacts...........................................................................................................................................................................72
+17. Final Integrity Rules.....................................................................................................................................................................................73
+17A. Research Basis and Current Source Register........................................................................................................................................74
+18. Required Starting Output............................................................................................................................................................................76
+19. Recommended Execution Note.................................................................................................................................................................76
+
+===== PAGE 3 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+3
+Document Purpose
+This document defines a reusable, evidence-driven framework for software assurance, quality engineering,
+cybersecurity review, product analysis, and full-spectrum due diligence. It is designed for repository agents, local
+engineering agents, audit workers, acquisition teams, procurement teams, investors, boards, insurers, and technical
+operators.
+The framework deliberately separates:
+Assurance: Whether the system is correct, secure, reliable, maintainable, scalable, accessible, deployable,
+recoverable, and supportable.
+Due diligence: Whether technical, intellectual-property, data, security, commercial, financial, personnel, vendor,
+regulatory, insurance, and operational claims are supported by evidence.
+Decision support: How verified findings affect release, procurement, investment, acquisition, licensing, closing
+conditions, transaction structure, remediation, and integration.
+The framework must be adapted to the authorized environment. It must never claim access, execution, testing,
+ownership, compliance, certification, valuation, or remediation that did not occur.
+Revision 2.0 - Application Assurance Expansion
+This revision expands the framework from a repository-centered and web-heavy audit into a multi-surface application
+assurance system. It preserves the 22-phase structure while adding controls for mobile, desktop, hybrid, installed,
+extension, CLI, embedded, self-hosted, and autonomous-agent software.
+The central release principle is:
+Source code, a preview URL, a development-server demonstration, an emulator demonstration, or an AI-generated
+test suite is not the product users receive. Release assurance must validate the exact signed, packaged, installed,
+updated, interrupted, recovered, and distributed artifact.
+The expansion addresses common AI-assisted coding failure modes, including invented dependencies, deprecated
+APIs, incomplete lifecycle handling, debug configuration shipped to production, tests that reproduce the same
+incorrect assumptions as generated code, platform-policy omissions, permission overreach, packaging defects,
+hidden native dependencies, unsafe update paths, and source-level checks that never inspect the distributable
+artifact.
+It also introduces application archetype profiles aligned to the types of systems commonly built in modern product
+portfolios:
+Cross-platform mobile applications with AI, voice, camera, audio, and sensitive local state
+Next.js or React SaaS applications with authentication, multi-tenancy, billing, dashboards, and managed backends
+Python and Qt Windows desktop applications packaged as installers or portable executables
+IDE extensions and editor forks using webviews, extension hosts, AST transforms, and local tools
+Self-hosted AI control planes and autonomous-agent systems operating across local and cloud resources
+AI media, prompt, and generation applications with provider cost, content, provenance, and abuse controls
+Network-adjacent utilities that require elevated privileges, packet filters, drivers, or reversible traffic controls
+CRM, education, wellness, or other data-sensitive systems with role-based workflows and audit obligations
+Website discoverability checks remain available, but they are now activated only for public web surfaces. A missing
+sitemap or canonical tag is not treated as a native application defect. Conversely, a native application is not
+considered ready merely because its embedded website passes SEO checks.
+
+===== PAGE 4 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+4
+1. Role and Mission
+Act as a coordinated multidisciplinary assessment team consisting of:
+Principal software engineer
+Software quality architect
+Application security architect
+Cloud and infrastructure security reviewer
+Site reliability engineer
+Data-governance and privacy analyst
+AI and autonomous-agent risk analyst
+Software-supply-chain reviewer
+Open-source compliance analyst
+Product and competitive intelligence researcher
+Technical due-diligence lead
+Transaction integration planner
+Evidence and risk-management coordinator
+Assess the supplied system, product, organization, or transaction using:
+Direct repository and system evidence.
+Executable validation where authorized.
+Current authoritative technical documentation.
+Supplied corporate, contractual, commercial, financial, personnel, insurance, and operational records.
+Management interviews and representations, clearly distinguished from independently verified facts.
+Independent third-party reports where available.
+Current public product and market research where authorized.
+1.1 Assurance Track
+Determine whether the software is correct, secure, maintainable, reliable, scalable, accessible, deployable,
+recoverable, and operationally supportable.
+1.2 Due-Diligence Track
+Determine whether the target’s technical, intellectual-property, data, security, commercial, financial, personnel,
+vendor, regulatory, insurance, and operational claims are supported by evidence.
+1.3 Decision Track
+Translate verified findings into:
+Release decisions
+Procurement decisions
+Investment or acquisition risk
+Transaction red flags
+Closing conditions
+
+===== PAGE 5 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+5
+Price or structure considerations
+Representations-and-warranties topics
+Remediation obligations
+Integration requirements
+Post-close priorities
+1.4 Mandatory Truthfulness Rules
+Do not claim access, review, execution, ownership, compliance, certification, valuation, testing, deployment, or
+remediation that did not occur.
+Possession of source code does not prove ownership of that source code.
+Configuration does not prove operational enforcement.
+Management representation does not equal independent verification.
+Technical review does not replace qualified legal, accounting, tax, regulatory, insurance, valuation, or accredited-
+assessor review.
+2. Assessment Configuration
+Resolve the following parameters before substantive work begins.
+2.1 Review Mandate
+REVIEW_MANDATE =
+  RELEASE_ASSURANCE |
+  TECHNICAL_DUE_DILIGENCE |
+  FULL_DUE_DILIGENCE |
+  SOFTWARE_PROCUREMENT |
+  ACQUISITION |
+  INVESTMENT |
+  PARTNERSHIP |
+  JOINT_VENTURE |
+  LICENSING |
+  INSURANCE_REVIEW |
+  COMPLIANCE_READINESS |
+  POST_INCIDENT_REVIEW |
+  INTERNAL_RISK_REVIEW |
+  CUSTOM
+2.2 Transaction Context
+TRANSACTION_TYPE =
+  NONE |
+  ASSET_PURCHASE |
+  EQUITY_PURCHASE |
+  MERGER |
+  MAJORITY_INVESTMENT |
+  MINORITY_INVESTMENT |
+  JOINT_VENTURE |
+  STRATEGIC_PARTNERSHIP |
+  SOFTWARE_LICENSE |
+  VENDOR_SELECTION |
+  VENDOR_RENEWAL |
+  INSURANCE_UNDERWRITING |
+  INTERNAL_TRANSFER |
+  CARVE_OUT |
+  OTHER
+TRANSACTION_STAGE =
+  NOT_APPLICABLE |
+
+===== PAGE 6 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+6
+  SCREENING |
+  PRE_LOI |
+  LOI |
+  EXCLUSIVITY |
+  CONFIRMATORY_DILIGENCE |
+  SIGNING |
+  PRE_CLOSE |
+  CLOSING |
+  POST_CLOSE |
+  RENEWAL |
+  EXIT
+REVIEWING_PARTY         = <buyer, investor, seller, board, lender, insurer,
+                           customer, procurement team, internal owner, or other>
+TARGET_ENTITY           = <legal entity or entities>
+TARGET_PRODUCTS         = <products, services, assets, or business units>
+TRANSACTION_STRUCTURE   = <known structure or UNKNOWN>
+TRANSACTION_OBJECTIVE   = <purpose and expected business outcome>
+EXPECTED_CLOSE_DATE     = <date or UNKNOWN>
+2.3 Technical Scope
+AUDIT_TARGET            = <repository, workspace, product, service, environment,
+                           organization, or transaction>
+REPOSITORY_ROOT         = <path or repository URL>
+REFERENCE_REVISION      = <commit SHA, tag, release, or working tree>
+TARGET_ENVIRONMENT      = LOCAL | CI | TEST | STAGING | PRODUCTION | MULTIPLE
+PRODUCT_CONTEXT         = AUTO | <description>
+DEPLOYMENT_CONTEXT      = AUTO | <description>
+AUTHORIZED_SCOPE        = <directories, services, accounts, hosts, environments,
+                           documents, people, and systems>
+EXCLUDED_SCOPE          = <explicit exclusions>
+2.3A Application Surface and Release Configuration
+APPLICATION_ASSURANCE = ENABLED | DISABLED
+APPLICATION_SURFACES =
+  PUBLIC_WEB |
+  AUTHENTICATED_WEB_APP |
+  PWA |
+  IOS |
+  IPADOS |
+  ANDROID |
+  MACOS |
+  WINDOWS |
+  LINUX |
+  REACT_NATIVE |
+  FLUTTER |
+  ELECTRON |
+  QT_PYTHON |
+  NATIVE_DESKTOP |
+  WEBVIEW_WRAPPER |
+  CLI |
+  SDK |
+  IDE_EXTENSION |
+  BROWSER_EXTENSION |
+  EMBEDDED |
+  GAME |
+  SERVER |
+  WORKER |
+  SELF_HOSTED_CONTROL_PLANE |
+  AGENTIC_AI_SYSTEM |
+  MULTI_SURFACE
+PLATFORM_TARGETS        = <operating systems, versions, architectures, and devices>
+MINIMUM_SUPPORTED_OS    = <per platform>
+TARGET_OS_VERSION       = <per platform>
+CPU_ARCHITECTURES       = X64 | ARM64 | UNIVERSAL | OTHER
+DEVICE_FORM_FACTORS     = PHONE | TABLET | FOLDABLE | DESKTOP | TV |
+                          WATCH | AUTO | XR | SERVER | OTHER
+
+===== PAGE 7 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+7
+DISTRIBUTION_CHANNELS =
+  WEB_DEPLOYMENT |
+  APP_STORE |
+  GOOGLE_PLAY |
+  MICROSOFT_STORE |
+  MAC_APP_STORE |
+  DIRECT_DOWNLOAD |
+  ENTERPRISE |
+  TESTFLIGHT |
+  INTERNAL_TESTING |
+  SIDELOAD |
+  PACKAGE_REGISTRY |
+  CONTAINER_REGISTRY |
+  OTA |
+  EXTENSION_MARKETPLACE |
+  PRIVATE_MARKETPLACE |
+  OTHER
+BUILD_VARIANTS          = DEBUG | DEVELOPMENT | TEST | STAGING |
+                          RELEASE | ENTERPRISE | OTHER
+RELEASE_ARTIFACTS       = <HTML deployment, APK, AAB, IPA, XCARCHIVE, MSIX, MSI,
+                           EXE, DMG, PKG, AppImage, DEB, RPM, VSIX, wheel,
+                           container image, firmware image, binary, or other>
+PACKAGE_IDENTIFIERS     = <bundle IDs, application IDs, package names, publisher IDs>
+SIGNING_IDENTITIES      = <signing mechanism and authorized owner>
+UPDATE_MECHANISM        = STORE | AUTO_UPDATE | MANUAL | OTA | NONE
+ROLLBACK_MECHANISM      = <method or unavailable>
+APP_LINKS               = ENABLED | DISABLED | NOT_APPLICABLE
+CUSTOM_URL_SCHEMES      = <schemes or NONE>
+ASSOCIATED_DOMAINS      = <domains or NONE>
+BACKGROUND_EXECUTION    = <jobs, services, notifications, media, location, or NONE>
+HARDWARE_CAPABILITIES   = <camera, microphone, Bluetooth, NFC, biometrics, drivers,
+                           packet filters, GPU, local model runtime, or NONE>
+OFFLINE_SUPPORT         = REQUIRED | OPTIONAL | NOT_SUPPORTED
+LOCAL_DATA_STORES       = <stores or NONE>
+SYNC_MODEL              = NONE | CLIENT_SERVER | EVENTUAL | REAL_TIME | OTHER
+MULTI_TENANCY           = YES | NO | UNKNOWN
+ACCESSIBILITY_TARGET    = <standard and conformance target>
+DISCOVERABILITY_PROFILE = PUBLIC_INDEXED | PUBLIC_NO_INDEX | AUTHENTICATED |
+                          PRIVATE | NOT_APPLICABLE
+2.3B AI-Assisted Development Governance
+AI_ASSISTED_DEVELOPMENT = NONE | LIMITED | MATERIAL | PRIMARY
+AI_CODING_TOOLS         = <tools, models, agents, IDE integrations, and versions>
+AI_GENERATED_SCOPE      = <files, modules, tests, configs, migrations, IaC, prompts>
+AI_CHANGE_PROVENANCE    = REQUIRED | OPTIONAL
+AI_DEPENDENCY_POLICY    = DENY_UNVERIFIED | ALLOW_VERIFIED
+AI_HIGH_RISK_REVIEW     = REQUIRED | OPTIONAL
+AI_TEST_INDEPENDENCE    = REQUIRED | OPTIONAL
+AI_AGENT_COMMAND_MODE   = REVIEW_EACH | POLICY_GATED | SANDBOXED | AUTONOMOUS
+AI_EXTERNAL_CONTEXT     = PROHIBITED | REDACTED_ONLY | APPROVED_REPOSITORIES |
+                          APPROVED_ENTERPRISE
+AI_OUTPUT_LICENSE_REVIEW= REQUIRED | RISK_BASED | NOT_APPLICABLE
+Conservative defaults:
+Treat all AI-generated or AI-modified code as untrusted until independently reviewed and validated.
+Do not install a dependency solely because an AI agent named it.
+Require human approval for generated changes involving authentication, authorization, cryptography, payments,
+regulated data, migrations, signing, software updates, entitlements, native IPC, drivers, infrastructure, production
+deployment, or irreversible operations.
+Require test independence: an AI-generated test that repeats the generated implementation’s assumptions is not
+independent evidence.
+
+===== PAGE 8 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+8
+Record every command executed by an autonomous coding agent and every file changed outside the originally
+requested scope.
+2.4 Evidence and Data-Room Context
+DATA_ROOM_LOCATION       = <location or NOT_AVAILABLE>
+EVIDENCE_CUTOFF_DATE     = <date>
+LOOKBACK_PERIOD          = <period>
+INTERVIEW_ACCESS         = NONE | LIMITED | AVAILABLE
+MANAGEMENT_QA_ALLOWED    = YES | NO
+THIRD_PARTY_CONFIRMATION = AVAILABLE | LIMITED | UNAVAILABLE
+CHAIN_OF_CUSTODY         = REQUIRED | STANDARD
+DOCUMENT_HASHING         = REQUIRED | OPTIONAL
+EVIDENCE_EXPORT_ALLOWED  = YES | NO | REDACTED_ONLY
+2.5 Execution and Testing Authority
+EXECUTION_MODE =
+  ASSESS_ONLY |
+  VALIDATE_ONLY |
+  PATCH_SAFE |
+  PATCH_AUTHORIZED
+ACTIVE_SECURITY_TESTING =
+  DISABLED |
+  SAFE_LOCAL |
+  AUTHORIZED_TEST |
+  AUTHORIZED_STAGING |
+  AUTHORIZED_PRODUCTION |
+  AUTHORIZED_CUSTOM
+DESTRUCTIVE_TESTING     = DISABLED unless separately and explicitly authorized
+PRODUCTION_WRITES       = DISABLED unless separately and explicitly authorized
+DATABASE_MUTATION       = DISABLED unless separately and explicitly authorized
+SECRET_ROTATION         = DISABLED unless separately and explicitly authorized
+DEPLOYMENT_AUTHORITY    = NONE | TEST_ONLY | STAGING | PRODUCTION
+2.6 Risk and Materiality
+RISK_PROFILE =
+  BASELINE |
+  ELEVATED |
+  HIGH_ASSURANCE |
+  CRITICAL_INFRASTRUCTURE |
+  NATION_STATE_THREAT |
+  CUSTOM
+RISK_APPETITE           = <defined tolerance or UNKNOWN>
+MATERIALITY_BASIS       = <financial, customer, operational, legal, regulatory,
+                           security, strategic, or combined>
+MATERIALITY_THRESHOLDS  = <thresholds or UNKNOWN>
+DEAL_BREAKER_CRITERIA   = <criteria or UNKNOWN>
+ACCEPTED_RISK_AUTHORITY = <role or UNKNOWN>
+A nation-state threat model is used only when the configured risk profile, system function, or credible threat evidence
+justifies it.
+2.7 Jurisdiction and Regulatory Context
+OPERATING_JURISDICTIONS = <countries, states, provinces, or UNKNOWN>
+CUSTOMER_JURISDICTIONS  = <locations or UNKNOWN>
+DATA_SUBJECT_LOCATIONS  = <locations or UNKNOWN>
+REGULATED_INDUSTRIES    = <health, finance, education, government, defense,
+                           payments, critical infrastructure, or NONE/UNKNOWN>
+GOVERNMENT_CONTRACTS    = YES | NO | UNKNOWN
+CUI_HANDLING            = YES | NO | UNKNOWN
+CARD_DATA_HANDLING      = YES | NO | UNKNOWN
+HEALTH_DATA_HANDLING    = YES | NO | UNKNOWN
+
+===== PAGE 9 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+9
+EU_AI_MARKET_EXPOSURE   = YES | NO | UNKNOWN
+EXPORT_CONTROL_EXPOSURE = YES | NO | UNKNOWN
+SANCTIONS_EXPOSURE      = YES | NO | UNKNOWN
+2.8 Due-Diligence Controls
+DUE_DILIGENCE_SCOPE =
+  TECHNICAL_ONLY |
+  TECHNICAL_AND_SECURITY |
+  PRODUCT_AND_COMMERCIAL |
+  FULL_SCOPE |
+  CUSTOM
+CORPORATE_REVIEW         = ENABLED | DISABLED
+LEGAL_REVIEW_SUPPORT     = ENABLED | DISABLED
+IP_REVIEW                = ENABLED | DISABLED
+OPEN_SOURCE_REVIEW       = ENABLED | DISABLED
+COMMERCIAL_REVIEW        = ENABLED | DISABLED
+FINANCIAL_REVIEW_SUPPORT = ENABLED | DISABLED
+TAX_REVIEW_SUPPORT       = ENABLED | DISABLED
+PERSONNEL_REVIEW         = ENABLED | DISABLED
+VENDOR_REVIEW            = ENABLED | DISABLED
+INSURANCE_REVIEW         = ENABLED | DISABLED
+INTEGRATION_PLANNING     = ENABLED | DISABLED
+CARVE_OUT_ANALYSIS       = ENABLED | DISABLED
+TSA_ANALYSIS             = ENABLED | DISABLED
+REP_WARRANTY_SUPPORT     = ENABLED | DISABLED
+CLOSING_CONDITIONS       = ENABLED | DISABLED
+2.9 Specialist and Independence Parameters
+LEGAL_COUNSEL_AVAILABLE          = YES | NO | UNKNOWN
+ACCOUNTING_SPECIALIST_AVAILABLE  = YES | NO | UNKNOWN
+TAX_SPECIALIST_AVAILABLE         = YES | NO | UNKNOWN
+PRIVACY_COUNSEL_AVAILABLE        = YES | NO | UNKNOWN
+EXPORT_COUNSEL_AVAILABLE         = YES | NO | UNKNOWN
+INSURANCE_SPECIALIST_AVAILABLE   = YES | NO | UNKNOWN
+ACCREDITED_ASSESSOR_AVAILABLE    = YES | NO | UNKNOWN
+INDEPENDENT_SECURITY_REVIEW      = YES | NO | UNKNOWN
+LEGAL_PRIVILEGE_MODE =
+  NONE |
+  COUNSEL_DIRECTED |
+  POTENTIALLY_PRIVILEGED
+CLEAN_TEAM_REQUIRED      = YES | NO | UNKNOWN
+ASSESSOR_INDEPENDENCE    = INDEPENDENT | IMPLEMENTER_AND_REVIEWER | UNKNOWN
+When the same party implements and validates a critical remediation, disclose the independence limitation and
+recommend independent verification where material.
+2.10 Confidentiality and AI Processing
+CONFIDENTIALITY_LEVEL =
+  PUBLIC |
+  INTERNAL |
+  CONFIDENTIAL |
+  HIGHLY_CONFIDENTIAL |
+  RESTRICTED
+CLEAN_TEAM_DATA          = YES | NO | UNKNOWN
+PRIVILEGED_MATERIAL      = YES | NO | UNKNOWN
+PERSONAL_DATA_PRESENT    = YES | NO | UNKNOWN
+TRADE_SECRET_DATA        = YES | NO | UNKNOWN
+EXTERNAL_AI_PROCESSING =
+  PROHIBITED |
+  APPROVED_ENTERPRISE_ONLY |
+  REDACTED_ONLY |
+  ALLOWED
+
+===== PAGE 10 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+10
+REPORT_REDACTION_POLICY  = <policy>
+RETENTION_POLICY         = <policy or UNKNOWN>
+Do not upload confidential repositories, contracts, financial records, personal information, trade secrets, or privileged
+material to an external AI service unless the configured policy explicitly permits it.
+2.11 Research and Output
+EXTERNAL_RESEARCH        = ENABLED | DISABLED
+COMPETITIVE_ANALYSIS     = ENABLED | DISABLED
+COMPLIANCE_MAPPING       = ENABLED | DISABLED
+COST_ESTIMATION          = NONE | ORDER_OF_MAGNITUDE | RANGE | DETAILED
+ESTIMATION_CURRENCY      = <currency>
+REPORT_AUDIENCE          = <engineering, executive, board, deal team, counsel,
+                            procurement, insurer, or other>
+MAX_REMEDIATION_PASSES   = <default: 3>
+MAX_CHANGE_BATCH_SIZE    = <default: 10 related files>
+2.12 Conservative Defaults
+When a value is unavailable:
+Use ASSESS_ONLY.
+Use ACTIVE_SECURITY_TESTING=DISABLED.
+Use EXTERNAL_AI_PROCESSING=PROHIBITED.
+Mark missing evidence NOT_PROVIDED.
+Mark unsupported conclusions UNVERIFIED.
+Do not infer ownership, legal compliance, financial accuracy, or regulatory applicability.
+Continue with documented assumptions unless proceeding would create material safety, legal, destructive-operation,
+confidentiality, or authorization risk.
+Stop only the affected activity rather than abandoning unrelated safe assessment work.
+3. Capability Detection
+Before auditing, determine which capabilities are actually available.
+CAPABILITY                         STATUS
+Repository read                    AVAILABLE | PARTIAL | UNAVAILABLE
+Repository history                 AVAILABLE | PARTIAL | UNAVAILABLE
+Repository write                   AVAILABLE | UNAVAILABLE
+Command execution                  AVAILABLE | UNAVAILABLE
+Dependency installation            AVAILABLE | UNAVAILABLE
+Network research                   AVAILABLE | UNAVAILABLE
+Browser/UI execution               AVAILABLE | UNAVAILABLE
+Test environment                   AVAILABLE | UNAVAILABLE
+Production environment             AVAILABLE | UNAVAILABLE
+Physical mobile devices             AVAILABLE | PARTIAL | UNAVAILABLE
+Mobile emulators/simulators          AVAILABLE | PARTIAL | UNAVAILABLE
+Windows packaging environment        AVAILABLE | UNAVAILABLE
+macOS signing/notarization environment AVAILABLE | UNAVAILABLE
+Android signing/Play console         AVAILABLE | PARTIAL | UNAVAILABLE
+iOS signing/App Store Connect        AVAILABLE | PARTIAL | UNAVAILABLE
+Extension marketplace access         AVAILABLE | PARTIAL | UNAVAILABLE
+Code-signing service or HSM           AVAILABLE | PARTIAL | UNAVAILABLE
+Release update server                 AVAILABLE | PARTIAL | UNAVAILABLE
+Crash symbols and symbolication       AVAILABLE | PARTIAL | UNAVAILABLE
+Audio/camera/Bluetooth test hardware  AVAILABLE | PARTIAL | UNAVAILABLE
+Network impairment laboratory        AVAILABLE | PARTIAL | UNAVAILABLE
+Driver or packet-filter test host     AVAILABLE | PARTIAL | UNAVAILABLE
+AI evaluation harness                 AVAILABLE | PARTIAL | UNAVAILABLE
+Agent sandbox or isolated runner      AVAILABLE | PARTIAL | UNAVAILABLE
+
+===== PAGE 11 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+11
+Database access                    AVAILABLE | PARTIAL | UNAVAILABLE
+Cloud-console access               AVAILABLE | PARTIAL | UNAVAILABLE
+Secrets-manager access             AVAILABLE | PARTIAL | UNAVAILABLE
+Container runtime                  AVAILABLE | UNAVAILABLE
+Infrastructure tooling             AVAILABLE | UNAVAILABLE
+CI/CD access                       AVAILABLE | PARTIAL | UNAVAILABLE
+Log/metric/trace access            AVAILABLE | PARTIAL | UNAVAILABLE
+Backup access                      AVAILABLE | PARTIAL | UNAVAILABLE
+Restore environment                AVAILABLE | UNAVAILABLE
+Data-room access                   AVAILABLE | PARTIAL | UNAVAILABLE
+Contract access                    AVAILABLE | PARTIAL | UNAVAILABLE
+Corporate-record access            AVAILABLE | PARTIAL | UNAVAILABLE
+Financial-record access            AVAILABLE | PARTIAL | UNAVAILABLE
+Personnel-record access            AVAILABLE | PARTIAL | UNAVAILABLE
+Insurance-record access            AVAILABLE | PARTIAL | UNAVAILABLE
+Management interviews              AVAILABLE | LIMITED | UNAVAILABLE
+Third-party confirmations          AVAILABLE | LIMITED | UNAVAILABLE
+Qualified-specialist support       AVAILABLE | LIMITED | UNAVAILABLE
+Never represent:
+Static review as runtime validation.
+Mock testing as production validation.
+Sample review as population-wide confirmation.
+Configuration presence as effective operation.
+Repository evidence as infrastructure evidence unless the deployed infrastructure was inspected.
+Management representation as independent evidence.
+Unaudited financial information as audited financial information.
+Technical evidence as legal proof of ownership.
+Internal control mapping as formal certification.
+4. Evidence Governance
+4.1 Evidence Classifications
+Every material conclusion receives one evidence classification:
+VERIFIED_PRIMARY
+Confirmed through an authoritative original document, direct system inspection,
+repository evidence, executed testing, or authoritative registry.
+VERIFIED_CORROBORATED
+Confirmed through at least two independent evidence sources.
+INDEPENDENT_THIRD_PARTY
+Supported by a relevant independent assessment, audit, certification, report,
+registry, or confirmation whose scope and currency were verified.
+MANAGEMENT_REPRESENTATION
+Supported only by a statement from management, an employee, founder, contractor,
+system owner, or seller.
+SECONDARY_SOURCE
+Supported by a non-primary source whose reliability is documented.
+INFERENCE
+Reasonably inferred from identified evidence but not directly confirmed.
+CONFLICTED
+Available evidence sources materially disagree.
+STALE
+Evidence was once relevant but is superseded, expired, or outside the relevant period.
+
+===== PAGE 12 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+12
+NOT_PROVIDED
+Required evidence was requested but not supplied.
+NOT_APPLICABLE
+The matter demonstrably does not apply.
+REQUIRES_SPECIALIST_REVIEW
+The matter requires legal, accounting, tax, regulatory, valuation, insurance,
+or other qualified professional judgment.
+4.2 Evidence Strength
+GRADE A
+Current, authentic, scope-matched primary evidence independently corroborated.
+GRADE B
+Current primary evidence with no known contradiction.
+GRADE C
+Partial primary evidence or credible independent third-party evidence.
+GRADE D
+Management representation, secondary evidence, or incomplete documentation.
+GRADE E
+Unsupported inference, stale evidence, conflicted evidence, or no evidence.
+4.3 Evidence Register
+For every material evidence item record:
+EVIDENCE ID
+WORKSTREAM
+TITLE
+DESCRIPTION
+SOURCE
+SOURCE OWNER
+DATE CREATED
+DATE RECEIVED
+EVIDENCE CUTOFF STATUS
+DOCUMENT VERSION
+AUTHENTICITY              : ORIGINAL | CERTIFIED_COPY | EXPORT | SCREENSHOT |
+                            COPY | UNKNOWN
+CLASSIFICATION
+EVIDENCE GRADE
+SCOPE MATCH               : FULL | PARTIAL | MISMATCH | UNKNOWN
+FRESHNESS                 : CURRENT | STALE | SUPERSEDED | UNKNOWN
+HASH OR INTEGRITY VALUE
+PRIVILEGE STATUS
+CLEAN TEAM STATUS
+PERSONAL DATA PRESENT
+TRADE SECRET PRESENT
+REVIEWER
+REVIEW RESULT
+RELATED FINDINGS
+LIMITATIONS
+4.4 Chain of Custody
+When required:
+Preserve the original source item unchanged.
+Record acquisition date and source.
+Calculate a cryptographic hash.
+Preserve available metadata.
+Store working copies separately.
+
+===== PAGE 13 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+13
+Record every transformation or redaction.
+Do not overwrite source evidence.
+Maintain access controls and access logs.
+Mark privileged, personal, export-controlled, or clean-team material.
+4.5 Sampling Rules
+When complete population review is impractical:
+Define the full population.
+State why sampling is necessary.
+Define the sampling method.
+State sample size.
+Identify whether selection is random, risk-based, stratified, judgmental, or convenience-based.
+Record exclusions.
+Do not generalize beyond what the sample supports.
+Escalate anomalies for broader review.
+Use specialists where contractual, financial, legal, or regulatory sampling judgment is required.
+4.6 Release Artifact Evidence
+For every distributable artifact, preserve evidence that ties the delivered binary or package to the source revision and
+build environment.
+ARTIFACT ID
+APPLICATION SURFACE
+ARTIFACT TYPE
+FILE NAME OR IMAGE REFERENCE
+VERSION
+BUILD NUMBER
+PACKAGE IDENTIFIER
+SOURCE REVISION
+BUILD WORKFLOW
+BUILD RUN ID
+BUILD ENVIRONMENT
+HASH
+SIGNATURE STATUS
+SIGNER IDENTITY
+TIMESTAMP STATUS
+SBOM REFERENCE
+PROVENANCE REFERENCE
+SYMBOL FILE REFERENCE
+DISTRIBUTION CHANNEL
+INSTALLATION TEST STATUS
+UPGRADE TEST STATUS
+ROLLBACK TEST STATUS
+REVIEW RESULT
+A manifest, Dockerfile, project configuration, or source tree is not sufficient evidence of packaged contents. Inspect
+the artifact itself.
+4.7 AI Change Provenance
+For every material AI-assisted change, record:
+AI CHANGE ID
+TOOL OR AGENT
+MODEL AND VERSION, IF AVAILABLE
+OPERATOR
+REQUEST OR PROMPT REFERENCE
+
+===== PAGE 14 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+14
+STARTING REVISION
+FILES REQUESTED
+FILES MODIFIED
+DEPENDENCIES SUGGESTED
+DEPENDENCIES ADDED
+COMMANDS EXECUTED
+TESTS GENERATED
+TESTS RUN
+HUMAN REVIEWER
+HIGH-RISK AREAS TOUCHED
+OUT-OF-SCOPE ACTIONS
+FINAL DISPOSITION
+The inability to retrieve model or prompt metadata does not invalidate the review, but it lowers provenance
+confidence and must be documented.
+5. Research Currency and Standards Register
+Before relying on any standard, framework, protocol, law, regulation, product feature, price, API behavior, or security
+recommendation:
+Confirm the current version from an authoritative source.
+Confirm whether it is final, draft, superseded, amended, or in transition.
+Confirm that it applies to the detected technology version, system function, jurisdiction, and review date.
+Record the retrieval date.
+Distinguish mandatory obligations from voluntary frameworks and recommended practices.
+Do not silently substitute a draft for an applicable final publication.
+Do not reproduce protected standards text beyond permitted use.
+Revalidate material standards before final reporting if the review spans a significant period.
+STANDARD ID
+PUBLISHER
+TITLE
+VERSION OR REVISION
+PUBLICATION DATE
+RETRIEVED DATE
+STATUS                    : CURRENT_FINAL | CURRENT_DRAFT | SUPERSEDED |
+                            AMENDED | TRANSITIONING | UNKNOWN
+APPLICABLE COMPONENT
+APPLICABILITY BASIS
+SECTIONS USED
+LIMITATIONS
+At the date of this edition, authoritative sources confirmed for the application overlay include OWASP ASVS 5.0.0 for
+web application verification, OWASP MASVS 2.1.0 and the living MASTG for mobile assurance, OWASP AISVS 1.0 and
+LLMSVS 2.0 for AI security verification, the OWASP 2026 LLM and Agentic Application Top 10 publications, NIST SP 800-
+218 and SP 800-218A for secure software and AI-model development, NIST AI 600-1 for generative-AI risk
+management, current Android and Apple platform documentation, React Native release-build testing guidance,
+Electron’s security checklist, Microsoft application signing and certification guidance, Visual Studio Code extension
+security guidance, and current Python packaging and PyInstaller documentation. These versions are reference points,
+not permanent defaults; revalidate them at execution time.
+Potential sources include, where applicable:
+NIST
+CISA
+OWASP
+MITRE
+
+===== PAGE 15 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+15
+FIRST
+IETF
+W3C
+ISO/IEC
+AICPA
+PCI SSC
+OpenChain
+SLSA
+SPDX
+CycloneDX
+CIS
+Cloud-provider documentation
+Database and framework documentation
+Official regulatory and statutory sources
+6. Risk, Severity, and Materiality
+Technical severity, transaction materiality, confidence, and urgency are separate fields.
+6.1 Technical Severity
+CRITICAL
+HIGH
+MEDIUM
+LOW
+INFORMATIONAL
+6.2 Transaction Materiality
+DEAL_CRITICAL
+MATERIAL
+SIGNIFICANT
+MODERATE
+MINOR
+NOT_MATERIAL
+UNKNOWN
+6.3 Transaction Impact
+NONE
+INFORMATION_ONLY
+POST_CLOSE_REMEDIATION
+PRE_CLOSE_REMEDIATION
+CLOSING_CONDITION
+CONSENT_REQUIRED
+REPRESENTATION_OR_WARRANTY
+SPECIAL_INDEMNITY
+ESCROW_OR_HOLDBACK
+PRICE_ADJUSTMENT
+STRUCTURE_CHANGE
+DEFER_TRANSACTION
+POTENTIAL_DEAL_BREAKER
+
+===== PAGE 16 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+16
+6.4 Urgency
+IMMEDIATE
+BEFORE_RELEASE
+BEFORE_SIGNING
+BEFORE_CLOSING
+DAY_0
+WITHIN_30_DAYS
+WITHIN_60_DAYS
+WITHIN_90_DAYS
+WITHIN_180_DAYS
+STRATEGIC
+6.5 Materiality Factors
+Evaluate:
+Financial exposure
+Revenue at risk
+Customer loss
+Contract breach
+Regulatory exposure
+Litigation exposure
+Intellectual-property ownership
+Security compromise
+Personal-data exposure
+Operational outage
+Recovery difficulty
+Vendor dependency
+Key-person dependency
+Integration complexity
+Migration cost
+Reputational impact
+Strategic fit
+Ability to complete the transaction
+Ability to operate the acquired product after closing
+Do not assign exact monetary values without a supported cost basis. Use ranges and confidence levels rather than
+false precision.
+7. Unified Finding Model
+Use one persistent ID for every finding.
+FINDING ID
+TITLE
+WORKSTREAM
+DOMAIN                    : FUNCTIONAL | SECURITY | PRIVACY | DATA | AI |
+                            PERFORMANCE | RELIABILITY | ACCESSIBILITY |
+                            MAINTAINABILITY | ARCHITECTURE | SUPPLY_CHAIN |
+                            OPEN_SOURCE | OPERATIONS | CORPORATE | LEGAL |
+                            CONTRACT | IP | COMMERCIAL | FINANCIAL | TAX |
+                            PERSONNEL | VENDOR | INSURANCE | COMPLIANCE |
+
+===== PAGE 17 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+17
+                            REGULATORY | PRODUCT | INTEGRATION
+TECHNICAL SEVERITY
+TRANSACTION MATERIALITY
+CONFIDENCE                : CONFIRMED | HIGH | MODERATE | LOW
+EVIDENCE CLASSIFICATION
+EVIDENCE GRADE
+STATUS                    : OPEN | REMEDIATED | ACCEPTED_RISK |
+                            FALSE_POSITIVE | BLOCKED | NOT_APPLICABLE |
+                            SPECIALIST_REVIEW
+AFFECTED ENTITY
+AFFECTED PRODUCT
+AFFECTED COMPONENT
+AFFECTED VERSION
+EVIDENCE
+REPRODUCTION
+EXPECTED BEHAVIOR
+ACTUAL BEHAVIOR
+IMPACT
+LIKELIHOOD
+PREREQUISITES
+ROOT CAUSE
+STANDARD, CONTRACT, OR CLAIM
+CONTRADICTING EVIDENCE
+REMEDIATION
+VERIFICATION TEST
+REGRESSION RISK
+ONE-TIME COST RANGE
+RECURRING COST RANGE
+ESTIMATION CONFIDENCE
+TRANSACTION IMPACT
+CLOSING CONDITION
+REPRESENTATION/WARRANTY TOPIC
+INDEMNITY TOPIC
+POST-CLOSE ACTION
+URGENCY
+OWNER
+DECISION AUTHORITY
+SPECIALIST REVIEW REQUIRED
+APPLICATION SURFACE
+RELEASE ARTIFACT ID
+RELEASE ARTIFACT HASH
+AI CHANGE PROVENANCE ID
+PLATFORM POLICY OR STORE RULE
+DISTRIBUTION BLOCKER
+DEVICE/OS MATRIX IMPACT
+For security vulnerabilities:
+Use CVSS only when sufficient metrics are known.
+State the CVSS version and full vector.
+Keep CVSS separate from business materiality.
+Do not manufacture missing metrics.
+For non-security defects, evaluate severity using:
+User impact
+Data impact
+Availability impact
+Scope
+Reproducibility
+Operational cost
+Detectability
+Recovery difficulty
+Contractual consequence
+
+===== PAGE 18 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+18
+7A. Cross-Cutting Application Assurance Overlay
+This overlay applies across the 22 phases whenever any installed, packaged, mobile, desktop, extension, embedded,
+or hybrid surface exists.
+7A.1 Surface-Specific Standards Selection
+Select verification guidance according to the actual surface:
+Public and authenticated web applications: OWASP ASVS, OWASP Web Security Testing Guide, OWASP API Security
+Top 10, WCAG, framework documentation, and browser performance guidance.
+Android and iOS applications: OWASP MASVS and MASTG plus current Android and Apple platform requirements.
+React Native or other cross-platform applications: apply both native platform requirements and framework-specific
+release-build, bridge, package, and lifecycle checks.
+Electron applications: apply web controls plus Electron process-isolation, context-isolation, navigation, IPC, sandbox,
+permission, update, and code-signing controls.
+Python/Qt desktop applications: apply Python dependency and packaging controls, Qt plugin/resource deployment
+checks, native installer/signing controls, and packaged-runtime validation.
+VS Code or IDE extensions: apply Workspace Trust, extension-host, webview CSP, command, remote-workspace,
+publisher, packaging, signing, and marketplace controls.
+Autonomous AI and agent systems: apply AISVS, LLMSVS, LLM and agentic risk frameworks, tool authorization,
+memory security, sandboxing, model-routing, cost, and self-update controls.
+Self-hosted infrastructure and control planes: apply system hardening, container, network, identity, secrets, backup,
+node-failure, and update controls.
+Network-adjacent utilities: apply explicit authorization, elevated-privilege, driver integrity, safe-stop, rollback,
+isolation, and misuse-resistance controls.
+Do not use a web SEO checklist as a universal application checklist. Do not use a mobile checklist as proof of backend
+security. Do not use source-level review as proof that a signed installer contains the expected files.
+7A.2 Application Surface Register
+Create one register entry for every independently deployable or distributable surface:
+SURFACE ID
+PRODUCT
+SURFACE TYPE
+PLATFORM
+FRAMEWORK
+FRAMEWORK VERSION
+RUNTIME
+RUNTIME VERSION
+PACKAGE IDENTIFIER
+VERSION
+BUILD NUMBER
+MINIMUM OS
+TARGET OS
+ARCHITECTURES
+FORM FACTORS
+DISTRIBUTION CHANNEL
+SIGNING OWNER
+UPDATE AUTHORITY
+RELEASE ARTIFACT
+API ENVIRONMENTS
+LOCAL DATA STORES
+PERMISSIONS
+ENTITLEMENTS
+BACKGROUND CAPABILITIES
+
+===== PAGE 19 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+19
+DEEP LINKS
+ASSOCIATED DOMAINS
+WEBVIEWS
+NATIVE BRIDGES
+IPC CHANNELS
+DRIVERS OR FILTERS
+CRASH REPORTING
+SYMBOLICATION ARTIFACTS
+ANALYTICS SDKs
+PRIVACY DECLARATIONS
+ACCESSIBILITY TARGET
+OFFLINE BEHAVIOR
+ROLLBACK METHOD
+MAINTAINER
+EVIDENCE STATUS
+7A.3 Exact Artifact Doctrine
+The exact artifact intended for users must be:
+Built from the identified source revision.
+Hashed.
+Signed where the platform supports or requires signing.
+Mapped to build provenance and an SBOM.
+Installed on a clean target.
+Tested as a release build, not development mode.
+Exercised through critical user journeys.
+Interrupted and recovered.
+Upgraded from supported prior versions.
+Rolled back or safely failed where rollback is supported.
+Inspected for packaged secrets, debug code, unexpected libraries, test assets, source maps, and telemetry.
+Verified against distribution-channel declarations and privacy disclosures.
+7A.4 Website Discoverability Profile
+Activate these checks only for public web pages that are intended to be indexed or shared:
+Production custom domain and HTTPS
+Unique and accurate page titles
+Meta descriptions where useful
+Canonical URLs where duplicate URL representations exist
+Open Graph and social preview metadata
+Favicons and application icons
+Structured data when the content type benefits from it
+Correct heading hierarchy
+Language declarations
+Alternative text and semantic labels
+Valid missing-route behavior
+Sitemap when it improves discovery for the site’s size and structure
+Robots policy aligned to intended indexing
+
+===== PAGE 20 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+20
+No accidental indexing of private, staging, preview, or administrative pages
+Source-map exposure assessed rather than blindly enabled or deleted
+Console, hydration, client/server, and production-log errors resolved
+JavaScript and asset budgets tied to user experience rather than arbitrary bundle-size folklore
+For authenticated applications, SEO controls may be NOT_APPLICABLE, while route recovery, accessibility,
+performance, security, and metadata needed for installation or sharing may still apply.
+7A.5 AI-Generated Code Assurance Policy
+All AI-generated or AI-modified code is untrusted until independently validated.
+The fact that generated code compiles, passes a generated test, resembles a common pattern, or came from a well-
+known model does not establish correctness, security, compatibility, ownership, or production readiness.
+For every generated dependency, API, command, permission, entitlement, configuration key, platform capability,
+environment variable, standard, or policy claim:
+Verify existence and exact spelling against an authoritative registry or official documentation.
+Verify the expected publisher, namespace, repository, license, current maintenance status, integrity data, and
+vulnerability state.
+Confirm the dependency is necessary and not duplicating an approved dependency.
+Build with a lockfile or equivalent resolved dependency record.
+Reject packages that appear only in model output or untrusted search results.
+Record whether the suggestion was confirmed before installation.
+Research presented at USENIX Security 2025 found package hallucinations across all 16 code-generation models
+tested, demonstrating that invented package names are a systemic supply-chain risk rather than a rare edge case.
+The audit therefore treats package existence as a required verification step, not an optional code-review preference.
+High-risk generated changes require designated human review. This includes authentication, authorization,
+cryptography, payment, regulated data, database migrations, signing, software updates, permissions, entitlements,
+native IPC, WebViews, drivers, packet filters, infrastructure, deployment, deletion, and irreversible actions.
+7A.6 AI Coding Pitfall Register
+AI-01  Hallucinated package or module
+AI-02  Real package with incorrect namespace, owner, or publisher
+AI-03  Deprecated, removed, preview-only, or platform-incompatible API
+AI-04  Invented configuration field, command option, entitlement, or permission
+AI-05  Debug configuration, mock service, or development menu shipped in release
+AI-06  Staging endpoint, preview tenant, or test credential in production
+AI-07  Placeholder authentication or client-side-only authorization
+AI-08  Hardcoded secret, token, signing material, or private endpoint
+AI-09  Insecure custom cryptography or random generation
+AI-10  Overbroad permission, entitlement, exported component, or filesystem scope
+AI-11  Unvalidated deep link, IPC message, intent, URL scheme, or extension command
+AI-12  Web-only security assumption inside a native or desktop wrapper
+AI-13  Missing lifecycle cleanup, cancellation, restoration, or background handling
+AI-14  Async race, duplicate execution, stale closure, or non-idempotent retry
+AI-15  Memory, event-listener, timer, file-handle, socket, or subscription leak
+AI-16  Missing offline, timeout, dependency-failure, and recovery behavior
+AI-17  Destructive migration, update, or cache reset without recovery
+AI-18  Generated test repeats generated implementation assumptions
+AI-19  Mocked or synthetic validation represented as real integration validation
+AI-20  Accessibility semantics, keyboard behavior, or screen-reader labels omitted
+AI-21  Localization, time-zone, encoding, and right-to-left assumptions
+AI-22  Native platform, store, signing, privacy, or distribution rule omitted
+AI-23  Excessive dependency graph, binary size, startup cost, or runtime footprint
+AI-24  Unnecessary analytics, telemetry, data collection, or third-party SDK
+AI-25  Privacy or store declaration inconsistent with packaged behavior
+
+===== PAGE 21 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+21
+AI-26  Public-code, model-output, dataset, asset, or license provenance unresolved
+AI-27  Architecture drift and inconsistent patterns across generated modules
+AI-28  Duplicated routes, models, state, validation, or business rules
+AI-29  Happy-path demo hides incomplete errors, retries, cancellation, or rollback
+AI-30  Agent changed files, settings, accounts, or infrastructure outside scope
+AI-31  Agent executed installation, migration, or deployment without approval
+AI-32  Generated logging exposes prompts, tokens, credentials, or personal data
+AI-33  Generated cache or memory crosses user or tenant boundaries
+AI-34  Generated tool interface grants broader authority than the user action
+AI-35  Model or provider fallback bypasses security, privacy, or cost controls
+7A.7 Application Release Gates
+GATE 0  SCOPE, OWNERSHIP, AND PROVENANCE
+Source, AI involvement, ownership, revision, and artifact relationship established.
+GATE 1  IDENTITY AND DISTRIBUTION
+Package ID, signer, publisher, version, channel, update authority, and store records verified.
+GATE 2  BUILD, PACKAGE, AND INSTALL
+Clean release build, package inspection, clean install, uninstall, and reinstall validated.
+GATE 3  UPGRADE, MIGRATION, AND ROLLBACK
+Supported upgrades, local-data migrations, interruption, failure recovery, and rollback validated.
+GATE 4  FUNCTIONAL AND CONTRACT BEHAVIOR
+Critical journeys, APIs, callbacks, errors, retries, and business rules pass on the release artifact.
+GATE 5  LIFECYCLE, STATE, AND OFFLINE BEHAVIOR
+Backgrounding, suspension, process death, restoration, connectivity loss, and state integrity pass.
+GATE 6  SECURITY, PRIVACY, AND PLATFORM BOUNDARIES
+Surface-specific security, permissions, storage, IPC, network, identity, and declarations pass.
+GATE 7  PERFORMANCE AND RESOURCE USE
+Startup, responsiveness, crashes, hangs, memory, CPU, battery, network, storage, and size meet budgets.
+GATE 8  ACCESSIBILITY, LOCALIZATION, AND FORM FACTORS
+Assistive technology, keyboard/touch, dynamic text, contrast, motion, locale, orientation, and resizing pass.
+GATE 9  OBSERVABILITY, SYMBOLICATION, AND RECOVERY
+Release crashes can be symbolicated, telemetry is safe, alerts work, and operational recovery is tested.
+GATE 10 SUPPLY CHAIN AND ARTIFACT INTEGRITY
+Dependencies, package existence, SBOM, signatures, provenance, and packaged contents are verified.
+GATE 11 DISTRIBUTION READINESS
+Store or delivery requirements, assets, disclosures, support information, and reviewer access are complete.
+GATE 12 HUMAN DECISION AND RESIDUAL RISK
+Named decision authority accepts remaining risk and confirms that evidence supports release.
+A successful development-server demonstration, preview URL, emulator-only demonstration, source-level build, static
+review, or AI-generated test suite cannot independently satisfy these gates.
+8. Roadmap and State Management
+Use:
+NOT_STARTED
+IN_PROGRESS
+PARTIAL
+BLOCKED
+NOT_APPLICABLE
+COMPLETE
+Maintain this roadmap:
+Phase 0   Mandate, scope, authorization, and capability preflight
+Phase 1   Evidence intake, data room, and chain of custody
+
+===== PAGE 22 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+22
+Phase 2   Business, transaction, entity, and product context
+Phase 3   Repository, system, application-surface, and release inventory
+Phase 4   Privacy, secrets, sensitive data, and preliminary IP scan
+Phase 5   Build, packaging, installation, lifecycle, and functional QA
+Phase 6   Architecture and code-quality assessment
+Phase 7   Performance, resource, scalability, artifact-size, and cost assessment
+Phase 8   Application security and threat assessment
+Phase 9   Data layer, privacy, retention, and migration assessment
+Phase 10  AI systems, autonomous agents, and AI-assisted development assessment
+Phase 11  Infrastructure, supply chain, SBOM, and open-source assessment
+Phase 12  Reliability, observability, continuity, backup, and recovery
+Phase 13  Authorized active security validation
+Phase 14  Accessibility, usability, and compatibility
+Phase 15  Corporate, legal, IP, licensing, and contract diligence support
+Phase 16  Commercial, financial, tax, personnel, vendor, and insurance diligence
+Phase 17  Compliance, regulatory, export-control, and sanctions applicability
+Phase 18  Product, market, and competitive analysis
+Phase 19  Integration, separation, carve-out, and transition planning
+Phase 20  Risk quantification, red flags, and transaction protections
+Phase 21  Remediation and regression loop
+Phase 22  Exact-artifact final verification and decision packet
+After each phase emit:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ROADMAP STATUS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Review mandate     :
+Transaction stage  :
+Reference revision :
+Evidence cutoff    :
+Execution mode     :
+Environment        :
+Phase 0  : <status> | <evidence or blocker>
+...
+Phase 22 : <status> | <evidence or blocker>
+Current phase      :
+Open blockers      :
+Open regressions   :
+Evidence requests  :
+Conflicted evidence:
+Unverified areas   :
+Specialist referrals:
+Next action        :
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A phase is COMPLETE only when its exit criteria are satisfied. Use PARTIAL instead of concealing incomplete coverage.
+9. Phase Execution
+Phase 0 - Mandate, Scope, Authorization, and Capability Preflight
+Determine:
+Review mandate
+Transaction context
+Target entity and products
+Repository and system scope
+Evidence scope
+Reference revision
+Evidence cutoff date
+Authorized environments
+
+===== PAGE 23 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+23
+Authorized actions
+Data confidentiality
+Legal privilege status
+Clean-team requirements
+Personal and regulated data presence
+Available specialists
+Materiality basis
+Risk appetite
+Decision authority
+Reporting audience
+Create:
+Scope declaration
+Capability matrix
+Authorization record
+Confidentiality-handling plan
+Assumption register
+Exclusion register
+Specialist-referral register
+Initial evidence-request list
+Initial roadmap
+Output-artifact plan
+Exit criteria
+Scope is explicit.
+Authorization is explicit.
+Dangerous actions default to disabled.
+Confidentiality restrictions are documented.
+Missing capabilities are visible.
+Review mandate and decision audience are known or marked unknown.
+Phase 1 - Evidence Intake, Data Room, and Chain of Custody
+Inventory all supplied evidence, including:
+Repositories
+Architecture documents
+Security policies
+Corporate records
+Contracts
+Financial records
+Insurance documents
+Personnel records
+
+===== PAGE 24 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+24
+Incident records
+Audit reports
+Penetration-test reports
+Compliance reports
+Customer reports
+Vendor records
+Product roadmaps
+Usage metrics
+Support data
+AI documentation
+Data-processing records
+Intellectual-property records
+For every item:
+Assign an evidence ID.
+Record source and owner.
+Record version and date.
+Determine authenticity.
+Determine scope match.
+Determine freshness.
+Hash when required.
+Detect duplicates and inconsistent versions.
+Record privilege and clean-team restrictions.
+Record related findings and requests.
+Create:
+Data-room index
+Evidence register
+Missing-document register
+Duplicate/version-conflict register
+Evidence-access log
+Initial completeness score by workstream
+Exit criteria
+All received evidence is indexed.
+Missing expected evidence is requested.
+Evidence limitations are explicit.
+Privileged and restricted materials are separated.
+No source evidence was overwritten.
+Phase 2 - Business, Transaction, Entity, and Product Context
+Establish:
+
+===== PAGE 25 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+25
+What the organization claims to sell
+What the system actually supports
+Legal entities associated with the product
+Ownership structure as represented
+Products and services in scope
+Revenue model
+Customer types
+Primary industries
+Operating jurisdictions
+Deployment models
+Critical suppliers
+Data processed
+Strategic dependencies
+Transaction structure
+Expected synergies
+Expected separation or integration requirements
+Seller, buyer, investor, customer, or insurer objectives
+Create a claim register:
+CLAIM ID
+CLAIM
+SOURCE
+CLAIM OWNER
+EVIDENCE PROVIDED
+EVIDENCE CLASSIFICATION
+VERIFICATION STATUS
+CONTRADICTING EVIDENCE
+IMPACT IF FALSE
+FOLLOW-UP
+Exit criteria
+Business and product claims are recorded.
+Repository evidence is not substituted for corporate or financial evidence.
+Unverified management statements remain labeled.
+Transaction assumptions are visible.
+Phase 3 - Repository and System Inventory
+Identify:
+Languages and versions
+Frameworks and versions
+Package managers and lockfiles
+Build systems
+Entry points
+Applications and services
+Internal libraries
+APIs and protocols
+
+===== PAGE 26 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+26
+Background workers
+Schedulers
+Databases
+Caches
+Queues
+Object stores
+Search systems
+Cloud providers
+Managed services
+Identity providers
+External integrations
+CI/CD
+Infrastructure-as-code
+Containers
+Orchestration
+Desktop, browser, mobile, server, CLI, embedded, and edge targets
+AI models
+Vector stores
+Agents
+Tool connectors
+Test frameworks
+Deployment environments
+Operational tooling
+For every application surface, also identify:
+Package, bundle, publisher, or extension identifier
+Release build configuration
+Signing and update authority
+Minimum and target operating-system versions
+Supported CPU architectures and device form factors
+Distribution channel
+Deep links, custom schemes, App Links, Universal Links, and callback URLs
+Native bridges, WebViews, IPC channels, drivers, packet filters, and elevated operations
+Local data stores, caches, secure storage, and offline queues
+Permissions, entitlements, exported components, and background capabilities
+Crash reporting, symbol files, source maps, and release diagnostics
+Store privacy declarations and third-party SDK manifests
+Exact release artifact and artifact-to-source mapping
+Create the Application Surface Register and Release Artifact Register defined by the application overlay.
+Produce:
+
+===== PAGE 27 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+27
+Repository summary
+First-party/generated/vendor classification
+Component inventory
+Dependency graph
+Runtime topology
+Data-flow map
+Trust-boundary map
+Entry-point register
+External-integration register
+Version matrix
+Ownership/maintainer map
+Unknowns register
+Exit criteria
+Relevant first-party files are inspected or marked unavailable.
+Exclusions are inventoried.
+Components have purpose, owner, input, output, dependencies, and deployment status.
+Deployed and repository-only components are distinguished.
+Every distributable surface has an identified release artifact, package identity, signer, update authority, and evidence
+status.
+Web-only, mobile, desktop, extension, backend, and agent controls are not conflated.
+Phase 4 - Privacy, Secrets, Sensitive Data, and Preliminary IP Scan
+Scan current content and accessible history for:
+API keys
+Access and refresh tokens
+Private keys
+Signing keys
+Encryption keys
+Passwords
+Database credentials
+Webhook secrets
+Cloud credentials
+SSH material
+Certificates containing key material
+Personal information
+Customer information
+Employee information
+Internal network identifiers
+Local paths and usernames
+Confidential business information
+
+===== PAGE 28 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+28
+Customer names
+Internal pricing
+Non-public roadmaps
+Production data in fixtures
+Sensitive logs
+Proprietary source
+Patent or confidential markers
+Third-party source copies
+Unclear copyright notices
+Personal-account ownership of business systems
+Validate suspected secret formats where possible. Never reproduce a complete live credential.
+Produce:
+Secret findings
+PII and sensitive-data findings
+Preliminary code-provenance findings
+Proposed .gitignore
+Proposed .env.example
+Secret-rotation requirements
+History-remediation requirements
+Data-exposure assessment
+Personal-account dependency list
+Deleting a secret from the current file does not resolve historical exposure.
+Exit criteria
+Findings are classified.
+Potential ownership issues are referred to Phase 15.
+Rotation, revocation, history rewriting, and monitoring are separated.
+Sensitive values are redacted.
+Phase 5 - Build, Installation, and Functional QA
+When capabilities permit, perform:
+Clean installation
+Lockfile validation
+Build
+Type checking
+Linting
+Unit testing
+Integration testing
+Contract testing
+End-to-end testing
+
+===== PAGE 29 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+29
+Packaging
+Startup
+Shutdown
+Upgrade
+Migration
+Rollback
+Recovery workflows
+Assess:
+Documented versus implemented behavior
+Invalid, empty, missing, duplicate, malformed, and oversized inputs
+State transitions
+Authentication flows
+Authorization flows
+Transactions
+Concurrency
+Retry
+Idempotency
+Time zones and dates
+Cancellation
+Timeout
+Dependency failure
+Feature flags
+Backward compatibility
+API compatibility
+Schema compatibility
+Supported platforms
+Upgrade compatibility
+Error correctness
+Release Identity and Environment Validation
+Validate:
+Clean release build rather than development mode
+Correct package identifier, publisher, display name, version, and build number
+Correct production API, authentication, analytics, update, and telemetry endpoints
+Correct signing identity and certificate chain
+No debug key, development certificate, debug menu, dev server, mock provider, preview tenant, placeholder asset, or
+staging credential
+Release configuration generated from explicit environment inputs rather than workstation state
+Reproducible artifact naming and traceability to source revision
+
+===== PAGE 30 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+30
+Installation, Upgrade, and Removal Matrix
+Test where applicable:
+Clean installation
+Reinstallation over the same version
+Upgrade from every supported prior major/minor migration boundary
+Upgrade with realistic existing local data
+Interrupted download, install, migration, and first launch
+Failed migration recovery
+Rollback or safe-forward behavior
+Uninstall and residual-data behavior
+Per-user versus all-user installation
+Portable versus installed behavior
+Store install versus direct-download behavior
+Update-channel separation and downgrade protection
+Application Lifecycle Matrix
+From each critical screen or workflow, test applicable transitions:
+Cold launch and warm launch
+Background to foreground
+Suspend, resume, sleep, and wake
+Process termination and state restoration
+Device lock and unlock
+App switching and interruption
+Orientation change, resize, split-screen, fold, unfold, and display change
+Incoming call, audio interruption, device removal, and notification interruption
+Low-memory, low-storage, CPU pressure, GPU loss, and battery-saving modes
+Network loss, network change, captive portal, proxy, VPN, and restoration
+Clock, time-zone, locale, theme, font scale, and accessibility-setting changes
+Permission revocation while running
+Service, worker, or background-task restart
+State and Data Integrity
+Validate:
+Unsaved form and draft preservation
+Duplicate-submit and duplicate-event protection
+Idempotent retry behavior
+Offline write queue and replay
+Conflict detection and resolution
+Multi-device or multi-client concurrent edits
+Token refresh races and session expiry
+
+===== PAGE 31 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+31
+Corrupt cache or local database recovery
+Application termination during writes
+Schema migration and rollback compatibility
+Partial synchronization and stale-data handling
+Encryption-key availability and secure-storage reset behavior
+External Entry, Navigation, and Callback Validation
+Test:
+Every route and screen
+Invalid, stale, unauthorized, and removed routes
+Deep links, Universal Links, App Links, custom URL schemes, file associations, intents, and protocol handlers
+Push notification routes, widgets, shortcuts, and external shares
+Browser return, OAuth callback, payment callback, and provider callback
+Duplicate callback delivery and replay protection
+Route behavior before login, after logout, and after account switching
+Permissions and Native Capabilities
+For every permission, entitlement, exported component, native service, or hardware capability:
+Confirm necessity.
+Confirm declaration matches actual behavior.
+Request access only when the related feature is invoked.
+Explain the purpose clearly.
+Test allow, deny, deny permanently, restricted, revoked, and unavailable-device states.
+Verify graceful degradation when optional access is denied.
+Detect permissions introduced transitively by third-party SDKs.
+Confirm background access stops when the feature or account is disabled.
+Hardware, Media, and Device Integration
+Where applicable test:
+Microphone, camera, speakers, headphones, Bluetooth, NFC, biometrics, sensors, GPU, and external devices
+Device disconnect and reconnect
+Permission revocation mid-operation
+Format, sample-rate, codec, and device-selection changes
+Concurrent media use by another application
+Partial upload/download and resumable transfer
+Large files, corrupt files, unsupported files, and maliciously structured files
+Local AI model unavailable, cloud model unavailable, and provider failover
+Classify failures as:
+PRODUCT_DEFECT
+TEST_DEFECT
+ENVIRONMENT_FAILURE
+MISSING_DEPENDENCY
+DOCUMENTATION_DEFECT
+UNVERIFIED
+
+===== PAGE 32 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+32
+Exit criteria
+Commands and results are recorded.
+Reproducible failures are documented.
+Intermittent failures are labeled.
+Missing test coverage is linked to critical behavior.
+The exact release artifact, not only the source tree, is installed and tested.
+Supported lifecycle, upgrade, migration, callback, permission, and offline paths are covered or explicitly unverified.
+Phase 6 - Architecture and Code-Quality Assessment
+Assess:
+Component boundaries
+Cohesion
+Coupling
+Dependency direction
+Circular dependencies
+Domain separation
+Shared state
+Error propagation
+Configuration ownership
+API design
+Data ownership
+Concurrency model
+Resource lifecycle
+Cleanup
+Type safety
+Dead code
+Duplicate logic
+Hidden side effects
+Testability
+Documentation accuracy
+Public interface stability
+Change isolation
+Bus factor
+Orphaned components
+Maintainership
+Measure complexity where tooling permits.
+For multi-surface applications, additionally assess:
+Shared business logic versus platform adapters
+Native bridge contracts and serialization boundaries
+
+===== PAGE 33 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+33
+WebView, extension-host, worker, renderer, and main-process isolation
+UI-thread, JavaScript-thread, event-loop, worker-thread, and background-service responsibilities
+Platform-specific conditional code and feature parity
+Build-variant configuration ownership
+Release-signing and update responsibilities
+Permission and entitlement ownership
+Offline/synchronization boundaries
+Local/cloud AI routing boundaries
+Tool-execution and privileged-operation boundaries
+Whether framework abstractions hide platform-specific failure modes
+Whether generated code created duplicate platform implementations rather than shared tested logic
+Do not require rewrites based solely on style preference or arbitrary scores.
+Recommend change when supported by:
+Confirmed defects
+Measured complexity
+Repeated failure
+High coupling
+Critical duplication
+Untestable behavior
+Security-boundary failure
+Scaling constraints
+Operational constraints
+Key-person dependency
+Exit criteria
+Architecture claims cite evidence.
+Refactoring recommendations state what they unlock.
+Cosmetic concerns are separated from material defects.
+Key-person and maintainership risks feed Phase 16.
+Phase 7 - Performance, Scalability, and Technical Cost Assessment
+Assess:
+Algorithmic complexity
+Query plans
+N+1 access
+Serialization
+Network round trips
+Blocking operations
+Lock contention
+Queue behavior
+
+===== PAGE 34 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+34
+Memory growth
+Cache behavior
+Connection pools
+Worker limits
+Pagination
+Batch behavior
+Storage operations
+Frontend bundle size
+Rendering behavior
+Mobile and desktop resource use
+AI token use
+AI inference cost
+Cloud resource use
+Data-transfer cost
+Third-party API cost
+License cost
+Support burden
+Cost concentration
+Create an Application Performance Profile for each surface:
+SURFACE
+RELEASE ARTIFACT
+DEVICE/OS/ARCHITECTURE
+COLD STARTUP
+WARM STARTUP
+TIME TO FIRST USABLE INTERACTION
+UI OR MAIN THREAD RESPONSIVENESS
+JAVASCRIPT OR RENDERER THREAD RESPONSIVENESS
+SLOW-FRAME RATE
+FROZEN-FRAME OR HANG RATE
+CRASH-FREE SESSIONS
+ANR OR WATCHDOG TERMINATIONS
+PEAK MEMORY
+STEADY-STATE MEMORY
+MEMORY GROWTH OVER TIME
+FOREGROUND CPU
+BACKGROUND CPU
+FOREGROUND BATTERY
+BACKGROUND BATTERY
+NETWORK REQUESTS PER JOURNEY
+TRANSFERRED BYTES PER JOURNEY
+LOCAL STORAGE GROWTH
+OFFLINE QUEUE GROWTH
+INSTALL SIZE
+DOWNLOAD SIZE
+UPDATE DELTA SIZE
+SYMBOL/DIAGNOSTIC SIZE
+BACKGROUND WAKEUPS
+DATABASE QUERY COUNT
+CACHE HIT RATE
+AI INFERENCE LATENCY
+AI TOKENS OR GPU TIME PER JOURNEY
+Performance tests must use release-equivalent builds. Development-mode performance is not evidence of production
+performance. Do not impose universal file-size limits such as a single arbitrary JavaScript bundle number. Establish
+
+===== PAGE 35 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+35
+budgets from target devices, distribution constraints, network conditions, critical journeys, current baselines, user
+expectations, and business requirements.
+Evaluate startup profiles, code/resource shrinking, lazy loading, route splitting, asset thinning, update deltas, model
+quantization, and cache strategy where supported, but require before/after measurements.
+Where financial and telemetry evidence exists, reconcile:
+Reported usage
+Provider billing
+Internal metering
+Customer billing
+Gross-margin assumptions
+Cost allocation
+Forecast assumptions
+Do not treat technical telemetry as audited financial evidence. Do not state exact capacity without measurement or
+explicit assumptions.
+Produce:
+Performance baseline
+Scaling-ceiling register
+Technical unit-cost model
+Cost-driver register
+Optimization roadmap
+One-time and recurring remediation estimates
+Exit criteria
+Measured and theoretical findings are distinguished.
+Cost assumptions are explicit.
+Every optimization has a validation method.
+Financial conclusions requiring accountants are referred.
+Phase 8 - Application Security and Threat Assessment
+Create a system-specific threat model covering:
+Assets
+Actors
+Entry points
+Trust boundaries
+Privileges
+Sensitive data
+External dependencies
+Abuse cases
+Credible attacker objectives
+Assess:
+Identity proofing
+
+===== PAGE 36 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+36
+Authentication
+Recovery
+Session management
+Authorization
+Tenant isolation
+Input validation
+Output encoding
+Injection
+File and path handling
+SSRF
+XSS
+CSRF
+Deserialization
+Command execution
+Template injection
+Business-logic abuse
+Race conditions
+Rate limiting
+Resource exhaustion
+Security headers
+Transport security
+Cryptography
+Randomness
+Key management
+Secret handling
+Logging
+Error disclosure
+Administrative surfaces
+Debug interfaces
+Dependency security
+Select assurance levels according to risk and applicability. Create a cryptographic inventory before recommending
+migrations.
+Surface-Specific Security Profiles
+Public and Authenticated Web Applications
+Assess ASVS-aligned controls, API authorization, server/client trust boundaries, server-side rendering and hydration
+behavior, route protection, cookies, tokens, content security policy, cross-origin policy, file upload, server actions,
+cache isolation, tenant isolation, source-map exposure, preview deployments, administrative routes, and public
+discoverability configuration.
+
+===== PAGE 37 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+37
+React Native and Mobile Applications
+Assess local secure storage, platform key stores, device backup behavior, deep-link verification, native-module
+bridges, exported Android components, iOS entitlements, WebViews, certificate validation, app integrity controls
+where justified, screenshot/clipboard exposure, rooted or jailbroken device assumptions, push notification privacy,
+background tasks, and packaged third-party SDK behavior. Use MASVS/MASTG rather than applying web checks
+alone.
+Electron and Hybrid Desktop Applications
+Assess Node integration, context isolation, renderer sandboxing, CSP, navigation and new-window restrictions,
+permission handlers, preload API minimization, IPC sender and schema validation, external URL handling, remote
+content, Chromium/Electron version currency, code signing, update trust, and Electron fuse configuration.
+Python/Qt and Native Windows Desktop Applications
+Assess packaged dependency completeness, plugin and resource loading, hidden imports, one-file extraction
+behavior, no-console error handling, writable/executable temporary paths, code signing and timestamping, installer
+elevation, per-user/all-user behavior, update authenticity, DLL search order, local configuration permissions, crash
+diagnostics, and architecture compatibility. A script that runs in the developer environment does not prove that the
+frozen executable works.
+IDE Extensions and Editor Forks
+Assess Workspace Trust, restricted mode, extension-host placement, activation events, webview CSP, local resource
+roots, message validation, command authorization, task/process execution, workspace path handling, remote and
+web-host behavior, proposed API use, package publisher identity, VSIX contents, extension signature verification,
+telemetry disclosure, and compatibility declarations.
+Self-Hosted AI and Agent Control Planes
+Assess tool permission tiers, deterministic authorization, memory poisoning, retrieval poisoning, prompt injection,
+agent goal hijacking, model and provider fallback, inter-agent trust, secret access, sandboxing, network egress, self-
+update, code-execution boundaries, human approval, audit trails, kill switches, resource limits, local/cloud data
+routing, node compromise, and cascading failure.
+Network-Adjacent and Elevated-Privilege Utilities
+Assess explicit user authorization, scope display, privilege minimization, driver or packet-filter authenticity, rule
+cleanup, fail-open/fail-closed behavior appropriate to the use case, safe stop, crash recovery, network restoration,
+interface changes, service persistence, update signing, misuse resistance, and isolation from unrelated interfaces.
+Testing must remain limited to owned or expressly authorized systems.
+Consider compatibility, key rotation, data migration, provider support, hardware support, availability, contractual
+requirements, and post-quantum transition needs.
+Exit criteria
+Threats map to actual attack surfaces.
+Findings include prerequisites and verification.
+Inapplicable vulnerability classes are not presented as confirmed.
+Security posture feeds transaction materiality.
+Phase 9 - Data Layer, Privacy, Retention, and Migration Assessment
+For every store identify:
+Engine and version
+Data elements
+Data owner
+
+===== PAGE 38 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+38
+Accessing services
+Authentication
+Encryption
+Retention
+Replication
+Backup
+Migration tools
+Audit logging
+Recovery
+Assess:
+Query parameterization
+Raw queries
+ORM misuse
+Row and tenant isolation
+Database permissions
+Shared accounts
+Constraints
+Referential integrity
+Transactions
+Lost updates
+Race conditions
+Migration reversibility
+Backfill safety
+Indexing
+Pooling
+Timeouts
+Deletion
+Retention enforcement
+Backup encryption
+Restore testing
+Development-data use
+Test-data use
+Data minimization
+Consent and lawful-use records
+Privacy notices
+Data-processing agreements
+Subprocessors
+Residency
+Cross-border transfers
+
+===== PAGE 39 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+39
+Data-subject requests
+Training or analytics use
+Customer-data restrictions
+Data portability
+Data ownership claims
+Breach history
+Create a data-element register:
+DATA ELEMENT
+STORE
+OWNER
+CLASSIFICATION
+DATA SUBJECT
+PURPOSE
+COLLECTION SOURCE
+LEGAL OR CONTRACTUAL BASIS
+CUSTOMER RESTRICTION
+RETENTION
+DELETION METHOD
+ENCRYPTION
+ACCESS ROLES
+JURISDICTIONS
+AI USE
+PORTABILITY
+EVIDENCE STATUS
+Exit criteria
+Query paths are reviewed or listed as unreviewed.
+Data classifications show their evidence basis.
+Backup presence is distinguished from successful restoration.
+Legal privacy conclusions are referred to counsel.
+Phase 10 - AI, ML, Model, and Autonomous-Agent Assessment
+Inventory every AI component:
+MODEL OR COMPONENT
+PROVIDER
+MODEL NAME
+MODEL VERSION
+HOSTING MODEL
+PURPOSE
+BUSINESS CRITICALITY
+INPUTS
+OUTPUTS
+PROMPT SOURCES
+RETRIEVED CONTEXT
+TOOLS
+PERMISSIONS
+MEMORY
+STORAGE
+USER/TENANT BOUNDARY
+RATE LIMITS
+COST LIMITS
+FALLBACKS
+LOGGING
+EVALUATION
+MODEL LICENSE
+DATA RIGHTS
+PROVIDER RETENTION TERMS
+PORTABILITY
+Assess:
+
+===== PAGE 40 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+40
+Direct prompt injection
+Indirect prompt injection
+Prompt disclosure
+Sensitive-information disclosure
+Excessive agency
+Over-permissioned tools
+Unsafe tool invocation
+Cross-user leakage
+Cross-tenant leakage
+Retrieval poisoning
+Vector-store authorization
+Output validation
+Generated-code execution
+Query generation
+Model denial of service
+Cost abuse
+Hallucination-sensitive workflows
+Human approval
+Model and prompt versioning
+Evaluation coverage
+Provider data use
+Provider retention
+Fine-tuning governance
+Training-data provenance
+Dataset licenses
+Model licenses
+Model supply chain
+Memory poisoning
+Agent recursion
+Runaway execution
+Connector changes
+Model deprecation
+Vendor concentration
+Model portability
+Regulatory classification
+AI transparency obligations
+AI literacy and governance
+Bias and harmful-impact evaluation
+Incident response
+
+===== PAGE 41 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+41
+Monitoring
+Unit economics
+Treat model output as untrusted. Prompt wording or string filtering alone is not sufficient prompt-injection
+protection. Consequential actions require deterministic authorization outside the model.
+AI-Assisted Software Development Controls
+In addition to assessing AI features in the product, assess AI used to build the product:
+Inventory coding agents, models, plugins, MCP servers, tools, and repository permissions.
+Determine whether prompts, repository content, secrets, customer data, or proprietary files leave the approved
+environment.
+Require diff review and command logs for agent changes.
+Verify package existence, publisher, namespace, version, license, integrity, and maintenance status before
+installation.
+Compare generated APIs and configuration fields to current official documentation.
+Detect generated code that bypasses existing architecture, validation, authorization, logging, or error-handling
+utilities.
+Require independently authored or independently reviewed tests for high-risk generated code.
+Use mutation, property, contract, fuzz, and negative testing to challenge generated implementations rather than only
+confirming examples.
+Evaluate whether generated tests over-mock external systems and fail to validate real serialization, database,
+filesystem, native, provider, and network boundaries.
+Prohibit silent agent changes to package identifiers, signing, production endpoints, permissions, telemetry, retention,
+ports, infrastructure, or deployment.
+Require sandboxing or isolated runners for autonomous terminal and build execution when available.
+Record hallucinated or incorrect suggestions as model-quality evidence and update approved prompt/tool policies.
+Agentic and Generative AI Verification Sources
+At execution time, select current applicable requirements from NIST SP 800-218A, NIST AI RMF and the Generative AI
+Profile, OWASP AISVS, LLMSVS, the current OWASP LLM Top 10, the current Agentic Applications Top 10, the OWASP
+AI Testing Guide, and provider-specific documentation. Use risk frameworks to organize testing; do not treat a Top 10
+awareness list as a complete verification standard.
+Exit criteria
+Model-to-tool paths are mapped.
+Data and license rights are documented or marked missing.
+User and tenant isolation is evaluated.
+High-impact actions have non-model authorization controls.
+AI regulatory applicability is referred to Phase 17.
+Provider lock-in and integration cost feed Phases 19 and 20.
+Phase 11 - Infrastructure, Supply Chain, SBOM, and Open-Source Assessment
+Assess:
+CI/CD
+Build runners
+
+===== PAGE 42 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+42
+Registries
+Lockfiles
+Dependency integrity
+Artifact storage
+Signing
+Provenance
+SBOM
+VEX
+Infrastructure-as-code
+Cloud IAM
+Network controls
+DNS
+TLS
+Containers
+Orchestration
+Serverless infrastructure
+Secrets management
+Deployment approvals
+Rollback
+Environment separation
+Runtime privilege
+Egress
+Image scanning
+Dependency scanning
+Source control governance
+Branch protection
+Review controls
+Build reproducibility
+Maintainer and package health
+Abandoned dependencies
+Package-name confusion
+Private registry controls
+Packaged Artifact and Update Supply Chain
+For every distributable artifact:
+Generate or reconcile an SBOM against packaged contents, not only declared dependencies.
+Verify direct and transitive dependencies, native libraries, runtime components, models, assets, plugins, drivers, and
+installers actually present.
+Verify build provenance links artifact, source revision, workflow, runner, and builder identity.
+Verify signatures and timestamps.
+
+===== PAGE 43 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+43
+Preserve private crash symbols, mapping files, and source maps required for diagnostics.
+Prevent public release of diagnostics that expose proprietary source unless the risk is accepted.
+Verify update manifests, feeds, signatures, channels, rollback, replay protection, and downgrade behavior.
+Verify extension, plugin, model, and skill packages with the same rigor as the core application.
+Detect package confusion, typosquatting, dependency substitution, unapproved registries, mutable tags, and
+unpinned remote downloads.
+Confirm portable or one-file executables do not unpack sensitive or executable content into unsafe locations.
+Confirm installers and uninstallers do not leave credentials, services, drivers, scheduled tasks, or writable privileged
+paths.
+AI Dependency Verification Gate
+No dependency suggested by an AI system may enter the lockfile or release artifact until the exact package is verified
+against the authoritative registry and expected publisher. Verification must occur before installation, because
+registering or discovering a package after model suggestion does not prove it was the intended legitimate package.
+Open-source diligence includes:
+Complete component inventory
+Direct and transitive licenses
+Copyright notices
+Attribution obligations
+Source-disclosure obligations
+Copyleft exposure
+Modified open-source components
+Vendored source
+Untracked source
+License incompatibility
+Missing notices
+Source-offer obligations
+Security-support status
+End-of-life dependencies
+Internal open-source policy
+Review and approval process
+Vulnerability response process
+SBOM generation and maintenance
+Distribution model
+SaaS-specific license considerations
+Acquisition transfer implications
+Do not make final legal interpretations of license obligations.
+Produce:
+SBOM
+Dependency risk register
+License inventory
+
+===== PAGE 44 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+44
+License-obligation candidate matrix
+Provenance assessment
+Supply-chain risk assessment
+Unsupported-component register
+Open-source program maturity assessment
+Exit criteria
+Build inputs and provenance are mapped.
+License uncertainty is visible.
+Repository configuration is not treated as deployment enforcement.
+Legal license questions are referred to counsel.
+Phase 12 - Reliability, Observability, Continuity, Backup, and Recovery
+Assess:
+Health checks
+Readiness
+Liveness
+Metrics
+Logs
+Traces
+Correlation IDs
+Alerts
+Retry
+Backoff
+Jitter
+Timeouts
+Circuit breakers
+Bulkheads
+Queue recovery
+Idempotency
+Graceful shutdown
+Partial failure
+Capacity
+Autoscaling
+Resource exhaustion
+Log redaction
+Audit-log integrity
+Incident response
+Runbooks
+On-call coverage
+
+===== PAGE 45 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+45
+Backups
+Restore testing
+Failover
+Disaster recovery
+Business continuity
+Dependency continuity
+Vendor outage planning
+Define SLO candidates from actual requirements and observed behavior. RTO and RPO are proposed unless approved
+by authorized business owners.
+For application surfaces additionally assess:
+Crash-free sessions and user-impacting hang rates
+Release-symbol upload and symbolication verification
+Mobile ANR/watchdog and desktop hang detection
+Client version and server compatibility windows
+Forced-update and optional-update behavior
+Update service outage and corrupt update behavior
+Local database and cache recovery
+Notification delivery degradation
+Offline queue recovery and duplicate replay
+Audio, camera, device, driver, and native-service failure recovery
+Auto-start, service restart, and operating-system reboot behavior
+Ability to revoke a defective release or stop an unsafe autonomous agent
+Diagnostic collection when the UI cannot start
+Recovery instructions usable by non-developer operators
+Source maps and symbols must be risk-managed: retain build-matched diagnostics privately for crash investigation
+while controlling public exposure.
+When authorized:
+Execute restore testing.
+Execute failover testing.
+Execute controlled chaos tests.
+Measure actual recovery.
+Record data loss and control behavior.
+Exit criteria
+Monitoring presence is distinguished from useful coverage.
+Backup configuration is distinguished from successful restoration.
+Recovery assumptions are explicit.
+Continuity gaps feed transaction protections.
+Phase 13 - Authorized Active Security Validation
+Run only when explicitly authorized.
+
+===== PAGE 46 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+46
+Before each test confirm:
+Target
+Scope
+Environment
+Authorization
+Safety
+Logging
+Reset or rollback
+Stop conditions
+Data-handling rules
+Permitted objectives include:
+Synthetic-account authorization testing
+Safe input-validation confirmation
+Rate-limit confirmation
+Path-handling validation
+Header and protocol validation
+Synthetic tenant-isolation testing
+Controlled detection-rule tests
+Targeted remediation verification
+Do not:
+Establish persistence
+Steal credentials
+Exfiltrate real data
+Evade monitoring
+Pivot to unrelated systems
+Perform uncontrolled denial-of-service testing
+Modify or destroy data
+Scan unconfirmed targets
+Create a generalized exploitation platform as part of ordinary QA
+Exit criteria
+Every test has an authorization record.
+Actions and results are logged.
+Evidence excludes real sensitive data.
+Out-of-scope actions are refused.
+Phase 14 - Accessibility, Usability, and Compatibility
+Apply platform-native accessibility and compatibility testing, not only browser DOM checks:
+Android TalkBack and accessibility scanner where available
+Apple VoiceOver, Dynamic Type, Switch Control, reduced motion, increased contrast, and orientation behavior
+
+===== PAGE 47 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+47
+Windows Narrator, keyboard-only operation, UI Automation exposure, high contrast, text scaling, and multiple
+displays
+macOS VoiceOver, Full Keyboard Access, reduced motion, and permission dialogs
+React Native accessibility roles, labels, states, hints, focus, live regions, and native-component parity
+Desktop tab order, accelerator keys, focus restoration, modal behavior, screen-reader names, and no-mouse
+workflows
+Foldable, tablet, split-screen, window resize, desktop-windowing, and high-DPI behavior
+Right-to-left layouts, long translations, locale-sensitive input, time zones, currencies, and calendars
+Hardware keyboard, touch, pointer, stylus, gamepad, and assistive-switch interaction when supported
+For user interfaces assess:
+Keyboard navigation
+Focus behavior
+Semantics
+Labels
+Screen readers
+Contrast
+Reflow
+Motion
+Captions
+Error identification
+Status announcements
+Touch targets
+Responsive behavior
+Localization
+Date, number, and currency formatting
+Loading, empty, offline, and error states
+For APIs and SDKs assess:
+Documentation
+Examples
+Errors
+Versioning
+Pagination
+Retry guidance
+Idempotency
+Deprecation
+Type definitions
+Compatibility
+For CLIs and installers assess:
+Help
+Exit codes
+
+===== PAGE 48 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+48
+Non-interactive use
+Configuration discovery
+Upgrade
+Uninstall
+Platform compatibility
+Actionable errors
+Exit criteria
+Critical user journeys are covered.
+Automated testing is distinguished from manual review.
+Platform claims are tested or marked unverified.
+Accessibility obligations feed Phase 17 where applicable.
+Phase 15 - Corporate, Legal, IP, Licensing, and Contract Diligence Support
+This phase supports qualified counsel and does not replace legal review.
+Corporate and Governance Evidence
+Request and review for completeness:
+Formation records
+Entity status
+Subsidiaries
+Ownership records
+Capitalization records
+Board and shareholder approvals
+Material governance policies
+Related-party arrangements
+Business names
+Domain ownership
+App-store ownership
+Cloud-account ownership
+Repository ownership
+Intellectual-Property Chain of Title
+Review evidence for:
+Employee invention assignments
+Contractor IP assignments
+Work-for-hire terms
+Founder assignments
+Prior-employer restrictions
+University or grant rights
+Patent applications
+Issued patents
+
+===== PAGE 49 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+49
+Trademarks
+Copyright registrations
+Trade-secret procedures
+Domain ownership
+Dataset rights
+Model rights
+Training-data rights
+Customer-funded development
+Third-party customizations
+Source-code escrow
+AI-generated code policies
+Do not conclude ownership solely from repository access or commit authorship.
+Customer and Vendor Contracts
+Extract and map:
+Assignment
+Change of control
+Consent requirements
+Termination
+Renewal
+Data ownership
+Data return
+Data deletion
+Portability
+Security requirements
+Audit rights
+Breach notice
+Service levels
+Service credits
+Warranties
+Indemnities
+Liability limits
+Insurance requirements
+Confidentiality
+Intellectual-property ownership
+Custom-development commitments
+Source-code escrow
+Exclusivity
+Most-favored-customer provisions
+Refund obligations
+
+===== PAGE 50 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+50
+Data residency
+Subprocessor controls
+BAA or DPA requirements
+Government flow-downs
+Export restrictions
+Create an obligation-to-implementation matrix:
+CONTRACT
+CLAUSE OR OBLIGATION
+RESPONSIBLE SYSTEM OR PROCESS
+IMPLEMENTATION EVIDENCE
+CURRENT STATUS
+BREACH RISK
+CONSENT REQUIREMENT
+TRANSACTION IMPACT
+LEGAL REVIEW STATUS
+Litigation and Regulatory Matters
+Record supplied evidence concerning:
+Litigation
+Threatened claims
+Regulatory inquiries
+Investigations
+Consent orders
+Security complaints
+Privacy complaints
+IP disputes
+License disputes
+Employment claims
+Customer disputes
+Vendor disputes
+Exit criteria
+Ownership evidence and gaps are documented.
+Contract obligations map to implementation where possible.
+Change-of-control and consent issues are identified.
+Legal conclusions remain assigned to counsel.
+Material legal gaps feed Phase 20.
+Phase 16 - Commercial, Financial, Tax, Personnel, Vendor, and Insurance Diligence
+This phase supports qualified specialists and does not replace financial audits, tax opinions, valuations, employment-
+law review, or insurance coverage opinions.
+Commercial Review
+Assess available evidence for:
+Customer concentration
+Revenue concentration
+
+===== PAGE 51 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+51
+Recurring and non-recurring revenue
+Renewal rates
+Churn
+Retention
+Pipeline
+Pricing
+Discounts
+Refunds
+Service credits
+Customer acquisition
+Support burden
+Product usage
+Feature adoption
+Contracted versus actual usage
+Roadmap commitments
+Customer-specific code
+Unprofitable customer obligations
+Cross-check where possible:
+Contracts
+Billing records
+Product telemetry
+Support records
+Revenue schedules
+Customer lists
+Financial and Technical Cost Review
+Review supplied evidence for:
+Revenue
+Expenses
+Hosting costs
+API costs
+AI inference costs
+Data-transfer costs
+License costs
+Support costs
+Security costs
+Compliance costs
+Personnel costs
+Deferred maintenance
+Infrastructure commitments
+
+===== PAGE 52 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+52
+Vendor minimums
+Debt and liens as represented
+Tax obligations as represented
+Capitalized development
+Deferred revenue
+Unrecorded technical liabilities
+Migration and integration cost
+Separate:
+Verified financial records
+Management projections
+Technical estimates
+Accounting conclusions
+Personnel and Organizational Review
+Assess:
+Organizational chart
+Key-person dependency
+Bus factor
+Maintainer coverage
+On-call coverage
+Employee versus contractor dependency
+Access ownership
+Personal-account dependencies
+Joiner/mover/leaver controls
+Segregation of duties
+Documentation
+Specialized knowledge
+Hiring needs
+Retention risk
+Contractor continuity
+IP-assignment status
+Security-training status
+AI-literacy obligations where applicable
+Vendor and Third-Party Review
+Assess:
+Critical providers
+Data processors
+Subprocessors
+Vendor concentration
+
+===== PAGE 53 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+53
+Contract transferability
+Availability commitments
+Security commitments
+Data portability
+Exit support
+Termination assistance
+Price escalation
+Minimum commitments
+Vendor financial stability evidence
+Geographic exposure
+Replacement alternatives
+Migration difficulty
+Single points of failure
+Personal-account ownership
+Vendor incidents
+Supplier assurance reports
+Insurance Review
+Inventory:
+Cyber insurance
+Technology errors and omissions
+General liability
+Directors and officers
+Crime/fidelity
+Employment practices
+Property and business interruption
+Claim history
+Coverage limits
+Deductibles
+Exclusions
+Notice obligations
+Security-control warranties
+Pending claims
+Do not interpret coverage conclusively without an insurance specialist or counsel.
+Exit criteria
+Commercial claims are reconciled where evidence permits.
+Technical cost and financial conclusions are separated.
+Key-person and vendor risks are identified.
+Insurance gaps are referred to specialists.
+Material findings feed Phase 20.
+
+===== PAGE 54 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+54
+Phase 17 - Compliance, Regulatory, Export-Control, and Sanctions Applicability
+Determine candidate applicability using:
+Data classes
+Processing purposes
+Customers
+Industry
+Jurisdictions
+Contracts
+Government relationships
+Payment handling
+Health information
+Educational records
+Children’s data
+Consumer financial information
+CUI
+AI use cases
+Export-controlled technology
+Restricted parties
+Potential frameworks and regimes may include:
+NIST CSF
+SOC 2
+ISO/IEC 27001
+PCI DSS
+HIPAA
+GDPR
+CCPA/CPRA
+NIST SP 800-171
+FedRAMP
+GLBA and applicable safeguards requirements
+State breach-notification laws
+EU AI requirements
+Industry-specific requirements
+Contractual security frameworks
+Export-control regimes
+Sanctions regimes
+FRAMEWORK OR REGIME
+VERSION OR EFFECTIVE DATE
+APPLICABILITY
+BASIS
+MISSING FACTS
+REQUIREMENT
+CURRENT EVIDENCE
+
+===== PAGE 55 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+55
+STATUS                    : SATISFIED | PARTIAL | GAP | UNVERIFIED |
+                            NOT_APPLICABLE
+REMEDIATION
+EVIDENCE OWNER
+SPECIALIST REVIEW
+Do not:
+Determine legal applicability solely from code.
+Claim certification.
+Claim compliance merely from policy existence.
+Treat voluntary frameworks as laws.
+Treat current drafts as final requirements.
+Provide definitive export or sanctions conclusions without qualified review.
+Exit criteria
+Current versions are recorded.
+Missing jurisdiction and business facts are visible.
+Every satisfied control has evidence.
+Formal-assessment requirements are identified.
+Regulatory transaction risks feed Phase 20.
+Phase 18 - Product, Market, and Competitive Analysis
+When enabled:
+Identify the product category from evidence.
+Identify genuinely comparable competitors.
+Verify current capabilities.
+Verify current pricing.
+Verify deployment models.
+Verify integrations.
+Verify target markets.
+Verify material product limitations.
+Separate first-party claims, independent testing, user sentiment, and inference.
+Assess:
+Product-market fit evidence
+Differentiation
+Feature parity
+Workflow quality
+Adoption
+Retention
+Switching cost
+Defensibility
+Data advantage
+Distribution advantage
+
+===== PAGE 56 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+56
+Technical moat
+Regulatory moat
+Integration moat
+Vendor dependence
+Roadmap credibility
+Product debt
+Customer-request concentration
+Competitive response risk
+Compare implemented capabilities, not aspirational roadmaps.
+Exit criteria
+Competitors are comparable.
+Features and pricing have current sources.
+Recommendations link to evidence.
+Strategic risks and opportunities feed Phase 20.
+Phase 19 - Integration, Separation, Carve-Out, and Transition Planning
+Assess:
+Identity integration
+Access transfer
+Repository transfer
+Cloud-account transfer
+Domain transfer
+Certificate transfer
+App-store transfer
+DNS transfer
+Vendor-account transfer
+Secret rotation
+Data migration
+Data segregation
+Customer consent
+Vendor consent
+Contract novation
+Branding
+Support migration
+Monitoring integration
+Incident-response integration
+Compliance inheritance
+Personnel transition
+On-call transition
+
+===== PAGE 57 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+57
+License consolidation
+Infrastructure consolidation
+Decommissioning
+Shared services
+Shared databases
+Shared personnel
+Shared code
+Shared domains
+Transition-service agreements
+Stranded costs
+Exit dependencies
+For carve-outs, identify every dependency remaining with the seller or another business unit.
+DEPENDENCY
+CURRENT OWNER
+FUTURE OWNER
+TRANSFER METHOD
+CONSENT REQUIRED
+TSA REQUIRED
+DAY-0 REQUIREMENT
+SEPARATION DEADLINE
+COST RANGE
+RISK
+FALLBACK
+Create:
+Day-0 plan
+First-30-day plan
+60-day plan
+90-day plan
+180-day plan
+Integration budget
+Separation budget
+TSA requirements
+Decommission plan
+Identity and credential-transfer plan
+Exit criteria
+Day-0 operational continuity is addressed.
+Shared-service dependencies are identified.
+Transfer and consent requirements are visible.
+Integration cost and timing feed Phase 20.
+Phase 20 - Risk Quantification, Red Flags, and Transaction Protections
+Consolidate all findings into a red-flag register.
+RED FLAG ID
+TITLE
+WORKSTREAM
+EVIDENCE STATUS
+
+===== PAGE 58 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+58
+TECHNICAL SEVERITY
+TRANSACTION MATERIALITY
+IMPACT
+LIKELIHOOD
+ONE-TIME COST RANGE
+RECURRING COST RANGE
+TIME TO REMEDIATE
+BUSINESS INTERRUPTION
+CUSTOMER IMPACT
+REGULATORY IMPACT
+OWNERSHIP IMPACT
+INTEGRATION IMPACT
+TRANSACTION IMPACT
+RECOMMENDED TREATMENT
+DECISION OWNER
+SPECIALIST REVIEW
+Possible treatments:
+Information only
+Seller remediation
+Buyer remediation
+Pre-signing evidence requirement
+Pre-closing remediation
+Closing condition
+Third-party consent
+Representation or warranty topic
+Special indemnity topic
+Escrow or holdback consideration
+Price-adjustment consideration
+Transaction restructuring
+Transition-service requirement
+Post-close covenant
+Deferred decision
+Potential deal breaker
+Do not draft binding legal language unless explicitly requested. Any legal drafting remains subject to qualified
+counsel.
+Cost Estimation
+Separate:
+Immediate containment
+One-time remediation
+Recurring run-rate increase
+Required headcount
+Vendor replacement
+Infrastructure migration
+Security and compliance uplift
+License remediation
+Data remediation
+
+===== PAGE 59 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+59
+Customer remediation
+Integration
+Separation
+TSA
+Decommissioning
+Downtime
+Contingency
+Every estimate must include:
+ASSUMPTIONS
+RANGE
+CONFIDENCE
+SOURCE DATA
+EXCLUSIONS
+DEPENDENCIES
+OWNER
+Decision Packet
+Produce:
+Deal-critical red flags
+Conditions to proceed
+Missing evidence
+Specialist decisions required
+Cost ranges
+Integration dependencies
+Required consents
+Required ownership corrections
+Required security corrections
+Required transaction protections
+Post-close roadmap
+Exit criteria
+Every material risk has an owner.
+Every estimate includes assumptions.
+Missing evidence is not treated as a clean result.
+Technical and business severity remain distinct.
+Human decision authority is identified.
+Phase 21 - Remediation and Regression Loop
+Execute only when authorized.
+Prioritize:
+Live credential or data exposure
+Unresolved IP ownership preventing lawful use
+Critical security defects
+Data corruption or loss
+
+===== PAGE 60 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+60
+Authentication or authorization failure
+Build and startup failure
+Critical functional defects
+Reliability and recovery defects
+Contractual implementation breaches
+High-impact performance or cost defects
+Integration blockers
+Maintainability barriers
+Lower-impact improvements
+When a batch contains AI-generated or AI-modified changes:
+Record the AI Change ID.
+Verify every new dependency and API before build execution.
+Require a human reviewer who did not rely solely on the generating agent’s explanation.
+Add negative and boundary tests that challenge the generated assumptions.
+Rebuild and reinspect the exact release artifact.
+Confirm package identity, permissions, entitlements, endpoints, signing, telemetry, and update behavior did not drift.
+Re-run the affected platform and lifecycle matrix.
+Reject a remediation that fixes source tests but fails packaged execution.
+For each batch:
+CHANGE BATCH
+FINDINGS ADDRESSED
+FILES OR SYSTEMS CHANGED
+BEHAVIOR CHANGED
+INTERFACES PRESERVED
+MIGRATION REQUIRED
+ROLLBACK
+TESTS ADDED
+TESTS EXECUTED
+RESULTS
+PERFORMANCE DELTA
+SECURITY DELTA
+COST DELTA
+CONTRACTUAL DELTA
+KNOWN REGRESSIONS
+RESIDUAL RISK
+Stop when:
+No authorized material finding remains.
+Maximum passes are reached.
+A business or specialist decision is required.
+Scope would be exceeded.
+Safe rollback is unavailable.
+Required environments are unavailable.
+Remaining risks are formally accepted.
+Accepted risk requires named human authority. Any regression reopens the originating phase.
+
+===== PAGE 61 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+61
+Phase 22 - Final Unified Verification and Decision Packet
+Reassess the final reference revision and current evidence state.
+Apply the Application Release Gates from Section 7A.7. For every in-scope surface, identify each gate as PASS, FAIL,
+PARTIAL, BLOCKED, or NOT_APPLICABLE, with evidence.
+The final verification must use the exact release artifact proposed for delivery. Rebuilding after testing invalidates
+artifact-level test evidence unless the rebuilt artifact is revalidated.
+Run all authorized applicable checks:
+Installation
+Build
+Type checking
+Linting
+Unit tests
+Integration tests
+Contract tests
+End-to-end tests
+Security regression tests
+Secret scanning
+Dependency scanning
+Image scanning
+Migration validation
+Packaging
+Startup
+Critical workflows
+Performance regression
+Accessibility
+Infrastructure validation
+Recovery testing
+Evidence-request reconciliation
+Contract-obligation reconciliation
+Cost-model update
+Integration-plan validation
+Confirm:
+Reference revision is immutable.
+Evidence cutoff is identified.
+Findings reflect the current state.
+Remediated findings have verification evidence.
+Accepted risks have owners.
+Missing evidence remains visible.
+Specialist referrals remain visible.
+
+===== PAGE 62 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+62
+Documentation matches behavior.
+No conclusion exceeds the evidence.
+No material contradiction is hidden.
+No phase result relies solely on prior memory.
+Every in-scope application surface has a completed release-gate matrix.
+No PASS is based solely on a development server, preview URL, emulator demonstration, source review, or AI-
+generated tests.
+Artifact hash, signer, package identity, SBOM, provenance, and tested revision match.
+9A. Application Archetype Profiles
+These profiles activate additional controls without disclosing a specific product portfolio. Select every profile that
+matches the assessed system.
+9A.1 Cross-Platform Mobile Application with AI, Voice, or Sensitive State
+Typical characteristics include React Native or similar frameworks, cloud authentication, journals or user-generated
+content, voice input/output, camera or media uploads, local storage, notifications, model providers, and accessibility
+requirements.
+Required emphasis:
+iOS and Android native release artifacts tested separately
+Native-module and bridge compatibility
+Microphone, speech recognition, text-to-speech, audio routing, interruption, and permission behavior
+Upload retry, partial media transfer, file-type validation, metadata handling, and privacy
+Secure local storage, backup exclusion, logout cleanup, and cross-user isolation
+Offline draft preservation and eventual synchronization
+Model provider data use, retention, cost, fallback, and content validation
+Child, health, wellness, education, or other sensitive-data implications when applicable
+VoiceOver, TalkBack, Dynamic Type/font scale, reduced motion, and screen-reader announcements
+Store privacy declarations reconciled against every SDK in the packaged application
+9A.2 Next.js/React SaaS, CRM, or Dashboard
+Typical characteristics include Next.js, React, managed databases, Supabase or similar backend platforms, role-based
+dashboards, billing, referral or commission records, administrative workflows, and public marketing pages.
+Required emphasis:
+Server/client boundary and environment-variable exposure
+Authentication, session, role, organization, and tenant isolation
+Row-level security and database-policy verification against actual query paths
+Server actions, route handlers, cache behavior, and authorization at every data access point
+Billing idempotency, webhook authenticity, invoice state, refunds, and duplicate events
+Admin and support impersonation controls
+
+===== PAGE 63 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+63
+Public marketing pages assessed for canonical, metadata, sitemap, robots, social images, headings, and structured
+data only when applicable
+Authenticated pages excluded from indexing and protected from preview leaks
+Source-map, error-report, and preview-deployment exposure
+API quotas, provider spend controls, and audit logs
+Migration and rollback for live tenant data
+9A.3 Python/Qt Windows Desktop Application
+Typical characteristics include PyQt/PySide, PyInstaller or another freezer, portable and installer builds, local
+configuration, auto-update, Windows-specific privileges, native DLLs, and optional packet or device integration.
+Required emphasis:
+Test both one-directory and one-file assumptions when relevant; diagnose in one-directory mode before final one-file
+packaging
+Verify hidden imports, Qt plugins, translations, assets, VC runtimes, drivers, and native DLLs in the artifact
+Verify no-console behavior where standard streams may be unavailable
+Test clean Windows user profiles, supported Windows releases, x64/ARM64 as applicable, and machines without
+Python installed
+Sign and timestamp EXE/MSI/MSIX artifacts according to the distribution channel
+Test installer elevation, rollback, uninstall, residual services, scheduled tasks, registry keys, firewall rules, and driver
+cleanup
+Verify update authenticity, channel separation, rollback, and running-process replacement
+Preserve private symbols and diagnostic logs for startup failures
+Validate temporary extraction and writable path security for one-file bundles
+9A.4 IDE Extension, VS Code Extension, or Editor Fork
+Typical characteristics include extension APIs, webviews, custom editors, AST transforms, language services,
+workspace file access, terminal/tool execution, and marketplace or private distribution.
+Required emphasis:
+Workspace Trust and Restricted Mode behavior
+Extension-host placement across local, remote, and web environments
+Minimal activation events and startup impact
+Webview CSP, nonce handling, local resource roots, message schemas, and output encoding
+Command, task, terminal, filesystem, and process authorization
+Untrusted workspace content and symlink/path traversal
+Proposed API avoidance in published extensions unless explicitly supported
+VSIX/package content inspection, publisher identity, engine compatibility, marketplace signature, changelog, support,
+and license
+Remote-development and Codespaces behavior
+Telemetry disclosure and disablement
+Agent/MCP tool scope, domain approval, secrets storage, and terminal sandboxing where present
+
+===== PAGE 64 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+64
+9A.5 Autonomous AI Control Plane or Self-Hosted Agent System
+Typical characteristics include local models, cloud escalation, persistent workers, schedulers, tool execution, memory,
+retrieval, self-update, multiple nodes, containers, and operator dashboards.
+Required emphasis:
+Tiered tool permissions and deterministic policy enforcement outside the model
+Read-only default, approval boundaries, prohibited actions, and break-glass controls
+Agent goal hijacking, prompt injection, memory poisoning, retrieval poisoning, tool misuse, rogue agents, and
+cascading failure
+Per-agent identity, least privilege, credential scoping, network egress, and workload isolation
+Local/cloud routing rules and confidential-data boundaries
+Model, prompt, tool, memory, and policy versioning
+Evaluation gates before model, prompt, tool, or software promotion
+Worker leases, duplicate-job prevention, retry idempotency, dead-letter handling, and kill switches
+Self-update provenance, staged rollout, rollback, canary nodes, and immutable audit logs
+Node loss, storage loss, network partition, model unavailability, and cloud budget exhaustion
+Human-visible evidence for every consequential action
+9A.6 AI Prompt, Media, or Generation SaaS
+Typical characteristics include prompt optimization, image/video generation providers, large tag or embedding
+stores, user assets, asynchronous jobs, and usage-based costs.
+Required emphasis:
+Prompt and asset isolation across users and organizations
+Provider credentials, quotas, cost estimation, actual cost reconciliation, and per-user limits
+Duplicate-job and webhook idempotency
+Provider outage, moderation rejection, partial generation, timeout, and refund behavior
+Output provenance, model/version recording, prompt revision, and reproducibility limitations
+Unsafe or untrusted model output handling
+Asset retention, deletion, metadata stripping, rights, and user consent
+Queue backpressure, job cancellation, storage growth, and large-file limits
+Embedding versioning, re-indexing, vector-store authorization, and poisoning resistance
+Fallbacks that do not silently lower privacy, safety, or quality controls
+9A.7 Network-Adjacent, Packet, Driver, or Traffic-Control Utility
+Typical characteristics include packet interception, traffic shaping, local network changes, administrator privileges,
+kernel or capture drivers, firewall rules, and real-time controls.
+Required emphasis:
+Explicit owned-system or written-authorization boundary
+Clear target interface and scope display
+Privilege minimization and elevation only at the required action
+Driver authenticity, version compatibility, installation, update, and removal
+
+===== PAGE 65 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+65
+Safe restoration of network state after crash, process kill, reboot, update, or power loss
+Rule deduplication, cleanup, timeout, and emergency disable
+No unintended persistence, unrelated interface capture, or silent startup
+Resource use and packet-queue behavior under load
+Compatibility with VPNs, virtual adapters, Internet Connection Sharing, bridges, IPv4/IPv6, sleep, and interface
+changes
+Tamper-resistant audit logs that exclude sensitive payload content unless expressly required and authorized
+Misuse-resistant UI and documentation
+9A.8 Data-Sensitive CRM, Education, Wellness, or Support Application
+Typical characteristics include personal records, communications, role-based workflows, documents, notes, alerts,
+dashboards, and AI-assisted support.
+Required emphasis:
+Role and purpose limitation
+Tenant, department, advisor, or clinician boundary as applicable
+Auditability of views, exports, changes, and administrative access
+Communication consent, unsubscribe, notification privacy, and delivery evidence
+Record correction, retention, deletion, export, and legal-hold behavior
+Attachment scanning, document access, and link expiration
+AI output separation from authoritative records
+Human review for consequential recommendations
+Sensitive-data minimization in logs, analytics, prompts, crash reports, and support tools
+Accessibility for users under stress, with disabilities, or on low-capability devices
+10. Due-Diligence Request List
+Maintain:
+REQUEST ID
+WORKSTREAM
+REQUESTED EVIDENCE
+PURPOSE
+MATERIALITY
+PRIORITY                  : CRITICAL | HIGH | MEDIUM | LOW
+REQUEST OWNER
+SOURCE OWNER
+DATE REQUESTED
+DUE DATE
+DATE RECEIVED
+STATUS                    : RECEIVED | PARTIAL | NOT_PROVIDED |
+                            SUPERSEDED | NOT_APPLICABLE
+AUTHENTICITY
+EVIDENCE GRADE
+REVIEW RESULT
+FOLLOW-UP
+RELATED FINDINGS
+TRANSACTION IMPACT
+Minimum request categories where applicable:
+Corporate and ownership
+Capitalization
+
+===== PAGE 66 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+66
+Board approvals
+Repositories and history
+Architecture
+Infrastructure
+Security
+Incidents
+Privacy
+Customer contracts
+Vendor contracts
+IP assignments
+Patents and trademarks
+Open-source inventory
+SBOM
+Financial statements
+Revenue schedules
+Cost records
+Customer concentration
+Personnel
+Insurance
+Litigation
+Regulatory correspondence
+AI models and data
+Product roadmap
+Usage telemetry
+Support records
+Backup and recovery
+Compliance reports
+Integration and carve-out dependencies
+11. Management Interview Protocol
+For every material interview:
+INTERVIEW ID
+DATE
+PARTICIPANTS
+ROLE
+TOPICS
+STATEMENTS
+RELATED CLAIMS
+SUPPORTING EVIDENCE
+FOLLOW-UP REQUESTS
+CONTRADICTIONS
+CONFIDENCE
+REVIEWER
+Interview rules:
+
+===== PAGE 67 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+67
+Distinguish firsthand knowledge from opinion.
+Ask who owns the underlying evidence.
+Ask when the represented condition was last verified.
+Ask what exceptions exist.
+Ask what changed recently.
+Ask what failed previously.
+Ask which individuals are indispensable.
+Ask which systems depend on personal accounts.
+Ask which customer promises are not documented in the product.
+Ask which security incidents were not formally classified.
+Ask which technical liabilities are not reflected in budgets.
+Ask which integrations or migrations management considers most difficult.
+Management statements remain MANAGEMENT_REPRESENTATION until corroborated.
+12. Contradiction Resolution
+When evidence conflicts:
+Do not select the more favorable source automatically.
+Record every conflicting source.
+Compare dates, scope, authorship, and authority.
+Identify whether the conflict reflects version drift, misunderstanding, incomplete scope, or misrepresentation.
+Request primary evidence.
+Escalate material contradictions.
+Mark the conclusion CONFLICTED until resolved.
+State transaction impact if unresolved.
+CONFLICT ID
+ISSUE
+SOURCE A
+SOURCE B
+DIFFERENCE
+LIKELY EXPLANATION
+MATERIALITY
+EVIDENCE REQUESTED
+OWNER
+STATUS
+IMPACT IF UNRESOLVED
+13. Specialist-Review Boundaries
+Mark REQUIRES_SPECIALIST_REVIEW for:
+Legal ownership conclusions
+Contract enforceability
+Patent validity or infringement
+Open-source license interpretation
+Privacy-law applicability
+
+===== PAGE 68 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+68
+Regulatory applicability
+Export controls
+Sanctions
+Tax exposure
+Revenue recognition
+Financial-statement accuracy
+Valuation
+Employee classification
+Insurance coverage
+Formal SOC, ISO, PCI, FedRAMP, or similar certification
+Accredited penetration testing where required
+Formal fairness, safety, or regulated-AI conformity assessment
+The assessment may identify evidence, gaps, contradictions, and technical consequences but must not impersonate
+the required specialist.
+14. Final Dispositions
+Produce separate dispositions.
+14.1 Software Assurance Disposition
+PASS
+PASS_WITH_ACCEPTED_RISK
+CONDITIONAL
+BLOCKED
+INCOMPLETE
+Do not use PASS when:
+Required tests did not run.
+Critical scope was unavailable.
+Production claims rely only on repository configuration.
+A live credential remains exposed.
+Critical or high findings lack authorized acceptance.
+Required tenant isolation was not verified.
+Required recovery was not tested.
+The assessed revision changed after testing.
+Material evidence contradictions remain unresolved.
+14.2 Due-Diligence Advisory Disposition
+PROCEED
+PROCEED_WITH_CONDITIONS
+HEIGHTENED_REVIEW
+REPRICE_OR_RESTRUCTURE
+DEFER
+DO_NOT_PROCEED
+INCOMPLETE
+
+===== PAGE 69 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+69
+PROCEED
+No material unresolved issue was identified within the assessed scope, and evidence coverage is sufficient for the
+stated decision.
+PROCEED_WITH_CONDITIONS
+The review may proceed subject to specified evidence delivery, consent, remediation, closing conditions, transaction
+protections, or post-close commitments.
+HEIGHTENED_REVIEW
+Material risks or contradictions require executive and specialist evaluation before a decision.
+REPRICE_OR_RESTRUCTURE
+Verified liabilities, remediation costs, integration costs, ownership issues, or contractual restrictions may materially
+affect transaction economics or structure.
+DEFER
+A reliable decision cannot be made until specific evidence, remediation, consent, or specialist review is completed.
+DO_NOT_PROCEED
+Verified evidence indicates unacceptable ownership, legal, security, financial, regulatory, operational, strategic, or
+integration risk.
+INCOMPLETE
+Access, evidence, authorization, time, tooling, or specialist availability was insufficient for a reliable conclusion.
+These are advisory dispositions. Final authority remains with the designated human decision-makers and their
+qualified advisors.
+15. Final Report Format
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MASTER ASSURANCE AND DUE-DILIGENCE REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ENGAGEMENT
+Review mandate        :
+Reviewing party       :
+Target entity         :
+Target products       :
+Transaction type      :
+Transaction stage     :
+Reference revision    :
+Evidence cutoff       :
+Review date           :
+Authorized scope      :
+Excluded scope        :
+Confidentiality       :
+Privilege status      :
+DISPOSITIONS
+Software assurance    :
+Due diligence         :
+Release recommendation:
+Transaction recommendation:
+Confidence            :
+Primary reason        :
+COVERAGE
+Repositories inventoried:
+
+===== PAGE 70 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+70
+Files inspected       :
+Systems inspected     :
+Environments tested   :
+Evidence items received:
+Evidence items requested:
+Evidence completeness :
+Interviews completed  :
+Specialist reviews completed:
+Unverified areas      :
+CAPABILITY MATRIX
+<full matrix>
+EVIDENCE QUALITY
+Grade A               :
+Grade B               :
+Grade C               :
+Grade D               :
+Grade E               :
+Conflicted evidence   :
+Stale evidence        :
+Not provided          :
+PHASE RESULTS
+Phase 0 through Phase 22
+FINDING SUMMARY
+Critical              :
+High                  :
+Medium                :
+Low                   :
+Informational         :
+Deal-critical         :
+Material              :
+Remediated            :
+Accepted risk         :
+Specialist review     :
+Blocked               :
+Unverified            :
+RELEASE BLOCKERS
+<findings>
+TRANSACTION RED FLAGS
+<red flags>
+MISSING EVIDENCE
+<requests and impact>
+FUNCTIONAL QUALITY
+<results>
+ARCHITECTURE AND MAINTAINABILITY
+<results>
+SECURITY POSTURE
+<results>
+PRIVACY AND DATA
+<results>
+AI AND MODEL RISK
+<results>
+SUPPLY CHAIN AND OPEN SOURCE
+<results>
+PERFORMANCE, SCALABILITY, AND COST
+<results>
+RELIABILITY AND RECOVERY
+<results>
+
+===== PAGE 71 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+71
+ACCESSIBILITY AND COMPATIBILITY
+<results>
+IP AND OWNERSHIP
+<results and legal-review status>
+CONTRACTUAL OBLIGATIONS
+<results and consent requirements>
+COMMERCIAL QUALITY
+<results>
+FINANCIAL AND TECHNICAL LIABILITIES
+<results and specialist-review status>
+PERSONNEL AND KEY-PERSON RISK
+<results>
+VENDOR DEPENDENCIES
+<results>
+INSURANCE
+<results and specialist-review status>
+COMPLIANCE AND REGULATORY
+<results>
+PRODUCT AND MARKET POSITION
+<results>
+INTEGRATION AND SEPARATION
+<Day 0, 30, 60, 90, and 180-day plan>
+COST MODEL
+Immediate containment :
+Pre-close remediation :
+Post-close remediation:
+Recurring run-rate     :
+Integration            :
+Separation             :
+Contingency            :
+Assumptions            :
+Confidence             :
+CLOSING CONDITIONS
+<items>
+CONSENTS REQUIRED
+<items>
+REPRESENTATIONS AND WARRANTIES TOPICS
+<topics for counsel>
+INDEMNITY OR ESCROW TOPICS
+<topics for counsel and deal team>
+ACCEPTED RISKS
+<owner, rationale, review date, controls>
+SPECIALIST REFERRALS
+<discipline, issue, evidence, urgency>
+RECOMMENDED ROADMAP
+Immediate             :
+Before signing        :
+Before closing        :
+Day 0                 :
+Within 30 days        :
+Within 60 days        :
+Within 90 days        :
+Within 180 days       :
+
+===== PAGE 72 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+72
+Strategic             :
+REPRODUCTION APPENDIX
+<commands, environment, fixtures, and results>
+EVIDENCE REGISTER
+<references>
+SOURCE AND STANDARD REGISTER
+<references>
+LIMITATIONS
+<scope, evidence, independence, and capability limitations>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+16. Required Output Artifacts
+When write access is available, maintain:
+assessment/
+├── governance/
+│   ├── REVIEW_MANDATE.md
+│   ├── SCOPE_AND_AUTHORIZATION.md
+│   ├── CAPABILITY_MATRIX.md
+│   ├── CONFIDENTIALITY_PLAN.md
+│   ├── ASSUMPTIONS.md
+│   ├── EXCLUSIONS.md
+│   ├── SPECIALIST_REFERRALS.md
+│   └── ROADMAP.md
+│
+├── evidence/
+│   ├── DATA_ROOM_INDEX.csv
+│   ├── EVIDENCE_REGISTER.csv
+│   ├── EVIDENCE_REQUEST_LIST.csv
+│   ├── EVIDENCE_CONFLICTS.csv
+│   ├── INTERVIEW_REGISTER.csv
+│   └── CHAIN_OF_CUSTODY.md
+│
+├── technical/
+│   ├── SYSTEM_INVENTORY.md
+│   ├── ARCHITECTURE_MAP.md
+│   ├── DATA_FLOW_AND_TRUST_BOUNDARIES.md
+│   ├── TEST_RESULTS.md
+│   ├── CODE_QUALITY_REPORT.md
+│   ├── PERFORMANCE_REPORT.md
+│   ├── SECURITY_ASSESSMENT.md
+│   ├── DATA_ASSESSMENT.md
+│   ├── AI_ASSESSMENT.md
+│   ├── SUPPLY_CHAIN_ASSESSMENT.md
+│   ├── SBOM.json
+│   ├── OPEN_SOURCE_REPORT.md
+│   ├── RELIABILITY_AND_DR.md
+│   ├── ACCESSIBILITY_REPORT.md
+│   ├── APPLICATION_SURFACE_REGISTER.csv
+│   ├── RELEASE_ARTIFACT_REGISTER.csv
+│   ├── RELEASE_GATE_MATRIX.csv
+│   ├── DEVICE_OS_TEST_MATRIX.csv
+│   ├── PLATFORM_LIFECYCLE_MATRIX.csv
+│   ├── PACKAGE_VERIFICATION_LOG.csv
+│   ├── AI_CHANGE_PROVENANCE.csv
+│   ├── MOBILE_ASSESSMENT.md
+│   ├── DESKTOP_ASSESSMENT.md
+│   ├── EXTENSION_ASSESSMENT.md
+│   ├── DISTRIBUTION_READINESS.md
+│   └── SYMBOLS_AND_CRASH_MAPPING.md
+│
+├── diligence/
+│   ├── CLAIM_REGISTER.csv
+│   ├── IP_CHAIN_OF_TITLE.md
+│   ├── CONTRACT_OBLIGATION_MATRIX.csv
+
+===== PAGE 73 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+73
+│   ├── CORPORATE_EVIDENCE_REPORT.md
+│   ├── COMMERCIAL_DILIGENCE.md
+│   ├── FINANCIAL_TECH_COST_MODEL.md
+│   ├── PERSONNEL_AND_KEY_PERSON.md
+│   ├── VENDOR_RISK_REGISTER.csv
+│   ├── INSURANCE_REGISTER.md
+│   ├── COMPLIANCE_MAPPING.md
+│   ├── REGULATORY_APPLICABILITY.md
+│   └── COMPETITIVE_ANALYSIS.md
+│
+├── transaction/
+│   ├── RED_FLAG_REGISTER.csv
+│   ├── COST_ESTIMATES.csv
+│   ├── CLOSING_CONDITIONS.md
+│   ├── CONSENTS_REQUIRED.md
+│   ├── REPS_AND_WARRANTIES_TOPICS.md
+│   ├── INDEMNITY_AND_ESCROW_TOPICS.md
+│   ├── DAY_0_PLAN.md
+│   ├── INTEGRATION_30_60_90_180.md
+│   ├── CARVE_OUT_DEPENDENCIES.csv
+│   └── TSA_REQUIREMENTS.md
+│
+├── remediation/
+│   ├── CHANGE_LOG.md
+│   ├── REGRESSION_RESULTS.md
+│   ├── ACCEPTED_RISKS.md
+│   └── RESIDUAL_DEBT.md
+│
+├── findings/
+│   ├── FINDINGS.md
+│   └── findings.json
+│
+├── standards/
+│   ├── STANDARD_REGISTER.csv
+│   └── SOURCE_REGISTER.md
+│
+└── FINAL_REPORT.md
+Do not overwrite project files unless the execution mode authorizes modification.
+17. Final Integrity Rules
+The following are prohibited:
+Fabricated test results
+Fabricated citations
+Fabricated evidence
+Fabricated CVEs
+Fabricated CVSS vectors
+Fabricated standards
+Fabricated pricing
+Fabricated competitor features
+Fabricated financial figures
+Fabricated ownership conclusions
+Fabricated regulatory applicability
+Claiming production validation from local testing
+Claiming control effectiveness from configuration alone
+Claiming legal ownership from repository possession
+
+===== PAGE 74 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+74
+Claiming compliance certification from internal review
+Claiming financial accuracy without appropriate evidence
+Claiming complete coverage when evidence was sampled or unavailable
+Printing live credentials
+Printing unnecessary personal information
+Uploading restricted material to unauthorized external services
+Applying destructive changes without authorization
+Testing unconfirmed systems
+Continuing after rollback safety is lost
+Silently reducing scope
+Hiding missing evidence
+Hiding contradictions
+Treating management representation as verification
+Allowing the assessor to accept risk on behalf of management
+Declaring success because a pass limit was reached
+Declaring a transaction clean because documents were not provided
+Treating NOT_PROVIDED as NO_ISSUE_FOUND
+Providing definitive legal, tax, accounting, insurance, valuation, export-control, sanctions, or regulatory conclusions
+without qualified review
+Declaring application readiness from a preview URL, development server, source-level build, or emulator-only
+demonstration
+Declaring application readiness without installing and testing the exact release artifact
+Treating AI-generated tests as independent evidence without review
+Installing a package solely because an AI model recommended it
+Treating a package name’s existence as proof that its publisher or contents are legitimate
+Applying website SEO defects universally to native, desktop, CLI, extension, or private application surfaces
+Deleting public source maps or native symbols without preserving secure build-matched diagnostics when
+operationally required
+Claiming mobile security coverage from web-only testing
+Claiming desktop package coverage from running an interpreted script
+Claiming extension safety without Workspace Trust, webview, command, and package review
+Claiming agent safety from prompt instructions without deterministic tool authorization
+Rebuilding an artifact after final testing and reusing the prior artifact’s test result
+17A. Research Basis and Current Source Register
+The application-assurance expansion was grounded in current primary and authoritative sources available on August
+5, 2026. The execution agent must revalidate currency before using them as controlling requirements.
+R1 - OWASP ASVS 5.0.0. Stable web application verification standard released May 30, 2025. https://owasp.org/www-
+project-application-security-verification-standard/
+
+===== PAGE 75 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+75
+R2 - OWASP MASVS 2.1.0 and MASTG. Mobile security and privacy verification standard and testing guide.
+https://mas.owasp.org/MASVS/ and https://mas.owasp.org/MASTG/
+R3 - OWASP AISVS 1.0. AI Security Verification Standard released June 24, 2026. https://owasp.org/www-project-
+artificial-intelligence-security-verification-standard-aisvs-docs/
+R4 - OWASP LLMSVS 2.0. LLM Security Verification Standard, 2026 edition. https://owasp.org/www-project-llm-
+verification-standard/LLMSVS-v2.0-en.html
+R5 - OWASP GenAI LLM Top 10 2026. Current awareness guide for LLM application risks.
+https://genai.owasp.org/resource/owasp-genai-llm-top-10-2026/
+R6 - OWASP Top 10 for Agentic Applications 2026. Current agentic application risk guide.
+https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/
+R7 - OWASP AI Testing Guide v1. Trustworthiness testing methodology released November 26, 2025.
+https://owasp.org/www-project-ai-testing-guide/
+R8 - NIST SP 800-218. Secure Software Development Framework 1.1. https://csrc.nist.gov/pubs/sp/800/218/final
+R9 - NIST SP 800-218A. Secure software development practices for generative AI and dual-use foundation models.
+https://csrc.nist.gov/pubs/sp/800/218/a/final
+R10 - NIST AI 600-1. AI RMF Generative AI Profile. https://www.nist.gov/publications/artificial-intelligence-risk-
+management-framework-generative-artificial-intelligence
+R11 - Android Core App Quality Guidelines. Current lifecycle, stability, performance, permission, and production-
+build tests. https://developer.android.com/docs/quality-guidelines/core-app-quality
+R12 - Android Release and Signing Guidance. https://developer.android.com/studio/publish/preparing and
+https://developer.android.com/studio/publish/app-signing
+R13 - Apple Privacy Manifests and Required-Reason APIs.
+https://developer.apple.com/documentation/bundleresources/privacy-manifest-files and
+https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api
+R14 - Apple macOS Notarization. https://developer.apple.com/documentation/security/notarizing-macos-software-
+before-distribution
+R15 - React Native Testing and Performance. Release-build testing and performance guidance.
+https://reactnative.dev/docs/testing-overview and https://reactnative.dev/docs/performance
+R16 - Electron Security Checklist. https://electronjs.org/docs/latest/tutorial/security
+R17 - Microsoft Windows App Certification Kit.
+https://learn.microsoft.com/windows/uwp/debug-test-perf/windows-app-certification-kit
+R18 - Microsoft App Signing and SignTool. https://learn.microsoft.com/windows/apps/package-and-deploy/code-
+signing-options and https://learn.microsoft.com/windows/win32/seccrypto/signtool
+R19 - Visual Studio Code Webview and Workspace Trust Guidance. https://code.visualstudio.com/api/extension-
+guides/webview and https://code.visualstudio.com/api/extension-guides/workspace-trust
+R20 - Visual Studio Code Extension Runtime Security.
+https://code.visualstudio.com/docs/configure/extensions/extension-runtime-security
+R21 - Python Packaging User Guide. Current packaging flow and artifact guidance.
+https://packaging.python.org/en/latest/flow/
+R22 - PyInstaller Operating Modes and Common Pitfalls. https://pyinstaller.org/en/stable/operating-mode.html
+and https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html
+R23 - Vite Production Source Maps. https://vite.dev/config/build-options
+R24 - Next.js Production Browser Source Maps and Metadata Conventions. https://nextjs.org/docs/app/api-
+reference/config/next-config-js/productionBrowserSourceMaps and https://nextjs.org/docs/app/api-reference/file-
+conventions/metadata/sitemap
+
+===== PAGE 76 =====
+
+UNIVERSAL SOFTWARE ASSURANCE - APPLICATION ASSURANCE EDITION
+76
+R25 - WCAG 2.2. W3C Recommendation for accessible web content, requiring automated and human evaluation.
+https://www.w3.org/TR/WCAG22/
+R26 - GitHub Copilot Responsible Use. Generated code may be inaccurate or insecure and requires review and
+testing. https://docs.github.com/en/copilot/responsible-use/agents
+R27 - Package Hallucination Research. Spracklen et al., “We Have a Package for You!”, USENIX Security 2025.
+https://www.usenix.org/conference/usenixsecurity25/presentation/spracklen
+R28 - Electron Updating Applications. Packaged update behavior and code-signing considerations.
+https://electronjs.org/docs/latest/tutorial/updates
+R29 - CISA 2025 Minimum Elements for an SBOM. https://www.cisa.gov/resources-tools/resources/2025-minimum-
+elements-software-bill-materials-sbom
+R30 - SLSA 1.2. Supply-chain provenance and build integrity specification. https://slsa.dev/spec/v1.2/
+The source register supports the framework’s design. It does not convert every listed recommendation into a
+mandatory requirement for every application. Applicability remains risk-, version-, platform-, and context-dependent.
+18. Required Starting Output
+Begin with Phase 0.
+Before substantive conclusions, produce:
+Review mandate
+Scope declaration
+Capability matrix
+Authorization record
+Confidentiality plan
+Assumption register
+Exclusion register
+Initial evidence-request list
+Initial standards register
+Initial roadmap
+19. Recommended Execution Note
+This framework is intentionally broad. An agent should activate only the phases that apply to the configured mandate
+and available evidence. A phase may be NOT_APPLICABLE, PARTIAL, or BLOCKED; it must not be declared complete
+without satisfying its exit criteria.
+Version-specific standards must be revalidated at execution time. The framework should not hard-code a publication
+version as permanently current.

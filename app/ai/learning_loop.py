@@ -15,7 +15,7 @@ Design constraints:
   direction/method recommendations.
 
 * **Keyed aggregation.** Episodes are grouped by
-  `(target_profile_key, goal, network_class)` so PS5 hotspot wins don't
+    `(target_profile_key, goal, network_class)` so PS5 hotspot wins don't
   contaminate PC local recommendations, and vice versa.
 
 * **Explicit fallback.** When fewer than ``MIN_EPISODES_FOR_RECS`` matching
@@ -81,7 +81,7 @@ class HistoricalRecommendation:
 
 
 class LearningLoop:
-    """Reads episodes from disk, aggregates by (target_profile, goal)."""
+    """Aggregate episodes by target profile, goal, and network class."""
 
     def __init__(self, episodes_dir: Optional[Path] = None) -> None:
         self._dir: Path = (
@@ -89,11 +89,15 @@ class LearningLoop:
         )
         self._lock = threading.Lock()
         self._cache: List[EpisodeSummary] = []
-        self._cache_mtime: float = 0.0
+        self._cache_signature: Tuple[Tuple[str, int, int], ...] = tuple()
         # Indices built once per cache refresh for O(1) bucket lookup.
-        # Keys: (target_profile, goal). Values: list of episodes in that bucket.
-        self._index_labeled: Dict[Tuple[str, str], List[EpisodeSummary]] = {}
-        self._index_all: Dict[Tuple[str, str], List[EpisodeSummary]] = {}
+        # Keys: (target_profile, goal, network_class). Values: episodes.
+        self._index_labeled: Dict[
+            Tuple[str, str, str], List[EpisodeSummary]
+        ] = {}
+        self._index_all: Dict[
+            Tuple[str, str, str], List[EpisodeSummary]
+        ] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -108,7 +112,10 @@ class LearningLoop:
         self._refresh_if_stale()
 
         with self._lock:
-            matching = self._index_labeled.get((target_profile, goal), [])
+            matching = self._index_labeled.get(
+                (target_profile, goal, network_class),
+                [],
+            )
 
         if len(matching) < MIN_EPISODES_FOR_RECS:
             return None
@@ -250,6 +257,7 @@ class LearningLoop:
         self,
         target_profile: str,
         goal: str = "disconnect",
+        network_class: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """Return severance stats for a (profile, goal) bucket.
 
@@ -262,7 +270,19 @@ class LearningLoop:
         """
         self._refresh_if_stale()
         with self._lock:
-            rows = self._index_all.get((target_profile, goal), ())
+            if network_class is not None:
+                rows = tuple(self._index_all.get(
+                    (target_profile, goal, network_class),
+                    (),
+                ))
+            else:
+                rows = tuple(
+                    episode
+                    for (profile_key, goal_key, _network_key), episodes
+                    in self._index_all.items()
+                    if profile_key == target_profile and goal_key == goal
+                    for episode in episodes
+                )
         if not rows:
             return None
 
@@ -295,29 +315,51 @@ class LearningLoop:
     # Cache refresh
     # ------------------------------------------------------------------
     def _refresh_if_stale(self) -> None:
-        """Rescan disk if the episodes dir mtime advanced since last read."""
-        try:
-            mtime = self._dir.stat().st_mtime if self._dir.exists() else 0.0
-        except OSError:
-            mtime = 0.0
+        """Rescan when any episode file identity, size, or mtime changes.
+
+        Directory mtimes do not reliably advance when an existing JSONL file
+        is appended.  Tracking each file prevents a partially written episode
+        from remaining cached after its outcome and engine-stop records land.
+        """
+        signature = self._episode_signature()
 
         with self._lock:
-            if mtime <= self._cache_mtime and self._cache:
+            if signature == self._cache_signature:
                 return
-            self._cache_mtime = mtime
+            self._cache_signature = signature
             self._cache = list(self._scan())
             self._rebuild_indices()
 
+    def _episode_signature(self) -> Tuple[Tuple[str, int, int], ...]:
+        if not self._dir.exists():
+            return tuple()
+        rows: List[Tuple[str, int, int]] = []
+        try:
+            paths = sorted(self._dir.glob("episode_*.jsonl"))
+        except OSError:
+            return tuple()
+        for path in paths:
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            rows.append((path.name, int(stat.st_size), int(stat.st_mtime_ns)))
+        return tuple(rows)
+
     def _rebuild_indices(self) -> None:
-        """Rebuild (target_profile, goal) bucket indices from the cache.
+        """Rebuild three-dimensional bucket indices from the cache.
 
         Caller must hold ``self._lock``. Runs once per cache refresh; after
         that, all aggregation queries are O(bucket_size) instead of O(total).
         """
-        labeled: Dict[Tuple[str, str], List[EpisodeSummary]] = {}
-        full: Dict[Tuple[str, str], List[EpisodeSummary]] = {}
+        labeled: Dict[Tuple[str, str, str], List[EpisodeSummary]] = {}
+        full: Dict[Tuple[str, str, str], List[EpisodeSummary]] = {}
         for episode in self._cache:
-            key = (episode.target_profile, episode.goal)
+            key = (
+                episode.target_profile,
+                episode.goal,
+                episode.network_class,
+            )
             full.setdefault(key, []).append(episode)
             if episode.outcome is not None:
                 labeled.setdefault(key, []).append(episode)
@@ -345,6 +387,8 @@ def _summarize_episode(path: Path) -> Optional[EpisodeSummary]:
 
     Returns None if the file has no cut_start event (not a disruption session).
     """
+    engine_start_ts: Optional[float] = None
+    engine_stop_ts: Optional[float] = None
     cut_start_ts: Optional[float] = None
     cut_end_ts: Optional[float] = None
     outcome: Optional[bool] = None
@@ -369,21 +413,27 @@ def _summarize_episode(path: Path) -> Optional[EpisodeSummary]:
             name = row.get("name", "")
             payload = row.get("payload", {}) or {}
 
-            if name == "engine_start" or name == "cut_start":
-                if cut_start_ts is None:
-                    cut_start_ts = row.get("ts", 0.0)
-                # Merge any metadata carried on the start event
+            if name == "engine_start":
+                if engine_start_ts is None:
+                    engine_start_ts = row.get("ts", 0.0)
+                # Merge session metadata without treating engine creation as
+                # the start of an armed/delayed cut.
                 for k in ("target_profile", "network_class", "goal",
                           "direction", "methods", "params", "target_ip"):
                     if k in payload and k not in meta:
                         meta[k] = payload[k]
-            elif name == "cut_end" or name == "engine_stop":
+            elif name == "cut_start":
+                if cut_start_ts is None:
+                    cut_start_ts = row.get("ts", 0.0)
+            elif name == "cut_end":
                 cut_end_ts = row.get("ts", cut_end_ts)
                 # cut_end may carry the auto-labeled persisted flag
                 # (force_cut_end(persisted=...) from the engine stop path).
                 # Accept it as the outcome if no explicit mark landed.
                 if outcome is None and "persisted" in payload:
                     outcome = not bool(payload["persisted"])
+            elif name == "engine_stop":
+                engine_stop_ts = row.get("ts", engine_stop_ts)
                 # engine_stop carries the peak cut_state reached this session
                 _mcs = str(payload.get("max_cut_state", ""))
                 if _mcs and _state_order.get(_mcs, 0) > _state_order.get(max_cut_state, 0):
@@ -401,10 +451,20 @@ def _summarize_episode(path: Path) -> Optional[EpisodeSummary]:
                 elif "success" in payload:
                     outcome = bool(payload["success"])
 
-    if cut_start_ts is None:
+    effective_start_ts = (
+        cut_start_ts if cut_start_ts is not None else engine_start_ts
+    )
+    effective_end_ts = (
+        cut_end_ts if cut_end_ts is not None else engine_stop_ts
+    )
+    if effective_start_ts is None:
         return None
 
-    duration = (cut_end_ts - cut_start_ts) if cut_end_ts else 0.0
+    duration = (
+        effective_end_ts - effective_start_ts
+        if effective_end_ts is not None
+        else 0.0
+    )
 
     methods_raw = meta.get("methods", [])
     if not isinstance(methods_raw, (list, tuple)):
@@ -412,7 +472,7 @@ def _summarize_episode(path: Path) -> Optional[EpisodeSummary]:
 
     return EpisodeSummary(
         tag=path.stem.replace("episode_", ""),
-        start_ts=cut_start_ts,
+        start_ts=effective_start_ts,
         target_profile=str(meta.get("target_profile", "unknown")),
         network_class=str(meta.get("network_class", "unknown")),
         goal=str(meta.get("goal", "disconnect")),

@@ -1,0 +1,2 @@
+vendor,dependency_type,risk,status,notes
+Signing provider,release signing/timestamp,HIGH,PARTIAL,Required for release artifact integrity

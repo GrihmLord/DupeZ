@@ -170,7 +170,10 @@ def test_explicit_clumsy_refuses_second_active_session(monkeypatch, tmp_path):
     assert "one active event" in manager.get_status()["last_engine_error"]
 
 
-def test_auto_uses_native_for_second_equivalent_event(monkeypatch, tmp_path):
+def test_auto_refuses_second_event_when_direct_clumsy_is_active(
+    monkeypatch,
+    tmp_path,
+):
     manager = DirectClumsyNetworkDisruptor()
     manager.clumsy_exe = str(tmp_path / "clumsy.exe")
     (tmp_path / "clumsy.exe").write_bytes(b"stub")
@@ -192,10 +195,11 @@ def test_auto_uses_native_for_second_equivalent_event(monkeypatch, tmp_path):
         },
     )
 
-    assert engine is native
-    assert actual == legacy.ENGINE_NATIVE
+    assert engine is None
+    assert actual == ""
     assert requested == legacy.ENGINE_AUTO
-    native_constructor.assert_called_once()
+    native_constructor.assert_not_called()
+    assert "one active event" in manager.get_status()["last_engine_error"]
 
 
 def test_inproc_feature_flag_returns_direct_manager(monkeypatch):

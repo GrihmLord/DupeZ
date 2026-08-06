@@ -1,0 +1,5 @@
+request_id,workstream,requested_evidence,purpose,priority,status,transaction_impact
+R-001,legal,IP assignments and chain-of-title,Ownership verification,CRITICAL,NOT_PROVIDED,HIGH
+R-002,contracts,Customer/vendor contracts and consent clauses,Transfer and liability analysis,HIGH,NOT_PROVIDED,HIGH
+R-003,financial,Current financial statements and cost schedules,Cost/risk materiality,HIGH,NOT_PROVIDED,HIGH
+R-004,insurance,Policy schedules and exclusions,Coverage risk review,MEDIUM,NOT_PROVIDED,MEDIUM

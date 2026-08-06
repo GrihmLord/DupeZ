@@ -153,6 +153,10 @@ _FORBIDDEN_FROZEN_PREFIXES = (
     "pydantic",
     "pydantic_core",
     "typing_inspection",
+    # Historical exploit/evasion implementation is retained only as source
+    # archaeology and must not be reachable or bundled in public artifacts.
+    "app.firewall.modules.godmode",
+    "app.firewall.recorder_hotkeys",
     # Optional voice/scientific stacks are deliberately excluded from the
     # production lock and must not leak in from a developer environment.
     "fsspec",
@@ -370,6 +374,11 @@ def _query_authenticode(paths: list[Path]) -> tuple[dict[str, str], str]:
     )
     script = r"""
 $ErrorActionPreference = 'Stop'
+# Autoloading Microsoft.PowerShell.Security can fail in Python-launched
+# Windows PowerShell when inherited type data is already registered. Loading
+# the signed system manifest by its PSHOME path avoids that ambiguous lookup.
+$securityModule = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1'
+Import-Module -Name $securityModule -ErrorAction Stop
 $paths = $env:DUPEZ_AUTHENTICODE_PATHS | ConvertFrom-Json
 $out = @()
 foreach ($path in $paths) {
@@ -384,7 +393,14 @@ $out | ConvertTo-Json -Compress
 """
     try:
         completed = subprocess.run(
-            [str(powershell), "-NoProfile", "-NonInteractive", "-Command", script],
+            [
+                str(powershell),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
             capture_output=True,
             text=True,
             timeout=30,

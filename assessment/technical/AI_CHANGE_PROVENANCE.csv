@@ -1,0 +1,2 @@
+change_id,area,source,evidence,status
+AI-REL-001,ai reliability modules,repository diff + tests,tests/test_* reliability suites,PARTIAL

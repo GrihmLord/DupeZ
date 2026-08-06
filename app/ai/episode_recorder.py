@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import os
 import queue
+import re
+import secrets
 import threading
 import time
 from pathlib import Path
@@ -47,6 +49,14 @@ _FLUSH_INTERVAL_S: float = 2.0
 # users keep their training data, but bounded.
 _DEFAULT_RETENTION_DAYS: int = 90
 _DEFAULT_MAX_FILES: int = 5000
+_UNSAFE_TAG_CHARS = re.compile(r"[^A-Za-z0-9_.-]+")
+
+
+def _safe_session_tag(value: str) -> str:
+    """Return a short filename-safe tag that cannot escape the output folder."""
+
+    cleaned = _UNSAFE_TAG_CHARS.sub("_", str(value)).strip("._-")[:64]
+    return cleaned or "session"
 
 
 def rotate_episodes(
@@ -151,7 +161,13 @@ class EpisodeRecorder:
         self._out_dir: Path = Path(out_dir) if out_dir else DEFAULT_EPISODE_DIR
         self._out_dir.mkdir(parents=True, exist_ok=True)
 
-        tag = session_tag or time.strftime("%Y%m%d_%H%M%S")
+        base_tag = _safe_session_tag(
+            session_tag or time.strftime("%Y%m%d_%H%M%S")
+        )
+        # Multiple engines can start in the same second.  A nanosecond timestamp
+        # plus random suffix prevents them from appending unrelated samples to
+        # the same JSONL file.
+        tag = f"{base_tag}_{time.time_ns()}_{secrets.token_hex(3)}"
         self._path: Path = self._out_dir / f"episode_{tag}.jsonl"
 
         self._q: "queue.Queue[Optional[Dict[str, Any]]]" = queue.Queue(_MAX_QUEUE)

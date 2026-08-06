@@ -1,0 +1,4 @@
+red_flag_id,title,severity,materiality,treatment,status
+RF-001,Unsigned/missing final release artifacts,HIGH,MATERIAL,Pre-closing remediation required,OPEN
+RF-002,Protected stage flow blocked by branch/state policy,MEDIUM,MATERIAL,Release process compliance before cut,OPEN
+RF-003,Non-technical evidence not provided,MEDIUM,MATERIAL,Evidence request and specialist review,OPEN

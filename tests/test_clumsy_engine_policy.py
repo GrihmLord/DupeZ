@@ -202,7 +202,7 @@ def test_auto_prefers_clumsy_for_standalone_compatible_effects(
     native_constructor.assert_not_called()
 
 
-def test_auto_uses_native_equivalent_if_clumsy_start_fails(monkeypatch):
+def test_auto_fails_closed_if_clumsy_start_fails(monkeypatch):
     manager = ClumsyNetworkDisruptor()
     native = MagicMock()
     native.start.return_value = True
@@ -227,9 +227,8 @@ def test_auto_uses_native_equivalent_if_clumsy_start_fails(monkeypatch):
         params={"_engine_preference": ENGINE_AUTO, "direction": "both"},
     )
 
-    assert engine is native
-    assert (actual, requested) == (ENGINE_NATIVE, ENGINE_AUTO)
-    clumsy.stop.assert_called_once()
+    assert engine is None
+    assert (actual, requested) == ("", ENGINE_AUTO)
 
 
 def test_auto_refuses_semantic_change_after_clumsy_failure(monkeypatch):
@@ -282,7 +281,7 @@ def test_explicit_clumsy_fails_closed_before_constructing_engine(monkeypatch):
     clumsy_constructor.assert_not_called()
 
 
-def test_explicit_native_override_still_runs_unrepresentable_request(
+def test_explicit_native_override_refuses_standard_effect_request(
     monkeypatch,
 ):
     manager = ClumsyNetworkDisruptor()
@@ -305,9 +304,9 @@ def test_explicit_native_override_still_runs_unrepresentable_request(
         },
     )
 
-    assert engine is native
-    assert (actual, requested) == (ENGINE_NATIVE, ENGINE_NATIVE)
-    native_constructor.assert_called_once()
+    assert engine is None
+    assert (actual, requested) == ("", ENGINE_NATIVE)
+    native_constructor.assert_not_called()
     clumsy_constructor.assert_not_called()
 
 

@@ -1,0 +1,2 @@
+claim_id,claim,source,verification_status,impact_if_false,follow_up
+C-001,Branch is release-ready after gating,session test/preflight evidence,PARTIAL,HIGH,Complete protected release flow

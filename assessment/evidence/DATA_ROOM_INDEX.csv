@@ -1,0 +1,2 @@
+evidence_id,artifact_path,owner,received_date,scope_match,freshness,status,notes
+E-001,workspace://DupeZ,local-session,2026-08-06,YES,CURRENT,RECEIVED,Primary repository evidence

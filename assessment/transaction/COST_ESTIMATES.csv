@@ -1,0 +1,2 @@
+item,range,confidence,assumptions
+Release finalization and signing,Unknown,Low,Depends on cert/tooling host and policy

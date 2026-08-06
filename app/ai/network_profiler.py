@@ -159,7 +159,20 @@ class NetworkProfiler:
                       device_info: dict = None) -> None:
         """Profile in background thread, call callback(profile) when done."""
         def _run():
-            result = self.profile(target_ip, device_info)
+            try:
+                result = self.profile(target_ip, device_info)
+            except Exception as exc:  # keep the UI callback contract intact
+                log_error(f"NetworkProfiler: profile failed: {exc}")
+                result = NetworkProfile(
+                    target_ip=target_ip,
+                    timestamp=time.time(),
+                    packet_loss_pct=100.0,
+                    packets_sent=self.ping_count,
+                    packets_received=0,
+                    quality_score=0.0,
+                )
+                self._detect_connection_type(result)
+                self._infer_device_type(result, device_info)
             if callback:
                 callback(result)
         t = threading.Thread(target=_run, daemon=True, name=f"Profile-{target_ip}")
@@ -185,7 +198,8 @@ class NetworkProfiler:
             output = res.stdout
 
             # Parse RTT values from "time=XXms" or "time<1ms"
-            rtt_matches = re.findall(r'time[=<](\d+)ms', output)
+            rtt_matches = re.findall(r'time\s*[=<]\s*(\d+)\s*ms', output,
+                                     flags=re.IGNORECASE)
             if rtt_matches:
                 rtts = [float(x) for x in rtt_matches]
                 profile.rtt_samples = rtts
@@ -195,16 +209,25 @@ class NetworkProfiler:
                 if len(rtts) > 1:
                     profile.jitter_ms = statistics.stdev(rtts)
 
-            # Parse loss
-            loss_match = re.search(r'(\d+)% loss', output)
-            if loss_match:
-                profile.packet_loss_pct = float(loss_match.group(1))
-
             profile.packets_sent = self.ping_count
             profile.packets_received = len(profile.rtt_samples)
+            # RTT sample count is more dependable than localized Windows summary
+            # labels. If no recognizable samples exist, report probe failure as
+            # 100% loss instead of presenting an unmeasured target as healthy.
+            if self.ping_count > 0:
+                profile.packet_loss_pct = max(
+                    0.0,
+                    min(
+                        100.0,
+                        100.0
+                        * (self.ping_count - profile.packets_received)
+                        / self.ping_count,
+                    ),
+                )
 
             # Parse TTL for hop estimation
-            ttl_match = re.search(r'TTL=(\d+)', output)
+            ttl_match = re.search(r'TTL\s*=\s*(\d+)', output,
+                                  flags=re.IGNORECASE)
             if ttl_match:
                 ttl = int(ttl_match.group(1))
                 # Common initial TTLs: 64 (Linux/Mac/PS), 128 (Windows/Xbox), 255 (router)
@@ -417,4 +440,3 @@ class NetworkProfiler:
             score += 5
 
         profile.quality_score = max(0, min(100, score))
-

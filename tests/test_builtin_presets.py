@@ -3,6 +3,8 @@
 from app.core.builtin_presets import (
     AUTOMATIC_CONNECTION_TEST,
     BUILTIN_PRESETS,
+    CONNECTION_RESILIENCE_LAB,
+    GOD_MODE_LAB,
     get_builtin_preset,
 )
 
@@ -61,3 +63,26 @@ def test_lag_is_pure_packet_delay() -> None:
 def test_custom_remains_empty() -> None:
     assert BUILTIN_PRESETS["Custom"]["methods"] == []
     assert BUILTIN_PRESETS["Custom"]["params"] == {}
+
+
+def test_connection_resilience_lab_is_bounded_and_lag_only() -> None:
+    preset = BUILTIN_PRESETS[CONNECTION_RESILIENCE_LAB]
+    assert preset["methods"] == ["dupez.custom_lag"]
+    assert preset["params"] == {
+        "lag_delay": 1200,
+        "lag_passthrough": False,
+        "lag_preserve_connection": True,
+        "lag_keepalive_interval_ms": 1500,
+        "lag_max_active_ms": 25000,
+        "direction": "both",
+    }
+    assert preset["params"]["lag_max_active_ms"] < 30000
+
+
+def test_god_mode_lab_is_an_isolated_bounded_native_extension() -> None:
+    preset = BUILTIN_PRESETS[GOD_MODE_LAB]
+    assert preset["methods"] == ["dupez.godmode"]
+    params = preset["params"]
+    assert params["extension_active_ms"] == 25000
+    assert params["extension_active_ms"] < 30000
+    assert params["extension_preserve_connection"] is True

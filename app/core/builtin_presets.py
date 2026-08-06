@@ -12,12 +12,16 @@ from typing import Any, Dict
 
 __all__ = [
     "AUTOMATIC_CONNECTION_TEST",
+    "CONNECTION_RESILIENCE_LAB",
+    "GOD_MODE_LAB",
     "BUILTIN_PRESETS",
     "get_builtin_preset",
 ]
 
 
 AUTOMATIC_CONNECTION_TEST = "Automatic Connection Test"
+CONNECTION_RESILIENCE_LAB = "Connection Resilience Lab"
+GOD_MODE_LAB = "Pulse Resilience Lab (Experimental)"
 
 
 BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
@@ -70,6 +74,38 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
             "lag_delay": 2500,
             "lag_passthrough": False,
             "lag_preserve_connection": False,
+            "direction": "both",
+        },
+    },
+    GOD_MODE_LAB: {
+        "description": (
+            "Experimental bounded DupeZ extension for controlled private-"
+            "network resilience testing; automatically releases by 25 seconds"
+        ),
+        "methods": ["dupez.godmode"],
+        "params": {
+            "extension_active_ms": 25000,
+            "extension_block_ms": 1200,
+            "extension_release_ms": 250,
+            "extension_release_batch": 256,
+            "extension_queue_max": 4096,
+            "extension_keepalive_interval_ms": 1500,
+            "extension_preserve_connection": True,
+            "direction": "both",
+        },
+    },
+    CONNECTION_RESILIENCE_LAB: {
+        "description": (
+            "Bounded private-network latency diagnostic with best-effort "
+            "connection preservation and an automatic 25-second release"
+        ),
+        "methods": ["dupez.custom_lag"],
+        "params": {
+            "lag_delay": 1200,
+            "lag_passthrough": False,
+            "lag_preserve_connection": True,
+            "lag_keepalive_interval_ms": 1500,
+            "lag_max_active_ms": 25000,
             "direction": "both",
         },
     },
