@@ -83,22 +83,24 @@ Set-StrictMode -Version Latest
 `$ErrorActionPreference = "Stop"
 Set-Location "$repoRoot"
 Remove-Item -LiteralPath "$logPath" -Force -ErrorAction SilentlyContinue
-Start-Transcript -LiteralPath "$logPath" -Force | Out-Null
+Add-Content -LiteralPath "$logPath" -Value ("[" + [DateTime]::UtcNow.ToString("o") + "] BEGIN elevated admin-finalize run")
 try {
 	Write-Host "BEGIN elevated admin-finalize run"
 	`$env:DUPEZ_SIGN_PRIVKEY = '$escapedPrivKeyPath'
 	Write-Host "DUPEZ_SIGN_PRIVKEY configured in elevated process."
-	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -FilePath "$logPath" -Append
+	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -Variable _finalizeOutput | Out-Host
+	if (`$null -ne `$_finalizeOutput) {
+		`$_finalizeOutput | Out-String | Add-Content -LiteralPath "$logPath"
+	}
 	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
+	Add-Content -LiteralPath "$logPath" -Value ("[" + [DateTime]::UtcNow.ToString("o") + "] END elevated admin-finalize run (exit=`$ec)")
 	exit `$ec
 }
 catch {
+	Add-Content -LiteralPath "$logPath" -Value ("[" + [DateTime]::UtcNow.ToString("o") + "] ERROR: " + (`$_ | Out-String))
 	Write-Error `$_
 	exit 1
-}
-finally {
-	Stop-Transcript | Out-Null
 }
 "@
 
