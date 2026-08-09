@@ -37,6 +37,13 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 - **Blocked release phases fail truthfully.** The sequencer now propagates
   every nested PowerShell exit code; a failed frozen lifecycle check can no
   longer be recorded as `DONE` or allow staging to advance.
+- **Frozen shortcut validation now matches the native Windows ABI.** The
+  release driver defines the complete `INPUT` union, passes the required
+  40-byte Win64 structure to `SendInput`, reports the native error code, and
+  keeps an inaccessible elevated helper from masking the original gate result.
+  It also rebinds the current dashboard HWND after startup and lazy Map
+  initialization because Qt may replace that native handle, then uses attached
+  input queues to activate it across Windows' foreground-lock boundary.
 
 ### Verification
 

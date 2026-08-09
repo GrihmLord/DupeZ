@@ -33,6 +33,18 @@ WM_KEYUP = 0x0101
 VK_CONTROL = 0x11
 INPUT_KEYBOARD = 1
 KEYEVENTF_KEYUP = 0x0002
+ULONG_PTR = wintypes.WPARAM
+
+
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
 
 
 class KEYBDINPUT(ctypes.Structure):
@@ -41,12 +53,22 @@ class KEYBDINPUT(ctypes.Structure):
         ("wScan", wintypes.WORD),
         ("dwFlags", wintypes.DWORD),
         ("time", wintypes.DWORD),
-        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
+
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
     ]
 
 
 class INPUT_UNION(ctypes.Union):
-    _fields_ = [("ki", KEYBDINPUT)]
+    # INPUT is a native union. Omitting the largest MOUSEINPUT member makes
+    # sizeof(INPUT) 32 instead of 40 on Win64, and SendInput rejects cbSize.
+    _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT), ("hi", HARDWAREINPUT)]
 
 
 class INPUT(ctypes.Structure):
@@ -55,10 +77,43 @@ class INPUT(ctypes.Structure):
 
 
 if sys.platform == "win32":
-    USER32 = ctypes.windll.user32
+    USER32 = ctypes.WinDLL("user32", use_last_error=True)
+    KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    USER32.SendInput.argtypes = (
+        wintypes.UINT,
+        ctypes.POINTER(INPUT),
+        ctypes.c_int,
+    )
+    USER32.SendInput.restype = wintypes.UINT
+    USER32.IsWindow.argtypes = (wintypes.HWND,)
+    USER32.IsWindow.restype = wintypes.BOOL
+    USER32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
+    USER32.ShowWindow.restype = wintypes.BOOL
+    USER32.GetForegroundWindow.restype = wintypes.HWND
+    USER32.BringWindowToTop.argtypes = (wintypes.HWND,)
+    USER32.BringWindowToTop.restype = wintypes.BOOL
+    USER32.SetForegroundWindow.argtypes = (wintypes.HWND,)
+    USER32.SetForegroundWindow.restype = wintypes.BOOL
+    USER32.SetActiveWindow.argtypes = (wintypes.HWND,)
+    USER32.SetActiveWindow.restype = wintypes.HWND
+    USER32.SetFocus.argtypes = (wintypes.HWND,)
+    USER32.SetFocus.restype = wintypes.HWND
+    USER32.GetWindowThreadProcessId.argtypes = (
+        wintypes.HWND,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    USER32.GetWindowThreadProcessId.restype = wintypes.DWORD
+    USER32.AttachThreadInput.argtypes = (
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.BOOL,
+    )
+    USER32.AttachThreadInput.restype = wintypes.BOOL
+    KERNEL32.GetCurrentThreadId.restype = wintypes.DWORD
     SHELL32 = ctypes.windll.shell32
 else:  # pragma: no cover - the wrapper and runtime gate are Windows-only.
     USER32 = None
+    KERNEL32 = None
     SHELL32 = None
 
 
@@ -196,31 +251,80 @@ def _find_dashboard(root_pid: int) -> tuple[int, int, list[psutil.Process]]:
     return hwnd, owner_pid, processes
 
 
+def _wait_for_dashboard(
+    root_pid: int, timeout: float
+) -> tuple[int, int, list[psutil.Process]]:
+    """Bind to the current dashboard HWND, which Qt may recreate at runtime."""
+
+    deadline = time.monotonic() + timeout
+    last_processes: list[psutil.Process] = []
+    while time.monotonic() < deadline:
+        hwnd, owner_pid, last_processes = _find_dashboard(root_pid)
+        if hwnd:
+            return hwnd, owner_pid, last_processes
+        time.sleep(0.1)
+    return 0, 0, last_processes
+
+
+def _foreground_dashboard(hwnd: int, timeout: float = 2.0) -> bool:
+    """Activate the exact dashboard across the documented input-queue boundary."""
+
+    USER32.ShowWindow(hwnd, 9)  # SW_RESTORE
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        foreground = int(USER32.GetForegroundWindow() or 0)
+        if foreground == hwnd:
+            return True
+
+        current_thread = int(KERNEL32.GetCurrentThreadId())
+        target_thread = int(USER32.GetWindowThreadProcessId(hwnd, None))
+        foreground_thread = (
+            int(USER32.GetWindowThreadProcessId(foreground, None)) if foreground else 0
+        )
+        attached: list[int] = []
+        for thread_id in (foreground_thread, target_thread):
+            if (
+                thread_id
+                and thread_id != current_thread
+                and thread_id not in attached
+                and USER32.AttachThreadInput(current_thread, thread_id, True)
+            ):
+                attached.append(thread_id)
+        try:
+            USER32.BringWindowToTop(hwnd)
+            USER32.SetForegroundWindow(hwnd)
+            USER32.SetActiveWindow(hwnd)
+            USER32.SetFocus(hwnd)
+        finally:
+            for thread_id in reversed(attached):
+                USER32.AttachThreadInput(current_thread, thread_id, False)
+        time.sleep(0.05)
+    return int(USER32.GetForegroundWindow() or 0) == hwnd
+
+
 def _send_ctrl_key(hwnd: int, virtual_key: int) -> None:
     """Send one real shortcut only after the exact dashboard is foreground."""
 
     if not hwnd or not USER32.IsWindow(hwnd):
         raise RuntimeError("The exact DupeZ dashboard HWND is no longer valid")
-    USER32.ShowWindow(hwnd, 9)  # SW_RESTORE
-    USER32.SetForegroundWindow(hwnd)
-    deadline = time.monotonic() + 2.0
-    while time.monotonic() < deadline:
-        if int(USER32.GetForegroundWindow()) == hwnd:
-            break
-        USER32.SetForegroundWindow(hwnd)
-        time.sleep(0.05)
-    if int(USER32.GetForegroundWindow()) != hwnd:
+    if not _foreground_dashboard(hwnd):
         raise RuntimeError("Could not foreground the exact DupeZ dashboard")
 
     inputs = (INPUT * 4)(
-        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(VK_CONTROL, 0, 0, 0, None)),
-        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(virtual_key, 0, 0, 0, None)),
-        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(virtual_key, 0, KEYEVENTF_KEYUP, 0, None)),
-        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0, None)),
+        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(VK_CONTROL, 0, 0, 0, 0)),
+        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(virtual_key, 0, 0, 0, 0)),
+        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(virtual_key, 0, KEYEVENTF_KEYUP, 0, 0)),
+        INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0, 0)),
     )
-    sent = int(USER32.SendInput(len(inputs), ctypes.byref(inputs), ctypes.sizeof(INPUT)))
+    ctypes.set_last_error(0)
+    input_size = ctypes.sizeof(INPUT)
+    sent = int(USER32.SendInput(len(inputs), inputs, input_size))
     if sent != len(inputs):
-        raise RuntimeError(f"SendInput accepted {sent}/{len(inputs)} keyboard events")
+        error = ctypes.get_last_error()
+        raise RuntimeError(
+            f"SendInput accepted {sent}/{len(inputs)} keyboard events "
+            f"(GetLastError={error}, sizeof(INPUT)={input_size})"
+        )
 
 
 def _log_text(runtime_root: Path) -> str:
@@ -279,13 +383,40 @@ def _terminate_started_family(root_pid: int, known_pids: set[int]) -> None:
             process.terminate()
         except (psutil.Error, OSError):
             continue
-    _, alive = psutil.wait_procs(candidates, timeout=3.0)
+    alive = _wait_processes_best_effort(candidates, timeout=3.0)
     for process in alive:
         try:
             process.kill()
         except (psutil.Error, OSError):
             continue
-    psutil.wait_procs(alive, timeout=3.0)
+    _wait_processes_best_effort(alive, timeout=3.0)
+
+
+def _wait_processes_best_effort(
+    processes: Iterable[psutil.Process], timeout: float
+) -> list[psutil.Process]:
+    """Wait for controllable processes without masking the triggering failure.
+
+    A Medium Integrity GPU validator cannot open the elevated helper with the
+    rights psutil.wait_procs requires. The helper exits through its parent
+    watcher after the GUI is terminated, so an access-denied process is left to
+    that boundary instead of replacing the original validation exception.
+    """
+
+    pending = list(processes)
+    deadline = time.monotonic() + timeout
+    while pending and time.monotonic() < deadline:
+        still_running: list[psutil.Process] = []
+        for process in pending:
+            try:
+                if process.is_running():
+                    still_running.append(process)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                continue
+        pending = still_running
+        if pending:
+            time.sleep(0.1)
+    return pending
 
 
 def _wait_for_no_dupez_processes(timeout: float = 15.0) -> None:
@@ -361,6 +492,13 @@ def _run_profile(
         if not _wait_for_log(runtime_root, ("DupeZ started successfully",), 20):
             raise RuntimeError("Dashboard appeared but successful-start log was not observed")
 
+        dashboard, dashboard_owner_pid, process_tree_snapshot = _wait_for_dashboard(
+            process.pid, 5.0
+        )
+        known_pids.update(item.pid for item in process_tree_snapshot)
+        if not dashboard:
+            raise RuntimeError("The DupeZ dashboard disappeared after startup")
+
         try:
             gui_process = psutil.Process(dashboard_owner_pid)
             gui_working_set = int(gui_process.memory_info().rss)
@@ -387,6 +525,13 @@ def _run_profile(
             raise RuntimeError("No map initialization result was observed")
         if map_result == "Lazy map initialization failed":
             raise RuntimeError(f"The real frozen Map failed; inspect {runtime_root}")
+
+        dashboard, dashboard_owner_pid, process_tree_snapshot = _wait_for_dashboard(
+            process.pid, 5.0
+        )
+        known_pids.update(item.pid for item in process_tree_snapshot)
+        if not dashboard:
+            raise RuntimeError("The DupeZ dashboard disappeared after Map initialization")
 
         _send_ctrl_key(dashboard, 0x51)  # Ctrl+Q: DupeZ force-quit path
         try:
