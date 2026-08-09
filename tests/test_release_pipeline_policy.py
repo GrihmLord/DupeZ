@@ -292,9 +292,18 @@ def test_manual_recorder_requires_all_exact_artifact_gates():
         "installer_uninstall",
         "manual-release-validation.json",
         "Type YES for each gate",
+        "AllowUnsigned",
+        "distribution_signing_mode",
+        "Authorized unsigned release installer",
+        "Authenticode-signed release installer",
     )
     for token in required:
         assert token in script, token
+
+    assert 'installer_fresh_install = "Signed installer' not in script
+
+    sequence = _read("scripts/blocked_release_gates_sequence.ps1")
+    assert 'if ($AllowUnsigned) { $manualArgs += "-AllowUnsigned" }' in sequence
 
 
 def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
