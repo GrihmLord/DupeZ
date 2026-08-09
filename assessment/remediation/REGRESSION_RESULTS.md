@@ -1,6 +1,6 @@
 # REGRESSION_RESULTS
 
-- Full suite (2026-08-09 v5.8.0 candidate): 1328 passed, 8 expected opt-in/platform skips.
+- Full suite (2026-08-09 v5.8.0 candidate): 1333 passed, 8 expected opt-in/platform skips.
 - Routing/policy suite: 121 passed.
 - Startup/content safety gate: 2 passed.
 - Source release preflight for v5.8.0: passed.
@@ -10,3 +10,5 @@
   coalescing/read safety, release-state version isolation, and PowerShell 5.1 lock parsing.
 - Repaired the logged Administrator wrapper so native stderr remains evidence
   while the nested finalizer exit code remains the release decision.
+- Repaired split-helper token discovery across UAC environment boundaries and
+  made nested blocked-gate failures propagate to the launcher state.

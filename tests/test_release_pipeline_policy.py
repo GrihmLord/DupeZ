@@ -54,6 +54,20 @@ def test_logged_admin_finalizer_uses_native_exit_code_for_stderr():
     assert "exit `$ec" in script
 
 
+def test_blocked_gate_sequencer_propagates_nested_phase_failures():
+    script = _read("scripts/blocked_release_gates_sequence.ps1")
+    run_checked = script.index("function Run-Checked")
+    switch = script.index("switch ($Phase)", run_checked)
+    body = script[run_checked:switch]
+
+    action_index = body.index("& $Action")
+    capture_index = body.index("$phaseExitCode = $LASTEXITCODE")
+    reject_index = body.index("$phaseExitCode -ne 0")
+    throw_index = body.index("failed with exit code $phaseExitCode")
+
+    assert action_index < capture_index < reject_index < throw_index
+
+
 def test_installer_uses_restart_manager_without_force_kill_hook():
     installer = _read("packaging/installer.iss")
     lowered = installer.lower()
@@ -295,6 +309,7 @@ def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
         "scripts/release_gate_launcher.ps1",
         "scripts/lock-requirements.ps1",
         "scripts/complete_admin_finalize_then_gpu_validate.ps1",
+        "scripts/blocked_release_gates_sequence.ps1",
     ),
 )
 def test_release_powershell_scripts_parse_under_windows_powershell(relative):

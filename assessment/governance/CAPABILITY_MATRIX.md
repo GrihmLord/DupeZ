@@ -4,7 +4,7 @@
 |---|---|---|
 | Repository read/write | AVAILABLE | Full local workspace access |
 | Python execution | AVAILABLE | Source validation uses .venv Python 3.11 |
-| Automated tests | AVAILABLE | 1328 passed; 8 expected opt-in/platform skips |
+| Automated tests | AVAILABLE | 1333 passed; 8 expected opt-in/platform skips |
 | Hermetic packaging | AVAILABLE | Policy recreates .release-venv from the hashed lock |
 | Dist preflight checks | AVAILABLE | Source pass; exact v5.8.0 dist evidence pending |
 | Administrator-required scripts | AVAILABLE | Required only after clean merge to main |
