@@ -15,6 +15,7 @@ def test_performance_smoke_reports_budgeted_checks() -> None:
         "storage_status",
         "retention_empty_roots",
         "scenario_report",
+        "traffic_analyzer_record_2000",
     }
     assert all("budget_ms" in check for check in payload["checks"])
 

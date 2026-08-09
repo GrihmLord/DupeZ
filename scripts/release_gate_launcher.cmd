@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0.."
 
-set VERSION=5.7.9
+set VERSION=5.8.0
 
 echo ============================================
 echo  DupeZ Blocked Release Gates Launcher

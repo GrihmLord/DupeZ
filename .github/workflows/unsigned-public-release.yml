@@ -6,7 +6,7 @@ on:
       version:
         description: 'Exact semantic version to publish'
         required: true
-        default: '5.7.9'
+        default: '5.8.0'
         type: string
       confirmation:
         description: 'Type RELEASE UNSIGNED to acknowledge Windows publisher warnings'
@@ -55,8 +55,8 @@ jobs:
           if ('${{ github.ref_name }}' -ne 'main') {
             throw 'Unsigned public release must be dispatched from main.'
           }
-          if ('${{ inputs.version }}' -ne '5.7.9') {
-            throw 'This emergency workflow can publish only v5.7.9.'
+          if ('${{ inputs.version }}' -ne '5.8.0') {
+            throw 'This emergency workflow can publish only v5.8.0.'
           }
 
       - name: Checkout exact main commit
@@ -120,7 +120,7 @@ jobs:
             dist/DupeZ_Setup.exe
           sbom-path: dist/DupeZ.sbom.json
 
-      - name: Publish immutable unsigned v5.7.9 release
+      - name: Publish immutable unsigned v5.8.0 release
         shell: pwsh
         run: |
           $tag = 'v${{ inputs.version }}'

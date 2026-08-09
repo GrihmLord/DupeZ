@@ -1,4 +1,4 @@
-"""Static and parser-level policy tests for v5.7.9 release finalization."""
+"""Static and parser-level policy tests for v5.8.0 release finalization."""
 
 from __future__ import annotations
 
@@ -17,11 +17,29 @@ def _read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
+def test_windows_lock_driver_is_powershell_51_ascii_safe():
+    script = _read("scripts/lock-requirements.ps1")
+
+    # Windows PowerShell 5.1 decodes BOM-less UTF-8 as the active ANSI code
+    # page. Smart punctuation can become quote-like bytes and corrupt parsing.
+    assert script.isascii()
+
+
+def test_release_gate_launcher_rejects_stale_version_state():
+    script = _read("scripts/release_gate_launcher.ps1")
+
+    assert '$stateSchema = "dupez.blocked-release-gates-progress.v1"' in script
+    assert "[string]$raw.schema -ne $stateSchema" in script
+    assert "[string]$raw.version -ne $Version" in script
+    assert "Ignoring release progress for schema/version" in script
+    assert "Write-State -state $default" in script
+
+
 def test_installer_uses_restart_manager_without_force_kill_hook():
     installer = _read("packaging/installer.iss")
     lowered = installer.lower()
 
-    assert '#define MyAppVersion   "5.7.9"' in installer
+    assert '#define MyAppVersion   "5.8.0"' in installer
     assert "CloseApplications=yes" in installer
     assert (
         "CloseApplicationsFilter=dupez.exe,DupeZ-GPU.exe,DupeZ-Compat.exe"
@@ -53,7 +71,7 @@ def test_release_finalizer_requires_real_signing_and_security_gates():
         "-DisableRemediation",
         "-ReturnHR",
         "scripts\\release_preflight.py",
-        ".build-venv\\Scripts\\python.exe",
+        ".release-venv\\Scripts\\python.exe",
         "--dist",
         "SHA256SUMS.txt",
         "release-attestation.json",
@@ -255,6 +273,8 @@ def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
         "scripts/validate_frozen_runtime.ps1",
         "scripts/record_manual_release_validation.ps1",
         "scripts/stage_release.ps1",
+        "scripts/release_gate_launcher.ps1",
+        "scripts/lock-requirements.ps1",
     ),
 )
 def test_release_powershell_scripts_parse_under_windows_powershell(relative):

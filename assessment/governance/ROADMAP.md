@@ -2,10 +2,10 @@
 
 Review mandate: RELEASE_ASSURANCE
 Transaction stage: NOT_APPLICABLE
-Reference revision: working tree on branch codex/connection-resilience-ai-reliability
-Evidence cutoff: 2026-08-06 06:18:41Z
+Reference revision: working tree on branch codex/v580-release-optimization-20260809
+Evidence cutoff: 2026-08-09 UTC
 Execution mode: local evidence-driven assessment
-Environment: Windows + Python 3.11.9 venv (.build-venv)
+Environment: Windows + Python 3.11 source venv (.venv); packaging uses .release-venv
 
 ## Phase Status
 - Phase 0: COMPLETE | Mandate, scope, authorization, and capability preflight recorded
@@ -15,7 +15,7 @@ Environment: Windows + Python 3.11.9 venv (.build-venv)
 - Phase 4: PARTIAL | Code and config sensitive-data scan only; history and legal IP chain pending
 - Phase 5: PARTIAL | Release QA gates executed; exact signed artifact lifecycle tests blocked
 - Phase 6: PARTIAL | Architecture and code-quality review completed on changed/high-risk areas
-- Phase 7: PARTIAL | Performance/cost profile partially inferred; no new release-artifact perf run
+- Phase 7: PARTIAL | Latency regression and source performance smoke pass; frozen-artifact profiling pending
 - Phase 8: PARTIAL | Threat and boundary review completed; no active exploit validation
 - Phase 9: PARTIAL | Data/privacy technical paths reviewed; legal basis mapping pending
 - Phase 10: PARTIAL | AI/agent reliability and control-path checks executed from code and tests
@@ -35,10 +35,10 @@ Environment: Windows + Python 3.11.9 venv (.build-venv)
 Current phase: Phase 22 (final packet assembly)
 Open blockers:
 - Finalization script requires Administrator PowerShell.
-- Stage release script requires main branch and clean tree.
-- Dist preflight fails due unsigned/missing final release-sidecar artifacts.
+- v5.8.0 exact artifacts must be rebuilt from reviewed, clean main.
+- Frozen GPU/Compat evidence, manual walkthrough, and staging are not yet complete.
 Open regressions:
-- None in automated suite; 1293 passed, 8 skipped.
+- None in automated suite; 1326 passed, 8 expected opt-in/platform skips.
 Evidence requests:
 - Corporate/legal/financial/insurance records not provided in this workspace.
 Conflicted evidence:

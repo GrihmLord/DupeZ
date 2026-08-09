@@ -31,11 +31,18 @@ import time
 import threading
 import statistics
 from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Dict, List, Optional, Tuple
 
 from app.logs.logger import log_info
+
+
+_SNAPSHOT_EXECUTOR = ThreadPoolExecutor(
+    max_workers=1,
+    thread_name_prefix="TrafficSnapshot",
+)
 
 __all__ = [
     "GameState",
@@ -115,6 +122,8 @@ class TrafficPatternAnalyzer:
         # Rolling snapshots
         self._snapshots: deque = deque(maxlen=120)  # ~2 min history
         self._last_snapshot_time: float = 0.0
+        self._snapshot_schedule_lock = threading.Lock()
+        self._snapshot_pending = False
 
         # Aggregate stats
         self._total_packets = 0
@@ -136,13 +145,39 @@ class TrafficPatternAnalyzer:
                         self._iats.append(iat)
                 self._last_inbound_time = timestamp
 
-        # Periodic snapshot generation
-        if timestamp - self._last_snapshot_time >= self._snapshot_interval:
+        # Periodic aggregation is intentionally kept off the WinDivert
+        # capture thread. One shared worker is enough, and the per-analyzer
+        # pending bit coalesces packet bursts into at most one queued scan.
+        self._schedule_snapshot(timestamp)
+
+    def _schedule_snapshot(self, timestamp: float) -> None:
+        with self._snapshot_schedule_lock:
+            if (
+                self._snapshot_pending
+                or timestamp - self._last_snapshot_time
+                < self._snapshot_interval
+            ):
+                return
+            self._snapshot_pending = True
+            self._last_snapshot_time = timestamp
+        try:
+            _SNAPSHOT_EXECUTOR.submit(self._run_snapshot, timestamp)
+        except RuntimeError:
+            # Interpreter shutdown can close the executor before a late
+            # packet observer is torn down. Drop telemetry rather than ever
+            # blocking or failing the packet path.
+            with self._snapshot_schedule_lock:
+                self._snapshot_pending = False
+
+    def _run_snapshot(self, timestamp: float) -> None:
+        try:
             self._generate_snapshot(timestamp)
+        finally:
+            with self._snapshot_schedule_lock:
+                self._snapshot_pending = False
 
     def _generate_snapshot(self, now: float) -> None:
         """Compute a TrafficSnapshot from the current window."""
-        self._last_snapshot_time = now
         cutoff = now - self._window_sec
 
         with self._lock:
@@ -192,23 +227,29 @@ class TrafficPatternAnalyzer:
         elif snap.inbound_packets > 0:
             snap.asymmetry_ratio = float('inf')
 
-        self._snapshots.append(snap)
+        with self._lock:
+            self._snapshots.append(snap)
 
     def get_latest_snapshot(self) -> Optional[TrafficSnapshot]:
         """Return the most recent snapshot."""
-        return self._snapshots[-1] if self._snapshots else None
+        with self._lock:
+            return self._snapshots[-1] if self._snapshots else None
 
     def get_snapshot_history(self, count: int = 10) -> List[TrafficSnapshot]:
         """Return the last N snapshots."""
-        return list(self._snapshots)[-count:]
+        with self._lock:
+            return list(self._snapshots)[-count:]
 
     def get_stats(self) -> Dict:
-        snap = self.get_latest_snapshot()
+        with self._lock:
+            snap = self._snapshots[-1] if self._snapshots else None
+            total_packets = self._total_packets
+            total_bytes = self._total_bytes
         if not snap:
-            return {"total_packets": self._total_packets, "total_bytes": self._total_bytes}
+            return {"total_packets": total_packets, "total_bytes": total_bytes}
         return {
-            "total_packets": self._total_packets,
-            "total_bytes": self._total_bytes,
+            "total_packets": total_packets,
+            "total_bytes": total_bytes,
             "pps": round(snap.packets_per_sec, 1),
             "bps": round(snap.bytes_per_sec, 0),
             "inbound_pps": round(snap.inbound_pps, 1),

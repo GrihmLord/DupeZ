@@ -2058,10 +2058,13 @@ class NativeWinDivertEngine:
                 else:
                     self._packets_inbound += 1
 
-                # Feed traffic analyzer (passive — no packet modification)
+                # Feed passive observers from one monotonic clock read. This
+                # avoids duplicate system-clock calls in the packet hot path
+                # and keeps interval math immune to wall-clock adjustment.
+                packet_now = time.monotonic()
                 if self._traffic_analyzer is not None:
                     self._traffic_analyzer.record_packet(
-                        time.time(), pkt_len, is_outbound)
+                        packet_now, pkt_len, is_outbound)
 
                 # Feature extraction for ML training corpus (opt-in).
                 # Classification is cheap (header inspection only) and only
@@ -2073,7 +2076,7 @@ class NativeWinDivertEngine:
                         _pkt_cls, _proto, _sp, _dp = classify_packet(
                             packet_data, is_target=True
                         )
-                        _mono = time.monotonic()
+                        _mono = packet_now
                         self._feature_extractor.observe(
                             _pkt_cls, pkt_len, not is_outbound,
                             _dp if is_outbound else _sp, _mono,

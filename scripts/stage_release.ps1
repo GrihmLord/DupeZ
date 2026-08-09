@@ -13,7 +13,7 @@ param(
     [string]$Mode = "Draft",
 
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "5.7.9",
+    [string]$Version = "5.8.0",
 
     [string]$Repository = "GrihmLord/DupeZ"
 )

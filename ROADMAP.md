@@ -4,9 +4,27 @@ What's coming next. Priorities shift based on community feedback — open an iss
 
 ---
 
+## v5.8.0 — Bounded resilience and release optimization
+
+**Status:** In progress
+
+- **Bounded resilience ownership** — the merged v5.7.9 repair becomes the
+  public baseline with one process-wide packet owner and deterministic
+  Clumsy/Native capability routing.
+- **Packet-loop protection** — periodic traffic aggregation moves off the
+  capture thread and remains coalesced to one worker.
+- **AI reliability** — provider concurrency is bounded and overload falls
+  back to the same validated offline recommendations.
+- **Lean, repeatable packaging** — the unused pandas dependency is removed,
+  release builds use an IDE-independent disposable environment, and every
+  active release entry point is checked for version drift.
+- **Exact-artifact gates** — both frozen variants, private hardware smoke,
+  manual validation, hashes, SBOM/VEX, and staged download verification must
+  pass before v5.8.0 is public.
+
 ## v5.7.9 — Clumsy parity and startup recovery
 
-**Status:** Release candidate
+**Status:** Released
 
 - **Standalone-compatible automatic path** — Exact core effects use the
   bundled Clumsy v0.3.4 process first, with verified layer, controls, values,
@@ -41,7 +59,7 @@ This release completes the defensive pivot: public presets and advisor paths now
 
 ---
 
-## v5.8.0 — Finish the v5.7.4 Wire-Up
+## v5.8.1 — Finish the v5.7.4 Wire-Up
 
 **Status:** Next up
 

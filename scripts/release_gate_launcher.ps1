@@ -15,7 +15,7 @@ param(
     [string]$Phase = "auto",
 
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "5.7.9",
+    [string]$Version = "5.8.0",
 
     [string]$Operator = "",
 
@@ -31,6 +31,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
 
 $statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
+$stateSchema = "dupez.blocked-release-gates-progress.v1"
 $sequence = @(
     "admin-finalize",
     "gpu-validate",
@@ -57,7 +58,7 @@ function Test-IsAdmin {
 
 function New-DefaultState {
     return [ordered]@{
-        schema = "dupez.blocked-release-gates-progress.v1"
+        schema = $stateSchema
         version = $Version
         updated_at_utc = [DateTime]::UtcNow.ToString("o")
         phases = [ordered]@{}
@@ -70,6 +71,18 @@ function Read-State {
     }
     try {
         $raw = Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+        if (
+            [string]$raw.schema -ne $stateSchema -or
+            [string]$raw.version -ne $Version
+        ) {
+            Write-Warning (
+                "Ignoring release progress for schema/version '{0}'/'{1}'; " +
+                "the active release is '{2}'/'{3}'. Reinitializing progress state."
+            ) -f $raw.schema, $raw.version, $stateSchema, $Version
+            $default = New-DefaultState
+            Write-State -state $default
+            return $default
+        }
         $h = [ordered]@{
             schema = [string]$raw.schema
             version = [string]$raw.version

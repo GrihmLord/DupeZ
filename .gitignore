@@ -24,6 +24,7 @@ env/
 ENV/
 .venv/
 .build-venv/
+.release-venv/
 
 # IDE
 .vscode/

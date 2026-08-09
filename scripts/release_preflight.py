@@ -74,7 +74,7 @@ def _check_hermetic_python_policy(rel: str) -> list[str]:
     text = _read(rel)
     required = (
         'set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\\.venv\\Scripts\\python.exe"',
-        'set "DUPEZ_BUILD_VENV=%CD%\\.build-venv"',
+        'set "DUPEZ_BUILD_VENV=%CD%\\.release-venv"',
         'set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\\Scripts\\python.exe"',
         'set "PYTHONHOME="',
         'set "PYTHONPATH="',
@@ -144,7 +144,7 @@ def _check_hermetic_python_policy(rel: str) -> list[str]:
 
 
 _FORBIDDEN_FROZEN_PREFIXES = (
-    # v5.7.9 does not ship Group Finder. Revise this explicit release policy
+    # v5.8.0 does not ship Group Finder. Revise this explicit release policy
     # when the feature and its dependency boundary are approved for release.
     "anyio",
     "app.social",
@@ -539,6 +539,38 @@ def check_source(expected_version: str | None = None) -> list[str]:
         "README.md": _match_version(
             "README.md",
             r"^# DupeZ v(\d+\.\d+\.\d+)$",
+        ),
+        "scripts/finalize_release.ps1": _match_version(
+            "scripts/finalize_release.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
+        "scripts/stage_release.ps1": _match_version(
+            "scripts/stage_release.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
+        "scripts/release_gate_launcher.ps1": _match_version(
+            "scripts/release_gate_launcher.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
+        "scripts/blocked_release_gates_sequence.ps1": _match_version(
+            "scripts/blocked_release_gates_sequence.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
+        "scripts/record_manual_release_validation.ps1": _match_version(
+            "scripts/record_manual_release_validation.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
+        "scripts/release_gate_launcher.cmd": _match_version(
+            "scripts/release_gate_launcher.cmd",
+            r"^set VERSION=(\d+\.\d+\.\d+)$",
+        ),
+        ".github/workflows/release.yml": _match_version(
+            ".github/workflows/release.yml",
+            r"default:\s*'(\d+\.\d+\.\d+)'",
+        ),
+        ".github/workflows/unsigned-public-release.yml": _match_version(
+            ".github/workflows/unsigned-public-release.yml",
+            r"default:\s*'(\d+\.\d+\.\d+)'",
         ),
     }
     wanted = expected_version or versions["app/__version__.py"]

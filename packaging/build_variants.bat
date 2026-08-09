@@ -17,9 +17,9 @@ pushd "%~dp0.."
 ::
 :: Prereqs: a repository-local .venv with 64-bit Python 3.11.9 and pip.
 
-set "DUPEZ_VERSION=5.7.9"
+set "DUPEZ_VERSION=5.8.0"
 set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\.venv\Scripts\python.exe"
-set "DUPEZ_BUILD_VENV=%CD%\.build-venv"
+set "DUPEZ_BUILD_VENV=%CD%\.release-venv"
 set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\Scripts\python.exe"
 set "PYTHONHOME="
 set "PYTHONPATH="
@@ -75,7 +75,7 @@ if errorlevel 1 exit /b 1
 echo Verifying hermetic build imports...
 "%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
 if errorlevel 1 (
-    echo ERROR: Required build/runtime imports failed inside .build-venv.
+    echo ERROR: Required build/runtime imports failed inside .release-venv.
     echo        Refusing to build with an incomplete or mixed Python environment.
     pause
     exit /b 1

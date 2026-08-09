@@ -5,7 +5,7 @@ Retired legacy release entry point.
 
 .DESCRIPTION
 This script intentionally refuses to tag or publish a release. The protected
-v5.7.9 process requires signed exact-artifact finalization, frozen and manual
+v5.8.0 process requires signed exact-artifact finalization, frozen and manual
 validation, draft upload verification, and explicit publication through the
 strict scripts listed in the error below.
 #>

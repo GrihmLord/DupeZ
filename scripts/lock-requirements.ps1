@@ -50,10 +50,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "==> Verifying lockfile is installable with --require-hashes..."
 & $Python -m pip install --dry-run --require-hashes --quiet -r requirements-locked.txt
 if ($LASTEXITCODE -ne 0) {
-    Write-Error "Lockfile verification failed — do NOT commit."
+    Write-Error "Lockfile verification failed -- do NOT commit."
     exit $LASTEXITCODE
 }
 
 Write-Host ""
-Write-Host "OK — requirements-locked.txt regenerated and verified." -ForegroundColor Green
+Write-Host "OK -- requirements-locked.txt regenerated and verified." -ForegroundColor Green
 Write-Host "Commit requirements.in AND requirements-locked.txt together."

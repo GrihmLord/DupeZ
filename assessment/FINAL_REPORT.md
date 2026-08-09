@@ -7,8 +7,8 @@
 - Target products: DupeZ desktop release artifacts
 - Transaction type: NONE
 - Transaction stage: NOT_APPLICABLE
-- Reference revision: codex/connection-resilience-ai-reliability (working tree)
-- Evidence cutoff: 2026-08-06 06:18:41Z
+- Reference revision: codex/v580-release-optimization-20260809 (working tree)
+- Evidence cutoff: 2026-08-09 UTC
 - Authorized scope: local repository and local commands
 - Excluded scope: external unauthorized systems and unavailable corporate/legal records
 
@@ -22,7 +22,7 @@
 ## Coverage
 - Repositories inventoried: 1
 - Files inspected: targeted changed high-risk modules + release scripts + tests
-- Environments tested: local Windows source/test environment
+- Environments tested: local Windows source/test environment (Python 3.11)
 - Evidence completeness: PARTIAL
 
 ## Phase Results
@@ -35,15 +35,15 @@ See governance/ROADMAP.md for Phase 0-22 status with evidence and blockers.
 - Low: 1
 
 ## Release Blockers
-- Unsigned/missing final release artifact sidecars required by dist preflight.
-- Protected finalization/staging prerequisites not satisfied in this session context.
+- Current `dist` files predate v5.8.0 and cannot serve as release evidence.
+- Protected exact-artifact build, frozen validation, manual walkthrough, and staging remain pending.
 
 ## Missing Evidence
 - Corporate/legal/financial/personnel/insurance evidence not provided.
 
 ## Recommended Roadmap
-- Immediate: resolve signing and dist preflight blockers on authorized host.
-- Before release cut: run docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.7.9.md via scripts/blocked_release_gates_sequence.ps1 in strict phase order.
+- Immediate: merge only after exact-head CI passes, then rebuild from clean `main`.
+- Before release cut: run docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md via scripts/blocked_release_gates_sequence.ps1 in strict phase order.
 - Post-cut: expand artifact-level lifecycle/accessibility/performance matrices.
 
 ## Execution Aids
@@ -53,4 +53,4 @@ See governance/ROADMAP.md for Phase 0-22 status with evidence and blockers.
 ## Limitations
 - No legal, tax, accounting, insurance, or definitive regulatory conclusions.
 - No unauthorized active security testing performed.
-- Exact signed artifact final verification blocked by execution context and missing artifacts.
+- Exact v5.8.0 artifact verification remains pending; no stale v5.7.9 result is treated as current evidence.

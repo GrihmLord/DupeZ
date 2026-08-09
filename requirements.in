@@ -15,7 +15,7 @@
 PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
 PyQtGraph>=0.13.0
-# v5.7.9 security floor; keep this release on the 12.3 line.
+# v5.8.0 security floor; keep this release on the 12.3 line.
 Pillow>=12.3.0,<12.4
 
 # ── System & Process ────────────────────────────────────────────────
@@ -31,18 +31,17 @@ pywin32>=306; sys_platform == 'win32'
 scapy>=2.6.0
 requests>=2.34.2
 # Security floors for Requests' direct runtime dependencies. Narrow upper
-# bounds minimize release drift while clearing the v5.7.9 advisories.
+# bounds minimize release drift while clearing the v5.8.0 advisories.
 urllib3>=2.7.0,<2.8
 idna>=3.18,<3.19
 
 # mDNS hostname resolution — 4th-stage fallback in the hostname chain.
-# Stay on the patched 0.149.16 compatibility line for v5.7.9.
+# Stay on the patched 0.150.0 compatibility line for v5.8.0.
 zeroconf>=0.150.0,<0.150.1
 
 # ── Data / Export ────────────────────────────────────────────────────
 openpyxl>=3.1.0
 numpy>=2.4.6
-pandas>=3.0.5
 
 # ── Cryptography ────────────────────────────────────────────────────
 # AES-256-GCM envelope encryption for secrets, Ed25519 for update

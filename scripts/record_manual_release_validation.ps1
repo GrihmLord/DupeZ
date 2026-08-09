@@ -1,6 +1,6 @@
 #requires -Version 5.1
 <#
-Record the human-observed v5.7.9 release gates against the exact frozen and
+Record the human-observed v5.8.0 release gates against the exact frozen and
 installer artifacts already present in dist/. This script is intentionally
 interactive: every gate requires an explicit YES response from the operator.
 #>
@@ -12,7 +12,7 @@ param(
     [string]$Operator,
 
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "5.7.9"
+    [string]$Version = "5.8.0"
 )
 
 Set-StrictMode -Version Latest

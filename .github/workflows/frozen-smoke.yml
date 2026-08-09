@@ -95,7 +95,7 @@ jobs:
       - name: Re-run frozen archive preflight
         shell: pwsh
         run: |
-          .\.build-venv\Scripts\python.exe -I scripts\release_preflight.py `
+          .\.release-venv\Scripts\python.exe -I scripts\release_preflight.py `
             --frozen-artifact dist\DupeZ-GPU.exe `
             --frozen-artifact dist\DupeZ-Compat.exe
 

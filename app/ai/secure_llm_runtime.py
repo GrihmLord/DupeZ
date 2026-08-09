@@ -15,6 +15,7 @@ It also adds:
 * explicit availability refresh after configuration changes;
 * generation-owned async callbacks so stale requests cannot update the UI;
 * cooperative cancellation of callbacks while preserving bounded HTTP timeouts;
+* two-slot provider concurrency with validated offline overload fallback;
 * offline rule-based fallback through the existing advisor implementation.
 """
 
@@ -39,9 +40,10 @@ __all__ = [
 ]
 
 LLM_SETTINGS_KEY = "llm_advisor"
-LLM_SECRET_NAME = "llm_api_key"
+LLM_SECRET_NAME = "llm_api_key"  # pragma: allowlist secret
 _VALID_PROVIDERS = frozenset({"ollama", "openai", "none"})
 _LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
+_MAX_PROVIDER_REQUESTS = 2
 
 
 def _bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
@@ -198,6 +200,9 @@ class ConfiguredLLMAdvisor(LLMAdvisor):
         self._request_lock = threading.RLock()
         self._request_generation = 0
         self._cancel_event = threading.Event()
+        self._provider_slots = threading.BoundedSemaphore(
+            _MAX_PROVIDER_REQUESTS
+        )
 
     @classmethod
     def from_settings(cls) -> "ConfiguredLLMAdvisor":
@@ -243,7 +248,17 @@ class ConfiguredLLMAdvisor(LLMAdvisor):
         generation, cancel_event = self._begin_request()
 
         def _run() -> None:
-            result = self.ask(prompt, profile_context)
+            if not self._provider_slots.acquire(blocking=False):
+                log_info(
+                    "Smart Ops provider capacity reached; using validated "
+                    "offline recommendation"
+                )
+                result = self._fallback_interpret(prompt)
+            else:
+                try:
+                    result = self.ask(prompt, profile_context)
+                finally:
+                    self._provider_slots.release()
             if self._owns_request(generation, cancel_event) and callback:
                 callback(result)
 
