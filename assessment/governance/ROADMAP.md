@@ -2,7 +2,7 @@
 
 Review mandate: RELEASE_ASSURANCE
 Transaction stage: NOT_APPLICABLE
-Reference revision: working tree on branch codex/v580-release-optimization-20260809
+Reference revision: working tree on branch codex/v580-frozen-input-abi-20260809
 Evidence cutoff: 2026-08-09 UTC
 Execution mode: local evidence-driven assessment
 Environment: Windows + Python 3.11 source venv (.venv); packaging uses .release-venv
@@ -34,11 +34,11 @@ Environment: Windows + Python 3.11 source venv (.venv); packaging uses .release-
 
 Current phase: Phase 22 (final packet assembly)
 Open blockers:
-- Finalization script requires Administrator PowerShell.
-- v5.8.0 exact artifacts must be rebuilt from reviewed, clean main.
+- v5.8.0 exact artifacts must be rebuilt from reviewed, clean main after the
+  frozen-input ABI repair merges.
 - Frozen GPU/Compat evidence, manual walkthrough, and staging are not yet complete.
 Open regressions:
-- None in automated suite; 1333 passed, 8 expected opt-in/platform skips.
+- None in automated suite; 1337 passed, 8 expected opt-in/platform skips.
 Evidence requests:
 - Corporate/legal/financial/insurance records not provided in this workspace.
 Conflicted evidence:

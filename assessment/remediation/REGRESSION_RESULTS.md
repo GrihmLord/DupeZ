@@ -1,6 +1,6 @@
 # REGRESSION_RESULTS
 
-- Full suite (2026-08-09 v5.8.0 candidate): 1333 passed, 8 expected opt-in/platform skips.
+- Full suite (2026-08-09 v5.8.0 candidate): 1337 passed, 8 expected opt-in/platform skips.
 - Routing/policy suite: 121 passed.
 - Startup/content safety gate: 2 passed.
 - Source release preflight for v5.8.0: passed.
@@ -12,3 +12,7 @@
   while the nested finalizer exit code remains the release decision.
 - Repaired split-helper token discovery across UAC environment boundaries and
   made nested blocked-gate failures propagate to the launcher state.
+- Repaired the Win64 frozen-input ABI and made failure cleanup tolerate the
+  expected access boundary around the High-Integrity helper; runtime shortcut
+  checks now rebind a Qt dashboard handle recreated during lazy Map startup and
+  attach Windows input queues when foreground locking prevents activation.
