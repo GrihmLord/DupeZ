@@ -3,7 +3,7 @@ ROADMAP STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Review mandate     : RELEASE_ASSURANCE
 Transaction stage  : NOT_APPLICABLE
-Reference revision : codex/v580-frozen-input-abi-20260809 (working tree)
+Reference revision : codex/v580-noninteractive-build-failures-20260809 (working tree)
 Evidence cutoff    : 2026-08-09 UTC session evidence
 Execution mode     : local evidence-driven assessment
 Environment        : Windows + .venv Python 3.11; .release-venv packaging policy
@@ -31,8 +31,8 @@ Phase 20 : PARTIAL  | red flags and protections drafted with explicit assumption
 Phase 21 : PARTIAL  | remediation and regression loop executed for available scope
 Phase 22 : PARTIAL  | unified verification complete for source/tests, blocked for final signed artifacts
 Current phase      : Phase 22
-Open blockers      : rebuild exact artifacts after the frozen-input fix merges; GPU/Compat validation, manual walkthrough, and staging remain
-Open regressions   : none observed in automated suite (1337 passed, 8 expected opt-in/platform skips)
+Open blockers      : Smart App Control blocks unknown unsigned frozen executables; rebuild, GPU/Compat validation, manual walkthrough, and staging remain
+Open regressions   : none observed in automated suite (1338 passed, 8 expected opt-in/platform skips)
 Evidence requests  : legal/contracts/financial/insurance/corporate records
 Conflicted evidence: none material in technical scope
 Unverified areas   : exact signed artifact install/upgrade/rollback validation

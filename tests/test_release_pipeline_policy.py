@@ -241,6 +241,15 @@ def test_frozen_verifier_diagnostics_are_opt_in_and_path_free():
     assert "DUPEZ_VERIFY_REPORT" in build
 
 
+def test_variant_build_failures_are_noninteractive():
+    build = _read("packaging/build_variants.bat")
+    workflow = _read(".github/workflows/frozen-smoke.yml")
+
+    assert all(line.strip().lower() != "pause" for line in build.splitlines())
+    assert "echo. | call packaging\\build_variants.bat" not in workflow
+    assert "run: call packaging\\build_variants.bat" in workflow
+
+
 def test_frozen_runtime_validator_enforces_architecture_and_profiles():
     wrapper = _read("scripts/validate_frozen_runtime.ps1")
     implementation = _read("scripts/validate_frozen_runtime.py")

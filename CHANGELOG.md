@@ -44,6 +44,10 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
   It also rebinds the current dashboard HWND after startup and lazy Map
   initialization because Qt may replace that native handle, then uses attached
   input queues to activate it across Windows' foreground-lock boundary.
+- **Variant build failures are noninteractive.** The canonical batch driver no
+  longer enters a hidden `pause` after an import, dependency, or packaging
+  failure; protected local and CI finalizers now receive the real exit code
+  immediately.
 
 ### Verification
 

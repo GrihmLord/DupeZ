@@ -1,6 +1,6 @@
 # REGRESSION_RESULTS
 
-- Full suite (2026-08-09 v5.8.0 candidate): 1337 passed, 8 expected opt-in/platform skips.
+- Full suite (2026-08-09 v5.8.0 candidate): 1338 passed, 8 expected opt-in/platform skips.
 - Routing/policy suite: 121 passed.
 - Startup/content safety gate: 2 passed.
 - Source release preflight for v5.8.0: passed.
@@ -16,3 +16,5 @@
   expected access boundary around the High-Integrity helper; runtime shortcut
   checks now rebind a Qt dashboard handle recreated during lazy Map startup and
   attach Windows input queues when foreground locking prevents activation.
+- Removed all interactive pauses from canonical variant-build failures so
+  protected finalizers return the actionable error immediately.

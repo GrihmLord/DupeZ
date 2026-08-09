@@ -51,10 +51,7 @@ jobs:
 
       - name: Build canonical unsigned variants
         shell: cmd
-        # The release batch file contains interactive `pause` statements on
-        # error for local operators. Feed one newline so CI reports the real
-        # non-zero exit instead of hanging until the job timeout.
-        run: echo. | call packaging\build_variants.bat
+        run: call packaging\build_variants.bat
 
       - name: Verify expected portable artifacts
         shell: pwsh

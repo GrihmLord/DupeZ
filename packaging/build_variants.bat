@@ -37,14 +37,12 @@ if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
     echo ERROR: Repository bootstrap interpreter not found:
     echo        %DUPEZ_BOOTSTRAP_PYTHON%
     echo Create .venv with 64-bit Python 3.11.9 and rerun this script.
-    pause
     exit /b 1
 )
 
 "%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 11, 9) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
     echo ERROR: Release builds require 64-bit Python 3.11.9.
-    pause
     exit /b 1
 )
 
@@ -77,7 +75,6 @@ echo Verifying hermetic build imports...
 if errorlevel 1 (
     echo ERROR: Required build/runtime imports failed inside .release-venv.
     echo        Refusing to build with an incomplete or mixed Python environment.
-    pause
     exit /b 1
 )
 
@@ -116,13 +113,11 @@ echo [1/5] Building DupeZ-GPU.exe ...
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-GPU PyInstaller returned an error.
-    pause
     exit /b 1
 )
 if not exist "dist\DupeZ-GPU.exe" (
     echo.
     echo BUILD FAILED — dist\DupeZ-GPU.exe not produced.
-    pause
     exit /b 1
 )
 echo       DupeZ-GPU.exe built successfully.
@@ -137,7 +132,6 @@ if errorlevel 1 (
     del /Q "%DUPEZ_VERIFY_REPORT%" >nul 2>&1
     set "DUPEZ_VERIFY_REPORT="
     echo The executable is not releasable.
-    pause
     exit /b 1
 )
 del /Q "%DUPEZ_VERIFY_REPORT%" >nul 2>&1
@@ -162,13 +156,11 @@ echo [2/5] Building DupeZ-Compat.exe ...
 if errorlevel 1 (
     echo.
     echo BUILD FAILED — DupeZ-Compat PyInstaller returned an error.
-    pause
     exit /b 1
 )
 if not exist "dist\DupeZ-Compat.exe" (
     echo.
     echo BUILD FAILED — dist\DupeZ-Compat.exe not produced.
-    pause
     exit /b 1
 )
 echo       DupeZ-Compat.exe built successfully.
@@ -179,7 +171,6 @@ echo       Verifying frozen dependency boundary...
 if errorlevel 1 (
     echo.
     echo BUILD FAILED - portable executables contain forbidden optional dependencies.
-    pause
     exit /b 1
 )
 echo       Frozen dependency boundary verified.
