@@ -1,4 +1,4 @@
-# DupeZ v5.7.9
+# DupeZ v5.8.0
 
 DupeZ is a Windows network-condition testing and diagnostics workspace for
 devices and local networks you own or are explicitly authorized to test. It
@@ -281,12 +281,12 @@ Run from the repo root. All build scripts and PyInstaller specs live in `packagi
 
 ```powershell
 # Prerequisite: .venv uses 64-bit Python 3.11.9.
-# Each script recreates an isolated .build-venv and installs only
+# Each script recreates an isolated .release-venv and installs only
 # hash-pinned build/runtime dependencies.
 
 # Legacy single binary (requireAdministrator):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.7.9_Setup.exe (installer)
+# Output: dist\dupez.exe + dist\DupeZ_v5.8.0_Setup.exe (installer)
 
 # Modern dual-variant build (RECOMMENDED):
 packaging\build_variants.bat
@@ -296,13 +296,13 @@ packaging\build_variants.bat
 
 Both build paths fail before signing if a PyInstaller archive contains
 unfinished Group Finder packages or optional voice/scientific dependencies
-that are outside the v5.7.9 production lock. Packaged config, icons, and
+that are outside the v5.8.0 production lock. Packaged config, icons, and
 themes must also match `packaging/release-data.json`; generated HMACs,
 bytecode caches, and untracked local files are rejected.
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.7.9_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+Download `DupeZ_v5.8.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
 
 1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
 2. Registers in **Add/Remove Programs** with version, publisher, and icon

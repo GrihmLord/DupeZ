@@ -6,9 +6,9 @@ gate_id,gate_name,status,evidence,notes
 4,FUNCTIONAL_AND_CONTRACT_BEHAVIOR,PASS,pytest full suite,Source-level and integration behavior validated
 5,LIFECYCLE_STATE_OFFLINE,PARTIAL,startup smoke + tests,Full lifecycle matrix not exhaustively executed
 6,SECURITY_PRIVACY_PLATFORM_BOUNDARIES,PARTIAL,policy tests + code review,No authorized active security testing
-7,PERFORMANCE_RESOURCE_USE,PARTIAL,test runtime observations,No dedicated perf campaign in this run
+7,PERFORMANCE_RESOURCE_USE,PASS,latency_regression + app.core.performance_smoke,Hotkey p999 and all source smoke budgets pass; frozen profiling remains separate artifact evidence
 8,ACCESSIBILITY_LOCALIZATION_FORM_FACTORS,PARTIAL,limited evidence,Manual platform accessibility pass pending
 9,OBSERVABILITY_SYMBOLICATION_RECOVERY,PARTIAL,scripts and logs reviewed,Frozen release crash symbolication not validated end-to-end
-10,SUPPLY_CHAIN_ARTIFACT_INTEGRITY,FAIL,release_preflight --dist and scripts/blocked_release_gates_sequence.ps1 admin-finalize phase,Unsigned artifacts and missing sidecars until protected finalization succeeds
+10,SUPPLY_CHAIN_ARTIFACT_INTEGRITY,BLOCKED,release_preflight source pass + scripts/blocked_release_gates_sequence.ps1 admin-finalize phase,Current dist files predate v5.8.0 and protected exact artifacts are not built yet
 11,DISTRIBUTION_READINESS,BLOCKED,scripts/blocked_release_gates_sequence.ps1 admin-stage-draft/admin-stage-publish phases,Requires main + clean tree + tokens + signed artifacts
 12,HUMAN_DECISION_RESIDUAL_RISK,PARTIAL,assessment findings,Requires named decision authority sign-off

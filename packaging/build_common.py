@@ -127,7 +127,6 @@ def _hidden_imports() -> list:
             "scapy.all",
             "cryptography",
             "numpy",
-            "pandas",
             "openpyxl",
             # Voice control (optional) — whisper/torch excluded below.
             "sounddevice",
@@ -182,6 +181,7 @@ def _excludes() -> list:
         "openai-whisper",
         "matplotlib",
         "scipy",
+        "pandas",
         "Twisted",
         "stem",
         "PycURL",

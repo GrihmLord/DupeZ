@@ -2,7 +2,9 @@
 """Tests for v5 Phase 6: ML-Enhanced Traffic Analyzer."""
 
 import time
+import threading
 import unittest
+from unittest.mock import patch
 
 from app.ai.traffic_analyzer import (
     GameState,
@@ -50,6 +52,60 @@ class TestTrafficPatternAnalyzer(unittest.TestCase):
         self.assertIsNone(snap)
         stats = analyzer.get_stats()
         self.assertEqual(stats["total_packets"], 0)
+
+    def test_snapshot_work_is_coalesced_off_packet_thread(self):
+        analyzer = TrafficPatternAnalyzer(
+            window_sec=1.0,
+            snapshot_interval=0.0,
+        )
+        entered = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def slow_snapshot(timestamp):
+            calls.append(timestamp)
+            entered.set()
+            release.wait(1.0)
+
+        with patch.object(analyzer, "_generate_snapshot", slow_snapshot):
+            started = time.perf_counter()
+            analyzer.record_packet(time.monotonic(), 200, False)
+            elapsed = time.perf_counter() - started
+            self.assertLess(elapsed, 0.05)
+            self.assertTrue(entered.wait(1.0))
+            for index in range(20):
+                analyzer.record_packet(time.monotonic() + index, 200, False)
+            self.assertEqual(len(calls), 1)
+            release.set()
+
+    def test_snapshot_history_and_stats_are_safe_during_recording(self):
+        analyzer = TrafficPatternAnalyzer(
+            window_sec=1.0,
+            snapshot_interval=0.0,
+        )
+        errors = []
+
+        def record() -> None:
+            try:
+                for index in range(2_000):
+                    analyzer.record_packet(
+                        time.monotonic() + index / 10_000.0,
+                        128 + index % 256,
+                        bool(index & 1),
+                    )
+            except Exception as exc:  # pragma: no cover - diagnostic capture
+                errors.append(exc)
+
+        worker = threading.Thread(target=record)
+        worker.start()
+        while worker.is_alive():
+            analyzer.get_latest_snapshot()
+            analyzer.get_snapshot_history()
+            analyzer.get_stats()
+        worker.join(1.0)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(analyzer.get_stats()["total_packets"], 2_000)
 
 
 class TestGameStateDetector(unittest.TestCase):

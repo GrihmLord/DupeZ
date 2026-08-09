@@ -1,6 +1,6 @@
 ---
 name: universal-assurance-orchestrator
-description: "Use when running the Universal Software Assurance Application QA/Due-Diligence framework for this repo, especially when asked to follow the PDF plan in full, execute phase-based release assurance, generate Section-16 assessment artifacts, or run blocked release gates for DupeZ v5.7.9 without re-pasting the PDF path."
+description: "Use when running the Universal Software Assurance Application QA/Due-Diligence framework for this repo, especially when asked to follow the PDF plan in full, execute phase-based release assurance, generate Section-16 assessment artifacts, or run blocked release gates for DupeZ v5.8.0 without re-pasting the PDF path."
 ---
 
 # Universal Assurance Orchestrator (DupeZ)
@@ -18,7 +18,7 @@ Always use the extracted copy for deterministic line-referenced execution. If it
 - Keep Section 16 artifact tree under `assessment/` fully populated.
 - For blocked release gates, run only the blocked sequence in the order defined by:
   - `scripts/blocked_release_gates_sequence.ps1`
-  - `docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.7.9.md`
+  - `docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md`
 
 ## Repo-specific outputs
 - Main report: `assessment/FINAL_REPORT.md`

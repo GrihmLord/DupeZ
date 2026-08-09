@@ -1,4 +1,4 @@
 item,verification_status,source,notes
-pytest,VERIFIED,pypi,Installed in .build-venv
+pytest,VERIFIED,pypi,Installed in source .venv
 pypdf,VERIFIED,pypi,Installed for document extraction
-project_locked_dependencies,VERIFIED,requirements-locked.txt,Installed to satisfy test execution
+project_locked_dependencies,VERIFIED,requirements-locked.txt,Hash-checked dry-run passed; packaging recreates .release-venv

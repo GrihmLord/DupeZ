@@ -4,6 +4,39 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
+## v5.8.0 -- 2026-08-09 (Bounded resilience, release reliability, and hot-path optimization)
+
+### Changed
+
+- **v5.7.9 ownership repairs are now the supported baseline.** Standard
+  effects remain owned by the pinned Kalirenegade Clumsy process; Native
+  WinDivert hosts only explicitly namespaced, bounded DupeZ extensions.
+- **Traffic snapshots no longer perform periodic window aggregation on the
+  packet capture thread.** Snapshot work is coalesced onto one bounded worker
+  so capture can return to `WinDivertRecv` promptly under load.
+- **Smart Ops provider work is concurrency-bounded.** At most two provider
+  requests may occupy network workers; excess requests return the validated
+  offline recommendation instead of growing an unbounded thread backlog.
+- **Release builds use `.release-venv`.** The disposable packaging
+  interpreter no longer shares the IDE-discovered `.build-venv` name that
+  caused reproducible Windows Qt file locks during finalization.
+- **The public bundle no longer includes unused pandas.** Account XLSX
+  import/export continues through openpyxl, while NumPy remains for the
+  bounded model and optional audio paths.
+- **Version coherence now covers the release entry points.** Source preflight
+  validates PowerShell/CMD release drivers and both GitHub release workflows,
+  in addition to runtime, installer, manifests, and PyInstaller metadata.
+
+### Verification
+
+- Full automated suite and source/dist preflight must pass on the exact
+  v5.8.0 commit before draft staging.
+- GPU and Compat frozen-runtime evidence plus the manual validation record
+  remain mandatory exact-artifact gates; a public release is never inferred
+  from source tests alone.
+
+---
+
 ## v5.7.9 -- 2026-07-18 (Clumsy parity, controller startup recovery, and release integrity)
 
 ### Fixed

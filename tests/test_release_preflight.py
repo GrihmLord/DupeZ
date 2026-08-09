@@ -79,15 +79,15 @@ def test_release_builds_enforce_hermetic_python_and_runtime_imports() -> None:
 
 
 def test_stable_installer_alias_must_match_versioned_bytes(tmp_path) -> None:
-    versioned = tmp_path / "DupeZ_v5.7.9_Setup.exe"
+    versioned = tmp_path / "DupeZ_v5.8.0_Setup.exe"
     stable = tmp_path / "DupeZ_Setup.exe"
     versioned.write_bytes(b"signed-installer-a")
     stable.write_bytes(b"signed-installer-a")
 
-    assert _check_installer_alias(tmp_path, "5.7.9") == []
+    assert _check_installer_alias(tmp_path, "5.8.0") == []
 
     stable.write_bytes(b"signed-installer-b")
-    errors = _check_installer_alias(tmp_path, "5.7.9")
+    errors = _check_installer_alias(tmp_path, "5.8.0")
 
     assert errors
     assert "SHA-256 mismatch" in errors[0]
@@ -101,7 +101,7 @@ def test_hermetic_policy_rejects_ambient_python(monkeypatch) -> None:
         "_read",
         lambda _rel: """
 set "DUPEZ_BOOTSTRAP_PYTHON=%CD%\\.venv\\Scripts\\python.exe"
-set "DUPEZ_BUILD_VENV=%CD%\\.build-venv"
+set "DUPEZ_BUILD_VENV=%CD%\\.release-venv"
 set "DUPEZ_PYTHON=%DUPEZ_BUILD_VENV%\\Scripts\\python.exe"
 set "PYTHONHOME="
 set "PYTHONPATH="
@@ -248,7 +248,7 @@ def test_authenticode_query_preserves_each_artifact(monkeypatch, tmp_path) -> No
 def _write_signed_update_fixture(
     dist,
     *,
-    version: str = "5.7.9",
+    version: str = "5.8.0",
     manifest_payload: bytes | None = None,
 ):
     installer = dist / "DupeZ_Setup.exe"
@@ -286,7 +286,7 @@ def test_update_sidecars_verify_exact_installer(tmp_path) -> None:
 
     assert _verify_update_sidecars(
         tmp_path,
-        "5.7.9",
+        "5.8.0",
         trusted_pubkeys_pem=trusted,
     ) == []
 
@@ -296,7 +296,7 @@ def test_update_sidecars_reject_stale_version(tmp_path) -> None:
 
     errors = _verify_update_sidecars(
         tmp_path,
-        "5.7.9",
+        "5.8.0",
         trusted_pubkeys_pem=trusted,
     )
 
@@ -309,7 +309,7 @@ def test_update_sidecars_reject_installer_changed_after_signing(tmp_path) -> Non
 
     errors = _verify_update_sidecars(
         tmp_path,
-        "5.7.9",
+        "5.8.0",
         trusted_pubkeys_pem=trusted,
     )
 

@@ -14,7 +14,7 @@ script never generates, exports, uploads, or prints either key.
 [CmdletBinding()]
 param(
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "5.7.9",
+    [string]$Version = "5.8.0",
 
     [switch]$AllowNonMainValidation,
 
@@ -425,7 +425,7 @@ else {
 $defender = Invoke-DefenderScan -Artifacts $artifacts
 
 $distPython = Resolve-Tool -Candidates @(
-    (Join-Path $repoRoot ".build-venv\Scripts\python.exe")
+    (Join-Path $repoRoot ".release-venv\Scripts\python.exe")
 ) -Name "release build Python"
 $preflightArguments = @("-I", "scripts\release_preflight.py", "--version", $Version, "--dist")
 if ($AllowUnsigned) {

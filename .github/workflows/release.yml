@@ -6,7 +6,7 @@ on:
       version:
         description: 'Exact semantic version to build and attest'
         required: true
-        default: '5.7.9'
+        default: '5.8.0'
         type: string
 
 permissions:
@@ -57,8 +57,8 @@ jobs:
           if ('${{ github.ref_name }}' -ne 'main') {
             throw 'Signed release finalization must be dispatched from main.'
           }
-          if ('${{ inputs.version }}' -ne '5.7.9') {
-            throw 'This workflow revision can finalize only v5.7.9.'
+          if ('${{ inputs.version }}' -ne '5.8.0') {
+            throw 'This workflow revision can finalize only v5.8.0.'
           }
 
       - name: Checkout exact main commit

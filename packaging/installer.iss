@@ -1,5 +1,5 @@
 ; ============================================================================
-; DupeZ v5.7.9 — Inno Setup Installer
+; DupeZ v5.8.0 — Inno Setup Installer
 ; ============================================================================
 ; Produces a 64-bit upgrade-in-place installer with clean uninstall metadata,
 ; Start Menu/Desktop shortcuts, GPU and Compat variants, and optional
@@ -8,13 +8,13 @@
 ; BUILD (run from repo root):
 ;   1. Build both variants:  packaging\build_variants.bat
 ;   2. Compile directly:     iscc packaging\installer.iss
-;   Output: dist\DupeZ_v5.7.9_Setup.exe
+;   Output: dist\DupeZ_v5.8.0_Setup.exe
 ;
 ; SourceDir=.. resolves all Source paths from the repository root.
 ; ============================================================================
 
 #define MyAppName      "DupeZ"
-#define MyAppVersion   "5.7.9"
+#define MyAppVersion   "5.8.0"
 #define MyAppPublisher "DupeZ"
 #define MyAppURL       "https://github.com/GrihmLord/DupeZ"
 #define MyAppExeName   "dupez.exe"

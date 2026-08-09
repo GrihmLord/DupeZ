@@ -3,10 +3,10 @@ ROADMAP STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Review mandate     : RELEASE_ASSURANCE
 Transaction stage  : NOT_APPLICABLE
-Reference revision : codex/connection-resilience-ai-reliability (working tree)
-Evidence cutoff    : 2026-08-06 UTC session evidence
+Reference revision : codex/v580-release-optimization-20260809 (working tree)
+Evidence cutoff    : 2026-08-09 UTC session evidence
 Execution mode     : local evidence-driven assessment
-Environment        : Windows + .build-venv Python 3.11.9
+Environment        : Windows + .venv Python 3.11; .release-venv packaging policy
 Phase 0  : COMPLETE | governance scope/authorization/capability artifacts created
 Phase 1  : PARTIAL  | repository evidence indexed; external data-room evidence not provided
 Phase 2  : PARTIAL  | technical claims recorded; non-technical claims unverified
@@ -14,7 +14,7 @@ Phase 3  : COMPLETE | system/application surface and artifact inventory complete
 Phase 4  : PARTIAL  | source-level privacy/secrets/IP scan only
 Phase 5  : PARTIAL  | source/test gates passed; exact signed artifact lifecycle incomplete
 Phase 6  : PARTIAL  | architecture/code-quality analysis performed on high-risk changes
-Phase 7  : PARTIAL  | limited performance evidence from test execution only
+Phase 7  : PARTIAL  | latency regression and source performance smoke pass; frozen artifact profiling pending
 Phase 8  : PARTIAL  | threat/security review completed; no active validation run
 Phase 9  : PARTIAL  | data/retention technical paths reviewed; legal basis pending
 Phase 10 : PARTIAL  | AI/agent reliability and control-path assessment completed
@@ -31,11 +31,11 @@ Phase 20 : PARTIAL  | red flags and protections drafted with explicit assumption
 Phase 21 : PARTIAL  | remediation and regression loop executed for available scope
 Phase 22 : PARTIAL  | unified verification complete for source/tests, blocked for final signed artifacts
 Current phase      : Phase 22
-Open blockers      : current dist artifacts predate this branch; admin finalizer, exact-artifact signing/frozen validation, and main-clean staging remain
-Open regressions   : none observed in automated suite (1319 passed, 8 skipped)
+Open blockers      : current dist artifacts predate v5.8.0; admin finalizer, exact-artifact signing/frozen validation, manual walkthrough, and staging remain
+Open regressions   : none observed in automated suite (1326 passed, 8 expected opt-in/platform skips)
 Evidence requests  : legal/contracts/financial/insurance/corporate records
 Conflicted evidence: none material in technical scope
 Unverified areas   : exact signed artifact install/upgrade/rollback validation
 Specialist referrals: legal, compliance, insurance, financial/accounting
-Next action        : run docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.7.9.md using scripts/blocked_release_gates_sequence.ps1 in phase order
+Next action        : complete exact-head CI and merge, then run docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md in phase order
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

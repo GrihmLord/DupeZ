@@ -95,6 +95,23 @@ def _bench_scenario_report() -> None:
     ])
 
 
+def _bench_traffic_analyzer_record() -> None:
+    from app.ai.traffic_analyzer import TrafficPatternAnalyzer
+
+    analyzer = TrafficPatternAnalyzer(
+        window_sec=2.0,
+        snapshot_interval=3600.0,
+    )
+    start = time.monotonic()
+    analyzer._last_snapshot_time = start
+    for index in range(2_000):
+        analyzer.record_packet(
+            start + index / 10_000.0,
+            128 + index % 512,
+            bool(index & 1),
+        )
+
+
 def _bench_support_bundle() -> None:
     from app.core.support_bundle import build_support_bundle
 
@@ -111,6 +128,12 @@ def run_performance_smoke(
         _measure("storage_status", 100.0, iterations, _bench_storage_status),
         _measure("retention_empty_roots", 50.0, iterations, _bench_retention_empty),
         _measure("scenario_report", 25.0, iterations, _bench_scenario_report),
+        _measure(
+            "traffic_analyzer_record_2000",
+            50.0,
+            iterations,
+            _bench_traffic_analyzer_record,
+        ),
     ]
     if include_support_bundle:
         checks.append(

@@ -145,3 +145,47 @@ def test_cancel_pending_suppresses_callback(monkeypatch):
     worker.join(1.0)
 
     assert callbacks == []
+
+
+def test_provider_concurrency_is_bounded_with_offline_overload(monkeypatch):
+    advisor = ConfiguredLLMAdvisor(
+        SecureLLMConfig(provider="none", base_url="", model="offline")
+    )
+    release = threading.Event()
+    two_started = threading.Event()
+    active_lock = threading.Lock()
+    active = 0
+    peak = 0
+    callbacks = []
+
+    def blocked_ask(prompt, _context=None):
+        nonlocal active, peak
+        with active_lock:
+            active += 1
+            peak = max(peak, active)
+            if active == 2:
+                two_started.set()
+        release.wait(1.0)
+        with active_lock:
+            active -= 1
+        return {"source": "provider", "prompt": prompt}
+
+    monkeypatch.setattr(advisor, "ask", blocked_ask)
+    monkeypatch.setattr(
+        advisor,
+        "_fallback_interpret",
+        lambda prompt: {"source": "offline", "prompt": prompt},
+    )
+
+    first = advisor.ask_async("first", callbacks.append)
+    second = advisor.ask_async("second", callbacks.append)
+    assert two_started.wait(1.0)
+    third = advisor.ask_async("third", callbacks.append)
+    third.join(1.0)
+
+    assert peak == 2
+    assert callbacks == [{"source": "offline", "prompt": "third"}]
+
+    release.set()
+    first.join(1.0)
+    second.join(1.0)

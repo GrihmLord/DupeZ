@@ -1,6 +1,7 @@
 artifact_id,artifact_path,artifact_type,version,sha256,status,signing_status,notes
-A-001,dist/DupeZ-GPU.exe,exe,5.7.9,UNKNOWN,MISSING,UNVERIFIED,Not present in current dist listing
-A-002,dist/DupeZ-Compat.exe,exe,5.7.9,UNKNOWN,MISSING,UNVERIFIED,Not present in current dist listing
-A-003,dist/DupeZ_v5.7.9_Setup.exe,installer,5.7.9,UNKNOWN,PRESENT,NOT_SIGNED,Detected in dist listing
-A-004,dist/DupeZ_Setup.exe.manifest.json,sidecar,5.7.9,UNKNOWN,MISSING,UNVERIFIED,Required by dist preflight
-A-005,dist/DupeZ_Setup.exe.manifest.sig,sidecar,5.7.9,UNKNOWN,MISSING,UNVERIFIED,Required by dist preflight
+A-001,dist/DupeZ-GPU.exe,exe,5.8.0,UNKNOWN,STALE,UNVERIFIED,Path contains pre-v5.8.0 bytes and must be rebuilt from merged main
+A-002,dist/DupeZ-Compat.exe,exe,5.8.0,UNKNOWN,STALE,UNVERIFIED,Path contains pre-v5.8.0 bytes and must be rebuilt from merged main
+A-003,dist/DupeZ_v5.8.0_Setup.exe,installer,5.8.0,UNKNOWN,MISSING,UNVERIFIED,Versioned v5.8.0 installer not built yet
+A-004,dist/DupeZ_Setup.exe,installer,5.8.0,UNKNOWN,STALE,UNVERIFIED,Stable alias contains pre-v5.8.0 bytes
+A-005,dist/DupeZ_Setup.exe.manifest.json,sidecar,5.8.0,UNKNOWN,MISSING,UNVERIFIED,Required by dist preflight
+A-006,dist/DupeZ_Setup.exe.manifest.sig,sidecar,5.8.0,UNKNOWN,MISSING,UNVERIFIED,Required by dist preflight
