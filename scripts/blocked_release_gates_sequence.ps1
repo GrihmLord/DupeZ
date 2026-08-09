@@ -99,7 +99,14 @@ switch ($Phase) {
             throw "Provide -Operator for manual validation recording (e.g. -Operator GrihmLord)."
         }
         Run-Checked -Name "RECORD MANUAL RELEASE VALIDATION" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/record_manual_release_validation.ps1 -Version $Version -Operator $Operator
+            $manualArgs = @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                "scripts/record_manual_release_validation.ps1",
+                "-Version", $Version,
+                "-Operator", $Operator
+            )
+            if ($AllowUnsigned) { $manualArgs += "-AllowUnsigned" }
+            powershell @manualArgs
         }
         Write-Host "admin-compat complete. Next run admin-stage-draft (and optionally admin-stage-publish)."
     }

@@ -12,7 +12,9 @@ param(
     [string]$Operator,
 
     [ValidatePattern("^\d+\.\d+\.\d+$")]
-    [string]$Version = "5.8.0"
+    [string]$Version = "5.8.0",
+
+    [switch]$AllowUnsigned
 )
 
 Set-StrictMode -Version Latest
@@ -50,6 +52,49 @@ foreach ($path in @($gpuPath, $compatPath, $installerPath)) {
 $gpuHash = (Get-FileHash -LiteralPath $gpuPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $compatHash = (Get-FileHash -LiteralPath $compatPath -Algorithm SHA256).Hash.ToLowerInvariant()
 $installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+
+$attestationPath = Join-Path $distRoot "release-attestation.json"
+if (-not (Test-Path -LiteralPath $attestationPath -PathType Leaf)) {
+    throw "Release attestation missing: $attestationPath"
+}
+$attestation = Get-Content -LiteralPath $attestationPath -Raw | ConvertFrom-Json
+if ($attestation.schema -ne "dupez.release-attestation.v1") {
+    throw "Unexpected release attestation schema."
+}
+if ($attestation.version -ne $Version -or $attestation.commit -ne $commit) {
+    throw "Release attestation version/commit does not match the manual validation target."
+}
+
+$expectedSigningMode = if ($AllowUnsigned) { "unsigned" } else { "authenticode" }
+if ($attestation.distribution_signing_mode -ne $expectedSigningMode) {
+    throw (
+        "Release attestation signing mode mismatch: expected $expectedSigningMode, " +
+        "found $($attestation.distribution_signing_mode)."
+    )
+}
+
+$expectedArtifactHashes = [ordered]@{
+    "DupeZ-GPU.exe" = $gpuHash
+    "DupeZ-Compat.exe" = $compatHash
+    "DupeZ_v${Version}_Setup.exe" = $installerHash
+}
+foreach ($entry in $expectedArtifactHashes.GetEnumerator()) {
+    $artifact = @($attestation.artifacts | Where-Object { $_.name -eq $entry.Key })
+    if ($artifact.Count -ne 1 -or $artifact[0].sha256 -ne $entry.Value) {
+        throw "Release attestation hash mismatch for $($entry.Key)."
+    }
+    $signature = @($attestation.authenticode | Where-Object { $_.name -eq $entry.Key })
+    if ($signature.Count -ne 1) {
+        throw "Release attestation Authenticode record missing for $($entry.Key)."
+    }
+    $expectedStatus = if ($AllowUnsigned) { "Unsigned" } else { "Valid" }
+    if ($signature[0].status -ne $expectedStatus) {
+        throw (
+            "Release attestation Authenticode status mismatch for $($entry.Key): " +
+            "expected $expectedStatus, found $($signature[0].status)."
+        )
+    }
+}
 
 function Read-Evidence {
     param(
@@ -96,6 +141,13 @@ $compatEvidencePath = Join-Path $distRoot "frozen-runtime-evidence-compat.json"
 $gpuEvidence = Read-Evidence -Path $gpuEvidencePath -ExpectedVariant "GPU" -ExpectedHash $gpuHash
 $compatEvidence = Read-Evidence -Path $compatEvidencePath -ExpectedVariant "Compat" -ExpectedHash $compatHash
 
+$installerTrustDescription = if ($AllowUnsigned) {
+    "Authorized unsigned release installer (with public disclosure)"
+}
+else {
+    "Authenticode-signed release installer"
+}
+
 $gatePrompts = [ordered]@{
     hidden_clumsy_no_flash = "Normal DupeZ disruption kept native Clumsy hidden with no visible startup flash"
     gpu_diagnostic_restore = "GPU frozen build restored and re-hid the owned Clumsy diagnostic window"
@@ -110,8 +162,8 @@ $gatePrompts = [ordered]@{
     account_tracker = "Account tracker loaded, switched, persisted, and cleared the active account"
     smart_ops = "Smart Ops offline/provider path remained responsive and routed through selected engine/layer"
     diagnostics_support_bundle = "Diagnostics, network health, and support/backup bundle completed without secrets"
-    installer_fresh_install = "Signed installer completed a fresh installation and launched the stable dupez.exe"
-    installer_upgrade = "Signed installer upgraded the previous installed version without stale processes or data loss"
+    installer_fresh_install = "$installerTrustDescription completed a fresh installation and launched the stable dupez.exe"
+    installer_upgrade = "$installerTrustDescription upgraded the previous installed version without stale processes or data loss"
     installer_uninstall = "Uninstall removed installed binaries/shortcuts while preserving intended per-user data"
 }
 
@@ -137,6 +189,7 @@ $payload = [ordered]@{
     commit = $commit
     recorded_at_utc = [DateTime]::UtcNow.ToString("o")
     operator = $Operator
+    distribution_signing_mode = $expectedSigningMode
     artifacts = [ordered]@{
         gpu_sha256 = $gpuHash
         compat_sha256 = $compatHash

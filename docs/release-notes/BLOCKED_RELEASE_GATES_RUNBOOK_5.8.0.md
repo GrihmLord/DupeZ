@@ -56,6 +56,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gate
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-compat -Version 5.8.0 -Operator <YOUR_NAME>
 ```
 
+For the explicitly disclosed unsigned public route, append `-AllowUnsigned`
+so the manual evidence is bound to the attested unsigned distribution mode.
+
 The manual recorder requires explicit observation of every listed behavior on
 the exact GPU, Compat, and installer bytes. Do not record an unobserved pass.
 

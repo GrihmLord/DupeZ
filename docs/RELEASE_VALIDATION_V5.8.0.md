@@ -67,6 +67,10 @@ support/backup output. Then record only observations actually performed:
 .\scripts\record_manual_release_validation.ps1 -Operator "<release operator>" -Version 5.8.0
 ```
 
+For the explicitly disclosed unsigned route, append `-AllowUnsigned`. The
+recorder binds that choice to the exact release attestation and verifies the
+three manually tested artifacts are recorded as unsigned before prompting.
+
 ## 5. Stage, verify, and publish
 
 ```powershell
