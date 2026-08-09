@@ -35,6 +35,25 @@ def test_release_gate_launcher_rejects_stale_version_state():
     assert "Write-State -state $default" in script
 
 
+def test_logged_admin_finalizer_uses_native_exit_code_for_stderr():
+    script = _read("scripts/complete_admin_finalize_then_gpu_validate.ps1")
+
+    continue_index = script.index('`$ErrorActionPreference = "Continue"')
+    invoke_index = script.index(
+        "powershell -NoProfile -ExecutionPolicy Bypass -File "
+        '"$finalizePath"'
+    )
+    exit_code_index = script.index("`$ec = `$LASTEXITCODE", invoke_index)
+    restore_index = script.index(
+        '`$ErrorActionPreference = "Stop"',
+        exit_code_index,
+    )
+
+    assert continue_index < invoke_index < exit_code_index < restore_index
+    assert "NativeCommandError" in script
+    assert "exit `$ec" in script
+
+
 def test_installer_uses_restart_manager_without_force_kill_hook():
     installer = _read("packaging/installer.iss")
     lowered = installer.lower()
@@ -275,6 +294,7 @@ def test_hardware_workflow_includes_full_and_hidden_clumsy_gates():
         "scripts/stage_release.ps1",
         "scripts/release_gate_launcher.ps1",
         "scripts/lock-requirements.ps1",
+        "scripts/complete_admin_finalize_then_gpu_validate.ps1",
     ),
 )
 def test_release_powershell_scripts_parse_under_windows_powershell(relative):
