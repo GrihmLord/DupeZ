@@ -32,7 +32,7 @@ Phase 21 : PARTIAL  | remediation and regression loop executed for available sco
 Phase 22 : PARTIAL  | unified verification complete for source/tests, blocked for final signed artifacts
 Current phase      : Phase 22
 Open blockers      : current dist artifacts predate v5.8.0; admin finalizer, exact-artifact signing/frozen validation, manual walkthrough, and staging remain
-Open regressions   : none observed in automated suite (1326 passed, 8 expected opt-in/platform skips)
+Open regressions   : none observed in automated suite (1328 passed, 8 expected opt-in/platform skips)
 Evidence requests  : legal/contracts/financial/insurance/corporate records
 Conflicted evidence: none material in technical scope
 Unverified areas   : exact signed artifact install/upgrade/rollback validation

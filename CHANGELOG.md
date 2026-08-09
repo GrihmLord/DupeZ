@@ -26,6 +26,10 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 - **Version coherence now covers the release entry points.** Source preflight
   validates PowerShell/CMD release drivers and both GitHub release workflows,
   in addition to runtime, installer, manifests, and PyInstaller metadata.
+- **Logged Administrator finalization preserves native diagnostics.** The
+  supported UAC wrapper records PyInstaller stderr warnings while treating the
+  nested finalizer exit code as authoritative, preventing a successful native
+  warning from becoming a terminating `NativeCommandError`.
 
 ### Verification
 

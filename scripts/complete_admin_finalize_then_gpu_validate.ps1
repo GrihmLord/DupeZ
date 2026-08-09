@@ -88,11 +88,17 @@ try {
 	Write-Host "BEGIN elevated admin-finalize run"
 	`$env:DUPEZ_SIGN_PRIVKEY = '$escapedPrivKeyPath'
 	Write-Host "DUPEZ_SIGN_PRIVKEY configured in elevated process."
+	# PyInstaller writes deprecation and diagnostic messages to native stderr
+	# even when the build succeeds. Preserve that output in the log, but let
+	# the child process exit code decide success instead of converting a native
+	# stderr record into a terminating NativeCommandError.
+	`$ErrorActionPreference = "Continue"
 	powershell -NoProfile -ExecutionPolicy Bypass -File "$finalizePath" -Version $Version -AllowUnsigned *>&1 | Tee-Object -Variable _finalizeOutput | Out-Host
+	`$ec = `$LASTEXITCODE
+	`$ErrorActionPreference = "Stop"
 	if (`$null -ne `$_finalizeOutput) {
 		`$_finalizeOutput | Out-String | Add-Content -LiteralPath "$logPath"
 	}
-	`$ec = `$LASTEXITCODE
 	Write-Host "END elevated admin-finalize run (exit=`$ec)"
 	Add-Content -LiteralPath "$logPath" -Value ("[" + [DateTime]::UtcNow.ToString("o") + "] END elevated admin-finalize run (exit=`$ec)")
 	exit `$ec

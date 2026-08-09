@@ -38,7 +38,7 @@ Open blockers:
 - v5.8.0 exact artifacts must be rebuilt from reviewed, clean main.
 - Frozen GPU/Compat evidence, manual walkthrough, and staging are not yet complete.
 Open regressions:
-- None in automated suite; 1326 passed, 8 expected opt-in/platform skips.
+- None in automated suite; 1328 passed, 8 expected opt-in/platform skips.
 Evidence requests:
 - Corporate/legal/financial/insurance records not provided in this workspace.
 Conflicted evidence:
