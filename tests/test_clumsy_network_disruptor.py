@@ -448,7 +448,11 @@ class _FakeEngine:
 class TestStatusReporting:
     def test_get_device_status_unknown_ip(self):
         mgr = ClumsyNetworkDisruptor()
-        assert mgr.get_device_status_clumsy("1.2.3.4") == {"disrupted": False}
+        assert mgr.get_device_status_clumsy("1.2.3.4") == {
+            "product": "DupeZ",
+            "disrupted": False,
+            "lifecycle_state": "inactive",
+        }
 
     def test_get_device_status_known_ip(self):
         mgr = ClumsyNetworkDisruptor()
@@ -617,15 +621,17 @@ class TestReconnectDevice:
         mgr.disrupted_devices["1.2.3.4"] = {"engine": eng}
         assert mgr.stop_device("1.2.3.4") is True
 
-    def test_engine_stop_exception_still_pops_device(self):
+    def test_engine_stop_exception_keeps_owner_reserved_for_retry(self):
         mgr = ClumsyNetworkDisruptor()
         eng = MagicMock()
         eng.stop.side_effect = RuntimeError("boom")
         mgr.disrupted_devices["1.2.3.4"] = {"engine": eng}
-        # Function catches and pops; returns False to signal partial failure
+        # An unconfirmed stop must not free the ownership slot for another
+        # packet engine; retain the entry so the operator can retry cleanup.
         result = mgr.reconnect_device_clumsy("1.2.3.4")
         assert result is False
-        assert "1.2.3.4" not in mgr.disrupted_devices
+        assert "1.2.3.4" in mgr.disrupted_devices
+        assert mgr.disrupted_devices["1.2.3.4"]["release_error"]
 
 
 # ── get_all_engine_stats ─────────────────────────────────────────────

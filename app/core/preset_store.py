@@ -18,8 +18,7 @@ Schema:
             "drop_chance": 100,
             "disconnect_duration_ms": 7000,
             "direction": "both",
-            "_ports": [2302, 2303, 2304, 2305],     # v5.6.9 #3
-            "_process_scope": "auto"                # v5.6.9 #4
+            "_ports": [2302, 2303, 2304, 2305]
           },
           "created_at": "2026-05-12T10:00:00Z",
           "updated_at": "2026-05-12T10:00:00Z"
@@ -54,6 +53,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.core.validation import VALID_DISRUPTION_METHODS
 from app.logs.logger import log_info, log_warning, log_error
 
 __all__ = [
@@ -85,11 +85,7 @@ RESERVED_PRESET_NAMES = frozenset({
 
 # Module-level methods whitelist — must match what the engine actually supports.
 # Update when new disruption modules land in the engine.
-VALID_METHODS = frozenset({
-    "drop", "lag", "throttle", "duplicate", "corrupt", "rst",
-    "bandwidth", "disconnect", "ooo",
-    "dupez.godmode", "dupez.custom_lag",
-})
+VALID_METHODS = frozenset(VALID_DISRUPTION_METHODS)
 
 VALID_DIRECTIONS = frozenset({"inbound", "outbound", "both"})
 # Name char set: alphanumerics, space, underscore, hyphen, parentheses.
@@ -119,10 +115,14 @@ class CustomPreset:
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "CustomPreset":
+        methods = [
+            "ood" if method == "ooo" else method
+            for method in list(d.get("methods", []) or [])
+        ]
         return cls(
             name=str(d.get("name", "")),
             description=str(d.get("description", "")),
-            methods=list(d.get("methods", []) or []),
+            methods=methods,
             params=dict(d.get("params", {}) or {}),
             created_at=str(d.get("created_at", "")),
             updated_at=str(d.get("updated_at", "")),
@@ -165,6 +165,22 @@ def validate_preset(p: CustomPreset, *, allow_reserved: bool = False) -> None:
         )
     if not isinstance(p.params, dict):
         raise PresetValidationError("preset params must be a dict")
+    if p.methods:
+        try:
+            from app.firewall.disruption_request import DisruptionRequest
+            from app.firewall.execution_plan import resolve_execution_plan
+
+            request = DisruptionRequest.from_legacy(
+                target_id="preset-validation",
+                filter_string="true",
+                methods=p.methods,
+                params=p.params,
+            )
+            resolve_execution_plan(request)
+        except ValueError as exc:
+            raise PresetValidationError(
+                f"preset methods cannot run as one backend plan: {exc}"
+            ) from exc
 
     # v5.7.3 SECURITY: underscore-key allowlist.
     #

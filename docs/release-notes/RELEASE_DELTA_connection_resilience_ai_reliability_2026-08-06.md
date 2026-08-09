@@ -11,6 +11,8 @@ This branch upgrades disruption routing to a strict capability-owned model, rest
   - Connection Resilience Lab using dupez.custom_lag.
   - Pulse Resilience Lab (Experimental) using dupez.godmode.
 - Explicit native-extension parameter ranges for bounded operation windows and extension controls.
+- Process-wide packet-owner leases with exact generation, backend, capability,
+  capture-layer, and filter-fingerprint status.
 - Additional reliability-focused regression coverage across presets, routing policy, startup smoke, and AI/session lifecycle paths.
 
 ## Changed
@@ -27,11 +29,16 @@ This branch upgrades disruption routing to a strict capability-owned model, rest
 - Smart panel profiling now passes device metadata into async profile calls.
 - Voice panel now uses the configured secure advisor injected by AI panel.
 - Offscreen/no-tray startup now skips tray hotkey registration.
+- The bounded pulse extension now honors direction, distinguishes TCP payload
+  from control traffic, reports the new telemetry schema in Live Stats, and
+  fails open on scheduler errors.
 
 ## Fixed
 - Preset mapping consistency:
   - Standard Lag uses lag.
   - Connection Resilience Lab uses dupez.custom_lag.
+  - legacy custom-preset `ooo` values migrate to canonical `ood`.
+  - mixed standard/extension presets are rejected during save/import.
 - AI reliability and safety:
   - recorder collision-safe filename/session handling.
   - learning-loop bucket contamination safeguards.
@@ -46,12 +53,14 @@ This branch upgrades disruption routing to a strict capability-owned model, rest
 - Enforces strict ownership boundaries between standard effects and native extensions.
 - Removes silent backend substitution behavior in AUTO mode.
 - Maintains bounded (<30s) resilience windows for dedicated diagnostics.
+- Treats remote AI output as untrusted: hidden routing keys and undeclared
+  parameters are stripped before capability planning.
 
-## Validation results on branch
-- Focused reliability suite: 61 passed, 1 skipped.
-- Routing/policy suites: 121 passed.
-- Targeted blocker suite: 109 passed.
-- Full repository suite: 1293 passed, 8 skipped.
+## Validation results on current continuation branch
+- Full repository suite: 1319 passed, 8 expected hardware/platform skips.
+- Source release preflight: passed for version 5.7.9.
+- Focused ownership/routing/extension suite: 136 passed.
+- Active-content/startup/preset/release-policy gate: 52 passed.
 
 ## File groups touched
 - AI reliability: app/ai/*

@@ -6,6 +6,7 @@ hit-registration, anti-cheat, or public-server evasion feature.
 
 from __future__ import annotations
 
+import ctypes
 import time
 from typing import Any, Callable, Optional
 
@@ -30,7 +31,6 @@ from app.firewall.extensions.godmode.state_machine import (
     GodModeStateMachine,
 )
 from app.firewall.extensions.godmode.telemetry import GodModeTelemetry
-from app.firewall.modules._packet_utils import copy_windivert_addr
 from app.firewall.native_divert_engine import DisruptionModule, WINDIVERT_ADDRESS
 from app.logs.logger import log_error, log_info
 
@@ -56,6 +56,18 @@ GODMODE_DESCRIPTOR = ExtensionDescriptor(
     }),
     experimental=True,
 )
+
+
+def _copy_address(addr: WINDIVERT_ADDRESS) -> WINDIVERT_ADDRESS:
+    """Own the deferred-send address copy without importing legacy modules."""
+
+    address = WINDIVERT_ADDRESS()
+    ctypes.memmove(
+        ctypes.byref(address),
+        ctypes.byref(addr),
+        ctypes.sizeof(WINDIVERT_ADDRESS),
+    )
+    return address
 
 
 class GodModeExtensionModule(DisruptionModule):
@@ -84,6 +96,7 @@ class GodModeExtensionModule(DisruptionModule):
             self._state,
             self._release_batch,
             self._on_expire,
+            self._on_scheduler_failure,
         )
 
     def start_flush_thread(
@@ -130,6 +143,12 @@ class GodModeExtensionModule(DisruptionModule):
 
         now = time.monotonic()
         direction = self._directions.resolve(addr)
+        if (
+            self.config.direction != "both"
+            and direction.value != self.config.direction
+        ):
+            self._telemetry.increment("ordinary_passed")
+            return False
         packet_class = self._classifier.classify(packet_data)
         if self._should_pass_keepalive(packet_class, direction, now):
             self._telemetry.increment("keepalive_passed")
@@ -138,7 +157,7 @@ class GodModeExtensionModule(DisruptionModule):
         envelope = PacketEnvelope(
             captured_at=now,
             packet=bytearray(packet_data),
-            address=copy_windivert_addr(addr),
+            address=_copy_address(addr),
             direction=direction,
         )
         if not self._queue.enqueue(envelope):
@@ -169,6 +188,10 @@ class GodModeExtensionModule(DisruptionModule):
         self._telemetry.increment("expirations")
         log_info("God Mode extension reached its bounded deadline; fail-open")
 
+    def _on_scheduler_failure(self, reason: str) -> None:
+        self._health.fail(f"scheduler failure: {reason}")
+        log_error(f"God Mode extension scheduler failed open: {reason}")
+
     def get_stats(self) -> dict:
         counters = self._telemetry.snapshot()
         counters.update({
@@ -179,6 +202,11 @@ class GodModeExtensionModule(DisruptionModule):
             "healthy": self._health.healthy,
             "last_error": self._health.reason,
             "queue_depth": self._queue.depth,
+            "in_queue_depth": self._queue.depth_for(PacketDirection.INBOUND),
+            "out_queue_depth": self._queue.depth_for(PacketDirection.OUTBOUND),
+            "block_ms": self.config.block_ms,
+            "release_ms": self.config.release_ms,
+            "direction": self.config.direction,
             "bounded_max_active_ms": self.config.active_ms,
             "bounded_remaining_ms": max(
                 0,

@@ -22,11 +22,13 @@ class ReleaseScheduler:
         state: GodModeStateMachine,
         release_batch: Callable[[Optional[int]], None],
         on_expire: Callable[[], None],
+        on_failure: Callable[[str], None],
     ) -> None:
         self._config = config
         self._state = state
         self._release_batch = release_batch
         self._on_expire = on_expire
+        self._on_failure = on_failure
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._expires_at = 0.0
@@ -75,7 +77,13 @@ class ReleaseScheduler:
                     self._state.transition(GodModeState.RELEASING)
                     phase_deadline = now + self._config.release_ms / 1000.0
                     self._release_batch(self._config.release_batch)
-        except Exception:
+        except Exception as exc:
+            # Best-effort fail-open release of anything already captured.
+            try:
+                self._release_batch(None)
+            except Exception:
+                pass
+            self._on_failure(str(exc))
             try:
                 self._state.transition(GodModeState.FAILED)
             except Exception:

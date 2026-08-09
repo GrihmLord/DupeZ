@@ -59,7 +59,13 @@ _METHOD_LABELS = {
     "rst":          "RST (TCP reset injection)",
     "bandwidth":    "Bandwidth cap (token bucket)",
     "disconnect":   "Disconnect (stateful timed cut)",
-    "ooo":          "Out-of-order (reorder window)",
+    "ood":          "Out-of-order (reorder window)",
+    "gilbert_elliott": "Gilbert-Elliott loss model (Native extension)",
+    "pareto_jitter": "Pareto jitter model (Native extension)",
+    "correlated_drop": "Correlated loss model (Native extension)",
+    "token_bucket": "Token-bucket model (Native extension)",
+    "dupez.custom_lag": "Connection Resilience Lab (Native extension)",
+    "dupez.godmode": "Pulse Resilience Lab, bounded (Native extension)",
 }
 
 

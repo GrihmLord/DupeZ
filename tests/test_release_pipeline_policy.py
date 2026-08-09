@@ -144,7 +144,7 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     assert "attestations: write" in workflow
     assert "artifact-metadata: write" in workflow
     assert (
-        "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+        "actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d"
         in workflow
     )
     assert "subject-checksums: dist/SHA256SUMS.txt" in workflow

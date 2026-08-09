@@ -1176,13 +1176,13 @@ class ClumsyControlView(QWidget):
     def _get_active_methods(self) -> list:
         """Return checked module keys plus any preset-only methods.
 
-        Some modules (e.g. ``godmode``) have no GUI checkbox because they
+        Some modules (for example ``dupez.godmode``) have no GUI checkbox because they
         are preset-activated.  These are injected from the active preset's
         method list so they reach the engine even though no checkbox exists.
         """
         methods = [key for key, cb in self.module_checks.items() if cb.isChecked()]
 
-        # Inject preset methods that have no GUI checkbox (e.g. "godmode")
+        # Inject preset methods that have no GUI checkbox (e.g. "dupez.godmode")
         preset_name = self.preset_combo.currentText()
         # v5.6.9: lookup includes custom presets
         preset = self._presets_lookup().get(preset_name, {})

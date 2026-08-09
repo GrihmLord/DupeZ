@@ -209,6 +209,12 @@ DISCONNECT cut with optional arm delay and duration. Use only in an
 authorized lab or on equipment you control.</li>
 <li><b>Lag</b> — Pure sustained packet delay. Tune the delay slider after
 selecting (Light ~800ms · Max ~5000ms)</li>
+<li><b>Connection Resilience Lab</b> — A Native-only custom-lag diagnostic
+that releases automatically within 25 seconds and uses best-effort transport
+cadence preservation.</li>
+<li><b>Pulse Resilience Lab (Experimental)</b> — A bounded, namespaced pulse
+diagnostic. It releases automatically within 25 seconds and does not promise
+protection from a game/server timeout.</li>
 <li><b>Custom</b> — Set your own modules and parameters manually</li>
 </ul>
 
@@ -256,11 +262,17 @@ profiles. Pick one and the modules + sliders auto-configure:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li><b style='color:{_CYAN};'>Automatic Connection Test</b> — Runs pure Lag
 and pure Red Disconnect as separate, bounded stages and releases at the end.
-Native runs verify a real delayed-packet release and a real disconnect packet
-effect before reporting completion.</li>
+Standard stages use the bundled Clumsy process and report verified control
+startup; Clumsy does not expose packet-level runtime counters.</li>
 <li><b style='color:{_GREEN};'>Red Disconnect</b> — Enables only the
 stateful DISCONNECT timed-cut module for an unambiguous isolation test.</li>
 <li><b>Lag</b> — Enables only packet delay. Tune the delay slider after selecting</li>
+<li><b>Connection Resilience Lab</b> — Runs only
+<code>dupez.custom_lag</code> in the Native extension host with a bounded
+25-second active window.</li>
+<li><b>Pulse Resilience Lab (Experimental)</b> — Runs only the bounded
+<code>dupez.godmode</code> extension and exposes queue, release, health, and
+remaining-window telemetry.</li>
 <li><b>Custom</b> — Set your own parameters manually</li>
 </ul>
 
@@ -268,8 +280,9 @@ stateful DISCONNECT timed-cut module for an unambiguous isolation test.</li>
 <b style='color:{_CYAN};'>Automatic engine and target routing</b> — DupeZ
 owns these decisions. Exact standalone-compatible requests use the bundled
 Clumsy process first; DupeZ verifies its layer, modules, values, and Start
-state before hiding it. Native WinDivert handles native-only behavior and only
-receives automatic fallback requests whose semantics match. The selected
+state before hiding it. Native WinDivert hosts only explicitly namespaced
+DupeZ extensions. Failed starts remain failed, and mixed standard/extension
+requests are rejected before launch. The selected
 target's live profile determines NETWORK versus NETWORK_FORWARD; there is no
 engine or platform toggle to get wrong. Clumsy live packet effects remain
 labeled runtime-unobservable because that process exposes no packet counters.</p>

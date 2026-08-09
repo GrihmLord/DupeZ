@@ -146,8 +146,10 @@ class StatsPanel(QWidget):
         stats_group.setLayout(stats_layout)
         layout.addWidget(stats_group)
 
-        # ── Legacy pulse detail panel (hidden unless legacy telemetry appears) ────
-        self._godmode_group = self._view._card("LEGACY PULSE")
+        # ── Bounded extension detail panel ─────────────────────────
+        self._godmode_group = self._view._card(
+            "PULSE RESILIENCE LAB (EXPERIMENTAL)"
+        )
         gm_layout = QVBoxLayout()
         gm_layout.setSpacing(4)
 
@@ -164,8 +166,8 @@ class StatsPanel(QWidget):
         for label_text, attr, color in [
             ("IN QUEUE", "_gm_in_queue", "#a78bfa"),
             ("OUT QUEUE", "_gm_out_queue", "#fbbf24"),
-            ("FLUSHES", "_gm_flushes", "#00f0ff"),
-            ("GS CULLED", "_gm_culled", "#ff6b6b"),
+            ("RELEASED", "_gm_flushes", "#00f0ff"),
+            ("FAILED", "_gm_culled", "#ff6b6b"),
         ]:
             widget = QLabel("0")
             setattr(self, attr, widget)
@@ -191,9 +193,9 @@ class StatsPanel(QWidget):
         self._gm_class_label.setWordWrap(True)
         gm_layout.addWidget(self._gm_class_label)
 
-        # Kick risk bar
+        # Bounded active-window progress
         kick_row = QHBoxLayout()
-        kick_lbl = QLabel("KICK RISK:")
+        kick_lbl = QLabel("WINDOW:")
         kick_lbl.setStyleSheet("color: #94a3b8; font-size: 10px; font-weight: bold;")
         kick_lbl.setFixedWidth(70)
         kick_row.addWidget(kick_lbl)
@@ -329,12 +331,12 @@ class StatsPanel(QWidget):
             log_error(f"Stats refresh error: {e}")
 
     def _refresh_godmode_stats(self, per_device: dict) -> None:
-        """Update legacy pulse stats panel from module-level stats."""
+        """Update bounded God Mode extension telemetry."""
         gm_stats = None
         for _ip, dstats in per_device.items():
             mod_stats = dstats.get("module_stats", {})
-            if "GodModeModule" in mod_stats:
-                gm_stats = mod_stats["GodModeModule"]
+            if "GodModeExtensionModule" in mod_stats:
+                gm_stats = mod_stats["GodModeExtensionModule"]
                 break
 
         if not gm_stats:
@@ -349,68 +351,40 @@ class StatsPanel(QWidget):
         self._gm_in_queue.setText(self._format_count(in_depth))
         self._gm_out_queue.setText(self._format_count(out_depth))
         self._gm_flushes.setText(self._format_count(
-            gm_stats.get("pulse_flushes", 0)))
+            gm_stats.get("released", 0)))
         self._gm_culled.setText(self._format_count(
-            gm_stats.get("flush_gamestate_dropped", 0)))
+            gm_stats.get("release_failed", 0)))
 
-        # Phase indicator — estimate from queue depths and timing
-        block_ms = gm_stats.get("block_ms", 3000)
-        flush_ms = gm_stats.get("flush_ms", 400)
-        total_queued = in_depth + out_depth
-        if total_queued > 10:
-            self._gm_phase_label.setText(f"BLOCKING ({block_ms}ms)")
+        state = str(gm_stats.get("lifecycle_state", "unknown")).upper()
+        if state == "ACTIVE":
+            self._gm_phase_label.setText(
+                f"ACTIVE / BLOCKING ({gm_stats.get('block_ms', 0)}ms)"
+            )
             self._gm_phase_label.setStyleSheet(
                 "color: #ff4444; font-size: 12px; font-weight: bold;")
         else:
-            self._gm_phase_label.setText(f"FLUSHING ({flush_ms}ms)")
+            self._gm_phase_label.setText(state)
             self._gm_phase_label.setStyleSheet(
                 "color: #00ff88; font-size: 12px; font-weight: bold;")
 
-        # Classification breakdown
-        cls_in = gm_stats.get("class_in", {})
-        cls_out = gm_stats.get("class_out", {})
-        parts = []
-        if cls_in:
-            parts.append("IN: " + ", ".join(
-                f"{k}={v}" for k, v in cls_in.items()))
-        if cls_out:
-            parts.append("OUT: " + ", ".join(
-                f"{k}={v}" for k, v in cls_out.items()))
-        self._gm_class_label.setText(" | ".join(parts) if parts else "")
+        healthy = bool(gm_stats.get("healthy", False))
+        self._gm_class_label.setText(
+            "version={version} | direction={direction} | keepalive={keepalive} "
+            "| overflow-pass={overflow} | health={health}".format(
+                version=gm_stats.get("extension_version", "unknown"),
+                direction=gm_stats.get("direction", "both"),
+                keepalive=gm_stats.get("keepalive_passed", 0),
+                overflow=gm_stats.get("overflow_passed", 0),
+                health="healthy" if healthy else "failed-open",
+            )
+        )
 
-        # Kick risk estimate
-        # Based on: queue depth (higher = more aggressive = riskier),
-        # keepalive counts vs queued (low keepalive ratio = risky),
-        # and block duration.
-        in_keepalive = gm_stats.get("in_keepalive", 0)
-        out_keepalive = gm_stats.get("out_keepalive", 0)
-        in_queued = gm_stats.get("in_queued", 0)
-        out_queued = gm_stats.get("out_queued", 0)
-        total_keepalive = in_keepalive + out_keepalive
-        total_processed = in_queued + out_queued + total_keepalive
-        # Risk factors: block duration, keepalive ratio, queue saturation
-        risk = 0
-        if block_ms >= 5000:
-            risk += 40
-        elif block_ms >= 3000:
-            risk += 20
-        elif block_ms >= 2000:
-            risk += 10
-        # Low keepalive ratio increases risk
-        if total_processed > 100:
-            ka_ratio = total_keepalive / total_processed
-            if ka_ratio < 0.01:
-                risk += 40
-            elif ka_ratio < 0.03:
-                risk += 20
-            elif ka_ratio < 0.05:
-                risk += 10
-        # High current queue depth
-        if total_queued > 500:
-            risk += 20
-        elif total_queued > 200:
-            risk += 10
-        self._gm_kick_bar.setValue(min(risk, 100))
+        maximum = max(1, int(gm_stats.get("bounded_max_active_ms", 1) or 1))
+        remaining = max(0, int(gm_stats.get("bounded_remaining_ms", 0) or 0))
+        used_pct = int(
+            max(0, min(100, (maximum - remaining) * 100 / maximum))
+        )
+        self._gm_kick_bar.setValue(used_pct)
 
     @staticmethod
     def _format_module_activity(dstats: dict) -> tuple[str, str]:

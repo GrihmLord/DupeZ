@@ -91,3 +91,15 @@ Run these in order on the protected signing host:
 ## 10) Overall readiness verdict
 - Engineering regression quality: READY (all automated branch gates green).
 - Public release cut readiness: NOT READY until signing, strict dist preflight, frozen runtime evidence, manual validation evidence, and main-branch clean staging gates are completed.
+
+## 11) 2026-08-08 continuation
+- Reconciled the prior checkpoint with local `main` at `e5cdfc9`; the checkpoint
+  was already merged and the working tree began clean.
+- Added process-wide packet ownership, unified request/owner status, extension
+  lifecycle and classifier fixes, strict untrusted-AI validation, and custom
+  preset migration/routing validation.
+- Full suite: 1319 passed, 8 expected opt-in hardware/platform skips.
+- Source preflight: passed for v5.7.9.
+- Existing `dist` executables/installers were created before this continuation
+  and must be rebuilt from the final clean commit before frozen validation or
+  publication.

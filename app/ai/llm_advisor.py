@@ -120,8 +120,11 @@ Backend ownership rules:
   lag_keepalive_interval_ms, lag_preserve_connection=true.
 - dupez.godmode is the bounded private-network pulse/resilience lab. It is
   experimental, has a maximum active window of 29000 ms, and does not claim
-    invulnerability, hit-registration manipulation, security-policy bypass, or
-  protection from a game/server timeout.
+  invulnerability, hit-registration manipulation, security-policy bypass, or
+  protection from a game/server timeout. Params: extension_active_ms,
+  extension_block_ms, extension_release_ms, extension_release_batch,
+  extension_queue_max, extension_keepalive_interval_ms,
+  extension_preserve_connection.
 - Never mix a standard effect with a dupez.* extension in one request.
 
 Connection types:
@@ -431,12 +434,12 @@ class LLMAdvisor:
         "bandwidth_queue": (0, 1000),
         "lag_max_active_ms": (0, 29000),
         "lag_keepalive_interval_ms": (100, 10000),
-        "godmode_max_active_ms": (1000, 29000),
-        "godmode_block_ms": (100, 5000),
-        "godmode_release_ms": (50, 2000),
-        "godmode_release_batch": (1, 1024),
-        "godmode_queue_max": (64, 16384),
-        "godmode_keepalive_interval_ms": (100, 10000),
+        "extension_active_ms": (1000, 29000),
+        "extension_block_ms": (50, 5000),
+        "extension_release_ms": (10, 2000),
+        "extension_release_batch": (1, 2048),
+        "extension_queue_max": (128, 10000),
+        "extension_keepalive_interval_ms": (250, 5000),
     }
 
     def _clamp_params(self, params: dict) -> dict:
@@ -600,13 +603,13 @@ class LLMAdvisor:
             "bounded pulse lab",
             ["dupez.godmode"],
             {
-                "godmode_max_active_ms": 25_000,
-                "godmode_block_ms": int(700 + 700 * i),
-                "godmode_release_ms": 250,
-                "godmode_release_batch": 256,
-                "godmode_queue_max": 4096,
-                "godmode_keepalive_interval_ms": 1500,
-                "godmode_preserve_connection": True,
+                "extension_active_ms": 25_000,
+                "extension_block_ms": int(700 + 700 * i),
+                "extension_release_ms": 250,
+                "extension_release_batch": 256,
+                "extension_queue_max": 4096,
+                "extension_keepalive_interval_ms": 1500,
+                "extension_preserve_connection": True,
             },
             i,
             "Experimental bounded pulse/resilience diagnostic for a private network",
