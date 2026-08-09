@@ -54,6 +54,10 @@ function Run-Checked {
     param([string]$Name, [scriptblock]$Action)
     Write-Host "`n=== $Name ==="
     & $Action
+    $phaseExitCode = $LASTEXITCODE
+    if ($null -ne $phaseExitCode -and $phaseExitCode -ne 0) {
+        throw "$Name failed with exit code $phaseExitCode."
+    }
 }
 
 switch ($Phase) {

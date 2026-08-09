@@ -73,6 +73,9 @@ import json
 import logging
 import os
 import secrets
+import sys
+import ctypes
+from ctypes import wintypes
 from hashlib import sha256
 from pathlib import Path
 from typing import Optional
@@ -120,15 +123,57 @@ def generate_token() -> bytes:
 
 # ── Token sentinel (parent → helper out-of-band channel) ────────────
 
+_CSIDL_LOCAL_APPDATA = 0x001C
+_SHGFP_TYPE_CURRENT = 0
+
+
+def _windows_local_appdata() -> Optional[Path]:
+    """Resolve Local AppData from Windows instead of inherited environment.
+
+    ``ShellExecuteExW(..., "runas", ...)`` does not reliably preserve
+    process-local environment overrides. Asking the shell for the current
+    user's profile keeps the Medium-IL GUI and High-IL helper on the same
+    sentinel path, including frozen validation runs with isolated app data.
+    """
+    if sys.platform != "win32":
+        return None
+    try:
+        buffer = ctypes.create_unicode_buffer(32768)
+        resolver = ctypes.windll.shell32.SHGetFolderPathW
+        resolver.argtypes = (
+            wintypes.HWND,
+            ctypes.c_int,
+            wintypes.HANDLE,
+            wintypes.DWORD,
+            wintypes.LPWSTR,
+        )
+        resolver.restype = ctypes.c_long
+        result = resolver(
+            None,
+            _CSIDL_LOCAL_APPDATA,
+            None,
+            _SHGFP_TYPE_CURRENT,
+            buffer,
+        )
+        if result == 0 and buffer.value:
+            return Path(buffer.value)
+    except (AttributeError, OSError, TypeError, ValueError) as exc:
+        log.debug("Windows Local AppData resolution failed: %s", exc)
+    return None
+
 def token_sentinel_path() -> Path:
     """Path to the user-private sentinel file used to transfer the token.
 
-    LOCALAPPDATA is already user-private on every supported Windows
-    version (it lives under the user's profile with inheritance-blocked
-    ACLs by default), so no explicit DACL work is needed.
+    Local AppData is already user-private on every supported Windows version
+    (it lives under the user's profile with inheritance-blocked ACLs by
+    default), so no explicit DACL work is needed. On Windows the shell API is
+    authoritative because process-local ``LOCALAPPDATA`` overrides do not
+    reliably cross a UAC boundary.
     """
-    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return Path(base) / "DupeZ" / "helper_auth.tok"
+    base = _windows_local_appdata()
+    if base is None:
+        base = Path(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"))
+    return base / "DupeZ" / "helper_auth.tok"
 
 
 def write_token_sentinel(token: bytes) -> Path:

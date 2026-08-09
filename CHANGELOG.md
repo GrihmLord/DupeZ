@@ -30,6 +30,13 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
   supported UAC wrapper records PyInstaller stderr warnings while treating the
   nested finalizer exit code as authoritative, preventing a successful native
   warning from becoming a terminating `NativeCommandError`.
+- **Split-helper authentication survives UAC environment changes.** Both the
+  Medium-IL GUI and High-IL helper now resolve the token sentinel through the
+  Windows Local AppData shell API, so an isolated validation profile cannot
+  strand the helper on a different authentication path.
+- **Blocked release phases fail truthfully.** The sequencer now propagates
+  every nested PowerShell exit code; a failed frozen lifecycle check can no
+  longer be recorded as `DONE` or allow staging to advance.
 
 ### Verification
 
