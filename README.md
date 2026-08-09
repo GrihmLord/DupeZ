@@ -32,10 +32,11 @@ DupeZ selects and verifies the packet engine automatically:
    bundled Clumsy executable can represent exactly. DupeZ confirms the
    Local/Remote capture layer, enabled modules, numeric values, and Start
    state before hiding the Clumsy window.
-2. **Native WinDivert Engine** — Used for native-only extensions, or as a
-   bounded fallback for the small set of effects with matching semantics.
-   Requests with known semantic differences fail closed instead of silently
-   switching engines. Native mode exposes packet and per-module counters.
+2. **Native WinDivert Extension Host** — Used only for explicitly namespaced
+   DupeZ extensions such as the bounded Connection Resilience and experimental
+   Pulse Resilience labs. A Clumsy startup failure remains failed; it never causes a
+   silent Native substitution. Mixed standard/extension requests fail before
+   launch. Native extensions expose packet and per-module counters.
 
 The engine supports bounded lab scenarios such as drop, lag, throttle,
 bandwidth pressure, duplication, corruption, reordering, and temporary
@@ -175,7 +176,7 @@ The following must be present in `app/firewall/`:
 
 - `WinDivert.dll` — Kernel packet interception library
 - `WinDivert64.sys` — WinDivert kernel driver
-- `clumsy.exe` — Packet manipulation engine (fallback only)
+- `clumsy.exe` — Canonical engine for standard packet effects (pinned v0.3.4)
 
 ---
 

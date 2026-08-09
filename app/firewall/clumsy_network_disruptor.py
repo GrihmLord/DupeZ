@@ -59,6 +59,10 @@ from app.firewall.execution_plan import (
     UnsupportedExecutionPlan,
     resolve_execution_plan,
 )
+from app.firewall.engine_supervisor import (
+    EngineOwnershipError,
+    get_packet_engine_supervisor,
+)
 
 # Native WinDivert engine — primary engine (no GUI, no window)
 try:
@@ -1470,6 +1474,7 @@ class ClumsyNetworkDisruptor:
         # Registry incarnations are monotonic so asynchronous watchdog
         # callbacks can prove they still belong to the engine they observed.
         self._disruption_generation = 0
+        self._packet_supervisor = get_packet_engine_supervisor()
         self.clumsy_exe = None
         self.windivert_dll = None
         self.windivert_sys = None
@@ -1781,10 +1786,24 @@ class ClumsyNetworkDisruptor:
             )
             return False
 
+        owner_generation: Optional[int] = None
+        owner_committed = False
+        started_engine: Optional[Any] = None
+        _arp_spoofer = None
+        actual_engine = ""
+        requested_engine = ENGINE_AUTO
+        final_request: Optional[DisruptionRequest] = None
+        final_plan = None
+
         try:
             if target_ip in self.disrupted_devices:
                 log_info(f"{mask_ip(target_ip)} already disrupted — restarting")
-                self.reconnect_device_clumsy(target_ip)
+                if not self.reconnect_device_clumsy(target_ip):
+                    log_error(
+                        "Existing packet owner did not stop cleanly; restart "
+                        "was refused"
+                    )
+                    return False
 
             if not self._initialized:
                 if not self.initialize():
@@ -1799,7 +1818,28 @@ class ClumsyNetworkDisruptor:
                 log_info(f"Active disruption on {[mask_ip(ip) for ip in existing]} — stopping before new target "
                          f"(single-handle WinDivert limitation)")
                 for ip in existing:
-                    self.reconnect_device_clumsy(ip)
+                    if not self.reconnect_device_clumsy(ip):
+                        log_error(
+                            "Existing packet owner did not stop cleanly; "
+                            "new start was refused"
+                        )
+                        return False
+
+            # Reserve the process-wide packet owner before local forwarding,
+            # elevation-sensitive launch, or a WinDivert handle can begin.
+            with self._device_lock:
+                self._disruption_generation += 1
+                owner_generation = self._disruption_generation
+            try:
+                self._packet_supervisor.reserve(
+                    self,
+                    owner_generation,
+                    early_request,
+                    early_plan,
+                )
+            except EngineOwnershipError as exc:
+                log_error(f"Disruption start refused: {exc}")
+                return False
 
             # ── Platform detection & layer selection ────────────────
             # PC-local mode: DayZ running on the SAME machine as DupeZ.
@@ -1857,7 +1897,6 @@ class ClumsyNetworkDisruptor:
             # BEFORE opening WinDivert so traffic is already flowing
             # through us when the FORWARD layer opens. Suppressed when
             # the operator forced self-disrupt mode.
-            _arp_spoofer = None
             needs_arp = (
                 _detection is not None
                 and getattr(_detection, "needs_arp_spoof", False)
@@ -2037,11 +2076,30 @@ class ClumsyNetworkDisruptor:
             eng_params["_target_ip"] = target_ip
             eng_params["_network_local"] = is_local
 
-            engine, actual_engine, requested_engine = self._start_selected_engine(
+            try:
+                final_request = DisruptionRequest.from_legacy(
+                    target_id=target_ip,
+                    filter_string=filt_expr,
+                    methods=methods,
+                    params=eng_params,
+                )
+                final_plan = resolve_execution_plan(final_request)
+                self._packet_supervisor.describe_request(
+                    self,
+                    owner_generation,
+                    final_request,
+                    final_plan,
+                )
+            except (ValueError, UnsupportedExecutionPlan, EngineOwnershipError) as exc:
+                log_error(f"Final disruption request rejected: {exc}")
+                return False
+
+            started_engine, actual_engine, requested_engine = self._start_selected_engine(
                 filter_str=filt_expr,
                 methods=methods,
                 params=eng_params,
             )
+            engine = started_engine
 
             if engine is None:
                 if _arp_spoofer is not None:
@@ -2062,11 +2120,33 @@ class ClumsyNetworkDisruptor:
                 except Exception:
                     pass
 
+            process = getattr(engine, "_proc", None)
+            raw_pid = getattr(process, "pid", None)
+            if raw_pid is None:
+                try:
+                    raw_pid = int(getattr(engine, "pid"))
+                except (AttributeError, TypeError, ValueError):
+                    raw_pid = None
+            try:
+                packet_owner = self._packet_supervisor.activate(
+                    self,
+                    owner_generation,
+                    pid=raw_pid,
+                    handle_attached=bool(getattr(engine, "_handle", None)),
+                )
+            except EngineOwnershipError as exc:
+                log_error(f"Engine started without a valid ownership lease: {exc}")
+                return False
+
             with self._device_lock:
-                self._disruption_generation += 1
                 self.disrupted_devices[target_ip] = {
                     "engine": engine,
-                    "generation": self._disruption_generation,
+                    "generation": owner_generation,
+                    "packet_owner": packet_owner.public_dict(),
+                    "capability_ids": list(final_plan.capability_ids),
+                    "capture_layer": final_request.capture_layer.value,
+                    "filter_hash": final_request.filter_hash,
+                    "request_fingerprint": final_request.public_fingerprint(),
                     "engine_name": actual_engine,
                     "engine_preference": requested_engine,
                     "methods": methods,
@@ -2086,6 +2166,7 @@ class ClumsyNetworkDisruptor:
                         "reasons": list(_detection.reasons),
                     } if _detection is not None else None),
                 }
+            owner_committed = True
 
             # v5.6.5: Arm the WiFi isolation watchdog when the wifi_same_net
             # path is active and the auto-fallback flag is set (default on).
@@ -2112,47 +2193,164 @@ class ClumsyNetworkDisruptor:
             log_error(f"DISRUPTION FAILED for {mask_ip(target_ip)}: {e}")
             log_error(traceback.format_exc())
             return False
+        finally:
+            if not owner_committed and owner_generation is not None:
+                engine_released = True
+                engine_cleanup_error = ""
+                if started_engine is not None:
+                    try:
+                        started_engine.stop()
+                    except Exception as cleanup_exc:
+                        engine_cleanup_error = str(cleanup_exc)
+                        try:
+                            engine_released = not bool(started_engine.alive)
+                        except Exception:
+                            engine_released = False
+                        log_warning(
+                            f"Uncommitted engine cleanup failed: {cleanup_exc}"
+                        )
+                forwarding_released = True
+                forwarding_cleanup_error = ""
+                if _arp_spoofer is not None:
+                    try:
+                        _arp_spoofer.stop()
+                    except Exception as cleanup_exc:
+                        forwarding_released = False
+                        forwarding_cleanup_error = str(cleanup_exc)
+                        log_warning(
+                            "Uncommitted local-forwarding cleanup failed: "
+                            f"{cleanup_exc}"
+                        )
+                if engine_released:
+                    self._packet_supervisor.release(self, owner_generation)
+
+                # Preserve a recovery handle whenever cleanup could not be
+                # confirmed.  In particular, never release the process-wide
+                # lease while an uncommitted packet engine may still be alive.
+                if not engine_released or not forwarding_released:
+                    owner = self._packet_supervisor.snapshot(
+                        manager=self,
+                        generation=owner_generation,
+                    )
+                    with self._device_lock:
+                        self.disrupted_devices[target_ip] = {
+                            "engine": (
+                                started_engine if not engine_released else None
+                            ),
+                            "generation": owner_generation,
+                            "packet_owner": (
+                                owner.public_dict() if owner is not None else None
+                            ),
+                            "capability_ids": (
+                                list(final_plan.capability_ids)
+                                if final_plan is not None
+                                else list(early_plan.capability_ids)
+                            ),
+                            "capture_layer": (
+                                final_request.capture_layer.value
+                                if final_request is not None
+                                else early_request.capture_layer.value
+                            ),
+                            "filter_hash": (
+                                final_request.filter_hash
+                                if final_request is not None
+                                else early_request.filter_hash
+                            ),
+                            "request_fingerprint": (
+                                final_request.public_fingerprint()
+                                if final_request is not None
+                                else early_request.public_fingerprint()
+                            ),
+                            "engine_name": actual_engine or "unknown",
+                            "engine_preference": requested_engine,
+                            "methods": methods,
+                            "params": params,
+                            "start_time": time.time(),
+                            "arp_spoofer": (
+                                _arp_spoofer
+                                if not forwarding_released
+                                else None
+                            ),
+                            "wifi_watchdog": None,
+                            "release_error": "; ".join(
+                                item
+                                for item in (
+                                    (
+                                        "packet engine did not confirm stop: "
+                                        f"{engine_cleanup_error}"
+                                        if not engine_released
+                                        else ""
+                                    ),
+                                    (
+                                        "local forwarding did not confirm stop: "
+                                        f"{forwarding_cleanup_error}"
+                                        if not forwarding_released
+                                        else ""
+                                    ),
+                                )
+                                if item
+                            ),
+                        }
 
     def reconnect_device_clumsy(self, target_ip: str) -> bool:
-        try:
-            with self._device_lock:
-                if target_ip not in self.disrupted_devices:
-                    return True
-                info = self.disrupted_devices.pop(target_ip)
-
-            # v5.6.5: Cancel pending isolation watchdog BEFORE stopping the
-            # engine. Otherwise the watchdog might fire its callback into a
-            # half-torn-down state and try to restart an engine for a target
-            # the operator already released.
-            wd = info.get("wifi_watchdog")
-            if wd is not None:
-                try:
-                    wd.cancel()
-                except Exception:
-                    pass
-
-            engine = info.get("engine")
-            if engine:
-                engine.stop()
-
-            # Stop local forwarding if active — restore real ARP entries
-            # and disable IP forwarding (if we enabled it).
-            arp_spoofer = info.get("arp_spoofer")
-            if arp_spoofer is not None:
-                try:
-                    arp_spoofer.stop()
-                    log_info(f"[WiFi] local forwarding stopped for "
-                             f"{mask_ip(target_ip)}")
-                except Exception as arp_err:
-                    log_error(f"[WiFi] local forwarding cleanup error: {arp_err}")
-
-            log_info(f"Disruption stopped: {mask_ip(target_ip)}")
+        with self._device_lock:
+            info = self.disrupted_devices.pop(target_ip, None)
+        if info is None:
             return True
-        except Exception as e:
-            log_error(f"Error stopping {mask_ip(target_ip)}: {e}")
+
+        generation = int(info.get("generation", 0) or 0)
+        self._packet_supervisor.mark_releasing(self, generation)
+        stopped_cleanly = True
+
+        # Cancel the watchdog before engine teardown so a stale callback
+        # cannot replace the generation the operator is releasing.
+        wd = info.get("wifi_watchdog")
+        if wd is not None:
+            try:
+                wd.cancel()
+            except Exception as exc:
+                stopped_cleanly = False
+                log_warning(f"Disruption watchdog cleanup failed: {exc}")
+
+        engine = info.get("engine")
+        engine_released = True
+        if engine:
+            try:
+                engine.stop()
+            except Exception as exc:
+                stopped_cleanly = False
+                log_error(f"Error stopping packet engine: {exc}")
+                try:
+                    engine_released = not bool(engine.alive)
+                except Exception:
+                    engine_released = False
+
+        # Always attempt local-forwarding restoration even if engine stop
+        # failed, then release only this exact owner generation.
+        arp_spoofer = info.get("arp_spoofer")
+        if arp_spoofer is not None:
+            try:
+                arp_spoofer.stop()
+                log_info(
+                    f"[WiFi] local forwarding stopped for {mask_ip(target_ip)}"
+                )
+            except Exception as exc:
+                stopped_cleanly = False
+                log_error(f"[WiFi] local forwarding cleanup error: {exc}")
+
+        if not engine_released:
+            info["release_error"] = "packet engine did not confirm stop"
             with self._device_lock:
-                self.disrupted_devices.pop(target_ip, None)
+                self.disrupted_devices[target_ip] = info
+            log_error(
+                "Packet owner remains reserved because the engine did not "
+                "confirm shutdown"
+            )
             return False
+
+        self._packet_supervisor.release(self, generation)
+        log_info(f"Disruption stopped: {mask_ip(target_ip)}")
+        return stopped_cleanly
 
     # ── v5.6.5: WiFi isolation watchdog + self-disrupt fallback ─────
     #
@@ -2320,6 +2518,13 @@ class ClumsyNetworkDisruptor:
             )
             return
 
+        owner_tracked = bool(info.get("packet_owner"))
+        if owner_tracked:
+            self._packet_supervisor.mark_releasing(
+                self,
+                expected_generation,
+            )
+
         # 1. Surface the mode change to the operator BEFORE tearing down
         # the current engine, so the toast lands while the badge is
         # still red. Otherwise a brief "disrupted → off → disrupted"
@@ -2373,21 +2578,37 @@ class ClumsyNetworkDisruptor:
             filt_expr = "true"
 
         new_engine = None
-        if NATIVE_ENGINE_AVAILABLE:
-            try:
-                new_engine = NativeWinDivertEngine(
-                    dll_path=self.windivert_dll,
-                    filter_str=filt_expr,
-                    methods=methods,
-                    params=new_params,
+        replacement_request = None
+        replacement_plan = None
+        try:
+            replacement_request = DisruptionRequest.from_legacy(
+                target_id=target_ip,
+                filter_string=filt_expr,
+                methods=methods,
+                params=new_params,
+            )
+            replacement_plan = resolve_execution_plan(replacement_request)
+            if replacement_plan.backend is not Backend.NATIVE_EXTENSION:
+                raise UnsupportedExecutionPlan(
+                    "WiFi self-disrupt replacement is available only for "
+                    "DupeZ Native extensions; standard effects remain owned "
+                    "by Kalirenegade Clumsy"
                 )
-                if not new_engine.start():
-                    new_engine = None
-            except Exception as exc:
-                log_error(
-                    f"[WiFi-FALLBACK] native engine restart failed: {exc}"
-                )
+            new_engine, actual_engine, _requested = self._start_selected_engine(
+                filter_str=filt_expr,
+                methods=methods,
+                params=new_params,
+            )
+            if actual_engine != ENGINE_NATIVE:
                 new_engine = None
+        except (ValueError, UnsupportedExecutionPlan) as exc:
+            log_error(f"[WiFi-FALLBACK] replacement rejected: {exc}")
+            new_engine = None
+        except Exception as exc:
+            log_error(
+                f"[WiFi-FALLBACK] native extension restart failed: {exc}"
+            )
+            new_engine = None
 
         if new_engine is None:
             log_error(
@@ -2412,6 +2633,8 @@ class ClumsyNetworkDisruptor:
                     and current.get("wifi_fallback_transition")
                 ):
                     self.disrupted_devices.pop(target_ip, None)
+            if owner_tracked:
+                self._packet_supervisor.release(self, expected_generation)
             return
 
         # 4. Swap in the new engine. Preserve detection info so the GUI
@@ -2427,17 +2650,65 @@ class ClumsyNetworkDisruptor:
                 and current.get("wifi_fallback_transition")
             ):
                 self._disruption_generation += 1
-                current.update({
-                    "engine": new_engine,
-                    "generation": self._disruption_generation,
-                    "engine_name": ENGINE_NATIVE,
-                    "params": new_params,
-                    "arp_spoofer": None,
-                    "wifi_watchdog": None,
-                    "wifi_self_disrupt": True,
-                    "wifi_fallback_transition": False,
-                })
-                committed = True
+                new_generation = self._disruption_generation
+                packet_owner = None
+                if owner_tracked:
+                    process = getattr(new_engine, "_proc", None)
+                    raw_pid = getattr(process, "pid", None)
+                    if raw_pid is None:
+                        try:
+                            raw_pid = int(getattr(new_engine, "pid"))
+                        except (AttributeError, TypeError, ValueError):
+                            raw_pid = None
+                    try:
+                        packet_owner = self._packet_supervisor.transfer_generation(
+                            self,
+                            expected_generation,
+                            new_generation,
+                            replacement_request,
+                            replacement_plan,
+                            pid=raw_pid,
+                            handle_attached=bool(
+                                getattr(new_engine, "_handle", None)
+                            ),
+                        )
+                    except EngineOwnershipError as exc:
+                        log_error(
+                            "[WiFi-FALLBACK] ownership transfer failed: "
+                            f"{exc}"
+                        )
+                        packet_owner = None
+                        new_generation = 0
+                if owner_tracked and packet_owner is None:
+                    committed = False
+                    current["wifi_fallback_transition"] = False
+                else:
+                    current.update({
+                        "engine": new_engine,
+                        "generation": new_generation,
+                        "engine_name": ENGINE_NATIVE,
+                        "params": new_params,
+                        "capability_ids": list(
+                            replacement_plan.capability_ids
+                        ),
+                        "capture_layer": (
+                            replacement_request.capture_layer.value
+                        ),
+                        "filter_hash": replacement_request.filter_hash,
+                        "request_fingerprint": (
+                            replacement_request.public_fingerprint()
+                        ),
+                        "packet_owner": (
+                            packet_owner.public_dict()
+                            if packet_owner is not None
+                            else current.get("packet_owner")
+                        ),
+                        "arp_spoofer": None,
+                        "wifi_watchdog": None,
+                        "wifi_self_disrupt": True,
+                        "wifi_fallback_transition": False,
+                    })
+                    committed = True
 
         if not committed:
             # A release/restart won the race while the replacement was
@@ -2494,6 +2765,8 @@ class ClumsyNetworkDisruptor:
                     if info.get("engine") and not info["engine"].alive]
             dead_infos = {ip: self.disrupted_devices.pop(ip) for ip in dead}
         for ip, info in dead_infos.items():
+            generation = int(info.get("generation", 0) or 0)
+            self._packet_supervisor.mark_releasing(self, generation)
             watchdog = info.get("wifi_watchdog")
             if watchdog is not None:
                 try:
@@ -2521,24 +2794,66 @@ class ClumsyNetworkDisruptor:
                         f"Dead disruption ARP cleanup failed for "
                         f"{mask_ip(ip)}: {exc}"
                     )
+            self._packet_supervisor.release(self, generation)
         with self._device_lock:
             return list(self.disrupted_devices.keys())
 
     def get_device_status_clumsy(self, target_ip: str) -> Dict:
         with self._device_lock:
             if target_ip not in self.disrupted_devices:
-                return {"disrupted": False}
+                return {
+                    "product": "DupeZ",
+                    "disrupted": False,
+                    "lifecycle_state": "inactive",
+                }
             info = self.disrupted_devices[target_ip]
         eng = info.get("engine")
+        generation = int(info.get("generation", 0) or 0)
+        owner = self._packet_supervisor.snapshot(
+            manager=self,
+            generation=generation,
+        )
+        engine_stats: Dict[str, Any] = {}
+        if eng is not None and hasattr(eng, "get_stats"):
+            try:
+                engine_stats = dict(eng.get_stats() or {})
+            except Exception as exc:
+                log_warning(f"Could not read engine status: {exc}")
+        process_running = bool(eng.alive) if eng else False
         return {
+            "product": "DupeZ",
             "disrupted": True,
+            "lifecycle_state": (
+                owner.phase.value if owner is not None else "owner_missing"
+            ),
+            "generation": generation,
             "engine": info.get("engine_name", "unknown"),
+            "backend": info.get("engine_name", "unknown"),
             "engine_preference": info.get("engine_preference", ENGINE_AUTO),
+            "capability_ids": list(info.get("capability_ids", [])),
+            "capture_layer": info.get("capture_layer"),
+            "filter_hash": info.get("filter_hash", ""),
+            "request_fingerprint": info.get("request_fingerprint", ""),
+            "packet_owner": owner.public_dict() if owner is not None else None,
             "methods": info.get("methods", []),
             "params": info.get("params", {}),
             "start_time": info.get("start_time", 0),
-            "process_running": eng.alive if eng else False,
-            "pid": getattr(getattr(eng, '_proc', None), 'pid', None),
+            "process_running": process_running,
+            "startup_verified": bool(
+                engine_stats.get("startup_verified", process_running)
+            ),
+            "runtime_verified": bool(
+                engine_stats.get("runtime_verified", False)
+            ),
+            "verification_state": engine_stats.get(
+                "verification_state",
+                "waiting_for_traffic" if process_running else "inactive",
+            ),
+            "pid": (
+                owner.pid
+                if owner is not None
+                else getattr(getattr(eng, '_proc', None), 'pid', None)
+            ),
         }
 
     def get_clumsy_status(self) -> Dict:
@@ -2546,6 +2861,7 @@ class ClumsyNetworkDisruptor:
         with self._device_lock:
             dev_count = len(self.disrupted_devices)
             dev_list = list(self.disrupted_devices.keys())
+        owner = self._packet_supervisor.snapshot(manager=self)
         return {
             "is_running": self.is_running,
             "clumsy_exe_exists": _exists(self.clumsy_exe),
@@ -2555,6 +2871,7 @@ class ClumsyNetworkDisruptor:
             "disrupted_devices": dev_list,
             "is_admin": self._is_admin(),
             "initialized": self._initialized,
+            "packet_owner": owner.public_dict() if owner is not None else None,
             "engine_preferences": [ENGINE_AUTO, ENGINE_NATIVE, ENGINE_CLUMSY],
         }
 

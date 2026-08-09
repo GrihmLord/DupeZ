@@ -36,6 +36,7 @@ class GodModeConfig:
     queue_max: int = 4_096
     keepalive_interval_ms: int = 1_500
     preserve_connection: bool = True
+    direction: str = "both"
 
     @classmethod
     def from_params(cls, params: Mapping[str, Any]) -> "GodModeConfig":
@@ -89,5 +90,11 @@ class GodModeConfig:
             ),
             preserve_connection=bool(
                 params.get("extension_preserve_connection", True)
+            ),
+            direction=(
+                str(params.get("direction", "both")).strip().lower()
+                if str(params.get("direction", "both")).strip().lower()
+                in {"both", "inbound", "outbound"}
+                else "both"
             ),
         )

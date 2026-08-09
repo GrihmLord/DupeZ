@@ -87,6 +87,18 @@ class TestValidatePreset:
             p = CustomPreset(name="OK", methods=[method])
             validate_preset(p)
 
+    def test_legacy_ooo_method_migrates_to_canonical_ood(self) -> None:
+        preset = CustomPreset.from_dict({"name": "Old", "methods": ["ooo"]})
+        assert preset.methods == ["ood"]
+        validate_preset(preset)
+
+    def test_mixed_standard_and_extension_methods_are_rejected(self) -> None:
+        with pytest.raises(PresetValidationError, match="one backend plan"):
+            validate_preset(CustomPreset(
+                name="Mixed",
+                methods=["lag", "dupez.godmode"],
+            ))
+
     def test_invalid_direction_rejected(self) -> None:
         p = CustomPreset(
             name="Bad", methods=["drop"],

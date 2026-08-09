@@ -58,3 +58,9 @@ class QueueManager:
     def depth(self) -> int:
         with self._lock:
             return len(self._inbound) + len(self._outbound)
+
+    def depth_for(self, direction: PacketDirection) -> int:
+        with self._lock:
+            if direction is PacketDirection.OUTBOUND:
+                return len(self._outbound)
+            return len(self._inbound)

@@ -17,7 +17,11 @@ param(
     [ValidatePattern("^\d+\.\d+\.\d+$")]
     [string]$Version = "5.7.9",
 
-    [string]$Operator = ""
+    [string]$Operator = "",
+
+    [switch]$AllowUnsigned,
+
+    [switch]$AllowNonMainValidation
 )
 
 Set-StrictMode -Version Latest
@@ -148,6 +152,12 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
         if (-not [string]::IsNullOrWhiteSpace($Operator)) {
             $argList += @("-Operator", ('"' + $Operator + '"'))
         }
+        if ($AllowUnsigned) {
+            $argList += "-AllowUnsigned"
+        }
+        if ($AllowNonMainValidation) {
+            $argList += "-AllowNonMainValidation"
+        }
         Start-Process -FilePath "powershell" -Verb RunAs -ArgumentList ($argList -join " ")
         return "RELAUNCHED_ELEVATED"
     }
@@ -168,6 +178,12 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
     )
     if (-not [string]::IsNullOrWhiteSpace($Operator)) {
         $seqArgs += @("-Operator", $Operator)
+    }
+    if ($AllowUnsigned) {
+        $seqArgs += "-AllowUnsigned"
+    }
+    if ($AllowNonMainValidation) {
+        $seqArgs += "-AllowNonMainValidation"
     }
 
     & powershell @seqArgs

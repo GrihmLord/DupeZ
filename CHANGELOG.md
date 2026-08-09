@@ -13,7 +13,26 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
   no longer silently take the native path first. DupeZ verifies Clumsy's
   Local/Remote capture layer, module checkboxes, numeric controls, and Start
   state before reporting success. Native WinDivert remains the path for
-  native-only behavior and a bounded fallback only where semantics match.
+  explicitly namespaced DupeZ extensions only. A Clumsy startup failure now
+  remains failed and never triggers runtime Native substitution.
+- **Bounded resilience extensions restored behind explicit namespaces.**
+  `dupez.custom_lag` and experimental `dupez.godmode` run only in the Native
+  extension host, clamp active impairment below 30 seconds, fail open on
+  expiry/overflow, and expose bounded lifecycle/queue/health telemetry. The
+  legacy monolithic God Mode implementation is not routed or packaged.
+- **One packet owner per process and generation.** The control plane reserves
+  a process-wide owner before forwarding or engine launch, rejects competing
+  managers, fingerprints the request/filter, and retains ownership when stop
+  cannot be confirmed. Status now reports backend, canonical capabilities,
+  capture layer, generation, lifecycle, and verification state.
+- **AI/voice output is constrained at the control boundary.** Hidden routing
+  keys and undeclared parameters are removed, mixed-backend recommendations
+  are rejected before launch, and offline resilience intents emit the exact
+  namespaced extension schemas.
+- **Custom preset compatibility repaired.** The editor now emits the real
+  `ood` capability (migrating legacy `ooo` data), shares the central method
+  registry, exposes Native extension methods, and refuses mixed plans that no
+  single backend can execute.
 - **Duplicate count parity.** DupeZ defines `duplicate_count` as extra copies,
   while Clumsy counts the original packet. Compatibility mode now translates
   `N` extra copies to Clumsy's `N + 1` total and validates the representable

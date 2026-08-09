@@ -39,7 +39,7 @@ def _active_entry(engine, generation: int, **extra):
         "generation": generation,
         "engine_name": ENGINE_NATIVE,
         "engine_preference": ENGINE_AUTO,
-        "methods": ["lag"],
+        "methods": ["dupez.custom_lag"],
         "params": {"lag_delay": 25},
         "arp_spoofer": MagicMock(),
         **extra,
@@ -104,7 +104,7 @@ def test_watchdog_callback_captures_generation_and_engine(monkeypatch) -> None:
         TARGET,
         old_engine,
         spoofer,
-        ["lag"],
+        ["dupez.custom_lag"],
         {"lag_delay": 25},
     )
     watchdog = _Watchdog.instances[-1]
@@ -154,7 +154,7 @@ def test_fallback_discards_replacement_if_registry_changes_during_start(
 
     manager._fallback_to_self_disrupt(
         TARGET,
-        ["lag"],
+        ["dupez.custom_lag"],
         {"lag_delay": 25},
         expected_generation=7,
         expected_engine=old_engine,
@@ -177,7 +177,7 @@ def test_fallback_refuses_a_callback_after_registry_removal(monkeypatch) -> None
 
     manager._fallback_to_self_disrupt(
         TARGET,
-        ["lag"],
+        ["dupez.custom_lag"],
         {"lag_delay": 25},
         expected_generation=3,
         expected_engine=old_engine,
@@ -208,7 +208,7 @@ def test_successful_fallback_commits_with_a_new_generation(monkeypatch) -> None:
 
     manager._fallback_to_self_disrupt(
         TARGET,
-        ["lag"],
+        ["dupez.custom_lag"],
         {"lag_delay": 25},
         expected_generation=11,
         expected_engine=old_engine,

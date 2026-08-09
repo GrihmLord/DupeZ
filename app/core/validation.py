@@ -293,11 +293,24 @@ def validate_methods(methods: Any) -> List[str]:
     return validated
 
 
-def validate_params(params: Any) -> Dict[str, Any]:
+_SAFE_CONFIG_BOOLEAN_PARAMS: FrozenSet[str] = frozenset({
+    "throttle_drop",
+    "lag_passthrough",
+    "lag_preserve_connection",
+    "extension_preserve_connection",
+})
+
+
+def validate_params(
+    params: Any,
+    *,
+    allow_unknown: bool = True,
+) -> Dict[str, Any]:
     """Validate and clamp disruption parameters.
 
-    Unknown keys are silently dropped.  Known keys are type-checked
-    and clamped to their allowed ranges.
+    Known keys are type-checked and clamped to their allowed ranges.
+    Trusted callers may retain simple extension parameters; untrusted
+    configuration paths drop everything outside the public schema.
     """
     if not isinstance(params, dict):
         return {}
@@ -310,6 +323,10 @@ def validate_params(params: Any) -> Dict[str, Any]:
             continue
 
         if key not in VALID_PARAM_RANGES:
+            if not allow_unknown:
+                if key in _SAFE_CONFIG_BOOLEAN_PARAMS and isinstance(value, bool):
+                    validated[key] = value
+                continue
             # Allow through non-standard params with basic type check
             # (statistical models, stealth params, etc.)
             if isinstance(value, (int, float, bool, str)):
@@ -338,7 +355,30 @@ def validate_disruption_config(config: Any) -> Optional[Dict[str, Any]]:
     if not methods:
         return None
 
-    params = validate_params(config.get("params", {}))
+    # AI/voice configurations are untrusted. Unlike trusted CLI/profile
+    # adapters they cannot inject hidden routing keys or arbitrary module
+    # controls; only the public bounded schema is accepted here.
+    params = validate_params(
+        config.get("params", {}),
+        allow_unknown=False,
+    )
+
+    # Resolve at the validation boundary so unknown, mixed-backend, and
+    # explicit wrong-backend recommendations never reach launch/elevation.
+    try:
+        from app.firewall.disruption_request import DisruptionRequest
+        from app.firewall.execution_plan import resolve_execution_plan
+
+        request = DisruptionRequest.from_legacy(
+            target_id="validated-config",
+            filter_string="true",
+            methods=methods,
+            params=params,
+        )
+        resolve_execution_plan(request)
+    except (TypeError, ValueError) as exc:
+        log_warning(f"Rejected disruption configuration: {exc}")
+        return None
 
     result = dict(config)
     result["methods"] = methods

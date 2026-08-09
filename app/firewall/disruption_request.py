@@ -108,7 +108,11 @@ class DisruptionRequest:
             )
         except ValueError as exc:
             raise ValueError("unknown engine policy") from exc
-        raw_max = params.get("lag_max_active_ms", 0) or 0
+        raw_max = (
+            params.get("extension_active_ms")
+            or params.get("lag_max_active_ms")
+            or 0
+        )
         try:
             max_active = max(0, int(float(raw_max)))
         except (TypeError, ValueError, OverflowError):
@@ -135,6 +139,13 @@ class DisruptionRequest:
             "duration": self.duration.max_active_ms,
             "engine_policy": self.engine_policy.value,
             "filter_hash": self.filter_hash,
+            "parameter_hash": hashlib.sha256(
+                json.dumps(
+                    thaw_value(self.parameters),
+                    sort_keys=True,
+                    default=str,
+                ).encode("utf-8")
+            ).hexdigest(),
         }
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True).encode("utf-8")

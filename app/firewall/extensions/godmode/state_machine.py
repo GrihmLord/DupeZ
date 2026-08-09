@@ -23,7 +23,11 @@ class IllegalTransition(RuntimeError):
 
 
 _LEGAL = {
-    GodModeState.IDLE: {GodModeState.ARMED, GodModeState.FAILED},
+    GodModeState.IDLE: {
+        GodModeState.ARMED,
+        GodModeState.STOPPED,
+        GodModeState.FAILED,
+    },
     GodModeState.ARMED: {
         GodModeState.ACTIVE,
         GodModeState.STOPPING,

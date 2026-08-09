@@ -31,8 +31,8 @@ Phase 20 : PARTIAL  | red flags and protections drafted with explicit assumption
 Phase 21 : PARTIAL  | remediation and regression loop executed for available scope
 Phase 22 : PARTIAL  | unified verification complete for source/tests, blocked for final signed artifacts
 Current phase      : Phase 22
-Open blockers      : admin-only finalizer, main-clean requirement for stage script, missing signed sidecars
-Open regressions   : none observed in automated suite (1293 passed, 8 skipped)
+Open blockers      : current dist artifacts predate this branch; admin finalizer, exact-artifact signing/frozen validation, and main-clean staging remain
+Open regressions   : none observed in automated suite (1319 passed, 8 skipped)
 Evidence requests  : legal/contracts/financial/insurance/corporate records
 Conflicted evidence: none material in technical scope
 Unverified areas   : exact signed artifact install/upgrade/rollback validation

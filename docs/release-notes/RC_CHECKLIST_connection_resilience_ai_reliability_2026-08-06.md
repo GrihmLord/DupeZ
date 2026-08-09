@@ -74,10 +74,10 @@ Evidence files:
 
 ## 6. Test gates
 Executed and passing on this branch:
-- Focused reliability suite: 61 passed, 1 skipped.
-- Routing and manager policy suite: 121 passed.
-- Targeted blocker re-check: 109 passed.
-- Full suite: 1293 passed, 8 skipped.
+- Full suite: 1319 passed, 8 expected hardware/platform skips.
+- Focused ownership/routing/extension suite: 136 passed.
+- Active-content/startup/preset/release-policy gate: 52 passed.
+- Source preflight: passed for v5.7.9.
 
 Required pre-cut reruns:
 - pytest -q
