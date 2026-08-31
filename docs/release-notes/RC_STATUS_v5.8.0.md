@@ -4,13 +4,17 @@ Status date: 2026-08-31
 
 ## Current disposition
 
-- Source/engineering candidate: **PASS with external and owner gates pending**.
+- Source/engineering candidate: **PUSHED with external and owner gates pending**.
+  Exact head `eeffd65631f12e4cbb87f14373c514db75adffed` is under review in
+  draft pull request <https://github.com/GrihmLord/DupeZ/pull/84>.
 - Private unsigned frozen snapshot: **validated engineering evidence only**.
 - Public Windows release candidate: **BLOCKED**.
 - Published release: **not authorized and not attempted**.
 
-No canonical `dist` file was replaced, no tag or draft release was created,
-and no purchase, account registration, or external publication was performed.
+No canonical `dist` file was replaced, no tag or GitHub Release draft was
+created, and no purchase or account registration was performed. The source
+candidate branch and draft pull request were pushed only after the complete
+local gate and repository commit hooks passed.
 
 ## Verified locally
 
@@ -89,11 +93,17 @@ Primary local evidence:
    collaborator. An existing independent reviewer/account is required; this
    work does not require creating or purchasing an account, but it cannot be
    manufactured locally.
-5. **Exact-byte validation.** Compat Administrator lifecycle, exact-commit
+5. **GitHub Actions availability.** All 14 pull-request checks for the exact
+   candidate head failed before checkout with zero executed steps and no
+   assigned runner. GitHub's check annotations state: `The job was not started
+   because your account is locked due to a billing issue.` This is an external
+   account/infrastructure block, not a test result. No paid remediation was
+   attempted, and the failures must not be relabelled as passing checks.
+6. **Exact-byte validation.** Compat Administrator lifecycle, exact-commit
    hardware evidence, the full manual installer/upgrade/uninstall walkthrough,
    and draft download/hash verification remain mandatory on the final rebuilt
    bytes.
-6. **Unsigned route limitation.** Avoiding a paid Authenticode certificate is
+7. **Unsigned route limitation.** Avoiding a paid Authenticode certificate is
    supported and clearly disclosed, but Windows will show unknown-publisher
    warnings and the production updater will not auto-execute that installer.
    The unsigned RC is manual download/install only.
