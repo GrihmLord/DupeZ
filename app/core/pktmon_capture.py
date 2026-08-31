@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import ipaddress
-import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from app.core.safe_subprocess import run
+from app.core.safe_subprocess import resolve_system_binary, run
 from app.utils.helpers import is_admin
 
 MAX_DURATION_SECONDS = 30
@@ -29,8 +28,7 @@ __all__ = [
 
 
 def _pktmon_path() -> Path:
-    root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-    return root / "System32" / "pktmon.exe"
+    return Path(resolve_system_binary("pktmon"))
 
 
 def _safe_display_path(path: Path) -> str:

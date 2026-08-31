@@ -26,6 +26,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "release_git_contract.ps1")
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
@@ -39,15 +40,10 @@ function Test-IsAdmin {
 }
 
 function Assert-MainClean {
-    $git = (Get-Command git -ErrorAction Stop).Source
-    $branch = (& $git branch --show-current).Trim()
-    if (-not $AllowNonMainValidation -and $branch -ne "main") {
-        throw "Phase requires main branch. Current branch: $branch"
-    }
-    if (@(& $git status --porcelain).Count -ne 0) {
-        & $git status --short
-        throw "Phase requires a clean working tree."
-    }
+    $requiredBranch = if ($AllowNonMainValidation) { "" } else { "main" }
+    Get-ReleaseGitIdentity `
+        -RepositoryRoot $repoRoot `
+        -RequiredBranch $requiredBranch | Out-Null
 }
 
 function Run-Checked {
@@ -120,7 +116,13 @@ switch ($Phase) {
             throw "GITHUB_TOKEN or GH_TOKEN is required for staging."
         }
         Run-Checked -Name "STAGE DRAFT RELEASE" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage_release.ps1 -Mode Draft -Version $Version
+            $stageArgs = @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                "scripts/stage_release.ps1", "-Mode", "Draft",
+                "-Version", $Version
+            )
+            if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
+            powershell @stageArgs
         }
         Write-Host "admin-stage-draft complete. Next run admin-stage-publish when ready."
     }
@@ -134,7 +136,13 @@ switch ($Phase) {
             throw "GITHUB_TOKEN or GH_TOKEN is required for publish."
         }
         Run-Checked -Name "PUBLISH STAGED RELEASE" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage_release.ps1 -Mode Publish -Version $Version
+            $stageArgs = @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                "scripts/stage_release.ps1", "-Mode", "Publish",
+                "-Version", $Version
+            )
+            if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
+            powershell @stageArgs
         }
         Write-Host "admin-stage-publish complete. All blocked release gates finished."
     }

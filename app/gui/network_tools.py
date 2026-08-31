@@ -15,6 +15,9 @@ and communicates results back via ``pyqtSignal`` for thread-safe GUI updates.
 
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass
+import math
 import re
 import socket
 import subprocess
@@ -23,7 +26,7 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from PyQt6.QtCore import Q_ARG, QMetaObject, Qt, QTimer, pyqtSignal, pyqtSlot
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, pyqtSlot
 from PyQt6.QtGui import QColor, QCursor
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -42,6 +45,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.validation import validate_local_target_ip
 from app.logs.logger import log_error
 from app.utils.helpers import _NO_WINDOW
 
@@ -614,19 +618,44 @@ class _FloatingLatency(QWidget):
 
 # ── PortScannerWidget ───────────────────────────────────────────────
 
-class PortScannerWidget(QWidget):
-    """Quick TCP connect-scan for discovered devices.
+@dataclass(frozen=True)
+class _PortScanResult:
+    """Thread-safe result envelope emitted by :class:`PortScannerWidget`."""
 
-    Runs the scan on a daemon thread and reports open ports via
-    ``_scan_done`` signal with progress updates through ``QMetaObject``.
+    target: str
+    open_ports: Tuple[Tuple[int, str], ...]
+    outcome: str
+    completed: int
+    total: int
+    errors: int = 0
+    detail: str = ""
+
+
+class PortScannerWidget(QWidget):
+    """Bounded TCP connect-scan for explicitly scoped private IPv4 targets.
+
+    The controller's safety policy is authoritative: missing or blocked safety
+    state and dry-run mode are refused. A bounded executor performs only a
+    small number of probes at once, observes an overall deadline, and can be
+    cancelled from the existing scan button or during parent cleanup.
     """
 
-    _scan_done = pyqtSignal(str, list)  # ip, [(port, service_hint)]
+    _scan_done = pyqtSignal(object)  # _PortScanResult
+    _scan_progress = pyqtSignal(int)
+
+    _MAX_SCAN_PORTS = 4096
+    _MAX_SCAN_SECONDS = 30.0
+    _MAX_SCAN_WORKERS = 32
+    _CONNECT_TIMEOUT_SECONDS = 0.25
+    _CLEANUP_JOIN_SECONDS = 2.0
 
     def __init__(self, controller: Any = None, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.controller = controller
         self._scanning: bool = False
+        self._closing: bool = False
+        self._scan_thread_ref: Optional[threading.Thread] = None
+        self._scan_cancel = threading.Event()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -639,14 +668,15 @@ class PortScannerWidget(QWidget):
         row = QHBoxLayout()
         row.addWidget(QLabel("Target:"))
         self.target_input = QLineEdit()
-        self.target_input.setPlaceholderText("IP address")
+        self.target_input.setPlaceholderText("Private IPv4 address")
         self.target_input.setStyleSheet(_NT_INPUT_QSS)
         row.addWidget(self.target_input, 1)
 
         row.addWidget(QLabel("Ports:"))
         self.port_combo = QComboBox()
         self.port_combo.addItems([
-            "Common (Top 100)", "Gaming", "Web", "All (1-1024)", "Full (1-65535)",
+            "Common (Top 100)", "Gaming", "Web", "All (1-1024)",
+            "Extended (1-4096)",
         ])
         self.port_combo.setStyleSheet(_NT_COMBO_QSS)
         row.addWidget(self.port_combo)
@@ -654,7 +684,7 @@ class PortScannerWidget(QWidget):
         self.btn_scan = QPushButton("SCAN")
         self.btn_scan.setStyleSheet(_NT_CYAN_BTN)
         self.btn_scan.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        self.btn_scan.clicked.connect(self._start_scan)
+        self.btn_scan.clicked.connect(self._toggle_scan)
         row.addWidget(self.btn_scan)
         layout.addLayout(row)
 
@@ -683,6 +713,22 @@ class PortScannerWidget(QWidget):
         layout.addWidget(self.status_label)
 
         self._scan_done.connect(self._on_scan_done)
+        self._scan_progress.connect(self.progress.setValue)
+
+    def cleanup(self) -> bool:
+        """Cancel and join the owned scanner thread before widget teardown."""
+        self._closing = True
+        self._scan_cancel.set()
+        thread = self._scan_thread_ref
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=self._CLEANUP_JOIN_SECONDS)
+        stopped = thread is None or not thread.is_alive()
+        if stopped:
+            self._scanning = False
+            self._scan_thread_ref = None
+        else:
+            log_error("Port scanner cleanup timed out before worker termination")
+        return stopped
 
     # ── Internal ────────────────────────────────────────────────────
 
@@ -693,11 +739,78 @@ class PortScannerWidget(QWidget):
             return sorted(GAMING_PORTS)
         if "Web" in choice:
             return list(WEB_SCAN_PORTS)
-        if "Full" in choice:
-            return list(range(1, 65536))
+        if "Extended" in choice:
+            return list(range(1, self._MAX_SCAN_PORTS + 1))
         if "All" in choice:
             return list(range(1, 1025))
         return list(COMMON_SCAN_PORTS)
+
+    def _toggle_scan(self) -> None:
+        """Start a new scan, or request cancellation of the active scan."""
+        if self._scanning:
+            self._scan_cancel.set()
+            self.btn_scan.setText("CANCELLING...")
+            self.btn_scan.setEnabled(False)
+            self.status_label.setText("Cancelling port scan...")
+            self.status_label.setStyleSheet("color: #fbbf24; font-size: 11px;")
+            return
+        self._start_scan()
+
+    def _validate_scan_request(self, target: str) -> Tuple[str, float]:
+        """Return policy-normalized target and deadline, or fail closed."""
+        controller = self.controller
+        policy = getattr(controller, "safety_policy", None)
+        if controller is None or policy is None:
+            raise RuntimeError(
+                "Network safety controls are unavailable; port scanning is disabled."
+            )
+        try:
+            available = controller.network_operations_available
+        except Exception as exc:
+            raise RuntimeError(
+                "Network safety availability could not be confirmed."
+            ) from exc
+        if available is not True:
+            reason = ""
+            health_reader = getattr(controller, "get_startup_health", None)
+            if callable(health_reader):
+                try:
+                    health = health_reader()
+                    if isinstance(health, dict):
+                        reason = str(health.get("message", "")).strip()
+                except Exception:
+                    reason = ""
+            suffix = f" {reason}" if reason else ""
+            raise RuntimeError(
+                "Network operations are blocked until startup recovery completes."
+                + suffix
+            )
+        try:
+            dry_run = policy.dry_run
+        except Exception as exc:
+            raise RuntimeError(
+                "Network safety mode could not be confirmed."
+            ) from exc
+        if not isinstance(dry_run, bool):
+            raise RuntimeError("Network safety mode is invalid.")
+        if dry_run:
+            raise RuntimeError("Safety dry-run is enabled; port scanning is disabled.")
+
+        validator = getattr(policy, "validate_target", None)
+        timeout_limiter = getattr(policy, "bounded_timeout", None)
+        if not callable(validator) or not callable(timeout_limiter):
+            raise RuntimeError(
+                "Network safety controls are incomplete; port scanning is disabled."
+            )
+        validated = validate_local_target_ip(
+            validator(target),
+            context="port scan",
+        )
+        bounded_timeout = float(timeout_limiter(self._MAX_SCAN_SECONDS))
+        if not math.isfinite(bounded_timeout) or bounded_timeout <= 0:
+            raise RuntimeError("Network safety deadline is invalid.")
+        timeout = min(self._MAX_SCAN_SECONDS, bounded_timeout)
+        return validated, timeout
 
     def _start_scan(self) -> None:
         """Validate target and launch the scan thread."""
@@ -708,61 +821,202 @@ class PortScannerWidget(QWidget):
         if self._scanning:
             return
 
+        try:
+            target, timeout = self._validate_scan_request(target)
+            ports = self._resolve_port_list()
+            if not ports or len(ports) > self._MAX_SCAN_PORTS:
+                raise RuntimeError(
+                    f"Port selection must contain 1-{self._MAX_SCAN_PORTS} ports."
+                )
+            if any(not isinstance(port, int) or not 1 <= port <= 65535 for port in ports):
+                raise RuntimeError("Port selection contains an invalid port.")
+        except Exception as exc:
+            log_error(f"Port scan refused: {exc}")
+            QMessageBox.warning(self, "Port Scan Refused", str(exc))
+            return
+
+        self._closing = False
         self._scanning = True
-        self.btn_scan.setText("SCANNING...")
-        self.btn_scan.setEnabled(False)
+        self._scan_cancel = threading.Event()
+        self.btn_scan.setText("CANCEL")
+        self.btn_scan.setEnabled(True)
+        self.btn_scan.setStyleSheet(_NT_RED_BTN)
         self.result_table.setRowCount(0)
         self.progress.setValue(0)
         self.status_label.setText(f"Scanning {target}...")
+        self.status_label.setStyleSheet("color: #00d9ff; font-size: 11px;")
 
-        ports = self._resolve_port_list()
-        threading.Thread(
-            target=self._scan_thread, args=(target, ports), daemon=True,
-        ).start()
+        self._scan_thread_ref = threading.Thread(
+            target=self._scan_thread,
+            args=(target, ports, timeout, self._scan_cancel),
+            name="dupez-port-scanner",
+            daemon=True,
+        )
+        self._scan_thread_ref.start()
 
-    def _scan_thread(self, ip: str, ports: List[int]) -> None:
-        """Background: TCP-connect each port and collect open ones."""
-        open_ports: List[Tuple[int, str]] = []
+    @staticmethod
+    def _probe_port(
+        ip: str,
+        port: int,
+        cancel_event: threading.Event,
+        timeout: float,
+    ) -> Tuple[bool, Optional[str]]:
+        """Probe one port, distinguishing a closed port from probe failure."""
+        if cancel_event.is_set():
+            return False, None
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                return sock.connect_ex((ip, port)) == 0, None
+        except Exception as exc:
+            return False, f"{type(exc).__name__}: {exc}"
+
+    def _execute_scan(
+        self,
+        ip: str,
+        ports: List[int],
+        timeout: float,
+        cancel_event: threading.Event,
+    ) -> _PortScanResult:
+        """Run a bounded scan and return a structured terminal outcome."""
         total = len(ports)
-        progress_step = max(1, total // 100)
+        open_ports: List[Tuple[int, str]] = []
+        completed = 0
+        errors = 0
+        last_error = ""
+        timed_out = False
+        deadline = time.monotonic() + timeout
+        port_iter = iter(ports)
+        pending: Dict[Future, int] = {}
+        executor = ThreadPoolExecutor(
+            max_workers=self._MAX_SCAN_WORKERS,
+            thread_name_prefix="dupez-port-probe",
+        )
+
+        def fill_pending() -> None:
+            while (
+                len(pending) < self._MAX_SCAN_WORKERS
+                and not cancel_event.is_set()
+                and time.monotonic() < deadline
+            ):
+                try:
+                    port = next(port_iter)
+                except StopIteration:
+                    return
+                remaining = max(0.01, deadline - time.monotonic())
+                future = executor.submit(
+                    self._probe_port,
+                    ip,
+                    port,
+                    cancel_event,
+                    min(self._CONNECT_TIMEOUT_SECONDS, remaining),
+                )
+                pending[future] = port
 
         try:
-            for idx, port in enumerate(ports):
-                try:
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                        sock.settimeout(0.5)
-                        if sock.connect_ex((ip, port)) == 0:
-                            open_ports.append((port, SERVICE_MAP.get(port, "Unknown")))
-                except Exception:
-                    pass
-
-                # Throttled progress update
-                if idx % progress_step == 0:
-                    pct = int((idx / total) * 100)
+            fill_pending()
+            while pending:
+                if cancel_event.is_set():
+                    break
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    cancel_event.set()
+                    break
+                done, _ = wait(
+                    tuple(pending),
+                    timeout=min(0.1, remaining),
+                    return_when=FIRST_COMPLETED,
+                )
+                if not done:
+                    continue
+                for future in done:
+                    port = pending.pop(future)
+                    completed += 1
                     try:
-                        QMetaObject.invokeMethod(
-                            self.progress, "setValue",
-                            Qt.ConnectionType.QueuedConnection,
-                            Q_ARG(int, pct),
-                        )
-                    except Exception:
-                        pass
+                        is_open, error = future.result()
+                    except Exception as exc:
+                        is_open = False
+                        error = f"{type(exc).__name__}: {exc}"
+                    if error:
+                        errors += 1
+                        last_error = error
+                    elif is_open:
+                        open_ports.append((port, SERVICE_MAP.get(port, "Unknown")))
+                self._scan_progress.emit(int((completed / total) * 100))
+                fill_pending()
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+            errors = max(errors, 1)
+        finally:
+            for future in pending:
+                future.cancel()
+            executor.shutdown(wait=True, cancel_futures=True)
 
+        if not cancel_event.is_set() and completed < total and not last_error:
+            timed_out = True
+        if timed_out:
+            outcome = "timed_out"
+            detail = f"Scan reached its {timeout:.1f}s safety deadline."
+        elif cancel_event.is_set():
+            outcome = "cancelled"
+            detail = "Scan cancelled."
+        elif errors and completed <= errors:
+            outcome = "error"
+            detail = last_error or "All port probes failed."
+        elif errors:
+            outcome = "partial"
+            detail = f"{errors} port probe(s) failed."
+        else:
+            outcome = "completed"
+            detail = ""
+        return _PortScanResult(
+            target=ip,
+            open_ports=tuple(open_ports),
+            outcome=outcome,
+            completed=completed,
+            total=total,
+            errors=errors,
+            detail=detail,
+        )
+
+    def _scan_thread(
+        self,
+        ip: str,
+        ports: List[int],
+        timeout: float,
+        cancel_event: threading.Event,
+    ) -> None:
+        """Background entry point: execute and emit one terminal result."""
+        try:
+            result = self._execute_scan(ip, ports, timeout, cancel_event)
         except Exception as exc:
             log_error(f"Port scan error: {exc}")
+            result = _PortScanResult(
+                target=ip,
+                open_ports=(),
+                outcome="error",
+                completed=0,
+                total=len(ports),
+                errors=1,
+                detail=f"{type(exc).__name__}: {exc}",
+            )
+        self._scan_done.emit(result)
 
-        self._scan_done.emit(ip, open_ports)
-
-    @pyqtSlot(str, list)
-    def _on_scan_done(self, ip: str, open_ports: list) -> None:
-        """Slot: populate results table after scan completes."""
+    @pyqtSlot(object)
+    def _on_scan_done(self, result: _PortScanResult) -> None:
+        """Render a completed, cancelled, timed-out, or failed scan."""
+        if self._closing:
+            return
         self._scanning = False
         self.btn_scan.setText("SCAN")
         self.btn_scan.setEnabled(True)
-        self.progress.setValue(100)
+        self.btn_scan.setStyleSheet(_NT_CYAN_BTN)
+        if result.outcome in {"completed", "partial"}:
+            self.progress.setValue(100)
 
         self.result_table.setRowCount(0)
-        for port, service in sorted(open_ports):
+        for port, service in sorted(result.open_ports):
             row = self.result_table.rowCount()
             self.result_table.insertRow(row)
             self.result_table.setItem(row, 0, QTableWidgetItem(str(port)))
@@ -773,8 +1027,34 @@ class PortScannerWidget(QWidget):
 
             self.result_table.setItem(row, 2, QTableWidgetItem(service))
 
-        self.status_label.setText(f"Scan complete: {len(open_ports)} open ports on {ip}")
-        self.status_label.setStyleSheet("color: #00ff88; font-size: 11px;")
+        if result.outcome == "completed":
+            count = len(result.open_ports)
+            if count:
+                text = f"Scan complete: {count} open ports on {result.target}"
+            else:
+                text = f"Scan complete: no open ports found on {result.target}"
+            color = "#00ff88"
+        elif result.outcome == "partial":
+            text = (
+                f"Scan completed with errors: {len(result.open_ports)} open ports; "
+                f"{result.errors} probes failed."
+            )
+            color = "#fbbf24"
+        elif result.outcome == "cancelled":
+            text = f"Scan cancelled after {result.completed}/{result.total} ports."
+            color = "#fbbf24"
+        elif result.outcome == "timed_out":
+            text = (
+                "Scan stopped at the safety deadline after "
+                f"{result.completed}/{result.total} ports."
+            )
+            color = "#fbbf24"
+        else:
+            text = f"Scan failed: {result.detail or 'port probes could not be completed.'}"
+            color = "#ff4444"
+            log_error(f"Port scan failed for {result.target}: {result.detail}")
+        self.status_label.setText(text)
+        self.status_label.setStyleSheet(f"color: {color}; font-size: 11px;")
 
 
 # ── ConnectionMapperWidget ──────────────────────────────────────────
@@ -1130,8 +1410,31 @@ class NetworkToolsView(QWidget):
         self.lan_cut_tab = widget
         self.tabs.addTab(widget, "LAN Cut")
 
-    def cleanup(self) -> None:
-        """Stop all background threads and timers across child tabs."""
-        self.traffic_tab.cleanup()
-        self.latency_tab.cleanup()
-        self.mapper_tab.cleanup()
+    def cleanup(self) -> bool:
+        """Stop owned work and report whether every cleanup was confirmed.
+
+        LAN Cut runs first because it owns process-wide forwarding state and
+        ARP restoration.  Each child is isolated so one failure cannot prevent
+        the remaining shutdown work from running.
+        """
+        clean = True
+        children = []
+        if self.lan_cut_tab is not None and hasattr(self.lan_cut_tab, "cleanup"):
+            children.append(("LAN Cut", self.lan_cut_tab))
+        children.extend((
+            ("traffic monitor", self.traffic_tab),
+            ("latency overlay", self.latency_tab),
+            ("port scanner", self.scanner_tab),
+            ("connection mapper", self.mapper_tab),
+        ))
+
+        for name, child in children:
+            try:
+                result = child.cleanup()
+                if result is False:
+                    clean = False
+                    log_error(f"Network Tools {name} cleanup was not confirmed")
+            except Exception as exc:
+                clean = False
+                log_error(f"Network Tools {name} cleanup failed: {exc}")
+        return clean

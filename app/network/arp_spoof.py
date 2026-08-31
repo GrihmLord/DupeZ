@@ -155,7 +155,8 @@ def _gateway_windows() -> Optional[str]:
             result.stdout,
         ):
             gw = m.group(1)
-            if gw != "0.0.0.0":
+            # Route sentinel comparison only; no socket is bound here.
+            if gw != "0.0.0.0":  # nosec B104
                 return gw
     except SafeSubprocessError as e:
         log_error(f"ipconfig gateway parse failed: {e}")
@@ -165,17 +166,27 @@ def _gateway_windows() -> Optional[str]:
         return None
     try:
         result = safe_subprocess.run(
-            [_SP_ROUTE, "print", "0.0.0.0"],
+            [
+                _SP_ROUTE,
+                "print",
+                # Default-route query target, not a bind address.
+                "0.0.0.0",  # nosec B104
+            ],
             timeout=5.0,
             intent="arp_spoof.gateway_route_print",
         )
         for line in result.stdout.splitlines():
             parts = line.split()
-            if len(parts) >= 3 and parts[0] == "0.0.0.0":
+            # Identify only the default-route row in command output.
+            if (
+                len(parts) >= 3
+                and parts[0] == "0.0.0.0"  # nosec B104
+            ):
                 gw = parts[2]
                 try:
                     ipaddress.IPv4Address(gw)
-                    if gw != "0.0.0.0":
+                    # Reject the default-route sentinel as a gateway value.
+                    if gw != "0.0.0.0":  # nosec B104
                         return gw
                 except ValueError:
                     continue
@@ -188,15 +199,11 @@ def _gateway_windows() -> Optional[str]:
 def _gateway_linux() -> Optional[str]:
     """Parse default gateway from ``ip route``.
 
-    Resolves ``ip`` via ``shutil.which`` once, then invokes with the
-    absolute path through :func:`safe_subprocess.run`.
+    Resolves ``ip`` only from a root-controlled system directory, then invokes
+    it through :func:`safe_subprocess.run`.
     """
-    import shutil
-    ip_bin = shutil.which("ip")
-    if not ip_bin:
-        log_error("`ip` binary not found on PATH")
-        return None
     try:
+        ip_bin = safe_subprocess.resolve_posix_system_binary("ip")
         result = safe_subprocess.run(
             [ip_bin, "route", "show", "default"],
             timeout=5.0,
@@ -263,11 +270,8 @@ def _local_mac_windows(target_ip: Optional[str] = None) -> Optional[bytes]:
 def _local_mac_linux(target_ip: Optional[str] = None) -> Optional[bytes]:
     """Get local MAC from /sys/class/net/<iface>/address."""
     import os
-    import shutil
-    ip_bin = shutil.which("ip")
-    if not ip_bin:
-        return None
     try:
+        ip_bin = safe_subprocess.resolve_posix_system_binary("ip")
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect((target_ip or "8.8.8.8", 80))
             local_ip = s.getsockname()[0]
@@ -331,8 +335,10 @@ def _ping_once(ip: str) -> None:
     if is_win:
         ping_bin = _SP_PING
     else:
-        import shutil
-        ping_bin = shutil.which("ping") or ""
+        try:
+            ping_bin = safe_subprocess.resolve_posix_system_binary("ping")
+        except SafeSubprocessError:
+            ping_bin = ""
 
     if not ping_bin:
         return
@@ -1136,11 +1142,14 @@ class ArpSpoofer:
             return False
 
         try:
-            import subprocess as sp
-            out = sp.check_output(
-                ["ip", "-o", "addr", "show"], text=True, timeout=5
+            ip_bin = safe_subprocess.resolve_posix_system_binary("ip")
+            result = safe_subprocess.run(
+                [ip_bin, "-o", "addr", "show"],
+                timeout=5.0,
+                intent="arp_spoof.bind_linux_interface",
             )
-        except (FileNotFoundError, sp.SubprocessError, OSError) as exc:
+            out = result.stdout
+        except (SafeSubprocessError, OSError) as exc:
             log_error(
                 f"ArpSpoofer: `ip -o addr show` failed: {exc!r}"
             )

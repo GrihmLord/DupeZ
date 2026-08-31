@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 import importlib
-import os
 import sys
 import time
 import traceback
@@ -48,6 +47,11 @@ from app.offsec.findings import FindingRegistry, Severity
 
 __all__ = ["main", "run_all"]
 
+_SECOND_FACTOR_SECRET_KINDS = (
+    "secondfactor.totp.seed",
+    "secondfactor.fido2.creds",
+)
+
 
 _TACTIC_MODULES: Dict[str, str] = {
     "recon":              "app.offsec.recon.run_recon",
@@ -58,6 +62,80 @@ _TACTIC_MODULES: Dict[str, str] = {
     "post_exploit":       "app.offsec.post_exploit.run_post_exploit_analysis",
     "detection_coverage": "app.offsec.detection_coverage.run_detection_coverage",
 }
+
+
+def _audit_second_factor_refusal(failure: str) -> None:
+    """Record a fixed, non-secret reason for refusing the offsec boundary."""
+    try:
+        from app.logs.audit import audit_event
+
+        audit_event(
+            "second_factor_boundary_refused",
+            {"boundary": "offsec_runner", "failure": failure},
+        )
+    except Exception:
+        # Audit availability must not change the fail-closed decision.
+        pass
+
+
+def _refuse_second_factor(failure: str) -> bool:
+    print(
+        "offsec runner refused because second-factor authorization "
+        f"failed ({failure})",
+        file=sys.stderr,
+    )
+    _audit_second_factor_refusal(failure)
+    return False
+
+
+def _second_factor_allows_run() -> bool:
+    """Authorize tactic dispatch, allowing only explicit non-enrollment."""
+    try:
+        from app.core.second_factor import get_gate
+        from app.core.secret_store import check_store_health, get_secret
+    except Exception:
+        return _refuse_second_factor("dependency_unavailable")
+
+    try:
+        store_health = check_store_health()
+    except Exception:
+        return _refuse_second_factor("store_probe_failed")
+    if getattr(store_health, "healthy", None) is not True:
+        return _refuse_second_factor("store_unavailable")
+
+    try:
+        gate = get_gate()
+    except Exception:
+        return _refuse_second_factor("gate_unavailable")
+
+    try:
+        enrolled = gate.is_enrolled()
+    except Exception:
+        return _refuse_second_factor("enrollment_query_failed")
+    if enrolled is False:
+        try:
+            stored_enrollment = any(
+                get_secret(kind) is not None
+                for kind in _SECOND_FACTOR_SECRET_KINDS
+            )
+        except Exception:
+            return _refuse_second_factor("store_read_failed")
+        if stored_enrollment:
+            return _refuse_second_factor("enrollment_state_inconsistent")
+        return True
+    if enrolled is not True:
+        return _refuse_second_factor("invalid_enrollment_state")
+
+    try:
+        verified = gate.require(
+            "offsec.engagement",
+            reason="authorize local offsec self-test",
+        )
+    except Exception:
+        return _refuse_second_factor("verification_failed")
+    if verified is not True:
+        return _refuse_second_factor("invalid_verification_result")
+    return True
 
 
 def _resolve(dotted: str) -> Callable[[FindingRegistry], None]:
@@ -178,43 +256,18 @@ def main(argv: List[str] | None = None) -> int:
         )
         return 2
 
-    # §9.2: second-factor gate for offsec engagement bootstrap. We do
-    # this AFTER consent but BEFORE any tactic actually runs. If no
-    # second-factor provider is enrolled the gate short-circuits
-    # silently (first-boot UX); on enrolled installs, verification is
-    # mandatory. Set DUPEZ_SECOND_FACTOR_DISABLED=1 only in trusted CI.
+    # §9.2: second-factor gate for offsec engagement bootstrap. Run it
+    # AFTER consent but BEFORE creating the registry or importing tactics.
+    # A healthy, explicitly unenrolled first-run state may proceed;
+    # unavailable or indeterminate gate state is refused.
     tactics = args.only or list(_TACTIC_MODULES)
     tactics = [t for t in tactics if t not in args.skip]
     if not tactics:
         print("No tactics selected.", file=sys.stderr)
         return 2
 
-    if os.environ.get("DUPEZ_SECOND_FACTOR_DISABLED") != "1":
-        try:
-            from app.core.second_factor import (
-                SecondFactorRequired,
-                get_gate,
-            )
-            _gate = get_gate()
-            if _gate.is_enrolled():
-                try:
-                    _gate.require(
-                        "offsec.engagement",
-                        reason=f"bootstrap offsec run: {tactics}",
-                    )
-                except SecondFactorRequired as e:
-                    print(
-                        f"offsec runner refused by second-factor gate: {e}",
-                        file=sys.stderr,
-                    )
-                    return 2
-        except ImportError:
-            pass
-        except Exception as e:
-            print(
-                f"second-factor gate error (not blocking first-boot install): {e}",
-                file=sys.stderr,
-            )
+    if not _second_factor_allows_run():
+        return 2
 
     registry = FindingRegistry()
     # A meta-finding that records the invocation itself — helps audit.

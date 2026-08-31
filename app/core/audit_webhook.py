@@ -50,6 +50,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
+from app.core.secure_http import _get_tls_context, _open_no_redirect
 from app.logs.logger import log_info, log_warning
 
 
@@ -193,32 +194,9 @@ def _load_operator_allowlist() -> frozenset[str]:
         return frozenset()
 
 
-def _test_hosts_from_env() -> frozenset[str]:
-    """Test-only escape hatch.
-
-    When the ``DUPEZ_TEST_WEBHOOK_HOSTS`` environment variable is set
-    to a comma-separated list of hostnames, those hosts are added to
-    the allowlist. This exists so unit tests can use
-    ``example.invalid`` and friends without churning the production
-    allowlist or HMAC'ing a per-test config file. The env var is
-    NEVER set by the shipped product, only by tests/conftest.
-    """
-    import os as _os
-    raw = _os.environ.get("DUPEZ_TEST_WEBHOOK_HOSTS", "")
-    if not raw:
-        return frozenset()
-    return frozenset(
-        h.strip().lower() for h in raw.split(",") if h.strip()
-    )
-
-
 def _allowed_hosts() -> frozenset[str]:
-    """Union of default, operator-extended, and test-env allowlists."""
-    return (
-        _DEFAULT_HOST_ALLOWLIST
-        | _load_operator_allowlist()
-        | _test_hosts_from_env()
-    )
+    """Return the application-owned default and authenticated host policy."""
+    return _DEFAULT_HOST_ALLOWLIST | _load_operator_allowlist()
 
 
 def _validate_webhook_url(url: str) -> str:
@@ -330,7 +308,14 @@ class AuditSink(ABC):
             scrubbed = _scrub(payload)
             self._post(event_name, scrubbed)
         except Exception as exc:
-            log_warning(f"AuditSink {self.__class__.__name__} failed: {exc}")
+            # Exception strings from urllib and third-party transports may
+            # reproduce the request URL.  Webhook paths and query strings
+            # are bearer credentials, so log only non-secret exception
+            # metadata here.
+            log_warning(
+                f"AuditSink {self.__class__.__name__} failed "
+                f"({_safe_transport_error(exc)})"
+            )
 
     @abstractmethod
     def _post(self, event_name: str, payload: Dict[str, Any]) -> None:
@@ -356,13 +341,25 @@ class GenericWebhookSink(AuditSink):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            context = (
+                _get_tls_context() if self.url.startswith("https://") else None
+            )
+            with _open_no_redirect(
+                req,
+                timeout=self._timeout,
+                context=context,
+            ) as resp:
                 if resp.status >= 400:
                     log_warning(
-                        f"GenericWebhookSink HTTP {resp.status} from {self.url}"
+                        f"GenericWebhookSink HTTP {resp.status}"
                     )
+        except urllib.error.HTTPError as exc:
+            log_warning(f"GenericWebhookSink HTTP {exc.code}")
         except urllib.error.URLError as exc:
-            log_warning(f"GenericWebhookSink urlopen failed: {exc}")
+            log_warning(
+                "GenericWebhookSink urlopen failed "
+                f"({_safe_transport_error(exc)})"
+            )
 
 
 class DiscordWebhookSink(AuditSink):
@@ -426,13 +423,25 @@ class DiscordWebhookSink(AuditSink):
             method="POST",
         )
         try:
-            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+            context = (
+                _get_tls_context() if self.url.startswith("https://") else None
+            )
+            with _open_no_redirect(
+                req,
+                timeout=self._timeout,
+                context=context,
+            ) as resp:
                 if resp.status >= 400:
                     log_warning(
                         f"DiscordWebhookSink HTTP {resp.status}"
                     )
+        except urllib.error.HTTPError as exc:
+            log_warning(f"DiscordWebhookSink HTTP {exc.code}")
         except urllib.error.URLError as exc:
-            log_warning(f"DiscordWebhookSink urlopen failed: {exc}")
+            log_warning(
+                "DiscordWebhookSink urlopen failed "
+                f"({_safe_transport_error(exc)})"
+            )
 
 
 # ── Registry + emit helper ───────────────────────────────────────────
@@ -492,7 +501,36 @@ def emit_to_sinks(event_name: str, payload: Dict[str, Any]) -> None:
         try:
             s.emit(event_name, payload)
         except Exception as exc:
-            log_warning(f"emit_to_sinks: sink {s} raised: {exc}")
+            log_warning(
+                f"emit_to_sinks: sink {s.__class__.__name__} raised "
+                f"({_safe_transport_error(exc)})"
+            )
+
+
+def _safe_transport_error(exc: BaseException) -> str:
+    """Return useful transport metadata without rendering secret URLs.
+
+    ``URLError`` / ``HTTPError`` stringification includes the full request
+    URL in several failure paths.  Since a webhook path or query is a bearer
+    credential, this helper deliberately never includes ``str(exc)`` or
+    ``repr(exc)``.  Exception and reason *types*, numeric HTTP codes, and
+    numeric errno values are sufficient for operational diagnosis without
+    leaking the endpoint.
+    """
+    details = [exc.__class__.__name__]
+
+    code = getattr(exc, "code", None)
+    if isinstance(code, int):
+        details.append(f"code={code}")
+
+    reason = getattr(exc, "reason", None)
+    if reason is not None:
+        details.append(f"reason={reason.__class__.__name__}")
+        errno = getattr(reason, "errno", None)
+        if isinstance(errno, int):
+            details.append(f"errno={errno}")
+
+    return "; ".join(details)
 
 
 # ── Privacy scrubbing ────────────────────────────────────────────────

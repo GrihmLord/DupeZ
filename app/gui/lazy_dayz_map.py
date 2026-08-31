@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QTimer, pyqtSignal
 from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.logs.logger import log_error, log_info
@@ -25,6 +25,9 @@ MapFactory = Callable[[], QWidget]
 class LazyDayZMapGUI(QWidget):
     """Load the real map widget on first show without blocking app startup."""
 
+    webengineReadyChanged = pyqtSignal(bool)
+    webengineStatusChanged = pyqtSignal(str)
+
     def __init__(
         self,
         parent: Optional[QWidget] = None,
@@ -36,6 +39,7 @@ class LazyDayZMapGUI(QWidget):
         self._map_widget: Optional[QWidget] = None
         self._loading = False
         self._attempted = False
+        self._load_failed = False
 
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(24, 24, 24, 24)
@@ -63,6 +67,32 @@ class LazyDayZMapGUI(QWidget):
     def is_loaded(self) -> bool:
         return self._map_widget is not None
 
+    @property
+    def webengine_ready(self) -> bool:
+        """Whether the mounted map reports a secured WebEngine boundary."""
+
+        return bool(
+            self._map_widget is not None
+            and getattr(self._map_widget, "webengine_ready", False)
+        )
+
+    @property
+    def webengine_status(self) -> str:
+        if self._map_widget is not None:
+            fallback = (
+                "ready"
+                if getattr(self._map_widget, "webengine_ready", False)
+                else "unavailable"
+            )
+            return str(
+                getattr(self._map_widget, "webengine_status", fallback)
+            )
+        if self._loading:
+            return "initializing"
+        if self._load_failed:
+            return "failed"
+        return "deferred"
+
     def showEvent(self, event) -> None:  # noqa: N802 — Qt override
         super().showEvent(event)
         if not self.is_loaded and not self._loading and not self._attempted:
@@ -86,6 +116,7 @@ class LazyDayZMapGUI(QWidget):
 
         self._loading = True
         self._attempted = True
+        self._load_failed = False
         self._retry.setVisible(False)
         self._status.setText("Initializing the interactive DayZ map…")
 
@@ -106,10 +137,25 @@ class LazyDayZMapGUI(QWidget):
             self._layout.setSpacing(0)
             self._layout.addWidget(widget)
             self._map_widget = widget
+            ready_signal = getattr(widget, "webengineReadyChanged", None)
+            if ready_signal is not None and hasattr(ready_signal, "connect"):
+                ready_signal.connect(self.webengineReadyChanged.emit)
+            status_signal = getattr(widget, "webengineStatusChanged", None)
+            if status_signal is not None and hasattr(status_signal, "connect"):
+                status_signal.connect(self.webengineStatusChanged.emit)
             widget.show()
             log_info("Map: lazy DayZMapGUI initialized on first tab open")
+            if self.webengine_ready:
+                log_info("Map: dashboard view active with WebEngine ready")
+            elif self.webengine_status in {"initializing", "loading"}:
+                log_info("Map: WebEngine navigation is still initializing")
+            else:
+                log_error("Map: dashboard view active without WebEngine")
+            self.webengineStatusChanged.emit(self.webengine_status)
+            self.webengineReadyChanged.emit(self.webengine_ready)
             return True
         except Exception as exc:
+            self._load_failed = True
             self._status.setText(
                 "The embedded map could not initialize.\n\n"
                 f"{type(exc).__name__}: {exc}\n\n"
@@ -117,6 +163,8 @@ class LazyDayZMapGUI(QWidget):
             )
             self._retry.setVisible(True)
             log_error(f"Lazy map initialization failed: {exc}")
+            self.webengineStatusChanged.emit("failed")
+            self.webengineReadyChanged.emit(False)
             return False
         finally:
             self._loading = False

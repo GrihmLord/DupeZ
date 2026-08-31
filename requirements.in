@@ -28,7 +28,9 @@ keyboard>=0.13.5
 pywin32>=306; sys_platform == 'win32'
 
 # ── Network ──────────────────────────────────────────────────────────
-scapy>=2.6.0
+# Packet capture/disruption uses the pinned WinDivert native boundary.  Do not
+# add Scapy here: the GPL-2.0-only library is incompatible with the GPL-3.0-only
+# PyQt release bindings when both are frozen into one executable.
 requests>=2.34.2
 # Security floors for Requests' direct runtime dependencies. Narrow upper
 # bounds minimize release drift while clearing the v5.8.0 advisories.

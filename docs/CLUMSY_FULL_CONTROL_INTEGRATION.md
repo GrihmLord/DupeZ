@@ -86,7 +86,7 @@ Native only when the requested semantics remain equivalent.
 
 ## Required evidence before release
 
-- Complete pytest suite on Python 3.11 and 3.12.
+- Complete pytest suite on Python 3.12 and 3.13.
 - Authorized source-mode hardware matrix against one exact private IP/MAC.
 - No orphaned `clumsy.exe` process after normal or failed runs.
 - Generated `config.txt` / `presets.ini` restored after tests.
@@ -95,5 +95,6 @@ Native only when the requested semantics remain equivalent.
   unfinished social packages or forbidden optional dependencies.
 - Diagnostic-window restoration verified in both frozen variants.
 - Normal and forced low-resource startup/shutdown verified.
-- Installer, Authenticode/RFC3161, Defender, SBOM/VEX/provenance, and signed
-  updater-manifest gates completed before merge, tag, or publication.
+- Installer, Authenticode/RFC3161, Defender, SBOM, lock-bound vulnerability
+  review, provenance, and signed updater-manifest gates completed before
+  merge, tag, or publication.

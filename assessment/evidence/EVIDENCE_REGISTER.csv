@@ -1,4 +1,9 @@
 evidence_id,category,source,description,authenticity,grade,status,related_phase
-E-001,repository,local workspace,Source tree and tests,LOCAL_DIRECT,A,RECEIVED,0-22
-E-002,test_run,local execution,pytest full suite 1293 passed 8 skipped,REPRODUCIBLE,A,RECEIVED,5,22
-E-003,preflight,local execution,release_preflight source pass dist fail,REPRODUCIBLE,A,RECEIVED,5,11,22
+E-001,repository,local workspace,"Workspace snapshot received 2026-08-06; superseded by E-004",LOCAL_DIRECT,A,SUPERSEDED,0-22
+E-002,test_run,local execution,"2026-08-24 CPython 3.13.14 x64 CI-equivalent full source gate: 1657 passed; 10 expected skips; 47.37% coverage; 102.91s; superseded by E-007",REPRODUCIBLE,A,SUPERSEDED,"5,22"
+E-003,preflight,local execution,"release_preflight source pass; superseded by consolidated current-tree evidence E-008",REPRODUCIBLE,A,SUPERSEDED,"5,11,22"
+E-004,repository,local workspace,"2026-08-21 uncommitted working tree based on main@77fb1d8",LOCAL_DIRECT,A,RECEIVED,0-22
+E-005,governance,live read-only GitHub API inspection,"2026-08-21 session observation; superseded by saved evidence E-006",LIVE_DIRECT,A,SUPERSEDED,"1,10,11,22"
+E-006,governance,assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json,"2026-08-28 authenticated read-only GitHub API evidence: main unprotected; zero rulesets; production-release has no protection rules or deployment-branch policy; DUPEZ_RELEASE_GOVERNANCE_READY absent",LIVE_DIRECT,A,RECEIVED,"1,10,11,22"
+E-007,test_run,local execution,"2026-08-28 CPython 3.13.14 x64 CI-equivalent full source gate: 2110 passed; 10 expected skips (3 opt-in Clumsy hardware, 3 symlink-privilege redactor, 3 opt-in hardware-smoketest, 1 installer symlink); 53.02% coverage; 133.77s; command: .test-venv-313\Scripts\python.exe -X faulthandler -m pytest tests -q --maxfail=5 --cov=app --cov-report=term --cov-fail-under=40",REPRODUCIBLE,A,RECEIVED,"5,22"
+E-008,source_policy_gate,local execution,"2026-08-28 current-tree gates: release preflight passed; Ruff and AST 397/397; hashed-lock contracts passed (runtime 18/28, build 1/7, test 4/10, hardware 1/6 direct/pins); 3 PowerShell release contracts passed; git diff check passed; local-only detect-secrets comparison covered 931 tracked plus 48 scoped untracked files and rediscovered all 31 audited false positives with 0 unaudited findings; Bandit found 0 high and 13 reviewed medium false positives with no medium/high true positive",REPRODUCIBLE,A,RECEIVED,"4,5,8,11,22"

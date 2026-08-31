@@ -18,9 +18,25 @@ What's coming next. Priorities shift based on community feedback — open an iss
 - **Lean, repeatable packaging** — the unused pandas dependency is removed,
   release builds use an IDE-independent disposable environment, and every
   active release entry point is checked for version drift.
+- **Renderer startup repair** — the native DXGI probe now decodes adapter
+  records with typed unsigned fields, so current Windows installations without
+  WMIC do not misclassify usable hardware. Auto selects reviewed ANGLE/D3D11
+  flags only after a successful probe and otherwise uses the supported
+  `--disable-gpu` CPU fallback; the legacy software-GL tier is retired.
 - **Exact-artifact gates** — both frozen variants, private hardware smoke,
-  manual validation, hashes, SBOM/VEX, and staged download verification must
-  pass before v5.8.0 is public.
+  manual validation, hashes, SBOM, the lock-bound vulnerability review (plus
+  OpenVEX only when findings exist), deterministic exact-lock license notices,
+  an exact-commit source archive, and staged download verification must pass
+  before v5.8.0 is public.
+- **Distribution terms** — publication remains blocked until the owner approves
+  project terms compatible with the exact GPL-3.0-only PyQt binding wheels and
+  all six license/IP evidence decisions are recorded. No paid entitlement is
+  assumed by the build.
+- **Protected release governance** — publication remains blocked until `main`
+  requires reviewed pull requests and exact-head checks, and the
+  `production-release` environment requires an independent reviewer and is
+  limited to `main`. Repository-local workflow checks are defense in depth,
+  not a substitute for those server-side controls.
 
 ## v5.7.9 — Clumsy parity and startup recovery
 
@@ -61,17 +77,27 @@ This release completes the defensive pivot: public presets and advisor paths now
 
 ## v5.8.1 — Finish the v5.7.4 Wire-Up
 
-**Status:** Next up
+**Status:** Completed in the v5.8.0 hardening pass
 
-Two v5.7.0/v5.7.1 backends still need real configuration dialogs rather than single menu entries. v5.7.5, v5.7.6, and v5.7.7 were intentionally used for safety, release integrity, and defensive-product hardening first.
+The four remaining v5.7.0/v5.7.1 operator surfaces are now implemented.
 
-- **Cut-chain configurator** ? Multi-stage editor for `app/core/cut_chain.py`: add/reorder/remove stages, pick the gate type per stage (time / healthy / degraded / disconnected / packets), pick the preset per stage, save/load chains. Currently invokable only by code; no operator-facing surface.
-- **Kill-switch auto-triggers panel** ? Settings dialog for safety triggers in
+- [x] **Cut-chain configurator** — `Tools → Cut-Chain Configurator…`
+  (`Ctrl+Shift+C`) adds, reorders, and removes preset stages; configures time,
+  severed, connected, and packet-count gates; and atomically saves/loads a
+  bounded v1 JSON schema. The dialog requires a fresh owned-or-authorized
+  target acknowledgement, while the controller rechecks the configured CIDR
+  scope and release deadline before starting. Unsupported actions, gates, and
+  the previously claimed but unimplemented `rewind` policy fail closed.
+- [x] **Kill-switch auto-triggers panel** — Settings dialog for safety triggers in
   `app/core/kill_switch.py`: configured incompatible-process watch, risk-score
   threshold, and runaway packet-rate ceiling. The manual panic-stop already
-  works (Ctrl+Alt+X); only the automatic safety controls need UI.
-- **Discord webhook configuration UI** ? Sink registration works (v5.7.4) but configuration is still settings-file-only. Add a Settings ? Audit Webhooks tab with URL + enabled toggle + token-bucket rate slider + test-fire button.
-- **Diagnostics export** ? `Tools ? Diagnostics` (F2) shows results in a dialog. Add a "Copy to clipboard" / "Save as bug-report bundle" action that captures the 8-check output plus `logs/dupez.log` tail + masked target/gateway IPs for support tickets.
+  works (`Ctrl+Alt+X`); automatic controls now have an accessible settings UI.
+- [x] **Discord webhook configuration UI** — `Tools → Audit Webhook…` uses
+  sealed credential storage and exposes enable, disable, clear, and status
+  controls without displaying or persisting the secret URL in settings.
+- [x] **Diagnostics export** — `Tools → Diagnostics` (F2) supports redacted
+  clipboard copy and atomic support-bundle save from the exact displayed
+  results without account data or arbitrary filesystem inventory.
 ---
 
 ## v5.8.x — Quality-Debt Pass
@@ -80,10 +106,26 @@ Two v5.7.0/v5.7.1 backends still need real configuration dialogs rather than sin
 
 v5.7.1's quality pass added 175 tests and fixed 5 production bugs but explicitly deferred the structural cleanup — these items are tracked here so they don't slip again.
 
-- **Large-object refactors** — `clumsy_network_disruptor.py` (~1700 LOC) and `dashboard.py` (~1200 LOC) split into focused modules. Engine orchestration, preset resolution, WiFi watchdog, and FORWARD-layer mode each become their own file in the disruptor case; menu/action handlers split out from the main `Dashboard` class.
+- **Large-object refactors** — `clumsy_network_disruptor.py` (~3040 LOC) and
+  `dashboard.py` (~2100 LOC) still need to split into focused modules. Engine
+  orchestration, preset resolution, WiFi watchdog, and FORWARD-layer mode each
+  become their own file in the disruptor case; menu/action handlers split out
+  from the main `Dashboard` class.
 - **Hot-path optimization** — Profile the WinDivert recv → classify → policy → send loop. Targets: zero allocations in the steady-state per-packet path, batch-API saturation, packet-classifier LRU sized to actual working set.
-- **Broad-except cleanup** — The v5.2.2 voice-deps wrap and the v5.6.4 honesty pass left ~40 `except Exception` blocks behind. Narrow each to the actual raised types (or document why broad is correct, e.g., plugin sandbox boundary).
-- **Coverage report in CI** — Pytest already runs; add `pytest-cov` with a per-module floor so the next refactor can't silently drop test coverage.
+- **Broad-except cleanup** — The current application tree contains 914 raw
+  `except Exception` matches across 126 Python files. Triage each boundary,
+  narrow it to the actual raised types, or document why a broad catch is
+  intentional (for example, a plugin or shutdown isolation boundary).
+- **Coverage policy in CI** — Aggregate `pytest-cov` reporting and a 40% floor
+  are now enforced. Per-module floors remain to prevent high-risk modules from
+  hiding behind the aggregate percentage.
+- **WiFi cleanup races** — Completed in the v5.8.0 hardening pass. Generation
+  and engine identity guard fallback commits; `clear_all_disruptions_clumsy`
+  aggregates failures; watchdog cancellation wakes immediately, atomically
+  converts pending verdicts to `ABORTED`, and performs a bounded join whose
+  timeout is reported as incomplete cleanup. This closes the historical M3,
+  M4, and M5 findings without claiming the larger `WifiDisruptSession`
+  refactor is complete.
 - **Per-user runtime storage** — Completed for installed builds: mutable data,
   config, logs, crashes, captures, reports, episodes, and trained models are
   separated from binaries with verified copy-only legacy migration.
@@ -205,7 +247,7 @@ First release shipping **two user-facing binaries from one codebase**: `DupeZ-GP
 
 - ~~**Split-elevation architecture (ADR-0001)** — GUI runs at Medium IL for Chromium GPU init; firewall/WinDivert ops forwarded to an elevated helper (`dupez_helper.py`) over IPC. Helper is the same frozen exe re-invoked with `--role helper --parent-pid N`, dispatched before any `app.*` import so it never boots the GUI.~~ ✅ Done
 - ~~**Dual-variant PyInstaller build pipeline** — `packaging/build_variants.bat` drives both specs (`dupez_gpu.spec` + `dupez_compat.spec`) through a shared `build_common.py` factory that writes a per-variant `_build_default.py` before Analysis, baking in the compiled-in `DUPEZ_ARCH` default.~~ ✅ Done
-- ~~**Hardware raster tier resolver** — `app/gui/map_host/renderer_tier.py` picks tier1_hw / tier2_swiftshader / tier3_cpu based on env + GPU probe and applies the matching Chromium flags before any PyQt6 import. Embedded iZurvive map now runs GPU-accelerated under split mode.~~ ✅ Done
+- ~~**Hardware raster resolver** — `app/gui/map_host/renderer_tier.py` applies Chromium flags before any PyQt6 import. The current v5.8.0 policy selects `tier1_hw` only after a successful DXGI probe (or an explicit diagnostic override in the non-admin split build) and otherwise selects `tier3_cpu` with `--disable-gpu`; the legacy software-GL tier is retired.~~ ✅ Done
 - ~~**Preset taxonomy collapse 8 → 5** — Merged Heavy/Light Lag into a single `Lag` preset tuned by sliders; removed `Legacy Pulse Aggressive` and `Desync` as redundant. Final set: Red Disconnect, Lag, Pulse Diagnostic, Timed Disconnect Mode, Custom.~~ ✅ Done
 - ~~**4-stage hostname resolution chain** — `gethostbyaddr` → `getfqdn` → NetBIOS → mDNS (zeroconf) → synthesized `<vendor>-<mac_suffix>` fallback. Hostname column in the GUI is never blank. zeroconf is now a hard runtime dep and bundled into hiddenimports.~~ ✅ Done
 - ~~**Packaging reorganization** — All build artifacts moved under `packaging/`. Spec files use `HERE` / `ROOT` path split; Inno Setup uses `SourceDir=..`; batch drivers `pushd "%~dp0.."`. Cleaner repo root, existing `Source:` paths unchanged.~~ ✅ Done
@@ -257,7 +299,7 @@ The deep-research release. All 7 deep-research phases implemented: statistical d
 
 **Released:** 2026-04-06
 
-- ~~**Plugin API** — Lightweight plugin system for community-built disruption modules, scanners, and UI panels. JSON manifest + Python entry point. Auto-discovery from `plugins/` directory. Hot-reload support. sys.path/sys.modules leak-safe loading.~~ ✅ Done
+- **Plugin API (partially shipped)** — Signed manifest-v2 discovery, lifecycle management, Generic plugins, UI panels, and leak-safe `sys.path`/`sys.modules` cleanup are implemented. Disruption/scanner host dispatch and a user-facing hot-reload command remain unshipped; the existing classes are extension contracts, not callable product surfaces.
 - ~~**CLI Mode** — Run DupeZ headless from the terminal. Script disruptions, pipe output, integrate into automation. Interactive REPL mode.~~ ✅ Done
 - ~~**Auto-Updater** — In-app update checker with one-click download from GitHub releases.~~ ✅ Done
 - ~~**Pulse Diagnostic Overhaul** — NAT keepalive system (1 packet/800ms) prevents Windows ICS NAT table timeout during long freeze cycles. Burst-controlled flush on deactivation (50 packets/5ms burst). Full WinDivert NETWORK_FORWARD documentation.~~ ✅ Done
@@ -355,7 +397,7 @@ The deep-research release. All 7 deep-research phases implemented: statistical d
 - [x] **v5.5.0** — WiFi same-network ARP-spoof mode, `CollapsibleCard` extraction, `ml_classifier` PRNG refactor, deprecated Timed Disconnect Engine v1 removal.
 - [x] **v5.6.0** — local-forwarding reliability update (bounded local-forwarding health instrumentation), A2S cut verifier plumbed into episode recorder (`cut_verified` events + `max_cut_state` on `engine_stop`), `LearningLoop.cut_effectiveness` temporary-disconnect aggregation, full scapy MANUFDB vendor fallback (~35k OUI), end-to-end smoketest tool.
 - [x] **v5.6.1** — Updater stability: equal-tag short-circuit in `UpdateChecker.check_sync` to suppress spurious re-prompts; `installer_url` pinned to the stable versionless `releases/latest/download/DupeZ_Setup.exe` alias; `dupez.manifest` / `dupez_compat.manifest` versions resynced from stale `5.5.0.0`.
-- [x] **v5.6.2** — Nation-state hardening. Closed §9.2 with the SP 800-63B / CNSA 2.0 second-factor gate (`app/core/second_factor.py`) wired into elevation, plugin loader, and offsec runner. Auto-update fail-closed behind pinned Ed25519 signed-manifest verification (`app/core/update_verify.py` + `scripts/sign-release.py`). Fixed DayZ tracker CSV/XLSX import (BOM, delimiter sniffing, header synonyms, off-by-one). Routed offsec CLI INFO chatter to stderr. New pytest suite + Windows CI matrix. Cert: **CERTIFIED — Nation-State Grade**.
+- [x] **v5.6.2** — Second-factor and update-verification hardening. The TOTP gate (`app/core/second_factor.py`) is wired into elevation, plugin loading, and offsec engagement startup. Auto-update fails closed behind pinned Ed25519 signed-manifest verification (`app/core/update_verify.py` + `scripts/sign-release.py`). Fixed DayZ tracker CSV/XLSX import (BOM, delimiter sniffing, header synonyms, off-by-one), routed offsec CLI INFO chatter to stderr, and added a Windows pytest matrix. The historical certification report is superseded for current releases: FIDO2 is intentionally unavailable pending a complete WebAuthn ceremony, so DupeZ makes no current FIDO2, AAL3, or "Nation-State Grade" claim.
 - [x] **v5.6.3** — Crash-safety + audit hardening. `faulthandler` enabled at process entry so C-extension segfaults (WinDivert, Qt, Chromium GPU) leave a usable traceback. Pipe-disconnect recovery in `DisruptionManagerProxy._call` — helper death is now recoverable instead of requiring a GUI restart. `_shutdown_cleanup` routed through `get_disruption_manager()` so split-mode tears down the elevated helper over IPC instead of no-op'ing the in-process singleton. Doc drift fixes (Red Disconnect 95% → 100% drop in help panel) and dead `taskkill dupez_helper.exe` removed from the variant build script.
 - [x] **v5.6.4** — WiFi honesty pass. Four silent-no-op branches in the `wifi_same_net` path (Npcap missing, `ArpSpoofer.start()` failed, ImportError, generic exception) now return False so the GUI surfaces "Partial Failure" with actionable guidance instead of badging DISRUPTED on a useless WinDivert handle. Honest WiFi limitations section added to Help panel documenting AP client isolation (Eero/Google Nest/ISP gateways default-on with no toggle), wireless L2 forwarding behavior, and the WinDivert vs ARP layer split. WiFi-aware pre-flight probe + self-disrupt fallback deferred to v5.6.5.
 - [x] **v5.6.5** — WiFi isolation watchdog + self-disrupt fallback. New `app/network/wifi_probe.py` module with `IsolationWatchdog` that samples ArpSpoofer/WinDivert packet counters after a 5s grace window; when `_packets_sent > 0 ∧ _packets_processed == 0`, declares AP isolation and triggers automatic fallback to NETWORK-layer self-disrupt mode (operator's own traffic to/from target only — the only thing that can work behind AP client isolation). Inno Setup compilation + versionless installer alias emission folded into `packaging\build_variants.bat` so the release pipeline is now one command instead of three. Inno Setup `x64` → `x64compatible` to suppress deprecation warning and additionally support ARM64 Windows x64-emulation hosts. Help panel updated with the v5.6.5 watchdog explanation + operator decision tree.

@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
-from app.logs.logger import log_error, log_info
+from app.logs.logger import log_error, log_info, log_warning
 from app.utils.helpers import mask_ip
 
 __all__ = ["Device", "AppSettings", "AppState"]
@@ -88,7 +88,7 @@ class AppSettings:
     verbose_logging: bool = False
 
     # Map / GPU
-    map_renderer: str = "auto"  # "auto" | "gpu" | "swiftshader" | "software"
+    map_renderer: str = "auto"  # "auto" | "gpu" | "software"
 
     # Security
     whitelist: Optional[list] = None
@@ -101,9 +101,29 @@ class AppSettings:
     ])
     max_operation_seconds: int = 300
 
+    # Automatic kill switch (manual panic stop remains available regardless)
+    kill_switch_enabled: bool = False
+    kill_switch_process_watch_enabled: bool = True
+    kill_switch_process_names: list[str] = field(default_factory=list)
+    kill_switch_risk_threshold: int = 80
+    kill_switch_packet_drop_ceiling: int = 5000
+    kill_switch_packet_sustain_seconds: float = 5.0
+    kill_switch_poll_interval_seconds: float = 1.0
+    kill_switch_cooldown_seconds: float = 30.0
+
     def __post_init__(self) -> None:
         if self.whitelist is None:
             self.whitelist = []
+        renderer = (
+            self.map_renderer.strip().lower()
+            if isinstance(self.map_renderer, str)
+            else "auto"
+        )
+        if renderer == "swiftshader":
+            renderer = "software"
+        if renderer not in {"auto", "gpu", "software"}:
+            renderer = "auto"
+        self.map_renderer = renderer
 
 
 # ── Application state ─────────────────────────────────────────────────
@@ -297,8 +317,8 @@ class AppState:
             log_error(f"Failed to load settings: {e}")
             self.settings = AppSettings()
 
-    def save_settings(self) -> None:
-        """Persist settings via atomic write (tmp → fsync → replace)."""
+    def save_settings(self) -> bool:
+        """Persist settings atomically and return whether it was durable."""
         from app.config import CONFIG_PATH, save_config
 
         if os.path.normcase(os.path.abspath(self.config_file)) == os.path.normcase(
@@ -309,7 +329,8 @@ class AppState:
                 log_info("Settings saved successfully")
             except Exception as e:
                 log_error(f"Failed to save settings: {e}")
-            return
+                return False
+            return True
         tmp_path = self.config_file + ".tmp"
         try:
             config_dir = os.path.dirname(self.config_file)
@@ -323,19 +344,23 @@ class AppState:
 
             os.replace(tmp_path, self.config_file)
             log_info("Settings saved successfully")
+            return True
         except Exception as e:
             log_error(f"Failed to save settings: {e}")
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
+            return False
 
-    def update_setting(self, key: str, value: Any) -> None:
-        """Update a single setting by name and persist."""
+    def update_setting(self, key: str, value: Any) -> bool:
+        """Update one setting only when the new snapshot is durable."""
         if hasattr(self.settings, key):
             old_value = getattr(self.settings, key)
             setattr(self.settings, key, value)
-            self.save_settings()
+            if not self.save_settings():
+                setattr(self.settings, key, old_value)
+                return False
             self.notify_observers("setting_updated", {key: value})
             log_info(f"Setting updated: {key} = {value}")
             # Audit trail for settings changes
@@ -348,3 +373,6 @@ class AppState:
                 })
             except Exception:
                 pass
+            return True
+        log_warning(f"Unknown setting: {key}")
+        return False

@@ -26,6 +26,7 @@ from __future__ import annotations
 import os
 import threading
 import time
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -374,6 +375,121 @@ class TestInitialize:
         assert mgr.initialize() is False
 
 
+class TestRoutineLogPrivacy:
+    @staticmethod
+    def _capture_logs(monkeypatch):
+        messages = []
+        monkeypatch.setattr(
+            cnd, "log_info", lambda message: messages.append(str(message)),
+        )
+        monkeypatch.setattr(
+            cnd, "log_error", lambda message: messages.append(str(message)),
+        )
+        return messages
+
+    def test_path_discovery_logs_basename_and_status_only(self, monkeypatch):
+        messages = self._capture_logs(monkeypatch)
+        manager = ClumsyNetworkDisruptor()
+        combined = "\n".join(messages)
+
+        assert os.path.dirname(manager.clumsy_exe) not in combined
+        assert "clumsy.exe" in combined
+        assert "WinDivert.dll" in combined
+        assert "FOUND" in combined or "MISSING" in combined
+
+    def test_config_writes_do_not_log_absolute_working_directory(
+        self, monkeypatch, tmp_path,
+    ):
+        private_root = tmp_path / "private-user-root"
+        clumsy_dir = private_root / "clumsy-runtime"
+        clumsy_dir.mkdir(parents=True)
+        messages = self._capture_logs(monkeypatch)
+        engine = ClumsyEngine(
+            str(clumsy_dir / "clumsy.exe"),
+            str(clumsy_dir),
+            "true",
+            ["lag"],
+            {},
+        )
+
+        engine._write_config()
+        engine._write_presets()
+        combined = "\n".join(messages)
+
+        assert str(private_root) not in combined
+        assert "config.txt written" in combined
+        assert "presets.ini written" in combined
+
+    def test_launch_logs_executable_and_cwd_basename_only(
+        self, monkeypatch, tmp_path,
+    ):
+        private_root = tmp_path / "private-user-root"
+        clumsy_dir = private_root / "clumsy-runtime"
+        clumsy_dir.mkdir(parents=True)
+        executable = clumsy_dir / "clumsy.exe"
+        executable.write_bytes(b"stub")
+        messages = self._capture_logs(monkeypatch)
+        process = SimpleNamespace(pid=4242, poll=lambda: None)
+        safe_subprocess = SimpleNamespace(
+            spawn_managed=lambda *_args, **_kwargs: process,
+        )
+        engine = ClumsyEngine(
+            str(executable), str(clumsy_dir), "true", ["lag"], {},
+        )
+
+        monkeypatch.setattr(cnd, "_kill_all_clumsy", lambda: None)
+        monkeypatch.setattr(cnd, "_safe_sp", safe_subprocess)
+        monkeypatch.setattr(cnd.time, "sleep", lambda _seconds: None)
+        monkeypatch.setattr(engine, "_detect_silent_support", lambda _exe: True)
+
+        assert engine.start() is True
+        combined = "\n".join(messages)
+        assert str(private_root) not in combined
+        assert "executable=clumsy.exe" in combined
+        assert "mode=silent" in combined
+        assert "clumsy-runtime" in combined
+
+    def test_initialize_log_omits_absolute_dependency_path(
+        self, monkeypatch, tmp_path,
+    ):
+        private_root = tmp_path / "private-user-root"
+        private_root.mkdir()
+        dll = private_root / "WinDivert.dll"
+        dll.write_bytes(b"stub")
+        manager = ClumsyNetworkDisruptor()
+        manager.windivert_dll = str(dll)
+        messages = self._capture_logs(monkeypatch)
+        monkeypatch.setattr(cnd, "is_admin", lambda: True)
+        monkeypatch.setattr(cnd, "NATIVE_ENGINE_AVAILABLE", True)
+
+        assert manager.initialize() is True
+        combined = "\n".join(messages)
+        assert str(private_root) not in combined
+        assert "native WinDivert engine" in combined
+        assert "WinDivert.dll verified" in combined
+
+    def test_missing_executable_log_omits_absolute_path(
+        self, monkeypatch, tmp_path,
+    ):
+        private_root = tmp_path / "private-user-root"
+        manager = ClumsyNetworkDisruptor()
+        manager.clumsy_exe = str(private_root / "clumsy.exe")
+        messages = self._capture_logs(monkeypatch)
+
+        engine, actual, requested = manager._start_selected_engine(
+            filter_str="true",
+            methods=["lag"],
+            params={"_engine_preference": ENGINE_CLUMSY},
+        )
+
+        assert engine is None
+        assert actual == ""
+        assert requested == ENGINE_CLUMSY
+        combined = "\n".join(messages)
+        assert str(private_root) not in combined
+        assert "clumsy.exe status=missing" in combined
+
+
 # ── Manager lifecycle ────────────────────────────────────────────────
 
 class TestManagerLifecycle:
@@ -614,6 +730,21 @@ class TestReconnectDevice:
         }
         assert mgr.reconnect_device_clumsy("1.2.3.4") is True
         watchdog.cancel.assert_called_once()
+
+    def test_watchdog_cancel_timeout_marks_stop_unclean(self):
+        mgr = ClumsyNetworkDisruptor()
+        eng = _FakeEngine()
+        watchdog = MagicMock()
+        watchdog.cancel.side_effect = TimeoutError("watchdog still running")
+        mgr.disrupted_devices["1.2.3.4"] = {
+            "engine": eng,
+            "wifi_watchdog": watchdog,
+        }
+
+        assert mgr.reconnect_device_clumsy("1.2.3.4") is False
+        watchdog.cancel.assert_called_once()
+        assert eng.stop_called is True
+        assert "1.2.3.4" not in mgr.disrupted_devices
 
     def test_stop_device_alias(self):
         mgr = ClumsyNetworkDisruptor()

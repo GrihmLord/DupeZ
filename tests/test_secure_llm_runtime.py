@@ -61,7 +61,7 @@ def test_public_settings_never_include_api_key(monkeypatch):
 
 
 def test_remote_plaintext_provider_url_is_rejected():
-    with pytest.raises(ValueError, match="loopback"):
+    with pytest.raises(ValueError, match="HTTPS"):
         SecureLLMConfig(
             provider="openai",
             base_url="http://example.com",

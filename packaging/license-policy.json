@@ -1,0 +1,49 @@
+{
+  "schema": "dupez.license-policy.v1",
+  "reviewed_on": "2026-08-30",
+  "release_state": "blocked",
+  "decisions": [
+    {
+      "id": "project-distribution-terms",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Provide the owner-approved project LICENSE or EULA and record the governing distribution terms as evidence."
+    },
+    {
+      "id": "pyqt-distribution-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record and evidence the distribution basis for PyQt6 and PyQt6-WebEngine without assuming a commercial entitlement or a GPL-compatible project license."
+    },
+    {
+      "id": "qt-qtwebengine-distribution-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record and evidence the distribution basis for Qt and Qt WebEngine, including the Chromium components shipped in the frozen application."
+    },
+    {
+      "id": "third-party-notices-delivery",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Provide and evidence a deterministic notice and license payload for every component in each portable and installer distribution channel."
+    },
+    {
+      "id": "source-and-relink-delivery",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record and evidence how applicable corresponding-source, replacement or relinking, installation-information, and reverse-engineering rights are delivered."
+    },
+    {
+      "id": "inno-setup-commercial-use-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record whether Inno Setup is used in a commercial context and, if applicable, record the owner-approved commercial-license decision or entitlement instead of assuming one from the local compiler installation."
+    }
+  ]
+}

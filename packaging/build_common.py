@@ -51,7 +51,14 @@ import sys
 
 from PyInstaller.building.api import EXE, PYZ
 from PyInstaller.building.build_main import Analysis
+from PyInstaller.config import CONF
 from PyInstaller.utils.hooks import collect_submodules
+
+from release_data import (
+    pyinstaller_binaries,
+    pyinstaller_datas,
+    release_binary_files,
+)
 
 
 # HERE  = the packaging/ dir (this file's own dir). Sibling files like
@@ -83,6 +90,25 @@ _BUILD_DEFAULT_TEMPLATE = '''# app/firewall_helper/_build_default.py
 
 _BUILD_DEFAULT_ARCH = {arch!r}
 '''
+
+
+def _configure_build_analysis_state() -> str:
+    """Keep PyInstaller's import probes away from checkout/operator state.
+
+    ``collect_submodules`` and dependency hooks may import application modules
+    in isolated child interpreters. Several runtime modules intentionally
+    initialize persistence on import, so an unguarded build would read the
+    checkout's ``app/data`` tree. Force those probes into a private directory
+    under PyInstaller's work path; that directory is never part of ``datas``.
+    """
+    configured_workpath = CONF.get("workpath") or os.path.join(ROOT, "build")
+    analysis_user_root = os.path.abspath(
+        os.path.join(os.fspath(configured_workpath), "_analysis-user")
+    )
+    os.environ["DUPEZ_BUILD_ANALYSIS"] = "1"
+    os.environ["DUPEZ_FORCE_USER_DATA"] = "1"
+    os.environ["DUPEZ_USER_ROOT"] = analysis_user_root
+    return analysis_user_root
 
 
 def _write_build_default(variant: str) -> None:
@@ -123,8 +149,6 @@ def _hidden_imports() -> list:
             "psutil",
             "keyboard",
             "PIL",
-            "scapy",
-            "scapy.all",
             "cryptography",
             "numpy",
             "openpyxl",
@@ -153,27 +177,74 @@ def _hidden_imports() -> list:
 
 
 def _datas() -> list:
-    return [
-        (os.path.join(ROOT, "app", "config"), os.path.join("app", "config")),
-        (os.path.join(ROOT, "app", "resources"), os.path.join("app", "resources")),
-        (os.path.join(ROOT, "app", "assets"), os.path.join("app", "assets")),
-        (os.path.join(ROOT, "app", "themes"), os.path.join("app", "themes")),
-    ]
+    return pyinstaller_datas(ROOT)
 
 
 def _binaries() -> list:
-    binaries = []
-    firewall_dir = os.path.join(ROOT, "app", "firewall")
-    if os.path.isdir(firewall_dir):
-        for fname in os.listdir(firewall_dir):
-            fpath = os.path.join(firewall_dir, fname)
-            if fname.endswith((".dll", ".sys", ".exe")) and os.path.isfile(fpath):
-                binaries.append((fpath, os.path.join("app", "firewall")))
-    return binaries
+    return pyinstaller_binaries(ROOT)
+
+
+def _normalise_toc_path(name: object) -> str:
+    return str(name).replace("\\", "/").strip("/").casefold()
+
+
+def _filter_root_binary_duplicates(binaries: list) -> list:
+    """Drop bindepend root copies when the managed nested copy exists."""
+    managed_paths = {
+        _normalise_toc_path(path) for path in release_binary_files()
+    }
+    present_paths = {
+        _normalise_toc_path(entry[0])
+        for entry in binaries
+        if entry
+    }
+    duplicate_basenames = {
+        path.rsplit("/", 1)[-1]
+        for path in managed_paths & present_paths
+    }
+    filtered = []
+    for entry in binaries:
+        destination = _normalise_toc_path(entry[0]) if entry else ""
+        if "/" not in destination and destination in duplicate_basenames:
+            print(
+                "[build_common] removed dependency-derived root duplicate: "
+                f"{entry[0]}"
+            )
+            continue
+        filtered.append(entry)
+    return filtered
+
+
+_UNAPPROVED_COLLECTED_BINARY_SUFFIXES = (
+    # ``sounddevice`` ships a second PortAudio build containing Steinberg's
+    # ASIO SDK.  DupeZ does not expose or support ASIO, so carrying this DLL
+    # adds third-party terms and attack surface without a product function.
+    "_sounddevice_data/portaudio-binaries/libportaudio64bit-asio.dll",
+)
+
+
+def _filter_unapproved_collected_binaries(binaries: list) -> list:
+    """Remove dependency payloads that are outside the reviewed product scope."""
+    filtered = []
+    for entry in binaries:
+        destination = _normalise_toc_path(entry[0]) if entry else ""
+        if destination.endswith(_UNAPPROVED_COLLECTED_BINARY_SUFFIXES):
+            print(
+                "[build_common] removed unapproved dependency payload: "
+                f"{entry[0]}"
+            )
+            continue
+        filtered.append(entry)
+    return filtered
 
 
 def _excludes() -> list:
     return [
+        # Scapy is deliberately absent from the production lock. Its
+        # GPL-2.0-only terms are incompatible with the frozen PyQt release
+        # boundary, so a contaminated developer/build environment must not
+        # make it reachable to PyInstaller analysis.
+        "scapy",
         # ML / heavy libs not used
         "tensorflow",
         "torch",
@@ -246,6 +317,7 @@ def build_variant(
     Writes ``_build_default.py`` before Analysis so the frozen exe
     has the right compiled-in arch default.
     """
+    _configure_build_analysis_state()
     _write_build_default(variant)
 
     a = Analysis(
@@ -263,6 +335,12 @@ def build_variant(
         cipher=BLOCK_CIPHER,
         noarchive=False,
     )
+
+    # PyInstaller's bindepend pass may rediscover DLL imports from a managed
+    # app/firewall executable and add root-level copies. Retain the exact
+    # manifest paths and remove only same-basename root duplicates.
+    a.binaries = _filter_root_binary_duplicates(a.binaries)
+    a.binaries = _filter_unapproved_collected_binaries(a.binaries)
 
     # Strip tcl/tk timezone data that sneaks in via stdlib.
     a.datas = [

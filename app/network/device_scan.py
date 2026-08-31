@@ -210,7 +210,13 @@ class NativeNetworkScanner:
 
     # ── ARP table IP enumeration ──────────────────────────────────
 
-    _EXCLUDED_PREFIXES = ("169.254.", "224.", "255.255.255.255", "0.0.0.0")
+    _EXCLUDED_PREFIXES = (
+        "169.254.",
+        "224.",
+        "255.255.255.255",
+        # Excluded scan-result sentinel; never a bind target.
+        "0.0.0.0",  # nosec B104
+    )
 
     def _get_windows_arp_ips(self) -> List[str]:
         """Extract IPs from Windows ``arp -a`` output."""

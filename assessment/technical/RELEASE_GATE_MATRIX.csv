@@ -1,14 +1,14 @@
 gate_id,gate_name,status,evidence,notes
 0,SCOPE_OWNERSHIP_PROVENANCE,PASS,assessment/governance docs,Scope and revision documented
-1,IDENTITY_AND_DISTRIBUTION,PARTIAL,dist inventory + preflight,Signing/publisher not fully validated
+1,IDENTITY_AND_DISTRIBUTION,BLOCKED,"assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json (E-006); dist inventory; preflight","Saved audit shows main unprotected, zero rulesets, production-release without protection rules/deployment-branch policy, and governance-ready variable absent; exact policy-conforming artifacts are pending"
 2,BUILD_PACKAGE_INSTALL,PARTIAL,pytest+preflight,Exact packaged artifact test incomplete
 3,UPGRADE_MIGRATION_ROLLBACK,BLOCKED,scripts/blocked_release_gates_sequence.ps1 gpu-validate and admin-compat phases,Run blocked-gates sequencer after admin-finalize on main clean state
-4,FUNCTIONAL_AND_CONTRACT_BEHAVIOR,PASS,pytest full suite,Source-level and integration behavior validated
+4,FUNCTIONAL_AND_CONTRACT_BEHAVIOR,PASS,"2026-08-28 CPython 3.13.14 x64 CI-equivalent full source gate (E-007)","2110 passed; 10 expected skips (3 opt-in Clumsy hardware, 3 symlink-privilege redactor, 3 opt-in hardware-smoketest, 1 installer symlink); 53.02% coverage; 133.77s"
 5,LIFECYCLE_STATE_OFFLINE,PARTIAL,startup smoke + tests,Full lifecycle matrix not exhaustively executed
 6,SECURITY_PRIVACY_PLATFORM_BOUNDARIES,PARTIAL,policy tests + code review,No authorized active security testing
 7,PERFORMANCE_RESOURCE_USE,PASS,latency_regression + app.core.performance_smoke,Hotkey p999 and all source smoke budgets pass; frozen profiling remains separate artifact evidence
 8,ACCESSIBILITY_LOCALIZATION_FORM_FACTORS,PARTIAL,limited evidence,Manual platform accessibility pass pending
 9,OBSERVABILITY_SYMBOLICATION_RECOVERY,PARTIAL,scripts and logs reviewed,Frozen release crash symbolication not validated end-to-end
-10,SUPPLY_CHAIN_ARTIFACT_INTEGRITY,BLOCKED,release_preflight source pass + scripts/blocked_release_gates_sequence.ps1 admin-finalize phase,Current dist files predate v5.8.0 and protected exact artifacts are not built yet
-11,DISTRIBUTION_READINESS,BLOCKED,scripts/blocked_release_gates_sequence.ps1 admin-stage-draft/admin-stage-publish phases,Requires main + clean tree + tokens + signed artifacts
+10,SUPPLY_CHAIN_ARTIFACT_INTEGRITY,BLOCKED,"assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json (E-006); release_preflight; blocked-release sequencer","Saved audit shows main unprotected, zero rulesets, production-release without protection rules/deployment-branch policy, and governance-ready variable absent; current dist files were not rebuilt from the uncommitted current tree and protected exact artifacts are not built"
+11,DISTRIBUTION_READINESS,BLOCKED,"assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json (E-006); blocked-release sequencer","Saved audit shows main unprotected, zero rulesets, production-release without protection rules/deployment-branch policy, and governance-ready variable absent; exact publishable artifacts remain pending"
 12,HUMAN_DECISION_RESIDUAL_RISK,PARTIAL,assessment findings,Requires named decision authority sign-off

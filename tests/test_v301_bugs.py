@@ -78,40 +78,28 @@ class TestBug002_BlockerIsActiveShadow(unittest.TestCase):
 
 
 class TestBug003_SocketReuseAfterClose(unittest.TestCase):
-    """BUG #3 (HIGH): _verify_device_exists reuses socket after close."""
+    """BUG #3 (HIGH): native host probing must not reuse closed sockets."""
 
     def test_socket_not_reused_after_close(self):
         """Each port check should use its own socket or re-create after close"""
-        with open("app/core/controller.py", "r") as f:
+        with open("app/network/device_scan.py", "r") as f:
             source = f.read()
 
-        # Find the _verify_device_exists method
-        match = re.search(r'def _verify_device_exists.*?(?=\n    def |\nclass |\Z)',
+        # Host probing moved from Controller._verify_device_exists to the
+        # native scanner. Keep the regression attached to the live code path.
+        match = re.search(r'def ping_host_native.*?(?=\n    def |\nclass |\Z)',
                           source, re.DOTALL)
-        if not match:
-            self.skipTest("_verify_device_exists not found")
+        self.assertIsNotNone(match, "NativeNetworkScanner.ping_host_native missing")
 
         method_src = match.group()
-        # Count socket() creates vs close() calls in the loop
-        # The bug: one socket created outside loop, close inside loop
-        lines = method_src.split('\n')
-        socket_create_in_loop = False
-        close_in_loop = False
-        in_for_loop = False
-
-        for line in lines:
-            stripped = line.strip()
-            if 'for port in' in stripped:
-                in_for_loop = True
-            if in_for_loop:
-                if 'socket.socket(' in stripped:
-                    socket_create_in_loop = True
-                if 'sock.close()' in stripped:
-                    close_in_loop = True
-
-        if close_in_loop and not socket_create_in_loop:
-            self.fail("Socket is created once before the loop but closed inside "
-                      "the loop — subsequent iterations use a closed socket")
+        loop_offset = method_src.find("for port in")
+        socket_offset = method_src.find("with socket.socket(")
+        self.assertGreaterEqual(loop_offset, 0, "TCP probe loop missing")
+        self.assertGreater(
+            socket_offset,
+            loop_offset,
+            "Each port probe must create its socket inside the loop",
+        )
 
 
 class TestBug004_HotkeyNoIP(unittest.TestCase):

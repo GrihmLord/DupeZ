@@ -89,7 +89,8 @@ def _check_listeners(reg: FindingRegistry) -> None:
         ip = li.get("ip", "")
         if ip in {"127.0.0.1", "::1", "localhost"}:
             loopback.append(li)
-        elif ip in {"0.0.0.0", "::"}:
+        # Classify wildcard listeners reported by the OS; do not bind them.
+        elif ip in {"0.0.0.0", "::"}:  # nosec B104
             non_loopback.append(li)
         else:
             # Specific IP that isn't loopback — could be LAN-exposed.

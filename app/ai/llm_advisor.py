@@ -20,10 +20,11 @@ from __future__ import annotations
 import json
 import re
 import threading
-import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
+from urllib.parse import urlparse
 
+from app.ai import ollama_transport
 from app.logs.logger import log_info, log_error
 from app.utils.helpers import mask_ip
 
@@ -52,16 +53,47 @@ class LLMConfig:
     timeout: int = 30
 
     def __post_init__(self) -> None:
-        """Migrate plaintext api_key into encrypted secrets store."""
-        if self.api_key:
+        """Validate transport settings and migrate any plaintext API key."""
+        provider = str(self.provider or "ollama").strip().lower()
+        if provider not in {"ollama", "openai", "none"}:
+            raise ValueError(f"unsupported LLM provider: {provider!r}")
+        self.provider = provider
+        if provider == "ollama":
+            self.base_url = ollama_transport.validate_ollama_base_url(
+                self.base_url
+            )
+        elif provider == "openai":
+            text = str(self.base_url or "").strip().rstrip("/")
+            parsed = urlparse(text)
+            if parsed.scheme != "https" or not parsed.hostname:
+                raise ValueError("remote LLM provider URLs must use HTTPS")
+            if parsed.username or parsed.password:
+                raise ValueError("remote LLM provider URLs must not contain credentials")
+            if parsed.query or parsed.fragment:
+                raise ValueError(
+                    "remote LLM provider URLs must not contain query or fragment data"
+                )
+            self.base_url = text
+        else:
+            self.base_url = ""
+
+        plaintext = str(self.api_key or "")
+        self.api_key = ""
+        if plaintext:
             try:
                 from app.core.secrets_manager import get_secrets_manager
                 sm = get_secrets_manager()
-                sm.store(_LLM_SECRET_NAME, self.api_key)
-                self.api_key = ""  # clear plaintext
-                log_info("LLMConfig: migrated api_key to encrypted secrets store")
+                if sm.store(_LLM_SECRET_NAME, plaintext):
+                    log_info("LLMConfig: migrated api_key to encrypted secrets store")
+                else:
+                    log_error(
+                        "LLMConfig: API key migration failed; plaintext was discarded"
+                    )
             except Exception as e:
-                log_error(f"LLMConfig: failed to migrate api_key to secrets: {e}")
+                log_error(
+                    "LLMConfig: API key migration failed; plaintext was discarded "
+                    f"({type(e).__name__})"
+                )
 
     def get_api_key(self) -> str:
         """Retrieve the API key from the encrypted secrets store.
@@ -72,9 +104,12 @@ class LLMConfig:
             from app.core.secrets_manager import get_secrets_manager
             sm = get_secrets_manager()
             return sm.retrieve(_LLM_SECRET_NAME) or ""
-        except Exception:
-            # Fallback to plaintext field (backwards compat during migration)
-            return self.api_key
+        except Exception as exc:
+            log_error(
+                "LLMConfig: API key retrieval failed "
+                f"({type(exc).__name__})"
+            )
+            return ""
 
 def _build_system_prompt() -> str:
     """Build the system prompt dynamically from game profile data.
@@ -201,13 +236,16 @@ class LLMAdvisor:
             if self.config.provider == "openai":
                 url = f"{self.config.base_url}/v1/models"
 
-            _key = self.config.get_api_key()
             hdrs = {}
-            if _key:
-                hdrs["Authorization"] = f"Bearer {_key}"
+            if self.config.provider == "ollama":
+                ollama_transport.ollama_get(url, headers=hdrs, timeout=5)
+            else:
+                _key = self.config.get_api_key()
+                if _key:
+                    hdrs["Authorization"] = f"Bearer {_key}"
+                from app.core.secure_http import secure_get
 
-            from app.core.secure_http import secure_get
-            secure_get(url, headers=hdrs, timeout=5)
+                secure_get(url, headers=hdrs, timeout=5, require_https=True)
             self._available = True
             if self._available:
                 log_info(f"LLMAdvisor: connected to {self.config.provider} "
@@ -334,10 +372,19 @@ class LLMAdvisor:
         Uses the secure HTTP client with TLS enforcement and URL validation.
         """
         try:
+            if self.config.provider == "ollama":
+                return ollama_transport.ollama_post_json(
+                    url,
+                    payload,
+                    headers=headers,
+                    timeout=self.config.timeout,
+                )
             from app.core.secure_http import secure_post_json
+
             return secure_post_json(
                 url, payload, headers=headers,
                 timeout=self.config.timeout,
+                require_https=True,
             )
         except (ValueError, Exception) as e:
             log_error(f"LLMAdvisor: API call to {url} failed: {e}")

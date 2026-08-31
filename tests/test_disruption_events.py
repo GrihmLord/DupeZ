@@ -160,6 +160,71 @@ def test_runner_does_not_stop_a_newer_generation():
     assert controller.stop_calls == []
 
 
+class _UnconfirmedStopController(_FakeController):
+    def __init__(self, *, raises=False):
+        super().__init__()
+        self.raises = raises
+        self.allow_stop = False
+
+    def stop_disruption(self, ip):
+        self.stop_calls.append(ip)
+        if self.raises:
+            raise RuntimeError("simulated stop failure")
+        if not self.allow_stop:
+            return False
+        self.active = False
+        return True
+
+
+def test_runner_retains_generation_when_stop_returns_false():
+    controller = _UnconfirmedStopController()
+    statuses = []
+    sequence = EventSequence(events=[DisruptionEvent(
+        name="Retained event",
+        methods=["lag"],
+        duration_seconds=0.05,
+    )])
+    runner = EventSequenceRunner(
+        sequence,
+        controller,
+        "192.168.1.53",
+        on_status=statuses.append,
+    )
+
+    assert runner.start() is True
+    assert _wait_until(
+        lambda: runner._thread is not None and not runner._thread.is_alive()
+    )
+
+    assert runner._active_generation == controller.generation
+    assert runner.running is True
+    assert runner.worker_running is False
+    assert statuses[-1].kind == "release_failed"
+    assert not any(status.kind in {"finished", "complete"} for status in statuses)
+
+    controller.allow_stop = True
+    assert runner.stop() is True
+    assert runner._active_generation is None
+    assert runner.running is False
+
+
+def test_runner_retains_generation_when_stop_raises():
+    controller = _UnconfirmedStopController(raises=True)
+    runner = EventSequenceRunner(
+        EventSequence(events=[DisruptionEvent(methods=["drop"])]),
+        controller,
+        "192.168.1.54",
+    )
+    controller.active = True
+    runner._active_generation = controller.generation
+    runner._active_event_index = 0
+
+    assert runner._release_owned_event() is False
+
+    assert runner._active_generation == controller.generation
+    assert runner._active_event_index == 0
+
+
 class _FailThenSucceedController(_FakeController):
     def disrupt_device(self, ip, methods, params, **kwargs):
         self.calls.append((ip, list(methods), dict(params), dict(kwargs)))

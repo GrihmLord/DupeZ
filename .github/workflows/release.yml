@@ -53,24 +53,33 @@ jobs:
 
       - name: Require main and exact release version
         shell: pwsh
+        env:
+          DUPEZ_RELEASE_GOVERNANCE_READY: ${{ vars.DUPEZ_RELEASE_GOVERNANCE_READY }}
+          DUPEZ_RELEASE_REF: ${{ github.ref }}
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          if ('${{ github.ref_name }}' -ne 'main') {
+          if ($env:DUPEZ_RELEASE_GOVERNANCE_READY -ne 'protected-main-reviewed-environment') {
+            throw 'Release governance readiness is not enabled; keep this workflow blocked.'
+          }
+          if ($env:DUPEZ_RELEASE_REF -ne 'refs/heads/main') {
             throw 'Signed release finalization must be dispatched from main.'
           }
-          if ('${{ inputs.version }}' -ne '5.8.0') {
+          if ($env:DUPEZ_RELEASE_VERSION -ne '5.8.0') {
             throw 'This workflow revision can finalize only v5.8.0.'
           }
 
       - name: Checkout exact main commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           clean: true
+          persist-credentials: false
 
-      - name: Setup canonical release Python 3.11.9
+      - name: Setup canonical release Python 3.13.14
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11.9'
+          python-version: '3.13.14'
           architecture: x64
 
       - name: Create repository bootstrap venv
@@ -81,9 +90,22 @@ jobs:
           }
           python -m venv .venv
           .\.venv\Scripts\python.exe -I -S -c `
-            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,11,9) and struct.calcsize('P')==8 else 1)"
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
           if ($LASTEXITCODE -ne 0) {
-            throw 'Canonical Python 3.11.9 x64 verification failed.'
+            throw 'Canonical Python 3.13.14 x64 verification failed.'
+          }
+          .\.venv\Scripts\python.exe -I -m pip --isolated install `
+            --disable-pip-version-check `
+            --require-hashes `
+            --only-binary=:all: `
+            --no-deps `
+            -r requirements-locked.txt
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Exact hashed runtime dependency installation failed.'
+          }
+          .\.venv\Scripts\python.exe -I -m pip --isolated check
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Repository bootstrap dependency verification failed.'
           }
 
       - name: Verify protected signing-host configuration
@@ -144,9 +166,11 @@ jobs:
 
       - name: Build, sign, scan, and attest locally
         shell: pwsh
+        env:
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
           .\scripts\finalize_release.ps1 `
-            -Version '${{ inputs.version }}'
+            -Version $env:DUPEZ_RELEASE_VERSION
 
       - name: Execute package-boundary verifier in both signed variants
         shell: pwsh
@@ -169,9 +193,11 @@ jobs:
 
       - name: Re-run final dist preflight after signed execution
         shell: pwsh
+        env:
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
           .\.venv\Scripts\python.exe -I scripts\release_preflight.py `
-            --version '${{ inputs.version }}' `
+            --version $env:DUPEZ_RELEASE_VERSION `
             --dist
           if ($LASTEXITCODE -ne 0) {
             throw 'Final signed dist preflight failed.'
@@ -211,7 +237,12 @@ jobs:
             dist/release-attestation.json
             dist/DefenderScan.txt
             dist/DupeZ.sbom.json
-            dist/DupeZ.vex.json
+            dist/DupeZ.vulnerability-review.json
             dist/binary-provenance.json
+            dist/LICENSE.txt
+            dist/SOURCE_AND_RELINK.txt
+            dist/THIRD_PARTY_NOTICES.txt
+            dist/license-payload.json
+            dist/DupeZ-v${{ inputs.version }}-source.zip
           if-no-files-found: error
           retention-days: 90

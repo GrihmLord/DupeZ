@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -214,13 +216,21 @@ def test_inproc_feature_flag_returns_direct_manager(monkeypatch):
 
 
 def test_helper_imports_same_direct_manager_source():
-    source = open("dupez_helper.py", encoding="utf-8").read()
+    source = Path("dupez_helper.py").read_text(encoding="utf-8")
+    imports = {
+        (node.module, alias.name, alias.asname)
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
 
     assert (
-        "from app.firewall.direct_clumsy_manager import disruption_manager"
-        in source
-    )
-    assert (
-        "from app.firewall.clumsy_network_disruptor import disruption_manager"
-        not in source
+        "app.firewall.direct_clumsy_manager",
+        "disruption_manager",
+        "direct_manager",
+    ) in imports
+    assert not any(
+        module == "app.firewall.clumsy_network_disruptor"
+        and name == "disruption_manager"
+        for module, name, _alias in imports
     )

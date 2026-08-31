@@ -1,4 +1,4 @@
-name: Emergency Unsigned Public Release
+name: Protected Unsigned Artifact Build (No Publication)
 
 on:
   workflow_dispatch:
@@ -9,23 +9,23 @@ on:
         default: '5.8.0'
         type: string
       confirmation:
-        description: 'Type RELEASE UNSIGNED to acknowledge Windows publisher warnings'
+        description: 'Type BUILD UNSIGNED ARTIFACTS to acknowledge Windows publisher warnings'
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
   id-token: write
   attestations: write
   artifact-metadata: write
 
 concurrency:
-  group: unsigned-public-release-${{ inputs.version }}
+  group: unsigned-artifact-build-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: Build, verify, attest, and publish unsigned release
+  build:
+    name: Build, verify, and attest unsigned artifacts (never publish)
     runs-on: [self-hosted, windows, release-signing]
     timeout-minutes: 90
     environment: production-release
@@ -33,7 +33,6 @@ jobs:
       PYTHONNOUSERSITE: '1'
       PYTHONPATH: ''
       PYTHONHOME: ''
-      GH_TOKEN: ${{ github.token }}
 
     steps:
       - name: Mask release-host identity in logs
@@ -48,27 +47,37 @@ jobs:
 
       - name: Require exact acknowledgement, main, and version
         shell: pwsh
+        env:
+          DUPEZ_RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+          DUPEZ_RELEASE_GOVERNANCE_READY: ${{ vars.DUPEZ_RELEASE_GOVERNANCE_READY }}
+          DUPEZ_RELEASE_REF: ${{ github.ref }}
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          if ('${{ inputs.confirmation }}' -ne 'RELEASE UNSIGNED') {
-            throw 'Unsigned release acknowledgement was not exact.'
+          if ($env:DUPEZ_RELEASE_GOVERNANCE_READY -ne 'protected-main-reviewed-environment') {
+            throw 'Release governance readiness is not enabled; keep this workflow blocked.'
           }
-          if ('${{ github.ref_name }}' -ne 'main') {
-            throw 'Unsigned public release must be dispatched from main.'
+          if ($env:DUPEZ_RELEASE_CONFIRMATION -ne 'BUILD UNSIGNED ARTIFACTS') {
+            throw 'Unsigned artifact-build acknowledgement was not exact.'
           }
-          if ('${{ inputs.version }}' -ne '5.8.0') {
-            throw 'This emergency workflow can publish only v5.8.0.'
+          if ($env:DUPEZ_RELEASE_REF -ne 'refs/heads/main') {
+            throw 'Unsigned artifact build must be dispatched from main.'
+          }
+          if ($env:DUPEZ_RELEASE_VERSION -ne '5.8.0') {
+            throw 'This protected workflow can build only v5.8.0 artifacts.'
           }
 
       - name: Checkout exact main commit
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 0
           clean: true
+          persist-credentials: false
 
-      - name: Setup canonical release Python 3.11.9
+      - name: Setup canonical release Python 3.13.14
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11.9'
+          python-version: '3.13.14'
           architecture: x64
 
       - name: Create repository bootstrap venv
@@ -76,6 +85,24 @@ jobs:
         run: |
           if (Test-Path .venv) { Remove-Item .venv -Recurse -Force }
           python -m venv .venv
+          .\.venv\Scripts\python.exe -I -S -c `
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Canonical Python 3.13.14 x64 verification failed.'
+          }
+          .\.venv\Scripts\python.exe -I -m pip --isolated install `
+            --disable-pip-version-check `
+            --require-hashes `
+            --only-binary=:all: `
+            --no-deps `
+            -r requirements-locked.txt
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Exact hashed runtime dependency installation failed.'
+          }
+          .\.venv\Scripts\python.exe -I -m pip --isolated check
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Repository bootstrap dependency verification failed.'
+          }
 
       - name: Verify updater signing key and build tools
         shell: pwsh
@@ -93,7 +120,9 @@ jobs:
 
       - name: Build, scan, and finalize explicitly unsigned assets
         shell: pwsh
-        run: .\scripts\finalize_release.ps1 -Version '${{ inputs.version }}' -AllowUnsigned
+        env:
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
+        run: .\scripts\finalize_release.ps1 -Version $env:DUPEZ_RELEASE_VERSION -AllowUnsigned
 
       - name: Execute package-boundary verifier
         shell: pwsh
@@ -103,6 +132,19 @@ jobs:
             if ($process.ExitCode -ne 0) {
               throw "Frozen import verification failed for $variant with exit code $($process.ExitCode)."
             }
+          }
+
+      - name: Re-run final dist preflight after unsigned execution
+        shell: pwsh
+        env:
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          .\.venv\Scripts\python.exe -I scripts\release_preflight.py `
+            --version $env:DUPEZ_RELEASE_VERSION `
+            --dist `
+            --allow-unsigned
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Final unsigned dist preflight failed.'
           }
 
       - name: Attest release build provenance
@@ -120,32 +162,34 @@ jobs:
             dist/DupeZ_Setup.exe
           sbom-path: dist/DupeZ.sbom.json
 
-      - name: Publish immutable unsigned v5.8.0 release
+      - name: Require protected exact-artifact validation and staging
         shell: pwsh
+        env:
+          DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          $tag = 'v${{ inputs.version }}'
-          gh release view $tag --repo '${{ github.repository }}' *> $null
-          if ($LASTEXITCODE -eq 0) {
-            throw "Release $tag already exists; refusing to replace assets."
-          }
-          $assets = @(
-            'dist\DupeZ-GPU.exe',
-            'dist\DupeZ-Compat.exe',
-            'dist\DupeZ_v${{ inputs.version }}_Setup.exe',
-            'dist\DupeZ_Setup.exe',
-            'dist\DupeZ_Setup.exe.manifest.json',
-            'dist\DupeZ_Setup.exe.manifest.sig',
-            'dist\DupeZ.sbom.json',
-            'dist\DupeZ.vex.json',
-            'dist\binary-provenance.json',
-            'dist\SHA256SUMS.txt',
-            'dist\release-attestation.json',
-            'dist\DefenderScan.txt'
-          )
-          gh release create $tag @assets `
-            --repo '${{ github.repository }}' `
-            --target '${{ github.sha }}' `
-            --title 'DupeZ v${{ inputs.version }} (Unsigned)' `
-            --notes-file 'docs\release-notes\v${{ inputs.version }}.md' `
-            --latest
-          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }
+          Write-Host 'Unsigned artifacts are complete, but this workflow cannot create, edit, or publish a GitHub release.'
+          Write-Host 'On these exact bytes, run scripts\validate_frozen_runtime.ps1 -Variant GPU from a standard desktop session.'
+          Write-Host 'Run scripts\validate_frozen_runtime.ps1 -Variant Compat from Administrator PowerShell.'
+          Write-Host ('After observing all 16 gates, run scripts\record_manual_release_validation.ps1 -Version {0} -AllowUnsigned.' -f $env:DUPEZ_RELEASE_VERSION)
+          Write-Host ('Create and verify a draft with scripts\stage_release.ps1 -Mode Draft -Version {0} -AllowUnsigned.' -f $env:DUPEZ_RELEASE_VERSION)
+          Write-Host ('Only then publish the verified draft with scripts\stage_release.ps1 -Mode Publish -Version {0} -AllowUnsigned.' -f $env:DUPEZ_RELEASE_VERSION)
+
+      - name: Upload non-executable unsigned release evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: unsigned-release-evidence-${{ inputs.version }}-${{ github.run_id }}
+          path: |
+            dist/SHA256SUMS.txt
+            dist/release-attestation.json
+            dist/DefenderScan.txt
+            dist/DupeZ.sbom.json
+            dist/DupeZ.vulnerability-review.json
+            dist/binary-provenance.json
+            dist/LICENSE.txt
+            dist/SOURCE_AND_RELINK.txt
+            dist/THIRD_PARTY_NOTICES.txt
+            dist/license-payload.json
+            dist/DupeZ-v${{ inputs.version }}-source.zip
+          if-no-files-found: error
+          retention-days: 90
