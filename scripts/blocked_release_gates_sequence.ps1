@@ -31,6 +31,40 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
 
+function Resolve-InboxWindowsPowerShell {
+    $systemDirectory = [Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::System
+    )
+    if (
+        [string]::IsNullOrWhiteSpace($systemDirectory) -or
+        -not [IO.Path]::IsPathRooted($systemDirectory)
+    ) {
+        throw "Could not resolve the absolute Windows system directory."
+    }
+
+    $candidate = [IO.Path]::GetFullPath((
+        Join-Path $systemDirectory "WindowsPowerShell\v1.0\powershell.exe"
+    ))
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        throw "Inbox Windows PowerShell executable is missing."
+    }
+
+    $resolved = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
+    if (
+        -not [IO.Path]::IsPathRooted($resolved) -or
+        -not [string]::Equals(
+            $resolved,
+            $candidate,
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    ) {
+        throw "Inbox Windows PowerShell executable resolved unexpectedly."
+    }
+    return $resolved
+}
+
+$inboxWindowsPowerShell = Resolve-InboxWindowsPowerShell
+
 function Test-IsAdmin {
     return (
         New-Object Security.Principal.WindowsPrincipal(
@@ -68,7 +102,9 @@ switch ($Phase) {
         )
         if ($AllowUnsigned) { $args += "-AllowUnsigned" }
         if ($AllowNonMainValidation) { $args += "-AllowNonMainValidation" }
-        Run-Checked -Name "FINALIZE RELEASE" -Action { powershell @args }
+        Run-Checked -Name "FINALIZE RELEASE" -Action {
+            & $inboxWindowsPowerShell @args
+        }
         Write-Host "admin-finalize complete. Next run gpu-validate in NON-admin desktop session."
     }
 
@@ -78,7 +114,11 @@ switch ($Phase) {
         }
         Assert-MainClean
         Run-Checked -Name "GPU FROZEN VALIDATION" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate_frozen_runtime.ps1 -Variant GPU
+            & $inboxWindowsPowerShell `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File scripts/validate_frozen_runtime.ps1 `
+                -Variant GPU
         }
         Write-Host "gpu-validate complete. Next run admin-compat in Administrator PowerShell."
     }
@@ -89,7 +129,11 @@ switch ($Phase) {
         }
         Assert-MainClean
         Run-Checked -Name "COMPAT FROZEN VALIDATION" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate_frozen_runtime.ps1 -Variant Compat
+            & $inboxWindowsPowerShell `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File scripts/validate_frozen_runtime.ps1 `
+                -Variant Compat
         }
         if ([string]::IsNullOrWhiteSpace($Operator)) {
             throw "Provide -Operator for manual validation recording (e.g. -Operator GrihmLord)."
@@ -102,7 +146,7 @@ switch ($Phase) {
                 "-Operator", $Operator
             )
             if ($AllowUnsigned) { $manualArgs += "-AllowUnsigned" }
-            powershell @manualArgs
+            & $inboxWindowsPowerShell @manualArgs
         }
         Write-Host "admin-compat complete. Next run admin-stage-draft (and optionally admin-stage-publish)."
     }
@@ -122,7 +166,7 @@ switch ($Phase) {
                 "-Version", $Version
             )
             if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
-            powershell @stageArgs
+            & $inboxWindowsPowerShell @stageArgs
         }
         Write-Host "admin-stage-draft complete. Next run admin-stage-publish when ready."
     }
@@ -142,7 +186,7 @@ switch ($Phase) {
                 "-Version", $Version
             )
             if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
-            powershell @stageArgs
+            & $inboxWindowsPowerShell @stageArgs
         }
         Write-Host "admin-stage-publish complete. All blocked release gates finished."
     }

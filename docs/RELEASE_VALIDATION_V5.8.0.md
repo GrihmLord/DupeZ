@@ -6,28 +6,41 @@ to the exact rebuilt and validated bytes.
 
 ## 0. Repository trust controls (blocking)
 
-A read-only GitHub configuration audit on 2026-08-28 found no branch
-protection or ruleset on `main`, and no protection rules or deployment-branch
-policy on the `production-release` environment; the governance-ready
-repository variable was also absent. Do not dispatch either
-release-artifact workflow until the repository owner configures and verifies:
+DupeZ is currently a solo-maintainer repository. Its server-side policy must
+not pretend that the pull-request author can provide independent review.
+Before dispatching either release-artifact workflow, verify through the GitHub
+API that:
 
-- pull-request-only changes to `main`, an approving review, up-to-date required
-  exact-head checks, and no direct push, force push, deletion, or bypass;
-- required `production-release` reviewer(s), self-review prevention, and a
-  deployment branch policy limited to `main`; and
+- every change to `main` must use a pull request with all 14 up-to-date,
+  exact-head checks passing;
+- direct updates, force pushes, deletion, and bypass are disabled, and review
+  conversations must be resolved;
 - the path-unfiltered source-preflight check plus the supported Python, lock,
-  secret, CodeQL, and frozen-boundary checks required by branch policy.
+  secret, CodeQL, dependency-review, and frozen-boundary checks are required;
+  and
+- `production-release` permits deployments only from `main`. With only one
+  write-capable account it has no reviewer rule; add independent approval and
+  self-review prevention as soon as a second trusted maintainer exists.
 
-After verifying those controls through the GitHub API, set the repository
-variable `DUPEZ_RELEASE_GOVERNANCE_READY` to the exact value
-`protected-main-reviewed-environment`. Both artifact workflows fail before
-checkout while the variable is absent or different.
+After verifying those controls, set repository variable
+`DUPEZ_RELEASE_GOVERNANCE_READY` to the exact value
+`protected-main-solo-maintainer-environment`. Both artifact workflows fail
+before checkout while the variable is absent or different.
 
 The workflows also reject non-`refs/heads/main` dispatches and explicitly
 checkout `github.sha`, but a direct pusher could remove those repository-local
 guards. They become meaningful defense in depth only after the server-side
-controls above are active.
+controls above are active. Mandatory automated checks are the compensating
+control for the repository's disclosed lack of independent human review.
+
+An authenticated read-only API audit on 2026-09-04 verified the active
+no-bypass default-branch ruleset, all 14 strict check requirements, the
+main-only `production-release` policy, the sole write-capable collaborator,
+and the exact readiness variable. The minimized evidence is preserved in
+`assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-09-04.json`. That audit also
+found all 14 checks on the observed PR 84 head unsuccessful with no assigned
+runner or executed step, so configured governance does not authorize merge or
+release. Re-query live policy and obtain passing exact-head checks before use.
 
 ## 1. Source candidate gates
 

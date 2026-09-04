@@ -5,7 +5,7 @@ application — these are developer / support tools.
 
 | File | Purpose |
 | --- | --- |
-| `release.ps1` | **Retired safety stub.** Refuses to tag or publish and points operators to the protected finalization, frozen/manual validation, draft staging, and publication sequence. |
+| `release.ps1` | Canonical safe front door for protected release gates. It defaults to read-only status, waits for elevated phases, and advances only with an explicit `-Phase auto` or named phase. Auto mode stops before publication; publishing always requires explicit `-Phase admin-stage-publish`. |
 | `defender_release_check.py` | Read-only Windows release check. Reports Authenticode status for `dist\DupeZ*.exe`, recent Defender detections, and optionally runs a Defender custom scan of `dist` with `--scan`. It never adds exclusions or changes Defender policy. |
 | `reset_pytest_tmp.ps1` | **One-time pytest temp-dir ACL repair.** Pytest's default basetemp on Windows is `%LOCALAPPDATA%\Temp\pytest-of-<USER>`. If any prior pytest run was started from an elevated shell (or inherited UAC from `dupez.py`'s auto-elevation), that dir's DACL gets written admin-only, and every subsequent non-elevated run dies with `WinError 5 — Access is denied` at the `tmp_path` fixture. The long-term fix lives in `tests/conftest.py`, which pins basetemp to a repo-local `.pytest-tmp/` dir so the system-temp path is never touched again. This script does the one-time `takeown` + `icacls` + delete of the legacy orphan dir left behind by pre-fix runs. Run **once** from an elevated PowerShell: `.\scripts\reset_pytest_tmp.ps1`. |
 | `sign-release.py` | Offline Ed25519 signer for the auto-update manifest. Generates the release keypair (`--gen-key`), signs `DupeZ_Setup.exe` into `.manifest.json` + `.manifest.sig` (`--sign`), and re-verifies an already-signed release (`--verify`). The private key never leaves the air-gapped signing host. |
@@ -21,8 +21,9 @@ application — these are developer / support tools.
 
 ## Usage
 
-Both scripts assume they are run from the DupeZ repo root (so relative
-module imports resolve), not from inside `scripts/`.
+The release entry points resolve the repository root from their own location.
+Run other helpers from the DupeZ repository root unless their help says
+otherwise.
 
 ```powershell
 cd C:\path\to\DupeZ

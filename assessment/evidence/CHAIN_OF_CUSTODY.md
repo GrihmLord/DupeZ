@@ -21,4 +21,20 @@
   `DUPEZ_RELEASE_GOVERNANCE_READY` repository variable.
 - The minimized, credential-free observation is preserved as
   `assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json`.
+- A second authenticated read-only GitHub API inspection on 2026-09-04
+  verified an active, no-bypass default-branch ruleset requiring pull requests
+  and 14 strict exact-head checks, plus a `production-release` deployment
+  policy limited to `main` and the exact solo-maintainer governance variable.
+  The sole write-capable collaborator remains the pull-request author, so no
+  independent-review claim is made. All 14 checks on the observed PR 84 head
+  were unsuccessful with no assigned runner or executed step; this is not
+  passing CI evidence.
+- The minimized, credential-free follow-up is preserved as
+  `assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-09-04.json` and supersedes
+  E-006 only for current GitHub configuration state.
+- The recovered working tree then passed the full CPython 3.13.14 x64 suite on
+  2026-09-04: 2289 passed, 10 expected host/hardware skips, and 54.19%
+  application coverage against the 40% gate in 169.90 seconds. This validates
+  the source tree only; it is not exact frozen-artifact or GitHub check
+  evidence.
 - No product source evidence was overwritten during these assessment-register updates.

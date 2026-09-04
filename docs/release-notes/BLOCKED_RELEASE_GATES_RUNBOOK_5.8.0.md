@@ -6,18 +6,21 @@ the exact frozen files that will be published.
 
 ## Preconditions
 
-- GitHub `main` is protected by reviewed pull requests and required exact-head
-  checks; force push, deletion, direct push, and bypass are disabled.
-- The `production-release` environment requires an independent reviewer,
-  prevents self-review, and permits deployments only from `main`. The
-  2026-08-28 read-only audit found these repository controls and the
-  governance-ready variable absent, so this
-  runbook remains blocked until the repository owner enables them.
+- GitHub `main` requires a pull request, resolution of review conversations,
+  and all 14 up-to-date exact-head checks; force push, deletion, direct update,
+  and bypass are disabled.
+- The `production-release` environment permits deployments only from `main`.
+  DupeZ currently has one write-capable maintainer, so no independent-review
+  claim is made; mandatory automated checks compensate until a second trusted
+  maintainer can be required for review.
 - After API-verifying those controls, repository variable
   `DUPEZ_RELEASE_GOVERNANCE_READY` has the exact value
-  `protected-main-reviewed-environment`; leave it unset while either control
-  is absent.
-- Branch: `main` at the reviewed v5.8.0 commit.
+  `protected-main-solo-maintainer-environment`; leave it unset while either
+  control is absent.
+- The 2026-09-04 read-only audit verified those settings and is preserved at
+  `assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-09-04.json`. Re-verify
+  live settings before release because repository policy can change.
+- Branch: `main` at the exact-head-validated v5.8.0 commit.
 - Working tree: clean (`git status --porcelain` is empty).
 - `packaging/license-policy.json` records owner evidence for every decision,
   and the root `LICENSE.txt` is compatible with the exact PyQt binding terms.
@@ -30,23 +33,27 @@ the exact frozen files that will be published.
   the prepared private-target runner without target identifiers.
 - GitHub authentication through `GITHUB_TOKEN` or `GH_TOKEN`.
 
-## Recommended launcher
+## Canonical launcher
 
-Run this command again after each elevated or non-elevated phase finishes:
+Start with the read-only status view:
 
-```cmd
-scripts\release_gate_launcher.cmd
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Version 5.8.0
 ```
 
 Progress is version-bound in `dist/blocked-release-gates-progress.json`. The
-launcher discards stale progress from another release, elevates protected
-phases, and refuses to perform GPU validation from an Administrator shell.
+launcher also binds progress to the exact commit, release mode, and validation
+policy. It ignores stale progress in read-only status, waits for protected
+elevated phases, and refuses to perform GPU validation from an Administrator
+shell. Use the explicit named phases below for the auditable release sequence.
+`-Phase auto` may select the next non-publication phase, but it always stops
+before publish; publication requires explicit `-Phase admin-stage-publish`.
 
 Useful commands:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_gate_launcher.ps1 -Phase status -Version 5.8.0
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_gate_launcher.ps1 -Phase reset -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase status -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase reset -Version 5.8.0
 ```
 
 ## Exact sequence
@@ -54,19 +61,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release_gate_launche
 ### A. Administrator: finalize exact artifacts
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-finalize -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-finalize -Version 5.8.0
 ```
 
 For the explicitly disclosed unsigned public route, append `-AllowUnsigned`.
 The updater manifest still requires the protected Ed25519 key.
-Keep that switch on the Compat/manual, draft, and publish phases below. Each
-phase validates its own evidence mode and fails closed if the switch is omitted.
+Keep that switch on every subsequent phase, including GPU validation,
+Compat/manual, draft, and publish. Launcher progress is release-mode-bound, and
+each phase fails closed if the switch is omitted.
 
 ### B. Standard desktop: GPU runtime validation
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase gpu-validate -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase gpu-validate -Version 5.8.0
 ```
+
+For the unsigned route, append `-AllowUnsigned` here and on every later phase.
 
 ### C. Administrator: Compat and manual validation
 
@@ -80,7 +90,7 @@ copy against the successful exact-commit GitHub Actions run, exact artifact ID,
 GitHub archive digest, and downloaded evidence bytes.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-compat -Version 5.8.0 -Operator <YOUR_NAME>
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-compat -Version 5.8.0 -Operator "YOUR_NAME"
 ```
 
 For the explicitly disclosed unsigned public route, append `-AllowUnsigned`
@@ -92,25 +102,25 @@ the exact GPU, Compat, and installer bytes. Do not record an unobserved pass.
 ### D. Administrator: create and verify the draft
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-stage-draft -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-stage-draft -Version 5.8.0
 ```
 
 Unsigned route:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-stage-draft -Version 5.8.0 -AllowUnsigned
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-stage-draft -Version 5.8.0 -AllowUnsigned
 ```
 
 ### E. Administrator: publish the verified draft
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-stage-publish -Version 5.8.0
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-stage-publish -Version 5.8.0
 ```
 
 Unsigned route:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/blocked_release_gates_sequence.ps1 -Phase admin-stage-publish -Version 5.8.0 -AllowUnsigned
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release.ps1 -Phase admin-stage-publish -Version 5.8.0 -AllowUnsigned
 ```
 
 ## Required private evidence and public artifacts

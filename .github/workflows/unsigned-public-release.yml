@@ -53,7 +53,7 @@ jobs:
           DUPEZ_RELEASE_REF: ${{ github.ref }}
           DUPEZ_RELEASE_VERSION: ${{ inputs.version }}
         run: |
-          if ($env:DUPEZ_RELEASE_GOVERNANCE_READY -ne 'protected-main-reviewed-environment') {
+          if ($env:DUPEZ_RELEASE_GOVERNANCE_READY -ne 'protected-main-solo-maintainer-environment') {
             throw 'Release governance readiness is not enabled; keep this workflow blocked.'
           }
           if ($env:DUPEZ_RELEASE_CONFIRMATION -ne 'BUILD UNSIGNED ARTIFACTS') {

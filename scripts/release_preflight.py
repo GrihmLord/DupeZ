@@ -2115,6 +2115,10 @@ def check_source(expected_version: str | None = None) -> list[str]:
             "scripts/stage_release.ps1",
             r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
         ),
+        "scripts/release.ps1": _match_version(
+            "scripts/release.ps1",
+            r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',
+        ),
         "scripts/release_gate_launcher.ps1": _match_version(
             "scripts/release_gate_launcher.ps1",
             r'\[string\]\$Version\s*=\s*"(\d+\.\d+\.\d+)"',

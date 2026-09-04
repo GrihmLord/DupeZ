@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -38,6 +39,12 @@ def test_release_gate_launcher_rejects_stale_or_dirty_state():
         "release_mode = $releaseMode",
         "validation_policy = $validationPolicy",
         "function Get-RepositoryIdentity",
+        '$requiredBranch = if ($AllowNonMainValidation -or $Phase -eq "status")',
+        "branch = $identity.Branch",
+        '$sequenceScriptPath = Join-Path $PSScriptRoot "blocked_release_gates_sequence.ps1"',
+        '"-File", $sequenceScriptPath',
+        "function Read-State",
+        "the file is unchanged until a phase result is recorded.",
         '"release_git_contract.ps1"',
         "Get-ReleaseGitIdentity",
         "-AllowDirty",
@@ -52,10 +59,13 @@ def test_release_gate_launcher_rejects_stale_or_dirty_state():
     ):
         assert token in script, token
 
-    assert "Write-State -state $default" in script
+    assert "Write-State -state $default" not in script
+    assert "Read-State -NoWrite" not in script
+    assert 'Write-Host "\\n' not in script
     assert "dupez.blocked-release-gates-progress.v2" not in script
     assert "dupez.blocked-release-gates-progress.v1" not in script
     assert "Get-Command \"git\"" not in script
+    assert "Set-Location $repoRoot" not in script
 
 
 def test_release_gate_launcher_pins_shell_and_enforces_phase_chain():
@@ -77,6 +87,15 @@ def test_release_gate_launcher_pins_shell_and_enforces_phase_chain():
         '"-EncodedCommand", $encodedCommand',
         "ConvertTo-Json -Compress",
         "Convert]::ToBase64String",
+        "-Wait `",
+        "-PassThru",
+        "$elevatedProcess.ExitCode -ne 0",
+        "$phaseExitCode = $LASTEXITCODE",
+        "Publication is never automatic.",
+        "the FAILED state also could not be persisted",
+        "completed successfully, but its DONE state",
+        "Verify external effects before",
+        "Auto mode will not publish.",
     ):
         assert token in script, token
 
@@ -85,14 +104,28 @@ def test_release_gate_launcher_pins_shell_and_enforces_phase_chain():
     assert "& powershell @seqArgs" not in script
     assert '($argList -join " ")' not in script
     assert "('\"' + $Operator + '\"')" not in script
+    assert 'return "RELAUNCHED_ELEVATED"' not in script
+    assert 'return "DONE"' not in script
+    assert "$result = Invoke-Phase" not in script
+    assert "exit 0" not in script
+    assert '[string]$Phase = "status"' in script
 
     invoke = script.index("function Invoke-Phase")
-    invoke_body = script[invoke : script.index('if ($Phase -eq "reset")', invoke)]
+    invoke_body = script[invoke : script.index("$state = Read-State", invoke)]
     predecessor = invoke_body.index("Assert-PhasePredecessorsDone")
     elevation = invoke_body.index("if ($needsAdmin -and -not $isAdmin)")
     invalidation = invoke_body.index("Invalidate-SuccessorDoneStates")
     nested_launch = invoke_body.index("& $inboxWindowsPowerShell @seqArgs")
     assert predecessor < elevation < invalidation < nested_launch
+
+    auto = script.index('if ($Phase -eq "auto")')
+    explicit_publish = script.index(
+        '$selected -eq "admin-stage-publish"', auto
+    )
+    phase_invoke = script.index(
+        "Invoke-Phase -phaseName $selected", explicit_publish
+    )
+    assert auto < explicit_publish < phase_invoke
 
 
 def test_release_gate_launcher_operator_is_bounded_to_safe_characters():
@@ -115,6 +148,11 @@ def test_blocked_gate_sequencer_propagates_nested_phase_failures():
     throw_index = body.index("failed with exit code $phaseExitCode")
 
     assert action_index < capture_index < reject_index < throw_index
+    assert "function Resolve-InboxWindowsPowerShell" in script
+    assert "$inboxWindowsPowerShell = Resolve-InboxWindowsPowerShell" in script
+    assert "& $inboxWindowsPowerShell" in script
+    assert "{ powershell @args }" not in script
+    assert "            powershell " not in script
 
 
 def test_installer_uses_restart_manager_without_force_kill_hook():
@@ -891,7 +929,7 @@ def test_release_workflow_keeps_keys_on_protected_nonpublishing_runner():
     assert "'${{ github.ref }}' -ne 'refs/heads/main'" not in workflow
     assert ("DUPEZ_RELEASE_GOVERNANCE_READY: " "${{ vars.DUPEZ_RELEASE_GOVERNANCE_READY }}") in workflow
     assert "$env:DUPEZ_RELEASE_GOVERNANCE_READY -ne" in workflow
-    assert "protected-main-reviewed-environment" in workflow
+    assert "protected-main-solo-maintainer-environment" in workflow
     assert "ref: ${{ github.sha }}" in workflow
     assert "persist-credentials: false" in workflow
     assert "scripts\\finalize_release.ps1" in workflow
@@ -921,7 +959,7 @@ def test_unsigned_release_build_is_bound_to_exact_main_sha():
     assert "'${{ github.ref }}' -ne 'refs/heads/main'" not in workflow
     assert ("DUPEZ_RELEASE_GOVERNANCE_READY: " "${{ vars.DUPEZ_RELEASE_GOVERNANCE_READY }}") in workflow
     assert "$env:DUPEZ_RELEASE_GOVERNANCE_READY -ne" in workflow
-    assert "protected-main-reviewed-environment" in workflow
+    assert "protected-main-solo-maintainer-environment" in workflow
     assert "ref: ${{ github.sha }}" in workflow
     assert "persist-credentials: false" in workflow
 
@@ -993,15 +1031,135 @@ def test_release_run_context_gate_covers_every_yaml_run_scalar(tmp_path: Path):
     assert all("run-scalars.yaml" in error for error in errors)
 
 
-def test_legacy_release_driver_cannot_tag_or_publish():
+def test_release_driver_delegates_to_canonical_gate_launcher_without_bypasses():
     script = _read("scripts/release.ps1")
+    cmd = _read("scripts/release_gate_launcher.cmd")
+    preflight = _read("scripts/release_preflight.py")
 
-    assert "is retired and cannot publish" in script
-    assert "scripts\\finalize_release.ps1" in script
-    assert "scripts\\stage_release.ps1" in script
+    assert '"release_gate_launcher.ps1"' in script
+    assert '[string]$Phase = "status"' in script
+    assert '"admin-stage-publish"' in script
+    assert "& $launcherPath @launcherArguments" in script
+    assert "AllowUnsigned" in script
+    assert "AllowNonMainValidation" in script
     assert "gh release create" not in script
     assert "git tag" not in script
     assert "git push" not in script
+    assert "SkipBuild" not in script
+    assert "SkipHooks" not in script
+    assert '"scripts/release.ps1": _match_version(' in preflight
+    assert '"scripts\\release.ps1"' in cmd
+    assert "%*" in cmd
+    assert "-Phase auto" not in cmd
+
+
+def test_v580_runbook_uses_canonical_launcher_and_valid_operator_example():
+    runbook = _read(
+        "docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md"
+    )
+
+    assert "scripts/release.ps1" in runbook
+    assert "scripts/blocked_release_gates_sequence.ps1" not in runbook
+    assert 'Operator "YOUR_NAME"' in runbook
+    assert "<YOUR_NAME>" not in runbook
+    assert "Publication is never automatic" in _read(
+        "scripts/release_gate_launcher.ps1"
+    )
+
+
+def test_public_docs_and_automation_do_not_embed_owner_host_paths():
+    text_suffixes = {
+        ".bat",
+        ".cmd",
+        ".iss",
+        ".json",
+        ".md",
+        ".ps1",
+        ".py",
+        ".txt",
+        ".yaml",
+        ".yml",
+    }
+    roots = (
+        ROOT / ".github",
+        ROOT / "app",
+        ROOT / "docs",
+        ROOT / "packaging",
+        ROOT / "scripts",
+    )
+    forbidden = ("c:/users/owner/", "c:\\users\\owner\\")
+
+    for root in roots:
+        for path in root.rglob("*"):
+            if not path.is_file() or path.suffix.casefold() not in text_suffixes:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace").casefold()
+            assert not any(marker in text for marker in forbidden), path
+
+
+def test_current_release_governance_docs_use_solo_maintainer_contract():
+    current_docs = (
+        "ROADMAP.md",
+        "docs/RELEASE_VALIDATION_V5.8.0.md",
+        "docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md",
+    )
+
+    for relative in current_docs:
+        text = _read(relative)
+        assert "protected-main-reviewed-environment" not in text, relative
+
+    assert "one write-capable maintainer" in _read("ROADMAP.md")
+    assert "protected-main-solo-maintainer-environment" in _read(
+        "ROADMAP.md"
+    )
+    assert "solo-maintainer repository" in _read(
+        "docs/RELEASE_VALIDATION_V5.8.0.md"
+    )
+    assert "one write-capable maintainer" in _read(
+        "docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md"
+    )
+
+
+def test_saved_current_github_governance_audit_matches_release_contract():
+    audit = json.loads(
+        _read(
+            "assessment/evidence/"
+            "GITHUB_GOVERNANCE_AUDIT_2026-09-04.json"
+        )
+    )
+    results = audit["results"]
+    ruleset = results["repository_rulesets"][
+        "active_default_branch_ruleset"
+    ]
+    checks = ruleset["required_status_checks"]
+    environment = results["production_release_environment"]
+    variable = results["governance_ready_variable"]
+    collaborators = results["direct_collaborators"]
+    observed_checks = results["pull_request_84_exact_head_checks"]
+
+    assert ruleset["name"] == "main-release-integrity"
+    assert ruleset["enforcement"] == "active"
+    assert ruleset["include"] == ["~DEFAULT_BRANCH"]
+    assert ruleset["bypass_actor_count"] == 0
+    assert ruleset["current_user_can_bypass"] == "never"
+    assert ruleset["pull_request"]["required_approving_review_count"] == 0
+    assert ruleset["pull_request"]["required_review_thread_resolution"]
+    assert checks["strict"]
+    assert checks["count"] == 14
+    assert len(checks["contexts"]) == len(set(checks["contexts"])) == 14
+    assert environment["required_reviewer_count"] == 0
+    assert environment["deployment_branch_policy"]["allowed_branches"] == [
+        "main"
+    ]
+    assert variable["value"] == (
+        "protected-main-solo-maintainer-environment"
+    )
+    assert collaborators["write_capable_count"] == 1
+    assert observed_checks["required_check_count"] == 14
+    assert observed_checks["job_count"] == 14
+    assert observed_checks["completed_failure_count"] == 14
+    assert observed_checks["assigned_runner_count"] == 0
+    assert observed_checks["executed_step_count"] == 0
 
 
 def test_installer_alias_is_copied_after_versioned_signing():

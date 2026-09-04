@@ -32,11 +32,16 @@ What's coming next. Priorities shift based on community feedback — open an iss
   project terms compatible with the exact GPL-3.0-only PyQt binding wheels and
   all six license/IP evidence decisions are recorded. No paid entitlement is
   assumed by the build.
-- **Protected release governance** — publication remains blocked until `main`
-  requires reviewed pull requests and exact-head checks, and the
-  `production-release` environment requires an independent reviewer and is
-  limited to `main`. Repository-local workflow checks are defense in depth,
-  not a substitute for those server-side controls.
+- **Protected release governance** — `main` requires pull requests, resolution
+  of review conversations, and all 14 up-to-date exact-head checks, with no
+  direct update, force-push, deletion, or bypass path. The
+  `production-release` environment is limited to `main`. DupeZ currently has
+  one write-capable maintainer, so mandatory automated checks are the disclosed
+  compensating control; require independent approval when a second trusted
+  maintainer exists. The 2026-09-04 read-only audit verifies this configuration;
+  the readiness value is `protected-main-solo-maintainer-environment` only
+  while those controls remain active. Repository-local workflow checks remain
+  defense in depth.
 
 ## v5.7.9 — Clumsy parity and startup recovery
 

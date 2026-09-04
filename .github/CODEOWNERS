@@ -1,4 +1,6 @@
-# Require explicit review for security-sensitive control planes and releases.
+# Route security-sensitive control planes and releases to the sole maintainer.
+# The main ruleset supplies mandatory exact-head checks without fabricating an
+# independent approval; require CODEOWNER review when a second maintainer joins.
 /.github/ @GrihmLord
 /app/core/ @GrihmLord
 /app/firewall_helper/ @GrihmLord

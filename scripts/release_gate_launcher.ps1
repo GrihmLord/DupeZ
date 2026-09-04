@@ -12,7 +12,7 @@ Purpose:
 [CmdletBinding()]
 param(
     [ValidateSet("auto", "admin-finalize", "gpu-validate", "admin-compat", "admin-stage-draft", "admin-stage-publish", "status", "reset")]
-    [string]$Phase = "auto",
+    [string]$Phase = "status",
 
     [ValidatePattern("^\d+\.\d+\.\d+$")]
     [string]$Version = "5.8.0",
@@ -65,9 +65,11 @@ function Resolve-InboxWindowsPowerShell {
 $inboxWindowsPowerShell = Resolve-InboxWindowsPowerShell
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-Set-Location $repoRoot
-
 $statePath = Join-Path $repoRoot "dist\blocked-release-gates-progress.json"
+$sequenceScriptPath = Join-Path $PSScriptRoot "blocked_release_gates_sequence.ps1"
+if (-not (Test-Path -LiteralPath $sequenceScriptPath -PathType Leaf)) {
+    throw "Blocked release gate sequencer is missing: $sequenceScriptPath"
+}
 $stateSchema = "dupez.blocked-release-gates-progress.v3"
 $releaseMode = if ($AllowUnsigned) { "unsigned" } else { "authenticode" }
 $validationPolicy = if ($AllowNonMainValidation) {
@@ -101,14 +103,32 @@ function Test-IsAdmin {
 }
 
 function Get-RepositoryIdentity {
+    $requiredBranch = if ($AllowNonMainValidation -or $Phase -eq "status") {
+        ""
+    }
+    else {
+        "main"
+    }
     $identity = Get-ReleaseGitIdentity `
         -RepositoryRoot $repoRoot `
-        -RequiredBranch "main" `
+        -RequiredBranch $requiredBranch `
         -AllowDirty
     return [ordered]@{
+        branch = $identity.Branch
         commit = $identity.Commit
         clean = [bool]$identity.Clean
     }
+}
+
+if ($Phase -eq "reset") {
+    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+        Remove-Item -LiteralPath $statePath -Force
+        Write-Host "Reset progress state: $statePath"
+    }
+    else {
+        Write-Host "No state file to reset."
+    }
+    return
 }
 
 $repositoryIdentity = Get-RepositoryIdentity
@@ -138,12 +158,12 @@ function Read-State {
             [string]$raw.release_mode -ne $releaseMode -or
             [string]$raw.validation_policy -ne $validationPolicy
         ) {
-            Write-Warning (
+            Write-Warning ((
                 "Ignoring release progress for " +
                 "schema/version/commit/release-mode/validation-policy " +
                 "'{0}'/'{1}'/'{2}'/'{3}'/'{4}'; the active release is " +
-                "'{5}'/'{6}'/'{7}'/'{8}'/'{9}'. " +
-                "Reinitializing progress state."
+                "'{5}'/'{6}'/'{7}'/'{8}'/'{9}'. Using fresh in-memory " +
+                "state; the file is unchanged until a phase result is recorded."
             ) -f (
                 $raw.schema,
                 $raw.version,
@@ -155,10 +175,8 @@ function Read-State {
                 $repositoryIdentity.commit,
                 $releaseMode,
                 $validationPolicy
-            )
-            $default = New-DefaultState
-            Write-State -state $default
-            return $default
+            ))
+            return New-DefaultState
         }
         $h = [ordered]@{
             schema = [string]$raw.schema
@@ -181,10 +199,11 @@ function Read-State {
         return $h
     }
     catch {
-        Write-Warning "Could not parse $statePath. Reinitializing progress state."
-        $default = New-DefaultState
-        Write-State -state $default
-        return $default
+        Write-Warning (
+            "Could not parse $statePath. Using fresh in-memory state; " +
+            "the file is unchanged until a phase result is recorded."
+        )
+        return New-DefaultState
     }
 }
 
@@ -199,7 +218,8 @@ function Write-State([hashtable]$state) {
 }
 
 function Show-Status([hashtable]$state) {
-    Write-Host "\nBlocked release gates status (v$Version):"
+    Write-Host "`nBlocked release gates status (v$Version):"
+    Write-Host "Branch: $($repositoryIdentity.branch)"
     Write-Host "Commit: $($state.commit)"
     Write-Host "Release mode: $($state.release_mode)"
     Write-Host "Validation policy: $($state.validation_policy)"
@@ -358,18 +378,26 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
     $needsAdmin = [bool]$phaseMeta[$phaseName].requiresAdmin
 
     if ($needsAdmin -and -not $isAdmin) {
-        Write-Host "\nPhase '$phaseName' requires Administrator PowerShell. Relaunching elevated..."
+        Write-Host "`nPhase '$phaseName' requires Administrator PowerShell. Relaunching elevated..."
         $encodedCommand = New-ElevatedLauncherEncodedCommand -phaseName $phaseName
         $argList = @(
             "-NoProfile",
             "-ExecutionPolicy", "Bypass",
             "-EncodedCommand", $encodedCommand
         )
-        Start-Process `
+        $elevatedProcess = Start-Process `
             -FilePath $inboxWindowsPowerShell `
             -Verb RunAs `
-            -ArgumentList $argList
-        return "RELAUNCHED_ELEVATED"
+            -ArgumentList $argList `
+            -Wait `
+            -PassThru
+        if ($elevatedProcess.ExitCode -ne 0) {
+            throw (
+                "Elevated phase '$phaseName' failed with exit code " +
+                "$($elevatedProcess.ExitCode)."
+            )
+        }
+        return
     }
 
     if (-not $needsAdmin -and $isAdmin) {
@@ -378,13 +406,13 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
 
     Invalidate-SuccessorDoneStates -phaseName $phaseName -state $state
 
-    Write-Host "\n=== Running $phaseName ==="
+    Write-Host "`n=== Running $phaseName ==="
     Write-Host "Context note: $($phaseMeta[$phaseName].note)"
 
     $seqArgs = @(
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
-        "-File", "scripts/blocked_release_gates_sequence.ps1",
+        "-File", $sequenceScriptPath,
         "-Phase", $phaseName,
         "-Version", $Version
     )
@@ -399,26 +427,33 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
     }
 
     & $inboxWindowsPowerShell @seqArgs
-    if ($LASTEXITCODE -ne 0) {
+    $phaseExitCode = $LASTEXITCODE
+    if ($phaseExitCode -ne 0) {
         $state.phases[$phaseName] = "FAILED"
-        Write-State -state $state
-        throw "Phase '$phaseName' failed with exit code $LASTEXITCODE."
+        try {
+            Write-State -state $state
+        }
+        catch {
+            throw (
+                "Phase '$phaseName' failed with exit code $phaseExitCode; " +
+                "the FAILED state also could not be persisted: " +
+                $_.Exception.Message
+            )
+        }
+        throw "Phase '$phaseName' failed with exit code $phaseExitCode."
     }
 
     $state.phases[$phaseName] = "DONE"
-    Write-State -state $state
-    return "DONE"
-}
-
-if ($Phase -eq "reset") {
-    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
-        Remove-Item -LiteralPath $statePath -Force
-        Write-Host "Reset progress state: $statePath"
+    try {
+        Write-State -state $state
     }
-    else {
-        Write-Host "No state file to reset."
+    catch {
+        throw (
+            "Phase '$phaseName' completed successfully, but its DONE state " +
+            "could not be persisted. Verify external effects before " +
+            "rerunning the phase: " + $_.Exception.Message
+        )
     }
-    exit 0
 }
 
 if (
@@ -435,7 +470,7 @@ $state = Read-State
 
 if ($Phase -eq "status") {
     Show-Status -state $state
-    exit 0
+    return
 }
 
 $selected = $Phase
@@ -443,29 +478,39 @@ if ($Phase -eq "auto") {
     $selected = Next-Phase -state $state
     if ($null -eq $selected) {
         Show-Status -state $state
-        Write-Host "\nAll blocked release gates are complete."
-        exit 0
+        Write-Host "`nAll blocked release gates are complete."
+        return
+    }
+    if ($selected -eq "admin-stage-publish") {
+        Show-Status -state $state
+        Write-Host (
+            "`nPublication is never automatic. Run again with " +
+            "-Phase admin-stage-publish after reviewing the verified draft."
+        )
+        return
     }
 }
 
-$result = Invoke-Phase -phaseName $selected -state $state
-if ($result -eq "RELAUNCHED_ELEVATED") {
-    Write-Host "Elevated window launched for '$selected'. After it completes, rerun this launcher."
-    exit 0
-}
+Invoke-Phase -phaseName $selected -state $state
 
 $state = Read-State
 Show-Status -state $state
 $next = Next-Phase -state $state
 if ($null -ne $next) {
-    Write-Host "\nNext phase: $next"
+    Write-Host "`nNext phase: $next"
     if ($next -eq "gpu-validate") {
         Write-Host "Run next from NON-admin desktop PowerShell."
+    }
+    elseif ($next -eq "admin-stage-publish") {
+        Write-Host (
+            "Review the verified draft, then run explicit " +
+            "-Phase admin-stage-publish. Auto mode will not publish."
+        )
     }
     elseif ([bool]$phaseMeta[$next].requiresAdmin) {
         Write-Host "Run next from ADMIN PowerShell (or use -Phase auto and allow elevation)."
     }
 }
 else {
-    Write-Host "\nAll blocked release gates complete."
+    Write-Host "`nAll blocked release gates complete."
 }
