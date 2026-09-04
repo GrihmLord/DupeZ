@@ -311,13 +311,12 @@ def _check_persistence_key() -> CheckResult:
         if persistence_key_degraded():
             return CheckResult(
                 name="Persistence integrity key",
-                status=CheckStatus.WARN,
-                message="using legacy machine-derived fallback key",
+                status=CheckStatus.FAIL,
+                message="secret-store-backed integrity key is unavailable",
                 fix_hint=(
-                    "Persistence integrity still works, but it is weaker "
-                    "than the secret-store-backed design. Repair the secret "
-                    "store and restart DupeZ so data files are re-signed "
-                    "under the durable per-install key."
+                    "Authenticated data reads and writes fail closed. Repair "
+                    "the secret store and restart DupeZ before changing or "
+                    "recovering persisted data."
                 ),
             )
         return CheckResult(
@@ -328,7 +327,7 @@ def _check_persistence_key() -> CheckResult:
     except Exception as exc:
         return CheckResult(
             name="Persistence integrity key",
-            status=CheckStatus.WARN,
+            status=CheckStatus.FAIL,
             message=f"check failed: {exc}",
             fix_hint=(
                 "Run the Secret store diagnostic first; persistence key "

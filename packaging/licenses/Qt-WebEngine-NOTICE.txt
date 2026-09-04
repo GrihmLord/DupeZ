@@ -1,0 +1,19 @@
+Qt WebEngine and Chromium notice
+
+DupeZ uses the Qt WebEngine libraries delivered by the exact
+PyQt6-WebEngine-Qt6 wheel recorded in requirements-locked.txt.
+
+The Qt-specific portions of Qt WebEngine are available under LGPL-3.0,
+GPL-3.0, GPL-2.0, or commercial terms. The distributed community wheel is
+recorded here under LGPL-3.0. Qt WebEngine also incorporates Chromium and
+third-party components under their respective licenses. The consolidated
+license payload includes the exact wheel's LGPL text. Qt's authoritative
+component-by-component notices are available at:
+
+https://doc.qt.io/qt-6/qtwebengine-licensing.html
+
+Chromium's embedded credits can also be viewed from a Qt WebEngine page at
+chrome://credits where supported by the deployed runtime.
+
+No proprietary media codecs are intentionally enabled or separately bundled
+by DupeZ.

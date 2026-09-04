@@ -4,31 +4,19 @@ name: Hardware Smoketest
 # an explicitly authorized private target. Missing authorization is a hard
 # failure, not a successful pytest skip.
 #
-# Required repository configuration for scheduled runs:
-#   vars.DUPEZ_SMOKETEST_TARGET_IP
+# Required encrypted secrets on a branch-restricted `hardware-smoketest`
+# GitHub environment (the environment must allow deployments only from main):
+#   secrets.DUPEZ_SMOKETEST_TARGET_IP
 #   secrets.DUPEZ_SMOKETEST_TARGET_MAC
-# Optional:
-#   vars.DUPEZ_SMOKETEST_CIDR
+#   secrets.DUPEZ_SMOKETEST_CIDR
+# Optional non-secret tuning:
 #   vars.DUPEZ_SMOKETEST_LAG_MS
 #   vars.DUPEZ_SMOKETEST_DURATION
 
 on:
   schedule:
     - cron: '0 9 * * *'
-  workflow_dispatch:
-    inputs:
-      cidr:
-        description: 'Optional private CIDR override, e.g. 192.168.1.0/24'
-        required: false
-        default: ''
-      target_ip:
-        description: 'Exact authorized private target IP'
-        required: false
-        default: ''
-      target_mac:
-        description: 'Exact authorized target MAC (prefer repository secret for schedules)'
-        required: false
-        default: ''
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -41,30 +29,51 @@ jobs:
   hardware-smoketest:
     runs-on: [self-hosted, windows, admin, windivert]
     timeout-minutes: 30
-    env:
-      DUPEZ_RUN_HARDWARE_SMOKETEST: '1'
-      DUPEZ_SMOKETEST_CIDR: ${{ github.event.inputs.cidr || vars.DUPEZ_SMOKETEST_CIDR }}
-      DUPEZ_SMOKETEST_TARGET_IP: ${{ github.event.inputs.target_ip || vars.DUPEZ_SMOKETEST_TARGET_IP }}
-      DUPEZ_SMOKETEST_TARGET_MAC: ${{ github.event.inputs.target_mac || secrets.DUPEZ_SMOKETEST_TARGET_MAC }}
-      DUPEZ_SMOKETEST_LAG_MS: ${{ vars.DUPEZ_SMOKETEST_LAG_MS || '100' }}
-      DUPEZ_SMOKETEST_DURATION: ${{ vars.DUPEZ_SMOKETEST_DURATION || '3.0' }}
-      DUPEZ_SMOKETEST_MODULE_DURATION: ${{ vars.DUPEZ_SMOKETEST_MODULE_DURATION || '3.0' }}
-      DUPEZ_SMOKETEST_FULL_TIMER_SECONDS: '4'
+    environment:
+      name: hardware-smoketest
 
     steps:
+      - name: Validate trusted main invocation
+        shell: pwsh
+        run: |
+          if ('${{ github.repository }}' -cne 'GrihmLord/DupeZ') {
+            throw 'Hardware smoke is restricted to the canonical repository.'
+          }
+          if ('${{ github.ref }}' -cne 'refs/heads/main') {
+            throw 'Hardware smoke is restricted to refs/heads/main.'
+          }
+          $expectedWorkflowRef = (
+            'GrihmLord/DupeZ/.github/workflows/' +
+            'hardware-smoketest.yml@refs/heads/main'
+          )
+          if ('${{ github.workflow_ref }}' -cne $expectedWorkflowRef) {
+            throw 'Hardware smoke workflow identity is not trusted.'
+          }
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: true
 
       - name: Set up Python
-        # Keep v6 until the self-hosted runner is explicitly certified for the
-        # Node runtime required by actions/setup-python v7.
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        # checkout v7 and setup-python v7 both require a Node 24-capable runner
+        # (GitHub Actions runner 2.327.1 or newer).
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.13.14'
 
       - name: Validate explicit authorization
         shell: pwsh
+        env:
+          DUPEZ_SMOKETEST_CIDR: ${{ secrets.DUPEZ_SMOKETEST_CIDR }}
+          DUPEZ_SMOKETEST_TARGET_IP: ${{ secrets.DUPEZ_SMOKETEST_TARGET_IP }}
+          DUPEZ_SMOKETEST_TARGET_MAC: ${{ secrets.DUPEZ_SMOKETEST_TARGET_MAC }}
         run: |
+          if ([string]::IsNullOrWhiteSpace($env:DUPEZ_SMOKETEST_CIDR)) {
+            throw 'DUPEZ_SMOKETEST_CIDR is required; refusing an unbounded scan.'
+          }
           if ([string]::IsNullOrWhiteSpace($env:DUPEZ_SMOKETEST_TARGET_IP)) {
             throw 'DUPEZ_SMOKETEST_TARGET_IP is required; refusing a false-green hardware run.'
           }
@@ -81,65 +90,397 @@ jobs:
           if ($env:DUPEZ_SMOKETEST_TARGET_MAC -notmatch '^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$') {
             throw 'DUPEZ_SMOKETEST_TARGET_MAC is invalid.'
           }
+          $authorizationCheck = @'
+          import ipaddress
+          import os
+          import sys
+
+          private_v4 = (
+              ipaddress.ip_network("10.0.0.0/8"),
+              ipaddress.ip_network("172.16.0.0/12"),
+              ipaddress.ip_network("192.168.0.0/16"),
+          )
+          try:
+              target = ipaddress.ip_address(
+                  os.environ["DUPEZ_SMOKETEST_TARGET_IP"].strip()
+              )
+              if not isinstance(target, ipaddress.IPv4Address):
+                  raise ValueError
+              if not any(target in network for network in private_v4):
+                  raise ValueError
+              raw_cidr = os.environ["DUPEZ_SMOKETEST_CIDR"].strip()
+              network = ipaddress.ip_network(raw_cidr, strict=False)
+              if not isinstance(network, ipaddress.IPv4Network):
+                  raise ValueError
+              if network.prefixlen < 24 or target not in network:
+                  raise ValueError
+              if not any(network.subnet_of(item) for item in private_v4):
+                  raise ValueError
+          except (KeyError, ValueError):
+              sys.exit(2)
+          '@
+          $authorizationCheck | python -
+          if ($LASTEXITCODE -ne 0) {
+            throw (
+              'Hardware target must be RFC1918 IPv4; its CIDR must ' +
+              'contain it, remain RFC1918, and be /24 or narrower.'
+            )
+          }
           Write-Host 'Explicit hardware authorization: PRESENT'
 
       - name: Install dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements-locked.txt
-          pip install pytest
-
-      - name: Verify WinDivert and Clumsy artifacts
-        shell: pwsh
-        run: |
-          $required = @(
-            'app/firewall/WinDivert.dll',
-            'app/firewall/WinDivert64.sys',
-            'app/firewall/clumsy.exe'
+          $toolRoot = Join-Path $env:RUNNER_TEMP (
+            'dupez-hardware-tools-${{ github.run_id }}-${{ github.run_attempt }}'
           )
-          foreach ($path in $required) {
-            if (-not (Test-Path $path)) {
-              throw "Required hardware artifact missing: $path"
+          if (Test-Path -LiteralPath $toolRoot) {
+            throw 'Per-run hardware tool environment already exists.'
+          }
+          python -m venv $toolRoot
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not create the isolated hardware tool environment.'
+          }
+          $toolPython = Join-Path $toolRoot 'Scripts\python.exe'
+          & $toolPython -m pip install --upgrade 'pip==26.2.1'
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not install the canonical pip version.'
+          }
+          & $toolPython -m pip install --require-hashes -r requirements-locked.txt
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not install hash-locked runtime dependencies.'
+          }
+          & $toolPython -m pip install --only-binary=:all: --require-hashes `
+            -r requirements-hardware-test-locked.txt
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Could not install the pinned hardware test runner.'
+          }
+          "DUPEZ_HARDWARE_PYTHON=$toolPython" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Prepare isolated hardware workspace
+        shell: pwsh
+        env:
+          DUPEZ_HARDWARE_DIAGNOSTIC_ROOT: ${{ runner.temp }}\dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          $runnerTemp = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $runnerPrefix = $runnerTemp.TrimEnd('\') + '\'
+          $diagnosticRoot = [System.IO.Path]::GetFullPath(
+            $env:DUPEZ_HARDWARE_DIAGNOSTIC_ROOT
+          )
+          if (-not $diagnosticRoot.StartsWith(
+            $runnerPrefix,
+            [System.StringComparison]::OrdinalIgnoreCase
+          )) {
+            throw 'Private hardware workspace escapes RUNNER_TEMP.'
+          }
+          if (Test-Path -LiteralPath $diagnosticRoot) {
+            throw 'Per-run private hardware workspace already exists.'
+          }
+          $rawRoot = Join-Path $diagnosticRoot 'raw'
+          New-Item -ItemType Directory -Path $rawRoot -ErrorAction Stop | Out-Null
+          foreach ($path in @($diagnosticRoot, $rawRoot)) {
+            $item = Get-Item -LiteralPath $path -Force -ErrorAction Stop
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+              throw 'Private hardware workspace contains a reparse point.'
             }
           }
 
-      - name: Run authorized native, full Clumsy, hidden-window, and event-queue gates
+      - name: Run and attest hardware gates with locked native bytes
         shell: pwsh
+        env:
+          DUPEZ_FORCE_USER_DATA: '1'
+          DUPEZ_HARDWARE_DIAGNOSTIC_ROOT: ${{ runner.temp }}\dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}
+          DUPEZ_RUN_HARDWARE_SMOKETEST: '1'
+          DUPEZ_SMOKETEST_CIDR: ${{ secrets.DUPEZ_SMOKETEST_CIDR }}
+          DUPEZ_SMOKETEST_TARGET_IP: ${{ secrets.DUPEZ_SMOKETEST_TARGET_IP }}
+          DUPEZ_SMOKETEST_TARGET_MAC: ${{ secrets.DUPEZ_SMOKETEST_TARGET_MAC }}
+          DUPEZ_SMOKETEST_LAG_MS: ${{ vars.DUPEZ_SMOKETEST_LAG_MS || '100' }}
+          DUPEZ_SMOKETEST_DURATION: ${{ vars.DUPEZ_SMOKETEST_DURATION || '3.0' }}
+          DUPEZ_SMOKETEST_MODULE_DURATION: ${{ vars.DUPEZ_SMOKETEST_MODULE_DURATION || '3.0' }}
+          DUPEZ_SMOKETEST_FULL_TIMER_SECONDS: '4'
+          DUPEZ_USER_ROOT: ${{ runner.temp }}\dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}\user
         run: |
-          $tests = @(
-            'tests/test_hardware_smoketest.py',
-            'tests/test_direct_clumsy_event_hardware.py',
-            'tests/test_clumsy_full_controls_hardware.py',
-            'tests/test_clumsy_hidden_window_hardware.py'
+          $repoRoot = (Resolve-Path '.').Path
+          $repoPrefix = $repoRoot.TrimEnd('\') + '\'
+          $diagnosticRoot = [System.IO.Path]::GetFullPath(
+            $env:DUPEZ_HARDWARE_DIAGNOSTIC_ROOT
           )
-          python -X faulthandler -m pytest `
-            -q `
-            -m hardware `
-            -s `
-            --tb=short `
-            $tests 2>&1 | Tee-Object -FilePath smoketest.log
-          if ($LASTEXITCODE -ne 0) {
-            throw "Authorized hardware smoke failed with exit code $LASTEXITCODE"
+          $rawRoot = Join-Path $diagnosticRoot 'raw'
+          $smoketestLog = Join-Path $rawRoot 'smoketest.log'
+          $junitPath = Join-Path $rawRoot 'hardware-smoketest.junit.xml'
+          if (-not (Test-Path -LiteralPath $rawRoot -PathType Container)) {
+            throw 'Private hardware diagnostic workspace is unavailable.'
+          }
+          $toolPython = [System.IO.Path]::GetFullPath(
+            $env:DUPEZ_HARDWARE_PYTHON
+          )
+          if (-not (Test-Path -LiteralPath $toolPython -PathType Leaf)) {
+            throw 'Isolated hardware Python is unavailable.'
+          }
+          $provenance = Get-Content `
+            -LiteralPath 'packaging/binary-provenance.json' `
+            -Raw | ConvertFrom-Json
+          $nativePaths = @(
+            $provenance.artifacts |
+              ForEach-Object { [string]$_.path } |
+              Sort-Object -Unique
+          )
+          if ($nativePaths.Count -lt 1) {
+            throw 'Binary provenance contains no native artifacts to lock.'
+          }
+          $nativeLocks = @()
+          try {
+            foreach ($relative in $nativePaths) {
+              if ($relative -notmatch '^app/firewall/[A-Za-z0-9._-]+$') {
+                throw "Unsafe native provenance path: $relative"
+              }
+              $candidate = [System.IO.Path]::GetFullPath(
+                (Join-Path $repoRoot ($relative -replace '/', '\'))
+              )
+              if (-not $candidate.StartsWith(
+                $repoPrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+              )) {
+                throw "Native provenance path escapes the repository: $relative"
+              }
+              foreach ($component in @(
+                (Join-Path $repoRoot 'app'),
+                (Join-Path $repoRoot 'app\firewall'),
+                $candidate
+              )) {
+                $item = Get-Item -LiteralPath $component -Force
+                if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                  throw "Reparse points are forbidden in native hardware paths: $component"
+                }
+              }
+              # FileShare.Read permits execution/loading while denying replacement,
+              # writes, and deletion until evidence is emitted for this run.
+              $nativeLocks += [System.IO.File]::Open(
+                $candidate,
+                [System.IO.FileMode]::Open,
+                [System.IO.FileAccess]::Read,
+                [System.IO.FileShare]::Read
+              )
+            }
+
+            & $toolPython scripts/hardware_evidence.py verify-native
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Native provenance verification failed before hardware tests.'
+            }
+
+            $ownedPath = (Resolve-Path 'app/firewall/clumsy.exe').Path
+            function Get-ExactClumsyProcesses {
+              return @(
+                Get-CimInstance Win32_Process `
+                  -Filter "Name = 'clumsy.exe'" `
+                  -ErrorAction Stop |
+                  Where-Object {
+                    [string]::Equals(
+                      $_.ExecutablePath,
+                      $ownedPath,
+                      [System.StringComparison]::OrdinalIgnoreCase
+                    )
+                  }
+              )
+            }
+            $preexisting = @(Get-ExactClumsyProcesses)
+            if ($preexisting.Count -gt 0) {
+              throw (
+                'The prepared runner already has an exact-path clumsy.exe; ' +
+                'refusing ambiguous process ownership.'
+              )
+            }
+
+            $tests = @(
+              'tests/test_hardware_smoketest.py',
+              'tests/test_direct_clumsy_event_hardware.py',
+              'tests/test_clumsy_full_controls_hardware.py',
+              'tests/test_clumsy_hidden_window_hardware.py'
+            )
+            $testExit = 1
+            $remainingCount = -1
+            try {
+              & $toolPython -X faulthandler -m pytest `
+                -q `
+                -m hardware `
+                -s `
+                --tb=short `
+                "--junitxml=$junitPath" `
+                $tests *> $smoketestLog
+              $testExit = $LASTEXITCODE
+            }
+            finally {
+              # Assert no owned Clumsy process leaked.
+              $leaked = @(Get-ExactClumsyProcesses)
+              if ($leaked.Count -gt 0) {
+                Write-Warning (
+                  'Detected {0} exact-path Clumsy process(es) after the test.' `
+                  -f $leaked.Count
+                )
+                foreach ($process in $leaked) {
+                  Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+                }
+                Start-Sleep -Seconds 1
+              }
+              $remaining = @(Get-ExactClumsyProcesses)
+              $remainingCount = $remaining.Count
+            }
+
+            if ($testExit -ne 0) {
+              throw "Authorized hardware smoke failed with exit code $testExit"
+            }
+            if ($remainingCount -gt 0) {
+              throw 'Hardware workflow could not clean up its owned clumsy.exe.'
+            }
+
+            # Create privacy-safe hardware evidence while every native byte is
+            # still protected by the same non-write/non-delete handles.
+            & $toolPython scripts/hardware_evidence.py create `
+              --junit $junitPath `
+              --out hardware-smoketest-evidence.json `
+              --commit '${{ github.sha }}' `
+              --clumsy-processes-remaining `
+                "$remainingCount"
+            if ($LASTEXITCODE -ne 0) {
+              throw 'Hardware evidence creation failed.'
+            }
+          }
+          finally {
+            foreach ($stream in $nativeLocks) {
+              $stream.Dispose()
+            }
           }
 
-      - name: Assert no owned Clumsy process leaked
+      - name: Upload hardware evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hardware-smoketest-evidence-${{ github.sha }}
+          path: hardware-smoketest-evidence.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Sanitize private hardware diagnostics
+        id: sanitize_diagnostics
         if: always()
         shell: pwsh
+        env:
+          DUPEZ_HARDWARE_DIAGNOSTIC_ROOT: ${{ runner.temp }}\dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}
+          DUPEZ_SMOKETEST_CIDR: ${{ secrets.DUPEZ_SMOKETEST_CIDR }}
+          DUPEZ_SMOKETEST_TARGET_IP: ${{ secrets.DUPEZ_SMOKETEST_TARGET_IP }}
+          DUPEZ_SMOKETEST_TARGET_MAC: ${{ secrets.DUPEZ_SMOKETEST_TARGET_MAC }}
         run: |
-          $leaked = @(Get-CimInstance Win32_Process -Filter "Name = 'clumsy.exe'" -ErrorAction SilentlyContinue)
-          if ($leaked.Count -gt 0) {
-            $leaked | Select-Object ProcessId, ExecutablePath | Format-Table -AutoSize
-            throw 'Hardware workflow left a clumsy.exe process running.'
+          function Assert-NoReparseDescendants([string]$Path) {
+            $reparsePoints = @(
+              Get-ChildItem -LiteralPath $Path -Force -Recurse `
+                -Attributes ReparsePoint -ErrorAction Stop
+            )
+            if ($reparsePoints.Count -gt 0) {
+              throw 'Private hardware diagnostics contain a reparse point.'
+            }
+          }
+
+          $runnerTemp = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+          $runnerPrefix = $runnerTemp.TrimEnd('\') + '\'
+          $diagnosticRoot = [System.IO.Path]::GetFullPath(
+            $env:DUPEZ_HARDWARE_DIAGNOSTIC_ROOT
+          )
+          if (-not $diagnosticRoot.StartsWith(
+            $runnerPrefix,
+            [System.StringComparison]::OrdinalIgnoreCase
+          )) {
+            throw 'Private hardware diagnostics escape RUNNER_TEMP.'
+          }
+          $rootItem = Get-Item -LiteralPath $diagnosticRoot -Force -ErrorAction Stop
+          if (($rootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw 'Private hardware diagnostic root is a reparse point.'
+          }
+          $rawRoot = Join-Path $diagnosticRoot 'raw'
+          $userRoot = Join-Path $diagnosticRoot 'user'
+          $redactedRoot = Join-Path $diagnosticRoot 'redacted'
+          $redactionExit = 1
+          try {
+            & $env:DUPEZ_HARDWARE_PYTHON `
+              scripts/redact_hardware_diagnostics.py `
+              --root $diagnosticRoot `
+              --source raw/smoketest.log `
+              --source raw/hardware-smoketest.junit.xml `
+              --source user/logs `
+              --output $redactedRoot
+            $redactionExit = $LASTEXITCODE
+          }
+          finally {
+            foreach ($privatePath in @($rawRoot, $userRoot)) {
+              if (-not (Test-Path -LiteralPath $privatePath)) {
+                continue
+              }
+              $resolved = [System.IO.Path]::GetFullPath($privatePath)
+              $privatePrefix = $diagnosticRoot.TrimEnd('\') + '\'
+              if (-not $resolved.StartsWith(
+                $privatePrefix,
+                [System.StringComparison]::OrdinalIgnoreCase
+              )) {
+                throw 'Private hardware cleanup path escapes its per-run root.'
+              }
+              $privateItem = Get-Item -LiteralPath $resolved -Force -ErrorAction Stop
+              if (($privateItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw 'Refusing to remove a reparse-point diagnostic path.'
+              }
+              Assert-NoReparseDescendants -Path $resolved
+              Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop
+            }
+          }
+          if ($redactionExit -ne 0) {
+            throw 'Hardware diagnostic redaction failed; raw diagnostics were removed.'
           }
 
       - name: Upload hardware diagnostics
-        if: always()
+        if: ${{ failure() && steps.sanitize_diagnostics.outcome == 'success' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: hardware-smoketest-${{ github.run_id }}
-          path: |
-            smoketest.log
-            logs/**/*.log
-          if-no-files-found: warn
-          retention-days: 14
+          path: ${{ runner.temp }}/dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}/redacted/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Remove isolated hardware workspace
+        if: always()
+        shell: pwsh
+        env:
+          DUPEZ_HARDWARE_DIAGNOSTIC_ROOT: ${{ runner.temp }}\dupez-hardware-${{ github.run_id }}-${{ github.run_attempt }}
+          DUPEZ_HARDWARE_TOOL_ROOT: ${{ runner.temp }}\dupez-hardware-tools-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          function Remove-VerifiedRunnerTempTree([string]$Path) {
+            if (-not (Test-Path -LiteralPath $Path)) {
+              return
+            }
+            $runnerTemp = [System.IO.Path]::GetFullPath($env:RUNNER_TEMP)
+            $runnerPrefix = $runnerTemp.TrimEnd('\') + '\'
+            $resolved = [System.IO.Path]::GetFullPath($Path)
+            if (-not $resolved.StartsWith(
+              $runnerPrefix,
+              [System.StringComparison]::OrdinalIgnoreCase
+            )) {
+              throw 'Hardware cleanup path escapes RUNNER_TEMP.'
+            }
+            $item = Get-Item -LiteralPath $resolved -Force -ErrorAction Stop
+            if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+              throw 'Refusing to remove a reparse-point hardware workspace.'
+            }
+            $reparsePoints = @(
+              Get-ChildItem -LiteralPath $resolved -Force -Recurse `
+                -Attributes ReparsePoint -ErrorAction Stop
+            )
+            if ($reparsePoints.Count -gt 0) {
+              throw 'Refusing to remove hardware workspace with reparse descendants.'
+            }
+            Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop
+            if (Test-Path -LiteralPath $resolved) {
+              throw 'Hardware workspace cleanup did not complete.'
+            }
+          }
+
+          Remove-VerifiedRunnerTempTree `
+            -Path $env:DUPEZ_HARDWARE_DIAGNOSTIC_ROOT
+          Remove-VerifiedRunnerTempTree `
+            -Path $env:DUPEZ_HARDWARE_TOOL_ROOT

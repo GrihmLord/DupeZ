@@ -32,14 +32,15 @@ jobs:
       DUPEZ_SIGN_CERT: ''
       DUPEZ_SIGN_PASS: ''
       DUPEZ_SIGN_PRIVKEY: ''
+      DUPEZ_PORTABLE_ONLY: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup canonical release Python 3.11.9
+      - name: Setup canonical release Python 3.13.14
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11.9'
+          python-version: '3.13.14'
           architecture: x64
 
       - name: Create repository bootstrap venv
@@ -47,7 +48,10 @@ jobs:
         run: |
           python -m venv .venv
           .\.venv\Scripts\python.exe -I -S -c `
-            "import struct, sys; assert sys.version_info[:3] == (3, 11, 9); assert struct.calcsize('P') == 8"
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Canonical Python 3.13.14 x64 verification failed.'
+          }
 
       - name: Build canonical unsigned variants
         shell: cmd
@@ -60,7 +64,7 @@ jobs:
             'dist\DupeZ-GPU.exe',
             'dist\DupeZ-Compat.exe',
             'dist\DupeZ.sbom.json',
-            'dist\DupeZ.vex.json',
+            'dist\DupeZ.vulnerability-review.json',
             'dist\binary-provenance.json'
           )
           foreach ($artifact in $artifacts) {
@@ -105,6 +109,6 @@ jobs:
             build\**\warn-*.txt
             build\**\xref-*.html
             dist\DupeZ.sbom.json
-            dist\DupeZ.vex.json
+            dist\DupeZ.vulnerability-review.json
           if-no-files-found: warn
           retention-days: 7

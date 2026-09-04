@@ -34,7 +34,8 @@ The manifest is a small JSON document containing:
         "installer": {
             "filename": "DupeZ_Setup.exe",
             "sha256": "<64 hex>",
-            "size": 12345678
+            "size": 12345678,
+            "authenticode_signer_sha256": "<SHA-256 of signer certificate DER>"
         }
     }
 
@@ -66,9 +67,15 @@ needing to try each one.
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
+import hmac
 import json
+import os
+import re
+import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, List, Optional
 
 __all__ = [
@@ -77,8 +84,10 @@ __all__ = [
     "SigVerifyError",
     "UpdateManifest",
     "pubkey_fingerprint",
+    "authenticode_signer_sha256",
     "verify_manifest",
     "verify_manifest_and_enforce_monotonic",
+    "verify_installer_authenticode",
     "verify_installer_sha256",
 ]
 
@@ -146,6 +155,7 @@ class UpdateManifest:
     installer_filename: str
     installer_sha256: str
     installer_size: int
+    authenticode_signer_sha256: Optional[str] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────
@@ -176,12 +186,138 @@ def _load_ed25519_pubkey(pem: str):
     return key
 
 
+def _windows_powershell_path() -> Path:
+    """Resolve the inbox Windows PowerShell without trusting environment paths."""
+    if os.name != "nt":
+        raise SigVerifyError("Authenticode verification requires Windows")
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_system_directory = kernel32.GetSystemDirectoryW
+    get_system_directory.argtypes = [ctypes.c_wchar_p, ctypes.c_uint32]
+    get_system_directory.restype = ctypes.c_uint32
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = int(get_system_directory(buffer, len(buffer)))
+    if length == 0 or length >= len(buffer):
+        raise SigVerifyError(
+            "cannot resolve the trusted Windows system directory"
+        )
+    powershell = (
+        Path(buffer.value)
+        / "WindowsPowerShell"
+        / "v1.0"
+        / "powershell.exe"
+    )
+    if not powershell.is_file():
+        raise SigVerifyError("inbox Windows PowerShell is unavailable")
+    return powershell
+
+
+def authenticode_signer_sha256(installer_path: str) -> str:
+    """Return the valid Authenticode signer certificate's DER SHA-256.
+
+    ``Get-AuthenticodeSignature`` performs the Windows trust-policy check. The
+    returned certificate identity is then hashed from its exact DER bytes and
+    can be bound inside the separately Ed25519-signed update manifest.
+    """
+    path = Path(installer_path).resolve()
+    if not path.is_file():
+        raise SigVerifyError(f"installer missing: {path}")
+    powershell = _windows_powershell_path()
+    env = os.environ.copy()
+    env["DUPEZ_AUTHENTICODE_TARGET"] = str(path)
+    script = r"""
+$ErrorActionPreference = 'Stop'
+$securityModule = Join-Path $PSHOME 'Modules\Microsoft.PowerShell.Security\Microsoft.PowerShell.Security.psd1'
+Import-Module -Name $securityModule -ErrorAction Stop
+$signature = Get-AuthenticodeSignature -LiteralPath $env:DUPEZ_AUTHENTICODE_TARGET
+if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) {
+    throw "Authenticode status is $($signature.Status)"
+}
+$sha256 = [System.Security.Cryptography.SHA256]::Create()
+try {
+    $digest = $sha256.ComputeHash($signature.SignerCertificate.RawData)
+}
+finally {
+    $sha256.Dispose()
+}
+[pscustomobject]@{
+    status = $signature.Status.ToString()
+    signer_sha256 = ([System.BitConverter]::ToString($digest)).Replace('-', '').ToLowerInvariant()
+} | ConvertTo-Json -Compress
+"""
+    try:
+        completed = subprocess.run(
+            [
+                str(powershell),
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                script,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+            shell=False,
+            env=env,
+        )
+    except Exception as exc:
+        raise SigVerifyError(
+            f"Authenticode signer query failed: {exc}"
+        ) from exc
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or "Windows trust policy rejected it"
+        raise SigVerifyError(f"installer Authenticode is not valid: {detail}")
+    try:
+        payload = json.loads(completed.stdout)
+    except (TypeError, json.JSONDecodeError) as exc:
+        raise SigVerifyError(
+            "Authenticode signer query returned invalid JSON"
+        ) from exc
+    fingerprint = str(payload.get("signer_sha256") or "").lower()
+    if payload.get("status") != "Valid" or not re.fullmatch(
+        r"[0-9a-f]{64}", fingerprint
+    ):
+        raise SigVerifyError(
+            "Authenticode signer query returned no valid certificate identity"
+        )
+    return fingerprint
+
+
+def verify_installer_authenticode(
+    installer_path: str,
+    manifest: UpdateManifest,
+    *,
+    allow_unsigned: bool = False,
+) -> None:
+    """Verify Windows trust and the Ed25519-bound signer certificate.
+
+    ``allow_unsigned`` exists only for explicit development/test artifact
+    tooling. The in-app updater never enables it.
+    """
+    expected = manifest.authenticode_signer_sha256
+    if allow_unsigned and expected is None:
+        return
+    if expected is None:
+        raise SigVerifyError(
+            "signed update manifest does not bind an Authenticode signer"
+        )
+    actual = authenticode_signer_sha256(installer_path)
+    if not hmac.compare_digest(actual, expected.lower()):
+        raise SigVerifyError(
+            "installer Authenticode signer certificate does not match the "
+            "Ed25519-signed manifest"
+        )
+
+
 # ── Manifest + signature verification ─────────────────────────────
 
 def verify_manifest(
     manifest_bytes: bytes,
     sig_envelope: bytes,
     trusted_pubkeys_pem: Optional[Iterable[str]] = None,
+    *,
+    allow_unsigned: bool = False,
 ) -> UpdateManifest:
     """Verify a signed manifest and return the parsed UpdateManifest.
 
@@ -193,6 +329,10 @@ def verify_manifest(
             bytes exactly: 8-byte pubkey fingerprint + 64-byte signature.
         trusted_pubkeys_pem: optional override (testing).  Defaults to
             the module-level TRUSTED_PUBKEYS_PEM.
+        allow_unsigned: explicit development/test escape hatch. Production
+            updater callers must leave this false so the Ed25519-authenticated
+            manifest is required to bind the exact Authenticode signer
+            certificate expected on the downloaded installer.
 
     Returns:
         Verified UpdateManifest.
@@ -277,7 +417,17 @@ def verify_manifest(
     filename = installer.get("filename")
     sha256 = installer.get("sha256")
     size = installer.get("size")
-    if not isinstance(filename, str) or "/" in filename or "\\" in filename:
+    authenticode_signer_sha256 = installer.get(
+        "authenticode_signer_sha256"
+    )
+    if (
+        not isinstance(filename, str)
+        or not filename
+        or filename in {".", ".."}
+        or "/" in filename
+        or "\\" in filename
+        or "\x00" in filename
+    ):
         raise SigVerifyError(f"manifest.installer.filename invalid: {filename!r}")
     if not isinstance(sha256, str) or len(sha256) != 64:
         raise SigVerifyError(f"manifest.installer.sha256 invalid: {sha256!r}")
@@ -287,6 +437,16 @@ def verify_manifest(
         raise SigVerifyError(f"manifest.installer.sha256 not hex: {e}") from e
     if not isinstance(size, int) or size <= 0 or size > 1024 * 1024 * 1024:  # 1 GB cap
         raise SigVerifyError(f"manifest.installer.size invalid: {size!r}")
+    if authenticode_signer_sha256 is None and allow_unsigned:
+        pass
+    elif (
+        not isinstance(authenticode_signer_sha256, str)
+        or not re.fullmatch(r"[0-9a-fA-F]{64}", authenticode_signer_sha256)
+    ):
+        raise SigVerifyError(
+            "manifest.installer.authenticode_signer_sha256 must bind the "
+            "SHA-256 fingerprint of the expected signer certificate"
+        )
 
     return UpdateManifest(
         version=version,
@@ -294,6 +454,11 @@ def verify_manifest(
         installer_filename=filename,
         installer_sha256=sha256.lower(),
         installer_size=size,
+        authenticode_signer_sha256=(
+            authenticode_signer_sha256.lower()
+            if isinstance(authenticode_signer_sha256, str)
+            else None
+        ),
     )
 
 
@@ -301,29 +466,57 @@ def verify_manifest_and_enforce_monotonic(
     manifest_bytes: bytes,
     sig_envelope: bytes,
     trusted_pubkeys_pem: Optional[Iterable[str]] = None,
+    *,
+    installed_version: Optional[str] = None,
+    expected_release_version: Optional[str] = None,
+    expected_installer_filename: Optional[str] = None,
 ) -> UpdateManifest:
-    """Verify signature, then enforce the v5.7.6 downgrade-replay gate.
+    """Verify signature, bind release metadata, then gate the version.
 
     Combines :func:`verify_manifest` with
-    :func:`app.core.update_state.enforce_monotonic_version` so the
+    :func:`app.core.update_state.enforce_update_version` so the
     updater has a single call site for "is this manifest acceptable to
     act on." On any failure — bad sig, downgrade, ledger I/O error —
     the caller MUST NOT launch the installer.
+
+    When supplied by the caller, ``expected_release_version`` and
+    ``expected_installer_filename`` bind the authenticated manifest to the
+    release selected by the API and the exact installer URL before the
+    monotonic ledger is advanced. Version comparison for that binding is
+    exact after stripping the conventional leading ``v``.
 
     Raises:
         SigVerifyError on signature/schema failure (re-raised from
             :func:`verify_manifest`).
         app.core.update_state.DowngradeRefusedError when the manifest's
-            version is strictly older than the last accepted manifest.
+            version is not strictly newer than the installed binary or is
+            older than the authenticated version floor.
             Note: callers can choose to catch this specifically to log
             a louder "POSSIBLE ATTACK" event without conflating it with
             ordinary signature failures.
     """
     manifest = verify_manifest(manifest_bytes, sig_envelope, trusted_pubkeys_pem)
+
+    if expected_release_version is not None:
+        expected = expected_release_version.lstrip("vV").strip()
+        actual = manifest.version.lstrip("vV").strip()
+        if not expected or actual != expected:
+            raise SigVerifyError(
+                f"manifest version {manifest.version!r} does not match "
+                f"selected release {expected_release_version!r}"
+            )
+
+    if expected_installer_filename is not None:
+        if manifest.installer_filename.casefold() != expected_installer_filename.casefold():
+            raise SigVerifyError(
+                f"manifest installer {manifest.installer_filename!r} does not match "
+                f"download target {expected_installer_filename!r}"
+            )
+
     # Lazy import so the signature-verify codepath stays import-light
     # for unit tests that exercise verify_manifest in isolation.
-    from app.core.update_state import enforce_monotonic_version
-    enforce_monotonic_version(manifest.version)
+    from app.core.update_state import enforce_update_version
+    enforce_update_version(manifest.version, installed_version)
     return manifest
 
 

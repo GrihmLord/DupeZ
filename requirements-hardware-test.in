@@ -1,0 +1,7 @@
+# Hardware-smoke test runner dependencies.
+#
+# Keep this graph minimal because it is installed on a privileged self-hosted
+# Windows runner. Regenerate requirements-hardware-test-locked.txt with the
+# same reviewed pip-tools version used by scripts/lock-requirements.*.
+
+pytest==9.0.3

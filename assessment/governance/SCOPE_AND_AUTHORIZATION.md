@@ -4,9 +4,10 @@
 - Workspace at c:/Users/Owner/dev/tools/DupeZ
 - Source, tests, scripts, release docs, and dist artifacts present locally
 - Local command execution and non-destructive validation
+- Read-only inspection of GitHub branch and environment configuration
 
 ## Out of scope
-- External production systems
+- External production-system mutation or deployment
 - Unconfirmed third-party environments
 - Active offensive testing on unauthorized targets
 

@@ -5,7 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.core.disruption_events import ENGINE_AUTO, ENGINE_CLUMSY
+from app.core.disruption_events import (
+    ENGINE_AUTO,
+    ENGINE_CLUMSY,
+    EventSequenceStatus,
+)
 from app.gui.panels.disruption_event_panel import DisruptionEventPanel
 
 
@@ -169,7 +173,8 @@ def test_existing_stop_buttons_are_wired_to_stop_panel_queue():
 def test_pending_stop_keeps_competing_controls_locked():
     runner = SimpleNamespace(
         running=True,
-        stop=MagicMock(),
+        worker_running=True,
+        stop=MagicMock(return_value=False),
     )
     stop_button = _Widget()
     status = SimpleNamespace(setText=MagicMock())
@@ -195,7 +200,8 @@ def test_pending_stop_keeps_competing_controls_locked():
 def test_completed_stop_releases_runner_and_controls():
     runner = SimpleNamespace(
         running=False,
-        stop=MagicMock(),
+        worker_running=False,
+        stop=MagicMock(return_value=True),
     )
     status = SimpleNamespace(setText=MagicMock())
     set_running = MagicMock()
@@ -212,6 +218,57 @@ def test_completed_stop_releases_runner_and_controls():
     assert panel._runner is None
     set_running.assert_called_once_with(False)
     status.setText.assert_called_with("Queue stopped")
+
+
+def test_failed_release_keeps_stop_enabled_for_retry_after_worker_exit():
+    runner = SimpleNamespace(
+        running=True,
+        worker_running=False,
+        stop=MagicMock(return_value=False),
+    )
+    stop_button = _Widget()
+    status = SimpleNamespace(setText=MagicMock())
+    set_running = MagicMock()
+    panel = SimpleNamespace(
+        _runner=runner,
+        _set_queue_running=set_running,
+        stop_button=stop_button,
+        queue_status=status,
+    )
+
+    DisruptionEventPanel.stop_runner(panel)
+
+    runner.stop.assert_called_once_with()
+    assert panel._runner is runner
+    set_running.assert_called_once_with(True)
+    assert stop_button.enabled is True
+    status.setText.assert_called_once_with(
+        "Queue release not confirmed — retry Stop or Panic Stop"
+    )
+
+
+def test_release_failed_status_restores_retry_after_pending_worker_exits():
+    stop_button = _Widget()
+    stop_button.enabled = False
+    set_running = MagicMock()
+    runner = SimpleNamespace(running=True)
+    panel = SimpleNamespace(
+        _runner=runner,
+        _set_queue_running=set_running,
+        stop_button=stop_button,
+        queue_status=SimpleNamespace(setText=MagicMock()),
+    )
+    release_failed = EventSequenceStatus(
+        kind="release_failed",
+        event_name="Lag",
+        detail="event stop was not confirmed; ownership retained",
+    )
+
+    DisruptionEventPanel._apply_runner_status(panel, release_failed)
+
+    assert panel._runner is runner
+    set_running.assert_called_once_with(True)
+    assert stop_button.enabled is True
 
 
 def test_diagnostic_action_falls_back_to_controller_private_manager():

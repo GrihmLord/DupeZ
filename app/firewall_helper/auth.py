@@ -73,6 +73,7 @@ import json
 import logging
 import os
 import secrets
+import stat
 import sys
 import ctypes
 from ctypes import wintypes
@@ -92,6 +93,7 @@ __all__ = [
     "token_sentinel_path",
     "write_token_sentinel",
     "read_and_consume_token_sentinel",
+    "discard_token_sentinel",
 ]
 
 log = logging.getLogger(__name__)
@@ -161,14 +163,14 @@ def _windows_local_appdata() -> Optional[Path]:
         log.debug("Windows Local AppData resolution failed: %s", exc)
     return None
 
+
 def token_sentinel_path() -> Path:
     """Path to the user-private sentinel file used to transfer the token.
 
-    Local AppData is already user-private on every supported Windows version
-    (it lives under the user's profile with inheritance-blocked ACLs by
-    default), so no explicit DACL work is needed. On Windows the shell API is
-    authoritative because process-local ``LOCALAPPDATA`` overrides do not
-    reliably cross a UAC boundary.
+    On Windows the shell API is authoritative because process-local
+    ``LOCALAPPDATA`` overrides do not reliably cross a UAC boundary. The
+    sentinel file itself receives a protected DACL for the current user,
+    LocalSystem, and Administrators before it is installed at this path.
     """
     base = _windows_local_appdata()
     if base is None:
@@ -176,25 +178,392 @@ def token_sentinel_path() -> Path:
     return base / "DupeZ" / "helper_auth.tok"
 
 
+_FILE_ATTRIBUTE_REPARSE_POINT = int(
+    getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+)
+
+
+def _is_reparse_point(file_stat: os.stat_result) -> bool:
+    return bool(
+        stat.S_ISLNK(file_stat.st_mode)
+        or int(getattr(file_stat, "st_file_attributes", 0))
+        & _FILE_ATTRIBUTE_REPARSE_POINT
+    )
+
+
+def _same_file_identity(
+    first: os.stat_result,
+    second: os.stat_result,
+) -> bool:
+    try:
+        return os.path.samestat(first, second)
+    except (AttributeError, OSError):
+        return (
+            int(getattr(first, "st_dev", -1)),
+            int(getattr(first, "st_ino", -1)),
+        ) == (
+            int(getattr(second, "st_dev", -2)),
+            int(getattr(second, "st_ino", -2)),
+        )
+
+
+def _require_safe_regular_file(file_stat: os.stat_result) -> None:
+    if (
+        not stat.S_ISREG(file_stat.st_mode)
+        or _is_reparse_point(file_stat)
+        or int(getattr(file_stat, "st_nlink", 1)) != 1
+    ):
+        raise AuthenticationError(
+            "auth sentinel must be a non-reparse regular file with one link"
+        )
+
+
+def _sentinel_directory(*, create: bool) -> tuple[Path, os.stat_result]:
+    directory = token_sentinel_path().parent
+    if create:
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    try:
+        directory_stat = os.lstat(directory)
+    except OSError as exc:
+        raise AuthenticationError("auth sentinel directory is unavailable") from exc
+    if not stat.S_ISDIR(directory_stat.st_mode) or _is_reparse_point(directory_stat):
+        raise AuthenticationError(
+            "auth sentinel directory must not be a symlink, junction, or reparse point"
+        )
+    if os.name != "nt":
+        try:
+            os.chmod(directory, 0o700)
+            directory_stat = os.lstat(directory)
+        except OSError as exc:
+            raise AuthenticationError(
+                "auth sentinel directory permissions could not be restricted"
+            ) from exc
+        if stat.S_IMODE(directory_stat.st_mode) & 0o077:
+            raise AuthenticationError(
+                "auth sentinel directory permissions are too broad"
+            )
+        if hasattr(os, "geteuid") and directory_stat.st_uid != os.geteuid():
+            raise AuthenticationError("auth sentinel directory ownership is unsafe")
+    return directory, directory_stat
+
+
+def _require_same_sentinel_directory(
+    directory: Path,
+    expected: os.stat_result,
+) -> None:
+    try:
+        current = os.lstat(directory)
+    except OSError as exc:
+        raise AuthenticationError("auth sentinel directory disappeared") from exc
+    if (
+        not stat.S_ISDIR(current.st_mode)
+        or _is_reparse_point(current)
+        or not _same_file_identity(expected, current)
+    ):
+        raise AuthenticationError("auth sentinel directory changed during transfer")
+
+
+def _windows_current_user_sid() -> str:
+    try:
+        import win32api
+        import win32con
+        import win32security
+
+        token = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(),
+            win32con.TOKEN_QUERY,
+        )
+        try:
+            sid = win32security.GetTokenInformation(
+                token,
+                win32security.TokenUser,
+            )[0]
+            return str(win32security.ConvertSidToStringSid(sid))
+        finally:
+            close = getattr(token, "Close", None)
+            if callable(close):
+                close()
+    except Exception as exc:
+        raise AuthenticationError(
+            "current Windows user identity is unavailable"
+        ) from exc
+
+
+def _harden_sentinel_permissions(path: Path, file_descriptor: int) -> None:
+    if os.name != "nt":
+        try:
+            os.fchmod(file_descriptor, 0o600)
+        except OSError as exc:
+            raise AuthenticationError(
+                "auth sentinel permissions could not be restricted"
+            ) from exc
+        return
+    try:
+        import win32security
+
+        user_sid = _windows_current_user_sid()
+        descriptor = (
+            "D:P"
+            f"(A;;FA;;;{user_sid})"
+            "(A;;FA;;;SY)"
+            "(A;;FA;;;BA)"
+        )
+        security_descriptor = (
+            win32security.ConvertStringSecurityDescriptorToSecurityDescriptor(
+                descriptor,
+                win32security.SDDL_REVISION_1,
+            )
+        )
+        win32security.SetFileSecurity(
+            str(path),
+            win32security.DACL_SECURITY_INFORMATION,
+            security_descriptor,
+        )
+    except Exception as exc:
+        raise AuthenticationError(
+            "auth sentinel Windows permissions could not be restricted"
+        ) from exc
+
+
+def _sentinel_permissions_are_private(
+    path: Path,
+    file_stat: os.stat_result,
+) -> bool:
+    if os.name != "nt":
+        return not bool(stat.S_IMODE(file_stat.st_mode) & 0o077)
+    try:
+        import win32security
+
+        user_sid = _windows_current_user_sid()
+        allowed_sids = {
+            user_sid,
+            "S-1-5-18",       # LocalSystem
+            "S-1-5-32-544",   # Builtin Administrators
+        }
+        security_descriptor = win32security.GetFileSecurity(
+            str(path),
+            win32security.OWNER_SECURITY_INFORMATION
+            | win32security.DACL_SECURITY_INFORMATION,
+        )
+        owner = security_descriptor.GetSecurityDescriptorOwner()
+        owner_sid = str(win32security.ConvertSidToStringSid(owner))
+        if owner_sid not in {user_sid, "S-1-5-32-544"}:
+            return False
+        control, _revision = security_descriptor.GetSecurityDescriptorControl()
+        if not int(control) & int(
+            getattr(win32security, "SE_DACL_PROTECTED", 0x1000)
+        ):
+            return False
+        dacl = security_descriptor.GetSecurityDescriptorDacl()
+        if dacl is None:
+            return False
+        user_access = False
+        for index in range(dacl.GetAceCount()):
+            ace = dacl.GetAce(index)
+            ace_type = int(ace[0][0])
+            if ace_type != win32security.ACCESS_ALLOWED_ACE_TYPE:
+                continue
+            mask = int(ace[1])
+            sid = str(win32security.ConvertSidToStringSid(ace[2]))
+            if mask and sid not in allowed_sids:
+                return False
+            if mask and sid == user_sid:
+                user_access = True
+        return user_access
+    except Exception:
+        return False
+
+
+def _new_transfer_path(directory: Path, purpose: str) -> Path:
+    return directory / f".{purpose}-{secrets.token_hex(16)}.tmp"
+
+
+def _open_flags(access: int) -> int:
+    flags = access
+    flags |= int(getattr(os, "O_BINARY", 0))
+    flags |= int(getattr(os, "O_CLOEXEC", 0))
+    flags |= int(getattr(os, "O_NOINHERIT", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    return flags
+
+
+def _write_all(file_descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        written = os.write(file_descriptor, payload[offset:])
+        if written <= 0:
+            raise OSError("short write to auth sentinel")
+        offset += written
+
+
+def _read_bounded(file_descriptor: int) -> bytes:
+    chunks: list[bytes] = []
+    remaining = TOKEN_BYTES + 1
+    while remaining > 0:
+        chunk = os.read(file_descriptor, remaining)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _wipe_file_descriptor(file_descriptor: int) -> bool:
+    try:
+        os.lseek(file_descriptor, 0, os.SEEK_SET)
+        _write_all(file_descriptor, b"\x00" * TOKEN_BYTES)
+        os.ftruncate(file_descriptor, 0)
+        os.fsync(file_descriptor)
+        return True
+    except OSError:
+        return False
+
+
+def _unlink_exact_leaf(path: Path, expected: os.stat_result) -> bool:
+    try:
+        current = os.lstat(path)
+        if not _same_file_identity(expected, current) or stat.S_ISDIR(current.st_mode):
+            return False
+        os.unlink(path)
+        try:
+            os.lstat(path)
+        except FileNotFoundError:
+            return True
+        return False
+    except OSError:
+        return False
+
+
+def _wipe_and_unlink_regular(path: Path, expected: os.stat_result) -> bool:
+    wiped = False
+    file_descriptor: Optional[int] = None
+    try:
+        current = os.lstat(path)
+        _require_safe_regular_file(current)
+        if not _same_file_identity(expected, current):
+            return False
+        file_descriptor = os.open(path, _open_flags(os.O_RDWR))
+        opened = os.fstat(file_descriptor)
+        _require_safe_regular_file(opened)
+        if not _same_file_identity(expected, opened):
+            return False
+        wiped = _wipe_file_descriptor(file_descriptor)
+    except (AuthenticationError, OSError):
+        wiped = False
+    finally:
+        if file_descriptor is not None:
+            try:
+                os.close(file_descriptor)
+            except OSError:
+                wiped = False
+    removed = _unlink_exact_leaf(path, expected)
+    return wiped and removed
+
+
+def _securely_remove_existing_sentinel(
+    path: Path,
+    directory: Path,
+    directory_stat: os.stat_result,
+) -> None:
+    """Atomically claim, wipe, and remove a stale named sentinel."""
+
+    try:
+        initial_stat = os.lstat(path)
+    except FileNotFoundError:
+        return
+    _require_safe_regular_file(initial_stat)
+    claimed = _new_transfer_path(directory, "helper-auth-stale")
+    claimed_stat: Optional[os.stat_result] = None
+    try:
+        os.rename(path, claimed)
+        _require_same_sentinel_directory(directory, directory_stat)
+        claimed_stat = os.lstat(claimed)
+        _require_safe_regular_file(claimed_stat)
+        if not _same_file_identity(initial_stat, claimed_stat):
+            raise AuthenticationError("stale auth sentinel changed while claimed")
+        if not _wipe_and_unlink_regular(claimed, claimed_stat):
+            raise AuthenticationError("stale auth sentinel cleanup was not confirmed")
+        _require_same_sentinel_directory(directory, directory_stat)
+    except Exception:
+        if claimed_stat is None:
+            try:
+                claimed_stat = os.lstat(claimed)
+            except OSError:
+                claimed_stat = None
+        if claimed_stat is not None:
+            try:
+                _require_safe_regular_file(claimed_stat)
+            except AuthenticationError:
+                _unlink_exact_leaf(claimed, claimed_stat)
+            else:
+                _wipe_and_unlink_regular(claimed, claimed_stat)
+        raise
+
+
 def write_token_sentinel(token: bytes) -> Path:
     """Write *token* to the sentinel path. Returns the path.
 
-    Creates parent directory if missing. Overwrites any stale token.
+    Creates the parent directory if missing and atomically replaces only a
+    structurally safe stale sentinel. Temporary files are random, exclusive,
+    non-inheritable, and owner-private.
     """
     if len(token) != TOKEN_BYTES:
         raise ValueError(f"token must be exactly {TOKEN_BYTES} bytes")
-    path = token_sentinel_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Write atomically so a concurrent helper start never sees a half file.
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_bytes(token)
+    directory, directory_stat = _sentinel_directory(create=True)
+    path = directory / "helper_auth.tok"
+    staged = _new_transfer_path(directory, "helper-auth-write")
+    file_descriptor: Optional[int] = None
+    staged_stat: Optional[os.stat_result] = None
+    installed = False
     try:
-        os.replace(tmp, path)
-    except OSError:
-        # os.replace should succeed within the same directory on Windows;
-        # fall back to simple rename if not.
-        tmp.rename(path)
-    return path
+        flags = _open_flags(os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+        file_descriptor = os.open(staged, flags, 0o600)
+        staged_stat = os.fstat(file_descriptor)
+        _require_safe_regular_file(staged_stat)
+        _harden_sentinel_permissions(staged, file_descriptor)
+        _write_all(file_descriptor, bytes(token))
+        os.fsync(file_descriptor)
+        os.close(file_descriptor)
+        file_descriptor = None
+
+        staged_stat = os.lstat(staged)
+        _require_safe_regular_file(staged_stat)
+        if not _sentinel_permissions_are_private(staged, staged_stat):
+            raise AuthenticationError("auth sentinel permissions are too broad")
+        _require_same_sentinel_directory(directory, directory_stat)
+
+        _securely_remove_existing_sentinel(
+            path,
+            directory,
+            directory_stat,
+        )
+
+        os.replace(staged, path)
+        installed = True
+        final_stat = os.lstat(path)
+        _require_safe_regular_file(final_stat)
+        if not _same_file_identity(staged_stat, final_stat):
+            raise AuthenticationError("auth sentinel changed during installation")
+        if not _sentinel_permissions_are_private(path, final_stat):
+            raise AuthenticationError("auth sentinel permissions changed")
+        _require_same_sentinel_directory(directory, directory_stat)
+        return path
+    except Exception:
+        if file_descriptor is not None:
+            try:
+                os.close(file_descriptor)
+            except OSError:
+                pass
+        cleanup_path = path if installed else staged
+        cleanup_stat = staged_stat
+        if cleanup_stat is None:
+            try:
+                cleanup_stat = os.lstat(cleanup_path)
+            except OSError:
+                cleanup_stat = None
+        if cleanup_stat is not None:
+            _wipe_and_unlink_regular(cleanup_path, cleanup_stat)
+        raise
 
 
 def read_and_consume_token_sentinel() -> Optional[bytes]:
@@ -204,27 +573,116 @@ def read_and_consume_token_sentinel() -> Optional[bytes]:
     (the helper process) keeps the returned bytes in memory and uses
     them as the HMAC key for every subsequent handshake.
 
-    Sentinel deletion is best-effort: if the file can't be unlinked
-    (e.g., AV is holding it), we still return the token so the helper
-    can run — but we log a warning so the condition is visible.
+    The named sentinel is first atomically claimed under a random name. The
+    helper rejects reparse points, hard links, broad permissions, replacement
+    races, or any token that cannot be wiped and removed before use.
     """
-    path = token_sentinel_path()
     try:
-        data = path.read_bytes()
-    except (FileNotFoundError, PermissionError, OSError) as e:
-        log.warning("auth sentinel missing/unreadable: %s", e)
+        directory, directory_stat = _sentinel_directory(create=False)
+    except AuthenticationError as exc:
+        log.warning("auth sentinel directory rejected (%s)", type(exc).__name__)
+        return None
+    path = directory / "helper_auth.tok"
+    try:
+        initial_stat = os.lstat(path)
+        _require_safe_regular_file(initial_stat)
+    except (AuthenticationError, FileNotFoundError, OSError) as exc:
+        log.warning(
+            "auth sentinel missing or structurally unsafe (%s)",
+            type(exc).__name__,
+        )
         return None
 
+    claimed = _new_transfer_path(directory, "helper-auth-claim")
+    claimed_stat: Optional[os.stat_result] = None
     try:
-        path.unlink(missing_ok=True)
-    except OSError as e:
-        log.warning("could not remove auth sentinel after read: %s", e)
+        os.rename(path, claimed)
+        _require_same_sentinel_directory(directory, directory_stat)
+        claimed_stat = os.lstat(claimed)
+        _require_safe_regular_file(claimed_stat)
+        if not _same_file_identity(initial_stat, claimed_stat):
+            raise AuthenticationError("auth sentinel changed while being claimed")
+    except (AuthenticationError, OSError) as exc:
+        log.warning(
+            "auth sentinel could not be claimed safely (%s)",
+            type(exc).__name__,
+        )
+        if claimed_stat is None:
+            try:
+                claimed_stat = os.lstat(claimed)
+            except OSError:
+                claimed_stat = None
+        if claimed_stat is not None:
+            try:
+                _require_safe_regular_file(claimed_stat)
+            except AuthenticationError:
+                _unlink_exact_leaf(claimed, claimed_stat)
+            else:
+                _wipe_and_unlink_regular(claimed, claimed_stat)
+        return None
 
-    if len(data) != TOKEN_BYTES:
-        log.error("auth sentinel has wrong size: %d (expected %d)",
-                  len(data), TOKEN_BYTES)
+    file_descriptor: Optional[int] = None
+    opened_stat = claimed_stat
+    data = b""
+    valid = False
+    wiped = False
+    try:
+        file_descriptor = os.open(claimed, _open_flags(os.O_RDWR))
+        opened_stat = os.fstat(file_descriptor)
+        _require_safe_regular_file(opened_stat)
+        if not _same_file_identity(claimed_stat, opened_stat):
+            raise AuthenticationError("auth sentinel changed before read")
+        if not _sentinel_permissions_are_private(claimed, opened_stat):
+            raise AuthenticationError("auth sentinel permissions are too broad")
+        data = _read_bounded(file_descriptor)
+        valid = len(data) == TOKEN_BYTES and opened_stat.st_size == TOKEN_BYTES
+        wiped = _wipe_file_descriptor(file_descriptor)
+    except (AuthenticationError, OSError) as exc:
+        log.warning("auth sentinel read was refused (%s)", type(exc).__name__)
+    finally:
+        if file_descriptor is not None:
+            try:
+                os.close(file_descriptor)
+            except OSError:
+                wiped = False
+
+    removed = _unlink_exact_leaf(claimed, opened_stat)
+    try:
+        _require_same_sentinel_directory(directory, directory_stat)
+    except AuthenticationError:
+        valid = False
+    if not wiped or not removed:
+        log.warning("auth sentinel cleanup could not be confirmed")
+        valid = False
+        if not removed:
+            _wipe_and_unlink_regular(claimed, opened_stat)
+    try:
+        os.lstat(path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        valid = False
+    else:
+        log.warning("a new auth sentinel appeared during consumption")
+        valid = False
+    if not valid:
+        if len(data) != TOKEN_BYTES:
+            log.error("auth sentinel has wrong size")
         return None
     return data
+
+
+def discard_token_sentinel() -> bool:
+    """Securely consume any pending sentinel without returning its secret."""
+
+    consumed = read_and_consume_token_sentinel()
+    if consumed is not None:
+        consumed = b""
+        return True
+    try:
+        return not token_sentinel_path().exists()
+    except OSError:
+        return False
 
 
 # ── Proof computation ────────────────────────────────────────────────

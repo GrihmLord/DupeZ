@@ -21,13 +21,13 @@ It also adds:
 
 from __future__ import annotations
 
-import ipaddress
 import threading
 from dataclasses import dataclass
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
 from app.ai.llm_advisor import LLMAdvisor, LLMConfig
+from app.ai.ollama_transport import validate_ollama_base_url
 from app.core.data_persistence import settings_manager
 from app.core.secrets_manager import get_secrets_manager
 from app.logs.logger import log_error, log_info
@@ -42,7 +42,6 @@ __all__ = [
 LLM_SETTINGS_KEY = "llm_advisor"
 LLM_SECRET_NAME = "llm_api_key"  # pragma: allowlist secret
 _VALID_PROVIDERS = frozenset({"ollama", "openai", "none"})
-_LOOPBACK_NAMES = frozenset({"localhost", "127.0.0.1", "::1"})
 _MAX_PROVIDER_REQUESTS = 2
 
 
@@ -67,27 +66,21 @@ def _bounded_float(
     return max(minimum, min(maximum, parsed))
 
 
-def _is_loopback_host(hostname: str) -> bool:
-    lowered = (hostname or "").strip().lower()
-    if lowered in _LOOPBACK_NAMES:
-        return True
-    try:
-        return ipaddress.ip_address(lowered).is_loopback
-    except ValueError:
-        return False
-
-
 def _validated_base_url(provider: str, value: str) -> str:
     provider = provider.strip().lower()
     if provider == "none":
         return ""
-    text = str(value or "").strip().rstrip("/")
-    if not text:
-        text = (
+    supplied = str(value or "")
+    if not supplied.strip():
+        supplied = (
             "http://localhost:11434"
             if provider == "ollama"
             else "https://api.openai.com"
         )
+    if provider == "ollama":
+        return validate_ollama_base_url(supplied)
+
+    text = supplied.strip().rstrip("/")
     parsed = urlparse(text)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("provider URL must be an absolute HTTP(S) URL")
@@ -95,10 +88,8 @@ def _validated_base_url(provider: str, value: str) -> str:
         raise ValueError("provider URL must not contain credentials")
     if parsed.query or parsed.fragment:
         raise ValueError("provider URL must not contain query or fragment data")
-    if parsed.scheme == "http" and not _is_loopback_host(parsed.hostname):
-        raise ValueError(
-            "unencrypted provider URLs are allowed only for loopback services"
-        )
+    if parsed.scheme != "https":
+        raise ValueError("remote provider URLs must use HTTPS")
     return text
 
 

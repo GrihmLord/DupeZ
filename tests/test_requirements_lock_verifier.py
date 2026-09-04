@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from scripts.verify_requirements_lock import verify
 
 
@@ -49,9 +51,8 @@ def test_hashless_pin_is_rejected(tmp_path) -> None:
     requirements = _write(tmp_path / "requirements.in", "requests>=2\n")
     lock = _write(tmp_path / "requirements-locked.txt", "requests==2.33.1\n")
 
-    errors = verify(requirements, lock)
-
-    assert any("no SHA-256 hash" in error for error in errors)
+    with pytest.raises(ValueError, match="no SHA-256 hash"):
+        verify(requirements, lock)
 
 
 def test_platform_marker_must_survive(tmp_path) -> None:
@@ -68,3 +69,92 @@ def test_platform_marker_must_survive(tmp_path) -> None:
     errors = verify(requirements, lock)
 
     assert any("marker" in error and "lost" in error for error in errors)
+
+
+def test_platform_marker_operator_cannot_drift(tmp_path) -> None:
+    requirements = _write(
+        tmp_path / "requirements.in",
+        "pywin32>=306; sys_platform == 'win32'\n",
+    )
+    lock = _write(
+        tmp_path / "requirements-locked.txt",
+        "pywin32==312 ; sys_platform != 'win32' \\\n"
+        "    --hash=sha256:" + "d" * 64 + "\n",
+    )
+
+    errors = verify(requirements, lock)
+
+    assert any("does not exactly match" in error for error in errors)
+
+
+def test_platform_marker_expression_cannot_be_reassociated(tmp_path) -> None:
+    requirements = _write(
+        tmp_path / "requirements.in",
+        "pywin32>=306; "
+        "python_version >= '3.12' and python_version < '3.14'\n",
+    )
+    lock = _write(
+        tmp_path / "requirements-locked.txt",
+        "pywin32==312 ; "
+        "python_version < '3.12' and python_version >= '3.14' \\\n"
+        "    --hash=sha256:" + "f" * 64 + "\n",
+    )
+
+    errors = verify(requirements, lock)
+
+    assert any("does not exactly match" in error for error in errors)
+
+
+def test_unmarked_direct_requirement_rejects_injected_lock_marker(tmp_path) -> None:
+    requirements = _write(tmp_path / "requirements.in", "requests>=2\n")
+    lock = _write(
+        tmp_path / "requirements-locked.txt",
+        "requests==2.34.2 ; python_version < '0' \\\n"
+        "    --hash=sha256:" + "e" * 64 + "\n",
+    )
+
+    errors = verify(requirements, lock)
+
+    assert any("injects an unexpected marker" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("unsupported", "message"),
+    (
+        (
+            "unreviewed @ https://example.invalid/unreviewed.whl \\\n"
+            "    --hash=sha256:" + "b" * 64 + "\n",
+            "direct URL lock entries",
+        ),
+        (
+            "--hash=sha256:" + "c" * 64 + "\n",
+            "orphan lock hash",
+        ),
+        (
+            "unreviewed>=1 \\\n"
+            "    --hash=sha256:" + "d" * 64 + "\n",
+            "exact == pin",
+        ),
+        (
+            "unreviewed==1 \\\n"
+            "    --hash=sha256:" + "e" * 64 + " \\\n"
+            "    --trusted-host example.invalid\n",
+            "unsupported lock option",
+        ),
+    ),
+)
+def test_unsupported_or_orphan_lock_lines_fail_closed(
+    tmp_path,
+    unsupported,
+    message,
+) -> None:
+    requirements = _write(tmp_path / "requirements.in", "requests>=2\n")
+    lock = _write(
+        tmp_path / "requirements-locked.txt",
+        "requests==2.34.2 \\\n"
+        "    --hash=sha256:" + "a" * 64 + "\n"
+        + unsupported,
+    )
+
+    with pytest.raises(ValueError, match=message):
+        verify(requirements, lock)

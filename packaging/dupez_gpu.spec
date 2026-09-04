@@ -7,9 +7,9 @@ Properties:
   * asInvoker manifest  (GUI runs at Medium IL)
   * uac_admin = False   (no embedded admin escalation)
   * DUPEZ_ARCH default  = split
-  * Chromium GPU process starts normally → embedded iZurvive map
-    renders with hardware raster on any machine that isn't on the
-    renderer_tier blocklist.
+  * Chromium GPU process starts normally → the embedded iZurvive map uses
+    ANGLE/D3D11 only after the native DXGI capability probe succeeds, with a
+    supported ``--disable-gpu`` CPU fallback.
   * WinDivert + netsh live in the auto-spawned elevated helper
     (dupez_helper.py), not in this process.
 
@@ -23,11 +23,6 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(SPEC)))
 
 import build_common as shared_build  # noqa: E402
-from release_data import pyinstaller_datas  # noqa: E402
-
-# Keep release data explicit even when the shared development helper has
-# optional Group Finder changes in the working tree.
-shared_build._datas = lambda: pyinstaller_datas(shared_build.ROOT)
 
 exe = shared_build.build_variant(
     variant="gpu",

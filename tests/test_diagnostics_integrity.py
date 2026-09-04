@@ -23,7 +23,7 @@ def test_secret_store_passes_when_probe_is_writable(
     assert not (tmp_path / ".diagnostics_write_probe.tmp").exists()
 
 
-def test_persistence_key_warns_when_degraded(
+def test_persistence_key_fails_when_unavailable(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import app.core.data_persistence as data_persistence
@@ -36,8 +36,8 @@ def test_persistence_key_warns_when_degraded(
 
     result = diagnostics._check_persistence_key()
 
-    assert result.status == CheckStatus.WARN
-    assert "fallback key" in result.message
+    assert result.status == CheckStatus.FAIL
+    assert "unavailable" in result.message
     assert result.fix_hint
 
 

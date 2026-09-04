@@ -225,6 +225,16 @@ _CONFIG_PATTERNS = (
 
 def ensure_runtime_migration() -> tuple[MigrationResult, ...] | None:
     """Migrate installed builds once; source checkouts remain untouched."""
+    # PyInstaller's module-graph workers may import runtime modules while the
+    # spec is executing from a source checkout. The reviewed build factory
+    # redirects their state root and sets this marker so analysis cannot copy
+    # checkout persistence into build artifacts. A frozen application ignores
+    # the marker, preventing it from becoming a runtime migration bypass.
+    if (
+        not getattr(sys, "frozen", False)
+        and os.environ.get("DUPEZ_BUILD_ANALYSIS") == "1"
+    ):
+        return None
     if not is_installed_runtime():
         return None
     root = legacy_runtime_root()

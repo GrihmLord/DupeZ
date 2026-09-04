@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
-                              QWidget, QLabel, QSpinBox, QCheckBox, QComboBox,
+                              QWidget, QLabel, QSpinBox, QDoubleSpinBox,
+                              QCheckBox, QComboBox,
                               QPushButton, QGroupBox, QFormLayout,
                               QTextEdit, QSlider, QMessageBox, QScrollArea,
                               QFrame)
@@ -102,7 +103,7 @@ QLabel#speed_value {
 }
 
 /* --- Inputs --- */
-QLineEdit, QSpinBox, QComboBox {
+QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: rgba(15, 23, 42, 0.6);
     color: #f1f5f9;
     border: 1px solid rgba(51, 65, 85, 0.5);
@@ -111,20 +112,24 @@ QLineEdit, QSpinBox, QComboBox {
     min-height: 20px;
     font-size: 12px;
 }
-QLineEdit:focus, QSpinBox:focus, QComboBox:focus {
+QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 1px solid rgba(0, 240, 255, 0.6);
 }
-QSpinBox::up-button, QSpinBox::down-button {
+QSpinBox::up-button, QSpinBox::down-button,
+QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
     background-color: rgba(30, 41, 59, 0.5);
     border: none;
     border-left: 1px solid rgba(51, 65, 85, 0.4);
     width: 20px;
 }
-QSpinBox::up-button:hover, QSpinBox::down-button:hover {
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {
     background-color: rgba(51, 65, 85, 0.6);
 }
 QSpinBox::up-button { border-top-right-radius: 8px; }
 QSpinBox::down-button { border-bottom-right-radius: 8px; }
+QDoubleSpinBox::up-button { border-top-right-radius: 8px; }
+QDoubleSpinBox::down-button { border-bottom-right-radius: 8px; }
 QComboBox::drop-down {
     border: none;
     width: 28px;
@@ -348,10 +353,17 @@ class SettingsDialog(QDialog):
 
     settings_changed = pyqtSignal(dict)
 
-    def __init__(self, current_settings: AppSettings, parent=None) -> None:
+    def __init__(
+        self,
+        current_settings: AppSettings,
+        parent=None,
+        *,
+        controller=None,
+    ) -> None:
         super().__init__(parent)
         self.current_settings = current_settings
         self.new_settings = current_settings
+        self.controller = controller
 
         self.setWindowTitle("DupeZ Settings")
         self.setModal(True)
@@ -580,6 +592,95 @@ class SettingsDialog(QDialog):
         g4.setLayout(fl4)
         lay.addWidget(g4)
 
+        g5 = QGroupBox("Automatic Kill Switch")
+        self.kill_switch_group = g5
+        g5.setAccessibleName("Automatic Kill Switch settings")
+        g5.setAccessibleDescription(
+            "Configure automatic safety triggers. The manual panic stop is always available."
+        )
+        fl5 = QFormLayout()
+        fl5.setVerticalSpacing(10)
+        fl5.setContentsMargins(10, 8, 10, 8)
+
+        self.kill_switch_enabled_checkbox = QCheckBox(
+            "Enable automatic safety triggers"
+        )
+        self.kill_switch_enabled_checkbox.setAccessibleName(
+            "Enable Automatic Kill Switch"
+        )
+        fl5.addRow("Automation:", self.kill_switch_enabled_checkbox)
+
+        self.kill_switch_process_watch_checkbox = QCheckBox(
+            "Watch for anti-cheat processes"
+        )
+        self.kill_switch_process_watch_checkbox.setAccessibleName(
+            "Enable process watch trigger"
+        )
+        fl5.addRow("Process Watch:", self.kill_switch_process_watch_checkbox)
+
+        self.kill_switch_process_names_edit = QTextEdit()
+        self.kill_switch_process_names_edit.setMaximumHeight(85)
+        self.kill_switch_process_names_edit.setPlaceholderText(
+            "Optional process basenames, one per line; built-in list used when empty"
+        )
+        self.kill_switch_process_names_edit.setAccessibleName(
+            "Custom process basenames"
+        )
+        self.kill_switch_process_names_edit.setAccessibleDescription(
+            "Optional executable basenames to watch, one per line"
+        )
+        fl5.addRow("Custom Processes:", self.kill_switch_process_names_edit)
+
+        self.kill_switch_risk_threshold_spinbox = QSpinBox()
+        self.kill_switch_risk_threshold_spinbox.setRange(1, 100)
+        self.kill_switch_risk_threshold_spinbox.setSuffix(" / 100")
+        self.kill_switch_risk_threshold_spinbox.setAccessibleName(
+            "Risk score trigger threshold"
+        )
+        fl5.addRow("Risk Threshold:", self.kill_switch_risk_threshold_spinbox)
+
+        self.kill_switch_packet_drop_ceiling_spinbox = QSpinBox()
+        self.kill_switch_packet_drop_ceiling_spinbox.setRange(1, 10_000_000)
+        self.kill_switch_packet_drop_ceiling_spinbox.setSuffix(" packets/sec")
+        self.kill_switch_packet_drop_ceiling_spinbox.setAccessibleName(
+            "Packet drop rate ceiling"
+        )
+        fl5.addRow(
+            "Packet Drop Ceiling:",
+            self.kill_switch_packet_drop_ceiling_spinbox,
+        )
+
+        self.kill_switch_packet_sustain_spinbox = QDoubleSpinBox()
+        self.kill_switch_packet_sustain_spinbox.setRange(0.05, 60.0)
+        self.kill_switch_packet_sustain_spinbox.setDecimals(2)
+        self.kill_switch_packet_sustain_spinbox.setSingleStep(0.25)
+        self.kill_switch_packet_sustain_spinbox.setSuffix(" sec")
+        self.kill_switch_packet_sustain_spinbox.setAccessibleName(
+            "Packet drop sustain duration"
+        )
+        fl5.addRow("Sustain Duration:", self.kill_switch_packet_sustain_spinbox)
+
+        self.kill_switch_poll_interval_spinbox = QDoubleSpinBox()
+        self.kill_switch_poll_interval_spinbox.setRange(0.05, 60.0)
+        self.kill_switch_poll_interval_spinbox.setDecimals(2)
+        self.kill_switch_poll_interval_spinbox.setSuffix(" sec")
+        self.kill_switch_poll_interval_spinbox.setAccessibleName(
+            "Automatic trigger poll interval"
+        )
+        fl5.addRow("Poll Interval:", self.kill_switch_poll_interval_spinbox)
+
+        self.kill_switch_cooldown_spinbox = QDoubleSpinBox()
+        self.kill_switch_cooldown_spinbox.setRange(0.0, 3600.0)
+        self.kill_switch_cooldown_spinbox.setDecimals(1)
+        self.kill_switch_cooldown_spinbox.setSuffix(" sec")
+        self.kill_switch_cooldown_spinbox.setAccessibleName(
+            "Automatic trigger cooldown"
+        )
+        fl5.addRow("Cooldown:", self.kill_switch_cooldown_spinbox)
+
+        g5.setLayout(fl5)
+        lay.addWidget(g5)
+
         lay.addStretch()
         w.setLayout(lay)
         scroll.setWidget(w)
@@ -694,12 +795,12 @@ class SettingsDialog(QDialog):
 
         self.map_renderer_combo = QComboBox()
         # Values match DUPEZ_MAP_RENDERER env var expectations
-        self.map_renderer_combo.addItems(["auto", "gpu", "swiftshader", "software"])
+        self.map_renderer_combo.addItems(["auto", "gpu", "software"])
         fl_map.addRow("Renderer:", self.map_renderer_combo)
 
         _renderer_desc = QLabel(
-            "auto = detect GPU automatically · gpu = force hardware · "
-            "swiftshader = software GL · software = CPU only")
+            "auto = use hardware only after a successful probe · "
+            "gpu = force hardware · software = CPU only")
         _renderer_desc.setWordWrap(True)
         _renderer_desc.setStyleSheet("color: #64748b; font-size: 10px;")
         fl_map.addRow("", _renderer_desc)
@@ -708,7 +809,6 @@ class SettingsDialog(QDialog):
         _cur_tier = _os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
         _tier_names = {
             "tier1_hw": "GPU hardware raster",
-            "tier2_swiftshader": "SwiftShader software GL",
             "tier3_cpu": "CPU raster (no GPU)",
         }
         self._map_tier_label = QLabel(
@@ -846,6 +946,13 @@ class SettingsDialog(QDialog):
             (self.map_renderer_combo, 'map_renderer'),
             (self.safety_dry_run_checkbox, 'safety_dry_run'),
             (self.max_operation_seconds_spinbox, 'max_operation_seconds'),
+            (self.kill_switch_enabled_checkbox, 'kill_switch_enabled'),
+            (self.kill_switch_process_watch_checkbox, 'kill_switch_process_watch_enabled'),
+            (self.kill_switch_risk_threshold_spinbox, 'kill_switch_risk_threshold'),
+            (self.kill_switch_packet_drop_ceiling_spinbox, 'kill_switch_packet_drop_ceiling'),
+            (self.kill_switch_packet_sustain_spinbox, 'kill_switch_packet_sustain_seconds'),
+            (self.kill_switch_poll_interval_spinbox, 'kill_switch_poll_interval_seconds'),
+            (self.kill_switch_cooldown_spinbox, 'kill_switch_cooldown_seconds'),
         ]
 
     def _apply_settings_to_widgets(self, s) -> None:
@@ -856,6 +963,8 @@ class SettingsDialog(QDialog):
                 continue
             if isinstance(widget, QCheckBox):
                 widget.setChecked(val)
+            elif isinstance(widget, QDoubleSpinBox):
+                widget.setValue(float(val))
             elif isinstance(widget, QSpinBox):
                 widget.setValue(val)
             elif isinstance(widget, QComboBox):
@@ -865,6 +974,11 @@ class SettingsDialog(QDialog):
         cidrs = getattr(s, 'allowed_target_cidrs', None)
         if cidrs:
             self.allowed_target_cidrs_edit.setPlainText('\n'.join(cidrs))
+        process_names = getattr(s, 'kill_switch_process_names', None)
+        if isinstance(process_names, list):
+            self.kill_switch_process_names_edit.setPlainText(
+                '\n'.join(str(name) for name in process_names)
+            )
 
     def _read_widgets_to_dict(self) -> dict:
         """Read all widget values into a dict keyed by setting name."""
@@ -872,6 +986,8 @@ class SettingsDialog(QDialog):
         for widget, key in self._widget_map():
             if isinstance(widget, QCheckBox):
                 d[key] = widget.isChecked()
+            elif isinstance(widget, QDoubleSpinBox):
+                d[key] = widget.value()
             elif isinstance(widget, QSpinBox):
                 d[key] = widget.value()
             elif isinstance(widget, QComboBox):
@@ -881,6 +997,11 @@ class SettingsDialog(QDialog):
         d['allowed_target_cidrs'] = [
             line.strip()
             for line in self.allowed_target_cidrs_edit.toPlainText().splitlines()
+            if line.strip()
+        ]
+        d['kill_switch_process_names'] = [
+            line.strip()
+            for line in self.kill_switch_process_names_edit.toPlainText().splitlines()
             if line.strip()
         ]
         return d
@@ -899,11 +1020,22 @@ class SettingsDialog(QDialog):
             new_settings = AppSettings(**d)
             from app.core.safety_policy import SafetyPolicy
             SafetyPolicy.from_settings(new_settings)
+            from app.core.kill_switch import (
+                build_kill_switch_config,
+                sanitize_process_basenames,
+            )
+            new_settings.kill_switch_process_names = sanitize_process_basenames(
+                new_settings.kill_switch_process_names
+            )
+            build_kill_switch_config(
+                new_settings,
+                get_drop_counters=lambda: {"packets_dropped": 0},
+            )
             self.new_settings = new_settings
             self.settings_changed.emit({k: d[k] for k in (
                 'theme', 'auto_refresh', 'refresh_interval', 'show_device_icons',
                 'show_status_indicators', 'compact_view', 'show_notifications', 'sound_alerts')})
-            if hasattr(self, 'controller') and self.controller:
+            if self.controller:
                 self.controller.update_settings(new_settings)
             log_info("Settings saved")
 
@@ -925,7 +1057,6 @@ class SettingsDialog(QDialog):
         _labels = {
             "auto": "Auto-detect",
             "gpu": "GPU (hardware)",
-            "swiftshader": "SwiftShader",
             "software": "CPU (software)",
         }
         label = _labels.get(new_renderer, new_renderer)
@@ -973,13 +1104,12 @@ class SettingsDialog(QDialog):
             if sys.platform == "win32":
                 # On Windows, spawn a detached successor through
                 # safe_subprocess so argv validation, CREATE_NO_WINDOW,
-                # and audit logging all apply. ``exe`` here is
-                # ``sys.executable`` or the frozen binary itself — already
-                # trusted, so we pass trusted_executable=True.
+                # and audit logging all apply. ``exe`` here is an absolute,
+                # existing ``sys.executable`` or the frozen binary itself.
                 from app.core import safe_subprocess as _safe_sp
                 _safe_sp.spawn_detached(
                     [exe] + list(args),
-                    trusted_executable=True,
+                    trusted_executable=False,
                     intent="settings_dialog.restart_self",
                 )
             else:

@@ -29,6 +29,55 @@ def test_installed_runtime_uses_per_user_root(monkeypatch, tmp_path) -> None:
     assert paths.backups_dir() == tmp_path / "DupeZ" / "backups"
 
 
+def test_build_analysis_never_migrates_checkout_data(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import app.core.app_paths as paths
+
+    monkeypatch.setattr(paths.sys, "frozen", False, raising=False)
+    monkeypatch.setenv("DUPEZ_BUILD_ANALYSIS", "1")
+    monkeypatch.setenv("DUPEZ_FORCE_USER_DATA", "1")
+    monkeypatch.setenv("DUPEZ_USER_ROOT", str(tmp_path / "analysis-user"))
+    monkeypatch.setattr(
+        paths,
+        "migrate_legacy_files",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("build analysis attempted legacy-data migration")
+        ),
+    )
+
+    assert paths.ensure_runtime_migration() is None
+
+
+def test_frozen_runtime_cannot_use_build_marker_to_skip_migration(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    import app.core.app_paths as paths
+
+    calls = []
+
+    def fake_migration(*args, **kwargs):
+        calls.append((args, kwargs))
+        return object()
+
+    monkeypatch.setattr(paths.sys, "frozen", True, raising=False)
+    monkeypatch.setenv("DUPEZ_BUILD_ANALYSIS", "1")
+    monkeypatch.setattr(paths, "legacy_runtime_root", lambda: tmp_path / "old")
+    monkeypatch.setattr(paths, "data_dir", lambda: tmp_path / "new-data")
+    monkeypatch.setattr(paths, "config_dir", lambda: tmp_path / "new-config")
+    monkeypatch.setattr(paths, "logs_dir", lambda: tmp_path / "new-logs")
+    monkeypatch.setattr(paths, "crashes_dir", lambda: tmp_path / "new-crashes")
+    monkeypatch.setattr(paths, "migrate_legacy_files", fake_migration)
+
+    result = paths.ensure_runtime_migration()
+
+    assert result is not None
+    assert len(result) == 4
+    assert len(calls) == 4
+
+
 def test_migration_copies_and_verifies_without_deleting_legacy(
     tmp_path,
 ) -> None:

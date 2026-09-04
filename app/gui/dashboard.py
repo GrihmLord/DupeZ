@@ -26,6 +26,7 @@ from PyQt6.QtCore import (
 )
 from PyQt6.QtGui import QAction, QCursor, QFont, QIcon
 from PyQt6.QtWidgets import (
+    QApplication,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -218,22 +219,28 @@ class DupeZDashboard(QMainWindow):
 
     _dashboard_snapshot_ready = pyqtSignal(int, int, object)
     _dashboard_snapshot_failed = pyqtSignal(int, str)
+    _cut_chain_event_ready = pyqtSignal(int, object)
 
     def __init__(self, controller: Any = None) -> None:
         super().__init__()
+        from app.core.overlay_server import OverlayServerOwner
+
         self.controller = controller
+        self.overlay_server_owner = OverlayServerOwner(controller)
         self._minimize_to_tray: bool = True
         self._force_quit: bool = False
         self._dashboard_poll_generation = 0
         self._dashboard_poll_in_flight = False
         self._device_count_snapshot = 0
         self._disrupted_devices_snapshot: frozenset[str] = frozenset()
+        self._cut_chain_ui_generation = 0
         self._dashboard_snapshot_ready.connect(
             self._apply_dashboard_status_snapshot
         )
         self._dashboard_snapshot_failed.connect(
             self._apply_dashboard_status_error
         )
+        self._cut_chain_event_ready.connect(self._on_cut_chain_event)
 
         # Frameless drag/resize state
         self._drag_pos: Optional[QPoint] = None
@@ -454,6 +461,16 @@ class DupeZDashboard(QMainWindow):
         # Fallback to a cold construction so dashboard still builds
         # cleanly when prewarm was skipped or failed.
         self.map_view = consume_prewarmed_map_gui() or DayZMapGUI()
+        map_status_signal = getattr(
+            self.map_view,
+            "webengineStatusChanged",
+            None,
+        )
+        if (
+            map_status_signal is not None
+            and hasattr(map_status_signal, "connect")
+        ):
+            map_status_signal.connect(self._on_map_webengine_status)
         self.accounts_view = DayZAccountTracker()
         # NetworkToolsView adopts the AI / Smart Ops and GPC tabs built inside
         # ClumsyControlView. Panels stay owned by clumsy_view so their event
@@ -500,6 +517,29 @@ class DupeZDashboard(QMainWindow):
         self.view_stack.setCurrentIndex(index)
         for i, btn in enumerate(self.nav_buttons):
             btn.setChecked(i == index)
+        if index == 1:
+            status = str(
+                getattr(self.map_view, "webengine_status", "unavailable")
+            )
+            if status == "ready" and getattr(
+                self.map_view, "webengine_ready", False
+            ):
+                log_info("Map: dashboard view active with WebEngine ready")
+            elif status in {"deferred", "initializing", "loading"}:
+                log_info(f"Map: dashboard view active while WebEngine is {status}")
+            else:
+                log_error("Map: dashboard view active without WebEngine")
+
+    def _on_map_webengine_status(self, status: str) -> None:
+        """Record actual navigation readiness, including async failures."""
+
+        normalized = str(status)
+        if normalized == "ready":
+            log_info("Map: dashboard WebEngine navigation ready")
+            if self.view_stack.currentIndex() == 1:
+                log_info("Map: dashboard view active with WebEngine ready")
+        elif normalized in {"failed", "crashed", "unavailable"}:
+            log_error(f"Map: dashboard WebEngine state is {normalized}")
 
     # ── Plugin panels ───────────────────────────────────────────────
 
@@ -660,7 +700,14 @@ class DupeZDashboard(QMainWindow):
     def _tray_quit(self) -> None:
         """Fully quit from tray context menu."""
         self._force_quit = True
-        self.close()
+        # Hidden prewarmed WebEngine widgets are top-level windows. Closing
+        # only the dashboard can therefore leave Qt's event loop alive even
+        # after every owned service has shut down. Quit the application only
+        # after closeEvent positively accepts the cleanup boundary.
+        if self.close():
+            application = QApplication.instance()
+            if application is not None:
+                application.quit()
 
     def _update_tray_tooltip(self) -> None:
         """Render the tray from the last completed background snapshot."""
@@ -768,6 +815,14 @@ class DupeZDashboard(QMainWindow):
                          self._show_risk_score)
         self._add_action(tools_menu, "&Diagnostics…", "F2",
                          self._show_diagnostics)
+        self._add_action(tools_menu, "Audit &Webhook…", "",
+                         self._show_audit_webhook_config)
+        self._add_action(
+            tools_menu,
+            "Cut-&Chain Configurator…",
+            "Ctrl+Shift+C",
+            self._open_cut_chain_configurator,
+        )
         self._add_action(tools_menu, "Network &Health…", "Ctrl+F2",
                          self._show_network_health)
         self._add_action(tools_menu, "&Kill Switch — Panic Stop", "Ctrl+Alt+X",
@@ -821,7 +876,6 @@ class DupeZDashboard(QMainWindow):
         _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
         _tier_labels = {
             "tier1_hw": ("GPU", "#00ff88", "Map: hardware GPU raster (ANGLE/D3D11)"),
-            "tier2_swiftshader": ("SW-GL", "#fbbf24", "Map: SwiftShader software GL — consider DupeZ-GPU.exe"),
             "tier3_cpu": ("CPU", "#ff4444", "Map: CPU raster (no GPU) — use DupeZ-GPU.exe for best performance"),
         }
         label_text, color, tooltip = _tier_labels.get(_tier, ("?", "#94a3b8", "Unknown renderer tier"))
@@ -983,17 +1037,29 @@ class DupeZDashboard(QMainWindow):
             if not self.controller:
                 return
             self.controller.state.load_settings()
-            dialog = SettingsDialog(self.controller.state.settings, self)
-            if dialog.exec() == QDialog.DialogCode.Accepted:
-                self.controller.update_settings(dialog.get_new_settings())
+            dialog = SettingsDialog(
+                self.controller.state.settings,
+                self,
+                controller=self.controller,
+            )
+            dialog.exec()
         except Exception as exc:
             log_error(f"Settings error: {exc}")
 
     def _stop_all_disruptions(self) -> None:
         """Emergency-stop all active disruptions."""
-        if self.controller:
-            self.controller.stop_all_disruptions()
+        if not self.controller:
+            self.status_bar.showMessage(
+                "Stop unavailable — controller is not initialized", 5000
+            )
+            return
+        if self.controller.stop_all_disruptions() is True:
             self.status_bar.showMessage("All disruptions stopped", 3000)
+            return
+        log_error("Stop All cleanup was not confirmed")
+        self.status_bar.showMessage(
+            "Cleanup not confirmed — retry Stop All or Panic Stop", 8000
+        )
 
     # v5.6.9 menu handlers ─────────────────────────────────────────────
     def _open_preset_editor(self) -> None:
@@ -1122,36 +1188,153 @@ class DupeZDashboard(QMainWindow):
     def _show_diagnostics(self) -> None:
         """Run all diagnostic self-checks and display the results."""
         try:
-            from app.core.diagnostics import run_all_checks, CheckStatus
+            from app.core.diagnostics import run_all_checks
+            from app.gui.diagnostics_dialog import DiagnosticsDialog
+
             results = run_all_checks()
-            icon = {
-                CheckStatus.PASS: "[OK]  ",
-                CheckStatus.WARN: "[WARN]",
-                CheckStatus.FAIL: "[FAIL]",
-            }
-            lines = []
-            for r in results:
-                lines.append(f"{icon.get(r.status, '[?]')} {r.name}")
-                lines.append(f"        {r.message}")
-                if r.fix_hint:
-                    lines.append(f"        fix: {r.fix_hint}")
-                lines.append("")
-            fails = sum(1 for r in results if r.status == CheckStatus.FAIL)
-            header = (
-                f"{len(results)} checks — "
-                f"{fails} failing\n" + "=" * 40 + "\n"
-            )
-            box = QMessageBox(self)
-            box.setWindowTitle("DupeZ Diagnostics")
-            box.setIcon(
-                QMessageBox.Icon.Critical if fails
-                else QMessageBox.Icon.Information
-            )
-            box.setText(header + "\n".join(lines))
-            box.exec()
+            DiagnosticsDialog(results, self).exec()
         except Exception as exc:
-            log_error(f"diagnostics display failed: {exc}")
-            QMessageBox.warning(self, "Diagnostics", f"Could not run: {exc}")
+            log_error(
+                f"diagnostics display failed ({type(exc).__name__})"
+            )
+            QMessageBox.warning(
+                self,
+                "Diagnostics",
+                "Could not run diagnostics. Review the local application log "
+                "and try again.",
+            )
+
+    def _show_audit_webhook_config(self) -> None:
+        """Open the sealed audit-webhook configuration surface."""
+        try:
+            from app.gui.audit_webhook_dialog import AuditWebhookDialog
+
+            AuditWebhookDialog(self).exec()
+        except Exception:
+            log_error("Audit webhook configuration dialog failed")
+            QMessageBox.warning(
+                self,
+                "Audit Webhook",
+                "Could not open audit webhook configuration. No stored URL "
+                "was read or displayed.",
+            )
+
+    def _open_cut_chain_configurator(self) -> None:
+        """Edit and start one authorized, controller-owned cut chain."""
+        controller = self.controller
+        if controller is None or not hasattr(controller, "start_cut_chain"):
+            QMessageBox.warning(
+                self,
+                "Cut Chain Unavailable",
+                "The active controller does not support configured chains.",
+            )
+            return
+
+        view = getattr(self, "clumsy_view", None)
+        selected = set(getattr(view, "selected_ips", set()) or set())
+        if len(selected) > 1:
+            QMessageBox.warning(
+                self,
+                "One Target Required",
+                "A cut chain runs on exactly one device. Clear the other "
+                "selections and try again.",
+            )
+            return
+        target_ip = next(iter(selected), "")
+        if not target_ip:
+            target_ip = str(getattr(view, "selected_ip", "") or "")
+        if not target_ip:
+            state = getattr(controller, "state", None)
+            target_ip = str(getattr(state, "selected_ip", "") or "")
+
+        try:
+            from app.gui.cut_chain_dialog import CutChainConfiguratorDialog
+
+            dialog = CutChainConfiguratorDialog(
+                target_ip,
+                safety_policy=getattr(controller, "safety_policy", None),
+                parent=self,
+            )
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+            config = dialog.selected_config()
+            if config is None:
+                raise ValueError("dialog returned no validated configuration")
+
+            self._cut_chain_ui_generation += 1
+            ui_generation = self._cut_chain_ui_generation
+
+            def _on_event(event: object) -> None:
+                self._cut_chain_event_ready.emit(ui_generation, event)
+
+            generation = controller.start_cut_chain(
+                config,
+                on_event=_on_event,
+            )
+            if not generation:
+                self._cut_chain_ui_generation += 1
+                QMessageBox.warning(
+                    self,
+                    "Cut Chain Refused",
+                    "The chain did not start. Recheck the target, safety "
+                    "scope, engine readiness, and local application log.",
+                )
+                return
+            self.status_bar.showMessage(
+                f"Cut chain started ({len(config.stages)} stages)",
+                5000,
+            )
+        except Exception as exc:
+            log_error(
+                "Cut-chain configurator failed "
+                f"({type(exc).__name__})"
+            )
+            QMessageBox.warning(
+                self,
+                "Cut Chain",
+                "Could not open or start the chain. No unvalidated "
+                "configuration was executed.",
+            )
+
+    @pyqtSlot(int, object)
+    def _on_cut_chain_event(self, generation: int, event: object) -> None:
+        """Render runner progress only for the newest configured chain."""
+        if generation != self._cut_chain_ui_generation:
+            return
+        kind = str(getattr(event, "kind", "") or "")
+        stage_idx = int(getattr(event, "stage_idx", -1))
+        if kind == "stage_start":
+            self.status_bar.showMessage(
+                f"Cut chain stage {stage_idx + 1} active",
+                5000,
+            )
+        elif kind == "stage_end":
+            self.status_bar.showMessage(
+                f"Cut chain stage {stage_idx + 1} released",
+                5000,
+            )
+        elif kind == "complete":
+            self.status_bar.showMessage(
+                "Cut chain complete — target released",
+                6000,
+            )
+        elif kind == "halt":
+            self.status_bar.showMessage(
+                "Cut chain stopped — target released",
+                6000,
+            )
+        elif kind == "error":
+            detail = str(getattr(event, "detail", "") or "").casefold()
+            if "release could not be confirmed" in detail:
+                self.status_bar.showMessage(
+                    "Cut chain failed — release not confirmed; retry Panic Stop",
+                    8000,
+                )
+            else:
+                self.status_bar.showMessage(
+                    "Cut chain failed — target released; review the local log",
+                    8000,
+                )
 
     def _show_network_health(self) -> None:
         """Display a concise, privacy-preserving health summary."""
@@ -1215,8 +1398,25 @@ class DupeZDashboard(QMainWindow):
     def _kill_switch_panic(self) -> None:
         """Immediate panic-stop of all disruptions (manual kill switch)."""
         try:
-            if self.controller:
-                self.controller.stop_all_disruptions()
+            stopped = bool(
+                self.controller
+                and self.controller.fire_manual_kill_switch(
+                    "dashboard panic stop"
+                ) is True
+            )
+            if not stopped:
+                log_error("Kill switch panic cleanup was not confirmed")
+                self.status_bar.showMessage(
+                    "KILL SWITCH — cleanup not confirmed; retry Panic Stop",
+                    8000,
+                )
+                QMessageBox.critical(
+                    self,
+                    "Kill Switch",
+                    "Panic-stop could not confirm that every disruption was "
+                    "released. Retry Panic Stop and verify network state.",
+                )
+                return
             self.status_bar.showMessage(
                 "KILL SWITCH — all disruptions stopped", 5000
             )
@@ -1232,33 +1432,82 @@ class DupeZDashboard(QMainWindow):
     def _toggle_obs_overlay(self) -> None:
         """Start or stop the OBS overlay HTTP server."""
         try:
-            from app.core.overlay_server import OverlayServer
+            from app.core.overlay_server import OverlayServerOwner
             from app.core.data_persistence import settings_manager
-            existing = getattr(self, "overlay_server", None)
-            if existing is not None:
-                existing.stop()
-                self.overlay_server = None
-                settings_manager.update_setting("obs_overlay_enabled", False)
+
+            owner = getattr(self, "overlay_server_owner", None)
+            if owner is None:
+                owner = OverlayServerOwner(self.controller)
+                self.overlay_server_owner = owner
+
+            if owner.owned:
+                if not owner.stop():
+                    QMessageBox.warning(
+                        self,
+                        "OBS Overlay",
+                        "The overlay server did not confirm shutdown. Its "
+                        "resources remain owned so cleanup can be retried.",
+                    )
+                    return
+                try:
+                    settings_manager.update_setting(
+                        "obs_overlay_enabled",
+                        False,
+                    )
+                except Exception as exc:
+                    log_error(
+                        "OBS overlay stopped, but the disabled preference "
+                        f"could not be saved: {exc}"
+                    )
+                    QMessageBox.warning(
+                        self,
+                        "OBS Overlay Stopped",
+                        "The overlay server stopped, but that preference "
+                        "could not be saved. It may auto-start next launch.",
+                    )
+                    return
                 self.status_bar.showMessage("OBS overlay stopped", 4000)
                 return
-            srv = OverlayServer(self.controller)
-            if not srv.start():
-                # Bind failed — port in use. Do NOT persist the enabled
-                # flag or claim success.
+
+            if not owner.start():
+                retained = (
+                    " Cleanup resources remain owned for a retry."
+                    if owner.owned
+                    else ""
+                )
                 QMessageBox.warning(
                     self, "OBS Overlay",
-                    f"Could not start the overlay server — the port "
-                    f"({srv.base_url.rsplit(':', 1)[-1]}) is likely "
-                    f"already in use. Close whatever is using it and "
-                    f"try again."
+                    "Could not start the overlay server. The configured "
+                    f"address ({owner.base_url}) may already be in use."
+                    f"{retained}"
                 )
                 return
-            self.overlay_server = srv
-            settings_manager.update_setting("obs_overlay_enabled", True)
+
+            try:
+                settings_manager.update_setting("obs_overlay_enabled", True)
+            except Exception as exc:
+                rollback_ok = owner.stop()
+                log_error(
+                    "OBS overlay enabled preference could not be saved; "
+                    f"runtime rollback confirmed={rollback_ok}: {exc}"
+                )
+                QMessageBox.warning(
+                    self,
+                    "OBS Overlay",
+                    (
+                        "The overlay start was rolled back because its "
+                        "enabled preference could not be saved."
+                        if rollback_ok
+                        else "The enabled preference could not be saved and "
+                        "server cleanup was not confirmed. Cleanup ownership "
+                        "has been retained for another stop attempt."
+                    ),
+                )
+                return
             QMessageBox.information(
                 self, "OBS Overlay Started",
                 f"Overlay server running. Add this as a Browser Source "
-                f"in OBS:\n\n{srv.base_url}/overlay.html\n\n"
+                f"in OBS:\n\n{owner.base_url}/overlay.html\n\n"
                 f"It auto-starts on future launches until you toggle "
                 f"it off here."
             )
@@ -1502,7 +1751,7 @@ class DupeZDashboard(QMainWindow):
         layout.setSpacing(8)
         layout.setContentsMargins(30, 20, 30, 20)
 
-        self._about_build_header(layout)
+        self._about_build_header(layout, dlg)
         self._about_build_info_block(layout)
         self._about_build_credits(layout)
         self._about_build_support(layout)
@@ -1542,15 +1791,18 @@ class DupeZDashboard(QMainWindow):
     # ── About dialog helpers ────────────────────────────────────────
 
     @staticmethod
-    def _about_build_header(layout: QVBoxLayout) -> None:
+    def _about_build_header(layout: QVBoxLayout, dialog: QDialog) -> None:
         """Close button, title, version, tagline, and separator."""
         # ── Close (×) button, top-right ──
         close_row = QHBoxLayout()
         close_row.addStretch()
         close_btn = QPushButton("\u2715")
+        close_btn.setAccessibleName("Close About DupeZ")
+        close_btn.setToolTip("Close")
         close_btn.setFixedSize(28, 28)
         close_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         close_btn.setStyleSheet(_CLOSE_BTN_QSS)
+        close_btn.clicked.connect(dialog.reject)
         close_row.addWidget(close_btn)
         layout.addLayout(close_row)
 
@@ -1586,8 +1838,8 @@ class DupeZDashboard(QMainWindow):
 
         # ── Tagline ──
         desc = QLabel(
-            "Per-device network disruption toolkit.\n"
-            "Scan your network, pick your targets, manipulate their packets."
+            "Owned-lab network-condition testing and diagnostics.\n"
+            "Reproduce connection faults with bounded, auditable recovery."
         )
         desc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         desc.setWordWrap(True)
@@ -1615,8 +1867,8 @@ class DupeZDashboard(QMainWindow):
         for label_text, value_text in [
             ("ENGINE", "WinDivert + Clumsy core"),
             ("ARCH", arch_label),
-            ("PLATFORM", "Windows 10 / 11 (x64)"),
-            ("RUNTIME", "Python 3.10+ \u00b7 PyQt6"),
+            ("PLATFORM", "Windows 11 / Windows 10 LTSC or ESU (x64)"),
+            ("RUNTIME", "Python 3.12\u20133.13 \u00b7 PyQt6"),
         ]:
             row = QHBoxLayout()
             lbl = QLabel(label_text)
@@ -1805,6 +2057,7 @@ class DupeZDashboard(QMainWindow):
             self._minimize_to_tray_action()
             return
 
+        cleanup_confirmed = True
         try:
             self._dashboard_poll_generation += 1
             self._dashboard_poll_in_flight = False
@@ -1812,14 +2065,74 @@ class DupeZDashboard(QMainWindow):
             self._stats_timer.stop()
             if hasattr(self, "clumsy_view"):
                 self.clumsy_view.stop_background_refresh()
+        except Exception as exc:
+            log_error(f"Dashboard timer cleanup failed: {exc}")
 
+        try:
+            if hasattr(self, "nettools_view"):
+                if self.nettools_view.cleanup() is False:
+                    cleanup_confirmed = False
+                    log_error(
+                        "Network Tools shutdown completed with unconfirmed cleanup"
+                    )
+        except Exception as exc:
+            # Continue into the controller's independent restoration path even
+            # when a child panel fails; active network state must never be
+            # skipped because an earlier GUI cleanup raised.
+            cleanup_confirmed = False
+            log_error(f"Network Tools shutdown failed: {exc}")
+
+        try:
             if self.tray_icon:
                 self.tray_icon.hide()
             if KEYBOARD_AVAILABLE and hotkey_manager:
-                hotkey_manager.stop_all()
+                if hotkey_manager.stop_all() is False:
+                    cleanup_confirmed = False
+                    log_error("Dashboard hotkey cleanup was not confirmed")
+        except Exception as exc:
+            cleanup_confirmed = False
+            log_error(f"Dashboard service cleanup failed: {exc}")
+
+        try:
+            owner = getattr(self, "overlay_server_owner", None)
+            if owner is not None and owner.owned and not owner.stop():
+                cleanup_confirmed = False
+                log_error(
+                    "OBS overlay close cleanup was not confirmed; ownership retained"
+                )
+        except Exception as exc:
+            cleanup_confirmed = False
+            log_error(f"OBS overlay close cleanup failed: {exc}")
+
+        try:
             if self.controller:
-                self.controller.shutdown()
+                if self.controller.shutdown() is False:
+                    cleanup_confirmed = False
+                    log_error("Controller close cleanup was not confirmed")
+        except Exception as exc:
+            cleanup_confirmed = False
+            log_error(f"Controller close shutdown failed: {exc}")
+
+        if not cleanup_confirmed:
+            log_error(
+                "Application close refused because one or more owned resources "
+                "were not released"
+            )
+            try:
+                QMessageBox.critical(
+                    self,
+                    "Cleanup Not Confirmed",
+                    "DupeZ could not confirm that every network operation and "
+                    "background service was released. The application will stay "
+                    "open so you can use Panic Stop and retry Exit.",
+                )
+            except Exception as exc:
+                log_error(f"Cleanup failure dialog could not be shown: {exc}")
+            event.ignore()
+            return
+
+        try:
             gc.collect()
         except Exception as exc:
-            log_error(f"Close error: {exc}")
+            log_error(f"Close garbage collection failed: {exc}")
         event.accept()

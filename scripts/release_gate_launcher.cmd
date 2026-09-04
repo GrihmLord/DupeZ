@@ -8,10 +8,11 @@ echo ============================================
 echo  DupeZ Blocked Release Gates Launcher
 echo ============================================
 echo.
-echo This will run the next blocked gate phase and track progress.
+echo This shows release status by default.
+echo Pass a named -Phase explicitly to advance a release gate.
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\release_gate_launcher.ps1" -Phase auto -Version %VERSION%
+powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\release.ps1" -Version %VERSION% %*
 set EXITCODE=%ERRORLEVEL%
 
 echo.
