@@ -32,7 +32,7 @@ scapy>=2.6.0
 requests>=2.34.2
 # Security floors for Requests' direct runtime dependencies. Narrow upper
 # bounds minimize release drift while clearing the v5.8.0 advisories.
-urllib3>=2.7.0,<2.8
+urllib3>=2.8.0,<2.9
 idna>=3.18,<3.19
 
 # mDNS hostname resolution — 4th-stage fallback in the hostname chain.
