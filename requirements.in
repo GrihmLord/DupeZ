@@ -16,7 +16,7 @@ PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
 PyQtGraph>=0.13.0
 # v5.8.0 security floor; keep this release on the 12.3 line.
-Pillow>=12.3.0,<12.4
+Pillow>=13.0.0,<13.1
 
 # ── System & Process ────────────────────────────────────────────────
 psutil>=5.9.0
