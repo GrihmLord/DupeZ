@@ -12,6 +12,15 @@ import shlex
 import sys
 
 
+# Explicitly reviewed (Qt, WebEngine, Chromium security-backport) combinations.
+# Empty on 2026-10-24: available Qt 6.11.2 wheels still lack Qt 6.11.3 fixes,
+# and Chromium 151.0.7922.71 is only an installed baseline, not current security
+# clearance. Updating Qt alone must never silently re-enable stale WebEngine.
+# Add a combination only with exact-artifact/backport and sandbox evidence.
+# This is deliberately not configurable through the environment or UI.
+REVIEWED_NATIVE_COMBINATIONS: frozenset[tuple[str, str, str]] = frozenset()
+
+
 @dataclass(frozen=True)
 class WebEngineSecurityAssessment:
     allowed: bool
@@ -47,8 +56,8 @@ def assess_webengine_security() -> WebEngineSecurityAssessment:
     """Inspect the current token, startup configuration and loaded native DLLs.
 
     This does not create a page or renderer. Errors and unknown platforms deny
-    admission. Current Qt wheels below 6.11.3 remain intentionally unavailable
-    for embedded remote content even when their newer Chromium patches help.
+    admission. Version floors are necessary but insufficient: an exact reviewed
+    native combination is also required before embedded content is admitted.
     """
     deny = WebEngineSecurityAssessment
     try:
@@ -61,6 +70,15 @@ def assess_webengine_security() -> WebEngineSecurityAssessment:
             return deny(False, "Embedded map is disabled because Chromium sandbox bypass is configured.")
         if environment.get("qtwebengine_remote_debugging", "").strip():
             return deny(False, "Embedded map is disabled while remote debugging is configured.")
+        # These Qt overrides select executable or resource bytes independently
+        # of the loaded DLL versions. The pinned PyInstaller Windows hook uses
+        # embedded qt.conf instead, so no override is needed by our packaging.
+        if any(key in environment for key in (
+            "qtwebengineprocess_path",
+            "qtwebengine_resources_path",
+            "qtwebengine_locales_path",
+        )):
+            return deny(False, "Embedded map is disabled by an unreviewed browser executable or resource path.")
         from app.gui.map_host.renderer_tier import TIER_FLAGS
 
         reviewed_flags = {flag for value in TIER_FLAGS.values() for flag in shlex.split(value)}
@@ -94,6 +112,8 @@ def assess_webengine_security() -> WebEngineSecurityAssessment:
             return deny(False, "Embedded map requires a reviewed Qt WebEngine 6.11 patch build.")
         if _version(security, 4) < (151, 0, 7922, 71):
             return deny(False, "Embedded map requires newer Chromium security backports.")
+        if (qt, engine, security) not in REVIEWED_NATIVE_COMBINATIONS:
+            return deny(False, "Embedded map is disabled: no reviewed patched native-runtime combination is available.")
     except Exception:
         return deny(False, "Embedded map security could not be verified; use your normal browser manually.")
     return WebEngineSecurityAssessment(True, "Reviewed runtime and sandbox prerequisites are present.")

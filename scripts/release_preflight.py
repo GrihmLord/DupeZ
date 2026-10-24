@@ -498,6 +498,41 @@ def _check_renderer_flag_policy(
     return errors
 
 
+def _check_native_collection_policy() -> list[str]:
+    """Keep every portable on the reviewed native-origin and Qt TLS boundary."""
+    required = {
+        "packaging/build_common.py": (
+            "configure_windows_analysis_environment()",
+            'hookspath=[os.path.join(HERE, "hooks")]',
+            "a.binaries = validate_windows_tls_binaries(",
+            "native_evidence = audit_native_binary_origins(",
+            '"locked-build-venv": Path(sys.prefix)',
+            '"verified-base-python": Path(sys.base_prefix)',
+            '"windows-system32": Path(windows_system_directory)',
+            "managed_sources=[Path(source) for source, _destination in managed_binary_inputs]",
+        ),
+        "packaging/hooks/hook-PyQt6.QtNetwork.py": (
+            "binaries = filter_qt_network_hook_binaries(binaries)",
+        ),
+        "packaging/native_runtime_policy.py": (
+            '"qopensslbackend.dll"', '"qcertonlybackend.dll"',
+            '"libssl-3.dll"', '"libcrypto-3.dll"',
+            "Unreviewed ambient native dependency", "Unreviewed OpenSSL DLL",
+        ),
+    }
+    errors = []
+    for relative, markers in required.items():
+        try:
+            content = _read(relative)
+        except OSError:
+            errors.append(f"native collection policy file is missing: {relative}")
+            continue
+        for marker in markers:
+            if marker not in content:
+                errors.append(f"native collection policy is incomplete: {relative} omits {marker!r}")
+    return errors
+
+
 _FORBIDDEN_FROZEN_PREFIXES = (
     # Scapy is deliberately absent from the production lock. Reject it even
     # when an ambient build environment makes it visible to PyInstaller.
@@ -528,6 +563,10 @@ _FORBIDDEN_FROZEN_PREFIXES = (
 )
 _FORBIDDEN_FROZEN_PATHS = (
     "_sounddevice_data/portaudio-binaries/libportaudio64bit-asio.dll",
+    "pyqt6/qt6/plugins/tls/qopensslbackend.dll",
+    "pyqt6/qt6/plugins/tls/qcertonlybackend.dll",
+    "libssl-3-x64.dll",
+    "libcrypto-3-x64.dll",
 )
 _RELEASE_DATA_MANIFEST = ROOT / "packaging" / "release-data.json"
 _BINARY_PROVENANCE_MANIFEST = (
@@ -2317,6 +2356,7 @@ def check_source(expected_version: str | None = None) -> list[str]:
 
     errors.extend(_check_build_entrypoint_policy())
     errors.extend(_check_renderer_flag_policy())
+    errors.extend(_check_native_collection_policy())
     errors.extend(_check_frozen_runtime_import_policy())
 
     variant_build = _read("packaging/build_variants.bat")
@@ -2655,8 +2695,21 @@ def _validate_supply_chain_metadata(dist: Path, version: str) -> list[str]:
     return errors
 
 
-def _check_source_archive(dist: Path, version: str) -> list[str]:
-    """Require a safe Git-generated source archive with release controls."""
+def _check_source_archive(
+    dist: Path,
+    version: str,
+    *,
+    expected_commit: str | None = None,
+) -> list[str]:
+    """Require build inputs and bind an available release source identity.
+
+    A Git-shaped ZIP comment alone is not proof of correspondence. The release
+    finalizer creates the archive before its attestation exists; subsequent
+    validation must also bind the archive to that attestation. A caller with a
+    separately reviewed source identity can supply it before finalization.
+    Neither path treats this structural check as complete upstream-source or
+    recipient-rebuild evidence.
+    """
 
     errors: list[str] = []
     archive_path = dist / f"DupeZ-v{version}-source.zip"
@@ -2672,22 +2725,115 @@ def _check_source_archive(dist: Path, version: str) -> list[str]:
     except OSError as exc:
         return [f"release source archive is unavailable: {exc}"]
 
+    commit_pattern = r"(?:[0-9a-f]{40}|[0-9a-f]{64})"
+    if expected_commit is not None and (
+        not isinstance(expected_commit, str)
+        or not re.fullmatch(commit_pattern, expected_commit)
+    ):
+        return ["release source archive expected commit is invalid"]
+
+    attestation_path = dist / "release-attestation.json"
+    if os.path.lexists(attestation_path):
+        try:
+            attestation_metadata = attestation_path.lstat()
+            if (
+                not stat.S_ISREG(attestation_metadata.st_mode)
+                or _is_reparse_point(attestation_path)
+                or not 0 < attestation_metadata.st_size <= 8 * 1024 * 1024
+            ):
+                raise ValueError("unsafe attestation file")
+            attestation = json.loads(
+                attestation_path.read_text(encoding="utf-8-sig")
+            )
+            if (
+                not isinstance(attestation, dict)
+                or attestation.get("schema") != "dupez.release-attestation.v1"
+                or attestation.get("product") != "DupeZ"
+                or attestation.get("version") != version
+                or not isinstance(attestation.get("commit"), str)
+                or not re.fullmatch(commit_pattern, attestation["commit"])
+            ):
+                raise ValueError("invalid attestation source identity")
+            if (
+                expected_commit is not None
+                and attestation["commit"] != expected_commit
+            ):
+                errors.append(
+                    "release source attestation differs from the expected commit"
+                )
+            expected_commit = attestation["commit"]
+            artifacts = attestation.get("artifacts")
+            if not isinstance(artifacts, list):
+                raise ValueError("invalid attestation artifact inventory")
+            records = [
+                record for record in artifacts
+                if isinstance(record, dict)
+                and record.get("name") == archive_path.name
+            ]
+            if len(records) != 1:
+                raise ValueError("source archive must have one attestation record")
+            record = records[0]
+            with archive_path.open("rb") as handle:
+                actual_sha256 = hashlib.file_digest(handle, "sha256").hexdigest()
+            if (
+                type(record.get("size")) is not int
+                or record["size"] != metadata.st_size
+                or record.get("sha256") != actual_sha256
+            ):
+                errors.append("release source archive differs from attested bytes")
+        except (OSError, UnicodeError, ValueError) as exc:
+            errors.append(f"release source attestation is invalid: {exc}")
+
     prefix = f"DupeZ-v{version}/"
     required = {
         "LICENSE.txt",
         "README.md",
+        "dupez.py",
+        "dupez_helper.py",
+        "app/__init__.py",
+        "app/__version__.py",
+        "app/main.py",
+        "app/firewall_helper/feature_flag.py",
+        "app/firewall/clumsy_src/LICENSE",
+        "app/firewall/clumsy_src/build.zig",
+        "app/firewall/clumsy_src/src/main.c",
         "requirements.in",
         "requirements-locked.txt",
+        "packaging/build_common.py",
         "packaging/build_variants.bat",
+        "packaging/native_runtime_policy.py",
+        "packaging/hooks/hook-PyQt6.QtNetwork.py",
+        "packaging/dupez_gpu.spec",
+        "packaging/dupez_compat.spec",
+        "packaging/dupez.manifest",
+        "packaging/dupez_compat.manifest",
         "packaging/installer.iss",
         "packaging/license-policy.json",
+        "packaging/release_data.py",
+        "packaging/release-data.json",
+        "packaging/binary-provenance.json",
+        "packaging/release-tools.json",
+        "packaging/requirements-build.in",
         "packaging/requirements-build-locked.txt",
         "packaging/third-party-components.json",
+        "packaging/source-inputs.json",
+        "packaging/recipient-validation/application-marker.patch",
+        "packaging/recipient-validation/zeroconf-marker.patch",
+        "packaging/version_info.py",
         "scripts/finalize_release.ps1",
         "scripts/license_payload.py",
+        "scripts/corresponding_source.py",
+        "scripts/recipient_rebuild_evidence.py",
+        "scripts/native_build_evidence.py",
+        "scripts/release_preflight.py",
+        "scripts/verify_requirements_lock.py",
+        "scripts/sbom.py",
         "docs/legal/DISTRIBUTION_BASIS_V5.8.0.md",
         "docs/legal/SOURCE_AND_RELINK_V5.8.0.md",
     }
+    data_paths, binary_paths, manifest_errors = _release_payload_paths()
+    errors.extend(manifest_errors)
+    required.update(data_paths | binary_paths)
     seen: dict[str, str] = {}
     present: set[str] = set()
     total_uncompressed = 0
@@ -2697,9 +2843,14 @@ def _check_source_archive(dist: Path, version: str) -> list[str]:
                 comment = archive.comment.decode("ascii")
             except UnicodeDecodeError:
                 comment = ""
-            if not re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", comment):
+            if not re.fullmatch(commit_pattern, comment):
                 errors.append(
                     "release source archive omits its Git commit comment"
+                )
+            elif expected_commit is not None and comment != expected_commit:
+                errors.append(
+                    "release source archive Git commit does not match "
+                    "the expected source identity"
                 )
             infos = archive.infolist()
             if not infos or len(infos) > 20000:
@@ -2714,11 +2865,14 @@ def _check_source_archive(dist: Path, version: str) -> list[str]:
                 ):
                     errors.append("release source archive contains an unsafe name")
                     continue
-                relative = PurePosixPath(name)
+                # Git ZIPs include explicit directory entries, including the
+                # top-level prefix. Preserve strict normalization for files.
+                normalized_name = name[:-1] if info.is_dir() else name
+                relative = PurePosixPath(normalized_name)
                 if (
                     relative.is_absolute()
                     or ".." in relative.parts
-                    or relative.as_posix() != name
+                    or relative.as_posix() != normalized_name
                     or not name.startswith(prefix)
                 ):
                     errors.append(
@@ -2755,15 +2909,22 @@ def _check_source_archive(dist: Path, version: str) -> list[str]:
                     break
                 if not info.is_dir():
                     present.add(name[len(prefix):])
-            corrupt = archive.testzip()
-            if corrupt is not None:
-                errors.append(
-                    f"release source archive has a corrupt entry: {corrupt}"
-                )
+            # testzip decompresses every entry. Never invoke it after a size,
+            # count, path, or identity rejection: that would defeat the bounds
+            # above for an invalid (potentially decompression-bomb) archive.
+            if not errors:
+                corrupt = archive.testzip()
+                if corrupt is not None:
+                    errors.append(
+                        f"release source archive has a corrupt entry: {corrupt}"
+                    )
     except (OSError, RuntimeError, zipfile.BadZipFile) as exc:
         return errors + [f"release source archive is invalid: {exc}"]
 
-    missing = sorted(required - present)
+    present_casefolded = {name.casefold() for name in present}
+    missing = sorted(
+        name for name in required if name.casefold() not in present_casefolded
+    )
     if missing:
         errors.append(
             "release source archive omits required source files: "

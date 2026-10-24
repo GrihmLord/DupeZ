@@ -472,9 +472,9 @@ class ClumsyControlView(QWidget):
         self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
         self.preset_combo.activated.connect(self._on_preset_index_changed)
         preset_layout.addWidget(self.preset_combo)
-        self.preset_desc = QLabel(
-            PRESETS[AUTOMATIC_CONNECTION_TEST]["description"]
-        )
+        self.preset_desc = QLabel()
+        self.preset_desc.setTextFormat(Qt.TextFormat.PlainText)
+        self.preset_desc.setText(PRESETS[AUTOMATIC_CONNECTION_TEST]["description"])
         self.preset_desc.setStyleSheet(self._MUTED_PAD_QSS)
         self.preset_desc.setWordWrap(True)
         preset_layout.addWidget(self.preset_desc)

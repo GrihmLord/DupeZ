@@ -630,10 +630,13 @@ class DayZAccountTracker(QWidget):
         # ── Status bar ──
         status_row = QHBoxLayout()
         self.status_label = QLabel("Ready")
+        # Imported account names/statuses are data, never Qt rich-text input.
+        self.status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.status_label.setStyleSheet("color: #64748b; font-size: 11px;")
         status_row.addWidget(self.status_label)
 
         self.last_modified_label = QLabel("")
+        self.last_modified_label.setTextFormat(Qt.TextFormat.PlainText)
         self.last_modified_label.setStyleSheet("color: #475569; font-size: 10px;")
         self.last_modified_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         status_row.addWidget(self.last_modified_label)
@@ -1008,11 +1011,7 @@ class DayZAccountTracker(QWidget):
                 if len(names) > 10:
                     msg += f"\n  ... and {len(names) - 10} more"
 
-            reply = QMessageBox.question(
-                self, "Delete Account(s)", msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
+            reply = self._confirm_account_deletion(msg)
 
             if reply == QMessageBox.StandardButton.Yes:
                 names_to_remove = set(names)
@@ -1031,6 +1030,17 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to delete account: {e}")
             QMessageBox.critical(self, "Error", f"Failed to delete account: {e}")
+
+    def _confirm_account_deletion(self, message: str) -> int:
+        """Display imported names literally; never auto-detect rich text."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Delete Account(s)")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(message)
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.No)
+        return box.exec()
 
     def _show_account_dialog(self, account_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, str]]:
         """Present a modal form for creating or editing an account."""
@@ -1103,18 +1113,20 @@ class DayZAccountTracker(QWidget):
 
             # Holding (multi-line)
             holding_input = QTextEdit()
+            holding_input.setAcceptRichText(False)
             holding_input.setMaximumHeight(60)
             holding_input.setPlaceholderText("Items currently holding")
             if account_data:
-                holding_input.setText(account_data.get('holding', ''))
+                holding_input.setPlainText(account_data.get('holding', ''))
             form.addRow("Holding:", holding_input)
 
             # Notes (multi-line)
             notes_input = QTextEdit()
+            notes_input.setAcceptRichText(False)
             notes_input.setMaximumHeight(60)
             notes_input.setPlaceholderText("Private notes about this account")
             if account_data:
-                notes_input.setText(account_data.get('notes', ''))
+                notes_input.setPlainText(account_data.get('notes', ''))
             form.addRow("Notes:", notes_input)
 
             layout.addLayout(form)

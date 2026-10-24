@@ -27,6 +27,7 @@ def reviewed_runtime(monkeypatch):
     monkeypatch.setattr(policy, "sys", SimpleNamespace(platform="win32", argv=arguments))
     monkeypatch.setattr(policy, "_non_elevated_process", lambda: True)
     monkeypatch.setattr(policy, "_runtime_versions", versions)
+    monkeypatch.setattr(policy, "REVIEWED_NATIVE_COMBINATIONS", frozenset({REVIEWED_VERSIONS}))
     return SimpleNamespace(environment=environment, arguments=arguments, calls=calls)
 
 
@@ -46,6 +47,30 @@ def test_reviewed_runtime_is_admitted_without_mutating_startup(reviewed_runtime)
     assert reviewed_runtime.calls == ["versions"]
     assert reviewed_runtime.environment == environment
     assert reviewed_runtime.arguments == arguments
+
+
+def test_release_policy_has_no_implicitly_approved_native_combination():
+    # Do not put the available stale wheel baseline in the production allowlist.
+    assert policy.REVIEWED_NATIVE_COMBINATIONS == frozenset()
+
+
+def test_version_floors_alone_never_reenable_embedded_content(reviewed_runtime, monkeypatch):
+    monkeypatch.setattr(policy, "REVIEWED_NATIVE_COMBINATIONS", frozenset())
+    result = _denied()
+    assert "no reviewed patched native-runtime combination" in result.reason
+    assert reviewed_runtime.calls == ["versions"]
+
+
+@pytest.mark.parametrize("versions", [
+    ("6.11.4", "6.11.2", "151.0.7922.71"),
+    ("6.11.3", "6.11.3", "151.0.7922.71"),
+    ("6.11.3", "6.11.2", "156.0.8078.42"),
+])
+def test_newer_unreviewed_combinations_require_explicit_review(
+    reviewed_runtime, monkeypatch, versions,
+):
+    monkeypatch.setattr(policy, "_runtime_versions", lambda: versions)
+    assert "no reviewed patched native-runtime combination" in _denied().reason
 
 
 @pytest.mark.parametrize("platform", ["linux", "darwin", "unknown", "cygwin", ""])
@@ -123,6 +148,19 @@ def test_empty_debug_and_chromium_flag_values_do_not_enable_bypasses(reviewed_ru
         "QTWEBENGINE_CHROMIUM_FLAGS": "",
     })
     assert policy.assess_webengine_security().allowed is True
+
+
+@pytest.mark.parametrize("key", [
+    "QTWEBENGINEPROCESS_PATH", "QTWEBENGINE_RESOURCES_PATH", "QTWEBENGINE_LOCALES_PATH",
+    "QtWebEngineProcess_Path", "qtwebengine_resources_path", "qtwebengine_locales_path",
+])
+@pytest.mark.parametrize("value", [r"C:\unreviewed\browser", "", " "])
+def test_native_executable_and_resource_overrides_cannot_inherit_dll_approval(
+    reviewed_runtime, key, value,
+):
+    reviewed_runtime.environment[key] = value
+    assert "unreviewed browser executable or resource path" in _denied().reason
+    assert reviewed_runtime.calls == []
 
 
 @pytest.mark.parametrize("source", ["environment", "arguments"])

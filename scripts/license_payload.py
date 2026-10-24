@@ -20,13 +20,14 @@ from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable
 
-try:
-    from scripts.sbom import parse_lock, purl_for
-except ImportError:  # direct ``python scripts/license_payload.py`` execution
-    from sbom import parse_lock, purl_for
-
-
 ROOT = Path(__file__).resolve().parents[1]
+# Support the documented recipient interpreter's isolated (-I) mode without
+# depending on the caller's current directory or inherited PYTHONPATH.
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+from scripts.sbom import parse_lock, purl_for
+
+
 INVENTORY_PATH = ROOT / "packaging" / "third-party-components.json"
 LOCK_PATH = ROOT / "requirements-locked.txt"
 PROJECT_LICENSE_PATH = ROOT / "LICENSE.txt"

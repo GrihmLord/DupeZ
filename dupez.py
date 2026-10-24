@@ -49,6 +49,7 @@ def _write_verify_report(
     *,
     ok: bool,
     error: BaseException | None = None,
+    native_tls: dict[str, object] | None = None,
 ) -> None:
     """Write opt-in, path-free diagnostics for frozen maintenance checks."""
     report_path = os.environ.get("DUPEZ_VERIFY_REPORT")
@@ -59,16 +60,33 @@ def _write_verify_report(
         "check": check,
         "ok": ok,
     }
+    if check == "native-tls" and native_tls is not None:
+        report.update({
+            key: native_tls[key]
+            for key in ("backend", "available_backends", "supports_ssl")
+        })
     if error is not None:
         report["error_type"] = type(error).__name__
         missing_module = getattr(error, "name", None)
-        if isinstance(missing_module, str) and missing_module:
+        if check != "native-tls" and isinstance(missing_module, str) and missing_module:
             report["missing_module"] = missing_module
 
     try:
         import json
+        from pathlib import Path
+        import stat
 
-        with open(report_path, "w", encoding="utf-8", newline="\n") as handle:
+        # Keep the lexical absolute path: resolving first would hide a junction
+        # or symlink in an ancestor. Maintenance reports never replace files.
+        destination = Path(report_path).absolute()
+        for parent in destination.parents:
+            metadata = parent.lstat()
+            if (
+                not stat.S_ISDIR(metadata.st_mode)
+                or getattr(metadata, "st_file_attributes", 0) & 0x400
+            ):
+                raise ValueError("Unsafe maintenance report directory")
+        with open(destination, "x", encoding="utf-8", newline="\n") as handle:
             json.dump(report, handle, sort_keys=True)
             handle.write("\n")
     except (OSError, TypeError, ValueError):
@@ -159,7 +177,51 @@ def _verify_runtime_imports() -> tuple[str, ...]:
     return tuple(module.__name__ for module in modules)
 
 
+def _verify_native_tls() -> dict[str, object]:
+    """Probe the packaged Windows TLS backend without creating any sockets.
+
+    QCoreApplication enables Qt plugin discovery only: no QApplication,
+    WebEngine import, renderer, navigation, or event loop is started. The
+    Schannel-only policy must already hold; this probe does not switch backends.
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("The native TLS maintenance probe requires Windows")
+    from PyQt6 import QtCore, QtNetwork, sip
+
+    application = QtCore.QCoreApplication.instance()
+    owns_application = application is None
+    if owns_application:
+        application = QtCore.QCoreApplication(["dupez-native-tls-verifier"])
+    try:
+        available = sorted(QtNetwork.QSslSocket.availableBackends())
+        backend = QtNetwork.QSslSocket.activeBackend()
+        supports_ssl = QtNetwork.QSslSocket.supportsSsl()
+        if available != ["schannel"] or backend != "schannel" or supports_ssl is not True:
+            raise RuntimeError("The reviewed Schannel-only TLS backend is unavailable")
+        return {
+            "backend": backend,
+            "available_backends": available,
+            "supports_ssl": supports_ssl,
+        }
+    finally:
+        if owns_application:
+            sip.delete(application)
+
+
 def _maybe_handle_v576_flags() -> None:
+    if "--verify-native-tls" in sys.argv:
+        try:
+            native_tls = _verify_native_tls()
+            _write_verify_report("native-tls", ok=True, native_tls=native_tls)
+            _safe_stdout("[dupez] native TLS backend verified: schannel\n")
+            sys.exit(0)
+        except Exception as e:
+            _write_verify_report("native-tls", ok=False, error=e)
+            _safe_stderr(
+                "[dupez] --verify-native-tls failed: "
+                f"{type(e).__name__}\n"
+            )
+            sys.exit(5)
     if "--verify-runtime-imports" in sys.argv:
         try:
             imported = ", ".join(_verify_runtime_imports())

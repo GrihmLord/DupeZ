@@ -4,19 +4,18 @@
 # Two build variants ship from this codebase:
 #
 #   * DupeZ-GPU.exe   — asInvoker manifest, DUPEZ_ARCH=split default.
-#                       GUI runs at Medium IL → Chromium GPU process
-#                       works → embedded iZurvive map renders with
-#                       hardware raster. Elevated helper process
+#                       GUI runs at Medium IL. Embedded maps additionally
+#                       require an explicitly reviewed native runtime and
+#                       are currently unavailable. Elevated helper process
 #                       (dupez_helper.py) is auto-spawned on first
 #                       disruption_manager call and owns WinDivert.
 #
 #   * DupeZ-Compat.exe — requireAdministrator manifest,
 #                        DUPEZ_ARCH=inproc default. Single-process
 #                        build with WinDivert + netsh running
-#                        directly in-process. Chromium GPU refuses
-#                        to start under admin token → map falls
-#                        through to software raster. Identical to
-#                        pre-ADR-0001 shipping builds. For users on
+#                        directly in-process. Elevated processes cannot
+#                        host embedded maps; unavailable content presents
+#                        a manual browser URL. For users on
 #                        blocklisted GPUs or who cannot tolerate
 #                        the helper auto-spawn flow.
 #
@@ -48,6 +47,8 @@ from __future__ import annotations
 
 import os
 import sys
+import json
+from pathlib import Path
 
 from PyInstaller.building.api import EXE, PYZ
 from PyInstaller.building.build_main import Analysis
@@ -58,6 +59,11 @@ from release_data import (
     pyinstaller_binaries,
     pyinstaller_datas,
     release_binary_files,
+)
+from native_runtime_policy import (
+    audit_native_binary_origins,
+    configure_windows_analysis_environment,
+    validate_windows_tls_binaries,
 )
 
 
@@ -318,15 +324,17 @@ def build_variant(
     has the right compiled-in arch default.
     """
     _configure_build_analysis_state()
+    windows_system_directory = configure_windows_analysis_environment()
     _write_build_default(variant)
+    managed_binary_inputs = _binaries()
 
     a = Analysis(
         [os.path.join(ROOT, "dupez.py")],
         pathex=[ROOT],
-        binaries=_binaries(),
+        binaries=managed_binary_inputs,
         datas=_datas(),
         hiddenimports=_hidden_imports(),
-        hookspath=[],
+        hookspath=[os.path.join(HERE, "hooks")],
         hooksconfig={},
         runtime_hooks=[],
         excludes=_excludes(),
@@ -341,6 +349,29 @@ def build_variant(
     # manifest paths and remove only same-basename root duplicates.
     a.binaries = _filter_root_binary_duplicates(a.binaries)
     a.binaries = _filter_unapproved_collected_binaries(a.binaries)
+    if sys.platform == "win32":
+        import PyQt6
+
+        a.binaries = validate_windows_tls_binaries(
+            a.binaries,
+            python_base=Path(sys.base_prefix),
+            qt_root=Path(PyQt6.__file__).resolve().parent / "Qt6",
+        )
+        native_evidence = audit_native_binary_origins(
+            a.binaries,
+            approved_roots={
+                "locked-build-venv": Path(sys.prefix),
+                "verified-base-python": Path(sys.base_prefix),
+                "windows-system32": Path(windows_system_directory),
+            },
+            managed_sources=[Path(source) for source, _destination in managed_binary_inputs],
+        )
+        evidence_path = Path(CONF["workpath"]) / "native-binaries.json"
+        evidence_path.write_text(json.dumps({
+            "schema": "dupez.native-binary-origins.v1",
+            "qt_tls_policy": "schannel-only",
+            "binaries": native_evidence,
+        }, indent=2) + "\n", encoding="utf-8")
 
     # Strip tcl/tk timezone data that sneaks in via stdlib.
     a.datas = [
