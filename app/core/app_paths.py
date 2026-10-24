@@ -6,7 +6,9 @@ import hashlib
 import json
 import os
 import shutil
+import stat
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -118,14 +120,70 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _discard_migration_stage(path: Path) -> None:
+    """Remove only an owned stage, including copied Windows read-only flags."""
+    try:
+        path.unlink(missing_ok=True)
+    except PermissionError:
+        if os.name != "nt":
+            raise
+        path.chmod(path.stat().st_mode | stat.S_IWRITE)
+        path.unlink(missing_ok=True)
+
+
 def _copy_verified(source: Path, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    tmp = destination.with_suffix(destination.suffix + ".migrating")
-    shutil.copy2(source, tmp)
-    if _sha256(source) != _sha256(tmp):
-        tmp.unlink(missing_ok=True)
-        raise OSError(f"verification failed for {source.name}")
-    os.replace(tmp, destination)
+    tmp: Path | None = None
+    primary_error: BaseException | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb", dir=destination.parent,
+            prefix=f".{destination.name}.", suffix=".migrating", delete=False,
+        ) as handle:
+            tmp = Path(handle.name)
+            with source.open("rb") as incoming:
+                shutil.copyfileobj(incoming, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if _sha256(source) != _sha256(tmp):
+            raise OSError(f"verification failed for {source.name}")
+        shutil.copystat(source, tmp)
+        # A competing migration or application write may create the destination
+        # after the caller's existence check. Publish without replacing it.
+        if os.name == "nt":
+            os.rename(tmp, destination)
+        else:
+            os.link(tmp, destination)
+    except BaseException as exc:
+        primary_error = exc
+        raise
+    finally:
+        if tmp is not None:
+            try:
+                _discard_migration_stage(tmp)
+            except OSError as cleanup_error:
+                if primary_error is None:
+                    raise
+                primary_error.add_note(
+                    "Migration stage cleanup also failed "
+                    f"({type(cleanup_error).__name__}); an owned temporary file may remain."
+                )
+
+
+def read_migration_marker(marker: Path) -> dict:
+    """Read only the recognized migration-marker shape; never trust raw JSON."""
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict) or payload.get("schema") != MIGRATION_SCHEMA:
+        raise ValueError("unrecognized migration marker schema")
+    for field in ("copied", "conflicts", "errors"):
+        entries = payload.get(field)
+        if not isinstance(entries, list) or not all(
+            isinstance(entry, str) for entry in entries
+        ):
+            raise ValueError(f"migration marker {field} must be a list of strings")
+    if payload.get("legacy_files_deleted", False) is not False:
+        raise ValueError("migration marker does not preserve legacy files")
+    return payload
 
 
 def migrate_legacy_files(
@@ -140,16 +198,17 @@ def migrate_legacy_files(
     marker = destination / marker_name
     if marker.exists():
         try:
-            payload = json.loads(marker.read_text(encoding="utf-8"))
-            return MigrationResult(
-                source=str(source),
-                destination=str(destination),
-                copied=tuple(payload.get("copied", [])),
-                conflicts=tuple(payload.get("conflicts", [])),
-                errors=tuple(payload.get("errors", [])),
-                marker=str(marker),
-            )
-        except (OSError, json.JSONDecodeError):
+            payload = read_migration_marker(marker)
+            if not payload["errors"]:
+                return MigrationResult(
+                    source=str(source),
+                    destination=str(destination),
+                    copied=tuple(payload["copied"]),
+                    conflicts=tuple(payload["conflicts"]),
+                    errors=(),
+                    marker=str(marker),
+                )
+        except (OSError, ValueError, RecursionError):
             pass
 
     copied: list[str] = []
@@ -169,8 +228,13 @@ def migrate_legacy_files(
                         if _sha256(candidate) != _sha256(target):
                             conflicts.append(rel.as_posix())
                         continue
-                    _copy_verified(candidate, target)
-                    copied.append(rel.as_posix())
+                    try:
+                        _copy_verified(candidate, target)
+                    except FileExistsError:
+                        if _sha256(candidate) != _sha256(target):
+                            conflicts.append(rel.as_posix())
+                    else:
+                        copied.append(rel.as_posix())
                 except OSError as exc:
                     errors.append(f"{rel.as_posix()}: {exc}")
 
@@ -185,13 +249,26 @@ def migrate_legacy_files(
         "legacy_files_deleted": False,
     }
     if not errors:
-        tmp_marker = marker.with_suffix(marker.suffix + ".tmp")
-        with tmp_marker.open("w", encoding="utf-8", newline="\n") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(tmp_marker, marker)
+        tmp_marker: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", newline="\n", dir=destination,
+                prefix=f".{marker.name}.", suffix=".tmp", delete=False,
+            ) as handle:
+                tmp_marker = Path(handle.name)
+                json.dump(payload, handle, indent=2, sort_keys=True)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_marker, marker)
+        except OSError as exc:
+            errors.append(f"migration marker: {exc}")
+        finally:
+            if tmp_marker is not None:
+                try:
+                    _discard_migration_stage(tmp_marker)
+                except OSError as exc:
+                    errors.append(f"migration marker stage cleanup: {exc}")
     return MigrationResult(
         source=str(source),
         destination=str(destination),

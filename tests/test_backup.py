@@ -175,6 +175,226 @@ class TestCreateBackup:
         assert "url" not in restored_config["audit_webhook"]
 
 
+@pytest.fixture
+def synthetic_backup_sources(tmp_path, monkeypatch):
+    """Provide explicitly selected local payloads without operator data."""
+    from app.core import backup as backup_module
+
+    entries = []
+    monkeypatch.setattr(backup_module, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(backup_module, "_collect_backup_entries", lambda: list(entries))
+
+    def add(relative_path, payload):
+        source = tmp_path / relative_path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+        entries.append((source, relative_path))
+        return source
+
+    return add
+
+
+class TestBackupPublication:
+    def test_plain_backup_does_not_buffer_the_archive_in_memory(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+
+        def no_memory_archive(*_args, **_kwargs):
+            raise AssertionError("plain backup buffered the complete archive")
+
+        with monkeypatch.context() as guard:
+            guard.setattr(backup_module.io, "BytesIO", no_memory_archive)
+            output = create_backup(tmp_path / "backup.zip")
+
+        assert len(list_bundle(output).entries) == 1
+
+    def test_source_read_is_bounded_even_if_the_source_grows(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        source = synthetic_backup_sources("app/data/episodes/test.jsonl", b"small")
+        reads = []
+
+        class GrowingSource(io.BytesIO):
+            def read(self, size=-1):
+                reads.append(size)
+                return super().read(size)
+
+        real_open = Path.open
+
+        def open_source(path, *args, **kwargs):
+            if path == source:
+                return GrowingSource(b"123456789")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", open_source)
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 8)
+
+        with pytest.raises(BackupError, match="size cap"):
+            create_backup(tmp_path / "backup.zip")
+
+        assert reads == [9]
+        assert not (tmp_path / "backup.zip").exists()
+
+    @pytest.mark.parametrize("failure", ["write", "fsync", "replace"])
+    def test_failed_publication_preserves_previous_backup(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, failure,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+        output = create_backup(tmp_path / "backup.zip")
+        previous = output.read_bytes()
+
+        def fail(*_args, **_kwargs):
+            raise OSError("injected backup I/O failure")
+
+        if failure == "write":
+            def partial_write(writer, data):
+                writer.handle.write(data[:2])
+                fail()
+
+            monkeypatch.setattr(backup_module._BoundedArchiveWriter, "write", partial_write)
+        else:
+            monkeypatch.setattr(backup_module.os, failure, fail)
+
+        with pytest.raises(BackupError, match="could not write backup"):
+            create_backup(output)
+
+        assert output.read_bytes() == previous
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    @pytest.mark.parametrize("encrypt", [False, True])
+    def test_success_replaces_from_closed_same_directory_stage(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, encrypt,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+        output = tmp_path / ("backup.zip.dpapi" if encrypt else "backup.zip")
+        output.write_bytes(b"previous backup")
+        real_replace = backup_module.os.replace
+        stages = []
+
+        def replace(source, destination):
+            source = Path(source)
+            assert source.parent == output.parent
+            assert source != output
+            assert output.read_bytes() == b"previous backup"
+            stages.append(source)
+            # Renaming an open NamedTemporaryFile fails on Windows. This also
+            # verifies that publication happens after the stage was closed.
+            real_replace(source, destination)
+
+        if encrypt:
+            monkeypatch.setattr(backup_module, "_dpapi_encrypt", lambda data: b"sealed:" + data)
+            monkeypatch.setattr(backup_module, "_dpapi_decrypt", lambda data: data[len(b"sealed:"):])
+        monkeypatch.setattr(backup_module.os, "replace", replace)
+
+        assert create_backup(tmp_path / "backup.zip", encrypt=encrypt) == output
+        assert len(stages) == 1
+        assert all(not stage.exists() for stage in stages)
+        assert len(list_bundle(output).entries) == 1
+        result = restore_backup(output, dry_run=True)
+        assert result.ok
+        assert result.restored == ["app/data/episodes/test.jsonl"]
+        if encrypt:
+            assert output.read_bytes().startswith(b"sealed:")
+
+    @pytest.mark.parametrize("cap, limit", [
+        ("_MAX_ENTRY_BYTES", 8),
+        ("_MAX_TOTAL_RESTORE_BYTES", 8),
+        ("_MAX_ARCHIVE_MEMBERS", 1),
+        ("_MAX_MANIFEST_BYTES", 1),
+        ("_MAX_BUNDLE_BYTES", 64),
+    ])
+    def test_creation_caps_preserve_existing_destination(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, cap, limit,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b"123456789")
+        output = tmp_path / "backup.zip"
+        output.write_bytes(b"previous backup")
+        monkeypatch.setattr(backup_module, cap, limit)
+
+        with pytest.raises(BackupError):
+            create_backup(output)
+
+        assert output.read_bytes() == b"previous backup"
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    @pytest.mark.parametrize("cap, limit", [
+        ("_MAX_ENTRY_BYTES", 95),
+        ("_MAX_TOTAL_RESTORE_BYTES", 97),
+        ("_MAX_ARCHIVE_MEMBERS", 2),
+    ])
+    def test_regenerated_hmac_counts_toward_creation_caps(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, cap, limit,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/sample.json", b"{}")
+        monkeypatch.setattr(backup_module, cap, limit)
+        output = tmp_path / "backup.zip"
+
+        with pytest.raises(BackupError):
+            create_backup(output)
+
+        assert not output.exists()
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    def test_exact_caps_with_regenerated_sidecar_round_trip(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        source = synthetic_backup_sources("app/data/sample.json", b"{}")
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 96)
+        monkeypatch.setattr(backup_module, "_MAX_TOTAL_RESTORE_BYTES", 98)
+        monkeypatch.setattr(backup_module, "_MAX_ARCHIVE_MEMBERS", 3)
+        output = create_backup(tmp_path / "backup.zip")
+        manifest = list_bundle(output)
+        assert sum(entry.size for entry in manifest.entries) == 98
+        source.unlink()
+
+        result = restore_backup(output)
+
+        assert result.ok
+        assert result.restored == ["app/data/sample.json"]
+        assert source.read_bytes() == b"{}"
+
+    @pytest.mark.parametrize("phase", ["archive", "encrypted"])
+    def test_encrypted_memory_cap_preserves_previous_backup(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, phase,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b"123456789")
+        output = tmp_path / "backup.zip.dpapi"
+        output.write_bytes(b"previous encrypted backup")
+        cap = 64 if phase == "archive" else 4096
+        monkeypatch.setattr(backup_module, "_MAX_IN_MEMORY_BUNDLE_BYTES", cap)
+        encrypted_inputs = []
+
+        def encrypt(payload):
+            encrypted_inputs.append(payload)
+            return b"x" * (cap + 1)
+
+        monkeypatch.setattr(backup_module, "_dpapi_encrypt", encrypt)
+
+        with pytest.raises(BackupError, match="size cap"):
+            create_backup(tmp_path / "backup.zip", encrypt=True)
+
+        assert bool(encrypted_inputs) == (phase == "encrypted")
+        assert output.read_bytes() == b"previous encrypted backup"
+        assert not list(tmp_path.glob("*.backing-up"))
+
+
 class TestListBundle:
     """list_bundle returns parsed manifest without touching files."""
 
@@ -488,9 +708,10 @@ class TestRestoreBackup:
 
         result = restore_backup(archive)
 
-        assert result.ok
+        assert not result.ok
         assert result.restored == []
         assert result.skipped == list(paths)
+        assert list(result.failed) == list(paths)
         assert target.read_bytes() == b'{"value":"trusted"}'
 
     def test_filesystem_aliases_are_all_skipped_before_restore(
@@ -527,9 +748,10 @@ class TestRestoreBackup:
 
         result = restore_backup(archive)
 
-        assert result.ok
+        assert not result.ok
         assert result.restored == []
         assert result.skipped == list(paths)
+        assert list(result.failed) == list(paths)
         assert target.read_bytes() == b'{"value":"trusted"}'
 
     @pytest.mark.parametrize(
@@ -561,9 +783,10 @@ class TestRestoreBackup:
 
         result = restore_backup(archive)
 
-        assert result.ok
+        assert not result.ok
         assert result.restored == []
         assert result.skipped == [entry_path]
+        assert list(result.failed) == [entry_path]
 
     def test_valid_posix_nested_bundle_name_still_restores(
         self,
@@ -844,6 +1067,122 @@ class TestRestoreBackup:
         assert target_calls
         assert all(Path(call["dir"]) == target.parent for call in target_calls)
         assert all(call["suffix"] == ".restoring" for call in calls)
+
+
+@pytest.fixture
+def synthetic_restore_archive(tmp_path, monkeypatch):
+    """Create small archives, including manifest entries absent from the ZIP."""
+    from app.core import backup as backup_module
+
+    monkeypatch.setattr(backup_module, "_repo_root", lambda: tmp_path)
+
+    def build(payloads):
+        archive = tmp_path / "restore.zip"
+        entries = []
+        with zipfile.ZipFile(archive, "w") as zf:
+            for path, payload in payloads.items():
+                expected = b"{}" if payload is None else payload
+                entries.append({
+                    "path": path,
+                    "size": len(expected),
+                    "sha256": hashlib.sha256(expected).hexdigest(),
+                })
+                if payload is not None:
+                    zf.writestr(f"files/{path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA, "entries": entries,
+            }))
+        return archive
+
+    return build
+
+
+class TestRestoreOutcome:
+    @pytest.mark.parametrize("dry_run", [True, False])
+    @pytest.mark.parametrize("path,payload,reason", [
+        ("app/data/episodes/missing.jsonl", None, "missing"),
+        ("app/core/unsafe.py", b"{}", "not allowed"),
+        ("app/data/settings.json", b"not json", "settings payload"),
+        ("app/data/episodes/large.jsonl", b"123456789", "size cap"),
+    ])
+    def test_rejected_payload_is_incomplete_in_preview_and_restore(
+        self, tmp_path, monkeypatch, synthetic_restore_archive,
+        dry_run, path, payload, reason,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        good_path = "app/data/episodes/good.jsonl"
+        archive = synthetic_restore_archive({good_path: b"{}", path: payload})
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 8)
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert not result.ok
+        assert result.restored == [good_path]
+        assert result.skipped == [path]
+        assert reason in result.failed[path]
+        assert (tmp_path / good_path).exists() is not dry_run
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_expected_transported_hmac_is_not_a_failure(
+        self, tmp_path, synthetic_restore_archive, dry_run,
+    ) -> None:
+        payload_path = "app/data/sample.json"
+        hmac_path = "app/data/sample.hmac"
+        archive = synthetic_restore_archive({
+            hmac_path: b"0" * 96,
+            payload_path: b"{}",
+        })
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert result.ok
+        assert result.failed == {}
+        assert result.skipped == [hmac_path]
+        assert result.restored == [payload_path]
+        assert (tmp_path / payload_path).exists() is not dry_run
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_resolved_destination_escape_is_rejected_in_preview_too(
+        self, tmp_path, monkeypatch, synthetic_restore_archive, dry_run,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        path = "app/data/episodes/test.jsonl"
+        archive = synthetic_restore_archive({path: b"{}"})
+        outside = tmp_path / "outside.jsonl"
+        monkeypatch.setattr(backup_module, "_restore_destination", lambda _path: outside)
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert not result.ok
+        assert result.restored == []
+        assert result.failed == {path: "destination is outside allowed storage"}
+        assert not outside.exists()
+
+    def test_write_failure_identifies_entry_and_preserves_existing_payload(
+        self, tmp_path, monkeypatch, synthetic_restore_archive,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        path = "app/data/sample.json"
+        archive = synthetic_restore_archive({path: b"{}"})
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b'{"trusted":true}')
+
+        def fail(*_args, **_kwargs):
+            raise BackupError("injected restore write failure")
+
+        monkeypatch.setattr(backup_module, "_replace_restored_authenticated_pair", fail)
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert result.error == "injected restore write failure"
+        assert result.failed == {path: result.error}
+        assert result.restored == []
+        assert target.read_bytes() == b'{"trusted":true}'
 
 
 class TestExcludeSubstrings:

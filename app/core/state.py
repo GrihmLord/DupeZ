@@ -28,6 +28,40 @@ def _is_main_thread() -> bool:
     return threading.current_thread() is threading.main_thread()
 
 
+def _qt_application() -> Any:
+    """Find an existing Qt event loop without requiring Qt in headless use."""
+    try:
+        from PyQt6.QtCore import QCoreApplication
+    except ImportError:
+        return None
+    return QCoreApplication.instance()
+
+
+def _create_observer_dispatcher(application: Any) -> Any:
+    """Create a retained signal receiver that belongs to Qt's main thread."""
+    from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+
+    class ObserverDispatcher(QObject):
+        requested = pyqtSignal(object)
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.requested.connect(self.dispatch, Qt.ConnectionType.QueuedConnection)
+
+        @pyqtSlot(object)
+        def dispatch(self, callback: Callable[[], None]) -> None:
+            # Creation can occur in a scanner's Python thread. Adopt the
+            # application only after reaching its thread so Qt owns cleanup.
+            if self.parent() is None:
+                self.setParent(application)
+            callback()
+
+    dispatcher = ObserverDispatcher()
+    dispatcher.moveToThread(application.thread())
+    application.aboutToQuit.connect(dispatcher.deleteLater)
+    return dispatcher
+
+
 # ── Data models ───────────────────────────────────────────────────────
 
 @dataclass
@@ -101,6 +135,13 @@ class AppSettings:
     ])
     max_operation_seconds: int = 300
 
+    # Global operation shortcuts are opt-in; starting requires a second opt-in.
+    disruption_hotkeys_enabled: bool = False
+    disruption_start_hotkey_enabled: bool = False
+    disruption_start_hotkey: str = "ctrl+alt+f8"
+    disruption_stop_hotkey: str = "ctrl+alt+f9"
+    disruption_panic_hotkey: str = "ctrl+alt+x"
+
     # Automatic kill switch (manual panic stop remains available regardless)
     kill_switch_enabled: bool = False
     kill_switch_process_watch_enabled: bool = True
@@ -151,6 +192,7 @@ class AppState:
 
         self._observers: List[Callable] = []
         self._lock = threading.Lock()
+        self._observer_dispatcher = None
 
         self.load_settings()
 
@@ -166,11 +208,14 @@ class AppState:
 
         A snapshot of the observer list is taken under the lock, then
         dispatch happens outside the lock to avoid deadlocks in
-        callbacks that touch state.  If called from a background
-        thread, marshals to the Qt event loop via ``QTimer.singleShot``.
+        callbacks that touch state. Background callers emit a queued signal
+        to a retained receiver in the application's thread. Without a Qt
+        application, headless observers are called directly.
         """
         with self._lock:
             observers = list(self._observers)
+        if not observers:
+            return
 
         def _dispatch() -> None:
             for observer in observers:
@@ -181,12 +226,22 @@ class AppState:
 
         if _is_main_thread():
             _dispatch()
-        else:
-            try:
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(0, _dispatch)
-            except (ImportError, RuntimeError):
-                _dispatch()
+            return
+
+        application = _qt_application()
+        if application is None:
+            _dispatch()
+            return
+        try:
+            with self._lock:
+                if self._observer_dispatcher is None:
+                    self._observer_dispatcher = _create_observer_dispatcher(application)
+                dispatcher = self._observer_dispatcher
+            dispatcher.requested.emit(_dispatch)
+        except RuntimeError as exc:
+            # During Qt teardown, never fall back to touching GUI observers
+            # from a worker thread after their receiver has been destroyed.
+            log_warning(f"Observer notification unavailable during Qt shutdown: {exc}")
 
     # ── Device management ─────────────────────────────────────────
 

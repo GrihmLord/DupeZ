@@ -222,39 +222,67 @@ class LLMAdvisor:
         self._conversation_history = []
         self._history_lock = threading.Lock()
 
+    def _request_config(self) -> LLMConfig:
+        """Return the provider settings owned by the current request."""
+        return self.config
+
+    def _request_api_key(self) -> str:
+        config = self._request_config()
+        return config.get_api_key() if config.provider == "openai" else ""
+
+    def _cached_availability(self) -> Optional[bool]:
+        return self._available
+
+    def _store_availability(self, available: Optional[bool]) -> None:
+        self._available = available
+
+    def _request_history(self) -> list:
+        with self._history_lock:
+            return list(self._conversation_history[-8:])
+
+    def _remember_exchange(self, prompt: str, response_text: str) -> None:
+        with self._history_lock:
+            self._conversation_history.extend([
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": response_text},
+            ])
+            if len(self._conversation_history) > 20:
+                self._conversation_history = self._conversation_history[-16:]
+
     def is_available(self) -> bool:
         """Check if the LLM backend is reachable."""
-        if self._available is not None:
-            return self._available
+        config = self._request_config()
+        available = self._cached_availability()
+        if available is not None:
+            return available
 
-        if self.config.provider == "none":
-            self._available = False
+        if config.provider == "none":
+            self._store_availability(False)
             return False
 
         try:
-            url = f"{self.config.base_url}/api/tags"
-            if self.config.provider == "openai":
-                url = f"{self.config.base_url}/v1/models"
+            url = f"{config.base_url}/api/tags"
+            if config.provider == "openai":
+                url = f"{config.base_url}/v1/models"
 
             hdrs = {}
-            if self.config.provider == "ollama":
+            if config.provider == "ollama":
                 ollama_transport.ollama_get(url, headers=hdrs, timeout=5)
             else:
-                _key = self.config.get_api_key()
+                _key = self._request_api_key()
                 if _key:
                     hdrs["Authorization"] = f"Bearer {_key}"
                 from app.core.secure_http import secure_get
 
                 secure_get(url, headers=hdrs, timeout=5, require_https=True)
-            self._available = True
-            if self._available:
-                log_info(f"LLMAdvisor: connected to {self.config.provider} "
-                         f"at {self.config.base_url}")
-            return self._available
+            self._store_availability(True)
+            log_info(f"LLMAdvisor: connected to {config.provider} "
+                     f"at {config.base_url}")
+            return True
 
         except Exception as e:
-            log_info(f"LLMAdvisor: {self.config.provider} not available ({e})")
-            self._available = False
+            log_info(f"LLMAdvisor: {config.provider} not available ({e})")
+            self._store_availability(False)
             return False
 
     def ask(self, prompt: str, profile_context: dict = None) -> Optional[dict]:
@@ -290,8 +318,7 @@ class LLMAdvisor:
                 messages.append({"role": "system", "content": context_msg})
 
             # Add conversation history (last 4 exchanges)
-            with self._history_lock:
-                messages.extend(self._conversation_history[-8:])
+            messages.extend(self._request_history())
 
             messages.append({"role": "user", "content": prompt})
 
@@ -310,15 +337,7 @@ class LLMAdvisor:
                 except ImportError:
                     pass
             if result:
-                # Store in conversation history (thread-safe for ask_async)
-                with self._history_lock:
-                    self._conversation_history.append(
-                        {"role": "user", "content": prompt})
-                    self._conversation_history.append(
-                        {"role": "assistant", "content": response_text})
-                    # Cap history to prevent unbounded memory growth
-                    if len(self._conversation_history) > 20:
-                        self._conversation_history = self._conversation_history[-16:]
+                self._remember_exchange(prompt, response_text)
                 log_info(f"LLMAdvisor: parsed recommendation: {result.get('name', 'unnamed')}")
                 return result
 
@@ -371,19 +390,20 @@ class LLMAdvisor:
 
         Uses the secure HTTP client with TLS enforcement and URL validation.
         """
+        config = self._request_config()
         try:
-            if self.config.provider == "ollama":
+            if config.provider == "ollama":
                 return ollama_transport.ollama_post_json(
                     url,
                     payload,
                     headers=headers,
-                    timeout=self.config.timeout,
+                    timeout=config.timeout,
                 )
             from app.core.secure_http import secure_post_json
 
             return secure_post_json(
                 url, payload, headers=headers,
-                timeout=self.config.timeout,
+                timeout=config.timeout,
                 require_https=True,
             )
         except (ValueError, Exception) as e:
@@ -392,20 +412,21 @@ class LLMAdvisor:
 
     def _call_llm(self, messages: list) -> Optional[str]:
         """Make the actual API call to the LLM."""
-        if self.config.provider == "ollama":
-            data = self._post_json(f"{self.config.base_url}/api/chat", {
-                "model": self.config.model, "messages": messages, "stream": False,
-                "options": {"temperature": self.config.temperature,
-                            "num_predict": self.config.max_tokens},
+        config = self._request_config()
+        if config.provider == "ollama":
+            data = self._post_json(f"{config.base_url}/api/chat", {
+                "model": config.model, "messages": messages, "stream": False,
+                "options": {"temperature": config.temperature,
+                            "num_predict": config.max_tokens},
             })
             return data.get("message", {}).get("content", "") if data else None
 
-        if self.config.provider == "openai":
-            _api_key = self.config.get_api_key()
+        if config.provider == "openai":
+            _api_key = self._request_api_key()
             hdrs = {"Authorization": f"Bearer {_api_key}"} if _api_key else {}
-            data = self._post_json(f"{self.config.base_url}/v1/chat/completions", {
-                "model": self.config.model, "messages": messages,
-                "temperature": self.config.temperature, "max_tokens": self.config.max_tokens,
+            data = self._post_json(f"{config.base_url}/v1/chat/completions", {
+                "model": config.model, "messages": messages,
+                "temperature": config.temperature, "max_tokens": config.max_tokens,
             }, hdrs)
             try:
                 return data["choices"][0]["message"]["content"] if data else None

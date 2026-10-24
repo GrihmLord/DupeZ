@@ -18,7 +18,17 @@ than beside binaries in `Program Files`. Upgrades perform a verified,
 copy-only migration of recognized legacy files. Existing destination files win,
 conflicts are reported, and legacy files are never deleted automatically.
 
-![Windows](https://img.shields.io/badge/platform-Windows%2011-blue) ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
+![Windows](https://img.shields.io/badge/platform-Windows%2011-blue) ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-green) ![Release](https://img.shields.io/badge/v5.8.0-release%20gates%20pending-orange)
+
+v5.8.0 is in preparation, not approved for public distribution. See the
+[current launch plan](docs/release-notes/LAUNCH_PLAN_5.8.0.md) for remaining
+owner, CI, native-runtime security, signing and exact-artifact gates. Older files in `dist` are not the
+validated v5.8.0 release. Maintainers can inspect preparation status without
+running binaries or advancing release phases:
+
+```powershell
+python scripts/release_readiness.py --version 5.8.0
+```
 
 ---
 
@@ -530,7 +540,15 @@ DupeZ v5.0.0+ implements defense-in-depth security hardening:
 
 ## Hotkeys
 
-The Help → Hotkeys dialog (F1) self-generates from the live menu bar, so it can never drift from the table below.
+Help → Hotkeys (F1) lists live window shortcuts separately from global hook
+registration status. The table below shows window defaults, except the optional
+global tray binding. A window shortcut is not an OS-wide emergency binding.
+
+Settings → Hotkeys adds opt-in global Stop All/Panic Stop and a separate opt-in
+Start. Defaults: Ctrl+Alt+F8 (Start), Ctrl+Alt+F9 (Stop All), Ctrl+Alt+X (Panic).
+Global actions fire on key release. Start requires both emergency hooks and uses
+the normal selected-target checks. F1 shows actual armed keys and failures;
+registration does not guarantee that another app will pass through the keys.
 
 | Key | Action |
 |-----|--------|
@@ -564,7 +582,10 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 
 ## License
 
-Proprietary. All rights reserved.
+Public distribution terms for v5.8.0 remain owner-controlled and unresolved in
+`packaging/license-policy.json`. No redistribution grant is made by this README.
+The project terms, exact dependency obligations, notices and source/relink
+delivery must be approved and evidenced before a distribution build is released.
 
 ---
 

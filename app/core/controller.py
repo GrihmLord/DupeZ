@@ -23,6 +23,7 @@ from app.core.cut_chain import (
     build_automatic_connection_test,
     validate_chain_config,
 )
+from app.core.hotkey_settings import validate_hotkey_settings
 from app.core.kill_switch import (
     KillSwitch,
     KillSwitchConfig,
@@ -1175,6 +1176,10 @@ class AppController:
     def update_settings(self, new_settings: AppSettings) -> None:
         """Validate, activate, and persist a complete settings snapshot."""
         candidate_settings = deepcopy(new_settings)
+        # Reject malformed shortcuts before activating any settings-dependent
+        # service or touching persistence. Keep the caller's snapshot intact.
+        for action, chord in validate_hotkey_settings(candidate_settings).items():
+            setattr(candidate_settings, f"disruption_{action}_hotkey", chord)
         candidate_settings.kill_switch_process_names = sanitize_process_basenames(
             getattr(candidate_settings, "kill_switch_process_names", [])
         )

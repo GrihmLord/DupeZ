@@ -49,6 +49,19 @@ shell. Use the explicit named phases below for the auditable release sequence.
 `-Phase auto` may select the next non-publication phase, but it always stops
 before publish; publication requires explicit `-Phase admin-stage-publish`.
 
+Progress saves now flush a private sibling file before replacing the checkpoint.
+An unsuccessful replacement leaves the previous checkpoint intact. Phase work
+and reset take exclusive OS-handle ownership of
+`dist/blocked-release-gates-progress.json.lock`; competing launchers fail without
+starting a phase. The lock file stays on disk after normal completion: its
+existence is not evidence that a release is still running. Do not delete it to
+try to bypass a running launcher. Status remains read-only and unlocked.
+
+If a launcher crashes after starting a phase, inspect its child processes and
+external effects before retrying. Checkpoint persistence is not a transaction
+covering builds, hardware tests, uploads, or publication. Automatic selection
+is repeated after elevation, and selection is checked again under the lock.
+
 Useful commands:
 
 ```powershell

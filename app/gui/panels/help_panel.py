@@ -740,7 +740,7 @@ anomalies.</p>
 
     ("⌨ KEYBOARD SHORTCUTS", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-Quick reference:</p>
+Window-shortcut defaults (the tray toggle is a separately registered global hook):</p>
 
 <table style='color:{_TEXT_MUTED}; font-size:12px; margin-top:6px;' cellpadding='4'>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+S</td>
@@ -784,8 +784,16 @@ Quick reference:</p>
 </table>
 
 <p style='color:{_TEXT_MUTED}; font-size:11px; margin-top:8px;'>
-The same list is available in-app at any time via <b>Help → Hotkeys</b>
-(F1), generated live from the menu so it always matches.</p>
+<b>Settings → Hotkeys</b> offers opt-in global Stop All/Panic Stop and separately
+opt-in Start. Default global chords are Ctrl+Alt+F8 (Start), Ctrl+Alt+F9 (Stop All)
+and Ctrl+Alt+X (Panic). Global actions fire on key release. Start requires both
+emergency hooks and uses normal selected-target checks. A matching global Panic
+binding temporarily replaces its local shortcut to avoid double firing.</p>
+<p style='color:{_TEXT_MUTED}; font-size:11px; margin-top:8px;'>
+<b>Help → Hotkeys</b> (F1) shows live window shortcuts and actual global binding
+status, including failed registrations or retained old chords. Other applications
+may consume keys even after registration; verify emergency delivery in a controlled
+test environment. Stop/Panic cancel pending Start work.</p>
 """, False),
 
 ]

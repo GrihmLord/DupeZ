@@ -4,7 +4,7 @@
 # with pip-tools under canonical Python 3.13, then verify it with
 # scripts/verify_requirements_lock.py and an --only-binary dry run.
 
-pip==26.2.1
+pip==26.2.2
 pytest==9.0.3
 pytest-cov==7.1.0
 ruff==0.7.4

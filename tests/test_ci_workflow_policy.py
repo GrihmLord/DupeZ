@@ -157,7 +157,7 @@ def test_lock_workflow_verifies_runtime_and_build_tool_graphs():
     for token in (
         "runs-on: windows-latest",
         "python-version: '3.13.14'",
-        "python -m pip install --upgrade 'pip==26.2.1'",
+        "python -m pip install --upgrade 'pip==26.2.2'",
         "--requirements requirements-hardware-test.in",
         "--lock requirements-hardware-test-locked.txt",
         "--only-binary=:all:",
@@ -175,7 +175,7 @@ def test_lock_generation_and_install_checks_pin_their_bootstrap_tools():
     secret_scan_workflow = _read(".github/workflows/secret-scan.yml")
 
     for script in (powershell, posix):
-        assert 'pip==26.2.1' in script
+        assert 'pip==26.2.2' in script
         assert 'pip-tools==7.6.1' in script
         assert "--only-binary=:all:" in script
         assert "requirements-test.in" in script
@@ -184,9 +184,9 @@ def test_lock_generation_and_install_checks_pin_their_bootstrap_tools():
         assert "--dry-run" in script
         assert "--require-hashes" in script
         assert "--upgrade pip-tools" not in script
-    assert "python -m pip install --upgrade 'pip==26.2.1'" in lock_workflow
+    assert "python -m pip install --upgrade 'pip==26.2.2'" in lock_workflow
     assert (
-        "& $toolPython -m pip install --upgrade 'pip==26.2.1'"
+        "& $toolPython -m pip install --upgrade 'pip==26.2.2'"
         in hardware_workflow
     )
     assert "requirements-hardware-test-locked.txt" in hardware_workflow
@@ -197,7 +197,7 @@ def test_lock_generation_and_install_checks_pin_their_bootstrap_tools():
         "pip install 'detect-secrets==1.5.0' 'pytest==9.0.3'"
         in secret_scan_workflow
     )
-    assert "python -m pip install --upgrade 'pip==26.2.1'" in (
+    assert "python -m pip install --upgrade 'pip==26.2.2'" in (
         secret_scan_workflow
     )
 

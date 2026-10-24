@@ -2,6 +2,11 @@
 
 Status date: 2026-08-31
 
+> Historical snapshot, not current launch authorization. The governance claims
+> below were superseded by the 2026-09-04 audit and rechecked on 2026-09-05.
+> Use [the current launch plan](LAUNCH_PLAN_5.8.0.md) for present blockers and
+> next steps. Historical validation results apply only to their original bytes.
+
 ## Current disposition
 
 - Source/engineering candidate: **PUSHED with external and owner gates pending**.

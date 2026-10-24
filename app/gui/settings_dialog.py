@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTabWidget,
                               QWidget, QLabel, QSpinBox, QDoubleSpinBox,
-                              QCheckBox, QComboBox,
+                              QCheckBox, QComboBox, QLineEdit,
                               QPushButton, QGroupBox, QFormLayout,
                               QTextEdit, QSlider, QMessageBox, QScrollArea,
                               QFrame)
@@ -404,6 +404,7 @@ class SettingsDialog(QDialog):
         self.tab_widget.addTab(self._tab_network(), "Network")
         self.tab_widget.addTab(self._tab_smart(), "Smart Mode")
         self.tab_widget.addTab(self._tab_interface(), "Interface")
+        self.tab_widget.addTab(self._tab_hotkeys(), "Hotkeys")
         self.tab_widget.addTab(self._tab_advanced(), "Advanced")
         root.addWidget(self.tab_widget, 1)
 
@@ -845,6 +846,74 @@ class SettingsDialog(QDialog):
         scroll.setWidget(w)
         return scroll
 
+    # --- Hotkeys Tab ---
+    def _tab_hotkeys(self) -> QWidget:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setSpacing(14)
+
+        self.hotkeys_group = QGroupBox("Global operation hotkeys")
+        self.hotkeys_group.setAccessibleName("Global operation hotkey settings")
+        form = QFormLayout(self.hotkeys_group)
+        form.setVerticalSpacing(10)
+        self.disruption_hotkeys_enabled_checkbox = QCheckBox(
+            "Enable global Stop All and Panic Stop hotkeys"
+        )
+        self.disruption_hotkeys_enabled_checkbox.setAccessibleName(
+            "Enable global operation hotkeys"
+        )
+        self.disruption_hotkeys_enabled_checkbox.setAccessibleDescription(
+            "Opt in to global operation shortcuts, including while DupeZ is in the tray."
+        )
+        form.addRow(self.disruption_hotkeys_enabled_checkbox)
+        self.disruption_start_hotkey_enabled_checkbox = QCheckBox(
+            "Also enable the global Start hotkey"
+        )
+        self.disruption_start_hotkey_enabled_checkbox.setAccessibleName(
+            "Enable global Start hotkey"
+        )
+        self.disruption_start_hotkey_enabled_checkbox.setAccessibleDescription(
+            "Requires global operation hotkeys to be enabled. Uses the currently "
+            "selected target and the same validation as the Start button."
+        )
+        form.addRow(self.disruption_start_hotkey_enabled_checkbox)
+
+        for action, label in (
+            ("start", "Start selected operation:"),
+            ("stop", "Stop All:"),
+            ("panic", "Panic Stop:"),
+        ):
+            edit = QLineEdit()
+            edit.setAccessibleName(label.rstrip(":"))
+            edit.setAccessibleDescription(
+                "One chord containing Ctrl, Alt, or Win plus a letter, number, "
+                "or function key. F12 and existing DupeZ shortcuts are reserved."
+            )
+            edit.setPlaceholderText("ctrl+alt+f8")
+            setattr(self, f"disruption_{action}_hotkey_edit", edit)
+            form.addRow(label, edit)
+        layout.addWidget(self.hotkeys_group)
+
+        self.hotkeys_help_label = QLabel(
+            "Global hotkeys are off by default. Start is a separate opt-in and "
+            "uses the currently selected target and normal Start-button checks. "
+            "Start only arms when both emergency hooks are registered. "
+            "Stop All and Panic Stop do not require a selected target.\n\n"
+            "Global actions fire on key release; Stop/Panic cancel pending Starts. "
+            "Use one chord such as Ctrl+Alt+F8. Timing sequences and macros are "
+            "not supported. Definitions stay editable and are validated even "
+            "when disabled. Saving does not guarantee registration or that other "
+            "apps pass through the keys; press F1 to check actual binding status."
+        )
+        self.hotkeys_help_label.setWordWrap(True)
+        layout.addWidget(self.hotkeys_help_label)
+        layout.addStretch()
+        scroll.setWidget(page)
+        return scroll
+
     # --- Advanced Tab ---
     @staticmethod
     def _make_row_widget(label_text: str, control: QWidget) -> QWidget:
@@ -944,6 +1013,11 @@ class SettingsDialog(QDialog):
             (self.encrypt_logs_checkbox, 'encrypt_logs'), (self.debug_mode_checkbox, 'debug_mode'),
             (self.verbose_logging_checkbox, 'verbose_logging'),
             (self.map_renderer_combo, 'map_renderer'),
+            (self.disruption_hotkeys_enabled_checkbox, 'disruption_hotkeys_enabled'),
+            (self.disruption_start_hotkey_enabled_checkbox, 'disruption_start_hotkey_enabled'),
+            (self.disruption_start_hotkey_edit, 'disruption_start_hotkey'),
+            (self.disruption_stop_hotkey_edit, 'disruption_stop_hotkey'),
+            (self.disruption_panic_hotkey_edit, 'disruption_panic_hotkey'),
             (self.safety_dry_run_checkbox, 'safety_dry_run'),
             (self.max_operation_seconds_spinbox, 'max_operation_seconds'),
             (self.kill_switch_enabled_checkbox, 'kill_switch_enabled'),
@@ -962,13 +1036,15 @@ class SettingsDialog(QDialog):
             if val is None:
                 continue
             if isinstance(widget, QCheckBox):
-                widget.setChecked(val)
+                widget.setChecked(val is True if key.startswith('disruption_') else val)
             elif isinstance(widget, QDoubleSpinBox):
                 widget.setValue(float(val))
             elif isinstance(widget, QSpinBox):
                 widget.setValue(val)
             elif isinstance(widget, QComboBox):
                 widget.setCurrentText(str(val))
+            elif isinstance(widget, QLineEdit):
+                widget.setText(str(val))
         if hasattr(s, 'whitelist') and s.whitelist:
             self.whitelist_edit.setPlainText('\n'.join(s.whitelist))
         cidrs = getattr(s, 'allowed_target_cidrs', None)
@@ -992,6 +1068,8 @@ class SettingsDialog(QDialog):
                 d[key] = widget.value()
             elif isinstance(widget, QComboBox):
                 d[key] = widget.currentText()
+            elif isinstance(widget, QLineEdit):
+                d[key] = widget.text()
         d['whitelist'] = (self.whitelist_edit.toPlainText().split('\n')
                           if self.whitelist_edit.toPlainText() else [])
         d['allowed_target_cidrs'] = [
@@ -1018,6 +1096,9 @@ class SettingsDialog(QDialog):
         try:
             d = self._read_widgets_to_dict()
             new_settings = AppSettings(**d)
+            from app.core.hotkey_settings import validate_hotkey_settings
+            for action, chord in validate_hotkey_settings(new_settings).items():
+                setattr(new_settings, f"disruption_{action}_hotkey", chord)
             from app.core.safety_policy import SafetyPolicy
             SafetyPolicy.from_settings(new_settings)
             from app.core.kill_switch import (
@@ -1031,12 +1112,12 @@ class SettingsDialog(QDialog):
                 new_settings,
                 get_drop_counters=lambda: {"packets_dropped": 0},
             )
+            if self.controller:
+                self.controller.update_settings(new_settings)
             self.new_settings = new_settings
             self.settings_changed.emit({k: d[k] for k in (
                 'theme', 'auto_refresh', 'refresh_interval', 'show_device_icons',
                 'show_status_indicators', 'compact_view', 'show_notifications', 'sound_alerts')})
-            if self.controller:
-                self.controller.update_settings(new_settings)
             log_info("Settings saved")
 
             # Check if map renderer changed — requires app restart

@@ -142,7 +142,7 @@ jobs:
             throw 'Could not create the isolated hardware tool environment.'
           }
           $toolPython = Join-Path $toolRoot 'Scripts\python.exe'
-          & $toolPython -m pip install --upgrade 'pip==26.2.1'
+          & $toolPython -m pip install --upgrade 'pip==26.2.2'
           if ($LASTEXITCODE -ne 0) {
             throw 'Could not install the canonical pip version.'
           }

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.verify_requirements_lock import verify
+from scripts.verify_requirements_lock import parse_direct_requirements, parse_lock, verify
 
 
 def _write(path: Path, text: str) -> Path:
@@ -19,6 +19,34 @@ def test_repository_runtime_lock_contract_passes() -> None:
         Path("requirements.in"),
         Path("requirements-locked.txt"),
     ) == []
+
+
+def test_runtime_urllib3_floor_excludes_september_2026_advisories() -> None:
+    # GHSA-8988-9cw3-xx77, GHSA-gh4c-6fx4-qh6g and GHSA-vxq7-64xx-v4gw
+    # are fixed in 2.8.0. Keep source resolution and the release pin aligned.
+    requirement = next(req for _line, req in parse_direct_requirements(Path("requirements.in"))
+                       if req.name == "urllib3")
+    assert "2.7.0" not in requirement.specifier
+    assert "2.8.0" in requirement.specifier
+    locked = parse_lock(Path("requirements-locked.txt"))["urllib3"]
+    assert locked.version in requirement.specifier
+
+
+@pytest.mark.parametrize("name,rejected,accepted", [
+    ("pillow", "12.3.0", "13.0.0"),
+    ("certifi", "2026.2.25", "2026.10.19"),
+    ("cryptography", "50.0.0", "50.0.2"),
+])
+def test_october_security_floors_and_lock_stay_aligned(name, rejected, accepted):
+    requirements = {
+        req.name.lower(): req
+        for _line, req in parse_direct_requirements(Path("requirements.in"))
+    }
+    requirement = requirements[name]
+    assert rejected not in requirement.specifier
+    assert accepted in requirement.specifier
+    locked = parse_lock(Path("requirements-locked.txt"))[name]
+    assert locked.version in requirement.specifier
 
 
 def test_missing_direct_requirement_is_rejected(tmp_path) -> None:

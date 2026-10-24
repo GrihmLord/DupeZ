@@ -136,6 +136,28 @@ def test_release_gate_launcher_operator_is_bounded_to_safe_characters():
     assert "ValidateLength(0, 80)" in operator_param
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell and file-sharing contract")
+def test_release_progress_io_contract(tmp_path):
+    script = _read("scripts/release_gate_launcher.ps1")
+    assert "Set-Content -LiteralPath $statePath" not in script
+    assert "$stream.Flush($true)" in script
+    assert "[IO.File]::Replace($temporaryPath, $statePath" in script
+    assert script.count("$progressLock = Enter-ReleaseProgressLock") == 2
+    assert script.count("$progressLock.Dispose()") == 2
+    assert 'phase = $(if ($Phase -eq "auto") { "auto" }' in script
+    powershell = Path(r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe")
+    completed = subprocess.run(
+        [
+            str(powershell), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-File", str(ROOT / "tests/ci/release_progress_io_contract_test.ps1"),
+            "-FixtureRoot", str(tmp_path),
+        ],
+        cwd=ROOT, capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "Release progress I/O contracts passed." in completed.stdout
+
+
 def test_blocked_gate_sequencer_propagates_nested_phase_failures():
     script = _read("scripts/blocked_release_gates_sequence.ps1")
     run_checked = script.index("function Run-Checked")
@@ -1313,9 +1335,10 @@ def test_clean_release_uses_review_and_omits_vex_artifact():
         assert "DupeZ.vex.json" not in artifact_contract, relative
 
     preflight = _read("scripts/release_preflight.py")
-    required_start = preflight.index("required = (", preflight.index("def check_dist"))
-    required_end = preflight.index("\n    )", required_start)
-    required = preflight[required_start:required_end]
+    from scripts.release_preflight import required_distribution_artifacts
+
+    required = required_distribution_artifacts("5.8.0")
+    assert "required = required_distribution_artifacts(version)" in preflight
     assert "DupeZ.vulnerability-review.json" in required
     assert "DupeZ.vex.json" not in required
     assert "zero-finding release must omit" in preflight

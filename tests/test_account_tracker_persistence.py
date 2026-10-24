@@ -190,3 +190,63 @@ def test_import_failure_does_not_clear_or_replace_the_table(
     assert tracker.accounts == original
     tracker.account_table.clearContents.assert_not_called()
     tracker._update_statistics.assert_not_called()
+
+
+@pytest.mark.parametrize("method", ["_add_account", "_edit_account"])
+@pytest.mark.parametrize("data", [
+    {"account": " "}, {"account": "A"}, {"account": "---"},
+    {"account": "Valid Name", "email": "not-an-email"},
+])
+def test_invalid_dialog_data_is_not_persisted(qapp, monkeypatch, method, data):
+    original = [{"id": "1", "account": "Main", "status": "Ready"}]
+    manager = _AccountManager(original, True)
+    tracker = _make_tracker(qapp, original)
+    warning = Mock()
+    monkeypatch.setattr(tracker_module, "account_manager", manager)
+    monkeypatch.setattr(tracker_module.QMessageBox, "warning", warning)
+    tracker._show_account_dialog = Mock(return_value=data)
+
+    getattr(tracker, method)()
+
+    assert manager.attempted is None
+    assert tracker.accounts == original
+    tracker._refresh_account_table.assert_not_called()
+    warning.assert_called_once()
+
+
+def test_renaming_to_an_existing_name_is_rejected(qapp, monkeypatch):
+    original = [{"id": "1", "account": "Main"}, {"id": "2", "account": "Mule"}]
+    manager = _AccountManager(original, True)
+    tracker = _make_tracker(qapp, original)
+    warning = Mock()
+    monkeypatch.setattr(tracker_module, "account_manager", manager)
+    monkeypatch.setattr(tracker_module.QMessageBox, "warning", warning)
+    tracker._show_account_dialog = Mock(return_value={"account": " mule "})
+
+    tracker._edit_account()
+
+    assert manager.attempted is None
+    assert tracker.accounts == original
+    assert tracker.current_account == original[0]
+    warning.assert_called_once()
+
+
+@pytest.mark.parametrize("has_ids", [True, False])
+def test_edit_keeps_correct_selection_and_allows_unchanged_name(qapp, monkeypatch, has_ids):
+    original = [{"account": "Main"}, {"account": "Mule"}]
+    if has_ids:
+        for index, account in enumerate(original):
+            account["id"] = str(index)
+    manager = _AccountManager(original, True)
+    tracker = _make_tracker(qapp, original)
+    tracker.current_account = tracker.accounts[1]
+    monkeypatch.setattr(tracker_module, "account_manager", manager)
+    tracker._show_account_dialog = Mock(return_value={"account": " Mule ", "notes": "updated"})
+
+    tracker._edit_account()
+
+    assert tracker.current_account is tracker.accounts[1]
+    assert tracker.current_account["account"] == "Mule"
+    assert tracker.current_account["notes"] == "updated"
+    assert tracker.accounts[0] == original[0]
+    tracker._refresh_account_table.assert_called_once()

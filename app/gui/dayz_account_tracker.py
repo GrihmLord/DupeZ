@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import csv
 import os
+import tempfile
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QColor, QFont
@@ -236,6 +238,50 @@ def _spreadsheet_export_row(account: Dict[str, Any]) -> List[str]:
         _spreadsheet_safe_text(account.get(field, ""))
         for field in ACCOUNT_FIELDS
     ]
+
+
+@contextmanager
+def _account_export_file(file_path: str, *, binary: bool = False) -> Iterator[Any]:
+    """Publish a complete export without truncating an existing destination.
+
+    Staging on the destination filesystem also permits replacement when the
+    system temporary directory lives on a different drive. Close the handle
+    before replacement for Windows, and remove only this invocation's stage
+    on failure (including cancellation).
+    """
+    stage_path = None
+    try:
+        options = {} if binary else {"encoding": "utf-8", "newline": ""}
+        with tempfile.NamedTemporaryFile(
+            mode="w+b" if binary else "w",
+            dir=os.path.dirname(os.path.abspath(file_path)),
+            prefix=f".{os.path.basename(file_path)}.",
+            suffix=".tmp",
+            delete=False,
+            **options,
+        ) as stage:
+            stage_path = stage.name
+            yield stage
+            stage.flush()
+            os.fsync(stage.fileno())
+        os.replace(stage_path, file_path)
+    finally:
+        if stage_path is not None:
+            try:
+                os.unlink(stage_path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                log_warning(f"Could not remove incomplete account export: {exc}")
+
+
+def _write_account_csv(file_path: str, accounts: List[Dict[str, Any]]) -> None:
+    """Write a complete, formula-neutralized CSV export."""
+    with _account_export_file(file_path) as stream:
+        writer = csv.writer(stream)
+        writer.writerow(TABLE_HEADERS)
+        for account in accounts:
+            writer.writerow(_spreadsheet_export_row(account))
 
 
 def _account_text_blob(account: Dict[str, Any]) -> str:
@@ -818,6 +864,13 @@ class DayZAccountTracker(QWidget):
         try:
             account_data = self._show_account_dialog()
             if account_data:
+                if not self._validate_account_data(account_data):
+                    QMessageBox.warning(self, "Invalid Account",
+                        "Enter an account name with at least two characters and "
+                        "an alphanumeric character. An email, if provided, must contain @.")
+                    return
+                account_data['account'] = account_data['account'].strip()
+                account_data['email'] = account_data.get('email', '').strip()
                 now = datetime.now()
                 account_data['id'] = f"manual_{now.timestamp()}"
                 account_data['created_at'] = now.isoformat()
@@ -849,11 +902,19 @@ class DayZAccountTracker(QWidget):
 
             account_data = self._show_account_dialog(self.current_account)
             if account_data:
+                if not self._validate_account_data(account_data):
+                    QMessageBox.warning(self, "Invalid Account",
+                        "Enter an account name with at least two characters and "
+                        "an alphanumeric character. An email, if provided, must contain @.")
+                    return
+                account_data['account'] = account_data['account'].strip()
+                account_data['email'] = account_data.get('email', '').strip()
                 original_name = self.current_account.get('account', '')
                 original_id = self.current_account.get('id')
                 candidate = deepcopy(self.accounts)
                 updated_account: Optional[Dict[str, Any]] = None
-                for account in candidate:
+                updated_index = None
+                for index, account in enumerate(candidate):
                     same_record = (
                         original_id is not None
                         and account.get('id') == original_id
@@ -862,9 +923,16 @@ class DayZAccountTracker(QWidget):
                         and account.get('account') == original_name
                     )
                     if same_record:
+                        if self._is_duplicate_account(
+                            account_data, accounts=candidate[:index] + candidate[index + 1:]
+                        ):
+                            QMessageBox.warning(self, "Duplicate",
+                                f"An account named '{account_data['account']}' already exists.")
+                            return
                         account.update(account_data)
                         account['updated_at'] = datetime.now().isoformat()
                         updated_account = account
+                        updated_index = index
                         break
 
                 if updated_account is None:
@@ -872,14 +940,7 @@ class DayZAccountTracker(QWidget):
                 if not self._save_accounts(candidate, operation="update account"):
                     return
 
-                self.current_account = next(
-                    (
-                        account
-                        for account in self.accounts
-                        if account.get('id') == updated_account.get('id')
-                    ),
-                    None,
-                )
+                self.current_account = self.accounts[updated_index]
                 self._refresh_account_table()
                 updated_name = updated_account.get('account', '')
                 self.status_label.setText(f"Updated: {updated_name}")
@@ -1588,70 +1649,68 @@ class DayZAccountTracker(QWidget):
             candidate = deepcopy(self.accounts)
 
             # --- Delimiter sniff on a small probe buffer ---
-            with open(file_path, 'r', newline='', encoding='utf-8-sig',
-                      errors='replace') as probe:
+            # The probe uses universal newlines so Sniffer can recognize
+            # quoted multiline fields in Windows CRLF files. The actual
+            # reader below keeps newline='' as required by csv.reader.
+            with open(file_path, 'r', encoding='utf-8-sig') as probe:
                 sample = probe.read(4096)
             dialect_delim = ','
             if sample.strip():
                 try:
-                    dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+                    dialect = csv.Sniffer().sniff(
+                        sample.lstrip('\r\n'), delimiters=',;\t|'
+                    )
                     dialect_delim = dialect.delimiter
                 except csv.Error:
                     dialect_delim = ','
 
-            with open(file_path, 'r', newline='', encoding='utf-8-sig',
-                      errors='replace') as file:
-                reader = csv.DictReader(file, delimiter=dialect_delim)
+            with open(file_path, 'r', newline='', encoding='utf-8-sig') as file:
+                # Lists preserve every column, including repeated empty
+                # cells in headerless input. DictReader collapsed those
+                # columns and previously mapped only the first fallback row.
+                reader = csv.reader(file, delimiter=dialect_delim, strict=True)
+                first_row = next(
+                    (row for row in reader if any(cell.strip() for cell in row)),
+                    [],
+                )
+                csv_col_map: Dict[int, str] = {}
+                for col_idx, col_name in enumerate(first_row):
+                    norm = _normalize_header(col_name)
+                    field = _XLSX_KNOWN_HEADERS.get(norm)
+                    if field is not None:
+                        if field in csv_col_map.values():
+                            raise ValueError(
+                                f"Multiple CSV columns map to '{field}'. "
+                                "Give each account field one column before importing."
+                            )
+                        csv_col_map[col_idx] = field
+                    else:
+                        unmapped_headers.append(str(col_name))
 
-                csv_col_map: Dict[str, str] = {}
-                if reader.fieldnames:
-                    for col_name in reader.fieldnames:
-                        if col_name is None:
-                            continue
-                        norm = _normalize_header(col_name)
-                        if norm in _XLSX_KNOWN_HEADERS:
-                            csv_col_map[col_name] = _XLSX_KNOWN_HEADERS[norm]
-                        else:
-                            unmapped_headers.append(str(col_name))
-
-                # Positional fallback: if we recognized no headers but the
-                # file has a row, assume the canonical ACCOUNT_FIELDS order.
-                positional_fallback = False
-                if not csv_col_map and reader.fieldnames:
+                positional_fallback = bool(first_row) and not csv_col_map
+                if positional_fallback:
                     log_warning(
-                        f"CSV headers unrecognized; falling back to positional "
-                        f"mapping. Unmapped: {reader.fieldnames}"
+                        "CSV headers unrecognized; falling back to positional mapping."
                     )
-                    positional_fallback = True
-                    # The DictReader already consumed the first row as headers;
-                    # treat those header cells as the first data row.
-                    first_row_vals = list(reader.fieldnames or [])
-                else:
-                    first_row_vals = None
+                    csv_col_map = dict(enumerate(_XLSX_DEFAULT_FIELDS))
+                    # These were data values, not unmapped header labels.
+                    unmapped_headers = []
 
                 def _row_iter():
-                    if positional_fallback and first_row_vals:
-                        yield 1, first_row_vals  # synthetic row from headers
-                    for idx, r in enumerate(reader, start=2):
-                        yield idx, r
+                    if positional_fallback:
+                        yield reader.line_num, first_row
+                    for row in reader:
+                        if any(cell.strip() for cell in row):
+                            yield reader.line_num, row
 
                 for row_num, row in _row_iter():
                     try:
                         account_data: Dict[str, str] = {f: '' for f in ACCOUNT_FIELDS}
                         account_data['status'] = 'Ready'
 
-                        if positional_fallback and isinstance(row, list):
-                            for col_idx, val in enumerate(row):
-                                if col_idx >= len(_XLSX_DEFAULT_FIELDS):
-                                    break
-                                field = _XLSX_DEFAULT_FIELDS[col_idx]
-                                if val is not None and str(val).strip():
-                                    account_data[field] = str(val).strip()
-                        else:
-                            for csv_col, field in csv_col_map.items():
-                                val = row.get(csv_col, '') if isinstance(row, dict) else ''
-                                if val:
-                                    account_data[field] = str(val).strip()
+                        for col_idx, field in csv_col_map.items():
+                            if col_idx < len(row) and row[col_idx].strip():
+                                account_data[field] = row[col_idx].strip()
 
                         # Canonicalize status / station casing.
                         if account_data.get('status'):
@@ -1781,11 +1840,7 @@ class DayZAccountTracker(QWidget):
                 if ext == '.xlsx':
                     self._export_xlsx(file_path)
                 else:
-                    with open(file_path, 'w', newline='', encoding='utf-8') as file:
-                        writer = csv.writer(file)
-                        writer.writerow(TABLE_HEADERS)
-                        for account in self.accounts:
-                            writer.writerow(_spreadsheet_export_row(account))
+                    _write_account_csv(file_path, self.accounts)
 
                 fmt = "XLSX" if ext == '.xlsx' else "CSV"
                 self.status_label.setText(f"Exported {len(self.accounts)} accounts to {fmt}")
@@ -1797,12 +1852,15 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to export accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to export accounts: {e}")
 
-    def _export_xlsx(self, file_path: str) -> None:
+    def _export_xlsx(
+        self, file_path: str, accounts: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         """Write accounts to a styled XLSX workbook with frozen header row."""
         try:
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
+            records = self.accounts if accounts is None else accounts
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Accounts"
@@ -1831,7 +1889,7 @@ class DayZAccountTracker(QWidget):
                            for k, c in STATUS_COLORS.items()}
             status_col_idx = fields.index('status') + 1 if 'status' in fields else None
 
-            for row_idx, account in enumerate(self.accounts, 2):
+            for row_idx, account in enumerate(records, 2):
                 safe_values = _spreadsheet_export_row(account)
                 for col_idx, (field, value) in enumerate(
                     zip(fields, safe_values), 1
@@ -1850,19 +1908,19 @@ class DayZAccountTracker(QWidget):
 
             for col_idx in range(1, len(headers) + 1):
                 max_len = len(headers[col_idx - 1])
-                for row_idx in range(2, len(self.accounts) + 2):
+                for row_idx in range(2, len(records) + 2):
                     val = ws.cell(row=row_idx, column=col_idx).value
                     if val:
                         max_len = max(max_len, len(str(val)))
                 ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = min(max_len + 4, 50)
 
             ws.freeze_panes = 'A2'
-            wb.save(file_path)
+            with _account_export_file(file_path, binary=True) as stream:
+                wb.save(stream)
             log_info(f"XLSX export saved to {file_path}")
 
-        except ImportError:
-            QMessageBox.critical(self, "Missing Library",
-                "openpyxl is required for XLSX export.\n\nInstall it with:\npip install openpyxl")
+        except ImportError as exc:
+            raise RuntimeError("openpyxl is required for XLSX export.") from exc
         except Exception as e:
             log_error(f"XLSX export failed: {e}")
             raise
@@ -2074,19 +2132,9 @@ class DayZAccountTracker(QWidget):
 
             ext = os.path.splitext(file_path)[1].lower()
             if ext == '.xlsx':
-                # Temporarily swap accounts for export
-                orig = self.accounts
-                try:
-                    self.accounts = subset
-                    self._export_xlsx(file_path)
-                finally:
-                    self.accounts = orig
+                self._export_xlsx(file_path, subset)
             else:
-                with open(file_path, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(TABLE_HEADERS)
-                    for acc in subset:
-                        writer.writerow(_spreadsheet_export_row(acc))
+                _write_account_csv(file_path, subset)
 
             fmt = "XLSX" if ext == '.xlsx' else "CSV"
             QMessageBox.information(self, "Export Complete",

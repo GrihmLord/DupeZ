@@ -593,12 +593,8 @@ def main() -> None:
 
         # --- Phase 3: Main Window ---
         from app.gui.dashboard import DupeZDashboard
-        from app.gui.hotkey import HotkeyListener
 
         window = DupeZDashboard(controller=controller)
-
-        hotkey = HotkeyListener(callback=controller.toggle_lag)
-        hotkey.start()
 
         window.show()
         log_info("DupeZ started successfully")
@@ -684,7 +680,8 @@ def main() -> None:
             shutdown_state["done"] = True
 
             try:
-                hotkey.stop()
+                if not window._stop_global_hotkeys():
+                    log_warning("Global hotkey shutdown cleanup was not confirmed")
             except Exception as exc:
                 log_warning(
                     f"Hotkey shutdown failed (non-fatal): {exc}"

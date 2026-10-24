@@ -23,7 +23,7 @@ done
 
 echo "==> Ensuring reviewed pip and pip-tools versions are installed..."
 "$PYTHON" -m pip install --quiet --only-binary=:all: \
-    "pip==26.2.1" "pip-tools==7.6.1"
+    "pip==26.2.2" "pip-tools==7.6.1"
 
 new_reviewed_lock() {
     local input_path="$1"

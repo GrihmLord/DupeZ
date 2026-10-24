@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.clumsy_controls import CLUMSY_NUMERIC_LIMITS
 from app.core.data_persistence import nickname_manager
 from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip as _log_mask_ip
@@ -108,23 +109,29 @@ def _mdef(key: str, label: str, desc: str,
     return {"key": key, "label": label, "desc": desc, "params": params or []}
 
 
+def _clumsy_param(label: str, key: str, default: int) -> Tuple:
+    """Use the same numeric bounds as validation and the owned adapter."""
+    minimum, maximum = CLUMSY_NUMERIC_LIMITS[key]
+    return label, key, minimum, maximum, default
+
+
 MODULE_DEFS: List[Dict[str, Any]] = [
-    _mdef("lag", "LAG", "Add delay to packets", [("Delay (ms)", "lag_delay", 0, 120000, 500)]),
-    _mdef("drop", "DROP", "Drop packets randomly", [("Chance %", "drop_chance", 0, 100, 100)]),
+    _mdef("lag", "LAG", "Add delay to packets", [_clumsy_param("Delay (ms)", "lag_delay", 500)]),
+    _mdef("drop", "DROP", "Drop packets randomly", [_clumsy_param("Chance %", "drop_chance", 100)]),
     _mdef("disconnect", "DISCONNECT", "Timed cut — arm → cut → release", [
         ("Chance %",       "disconnect_chance",        0, 100,   100),
         ("Arm Delay (ms)", "disconnect_arm_delay_ms",  0, 30000,   0),
         ("Duration (ms)",  "disconnect_duration_ms",   0, 60000,   0),
     ]),
     _mdef("bandwidth", "BANDWIDTH", "Limit bandwidth", [
-        ("Limit (KB/s)", "bandwidth_limit", 0, 1000, 5), ("Queue Size", "bandwidth_queue", 0, 1000, 0)]),
+        _clumsy_param("Limit (KB/s)", "bandwidth_limit", 5), _clumsy_param("Queue Size", "bandwidth_queue", 0)]),
     _mdef("throttle", "THROTTLE", "Throttle packet flow", [
-        ("Chance %", "throttle_chance", 0, 100, 80), ("Frame (ms)", "throttle_frame", 0, 1000, 100)]),
-    _mdef("duplicate", "DUPLICATE", "Clone packets", [
-        ("Chance %", "duplicate_chance", 0, 100, 50), ("Count", "duplicate_count", 1, 50, 5)]),
-    _mdef("ood", "OUT OF ORDER", "Reorder packets", [("Chance %", "ood_chance", 0, 100, 50)]),
-    _mdef("corrupt", "TAMPER", "Corrupt packet data (limited vs DayZ)", [("Chance %", "tamper_chance", 0, 100, 30)]),
-    _mdef("rst", "TCP RST", "Inject RST flags (kicks you too!)", [("Chance %", "rst_chance", 0, 100, 100)]),
+        _clumsy_param("Chance %", "throttle_chance", 80), _clumsy_param("Frame (ms)", "throttle_frame", 100)]),
+    _mdef("duplicate", "DUPLICATE", "Duplicate network packets", [
+        _clumsy_param("Chance %", "duplicate_chance", 50), _clumsy_param("Extra copies", "duplicate_count", 5)]),
+    _mdef("ood", "OUT OF ORDER", "Reorder packets", [_clumsy_param("Chance %", "ood_chance", 50)]),
+    _mdef("corrupt", "TAMPER", "Corrupt packet data (limited vs DayZ)", [_clumsy_param("Chance %", "tamper_chance", 30)]),
+    _mdef("rst", "TCP RST", "Inject RST flags (kicks you too!)", [_clumsy_param("Chance %", "rst_chance", 100)]),
 ]
 
 class ClumsyControlView(QWidget):

@@ -12,6 +12,7 @@ import os
 import platform
 import re
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -64,7 +65,7 @@ def default_support_bundle_path(
 
 
 _LOCAL_PATH_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"(?i)([A-Z]:\\Users\\)[^\\/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+    (re.compile(r"(?i)([A-Z]:[\\/]+Users[\\/]+)[^\\/\"'<>|\r\n]+"), r"\1<REDACTED>"),
     (re.compile(r"(/Users/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
     (re.compile(r"(/home/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
 )
@@ -312,7 +313,7 @@ def write_support_bundle(
     diagnostic_results: Iterable[Any] | None = None,
     output_path: Path | str | None = None,
 ) -> SupportBundleResult:
-    """Write a redacted support bundle JSON file without overwriting files."""
+    """Publish complete, flushed JSON without overwriting existing files."""
     if output_dir is not None and output_path is not None:
         raise ValueError("choose either output_dir or output_path, not both")
     payload = build_support_bundle(
@@ -347,23 +348,39 @@ def write_support_bundle(
             path.with_name(f"{path.stem}-{index:02d}{path.suffix}")
             for index in range(1, 100)
         )
-    for candidate in candidates:
-        created = False
-        try:
-            with candidate.open("x", encoding="utf-8", newline="\n") as handle:
-                created = True
-                handle.write(rendered)
-                handle.flush()
-                os.fsync(handle.fileno())
-            return SupportBundleResult(payload=safe_payload, path=candidate)
-        except FileExistsError:
-            if explicit_path:
-                raise
-        except Exception:
-            if created:
-                try:
-                    candidate.unlink()
-                except OSError:
-                    pass
-            raise
-    raise FileExistsError("no unused support bundle filename is available")
+    temporary_path = None
+    try:
+        # A crash during serialization or flushing must not leave a final
+        # support-bundle filename containing an incomplete document.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n", dir=root,
+            prefix=".support-bundle-", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        for candidate in candidates:
+            try:
+                if os.name == "nt":
+                    # Windows rename refuses an existing destination, and
+                    # works on filesystems without hard-link support.
+                    os.rename(temporary_path, candidate)
+                else:
+                    # POSIX rename overwrites; linking a completed file keeps
+                    # publication exclusive even when another writer races.
+                    os.link(temporary_path, candidate)
+                return SupportBundleResult(payload=safe_payload, path=candidate)
+            except FileExistsError:
+                if explicit_path:
+                    raise
+        raise FileExistsError("no unused support bundle filename is available")
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                # Cleanup cannot invalidate a completed publication or hide
+                # the original failure. An orphan remains a .tmp, not JSON.
+                pass

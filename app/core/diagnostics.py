@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
@@ -252,11 +253,14 @@ def _check_data_directory() -> CheckResult:
                 ),
                 fix_command=f'mkdir "{path}"',
             )
-        # Try a write probe.
-        probe = path / ".diagnostics_write_probe.tmp"
+        # Own an exclusively created probe. A fixed filename can overwrite
+        # user data or collide with a concurrent diagnostic run.
         try:
-            probe.write_text("probe", encoding="utf-8")
-            probe.unlink()
+            with tempfile.NamedTemporaryFile(
+                mode="wb", dir=path, prefix=".dupez-diagnostics-", suffix=".tmp",
+            ) as probe:
+                probe.write(b"probe")
+                probe.flush()
         except Exception as exc:
             return CheckResult(
                 name="Data directory",

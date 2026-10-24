@@ -2778,11 +2778,9 @@ def _check_source_archive(dist: Path, version: str) -> list[str]:
     return errors
 
 
-def check_dist(version: str, *, allow_unsigned: bool = False) -> list[str]:
-    errors: list[str] = []
-    license_policy_errors, _ = _check_license_policy(distribution=True)
-    errors.extend(license_policy_errors)
-    required = (
+def required_distribution_artifacts(version: str) -> tuple[str, ...]:
+    """Canonical minimum inventory; presence alone is not validation."""
+    return (
         "DupeZ-GPU.exe",
         "DupeZ-Compat.exe",
         f"DupeZ_v{version}_Setup.exe",
@@ -2798,6 +2796,13 @@ def check_dist(version: str, *, allow_unsigned: bool = False) -> list[str]:
         "license-payload.json",
         f"DupeZ-v{version}-source.zip",
     )
+
+
+def check_dist(version: str, *, allow_unsigned: bool = False) -> list[str]:
+    errors: list[str] = []
+    license_policy_errors, _ = _check_license_policy(distribution=True)
+    errors.extend(license_policy_errors)
+    required = required_distribution_artifacts(version)
     dist = ROOT / "dist"
     for name in required:
         path = dist / name

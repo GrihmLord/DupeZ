@@ -22,7 +22,9 @@ It also adds:
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass
+from contextlib import contextmanager
+from copy import copy
+from dataclasses import dataclass, field
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
@@ -43,6 +45,16 @@ LLM_SETTINGS_KEY = "llm_advisor"
 LLM_SECRET_NAME = "llm_api_key"  # pragma: allowlist secret
 _VALID_PROVIDERS = frozenset({"ollama", "openai", "none"})
 _MAX_PROVIDER_REQUESTS = 2
+
+
+@dataclass
+class _RequestSnapshot:
+    generation: int
+    cancel_event: threading.Event
+    config: SecureLLMConfig
+    history: list
+    available: Optional[bool]
+    api_key: Optional[str] = field(default=None, repr=False)
 
 
 def _bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
@@ -189,6 +201,9 @@ class ConfiguredLLMAdvisor(LLMAdvisor):
     def __init__(self, config: Optional[SecureLLMConfig] = None) -> None:
         super().__init__(config or SecureLLMConfig.from_settings())
         self._request_lock = threading.RLock()
+        # Ownership checks and shared state writes must use the same lock.
+        self._history_lock = self._request_lock
+        self._request_local = threading.local()
         self._request_generation = 0
         self._cancel_event = threading.Event()
         self._provider_slots = threading.BoundedSemaphore(
@@ -200,25 +215,133 @@ class ConfiguredLLMAdvisor(LLMAdvisor):
         return cls(SecureLLMConfig.from_settings())
 
     def reconfigure(self, config: SecureLLMConfig, *, persist: bool = True) -> None:
-        self.cancel_pending()
-        self.config = config
-        self._available = None
-        self.reset_conversation()
+        with self._request_lock:
+            self.cancel_pending()
+            self.config = config
+            self._available = None
+            super().reset_conversation()
         if persist:
             config.save_public_settings()
 
+    def _snapshot_request(self) -> _RequestSnapshot:
+        with self._request_lock:
+            return _RequestSnapshot(
+                self._request_generation,
+                self._cancel_event,
+                copy(self.config),
+                [dict(message) for message in self._conversation_history[-8:]],
+                self._available,
+            )
+
+    @contextmanager
+    def _request_scope(self, snapshot: Optional[_RequestSnapshot] = None):
+        current = getattr(self._request_local, "snapshot", None)
+        if current is not None:
+            yield current
+            return
+        self._request_local.snapshot = snapshot or self._snapshot_request()
+        try:
+            yield self._request_local.snapshot
+        finally:
+            self._request_local.snapshot.api_key = None
+            del self._request_local.snapshot
+
+    def _request_config(self) -> SecureLLMConfig:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        return snapshot.config if snapshot is not None else self.config
+
+    def _request_api_key(self) -> str:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        if snapshot is None:
+            return super()._request_api_key()
+        if snapshot.config.provider != "openai":
+            return ""
+        if snapshot.api_key is None:
+            # Freeze credentials at first use for the entire request, including
+            # its availability probe. Never pair a later vault rotation with
+            # the original provider URL. Vault I/O must stay outside the lock.
+            if not self._owns_request(snapshot.generation, snapshot.cancel_event):
+                return ""
+            secret = snapshot.config.get_api_key()
+            with self._request_lock:
+                snapshot.api_key = (
+                    secret
+                    if self._owns_request(snapshot.generation, snapshot.cancel_event)
+                    else ""
+                )
+        return snapshot.api_key
+
+    def _cached_availability(self) -> Optional[bool]:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        if snapshot is not None:
+            return snapshot.available
+        with self._request_lock:
+            return self._available
+
+    def _store_availability(self, available: Optional[bool]) -> None:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        with self._request_lock:
+            if snapshot is not None:
+                snapshot.available = available
+                if not self._owns_request(
+                    snapshot.generation, snapshot.cancel_event
+                ):
+                    return
+            self._available = available
+
+    def _request_history(self) -> list:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        return snapshot.history if snapshot is not None else super()._request_history()
+
+    def _remember_exchange(self, prompt: str, response_text: str) -> None:
+        snapshot = getattr(self._request_local, "snapshot", None)
+        with self._request_lock:
+            if snapshot is not None and not self._owns_request(
+                snapshot.generation, snapshot.cancel_event
+            ):
+                return
+            super()._remember_exchange(prompt, response_text)
+
+    def is_available(self) -> bool:
+        with self._request_scope():
+            return super().is_available()
+
+    def ask(self, prompt: str, profile_context: dict = None) -> Optional[dict]:
+        with self._request_scope():
+            return super().ask(prompt, profile_context)
+
+    def get_explanation(self, config: dict) -> str:
+        with self._request_scope():
+            return super().get_explanation(config)
+
+    def reset_conversation(self) -> None:
+        with self._request_lock:
+            self.cancel_pending()
+            super().reset_conversation()
+
     def refresh_availability(self) -> bool:
-        self._available = None
-        return bool(self.is_available())
+        with self._request_scope():
+            if not self._provider_slots.acquire(blocking=False):
+                # A busy provider is not evidence that its cached state changed.
+                log_info("Smart Ops provider capacity reached; check deferred")
+                return False
+            try:
+                self._store_availability(None)
+                return bool(self.is_available())
+            finally:
+                self._provider_slots.release()
 
     def refresh_availability_async(
         self,
         callback: Optional[Callable[[bool], None]] = None,
     ) -> threading.Thread:
-        generation, cancel_event = self._begin_request()
+        with self._request_lock:
+            generation, cancel_event = self._begin_request()
+            snapshot = self._snapshot_request()
 
         def _run() -> None:
-            available = self.refresh_availability()
+            with self._request_scope(snapshot):
+                available = self.refresh_availability()
             if self._owns_request(generation, cancel_event) and callback:
                 callback(available)
 
@@ -236,20 +359,23 @@ class ConfiguredLLMAdvisor(LLMAdvisor):
         callback: Callable,
         profile_context: dict = None,
     ) -> threading.Thread:
-        generation, cancel_event = self._begin_request()
+        with self._request_lock:
+            generation, cancel_event = self._begin_request()
+            snapshot = self._snapshot_request()
 
         def _run() -> None:
-            if not self._provider_slots.acquire(blocking=False):
-                log_info(
-                    "Smart Ops provider capacity reached; using validated "
-                    "offline recommendation"
-                )
-                result = self._fallback_interpret(prompt)
-            else:
-                try:
-                    result = self.ask(prompt, profile_context)
-                finally:
-                    self._provider_slots.release()
+            with self._request_scope(snapshot):
+                if not self._provider_slots.acquire(blocking=False):
+                    log_info(
+                        "Smart Ops provider capacity reached; using validated "
+                        "offline recommendation"
+                    )
+                    result = self._fallback_interpret(prompt)
+                else:
+                    try:
+                        result = self.ask(prompt, profile_context)
+                    finally:
+                        self._provider_slots.release()
             if self._owns_request(generation, cancel_event) and callback:
                 callback(result)
 

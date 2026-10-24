@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -277,3 +279,151 @@ def test_support_sanitizer_redacts_sensitive_fields_without_value_heuristics() -
 
     assert sanitized["api_key"] == "[REDACTED]"
     assert sanitized["nested"]["authorization"] == "[REDACTED]"
+
+
+@pytest.mark.parametrize("path", (
+    "C:/Users/DiagnosticFixture/AppData/Local/DupeZ/report.json",
+    r"C:\\Users\\DiagnosticFixture\\AppData\\Local\\DupeZ\\report.json",
+    r"c:/users\DiagnosticFixture/AppData\Local/DupeZ/report.json",
+))
+def test_support_sanitizer_redacts_windows_user_path_separator_variants(path: str) -> None:
+    sanitized = sanitize_support_value({"message": f"Could not open {path}"})
+
+    assert "DiagnosticFixture" not in sanitized["message"]
+    assert "<REDACTED>" in sanitized["message"]
+    assert "report.json" in sanitized["message"]
+
+
+def test_interrupted_support_bundle_write_never_leaves_a_final_file(monkeypatch, tmp_path):
+    from app.core import support_bundle
+
+    destination = tmp_path / "review.json"
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+
+    def interrupted_fsync(_descriptor):
+        raise KeyboardInterrupt("synthetic export interruption")
+
+    monkeypatch.setattr(support_bundle.os, "fsync", interrupted_fsync)
+    with pytest.raises(KeyboardInterrupt, match="synthetic export interruption"):
+        write_support_bundle(output_path=destination)
+
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_support_bundle_is_not_published_until_flush_succeeds(monkeypatch, tmp_path):
+    from app.core import support_bundle
+
+    destination = tmp_path / "review.json"
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+
+    def failed_fsync(_descriptor):
+        assert not destination.exists(), "final filename exposed before durable write"
+        raise OSError("synthetic flush failure")
+
+    monkeypatch.setattr(support_bundle.os, "fsync", failed_fsync)
+    with pytest.raises(OSError, match="synthetic flush failure"):
+        write_support_bundle(output_path=destination)
+
+    assert not destination.exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_support_bundle_publication_preserves_a_racing_destination(monkeypatch, tmp_path):
+    from app.core import support_bundle
+
+    destination = tmp_path / "review.json"
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+    real_fsync = support_bundle.os.fsync
+
+    def racing_fsync(descriptor):
+        real_fsync(descriptor)
+        destination.write_text("another writer owns this file", encoding="utf-8")
+
+    monkeypatch.setattr(support_bundle.os, "fsync", racing_fsync)
+    with pytest.raises(FileExistsError):
+        write_support_bundle(output_path=destination)
+
+    assert destination.read_text(encoding="utf-8") == "another writer owns this file"
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+def test_support_bundle_publication_failure_cleans_its_staging_file(monkeypatch, tmp_path):
+    from app.core import support_bundle
+
+    destination = tmp_path / "review.json"
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+
+    def failed_publish(_source, _destination):
+        raise PermissionError("synthetic publication failure")
+
+    publish_operation = "rename" if support_bundle.os.name == "nt" else "link"
+    monkeypatch.setattr(support_bundle.os, publish_operation, failed_publish)
+    with pytest.raises(PermissionError, match="synthetic publication failure"):
+        write_support_bundle(output_path=destination)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("failure", (OSError, KeyboardInterrupt))
+def test_partial_staging_write_never_publishes_json(monkeypatch, tmp_path, failure):
+    from app.core import support_bundle
+
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+    real_temporary_file = support_bundle.tempfile.NamedTemporaryFile
+
+    def interrupted_file(**kwargs):
+        handle = real_temporary_file(**kwargs)
+        real_write = handle.write
+
+        def partial_write(text):
+            real_write(text[:5])
+            handle.flush()
+            raise failure("synthetic partial write")
+
+        handle.write = partial_write
+        return handle
+
+    monkeypatch.setattr(support_bundle.tempfile, "NamedTemporaryFile", interrupted_file)
+    with pytest.raises(failure, match="synthetic partial write"):
+        write_support_bundle(output_path=tmp_path / "review.json")
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_concurrent_default_exports_publish_distinct_complete_files(monkeypatch, tmp_path):
+    from app.core import support_bundle
+
+    monkeypatch.setattr(
+        support_bundle, "build_support_bundle", lambda **_kwargs: {"fixture": "safe"},
+    )
+    monkeypatch.setattr(support_bundle, "_utc_stamp", lambda _now=None: "20260905T120000Z")
+    barrier = threading.Barrier(2, timeout=3.0)
+    real_fsync = support_bundle.os.fsync
+
+    def simultaneous_fsync(descriptor):
+        real_fsync(descriptor)
+        barrier.wait()
+
+    monkeypatch.setattr(support_bundle.os, "fsync", simultaneous_fsync)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        pending = [
+            executor.submit(write_support_bundle, output_dir=tmp_path)
+            for _ in range(2)
+        ]
+        results = [future.result(timeout=5.0) for future in pending]
+
+    assert len({result.path for result in results}) == 2
+    for result in results:
+        assert json.loads(result.path.read_text(encoding="utf-8")) == result.payload
+    assert set(tmp_path.iterdir()) == {result.path for result in results}

@@ -62,6 +62,7 @@ def test_dialog_owns_one_confirmed_settings_transaction(
 ) -> None:
     settings = AppSettings()
     applied = []
+    committed = []
 
     class Controller:
         @staticmethod
@@ -71,10 +72,20 @@ def test_dialog_owns_one_confirmed_settings_transaction(
     monkeypatch.setattr(QMessageBox, "information", lambda *_args: None)
     dialog = SettingsDialog(settings, controller=Controller())
     try:
+        dialog.compact_view_checkbox.setChecked(True)
+        dialog.settings_changed.connect(
+            lambda values: committed.append(
+                (values, list(applied), dialog.get_new_settings())
+            )
+        )
         dialog.save_settings()
 
         assert len(applied) == 1
         assert applied[0] is dialog.get_new_settings()
+        assert len(committed) == 1
+        assert committed[0][0]["compact_view"] is True
+        assert committed[0][1] == applied
+        assert committed[0][2] is applied[0]
         assert dialog.result() == QDialog.DialogCode.Accepted
     finally:
         dialog.close()
@@ -86,6 +97,7 @@ def test_dialog_does_not_accept_when_persistence_transaction_fails(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     errors = []
+    committed = []
 
     class Controller:
         @staticmethod
@@ -99,9 +111,15 @@ def test_dialog_does_not_accept_when_persistence_transaction_fails(
     )
     dialog = SettingsDialog(AppSettings(), controller=Controller())
     try:
+        original = dialog.get_new_settings()
+        dialog.compact_view_checkbox.setChecked(True)
+        dialog.settings_changed.connect(committed.append)
         dialog.save_settings()
 
         assert errors == [True]
+        assert committed == []
+        assert dialog.get_new_settings() is original
+        assert original.compact_view is False
         assert dialog.result() != QDialog.DialogCode.Accepted
     finally:
         dialog.close()

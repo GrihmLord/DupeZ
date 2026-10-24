@@ -123,6 +123,46 @@ function Resolve-EnvVar {
     return ""
 }
 
+function Resolve-ReleaseBootstrapPython {
+    param(
+        [Parameter(Mandatory = $false)]
+        [AllowEmptyString()]
+        [string]$ConfiguredPath = ""
+    )
+
+    # Use the same explicit override/default as build_variants.bat. Never
+    # silently fall back to another interpreter after an invalid override.
+    $candidate = $ConfiguredPath
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        $candidate = Join-Path $repoRoot ".venv\Scripts\python.exe"
+    }
+    if (-not [System.IO.Path]::IsPathRooted($candidate)) {
+        throw "DUPEZ_BOOTSTRAP_PYTHON must be an absolute executable path."
+    }
+    if (
+        -not (Test-Path -LiteralPath $candidate -PathType Leaf) -or
+        [System.IO.Path]::GetExtension($candidate) -ine ".exe"
+    ) {
+        throw "Configured repository Python 3.13.14 x64 executable was not found."
+    }
+    $resolved = (Resolve-Path -LiteralPath $candidate).ProviderPath
+    $buildVenvPrefix = (
+        [System.IO.Path]::GetFullPath((Join-Path $repoRoot ".release-venv"))
+    ).TrimEnd('\') + '\'
+    if ($resolved.StartsWith(
+        $buildVenvPrefix,
+        [System.StringComparison]::OrdinalIgnoreCase
+    )) {
+        throw "Bootstrap Python must not be inside the disposable .release-venv."
+    }
+
+    Invoke-Checked -FilePath $resolved -Description "VERIFY RELEASE PYTHON" -ArgumentList @(
+        "-I", "-S", "-c",
+        "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
+    )
+    return $resolved
+}
+
 function Read-ReleaseToolPins {
     $path = Join-Path $repoRoot "packaging\release-tools.json"
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -617,9 +657,11 @@ if (-not $isAdmin) {
     throw "Release finalization must run from Administrator PowerShell."
 }
 
-$python = Resolve-Tool -Candidates @(
-    (Join-Path $repoRoot ".venv\Scripts\python.exe")
-) -Name "repository Python 3.13.14 x64"
+$python = Resolve-ReleaseBootstrapPython `
+    -ConfiguredPath (Resolve-EnvVar -Name "DUPEZ_BOOTSTRAP_PYTHON")
+# Keep source validation and the fresh build environment on the exact same
+# verified interpreter, including when the override came from User/Machine.
+$env:DUPEZ_BOOTSTRAP_PYTHON = $python
 $releaseToolPins = Read-ReleaseToolPins
 $signTool = $null
 if (-not $AllowUnsigned) {
@@ -685,10 +727,6 @@ $sourceIdentity = Get-ReleaseGitIdentity `
 $branch = $sourceIdentity.Branch
 $commit = $sourceIdentity.Commit
 
-Invoke-Checked -FilePath $python -Description "VERIFY RELEASE PYTHON" -ArgumentList @(
-    "-I", "-S", "-c",
-    "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
-)
 Invoke-Checked -FilePath $python -Description "SOURCE RELEASE PREFLIGHT" -ArgumentList @(
     "-I", "scripts\release_preflight.py", "--version", $Version
 )

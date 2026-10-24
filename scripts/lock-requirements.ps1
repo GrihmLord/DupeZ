@@ -31,7 +31,7 @@ Set-Location $RepoRoot
 
 Write-Host "==> Ensuring reviewed pip and pip-tools versions are installed..."
 & $Python -m pip install --quiet --only-binary=:all: `
-    "pip==26.2.1" "pip-tools==7.6.1"
+    "pip==26.2.2" "pip-tools==7.6.1"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Could not install the reviewed pip and pip-tools versions."
     exit $LASTEXITCODE

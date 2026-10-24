@@ -120,13 +120,41 @@ function Get-RepositoryIdentity {
     }
 }
 
-if ($Phase -eq "reset") {
-    if (Test-Path -LiteralPath $statePath -PathType Leaf) {
-        Remove-Item -LiteralPath $statePath -Force
-        Write-Host "Reset progress state: $statePath"
+function Enter-ReleaseProgressLock {
+    $dir = Split-Path -Parent $statePath
+    [IO.Directory]::CreateDirectory($dir) | Out-Null
+    try {
+        # Keep the file after closing: ownership is the OS handle, not file
+        # existence. A terminated process releases it without manual cleanup.
+        return [IO.File]::Open(
+            "$statePath.lock",
+            [IO.FileMode]::OpenOrCreate,
+            [IO.FileAccess]::ReadWrite,
+            [IO.FileShare]::None
+        )
     }
-    else {
-        Write-Host "No state file to reset."
+    catch {
+        throw (
+            "Cannot acquire exclusive release progress access. Another " +
+            "launcher may be running, or the progress directory is not " +
+            "writable. No phase was started: " + $_.Exception.Message
+        )
+    }
+}
+
+if ($Phase -eq "reset") {
+    $progressLock = Enter-ReleaseProgressLock
+    try {
+        if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+            Remove-Item -LiteralPath $statePath -Force
+            Write-Host "Reset progress state: $statePath"
+        }
+        else {
+            Write-Host "No state file to reset."
+        }
+    }
+    finally {
+        $progressLock.Dispose()
     }
     return
 }
@@ -211,10 +239,40 @@ function Write-State([hashtable]$state) {
     $state.updated_at_utc = [DateTime]::UtcNow.ToString("o")
     $json = $state | ConvertTo-Json -Depth 6
     $dir = Split-Path -Parent $statePath
-    if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
-        New-Item -ItemType Directory -Path $dir | Out-Null
+    [IO.Directory]::CreateDirectory($dir) | Out-Null
+    $temporaryPath = Join-Path $dir (
+        ".release-progress-{0}.tmp" -f [Guid]::NewGuid().ToString("N")
+    )
+    $stream = $null
+    try {
+        $stream = [IO.File]::Open(
+            $temporaryPath,
+            [IO.FileMode]::CreateNew,
+            [IO.FileAccess]::Write,
+            [IO.FileShare]::None
+        )
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
+        $stream.Write($bytes, 0, $bytes.Length)
+        $stream.Flush($true)
+        $stream.Dispose()
+        $stream = $null
+        # Publish only complete, flushed JSON on the same volume. Do not
+        # fall back to truncating the live checkpoint if replacement fails.
+        if ([IO.File]::Exists($statePath)) {
+            [IO.File]::Replace($temporaryPath, $statePath, [NullString]::Value)
+        }
+        else {
+            [IO.File]::Move($temporaryPath, $statePath)
+        }
     }
-    Set-Content -LiteralPath $statePath -Value $json -Encoding UTF8
+    finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+        if ([IO.File]::Exists($temporaryPath)) {
+            [IO.File]::Delete($temporaryPath)
+        }
+    }
 }
 
 function Show-Status([hashtable]$state) {
@@ -320,7 +378,9 @@ function New-ElevatedLauncherEncodedCommand([string]$phaseName) {
     $launcherPath = (Resolve-Path -LiteralPath $PSCommandPath).Path
     $payload = [ordered]@{
         script_path = $launcherPath
-        phase = $phaseName
+        # Re-select automatic work after UAC, which can remain pending while
+        # another launcher advances progress. Explicit phases stay explicit.
+        phase = $(if ($Phase -eq "auto") { "auto" } else { $phaseName })
         version = $Version
         operator = $Operator
         allow_unsigned = [bool]$AllowUnsigned
@@ -404,6 +464,31 @@ function Invoke-Phase([string]$phaseName, [hashtable]$state) {
         throw "Phase '$phaseName' must run in a NON-admin desktop PowerShell session. Open a standard shell and rerun."
     }
 
+    # Only the process doing the work owns the lock; an unelevated parent
+    # must never hold it while waiting for its elevated child.
+    $progressLock = Enter-ReleaseProgressLock
+    try {
+        $currentState = Read-State
+        foreach ($name in $sequence) {
+            if (
+                $state.phases.Contains($name) -ne $currentState.phases.Contains($name) -or
+                [string]$state.phases[$name] -cne [string]$currentState.phases[$name]
+            ) {
+                throw (
+                    "Release progress changed while selecting a phase. " +
+                    "Review -Phase status and retry; no phase was started."
+                )
+            }
+        }
+        Assert-PhasePredecessorsDone -phaseName $phaseName -state $currentState
+        Invoke-PhaseCommand -phaseName $phaseName -state $currentState
+    }
+    finally {
+        $progressLock.Dispose()
+    }
+}
+
+function Invoke-PhaseCommand([string]$phaseName, [hashtable]$state) {
     Invalidate-SuccessorDoneStates -phaseName $phaseName -state $state
 
     Write-Host "`n=== Running $phaseName ==="

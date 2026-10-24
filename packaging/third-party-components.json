@@ -4,10 +4,10 @@
   "runtime_components": [
     {
       "name": "certifi",
-      "version": "2026.2.25",
+      "version": "2026.10.23",
       "declared_license": "MPL-2.0",
       "metadata_license": "MPL-2.0",
-      "homepage": "https://pypi.org/project/certifi/2026.2.25/",
+      "homepage": "https://pypi.org/project/certifi/2026.10.23/",
       "fallback_files": [],
       "supplemental_files": []
     },
@@ -40,10 +40,10 @@
     },
     {
       "name": "cryptography",
-      "version": "50.0.0",
+      "version": "50.0.2",
       "declared_license": "Apache-2.0 OR BSD-3-Clause",
       "metadata_license": "Apache-2.0 OR BSD-3-Clause",
-      "homepage": "https://pypi.org/project/cryptography/50.0.0/",
+      "homepage": "https://pypi.org/project/cryptography/50.0.2/",
       "fallback_files": [],
       "supplemental_files": []
     },
@@ -103,10 +103,10 @@
     },
     {
       "name": "pillow",
-      "version": "12.3.0",
+      "version": "13.0.0",
       "declared_license": "MIT-CMU",
       "metadata_license": "MIT-CMU",
-      "homepage": "https://pypi.org/project/pillow/12.3.0/",
+      "homepage": "https://pypi.org/project/pillow/13.0.0/",
       "fallback_files": [],
       "supplemental_files": []
     },
@@ -233,10 +233,10 @@
     },
     {
       "name": "urllib3",
-      "version": "2.7.0",
+      "version": "2.8.0",
       "declared_license": "MIT",
       "metadata_license": "MIT",
-      "homepage": "https://pypi.org/project/urllib3/2.7.0/",
+      "homepage": "https://pypi.org/project/urllib3/2.8.0/",
       "fallback_files": [],
       "supplemental_files": []
     },

@@ -64,6 +64,7 @@ import io
 import json
 import os
 import sys
+import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -224,15 +225,22 @@ class BundleManifest:
 
 @dataclass
 class RestoreResult:
-    """Outcome of a restore operation."""
+    """Outcome of a restore operation.
+
+    ``skipped`` retains its historical list of omitted entries, including
+    transported HMACs that are deliberately regenerated locally. ``failed``
+    records rejected, missing, corrupt, or unwritable entries with reasons;
+    expected HMAC omissions do not make an otherwise complete restore fail.
+    """
     restored: List[str] = field(default_factory=list)
     skipped: List[str] = field(default_factory=list)
     hash_mismatches: List[str] = field(default_factory=list)
     error: str = ""
+    failed: Dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
-        return not self.error and not self.hash_mismatches
+        return not self.error and not self.hash_mismatches and not self.failed
 
 
 class BackupError(Exception):
@@ -486,7 +494,7 @@ def _backup_source_payload(source: Path, rel_path: str) -> bytes:
     """Read the committed journal payload, never a stale projection."""
     hmac_path = _restored_hmac_path(rel_path, source)
     if hmac_path is None:
-        return source.read_bytes()
+        return _bounded_file_bytes(source, _MAX_ENTRY_BYTES, label="backup source")
 
     from app.core.data_persistence import (
         DataPersistenceManager,
@@ -496,7 +504,7 @@ def _backup_source_payload(source: Path, rel_path: str) -> bytes:
     with _authenticated_state_lock(source):
         if not DataPersistenceManager._pointer_path(source).is_file():
             # Preserve legacy bundle behavior until a commit journal exists.
-            return source.read_bytes()
+            return _bounded_file_bytes(source, _MAX_ENTRY_BYTES, label="backup source")
         payload = DataPersistenceManager._read_authenticated_bytes(
             source,
             hmac_path=hmac_path,
@@ -507,6 +515,8 @@ def _backup_source_payload(source: Path, rel_path: str) -> bytes:
         raise BackupError(
             f"authenticated journal is invalid for {rel_path!r}"
         )
+    if len(payload) > _MAX_ENTRY_BYTES:
+        raise BackupError(f"backup source exceeds the entry size cap: {rel_path!r}")
     return payload
 
 
@@ -703,6 +713,81 @@ def _read_bundle_manifest(zf: zipfile.ZipFile) -> BundleManifest:
 
 # ── Public API ────────────────────────────────────────────────────────
 
+class _BoundedArchiveWriter:
+    """Bound ZIP writes, including its final central directory."""
+
+    def __init__(self, handle, limit: int) -> None:
+        self.handle = handle
+        self.limit = limit
+
+    def write(self, data: bytes) -> int:
+        if self.handle.tell() + len(data) > self.limit:
+            raise BackupError("backup archive exceeds the size cap")
+        return self.handle.write(data)
+
+    def tell(self) -> int:
+        return self.handle.tell()
+
+    def seek(self, *args) -> int:
+        return self.handle.seek(*args)
+
+    def flush(self) -> None:
+        self.handle.flush()
+
+
+def _write_backup_archive(handle, files, manifest: BundleManifest) -> None:
+    """Write one payload at a time, using the reader's exact archive limits."""
+    from app.core.audit_webhook_config import sanitize_settings_payload
+
+    total_bytes = 0
+    identities: set[str] = set()
+    with zipfile.ZipFile(handle, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        def write_entry(rel: str, data: bytes) -> None:
+            nonlocal total_bytes
+            # Reserve one ZIP member for the manifest. Regenerated HMACs are
+            # real archive members and count toward both limits.
+            if len(manifest.entries) + 2 > _MAX_ARCHIVE_MEMBERS:
+                raise BackupError("backup contains too many ZIP members")
+            if len(data) > _MAX_ENTRY_BYTES:
+                raise BackupError(f"backup entry exceeds the size cap: {rel!r}")
+            if total_bytes + len(data) > _MAX_TOTAL_RESTORE_BYTES:
+                raise BackupError("backup exceeds total restore size cap")
+            identity = _restore_destination_identity(rel)
+            if identity in identities:
+                raise BackupError(f"backup contains an ambiguous destination: {rel!r}")
+            identities.add(identity)
+            total_bytes += len(data)
+            zf.writestr(f"files/{rel}", data)
+            manifest.entries.append(
+                BundleEntry(path=rel, size=len(data), sha256=_hash_bytes(data))
+            )
+
+        for source, rel in files:
+            # Source tags can describe stale or unsanitized bytes. Generate
+            # each journal tag from the exact sanitized payload instead.
+            if _is_transported_journal_hmac(rel):
+                continue
+            rel = _canonical_restore_path(rel)
+            data = _backup_source_payload(source, rel)
+            data, recognized_settings = sanitize_settings_payload(rel, data)
+            if recognized_settings and data is None:
+                log_warning(f"create_backup: skipping invalid settings payload {rel}")
+                continue
+            if data is None:
+                continue
+            write_entry(rel, data)
+            sidecar_rel = _journal_sidecar_rel_path(rel)
+            if sidecar_rel is not None:
+                write_entry(sidecar_rel, _journal_sidecar_payload(rel, data))
+
+        rendered = json.dumps(manifest.to_dict(), indent=2, sort_keys=True).encode("utf-8")
+        if len(rendered) > _MAX_MANIFEST_BYTES:
+            raise BackupError("backup manifest exceeds the size cap")
+        if len(manifest.entries) + 1 > _MAX_ARCHIVE_MEMBERS:
+            raise BackupError("backup contains too many ZIP members")
+        zf.writestr("manifest.json", rendered)
+
+
 def create_backup(out_path, *, encrypt: bool = False) -> Path:
     """Bundle every persisted file into *out_path*.
 
@@ -711,6 +796,8 @@ def create_backup(out_path, *, encrypt: bool = False) -> Path:
     CurrentUser scope.
     """
     out = Path(out_path)
+    if encrypt and out.suffix.casefold() != ".dpapi":
+        out = out.with_suffix(out.suffix + ".dpapi")
     out.parent.mkdir(parents=True, exist_ok=True)
 
     files = _collect_backup_entries()
@@ -723,71 +810,41 @@ def create_backup(out_path, *, encrypt: bool = False) -> Path:
         encrypted=bool(encrypt),
     )
 
-    # Build the ZIP in memory so we can DPAPI-wrap the whole blob if
-    # requested. Most backups are well under 100 MB (the episode store
-    # rotates and the persistence files are small); the memory cost
-    # is acceptable for the simpler control flow.
-    # Materialize and sanitize before opening the output ZIP.  A legacy
-    # ``audit_webhook.url`` is a bearer credential and must never be copied
-    # into a newly-created archive, including rotated settings backups.
-    payloads: Dict[str, bytes] = {}
-    from app.core.audit_webhook_config import sanitize_settings_payload
-
-    for src, rel in files:
-        try:
-            data = _backup_source_payload(src, rel)
-        except OSError as exc:
-            log_warning(f"create_backup: skipping {src}: {exc}")
-            continue
-        data, recognized_settings = sanitize_settings_payload(rel, data)
-        if recognized_settings and data is None:
-            log_warning(
-                f"create_backup: skipping invalid settings payload {rel}"
-            )
-            continue
-        if data is not None:
-            payloads[rel] = data
-
-    # Machine-bound source tags may describe a stale compatibility projection
-    # or pre-sanitization settings bytes. Drop every transported journal tag,
-    # then emit one freshly computed compatibility sidecar under the exact
-    # convention used by that logical target. Restore still regenerates these
-    # tags under the destination machine's key.
-    for rel in tuple(payloads):
-        if _is_transported_journal_hmac(rel):
-            payloads.pop(rel)
-    for rel, data in tuple(payloads.items()):
-        sidecar_rel = _journal_sidecar_rel_path(rel)
-        if sidecar_rel is not None:
-            payloads[sidecar_rel] = _journal_sidecar_payload(rel, data)
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
-        for rel, data in sorted(payloads.items()):
-            entry_path = f"files/{rel}"
-            zf.writestr(entry_path, data)
-            manifest.entries.append(
-                BundleEntry(
-                    path=rel, size=len(data), sha256=_hash_bytes(data)
+    # Keep the old destination intact until every entry, the central
+    # directory, and the final flush have succeeded. Plain ZIPs stream to
+    # disk; encrypted ZIPs stay in bounded RAM so no plaintext stage exists.
+    stage = tempfile.NamedTemporaryFile(
+        mode="w+b", prefix=f".{out.name}.", suffix=".backing-up",
+        dir=str(out.parent), delete=False,
+    )
+    stage_path = Path(stage.name)
+    try:
+        with stage:
+            if encrypt:
+                memory_limit = min(_MAX_IN_MEMORY_BUNDLE_BYTES, _MAX_BUNDLE_BYTES)
+                with io.BytesIO() as buffer:
+                    _write_backup_archive(
+                        _BoundedArchiveWriter(buffer, memory_limit), files, manifest,
+                    )
+                    encrypted = _dpapi_encrypt(buffer.getvalue())
+                if len(encrypted) > memory_limit:
+                    raise BackupError("encrypted backup exceeds the size cap")
+                stage.write(encrypted)
+            else:
+                _write_backup_archive(
+                    _BoundedArchiveWriter(stage, _MAX_BUNDLE_BYTES), files, manifest,
                 )
-            )
-        zf.writestr(
-            "manifest.json",
-            json.dumps(manifest.to_dict(), indent=2, sort_keys=True),
-        )
-
-    raw = buf.getvalue()
-    if encrypt:
-        raw = _dpapi_encrypt(raw)
-        # Mark the file with .dpapi extension to make the
-        # restore-side detection unambiguous.
-        if out.suffix != ".dpapi":
-            out = out.with_suffix(out.suffix + ".dpapi")
-
-    out.write_bytes(raw)
+            size = stage.tell()
+            stage.flush()
+            os.fsync(stage.fileno())
+        os.replace(stage_path, out)
+    except OSError as exc:
+        raise BackupError("could not write backup bundle") from exc
+    finally:
+        stage_path.unlink(missing_ok=True)
     log_info(
         f"Backup written: {out} "
-        f"({len(manifest.entries)} files, {len(raw):,} bytes, "
+        f"({len(manifest.entries)} files, {size:,} bytes, "
         f"encrypted={encrypt})"
     )
     return out
@@ -817,6 +874,12 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
     populates ``restored`` so the operator can preview impact.
     """
     result = RestoreResult()
+    active_entry: str | None = None
+
+    def reject_entry(path: str, reason: str) -> None:
+        result.skipped.append(path)
+        result.failed[path] = reason
+
     try:
         with _open_bundle_archive(in_path) as zf:
             _validated_archive_members(zf)
@@ -838,6 +901,7 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
 
             total_bytes = 0
             for entry in manifest.entries:
+                active_entry = entry.path
                 # ── SECURITY GATE 1: path allowlist ───────────────────
                 # Reject anything outside app/data + app/config BEFORE
                 # reading it. A malicious bundle entry like
@@ -851,7 +915,7 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         f"{entry.path!r} — only app/data/ and app/config/ "
                         f"canonical file paths are restorable"
                     )
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "entry path is not allowed")
                     continue
                 destination_identity = _restore_destination_identity(norm)
                 if destination_counts[destination_identity] > 1:
@@ -859,7 +923,7 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         "restore_backup: BLOCKED ambiguous case-insensitive "
                         f"destination {entry.path!r}"
                     )
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "ambiguous restore destination")
                     continue
 
                 # ── SECURITY GATE 2: per-entry size cap ───────────────
@@ -869,13 +933,13 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         f"{entry.path!r} ({entry.size} bytes > "
                         f"{_MAX_ENTRY_BYTES}) — possible decompression bomb"
                     )
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "entry exceeds the restore size cap")
                     continue
                 src_in_zip = f"files/{norm}"
                 try:
                     zip_info = zf.getinfo(src_in_zip)
                 except KeyError:
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "entry is missing from the archive")
                     continue
                 if zip_info.is_dir() or zip_info.file_size != entry.size:
                     raise BackupError(
@@ -910,6 +974,7 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         f"to write"
                     )
                     result.hash_mismatches.append(entry.path)
+                    result.failed[entry.path] = "entry checksum does not match the manifest"
                     continue
 
                 # Journal HMACs are tied to the source user's machine-local
@@ -932,14 +997,10 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         f"restore_backup: BLOCKED invalid settings payload "
                         f"{entry.path!r}"
                     )
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "settings payload is invalid")
                     continue
                 if sanitized is not None:
                     data = sanitized
-
-                if dry_run:
-                    result.restored.append(entry.path)
-                    continue
 
                 dest = _restore_destination(norm)
                 try:
@@ -966,7 +1027,11 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                     log_error(
                         f"restore_backup: path traversal blocked: {entry.path}"
                     )
-                    result.skipped.append(entry.path)
+                    reject_entry(entry.path, "destination is outside allowed storage")
+                    continue
+
+                if dry_run:
+                    result.restored.append(entry.path)
                     continue
 
                 hmac_path = _restored_hmac_path(norm, dest)
@@ -1001,16 +1066,23 @@ def restore_backup(in_path, *, dry_run: bool = False) -> RestoreResult:
                         tmp_dest.unlink(missing_ok=True)
                 result.restored.append(entry.path)
 
+        active_entry = None
+        outcome = "complete" if result.ok else "incomplete"
         log_info(
-            f"Backup restore complete: {len(result.restored)} restored, "
+            f"Backup restore {outcome}: {len(result.restored)} restored, "
             f"{len(result.skipped)} skipped, "
+            f"{len(result.failed)} failed, "
             f"{len(result.hash_mismatches)} hash mismatches"
             f"{' (dry run)' if dry_run else ''}"
         )
     except BackupError as e:
         result.error = str(e)
+        if active_entry is not None:
+            result.failed.setdefault(active_entry, result.error)
         log_error(f"restore_backup: {e}")
     except Exception as e:
         result.error = f"unexpected: {e}"
+        if active_entry is not None:
+            result.failed.setdefault(active_entry, result.error)
         log_error(f"restore_backup unexpected: {e}")
     return result

@@ -8,6 +8,82 @@ import app.core.diagnostics as diagnostics
 from app.core.diagnostics import CheckStatus
 
 
+def test_data_directory_probe_preserves_existing_file(monkeypatch, tmp_path) -> None:
+    from app.core.data_persistence import persistence_manager
+
+    original = tmp_path / ".diagnostics_write_probe.tmp"
+    original.write_bytes(b"existing user data")
+    monkeypatch.setattr(persistence_manager, "data_directory", tmp_path)
+
+    result = diagnostics._check_data_directory()
+
+    assert result.status == CheckStatus.PASS
+    assert original.read_bytes() == b"existing user data"
+    assert list(tmp_path.iterdir()) == [original]
+
+
+def test_data_directory_probe_is_independent_when_concurrent(
+    monkeypatch, tmp_path,
+) -> None:
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    from app.core.data_persistence import persistence_manager
+
+    monkeypatch.setattr(persistence_manager, "data_directory", tmp_path)
+    barrier = Barrier(2)
+    real_factory = diagnostics.tempfile.NamedTemporaryFile
+    names = []
+
+    def synchronized_probe(**kwargs):
+        probe = real_factory(**kwargs)
+        names.append(probe.name)
+        try:
+            barrier.wait(timeout=5)
+        except BaseException:
+            probe.close()
+            raise
+        return probe
+
+    monkeypatch.setattr(
+        diagnostics.tempfile, "NamedTemporaryFile", synchronized_probe,
+    )
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(lambda _: diagnostics._check_data_directory(), range(2)))
+
+    assert all(result.status == CheckStatus.PASS for result in results)
+    assert len(set(names)) == 2
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_data_directory_probe_cleans_up_after_write_failure(
+    monkeypatch, tmp_path,
+) -> None:
+    from contextlib import contextmanager
+
+    from app.core.data_persistence import persistence_manager
+
+    monkeypatch.setattr(persistence_manager, "data_directory", tmp_path)
+    real_factory = diagnostics.tempfile.NamedTemporaryFile
+
+    class FailingWrite:
+        def write(self, data):
+            raise OSError("simulated disk failure")
+
+    @contextmanager
+    def failing_probe(**kwargs):
+        with real_factory(**kwargs):
+            yield FailingWrite()
+
+    monkeypatch.setattr(diagnostics.tempfile, "NamedTemporaryFile", failing_probe)
+
+    result = diagnostics._check_data_directory()
+
+    assert result.status == CheckStatus.FAIL
+    assert "simulated disk failure" in result.message
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_secret_store_passes_when_probe_is_writable(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path,

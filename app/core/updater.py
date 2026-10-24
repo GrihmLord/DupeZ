@@ -58,6 +58,7 @@ __all__ = [
     "RELEASES_API",
     "RELEASES_URL",
     "UpdateChecker",
+    "PreparedUpdate",
     "updater",
 ]
 
@@ -1192,6 +1193,107 @@ def _kill_dupez_processes(exclude_pid: Optional[int] = None) -> None:
         log_warning(f"  Elevated taskkill failed: {exc} — installer will retry")
 
 
+class PreparedUpdate:
+    """Own verified download files until the caller approves launch or cancels.
+
+    Preparation never launches processes. Launch repeats trust checks after
+    the caller's cleanup boundary and leaves process exit to that caller.
+    """
+
+    def __init__(
+        self, dest: str, private_dir: str, manifest: UpdateManifest,
+        manifest_bytes: bytes, sig_bytes: bytes, expected_version: Optional[str],
+        on_done: Optional[Callable[[bool, str], None]],
+    ) -> None:
+        self._dest = dest
+        self._private_dir = private_dir
+        self._manifest = manifest
+        self._manifest_bytes = manifest_bytes
+        self._sig_bytes = sig_bytes
+        self._expected_version = expected_version
+        self._on_done = on_done
+        self._lock = threading.Lock()
+        self._state = "prepared"
+
+    def cancel(self) -> bool:
+        """Remove only our unlaunched temporary files; never interrupt launch."""
+        with self._lock:
+            if self._state != "prepared":
+                return False
+            self._state = "cancelled"
+        _cleanup_private_installer_target(self._dest, self._private_dir)
+        return True
+
+    def __del__(self) -> None:
+        # Qt may discard an undelivered signal when its receiver is deleted.
+        # Retaining ownership here prevents that from orphaning the download.
+        try:
+            self.cancel()
+        except Exception:
+            pass
+
+    def _complete(self, success: bool, message: str) -> None:
+        if self._on_done is not None:
+            try:
+                self._on_done(success, message)
+            except Exception as exc:
+                log_error(f"Prepared update completion callback failed: {exc}")
+
+    def launch(self) -> bool:
+        """Begin one asynchronous launch after the owner confirms cleanup."""
+        with self._lock:
+            if self._state != "prepared":
+                return False
+            self._state = "launching"
+        try:
+            threading.Thread(
+                target=self._launch_worker, daemon=True, name="UpdateLaunch",
+            ).start()
+        except Exception as exc:
+            with self._lock:
+                self._state = "failed"
+            _cleanup_private_installer_target(self._dest, self._private_dir)
+            self._complete(False, str(exc))
+        return True
+
+    def _launch_worker(self) -> None:
+        try:
+            manifest = verify_manifest_and_enforce_monotonic(
+                self._manifest_bytes, self._sig_bytes,
+                installed_version=CURRENT_VERSION,
+                expected_release_version=self._expected_version,
+                expected_installer_filename=self._manifest.installer_filename,
+            )
+            if manifest != self._manifest:
+                raise SigVerifyError("signed update manifest changed after preparation")
+            # Recheck before touching other processes, then again under the
+            # native launch lock after process cleanup.
+            _verify_safe_installer(self._dest, self._private_dir, manifest)
+            verify_installer_authenticode(self._dest, manifest)
+            _kill_dupez_processes(exclude_pid=os.getpid())
+            with _locked_verified_installer(self._dest, self._private_dir, manifest):
+                if _windows_attachment_services_required():
+                    _verify_windows_attachment_evidence(self._dest)
+                verify_installer_authenticode(self._dest, manifest)
+                safe_subprocess.spawn_detached(
+                    [self._dest, "/SILENT", "/CLOSEAPPLICATIONS"],
+                    trusted_executable=False,
+                    intent="updater.launch_verified_installer",
+                )
+        except Exception as exc:
+            with self._lock:
+                self._state = "failed"
+            _cleanup_private_installer_target(self._dest, self._private_dir)
+            log_error(f"Prepared update launch failed: {exc}")
+            self._complete(False, str(exc))
+            return
+        with self._lock:
+            self._state = "launched"
+        # The installer owns its live image now; do not remove it or bypass
+        # the GUI's cleanup and event-loop shutdown with os._exit.
+        self._complete(True, self._dest)
+
+
 class UpdateChecker:
     """Checks GitHub for new DupeZ releases and can download + launch
     the new installer for seamless upgrade."""
@@ -1347,6 +1449,8 @@ class UpdateChecker:
         self,
         on_progress: Optional[Callable[[int, int], None]] = None,
         on_done: Optional[Callable[[bool, str], None]] = None,
+        *,
+        on_prepared: Optional[Callable[[PreparedUpdate], None]] = None,
     ) -> None:
         """Download the new installer to temp and launch it.
 
@@ -1362,11 +1466,16 @@ class UpdateChecker:
             Progress callback (called from background thread).
         on_done : callable(success, message)
             Completion callback (called from background thread).
+        on_prepared : callable(prepared_update), optional
+            Receive a verified download without launching it. The caller
+            must cancel or launch it after releasing owned resources. In
+            this mode the updater never exits the current process.
         """
         # Only auto-install from the Setup installer. Standalone exes
         # (DupeZ-GPU.exe, DupeZ-Compat.exe, dupez.exe) can't be
         # launched with /SILENT and don't do in-place upgrades.
         url = self.installer_url
+        expected_version = self.latest_version
         try:
             initial_target = _parse_initial_updater_url(url) if url else None
         except (TypeError, ValueError):
@@ -1415,13 +1524,13 @@ class UpdateChecker:
                         manifest_url,
                         headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"},
                         timeout=30,
-                        expected_release_version=self.latest_version,
+                        expected_release_version=expected_version,
                     )
                     sig_bytes = _read_updater_asset(
                         sig_url,
                         headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"},
                         timeout=30,
-                        expected_release_version=self.latest_version,
+                        expected_release_version=expected_version,
                     )
                 except Exception as e:
                     log_error(
@@ -1447,7 +1556,7 @@ class UpdateChecker:
                         manifest_bytes,
                         sig_bytes,
                         installed_version=CURRENT_VERSION,
-                        expected_release_version=self.latest_version,
+                        expected_release_version=expected_version,
                         expected_installer_filename=fname,
                     )
                 except SigVerifyError as e:
@@ -1517,7 +1626,7 @@ class UpdateChecker:
                     url,
                     headers={"User-Agent": f"DupeZ/{CURRENT_VERSION}"},
                     timeout=60,
-                    expected_release_version=self.latest_version,
+                    expected_release_version=expected_version,
                 )
                 try:
                     try:
@@ -1595,7 +1704,7 @@ class UpdateChecker:
                             manifest_bytes,
                             sig_bytes,
                             installed_version=CURRENT_VERSION,
-                            expected_release_version=self.latest_version,
+                            expected_release_version=expected_version,
                             expected_installer_filename=fname,
                         )
                     except (SigVerifyError, DowngradeRefusedError) as exc:
@@ -1615,6 +1724,22 @@ class UpdateChecker:
                         "Installer size, hash, signed manifest, and publisher "
                         "were reverified after Windows attachment scanning."
                     )
+
+                if on_prepared is not None:
+                    prepared = PreparedUpdate(
+                        dest, private_dir, manifest, manifest_bytes, sig_bytes,
+                        expected_version, on_done,
+                    )
+                    # Transfer ownership before invoking the caller. The
+                    # prepared object also cleans up a discarded Qt signal.
+                    dest = None
+                    private_dir = None
+                    try:
+                        on_prepared(prepared)
+                    except Exception:
+                        prepared.cancel()
+                        raise
+                    return
 
                 # Kill all other DupeZ processes so the installer can
                 # overwrite files without "Access is denied" errors.
