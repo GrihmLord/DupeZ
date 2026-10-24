@@ -12,10 +12,11 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.logs.logger import log_error, log_info
+from app.gui.map_host.security_policy import assess_webengine_security
 
 __all__ = ["LazyDayZMapGUI"]
 
@@ -40,6 +41,7 @@ class LazyDayZMapGUI(QWidget):
         self._loading = False
         self._attempted = False
         self._load_failed = False
+        self._security_blocked_reason = ""
 
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(24, 24, 24, 24)
@@ -50,6 +52,11 @@ class LazyDayZMapGUI(QWidget):
             "It will initialize when this tab becomes visible."
         )
         self._status.setWordWrap(True)
+        self._status.setTextFormat(Qt.TextFormat.PlainText)
+        self._status.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         self._status.setStyleSheet(
             "color: #94a3b8; font-size: 14px; background: #0a0e1a; "
             "padding: 28px; border-radius: 8px;"
@@ -89,6 +96,8 @@ class LazyDayZMapGUI(QWidget):
             )
         if self._loading:
             return "initializing"
+        if self._security_blocked_reason:
+            return "unavailable"
         if self._load_failed:
             return "failed"
         return "deferred"
@@ -112,6 +121,29 @@ class LazyDayZMapGUI(QWidget):
         if self.is_loaded:
             return True
         if self._loading:
+            return False
+
+        if not self._security_blocked_reason:
+            try:
+                decision = assess_webengine_security()
+                if not decision.allowed:
+                    self._security_blocked_reason = decision.reason or "Browser security requirements were not met."
+            except Exception as exc:
+                self._security_blocked_reason = "The browser security policy could not be verified."
+                log_error(f"Lazy map security verification failed ({type(exc).__name__})")
+        if self._security_blocked_reason:
+            self._attempted = True
+            self._retry.setVisible(False)
+            self._status.setText(
+                "Embedded map disabled for security.\n\n"
+                f"{self._security_blocked_reason}\n\n"
+                "Open this approved HTTPS address manually in your normal, "
+                "non-administrator browser:\n"
+                "https://izurvive.com/chernarusplussatmap\n\n"
+                "Restart DupeZ with a reviewed, patched browser runtime and sandbox enabled."
+            )
+            self.webengineStatusChanged.emit("unavailable")
+            self.webengineReadyChanged.emit(False)
             return False
 
         self._loading = True

@@ -139,10 +139,10 @@
     },
     {
       "name": "pyqt6-qt6",
-      "version": "6.11.0",
+      "version": "6.11.2",
       "declared_license": "LGPL-3.0-only",
       "metadata_license": "LGPL v3",
-      "homepage": "https://pypi.org/project/PyQt6-Qt6/6.11.0/",
+      "homepage": "https://pypi.org/project/PyQt6-Qt6/6.11.2/",
       "fallback_files": [],
       "supplemental_files": []
     },
@@ -166,10 +166,10 @@
     },
     {
       "name": "pyqt6-webengine-qt6",
-      "version": "6.11.0",
+      "version": "6.11.2",
       "declared_license": "LGPL-3.0-only AND LicenseRef-Chromium-Third-Party",
       "metadata_license": "LGPL v3",
-      "homepage": "https://pypi.org/project/PyQt6-WebEngine-Qt6/6.11.0/",
+      "homepage": "https://pypi.org/project/PyQt6-WebEngine-Qt6/6.11.2/",
       "fallback_files": [],
       "supplemental_files": [
         "packaging/licenses/Qt-WebEngine-NOTICE.txt"
@@ -254,9 +254,9 @@
     {
       "id": "cpython-runtime",
       "name": "CPython",
-      "version": "3.13.14",
+      "version": "3.13.17",
       "declared_license": "PSF-2.0",
-      "homepage": "https://www.python.org/downloads/release/python-31314/",
+      "homepage": "https://www.python.org/downloads/release/python-31317/",
       "source": {
         "type": "python-runtime-license",
         "filename": "LICENSE.txt"

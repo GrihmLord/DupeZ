@@ -143,7 +143,7 @@ function Resolve-ReleaseBootstrapPython {
         -not (Test-Path -LiteralPath $candidate -PathType Leaf) -or
         [System.IO.Path]::GetExtension($candidate) -ine ".exe"
     ) {
-        throw "Configured repository Python 3.13.14 x64 executable was not found."
+        throw "Configured repository Python 3.13.17 x64 executable was not found."
     }
     $resolved = (Resolve-Path -LiteralPath $candidate).ProviderPath
     $buildVenvPrefix = (
@@ -158,7 +158,7 @@ function Resolve-ReleaseBootstrapPython {
 
     Invoke-Checked -FilePath $resolved -Description "VERIFY RELEASE PYTHON" -ArgumentList @(
         "-I", "-S", "-c",
-        "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
+        "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,17) and struct.calcsize('P')==8 else 1)"
     )
     return $resolved
 }

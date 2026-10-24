@@ -36,6 +36,8 @@ def test_runtime_urllib3_floor_excludes_september_2026_advisories() -> None:
     ("pillow", "12.3.0", "13.0.0"),
     ("certifi", "2026.2.25", "2026.10.19"),
     ("cryptography", "50.0.0", "50.0.2"),
+    ("pyqt6-qt6", "6.11.0", "6.11.2"),
+    ("pyqt6-webengine-qt6", "6.11.0", "6.11.2"),
 ])
 def test_october_security_floors_and_lock_stay_aligned(name, rejected, accepted):
     requirements = {

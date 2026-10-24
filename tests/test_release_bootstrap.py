@@ -172,12 +172,13 @@ def test_failed_python_validation_never_returns_or_falls_back(tmp_path):
 @pytest.mark.parametrize(
     ("version", "pointer_size", "expected"),
     [
-        ((3, 13, 14), 8, 0),
-        ((3, 13, 14), 4, 1),
-        ((3, 13, 13), 8, 1),
-        ((3, 13, 15), 8, 1),
-        ((3, 12, 14), 8, 1),
-        ((3, 14, 14), 8, 1),
+        ((3, 13, 17), 8, 0),
+        ((3, 13, 17), 4, 1),
+        ((3, 13, 14), 8, 1),
+        ((3, 13, 16), 8, 1),
+        ((3, 13, 18), 8, 1),
+        ((3, 12, 17), 8, 1),
+        ((3, 14, 17), 8, 1),
     ],
 )
 def test_bootstrap_validation_requires_exact_version_and_64_bits(

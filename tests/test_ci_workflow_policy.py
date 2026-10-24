@@ -76,7 +76,7 @@ def test_source_preflight_runs_for_every_exact_head_without_path_filters():
     assert "branches: [main]" in workflow
     assert "paths:" not in workflow
     assert "paths-ignore:" not in workflow
-    assert "python-version: '3.13.14'" in workflow
+    assert "python-version: '3.13.17'" in workflow
     assert "python -I scripts/release_preflight.py" in workflow
     assert "ref: ${{ github.event.pull_request.head.sha || github.sha }}" in workflow
     assert "persist-credentials: false" in workflow
@@ -156,7 +156,7 @@ def test_lock_workflow_verifies_runtime_and_build_tool_graphs():
     hardware_job = workflow[workflow.index("  verify-hardware-test-lock:") :]
     for token in (
         "runs-on: windows-latest",
-        "python-version: '3.13.14'",
+        "python-version: '3.13.17'",
         "python -m pip install --upgrade 'pip==26.2.2'",
         "--requirements requirements-hardware-test.in",
         "--lock requirements-hardware-test-locked.txt",

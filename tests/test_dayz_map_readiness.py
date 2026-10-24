@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -8,6 +9,11 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 
 from app.gui import dayz_map_gui_new as map_module
+
+
+@pytest.fixture(autouse=True)
+def reviewed_runtime(monkeypatch):
+    monkeypatch.setattr(map_module, "assess_webengine_security", lambda: SimpleNamespace(allowed=True, reason=""))
 
 
 @pytest.fixture(scope="module")

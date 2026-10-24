@@ -74,10 +74,10 @@ jobs:
           clean: true
           persist-credentials: false
 
-      - name: Setup canonical release Python 3.13.14
+      - name: Setup canonical release Python 3.13.17
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.13.14'
+          python-version: '3.13.17'
           architecture: x64
 
       - name: Create repository bootstrap venv
@@ -86,9 +86,9 @@ jobs:
           if (Test-Path .venv) { Remove-Item .venv -Recurse -Force }
           python -m venv .venv
           .\.venv\Scripts\python.exe -I -S -c `
-            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,14) and struct.calcsize('P')==8 else 1)"
+            "import struct,sys; raise SystemExit(0 if sys.version_info[:3]==(3,13,17) and struct.calcsize('P')==8 else 1)"
           if ($LASTEXITCODE -ne 0) {
-            throw 'Canonical Python 3.13.14 x64 verification failed.'
+            throw 'Canonical Python 3.13.17 x64 verification failed.'
           }
           .\.venv\Scripts\python.exe -I -m pip --isolated install `
             --disable-pip-version-check `

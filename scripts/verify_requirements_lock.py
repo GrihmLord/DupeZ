@@ -38,15 +38,15 @@ except ImportError:  # pragma: no cover - pip always vendors packaging
 
 
 _HASH_PREFIX = "--hash=sha256:"
-RELEASE_TARGET_ID = "windows-cpython-3.13.14-x64"
+RELEASE_TARGET_ID = "windows-cpython-3.13.17-x64"
 _RELEASE_TARGET_ENVIRONMENT = {
     "implementation_name": "cpython",
-    "implementation_version": "3.13.14",
+    "implementation_version": "3.13.17",
     "os_name": "nt",
     "platform_machine": "AMD64",
     "platform_python_implementation": "CPython",
     "platform_system": "Windows",
-    "python_full_version": "3.13.14",
+    "python_full_version": "3.13.17",
     "python_version": "3.13",
     "sys_platform": "win32",
     "extra": "",
@@ -278,7 +278,7 @@ def parse_lock_entries(path: Path) -> list[LockedEntry]:
 def select_release_target_entries(
     entries: Iterable[LockedEntry],
 ) -> list[LockedEntry]:
-    """Select lock entries applicable to Windows CPython 3.13.14 x64."""
+    """Select lock entries applicable to Windows CPython 3.13.17 x64."""
 
     environment = release_target_environment()
     selected: list[LockedEntry] = []

@@ -89,7 +89,7 @@ function New-TestEvidence {
         network_validation_mode = "production-safety-dry-run"
         validation_host = [pscustomobject]@{
             administrator = $administrator
-            python = "3.13.14"
+            python = "3.13.17"
         }
         runs = $runs
     }

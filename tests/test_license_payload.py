@@ -59,7 +59,7 @@ def _fixture_root(tmp_path: Path) -> tuple[Path, _Distribution, Path]:
         "additional_components": [{
             "id": "cpython-runtime",
             "name": "CPython",
-            "version": "3.13.14",
+            "version": "3.13.17",
             "declared_license": "PSF-2.0",
             "homepage": "https://example.invalid/python",
             "source": {

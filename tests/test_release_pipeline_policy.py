@@ -333,19 +333,19 @@ def test_release_tool_pin_manifest_contract_is_executable():
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
-def test_canonical_release_toolchain_is_python_31314_x64():
+def test_canonical_release_toolchain_is_python_31317_x64():
     for relative in ("packaging/build.bat", "packaging/build_variants.bat"):
         script = _read(relative)
         assert "if not defined DUPEZ_BOOTSTRAP_PYTHON set" in script
-        assert "64-bit Python 3.13.14" in script
-        assert "sys.version_info[:3] == (3, 13, 14)" in script
+        assert "64-bit Python 3.13.17" in script
+        assert "sys.version_info[:3] == (3, 13, 17)" in script
         assert "3.11.9" not in script
         assert 'set "PYTHONHASHSEED=0"' in script
         assert 'set "SOURCE_DATE_EPOCH=315532800"' in script
 
     finalizer = _read("scripts/finalize_release.ps1")
-    assert "repository Python 3.13.14 x64" in finalizer
-    assert "sys.version_info[:3]==(3,13,14)" in finalizer
+    assert "repository Python 3.13.17 x64" in finalizer
+    assert "sys.version_info[:3]==(3,13,17)" in finalizer
     assert "struct.calcsize('P')==8" in finalizer
 
     for relative in (
@@ -354,12 +354,12 @@ def test_canonical_release_toolchain_is_python_31314_x64():
         ".github/workflows/unsigned-public-release.yml",
     ):
         workflow = _read(relative)
-        assert "Setup canonical release Python 3.13.14" in workflow
-        assert "python-version: '3.13.14'" in workflow
+        assert "Setup canonical release Python 3.13.17" in workflow
+        assert "python-version: '3.13.17'" in workflow
         assert "architecture: x64" in workflow
-        assert "sys.version_info[:3]==(3,13,14)" in workflow
+        assert "sys.version_info[:3]==(3,13,17)" in workflow
         assert "struct.calcsize('P')==8" in workflow
-        assert "Canonical Python 3.13.14 x64 verification failed." in workflow
+        assert "Canonical Python 3.13.17 x64 verification failed." in workflow
 
 
 def test_frozen_build_requires_patched_pyinstaller_bootloader():
@@ -383,11 +383,11 @@ def test_ci_exercises_supported_modern_python_and_lock_is_fail_closed():
 
     assert "python-version: ['3.12', '3.13']" in tests_ci
     assert "python-version: ['3.11', '3.12']" not in tests_ci
-    assert 'python-version: "3.13.14"' in lock
+    assert 'python-version: "3.13.17"' in lock
     assert "pip install --dry-run --require-hashes" in lock
     assert "|| {" not in lock
     assert "::warning::Full hashed install" not in lock
-    assert "python-version: '3.13.14'" in hardware
+    assert "python-version: '3.13.17'" in hardware
 
 
 def test_unsigned_workflow_is_artifact_only_and_requires_protected_staging():

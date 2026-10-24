@@ -11,13 +11,13 @@ snapshot, or a passing source-only preflight into a release candidate.
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
 | Source changes | October 24 source candidate is tracked through the existing PR 84 development branch | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
-| Hosted CI | Before this refresh, PR 84 still had 14 September 4 failures at `f455f56` | Obtain all required checks on the new exact head; current billing lock is not established |
+| Hosted CI | All 14 checks on pushed `9a0cd6a` failed before execution on October 24 with an explicit account billing-lock annotation | Owner resolves the account restriction privately; rerun checks on the next exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
-| Distribution terms | Six owner decisions unresolved; no approved root `LICENSE.txt` | Owner supplies terms and pinned evidence; legal interpretation requires qualified review |
+| Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
 | Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases; verify protected updater signing separately; never share private keys in chat |
 | Dependency advisories | October 24 refresh updates Pillow, certifi, cryptography and test/bootstrap pip; updated runtime scan has zero active PyPI advisory records across 27 packages | Keep the generated locks and component inventory together; this scan does not cover native Qt/Chromium or the interpreter |
-| Native runtime security | Canonical Python 3.13.14 and Qt/WebEngine 6.11.0 predate newer upstream security fixes | Validate a supported interpreter migration and patched native distribution or documented reachability assessment before public release |
+| Native runtime security | Migrated to Python 3.13.17 and Qt/WebEngine 6.11.2; embedded browsing is denied until the reviewed Qt security floor is met | Current wheels lack 6.11.3 fixes; obtain patched wheels or complete native reachability assessment and exact-build validation; no native clearance is claimed |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
 | Exact artifacts | Existing canonical files are old; required v5.8.0 inputs/evidence are missing | Rebuild only after source and owner gates; validate the new exact bytes |
@@ -33,7 +33,78 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
+## October 24 native-runtime follow-through
+
+- Active release scripts, workflows and target metadata now require CPython
+  **3.13.17 x64**. A workspace-isolated official Python NuGet package was verified
+  against its catalog SHA-512 and valid Python Software Foundation Authenticode
+  signature; no system Python installation was changed. It reports OpenSSL
+  **3.5.9**, replacing the older interpreter's OpenSSL 3.0.21.
+- The generated runtime lock and license inventory now include native
+  **Qt 6.11.2 / QtWebEngine 6.11.2** (bindings remain 6.11.0). Runtime inspection
+  reports Chromium security backports through **151.0.7922.71**. These are the
+  latest Riverbank wheels checked today, not a claim that 6.11.3 fixes are present.
+- A new fail-closed browser admission policy checks the actual Windows token,
+  sandbox/debug configuration, browser arguments and native runtime versions.
+  Elevated, unverifiable, unsandboxed or unpatched contexts cannot construct a
+  browser view or start a child map. Current Qt 6.11.2 is intentionally denied
+  in both variants; the UI displays an approved URL for manual opening in a
+  normal non-administrator browser, without invoking an elevated URL handler.
+- For a future admitted runtime, navigation and network requests are restricted
+  to exact reviewed HTTPS hosts. Unknown schemes/origins, popups, downloads,
+  file selection, permissions and certificate overrides are denied. An ephemeral
+  profile avoids inherited browser state; injected application scripts require
+  a currently approved origin. Child IPC, retries and lazy-loading paths share
+  the same checks. Admitted runtimes still require exact frozen validation.
+- Review also closed two startup-policy gaps: an empty sandbox-disable variable
+  is denied because Qt treats its presence as disabling the sandbox, and flags
+  after `--webEngineArgs` use the same reviewed allowlist as environment flags.
+  Denial retires existing views, retains failed parent cleanup for retry, and
+  suppresses late ready callbacks rather than treating hidden views as stopped.
+- The owner selected **GPL-3.0-only with corresponding source**. The complete
+  license and dated selection record are prepared. No contribution-rights,
+  commercial-entitlement or delivery approval was invented. The
+  [owner-action checklist](BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md#owner-action-checklist-2026-10-24)
+  gives exact billing steps and maps all six licensing decisions to evidence.
+- Inno Setup 6.7.1 permits commercial use under its published grant; buying a
+  commercial license is not inherently required. Record the actual use context
+  and chosen basis. Existing source archives/upstream links alone do not prove
+  complete corresponding-source or usable recipient replacement/rebuild delivery.
+- Frozen GPU/Compat, installer, source/relink delivery and manual/hardware gates
+  remain open. No release/tag or binary publication is authorized by these changes.
+
+Primary references: [Python 3.13.17](https://www.python.org/downloads/release/python-31317/),
+[Qt native advisories](https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products),
+[QtWebEngine patch levels](https://wiki.qt.io/QtWebEngine/ChromiumVersions),
+[GitHub billing-lock recovery](https://docs.github.com/en/billing/how-tos/troubleshooting/locked-account),
+[Inno licensing FAQ](https://jrsoftware.org/isorder.php).
+
+### Native-runtime checkpoint verification
+
+- Final Windows CPython 3.13.17 x64 full suite: **2,947 passed, 10 skipped in
+  157.24 seconds; 57.86% app coverage** (40% gate). Six skips are opt-in hardware
+  cases and four require unavailable symlink privileges. No renderer, frozen
+  lifecycle or hardware pass is inferred from mocked security-policy tests.
+- Runtime/test hash-required installation, `pip check`, all four lock contracts,
+  source preflight, Ruff, AST parsing of 432 Python files, changed PowerShell
+  parsing, whitespace checks and all applicable staged commit hooks pass.
+- Runtime inspection confirms Python 3.13.17, OpenSSL 3.5.9, Qt/WebEngine 6.11.2
+  and Chromium security 151.0.7922.71. Browser admission correctly denies the
+  installed Qt build. The updated 27-package PyPI scan has zero active records;
+  it is not a native-runtime or GitHub default-branch vulnerability clearance.
+- Local evidence is under `build/native-security-20261024/`, including
+  `pytest-reviewed.xml`, `coverage-reviewed.json`, and `vulnerability-review.json`.
+  Generated environments/reports and the existing local PDF are not committed.
+- Distribution-license preflight still fails on six unresolved decisions.
+  GPL selection and the keyless recipient-build recipe are recorded, but rights,
+  delivered corresponding source and recipient replacement remain unverified.
+  No binary build, tag, merge or release publication was performed.
+
 ## October 24 source and security refresh
+
+This earlier checkpoint describes the candidate before the native-runtime
+follow-through above. Its old interpreter and map findings are retained as
+history, not the current implementation state.
 
 - The owner requested a source push and new release/tags. Source publication to
   the existing development branch is separate from binary-release approval;

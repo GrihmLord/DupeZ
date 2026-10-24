@@ -35,13 +35,13 @@ echo.
 if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
     echo ERROR: Repository bootstrap interpreter not found:
     echo        %DUPEZ_BOOTSTRAP_PYTHON%
-    echo Create .venv with 64-bit Python 3.13.14 and rerun this script.
+    echo Create .venv with 64-bit Python 3.13.17 and rerun this script.
     goto :fail
 )
 
-"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 13, 14) and struct.calcsize('P') == 8 else 1)"
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 13, 17) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
-    echo ERROR: This build requires 64-bit Python 3.13.14.
+    echo ERROR: This build requires 64-bit Python 3.13.17.
     goto :fail
 )
 

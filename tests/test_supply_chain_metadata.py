@@ -5,6 +5,7 @@ import json
 import urllib.error
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -27,6 +28,25 @@ def _pypi_payload(vulnerabilities: list[dict] | None = None) -> dict:
         "info": {"name": "Requests", "version": "2.34.2"},
         "vulnerabilities": vulnerabilities or [],
     }
+
+
+def test_canonical_release_metadata_requires_patched_python():
+    target = release_target_metadata()
+    assert target["id"] == "windows-cpython-3.13.17-x64"
+    environment = target["pep508_environment"]
+    assert environment["implementation_version"] == "3.13.17"
+    assert environment["python_full_version"] == "3.13.17"
+    assert environment["python_version"] == "3.13"
+    assert environment["platform_machine"] == "AMD64"
+    assert environment["sys_platform"] == "win32"
+
+
+def test_interpreter_notice_inventory_matches_canonical_release_target():
+    inventory = json.loads(Path("packaging/third-party-components.json").read_text(encoding="utf-8"))
+    interpreter = next(item for item in inventory["additional_components"] if item["id"] == "cpython-runtime")
+    expected = release_target_metadata()["pep508_environment"]["python_full_version"]
+    assert interpreter["version"] == expected
+    assert interpreter["homepage"].endswith("python-" + expected.replace(".", "") + "/")
 
 
 def test_vulnerability_review_network_is_origin_bound_and_bounded(
@@ -80,7 +100,7 @@ def test_sbom_parser_projects_lock_onto_canonical_release_target(tmp_path) -> No
         "requests==2.34.2 \\\n"
         "    --hash=sha256:" + "a" * 64 + "\n"
         'pywin32==312 ; sys_platform == "win32" and '
-        'python_full_version == "3.13.14" \\\n'
+        'python_full_version == "3.13.17" \\\n'
         "    --hash=sha256:" + "b" * 64 + "\n"
         'uvloop==0.21.0 ; sys_platform == "linux" \\\n'
         "    --hash=sha256:" + "c" * 64 + "\n",
@@ -98,7 +118,7 @@ def test_sbom_parser_projects_lock_onto_canonical_release_target(tmp_path) -> No
             "pywin32",
             "312",
             'sys_platform == "win32" and '
-            'python_full_version == "3.13.14"',
+            'python_full_version == "3.13.17"',
         ),
     ]
 
@@ -108,7 +128,7 @@ def test_marker_selection_and_metadata_are_bound_across_artifacts(
 ) -> None:
     lock = tmp_path / "requirements-locked.txt"
     marker = (
-        'sys_platform == "win32" and python_full_version == "3.13.14"'
+        'sys_platform == "win32" and python_full_version == "3.13.17"'
     )
     lock.write_text(
         f"requests==2.34.2 ; {marker} \\\n"

@@ -14,6 +14,10 @@
 # QtWebEngineCore.dll fails to load at import time. Pin them together.
 PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
+# Latest available native patch wheels; remote embedding remains gated on
+# Qt 6.11.3 fixes which are not yet published as Riverbank wheels.
+PyQt6-Qt6>=6.11.2,<6.12
+PyQt6-WebEngine-Qt6>=6.11.2,<6.12
 PyQtGraph>=0.13.0
 # 13.0.0 fixes the October 2026 decoder/encoder and resource-exhaustion advisories.
 Pillow>=13.0.0,<13.1

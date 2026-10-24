@@ -40,9 +40,10 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from app.gui.map_host.request_policy import (
-    AdBlockInterceptor,
+    install_reviewed_page,
     is_reviewed_map_url,
 )
+from app.gui.map_host.security_policy import assess_webengine_security
 
 
 # ── Host window ─────────────────────────────────────────────────────
@@ -63,20 +64,23 @@ class MapHostWindow(QMainWindow):
         # reparented into a QWidget container via Win32 SetParent, so
         # we don't want any native chrome to flash on screen first.
         super().__init__(flags=Qt.WindowType.FramelessWindowHint)
+        assessment = assess_webengine_security()
+        if not assessment.allowed:
+            raise RuntimeError(assessment.reason)
+        self._security_blocked = False
         self.setWindowTitle("DupeZ Map Host")
         # Initial size doesn't matter — the parent will MoveWindow us
         # to match its container as soon as reparenting completes.
         self.resize(1, 1)
 
         self.view = QWebEngineView(self)
+        self._secured_page = install_reviewed_page(self.view)
         self.setCentralWidget(self.view)
 
         # The profile does not own its interceptor. Keep a child-owned strong
         # reference for the entire browser lifetime and fail before connecting
         # to the parent if the privacy boundary cannot be installed.
-        self._interceptor = AdBlockInterceptor(self)
-        profile = self.view.page().profile()
-        profile.setUrlRequestInterceptor(self._interceptor)
+        self._interceptor = self._secured_page._dupez_interceptor
 
         # Minimal perf settings — child runs with real GPU so we do
         # NOT need the aggressive software-raster tuning the in-proc
@@ -177,11 +181,29 @@ class MapHostWindow(QMainWindow):
 
     # ── Command dispatch ────────────────────────────────────────
 
+    def _admit_remote_content(self) -> bool:
+        if getattr(self, "_security_blocked", False):
+            return False
+        try:
+            if assess_webengine_security().allowed:
+                return True
+        except Exception:
+            pass
+        self._security_blocked = True
+        # Stop alone does not terminate an already-loaded page's JavaScript.
+        # Retire the view and never reuse this host after a security denial.
+        for operation in ("stop", "hide", "deleteLater"):
+            try:
+                getattr(self.view, operation)()
+            except Exception:
+                sys.stderr.write("map-host: blocked view cleanup incomplete\n")
+        return False
+
     def _dispatch(self, msg: Dict[str, Any]) -> None:
         kind: Optional[str] = msg.get("type")
         if kind == "load":
             url = str(msg.get("url", "")).strip()
-            if is_reviewed_map_url(url):
+            if is_reviewed_map_url(url) and self._admit_remote_content():
                 self.view.load(QUrl(url))
             else:
                 sys.stderr.write("map-host: rejected unreviewed map URL\n")
@@ -199,10 +221,13 @@ class MapHostWindow(QMainWindow):
             sys.stderr.write(f"map-host: unknown cmd {kind!r}\n")
 
     def _on_load_started(self) -> None:
-        self._send({"type": "load-started"})
+        if self._admit_remote_content():
+            self._send({"type": "load-started"})
+        else:
+            self._send({"type": "load-finished", "ok": False})
 
     def _on_load_finished(self, ok: bool) -> None:
-        self._send({"type": "load-finished", "ok": bool(ok)})
+        self._send({"type": "load-finished", "ok": bool(ok) and self._admit_remote_content()})
 
     def _on_render_process_terminated(
         self,

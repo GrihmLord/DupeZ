@@ -86,7 +86,9 @@ Network intelligence toolkit. Four core tabs — Live Traffic Monitor, Latency O
 
 ### iZurvive Map
 
-Ad-free embedded iZurvive with two-layer ad blocking. Supports Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan.
+The map selector provides reviewed iZurvive URLs for Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan. Embedded browsing requires a verified non-elevated Windows process, sandboxing, and an admitted patched Qt/WebEngine runtime. The currently available Qt 6.11.2 wheels do not satisfy the 6.11.3 security floor, so this candidate shows a selectable URL to open manually in your normal browser instead. It does not launch a browser from an elevated or otherwise denied context.
+
+When an admitted runtime is available, embedded navigation and resources are restricted to explicitly reviewed HTTPS hosts; popups, downloads, file selection, certificate overrides and permission requests are denied. Its browser profile is ephemeral. These controls do not replace exact-build security validation.
 
 ### Account Tracker (v5.4.0)
 
@@ -192,7 +194,7 @@ Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in th
 
 - Windows 11 (64-bit), or a Windows 10 LTSC/ESU edition still receiving
   Microsoft security updates
-- Python 3.12 or 3.13 for source use; release artifacts use Python 3.13.14 x64
+- Python 3.12 or 3.13 for source use; release artifacts use Python 3.13.17 x64
 - Administrator privileges (required for WinDivert kernel driver)
 
 ### Build Dependencies (optional)
@@ -323,7 +325,7 @@ counts with local paths redacted in JSON/support output.
 Run from the repo root. All build scripts and PyInstaller specs live in `packaging\` but write output to repo-root `dist\`.
 
 ```powershell
-# Prerequisite: .venv uses 64-bit Python 3.13.14.
+# Prerequisite: .venv uses 64-bit Python 3.13.17.
 # Each script recreates an isolated .release-venv and installs only
 # hash-pinned build/runtime dependencies.
 
@@ -502,8 +504,8 @@ logs/
 
 DupeZ supports two runtime architectures, selectable at build time:
 
-- **Split (GPU variant)** — Medium-integrity GUI process with an elevated helper subprocess for WinDivert operations. Launches via `asInvoker` manifest; UAC prompt only for the helper. Enables GPU-accelerated map rendering.
-- **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails.
+- **Split (GPU variant)** — Medium-integrity GUI process with an elevated helper subprocess for WinDivert operations. Launches via `asInvoker` manifest; UAC prompt only for the helper. Embedded map rendering additionally requires native-browser security admission; it is currently unavailable with the pinned Qt 6.11.2 wheels.
+- **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails. Remote embedded browsing is blocked; use the displayed map URL manually in a normal non-administrator browser.
 
 The active architecture is displayed in the About dialog as the ARCH field.
 
@@ -582,10 +584,17 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 
 ## License
 
-Public distribution terms for v5.8.0 remain owner-controlled and unresolved in
-`packaging/license-policy.json`. No redistribution grant is made by this README.
-The project terms, exact dependency obligations, notices and source/relink
-delivery must be approved and evidenced before a distribution build is released.
+The owner selected **GPL-3.0-only** for original DupeZ code, with corresponding
+source. See [LICENSE.txt](LICENSE.txt) and the
+[dated selection record](packaging/license-evidence/project-distribution-terms-2026-10-24.txt).
+Third-party components retain their own licenses; this choice does not relicense them.
+
+Release evidence remains incomplete in `packaging/license-policy.json`:
+contribution-rights confirmation, exact dependency obligations, delivered notices
+and a verified corresponding-source/rebuild route are still required. The
+[owner checklist](docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md#owner-action-checklist-2026-10-24)
+separates remaining owner decisions from engineering validation. A license
+selection is not approval to publish unvalidated v5.8.0 binaries.
 
 ---
 

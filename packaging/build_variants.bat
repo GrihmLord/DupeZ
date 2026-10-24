@@ -15,7 +15,7 @@ pushd "%~dp0.."
 :: Run from the repo root:
 ::     build_variants.bat
 ::
-:: Prereqs: a repository-local .venv with 64-bit Python 3.13.14 and pip.
+:: Prereqs: a repository-local .venv with 64-bit Python 3.13.17 and pip.
 
 set "DUPEZ_VERSION=5.8.0"
 set "DUPEZ_INSTALLER=DupeZ_v%DUPEZ_VERSION%_Setup.exe"
@@ -57,13 +57,13 @@ echo.
 if not exist "%DUPEZ_BOOTSTRAP_PYTHON%" (
     echo ERROR: Repository bootstrap interpreter not found:
     echo        %DUPEZ_BOOTSTRAP_PYTHON%
-    echo Create .venv with 64-bit Python 3.13.14 and rerun this script.
+    echo Create .venv with 64-bit Python 3.13.17 and rerun this script.
     exit /b 1
 )
 
-"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 13, 14) and struct.calcsize('P') == 8 else 1)"
+"%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -c "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 13, 17) and struct.calcsize('P') == 8 else 1)"
 if errorlevel 1 (
-    echo ERROR: Release builds require 64-bit Python 3.13.14.
+    echo ERROR: Release builds require 64-bit Python 3.13.17.
     exit /b 1
 )
 
