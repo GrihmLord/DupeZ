@@ -45,16 +45,32 @@ Windows will show an unknown-publisher warning.
 No DupeZ license term is intended to prohibit debugging, reverse engineering,
 replacement, or relinking that an applicable GPL or LGPL license permits.
 
-## Candidate recipient rebuild route: unvalidated
+## Recipient rebuild route: locally exercised, limited evidence
 
-These preparation instructions have not been validated by a recipient build or
-covered-library replacement test. No binary build is authorized or executed as
-part of this documentation update while the owner/native-runtime release gates
-remain unresolved. Do not use this candidate recipe as evidence that
-`source-and-relink-delivery` has passed.
+On October 24, both unsigned variants were built in isolated directories from
+the source ZIP of commit `1db32d750ee1a1b23733ff38f6b53fdad8957d7f`, without
+Git metadata or production keys. Both passed final native-byte/origin and
+frozen-dependency inspection. GPU passed standard-user `--verify-runtime-imports`
+and `--verify-native-tls` (Schannel only), each with exit 0. These checks do not
+start a renderer, packet engine, GUI, or network connection. Compat's normal
+administrator runtime has **not** been exercised by this evidence.
 
-The proposed route builds local GPU/Compat executables from a separate fresh
-clone, without production keys, an installer, update metadata, or official
+The exact source ZIP is 24,758,411 bytes, SHA-256
+`875eb4c0f000c7a39f193b67fd7f3a10def528c5f004ff4f911d4ffb04df220f`.
+This engineering checkpoint is not an official release source attestation.
+Later documentation/evidence commits do not change the recorded build commit.
+Do not treat these local observations as approval of `source-and-relink-delivery`.
+
+The second, modified GPU build also passed: both application and actual
+zeroconf Python-function markers were observed at runtime, followed by the
+Schannel-only probe; both exited 0 as a standard user. The detailed
+[engineering evidence](../../packaging/license-evidence/recipient-rebuild-2026-10-24.json)
+records before/after source hashes, patch hashes, all three executable hashes,
+native inventories and reports. This demonstrates a Python-layer library
+modification, not rebuilt native Qt/Chromium, Cython extensions, or drivers.
+
+The route builds local GPU/Compat executables from a separate fresh source
+extraction, without production keys, an installer, update metadata, or official
 release attestations. It never invokes `finalize_release.ps1`, `release.ps1`,
 either build batch file, or a signing tool. Official publication continues to
 require all existing release gates; this internal distinction does not limit
@@ -68,16 +84,23 @@ settings or another release shell. Do not print or copy secret values. Use the
 exact 40-character commit from the reviewed source/release record, not a moving
 branch. A source ZIP is not yet a validated release merely because it exists.
 
-The following commands are candidate instructions, not completed validation:
+Use new paths for each experiment; do not reuse earlier outputs:
 
 ```powershell
 $ErrorActionPreference = 'Stop'
 $recipientCommit = Read-Host 'Exact 40-hex commit from the source/release record'
-$recipientRoot = Read-Host 'Absolute path for a NEW separate clone (must not exist)'
+$recipientExtractRoot = Read-Host 'Absolute path for a NEW source extraction (must not exist)'
+$recipientArchive = Read-Host 'Absolute path to the verified exact-commit source ZIP'
+$recipientArchiveHash = Read-Host 'Expected SHA256 from the trusted source/evidence record'
 $recipientBootstrap = Read-Host 'Absolute path to verified 64-bit CPython 3.13.17 python.exe'
 if ($recipientCommit -notmatch '^[0-9a-fA-F]{40}$') { throw 'An exact commit is required.' }
-if (-not [IO.Path]::IsPathRooted($recipientRoot) -or (Test-Path -LiteralPath $recipientRoot)) {
-    throw 'Choose a new absolute clone path; existing directories are not reused.'
+if (-not [IO.Path]::IsPathRooted($recipientExtractRoot) -or (Test-Path -LiteralPath $recipientExtractRoot)) {
+    throw 'Choose a new absolute extraction path; existing directories are not reused.'
+}
+if ($recipientArchiveHash -notmatch '^[0-9a-fA-F]{64}$' -or
+    -not [IO.Path]::IsPathRooted($recipientArchive) -or
+    (Get-FileHash -LiteralPath $recipientArchive -Algorithm SHA256).Hash -ne $recipientArchiveHash) {
+    throw 'Source ZIP does not match the trusted input record.'
 }
 if (-not [IO.Path]::IsPathRooted($recipientBootstrap) -or
     -not (Test-Path -LiteralPath $recipientBootstrap -PathType Leaf)) {
@@ -100,14 +123,18 @@ function Invoke-RecipientCommand {
 }
 Invoke-RecipientCommand $recipientBootstrap @('-I', '-S', '-c',
     "import struct, sys; raise SystemExit(0 if sys.version_info[:3] == (3, 13, 17) and struct.calcsize('P') == 8 else 1)")
-Invoke-RecipientCommand 'git' @('clone', '--no-checkout', '--',
-    'https://github.com/GrihmLord/DupeZ.git', $recipientRoot)
+Invoke-RecipientCommand $recipientBootstrap @('-I', '-S', '-c',
+    "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); raise SystemExit(0 if z.comment.decode('ascii') == sys.argv[2].lower() else 1)",
+    $recipientArchive, $recipientCommit)
+Expand-Archive -LiteralPath $recipientArchive -DestinationPath $recipientExtractRoot
+$recipientRoot = Join-Path $recipientExtractRoot 'DupeZ-v5.8.0'
 Set-Location -LiteralPath $recipientRoot
-Invoke-RecipientCommand 'git' @('checkout', '--detach', $recipientCommit)
 ```
 
-Review the checked-out commit against the source record before proceeding.
-Keep this clone separate from the maintainer checkout and any existing install.
+Obtain the expected hash from the trusted record, not from the downloaded ZIP
+itself. Keep this extraction separate from the maintainer checkout and existing
+install. The release archive checker also verifies required inputs and rejects
+unsafe paths; a recorded hash is not a general-purpose archive-safety bypass.
 
 ### 2. Prepare an isolated environment and outputs
 
@@ -149,17 +176,64 @@ The specs use the shared `packaging/build_common.py` factory. Without
 native files against source provenance and supplies private hash-checked
 snapshots; it does not require signing keys. The factory rewrites
 `app/firewall_helper/_build_default.py`, so build the variants sequentially in
-this disposable clone. The frozen inspection is a dependency/native-byte check,
+this disposable source tree. The frozen inspection is a dependency/native-byte check,
 not a release approval or a successful runtime/replacement demonstration.
 
 Keep these outputs identified as recipient builds. Do not copy them into an
 official release directory or attach official signed sidecars from another
 build. Preserve startup hardening and updater verification; no production
-private key is required or exposed by this route. Later validation must show
-that both variants run appropriately (GPU as a standard user; Compat with its
-normal elevation), using only authorized private test targets.
+private key is required or exposed by this route. Full lifecycle/hardware
+validation must still show both variants running appropriately (GPU as a
+standard user; Compat with its normal elevation), using authorized private
+test targets. Maintenance-only success does not satisfy that requirement.
 
-### 4. Demonstrate modification and replacement before claiming completion
+### 4. Record modification and replacement, with precise limits
+
+The reproducible demonstration patches are
+`packaging/recipient-validation/application-marker.patch` and
+`packaging/recipient-validation/zeroconf-marker.patch`. Use a **second** fresh
+source extraction and venv, never the baseline or installed product. The first
+adds an application marker without changing the version and makes the import
+probe report it; the second adds a callable function to zeroconf's LGPL-covered
+Python `__init__.py`, retaining its license header. The report calls that actual
+function. No DNS service or packet operation is needed.
+
+In a disposable extraction outside any other Git checkout, after the hash-pinned
+install above, these commands apply the reviewed patches (Git is only a patch
+utility here; no project `.git` directory or private key is required):
+
+```powershell
+Invoke-RecipientCommand 'git' @('apply', '--check',
+    'packaging/recipient-validation/application-marker.patch')
+Invoke-RecipientCommand 'git' @('apply',
+    'packaging/recipient-validation/application-marker.patch')
+Invoke-RecipientCommand 'git' @('apply', '--check',
+    '--directory=.recipient-venv/Lib/site-packages',
+    'packaging/recipient-validation/zeroconf-marker.patch')
+Invoke-RecipientCommand 'git' @('apply',
+    '--directory=.recipient-venv/Lib/site-packages',
+    'packaging/recipient-validation/zeroconf-marker.patch')
+```
+
+Record original and modified file hashes and both patch hashes. The
+record identifies which patch representation was measured: the local observation
+used working-checkout LF patch bytes, while the exact source ZIP has equivalent
+CRLF copies. Normalized content was independently compared and matched; byte
+hashes must not be compared without accounting for that recorded distinction.
+The resulting environment is a **hash-locked baseline plus recorded modifications**, not an
+unchanged wheel install: the original wheel's `RECORD` no longer describes the
+patched Python file. Build with a new work/output path and run the import probe
+with a new `DUPEZ_VERIFY_REPORT`. Successful output must contain both
+`application_marker` and `library_marker`, each exactly
+`dupez-recipient-validation-20261024`, and an observed process exit 0.
+`scripts/recipient_rebuild_evidence.py --modified` records the source/archive,
+executable, report, and at least the three modified input hashes; it does not
+run the executable or authenticate an operator-supplied exit status.
+
+`scripts/native_build_evidence.py` separately checks final native bytes against
+the generated build manifest and approved local roots. The unchanged native
+inventory in a successful Python-layer demonstration does **not** demonstrate
+recompiling zeroconf's Cython extensions or replacing native Qt/Chromium.
 
 Record the actual source revision, environment, modified source/library inputs,
 build commands, output hashes, notices, and observed runtime result. Demonstrate
@@ -176,6 +250,13 @@ checks, reuse an official attestation for changed bytes, or mark the source
 delivery decision complete before this evidence exists.
 
 ## Third-party source routes
+
+The 33-component machine-readable source inventory, retained 32-archive bundle,
+verification commands, and explicit unresolved mappings are documented in
+[CORRESPONDING_SOURCE_INPUTS_V5.8.0.md](CORRESPONDING_SOURCE_INPUTS_V5.8.0.md).
+Collection is complete for the selected pinned inputs, not complete
+corresponding-source delivery. IUP and native wheel build/source matching remain
+open, as do public delivery, retention, and owner decisions.
 
 The exact binary/package versions and their notices are recorded in
 `license-payload.json` and `packaging/third-party-components.json`. Relevant

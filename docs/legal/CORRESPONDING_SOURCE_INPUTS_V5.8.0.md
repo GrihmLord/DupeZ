@@ -4,6 +4,24 @@ Reviewed October 24, 2026. This engineering record is **not** an approval of
 distribution terms, complete corresponding source, or an official release.
 The project recipient-build record is separate in `SOURCE_AND_RELINK_V5.8.0.md`.
 
+## Completed local collection
+
+All 32 pinned source archives were retained and reinspected with the final
+security guards. The deterministic bundle was then independently rehashed by
+`verify-bundle`; both generated receipts are byte-identical. The tracked
+technical record is
+`packaging/license-evidence/source-input-collection-2026-10-24.json`.
+
+- Local bundle: `build/source-delivery-20261024/third-party-source-inputs.zip`
+- Bundle size: **1,733,430,647 bytes**
+- Bundle SHA-256: `1876b6d2db883886fa3411718a61d8f81bb299de2645d635f4371566eccf7321`
+- Receipt SHA-256: `efc6fde17a0710919aacd59402b1fc28064f22a3020f5a39c080afcfc367545d`
+- Verification: **86 tests passed**, Ruff passed, collection recipe parsed.
+
+IUP is the sole uncollected inventory component, but collection of the other
+32 does **not** resolve their recorded native-build mappings or source-delivery
+obligations. No license-policy decision was approved by this work.
+
 ## What is pinned
 
 `packaging/source-inputs.json` accounts for all 33 components in

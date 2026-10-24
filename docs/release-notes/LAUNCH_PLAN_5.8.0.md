@@ -11,16 +11,17 @@ snapshot, or a passing source-only preflight into a release candidate.
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
 | Source changes | October 24 source candidate is tracked through the existing PR 84 development branch | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
-| Hosted CI | All 14 checks on pushed `9a0cd6a` failed before execution on October 24 with an explicit account billing-lock annotation | Owner resolves the account restriction privately; rerun checks on the next exact head without bypass |
+| Hosted CI | Last verified pushed checkpoint `756edc2` had all 14 checks fail before execution on October 24 with an explicit account billing-lock annotation | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
 | Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
 | Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases; verify protected updater signing separately; never share private keys in chat |
 | Dependency advisories | October 24 refresh updates Pillow, certifi, cryptography and test/bootstrap pip; updated runtime scan has zero active PyPI advisory records across 27 packages | Keep the generated locks and component inventory together; this scan does not cover native Qt/Chromium or the interpreter |
-| Native runtime security | Migrated to Python 3.13.17 and Qt/WebEngine 6.11.2; embedded browsing is denied until the reviewed Qt security floor is met | Current wheels lack 6.11.3 fixes; obtain patched wheels or complete native reachability assessment and exact-build validation; no native clearance is claimed |
+| Native runtime security | Python 3.13.17 and Qt/WebEngine 6.11.2; clean archives contain only approved native origins and Qt uses Schannel; embedded browsing requires an explicitly reviewed exact combination and remains denied | Current wheels lack 6.11.3 fixes; complete patched-artifact/backport and reachability review; numeric version increases alone cannot enable embedding |
+| Source/rebuild evidence | 32 pinned upstream archives collected and bundle-verified; clean GPU/Compat built, GPU application + LGPL Python-layer modification demonstrated | Exact native wheel/IUP source mappings, native replacement/rebuild, public source delivery/retention and owner decisions remain unresolved |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Existing canonical files are old; required v5.8.0 inputs/evidence are missing | Rebuild only after source and owner gates; validate the new exact bytes |
+| Exact artifacts | Fresh isolated engineering GPU/Compat artifacts at `1db32d7` passed offline native inspection; clean/modified GPU maintenance checks passed; canonical release files remain old | These are not publishable release artifacts; rebuild on protected main after all gates, then validate exact release bytes |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify the public download and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -33,7 +34,48 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
-## October 24 native-runtime follow-through
+## October 24 clean-build and recipient evidence
+
+- Code checkpoint **`1db32d750ee1a1b23733ff38f6b53fdad8957d7f`** was archived
+  and independently passed the exact-commit source ZIP gate. The isolated route
+  built clean GPU/Compat and a separately modified GPU without Git metadata,
+  production signing keys, installer creation, or canonical output changes.
+- Fixed a measured native packaging leak: the diagnostic baseline's raw Analysis
+  inventory contained 48 DLLs from unrelated Poppler/libheif directories. The
+  corrected final CArchives contain **259 native binaries** each, all byte-bound
+  to the locked venv, verified PSF runtime, or exact managed input. Native
+  inventories match across the clean and modified artifacts; no ambient origin
+  was admitted. The diagnostic executable was never launched.
+- Clean and modified GPU passed standard-user imports and the real native TLS
+  probe with **Schannel as the only available/active backend**, exit 0. The
+  modified build reported the application marker and actual zeroconf LGPL
+  Python-function result. This is not native Qt/Chromium/Cython replacement,
+  bit-for-bit reproducibility, or full lifecycle/hardware evidence.
+- Final exact-checkpoint suite: **3,270 passed, 10 skipped, 58.28% app coverage,
+  238.47 seconds**. Six skips need opt-in hardware and four need symlink rights.
+  Source/frozen preflights and staged hooks pass. No Compat administrator runtime,
+  renderer, packet manipulation, installer, or game workflow was exercised.
+- **32 upstream source archives** (1,733,386,826 compressed bytes) were retained,
+  hash-checked and safely inspected; deterministic bundle and independent bundle
+  verification passed with identical receipts. All 33 inventory components are
+  represented; IUP remains unresolved. Exact Qt/Chromium wheel patches/build
+  mapping, native replacements, public delivery/retention and owner rights still
+  prevent a complete corresponding-source claim.
+- Exact-checkpoint notices generated and verified: **27 runtime components / 76
+  notice documents**. The six distribution decisions and complete-source gate
+  remain blocked; no approvals were manufactured. No binaries, tag or release
+  were published by these local observations.
+
+Evidence: [native audit](../audits/NATIVE_CONTAINMENT_2026-10-24.md),
+[recipient hashes/results](../../packaging/license-evidence/recipient-rebuild-2026-10-24.json),
+[source-input recipe](../legal/CORRESPONDING_SOURCE_INPUTS_V5.8.0.md),
+[source receipt](../../packaging/license-evidence/source-input-collection-2026-10-24.json).
+These observations belong to their recorded build checkpoint, not automatically
+to later documentation commits or future official release binaries. Hosted CI
+is still a separate billing-blocked requirement; see the
+[last checked run](https://github.com/GrihmLord/DupeZ/actions/runs/40074213766).
+
+## Earlier October 24 native-runtime follow-through
 
 - Active release scripts, workflows and target metadata now require CPython
   **3.13.17 x64**. A workspace-isolated official Python NuGet package was verified
