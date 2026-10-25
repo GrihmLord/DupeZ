@@ -695,11 +695,11 @@ helper process should auto-elevate — accept the UAC prompt. If you're on the
 Compat build, right-click → Run as administrator.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
-<b style='color:{_RED};'>Map is slow / software-rendered</b></p>
+<b style='color:{_RED};'>Embedded map unavailable</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
-→ You're likely running the Compat build (elevated), which forces QWebEngine
-into software rasterization. Switch to the GPU build (DupeZ-GPU.exe) — it
-runs the GUI at normal privileges so your GPU handles rendering.</p>
+→ Both packaged builds omit the embedded browser runtime. Open the approved
+HTTPS address shown on the Map tab manually in your normal, non-administrator
+browser. Changing renderer settings does not enable embedded browsing.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>"WinDivert.dll missing"</b></p>

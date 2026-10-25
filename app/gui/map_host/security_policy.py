@@ -61,6 +61,8 @@ def assess_webengine_security() -> WebEngineSecurityAssessment:
     """
     deny = WebEngineSecurityAssessment
     try:
+        if getattr(sys, "frozen", False):
+            return deny(False, "This DupeZ build omits the embedded browser runtime; use the manual browser URL.")
         if not _non_elevated_process():
             return deny(False, "Embedded map requires a verified non-administrator Windows process.")
         environment = {key.casefold(): value for key, value in os.environ.items()}

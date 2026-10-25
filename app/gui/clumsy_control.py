@@ -709,6 +709,7 @@ class ClumsyControlView(QWidget):
         sched_layout.addLayout(sched_row2)
 
         self.sched_status = QLabel("No scheduled disruptions")
+        self.sched_status.setTextFormat(Qt.TextFormat.PlainText)
         self.sched_status.setStyleSheet(self._MUTED_QSS)
         sched_layout.addWidget(self.sched_status)
 
@@ -758,6 +759,7 @@ class ClumsyControlView(QWidget):
         self.suggest_duration_btn.clicked.connect(self._on_suggest_duration)
         _ml_layout.addWidget(self.suggest_duration_btn)
         self.suggest_status = QLabel("")
+        self.suggest_status.setTextFormat(Qt.TextFormat.PlainText)
         self.suggest_status.setStyleSheet(self._SUBTLE_QSS)
         self.suggest_status.setWordWrap(True)
         _ml_layout.addWidget(self.suggest_status)
@@ -799,6 +801,7 @@ class ClumsyControlView(QWidget):
         _ml_layout.addLayout(_outcome_row)
 
         self.outcome_status = QLabel("")
+        self.outcome_status.setTextFormat(Qt.TextFormat.PlainText)
         self.outcome_status.setStyleSheet(self._SUBTLE_QSS)
         self.outcome_status.setWordWrap(True)
         _ml_layout.addWidget(self.outcome_status)
@@ -850,6 +853,7 @@ class ClumsyControlView(QWidget):
 
         # Clumsy status
         self.clumsy_status_label = QLabel("Clumsy: Checking...")
+        self.clumsy_status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.clumsy_status_label.setStyleSheet(self._MUTED_PAD_QSS)
         right_layout.addWidget(self.clumsy_status_label)
 

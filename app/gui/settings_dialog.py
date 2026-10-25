@@ -559,6 +559,7 @@ class SettingsDialog(QDialog):
         fl3.addRow("Block Duration:", self.block_duration_spinbox)
 
         self.whitelist_edit = QTextEdit()
+        self.whitelist_edit.setAcceptRichText(False)
         self.whitelist_edit.setMaximumHeight(70)
         self.whitelist_edit.setPlaceholderText("One IP per line")
         fl3.addRow("Whitelist:", self.whitelist_edit)
@@ -584,6 +585,7 @@ class SettingsDialog(QDialog):
         fl4.addRow("Maximum Duration:", self.max_operation_seconds_spinbox)
 
         self.allowed_target_cidrs_edit = QTextEdit()
+        self.allowed_target_cidrs_edit.setAcceptRichText(False)
         self.allowed_target_cidrs_edit.setMaximumHeight(85)
         self.allowed_target_cidrs_edit.setPlaceholderText(
             "One owned local CIDR per line, e.g. 192.168.1.0/24"
@@ -620,6 +622,7 @@ class SettingsDialog(QDialog):
         fl5.addRow("Process Watch:", self.kill_switch_process_watch_checkbox)
 
         self.kill_switch_process_names_edit = QTextEdit()
+        self.kill_switch_process_names_edit.setAcceptRichText(False)
         self.kill_switch_process_names_edit.setMaximumHeight(85)
         self.kill_switch_process_names_edit.setPlaceholderText(
             "Optional process basenames, one per line; built-in list used when empty"

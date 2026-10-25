@@ -145,7 +145,7 @@ _maybe_dispatch_helper_role()
 def _verify_runtime_imports() -> tuple[str, ...]:
     """Import every frozen Qt/direct-Clumsy boundary required by both builds."""
     import PyQt6.sip
-    from PyQt6 import QtCore, QtWebEngineWidgets, QtWidgets
+    from PyQt6 import QtCore, QtNetwork, QtWidgets
 
     import dupez_helper
     from app.core import clumsy_controls
@@ -164,7 +164,7 @@ def _verify_runtime_imports() -> tuple[str, ...]:
         PyQt6.sip,
         QtCore,
         QtWidgets,
-        QtWebEngineWidgets,
+        QtNetwork,
         clumsy_controls,
         clumsy_diagnostics,
         clumsy_full_controls,

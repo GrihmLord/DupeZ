@@ -47,8 +47,9 @@ def manifest():
 def test_checked_inventory_has_all_33_components_and_honest_gaps(manifest):
     assert len(manifest["components"]) == 33
     components = {item["id"]: item for item in manifest["components"]}
-    assert components["iup"]["source_status"] == "unresolved"
-    assert components["iup"]["artifacts"] == []
+    assert components["iup"]["source_status"] == "upstream-source-pinned"
+    assert components["iup"]["artifacts"][0]["sha256"] == "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+    assert components["iup"]["gaps"]
     for name in ("pyqt6-qt6", "pyqt6-webengine-qt6", "windivert"):
         assert components[name]["gaps"]
         assert components[name]["artifacts"]
@@ -76,6 +77,33 @@ def test_checked_inventory_has_all_33_components_and_honest_gaps(manifest):
     "https://download.qt.io/unreviewed/source.zip",
 ])
 def test_download_origins_are_strict(url):
+    with pytest.raises(source.SourceInputError):
+        source.validate_download_url(url)
+
+
+def test_only_exact_iup_sourceforge_escaped_route_is_allowed():
+    source.validate_download_url("https://downloads.sourceforge.net" + source._IUP_SOURCE_PATH)
+    for url in source._ENCODED_SOURCE_URLS:
+        source._https_url(url)
+
+
+@pytest.mark.parametrize("suffix", [
+    "?viasf=1", "#fragment", "/", "%2f", "/../other.zip",
+])
+def test_iup_sourceforge_route_rejects_query_tokens_and_path_suffixes(suffix):
+    with pytest.raises(source.SourceInputError):
+        source.validate_download_url("https://downloads.sourceforge.net" + source._IUP_SOURCE_PATH + suffix)
+
+
+@pytest.mark.parametrize("url", [
+    "https://downloads.sourceforge.net/project/iup/3.30/Docs%2520and%2520Sources/iup-3.30_Sources.zip",
+    "https://downloads.sourceforge.net/project/iup/3.31/Docs%20and%20Sources/iup-3.31_Sources.zip",
+    "https://downloads.sourceforge.net/project/iup/3.30/Docs%20and%20Sources/other.zip",
+    "https://master.dl.sourceforge.net/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip",
+    "https://downloads.sourceforge.net.evil.invalid/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip",
+    "https://files.pythonhosted.org/packages/Docs%20and%20Sources/iup-3.30_Sources.zip",
+])
+def test_iup_sourceforge_exception_does_not_enable_other_escaped_urls(url):
     with pytest.raises(source.SourceInputError):
         source.validate_download_url(url)
 
@@ -387,5 +415,10 @@ def test_reparse_paths_rejected_before_resolution(tmp_path, monkeypatch):
     ["plan", "--bundle", "must-not-exist.zip"],
     ["verify-bundle"],
 ])
-def test_cli_cannot_silently_claim_completeness_or_select_unresolved(args):
+def test_cli_cannot_silently_claim_completeness_or_select_unresolved(args, manifest, monkeypatch):
+    if args[0] in {"collect", "verify"}:
+        # Exercise unresolved inventory without allowing an accidental network
+        # collection now that all current upstream source versions are pinned.
+        manifest["components"][0].update(source_status="unresolved", artifacts=[])
+        monkeypatch.setattr(source, "load_manifest", lambda *unused: manifest)
     assert source.main(args) == 1

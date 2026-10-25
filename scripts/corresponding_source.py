@@ -43,6 +43,13 @@ _HASH = re.compile(r"[0-9a-f]{64}\Z")
 _ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 _FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,180}\Z")
 _RESERVED = re.compile(r"(?:CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(?:\..*)?\Z", re.I)
+# SourceForge names this exact published IUP source directory with spaces.
+# Admit only these reviewed full URLs; never decode arbitrary escapes.
+_IUP_SOURCE_PATH = "/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip"
+_ENCODED_SOURCE_URLS = frozenset({
+    "https://downloads.sourceforge.net" + _IUP_SOURCE_PATH,
+    "https://sourceforge.net/projects/iup/files/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip/download",
+})
 _DOWNLOAD_ROUTES = {
     "files.pythonhosted.org": re.compile(r"/packages/[a-zA-Z0-9/_.-]+\Z"),
     "www.python.org": re.compile(r"/ftp/python/[0-9.]+/Python-[0-9.]+\.tar\.(?:gz|xz)\Z"),
@@ -51,6 +58,10 @@ _DOWNLOAD_ROUTES = {
         r"[a-z0-9.-]+\.(?:tar\.xz|zip)\Z"
     ),
     "codeload.github.com": re.compile(r"/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/zip/[0-9a-f]{40}\Z"),
+    # Stable official source locator. SourceForge currently redirects to a
+    # signed mirror URL, so collection requires a separately reviewed cache
+    # acquisition. Redirects and expiring query tokens remain prohibited here.
+    "downloads.sourceforge.net": re.compile(re.escape(_IUP_SOURCE_PATH) + r"\Z"),
     # Direct HTTPS mirror advertised by Qt's official .mirrorlist, 2026-10-24.
     # Official digests are pinned independently; redirects remain forbidden.
     "qt.mirror.constant.com": re.compile(
@@ -119,7 +130,7 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _https_url(value: Any) -> urllib.parse.SplitResult:
     if not isinstance(value, str) or not value or any(
         ord(char) < 33 or ord(char) > 126 for char in value
-    ) or "\\" in value or "%" in value:
+    ) or "\\" in value or ("%" in value and value not in _ENCODED_SOURCE_URLS):
         raise SourceInputError("URL must be plain HTTPS without escapes or controls")
     try:
         parsed = urllib.parse.urlsplit(value)

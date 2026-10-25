@@ -132,6 +132,7 @@ class LanCutPanel(QWidget):
 
         # Live badge
         self.a2s_badge = QLabel("— idle —")
+        self.a2s_badge.setTextFormat(Qt.TextFormat.PlainText)
         self.a2s_badge.setStyleSheet(
             "color:#64748b; font-size:10px; font-weight:700; "
             "padding:3px 10px; background:rgba(8,12,22,0.6); "

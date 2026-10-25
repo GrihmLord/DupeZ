@@ -115,7 +115,7 @@ echo Installing hash-pinned production dependencies...
 if errorlevel 1 exit /b 1
 
 echo Verifying hermetic build imports...
-"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtNetwork"
 if errorlevel 1 (
     echo ERROR: Required build/runtime imports failed inside .release-venv.
     echo        Refusing to build with an incomplete or mixed Python environment.

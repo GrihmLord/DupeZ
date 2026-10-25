@@ -729,7 +729,7 @@ if exist "%DUPEZ_BUILD_VENV%" rmdir /s /q "%DUPEZ_BUILD_VENV%"
 "%DUPEZ_BOOTSTRAP_PYTHON%" -I -S -m venv "%DUPEZ_BUILD_VENV%"
 "%DUPEZ_PYTHON%" -I -m pip install --only-binary=:all: --require-hashes -r packaging\\requirements-build-locked.txt
 "%DUPEZ_PYTHON%" -I -m pip install --only-binary=:all: --require-hashes -r requirements-locked.txt
-"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtWebEngineWidgets"
+"%DUPEZ_PYTHON%" -I -c "import PyInstaller; import PyQt6.sip; from PyQt6 import QtCore, QtWidgets, QtNetwork"
 "%DUPEZ_PYTHON%" -I -m PyInstaller packaging\\dupez.spec
 "%DUPEZ_PYTHON%" scripts\\release_preflight.py --frozen-artifact dist\\dupez.exe
 python scripts\\sbom.py

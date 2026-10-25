@@ -54,6 +54,16 @@ def test_release_policy_has_no_implicitly_approved_native_combination():
     assert policy.REVIEWED_NATIVE_COMBINATIONS == frozenset()
 
 
+def test_frozen_build_never_loads_omitted_browser_even_if_source_runtime_is_reviewed(
+    reviewed_runtime, monkeypatch,
+):
+    monkeypatch.setattr(policy.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(policy, "_non_elevated_process", lambda: pytest.fail("no token probe needed"))
+    result = _denied()
+    assert "omits the embedded browser runtime" in result.reason
+    assert reviewed_runtime.calls == []
+
+
 def test_version_floors_alone_never_reenable_embedded_content(reviewed_runtime, monkeypatch):
     monkeypatch.setattr(policy, "REVIEWED_NATIVE_COMBINATIONS", frozenset())
     result = _denied()

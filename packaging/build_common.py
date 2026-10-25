@@ -61,8 +61,10 @@ from release_data import (
     release_binary_files,
 )
 from native_runtime_policy import (
+    FROZEN_BROWSER_EXCLUDES,
     audit_native_binary_origins,
     configure_windows_analysis_environment,
+    validate_no_embedded_browser_payload,
     validate_windows_tls_binaries,
 )
 
@@ -135,7 +137,7 @@ def _write_build_default(variant: str) -> None:
 
 def _hidden_imports() -> list:
     return (
-        collect_submodules("app")
+        collect_submodules("app", filter=lambda name: name not in FROZEN_BROWSER_EXCLUDES)
         + [
             # Helper-mode entry point — dupez.py re-invokes the same frozen
             # exe with `--role helper` under DUPEZ_ARCH=split. Without this
@@ -147,9 +149,6 @@ def _hidden_imports() -> list:
             "PyQt6.QtGui",
             "PyQt6.QtCore",
             "PyQt6.sip",
-            "PyQt6.QtWebEngineWidgets",
-            "PyQt6.QtWebEngineCore",
-            "PyQt6.QtWebChannel",
             "PyQt6.QtNetwork",
             "pyqtgraph",
             "psutil",
@@ -246,6 +245,9 @@ def _filter_unapproved_collected_binaries(binaries: list) -> list:
 
 def _excludes() -> list:
     return [
+        # Both release variants expose manual map URLs and omit the inactive
+        # Chromium/QML runtime. No environment setting re-enables these bytes.
+        *FROZEN_BROWSER_EXCLUDES,
         # Scapy is deliberately absent from the production lock. Its
         # GPL-2.0-only terms are incompatible with the frozen PyQt release
         # boundary, so a contaminated developer/build environment must not
@@ -349,6 +351,9 @@ def build_variant(
     # manifest paths and remove only same-basename root duplicates.
     a.binaries = _filter_root_binary_duplicates(a.binaries)
     a.binaries = _filter_unapproved_collected_binaries(a.binaries)
+    validate_no_embedded_browser_payload(
+        entry[0] for entry in [*a.binaries, *a.datas, *a.pure]
+    )
     if sys.platform == "win32":
         import PyQt6
 

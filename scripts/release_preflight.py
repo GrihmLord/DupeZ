@@ -28,6 +28,7 @@ if str(ROOT) not in sys.path:
 _PACKAGING_MODULE_DIR = str(ROOT / "packaging")
 sys.path.insert(0, _PACKAGING_MODULE_DIR)
 try:
+    from native_runtime_policy import excluded_browser_payloads
     from release_data import (
         verify_authenticode_source_equivalence as _verify_authenticode_source_equivalence,
     )
@@ -362,7 +363,7 @@ def _check_hermetic_python_policy(rel: str) -> list[str]:
         "import PyQt6.sip",
         "QtCore",
         "QtWidgets",
-        "QtWebEngineWidgets",
+        "QtNetwork",
     )
     prebuild_lines = [
         line
@@ -502,6 +503,8 @@ def _check_native_collection_policy() -> list[str]:
     """Keep every portable on the reviewed native-origin and Qt TLS boundary."""
     required = {
         "packaging/build_common.py": (
+            "*FROZEN_BROWSER_EXCLUDES",
+            "validate_no_embedded_browser_payload(",
             "configure_windows_analysis_environment()",
             'hookspath=[os.path.join(HERE, "hooks")]',
             "a.binaries = validate_windows_tls_binaries(",
@@ -1586,6 +1589,10 @@ def _check_frozen_dependency_policy(
             continue
 
         archive_names = outer_names | inner_names
+        for unexpected in excluded_browser_payloads([*archive.toc, *embedded.toc]):
+            errors.append(
+                f"excluded embedded browser/QML payload in {artifact.name}: {unexpected}"
+            )
         for forbidden_path in _FORBIDDEN_FROZEN_PATHS:
             if forbidden_path in outer_entries:
                 errors.append(
@@ -1711,7 +1718,7 @@ def _check_frozen_runtime_import_policy() -> list[str]:
         "import PyQt6.sip",
         "QtCore",
         "QtWidgets",
-        "QtWebEngineWidgets",
+        "QtNetwork",
     ):
         if token not in launcher:
             errors.append(

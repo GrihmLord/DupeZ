@@ -18,9 +18,50 @@ _QT_TLS_PREFIX = "pyqt6/qt6/plugins/tls/"
 _EXCLUDED_QT_TLS_PLUGINS = frozenset({"qopensslbackend.dll", "qcertonlybackend.dll"})
 _PYTHON_OPENSSL_DLLS = frozenset({"libssl-3.dll", "libcrypto-3.dll"})
 
+# Embedded browsing is unavailable in both frozen variants. These modules
+# must not re-enter through another PyInstaller hook or a developer install.
+FROZEN_BROWSER_EXCLUDES = (
+    "PyQt6.QtWebEngineCore", "PyQt6.QtWebEngineWidgets", "PyQt6.QtWebEngineQuick",
+    "PyQt6.QtWebChannel", "PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtQuickWidgets",
+    "PyQt6.QtQuick3D", "app.gui.map_host.host", "app.gui.map_host.request_policy",
+)
+
 
 def _normalized_path(value: object) -> str:
     return str(value).replace("\\", "/").strip("/").casefold()
+
+
+def excluded_browser_payloads(names) -> list[str]:
+    """Find browser/QML bytes in Analysis or final outer/PYZ archive names.
+
+    Inspect all payload kinds, including data; native DLL filtering alone
+    would miss Chromium resources and QML code. This is a scope boundary,
+    not a general native vulnerability or corresponding-source clearance.
+    """
+    found = set()
+    for value in names:
+        path = _normalized_path(value)
+        module = path.replace("/", ".")
+        basename = path.rsplit("/", 1)[-1]
+        if (
+            any(module == excluded.casefold() or module.startswith(excluded.casefold() + ".")
+                for excluded in FROZEN_BROWSER_EXCLUDES)
+            or basename.startswith(("qt6webengine", "qt6webchannel", "qt6qml", "qt6quick",
+                                    "qtwebengine", "qtwebchannel", "qtqml", "qtquick", "qmldbg_"))
+            or any(part.startswith("qtwebengine") for part in path.split("/"))
+            or "/qml/" in "/" + path
+            or "/qmltooling/" in "/" + path
+            or basename.endswith((".qml", ".qmltypes"))
+            or basename in {"icudtl.dat", "v8_context_snapshot.bin"}
+        ):
+            found.add(path)
+    return sorted(found)
+
+
+def validate_no_embedded_browser_payload(names) -> None:
+    unexpected = excluded_browser_payloads(names)
+    if unexpected:
+        raise RuntimeError("Excluded embedded browser/QML payload: " + ", ".join(unexpected[:10]))
 
 
 def configure_windows_analysis_environment() -> str | None:

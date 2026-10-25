@@ -1,6 +1,6 @@
 {
   "schema": "dupez.source-inputs.v1",
-  "reviewed_on": "2026-10-24",
+  "reviewed_on": "2026-10-25",
   "scope": "third-party-source-inputs",
   "delivery_gaps": [
     "This inventory collects upstream version-source inputs, not an attested reconstruction of every shipped native binary; bundled/transitive native library sources and build inputs still require exact-artifact review.",
@@ -67,7 +67,7 @@
         "https://github.com/kalirenegade-dev/clumsy/tree/bc87e73066168520d76122c9165e99ea703b166c"
       ],
       "gaps": [
-        "The upstream source commit is pinned; independently validate source/build configuration against the bundled clumsy.exe and IUP native bytes."
+        "The release tag resolves to the pinned source commit, and its external IUP dependency matches the official IUP DLL. Independently reconstruct the Clumsy executable and record exact compiler/configuration inputs; release-asset correspondence is not source rebuild proof."
       ],
       "artifacts": [
         {
@@ -200,15 +200,24 @@
     {
       "id": "iup",
       "version": "3.30",
-      "source_status": "unresolved",
+      "source_status": "upstream-source-pinned",
       "evidence_urls": [
         "https://github.com/kalirenegade-dev/clumsy/tree/bc87e73066168520d76122c9165e99ea703b166c",
-        "https://www.tecgraf.puc-rio.br/iup/"
+        "https://www.tecgraf.puc-rio.br/iup/en/download.html",
+        "https://sourceforge.net/projects/iup/files/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip/download"
       ],
       "gaps": [
-        "Identify the exact IUP 3.30 source/build configuration corresponding to the bundled iup.dll; the Clumsy archive includes dependency binaries, not proof of IUP source completeness."
+        "The bundled iup.dll exactly matches the official IUP 3.30 Win64 dll16 package and pinned Clumsy dependency; its header matches the retained source archive. SourceForge replaced the source archive on 2023-10-13 after the 2020 binary release. Exact source revision, patches, compiler/toolchain inputs and independently verified rebuild remain unresolved.",
+        "SourceForge's stable archive locator redirects to an expiring signed mirror URL. The collector intentionally rejects redirects and query tokens; use a separately reviewed bounded acquisition, then verify the cached size/hash before collection."
       ],
-      "artifacts": []
+      "artifacts": [
+        {
+          "filename": "iup-3.30_Sources.zip",
+          "url": "https://downloads.sourceforge.net/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip",
+          "size": 14226631,
+          "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+        }
+      ]
     },
     {
       "id": "keyboard",
@@ -551,7 +560,7 @@
         "https://github.com/basil00/WinDivert/releases/tag/v2.2.0"
       ],
       "gaps": [
-        "Confirm the upstream release asset/source mapping for both bundled WinDivert DLL and driver; record source rebuild/replacement instructions and applicable driver-signing constraints."
+        "Both bundled WinDivert DLL and driver match the official v2.2.0 release asset, whose tag resolves to the pinned source commit (recorded 2026-10-24). Independent source rebuild/replacement evidence, exact build inputs and applicable driver-signing constraints remain unresolved."
       ],
       "artifacts": [
         {
