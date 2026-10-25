@@ -43,7 +43,7 @@ function Assert-FrozenRuntimeEvidenceContract {
     if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') {
         throw "$ExpectedVariant frozen evidence expected commit is invalid."
     }
-    if ($Evidence.schema -cne "dupez.frozen-runtime-validation.v3") {
+    if ($Evidence.schema -cne "dupez.frozen-runtime-validation.v4") {
         throw "$ExpectedVariant frozen evidence schema mismatch."
     }
     if ($Evidence.variant -cne $ExpectedVariant) {
@@ -210,18 +210,21 @@ function Assert-FrozenRuntimeEvidenceContract {
         if ([int64]$run.exit_code -ne 0) {
             throw "$ExpectedVariant frozen evidence includes a failed lifecycle."
         }
-        if ($run.map_result -cne "Map: dashboard view active with WebEngine ready") {
-            throw "$ExpectedVariant frozen evidence lacks exact WebEngine Map proof."
+        if ($run.map_result -cne "Map: dashboard view active with manual approved URL") {
+            throw "$ExpectedVariant frozen evidence lacks exact manual Map URL proof."
         }
         if (
             $run.webengine_helper_observed -isnot [bool] -or
-            $run.webengine_helper_observed -ne $true
+            $run.webengine_helper_observed -ne $false
         ) {
-            throw "$ExpectedVariant frozen evidence lacks WebEngine helper proof."
+            throw "$ExpectedVariant frozen evidence contains an unexpected WebEngine helper claim."
         }
         $observedProcessNames = @($run.process_names_observed)
-        if (-not ($observedProcessNames -contains "QtWebEngineProcess.exe")) {
-            throw "$ExpectedVariant frozen evidence lacks the WebEngine helper process."
+        if (-not ($observedProcessNames -contains $ExpectedExecutable)) {
+            throw "$ExpectedVariant frozen evidence lacks the expected application process."
+        }
+        if ($observedProcessNames -contains "QtWebEngineProcess.exe") {
+            throw "$ExpectedVariant frozen evidence contains an unexpected WebEngine helper process."
         }
         if (
             $run.PSObject.Properties.Name -notcontains "crash_files" -or

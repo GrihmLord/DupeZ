@@ -25,10 +25,24 @@ FROZEN_BROWSER_EXCLUDES = (
     "PyQt6.QtWebChannel", "PyQt6.QtQml", "PyQt6.QtQuick", "PyQt6.QtQuickWidgets",
     "PyQt6.QtQuick3D", "app.gui.map_host.host", "app.gui.map_host.request_policy",
 )
+_DISABLED_BROWSER_UIC_PLUGINS = frozenset({
+    "pyqt6/uic/widget-plugins/qtquickwidgets.py",
+    "pyqt6/uic/widget-plugins/qtwebenginewidgets.py",
+})
 
 
 def _normalized_path(value: object) -> str:
     return str(value).replace("\\", "/").strip("/").casefold()
+
+
+def without_disabled_browser_uic_plugins(datas: list) -> list:
+    """Omit the two unused browser designer plugins collected as data by uic.
+
+    Module exclusions do not affect these hook-added source files. Keep all
+    other entries for the strict browser/QML rejection that follows; never
+    turn an unexpected browser DLL or resource into a silently removed input.
+    """
+    return [entry for entry in datas if _normalized_path(entry[0]) not in _DISABLED_BROWSER_UIC_PLUGINS]
 
 
 def excluded_browser_payloads(names) -> list[str]:

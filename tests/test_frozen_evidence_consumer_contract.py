@@ -15,7 +15,7 @@ def _read(relative: str) -> str:
     return (ROOT / relative).read_text(encoding="utf-8")
 
 
-def test_both_release_consumers_use_the_shared_v3_contract() -> None:
+def test_both_release_consumers_use_the_shared_v4_contract() -> None:
     contract = _read("scripts/frozen_runtime_evidence_contract.ps1")
     stage = _read("scripts/stage_release.ps1")
     recorder = _read("scripts/record_manual_release_validation.ps1")
@@ -27,7 +27,7 @@ def test_both_release_consumers_use_the_shared_v3_contract() -> None:
         assert '-ExpectedExecutable "DupeZ-Compat.exe"' in consumer
 
     required_contract_tokens = (
-        "dupez.frozen-runtime-validation.v3",
+        "dupez.frozen-runtime-validation.v4",
         "production-safety-dry-run",
         "run.network_validation_mode -cne $Evidence.network_validation_mode",
         "source_fingerprint",

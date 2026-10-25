@@ -46,9 +46,9 @@ function New-TestEvidence {
             launched_from_admin = $administrator
             architecture_observed = $architecture
             network_validation_mode = "production-safety-dry-run"
-            map_result = "Map: dashboard view active with WebEngine ready"
-            webengine_helper_observed = $true
-            process_names_observed = @("DupeZ-GPU.exe", "QtWebEngineProcess.exe")
+            map_result = "Map: dashboard view active with manual approved URL"
+            webengine_helper_observed = $false
+            process_names_observed = @($executable)
             clean_exit = $true
             exit_code = 0
             crash_files = @()
@@ -67,16 +67,16 @@ function New-TestEvidence {
             launched_from_admin = $administrator
             architecture_observed = $architecture
             network_validation_mode = "production-safety-dry-run"
-            map_result = "Map: dashboard view active with WebEngine ready"
-            webengine_helper_observed = $true
-            process_names_observed = @("DupeZ-GPU.exe", "QtWebEngineProcess.exe")
+            map_result = "Map: dashboard view active with manual approved URL"
+            webengine_helper_observed = $false
+            process_names_observed = @($executable)
             clean_exit = $true
             exit_code = 0
             crash_files = @()
         }
     )
     return [pscustomobject][ordered]@{
-        schema = "dupez.frozen-runtime-validation.v3"
+        schema = "dupez.frozen-runtime-validation.v4"
         variant = $Variant
         executable = $executable
         executable_sha256 = $hash
@@ -145,6 +145,9 @@ foreach ($variant in @("GPU", "Compat")) {
     Invoke-Contract -Evidence $valid -Variant $variant
 
     $mutations = @(
+        @{ Name = "old browser evidence schema"; Apply = { param($e) $e.schema = "dupez.frozen-runtime-validation.v3" } },
+        @{ Name = "old browser map proof"; Apply = { param($e) $e.runs[0].map_result = "Map: dashboard view active with WebEngine ready" } },
+        @{ Name = "unavailable map is not ready"; Apply = { param($e) $e.runs[0].map_result = "Map: dashboard view active without WebEngine" } },
         @{ Name = "top executable"; Apply = { param($e) $e.executable = "other.exe" } },
         @{ Name = "top hash"; Apply = { param($e) $e.executable_sha256 = "d" * 64 } },
         @{ Name = "top commit"; Apply = { param($e) $e.commit = "e" * 40 } },
@@ -167,8 +170,10 @@ foreach ($variant in @("GPU", "Compat")) {
         @{ Name = "run administrator"; Apply = { param($e) $e.runs[0].launched_from_admin = -not [bool]$e.runs[0].launched_from_admin } },
         @{ Name = "run administrator string"; Apply = { param($e) $e.runs[0].launched_from_admin = "False" } },
         @{ Name = "run network mode"; Apply = { param($e) $e.runs[0].network_validation_mode = "privileged" } },
-        @{ Name = "missing WebEngine helper boolean"; Apply = { param($e) $e.runs[0].webengine_helper_observed = $false } },
-        @{ Name = "missing WebEngine helper process"; Apply = { param($e) $e.runs[0].process_names_observed = @("DupeZ-GPU.exe") } },
+        @{ Name = "unexpected WebEngine helper boolean"; Apply = { param($e) $e.runs[0].webengine_helper_observed = $true } },
+        @{ Name = "nonboolean WebEngine helper claim"; Apply = { param($e) $e.runs[0].webengine_helper_observed = "False" } },
+        @{ Name = "missing application process"; Apply = { param($e) $e.runs[0].process_names_observed = @() } },
+        @{ Name = "unexpected WebEngine helper name"; Apply = { param($e) $e.runs[0].process_names_observed = @("DupeZ-GPU.exe", "qtwebengineprocess.EXE") } },
         @{ Name = "duplicate profile cycle"; Apply = { param($e) $e.runs[1].profile = "normal" } },
         @{ Name = "unexpected cycle"; Apply = { param($e) $e.runs[1].cycle = 2 } },
         @{ Name = "string cycle"; Apply = { param($e) $e.runs[1].cycle = "1" } },

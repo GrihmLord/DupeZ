@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import ast
+from pathlib import Path
 from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtWidgets import QApplication, QWidget
 
 from app.gui import dayz_map_gui_new as map_module
@@ -108,6 +110,85 @@ def test_reviewed_unelevated_runtime_installs_boundary_before_navigation(browser
     assert widget.webengine_ready is True
     widget.load_map("Livonia")
     assert browser_harness.events[-1] == ("load", "https://izurvive.com/livonia")
+    widget.deleteLater()
+
+
+@pytest.mark.parametrize("lazy", [False, True])
+def test_manual_readiness_requires_mounted_plain_approved_url_and_no_browser_owner(browser_harness, lazy):
+    browser_harness.policy.allowed = False
+    browser_harness.policy.reason = "Frozen build omits embedded browser"
+    widget = lazy_module.LazyDayZMapGUI() if lazy else map_module.DayZMapGUI()
+    if lazy:
+        widget.load_now()
+        label, layout = widget._status, widget._layout
+    else:
+        label, layout = widget._security_placeholder, widget._host_layout
+    assert widget.manual_url_ready is True
+    original = label.text()
+    assert "will not launch a browser" in original
+    assert "Renderer settings do not enable embedded browsing in packaged builds" in original
+    assert "Restart DupeZ" not in original
+    label.setText(original.replace("https://izurvive.com/chernarusplussatmap", "https://example.invalid/"))
+    assert widget.manual_url_ready is False
+    label.setText(original)
+    label.setTextFormat(Qt.TextFormat.RichText)
+    assert widget.manual_url_ready is False
+    label.setTextFormat(Qt.TextFormat.PlainText)
+    label.hide()
+    assert widget.manual_url_ready is False
+    label.show()
+    assert widget.manual_url_ready is True
+    layout.removeWidget(label)
+    assert widget.manual_url_ready is False
+    layout.addWidget(label)
+    if not lazy:
+        widget._host_client = object()
+        assert widget.manual_url_ready is False
+        widget._host_client = None
+        widget._security_cleanup_errors["child"] = "cleanup unconfirmed"
+        assert widget.manual_url_ready is False
+        widget._security_cleanup_errors.clear()
+    assert browser_harness.events == []
+    widget.deleteLater()
+
+
+def test_dashboard_manual_signal_requires_actual_valid_widget_and_active_map_tab(browser_harness):
+    browser_harness.policy.allowed = False
+    browser_harness.policy.reason = "Frozen build omits embedded browser"
+    widget = map_module.DayZMapGUI()
+    source = Path(__file__).resolve().parents[1] / "app/gui/dashboard.py"
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    methods = [node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)
+               and node.name in {"switch_view", "_on_map_webengine_status"}]
+    messages = []
+    namespace = {"log_info": messages.append, "log_error": messages.append}
+    exec(compile(ast.Module(body=methods, type_ignores=[]), str(source), "exec"), namespace)
+
+    class Stack:
+        index = 0
+
+        def currentIndex(self):
+            return self.index
+
+        def setCurrentIndex(self, index):
+            self.index = index
+
+    dashboard = SimpleNamespace(map_view=widget, view_stack=Stack(), nav_buttons=[])
+    active = "Map: dashboard view active with manual approved URL"
+    namespace["_on_map_webengine_status"](dashboard, "unavailable")
+    assert active not in messages
+    namespace["switch_view"](dashboard, 1)
+    assert messages == [active]
+    messages.clear()
+    namespace["_on_map_webengine_status"](dashboard, "unavailable")
+    assert messages == [active]
+    messages.clear()
+    widget._security_placeholder.setText("Map unavailable")
+    namespace["switch_view"](dashboard, 1)
+    namespace["_on_map_webengine_status"](dashboard, "unavailable")
+    assert active not in messages
+    assert "Map: dashboard view active without WebEngine" in messages
+    assert browser_harness.events == []
     widget.deleteLater()
 
 

@@ -470,6 +470,24 @@ class DayZMapGUI(QWidget):
         """Use only the fixed HTTPS catalogue for the manual browser fallback."""
         return _DAYZ_MAPS.get(self.current_map, _DAYZ_MAPS["Chernarus+ (Satellite)"])
 
+    @property
+    def manual_url_ready(self) -> bool:
+        """The approved URL is mounted as plain text with no retained browser."""
+        label = self._security_placeholder
+        return bool(
+            self._security_blocked_reason
+            and label is not None
+            and self._host_layout is not None
+            and self._host_layout.indexOf(label) >= 0
+            and label.isVisibleTo(self)
+            and label.textFormat() == Qt.TextFormat.PlainText
+            and self._manual_map_url() in label.text().splitlines()
+            and self.map_view is None
+            and self._secured_page is None
+            and self._host_client is None
+            and not self._security_cleanup_errors
+        )
+
     def _show_security_fallback(self) -> None:
         """Expose a copyable URL without invoking an elevated browser handler."""
         if self._host_layout is None:
@@ -497,8 +515,8 @@ class DayZMapGUI(QWidget):
             "Open this approved HTTPS address manually in your normal, "
             "non-administrator browser:\n"
             f"{self._manual_map_url()}\n\n"
-            "Restart DupeZ with a reviewed, patched browser runtime and sandbox "
-            "enabled before retrying the embedded map."
+            "DupeZ provides this address for manual use and will not launch a browser. "
+            "Renderer settings do not enable embedded browsing in packaged builds."
             + cleanup_note
         )
         self.browser_btn.setText("Manual browser URL")

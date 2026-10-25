@@ -1025,16 +1025,7 @@ def test_post_action_map_gate_does_not_reuse_pre_action_marker(
     log_root = tmp_path / "DupeZ" / "logs"
     log_root.mkdir(parents=True)
     log_path = log_root / "dupez.log"
-    log_path.write_text(
-        "\n".join(
-            (
-                validator.WEBENGINE_INITIALIZED_SIGNAL,
-                validator.MAP_LOAD_FINISHED_SIGNAL,
-                validator.MAP_DASHBOARD_ACTIVE_SIGNAL,
-            )
-        ),
-        encoding="utf-8",
-    )
+    log_path.write_text(validator.MAP_DASHBOARD_ACTIVE_SIGNAL + "\n", encoding="utf-8")
     pre_action_text, cursor = validator._log_snapshot(tmp_path)
     ticks = iter((0.0, 0.5, 2.0))
     monkeypatch.setattr(validator.time, "monotonic", lambda: next(ticks))
@@ -1044,8 +1035,6 @@ def test_post_action_map_gate_does_not_reuse_pre_action_marker(
         validator._wait_for_post_action_map_ready(
             tmp_path,
             cursor,
-            initialized_before_action=(validator.WEBENGINE_INITIALIZED_SIGNAL in pre_action_text),
-            load_finished_before_action=(validator.MAP_LOAD_FINISHED_SIGNAL in pre_action_text),
             timeout=1,
         )
 
@@ -1054,10 +1043,7 @@ def test_post_action_map_gate_accepts_only_new_dashboard_marker(tmp_path: Path) 
     log_root = tmp_path / "DupeZ" / "logs"
     log_root.mkdir(parents=True)
     log_path = log_root / "dupez.log"
-    log_path.write_text(
-        validator.WEBENGINE_INITIALIZED_SIGNAL + "\n" + validator.MAP_LOAD_FINISHED_SIGNAL + "\n",
-        encoding="utf-8",
-    )
+    log_path.write_text("Dashboard started\n", encoding="utf-8")
     pre_action_text, cursor = validator._log_snapshot(tmp_path)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(validator.MAP_DASHBOARD_ACTIVE_SIGNAL + "\n")
@@ -1066,8 +1052,6 @@ def test_post_action_map_gate_accepts_only_new_dashboard_marker(tmp_path: Path) 
         validator._wait_for_post_action_map_ready(
             tmp_path,
             cursor,
-            initialized_before_action=(validator.WEBENGINE_INITIALIZED_SIGNAL in pre_action_text),
-            load_finished_before_action=(validator.MAP_LOAD_FINISHED_SIGNAL in pre_action_text),
             timeout=1,
         )
         == validator.MAP_DASHBOARD_ACTIVE_SIGNAL
@@ -1078,10 +1062,7 @@ def test_post_ready_stability_rejects_late_renderer_failure(tmp_path: Path) -> N
     log_root = tmp_path / "DupeZ" / "logs"
     log_root.mkdir(parents=True)
     log_path = log_root / "dupez.log"
-    log_path.write_text(
-        validator.WEBENGINE_INITIALIZED_SIGNAL + "\n" + validator.MAP_LOAD_FINISHED_SIGNAL + "\n",
-        encoding="utf-8",
-    )
+    log_path.write_text("Dashboard started\n", encoding="utf-8")
     _text, cursor = validator._log_snapshot(tmp_path)
     with log_path.open("a", encoding="utf-8") as handle:
         handle.write(validator.MAP_DASHBOARD_ACTIVE_SIGNAL + "\n")
@@ -1129,8 +1110,32 @@ def test_log_cursor_fails_closed_on_same_file_truncation(tmp_path: Path) -> None
         "Map: renderer terminated unexpectedly",
         "Map: navigation failed",
         "Lazy map initialization failed",
+        "Map: WebEngine boundary initialized; awaiting navigation",
+        "Map: WebEngine navigation ready",
+        "Map: dashboard view active with WebEngine ready",
     ),
 )
 def test_map_failure_markers_fail_closed(message: str) -> None:
     with pytest.raises(RuntimeError, match="failure marker observed"):
         validator._raise_for_map_failure(message)
+
+
+def test_expected_missing_webengine_import_log_does_not_claim_or_block_manual_readiness():
+    message = "QtWebEngine not available — DayZ map will show a placeholder (reason: ImportError)"
+    validator._raise_for_map_failure(message)
+    assert validator.MAP_DASHBOARD_ACTIVE_SIGNAL not in message
+
+
+def test_unavailable_status_alone_cannot_prove_manual_map_ready(tmp_path, monkeypatch):
+    log_root = tmp_path / "DupeZ" / "logs"
+    log_root.mkdir(parents=True)
+    log_path = log_root / "dupez.log"
+    log_path.write_text("Dashboard started\n", encoding="utf-8")
+    _text, cursor = validator._log_snapshot(tmp_path)
+    with log_path.open("a", encoding="utf-8") as stream:
+        stream.write("Map: dashboard WebEngine state is unavailable\n")
+    ticks = iter((0.0, 0.5, 2.0))
+    monkeypatch.setattr(validator.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(validator.time, "sleep", lambda _seconds: None)
+    with pytest.raises(RuntimeError, match="post-action state"):
+        validator._wait_for_post_action_map_ready(tmp_path, cursor, timeout=1)

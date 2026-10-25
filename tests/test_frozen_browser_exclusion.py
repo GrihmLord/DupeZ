@@ -25,6 +25,7 @@ FORBIDDEN = [
     "v8_context_snapshot.bin", "PyQt6/Qt6/translations/qtwebengine_locales/en-US.pak",
     "PyQt6/Qt6/qml/QtQuick/Controls/qmldir", "PyQt6/Qt6/plugins/qmltooling/plugin.dll",
     "ordinary.qml", "plugins.qmltypes", "app.gui.map_host.host", "app.gui.map_host.request_policy",
+    "PyQt6/uic/widget-plugins/qtquickwidgets.py", "PyQt6/uic/widget-plugins/qtwebenginewidgets.py",
 ]
 
 
@@ -58,6 +59,19 @@ def test_build_collection_rejects_browser_data_and_preserves_widgets_and_schanne
     policy.validate_no_embedded_browser_payload(safe)
     with pytest.raises(RuntimeError, match="Excluded embedded browser/QML payload"):
         policy.validate_no_embedded_browser_payload([*safe, "ordinary.qml"])
+
+
+def test_uic_data_exclusion_is_exact_and_other_browser_payload_still_fails():
+    rows = [
+        ("PyQt6/uic/widget-plugins/qtquickwidgets.py", "wheel/qtquickwidgets.py", "DATA"),
+        ("PyQt6/uic/widget-plugins/qtwebenginewidgets.py", "wheel/qtwebenginewidgets.py", "DATA"),
+        ("PyQt6/uic/widget-plugins/qtprintsupport.py", "wheel/qtprintsupport.py", "DATA"),
+        ("PyQt6/Qt6/bin/Qt6WebEngineCore.dll", "unexpected/browser.dll", "BINARY"),
+    ]
+    result = policy.without_disabled_browser_uic_plugins(rows)
+    assert result == rows[2:]
+    with pytest.raises(RuntimeError, match="Excluded embedded browser/QML payload"):
+        policy.validate_no_embedded_browser_payload(entry[0] for entry in result)
 
 
 def test_both_builds_share_explicit_exclusions_and_no_required_webengine_import():
@@ -97,6 +111,8 @@ def external(url):
 QDesktopServices.openUrl = external
 app = QApplication([])
 widget = DayZMapGUI()
+widget.show()
+app.processEvents()
 widget.load_map("Livonia")
 widget._open_in_browser()
 assert "https://izurvive.com/livonia" in widget._security_placeholder.text()
@@ -104,6 +120,7 @@ assert "omits the embedded browser runtime" in widget._security_placeholder.text
 assert widget.browser_btn.text() == "Manual browser URL"
 assert widget.map_view is None and widget.webengine_ready is False
 assert widget.webengine_status == "unavailable"
+assert widget.manual_url_ready is True
 assert blocked
 assert not any(name.startswith("PyQt6.QtWebEngine") for name in sys.modules)
 print("manual catalogue works without embedded browser bytes")

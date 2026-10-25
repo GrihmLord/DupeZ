@@ -84,6 +84,22 @@ class LazyDayZMapGUI(QWidget):
         )
 
     @property
+    def manual_url_ready(self) -> bool:
+        """Prove the mounted fallback contains the fixed approved URL."""
+        if self._map_widget is not None:
+            return getattr(self._map_widget, "manual_url_ready", False) is True
+        return bool(
+            self._security_blocked_reason
+            and self._attempted
+            and not self._loading
+            and not self._load_failed
+            and self._layout.indexOf(self._status) >= 0
+            and self._status.isVisibleTo(self)
+            and self._status.textFormat() == Qt.TextFormat.PlainText
+            and "https://izurvive.com/chernarusplussatmap" in self._status.text().splitlines()
+        )
+
+    @property
     def webengine_status(self) -> str:
         if self._map_widget is not None:
             fallback = (
@@ -140,7 +156,8 @@ class LazyDayZMapGUI(QWidget):
                 "Open this approved HTTPS address manually in your normal, "
                 "non-administrator browser:\n"
                 "https://izurvive.com/chernarusplussatmap\n\n"
-                "Restart DupeZ with a reviewed, patched browser runtime and sandbox enabled."
+                "DupeZ provides this address for manual use and will not launch a browser. "
+                "Renderer settings do not enable embedded browsing in packaged builds."
             )
             self.webengineStatusChanged.emit("unavailable")
             self.webengineReadyChanged.emit(False)

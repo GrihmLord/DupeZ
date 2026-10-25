@@ -484,12 +484,12 @@ def test_release_staging_requires_exact_artifact_evidence():
         assert token in script, token
 
     for token in (
-        "dupez.frozen-runtime-validation.v3",
+        "dupez.frozen-runtime-validation.v4",
         "production-safety-dry-run",
         "Architecture: split | Admin: False",
         "Architecture: inproc | Admin: True",
         'source_state -cne "clean"',
-        "Map: dashboard view active with WebEngine ready",
+        "Map: dashboard view active with manual approved URL",
     ):
         assert token in frozen_contract, token
 
@@ -1361,9 +1361,8 @@ def test_frozen_runtime_validator_enforces_architecture_and_profiles():
         "DUPEZ_LOW_RESOURCE",
         "DUPEZ_MAP_PREWARM",
         "DupeZ started successfully",
-        "Map: WebEngine boundary initialized; awaiting navigation",
-        "Map: WebEngine navigation ready",
-        "Map: dashboard view active with WebEngine ready",
+        "Map: dashboard view active with manual approved URL",
+        "Frozen manual Map unexpectedly created a QtWebEngine process descendant",
         "RELEASE_SENSITIVE_ENVIRONMENT_NAMES",
         "DUPEZ_DISABLE_CERT_PIN",
         "_is_ambient_secret_environment_name",

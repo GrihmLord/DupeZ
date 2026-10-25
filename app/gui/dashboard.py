@@ -530,7 +530,9 @@ class DupeZDashboard(QMainWindow):
             status = str(
                 getattr(self.map_view, "webengine_status", "unavailable")
             )
-            if status == "ready" and getattr(
+            if status == "unavailable" and getattr(self.map_view, "manual_url_ready", False) is True:
+                log_info("Map: dashboard view active with manual approved URL")
+            elif status == "ready" and getattr(
                 self.map_view, "webengine_ready", False
             ):
                 log_info("Map: dashboard view active with WebEngine ready")
@@ -547,6 +549,9 @@ class DupeZDashboard(QMainWindow):
             log_info("Map: dashboard WebEngine navigation ready")
             if self.view_stack.currentIndex() == 1:
                 log_info("Map: dashboard view active with WebEngine ready")
+        elif normalized == "unavailable" and getattr(self.map_view, "manual_url_ready", False) is True:
+            if self.view_stack.currentIndex() == 1:
+                log_info("Map: dashboard view active with manual approved URL")
         elif normalized in {"failed", "crashed", "unavailable"}:
             log_error(f"Map: dashboard WebEngine state is {normalized}")
 

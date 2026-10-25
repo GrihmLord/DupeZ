@@ -66,6 +66,7 @@ from native_runtime_policy import (
     configure_windows_analysis_environment,
     validate_no_embedded_browser_payload,
     validate_windows_tls_binaries,
+    without_disabled_browser_uic_plugins,
 )
 
 
@@ -351,6 +352,7 @@ def build_variant(
     # manifest paths and remove only same-basename root duplicates.
     a.binaries = _filter_root_binary_duplicates(a.binaries)
     a.binaries = _filter_unapproved_collected_binaries(a.binaries)
+    a.datas = without_disabled_browser_uic_plugins(a.datas)
     validate_no_embedded_browser_payload(
         entry[0] for entry in [*a.binaries, *a.datas, *a.pure]
     )

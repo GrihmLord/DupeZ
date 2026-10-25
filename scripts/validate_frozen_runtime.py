@@ -4,7 +4,7 @@
 The PowerShell wrapper enforces the operator's elevation context and invokes
 this module with the repository Python. The validator follows PyInstaller's
 one-file process tree, binds to the exact dashboard HWND, exercises the real
-Ctrl+2 and Ctrl+Q shortcuts, checks map initialization and clean shutdown, and
+Ctrl+2 and Ctrl+Q shortcuts, checks the approved manual map URL and clean shutdown, and
 writes private hash-bound evidence under ``dist``.
 """
 
@@ -28,7 +28,7 @@ import uuid
 
 import psutil
 
-SCHEMA = "dupez.frozen-runtime-validation.v3"
+SCHEMA = "dupez.frozen-runtime-validation.v4"
 NETWORK_VALIDATION_MODE = "production-safety-dry-run"
 NETWORK_VALIDATION_SIGNAL = (
     "Safety dry-run controller started without scheduler, plugins, auto-scan, "
@@ -148,13 +148,11 @@ VALIDATOR_PROFILE_ENVIRONMENT_NAMES = frozenset(
         "DUPEZ_STARTUP_TIMEOUT_MS",
     }
 )
-WEBENGINE_INITIALIZED_SIGNAL = "Map: WebEngine boundary initialized; awaiting navigation"
-MAP_LOAD_FINISHED_SIGNAL = "Map: WebEngine navigation ready"
-MAP_DASHBOARD_ACTIVE_SIGNAL = "Map: dashboard view active with WebEngine ready"
+MAP_DASHBOARD_ACTIVE_SIGNAL = "Map: dashboard view active with manual approved URL"
 MAP_POST_READY_STABILITY_SECONDS = 1.0
 MAP_FAILURE_MARKERS = (
     "QtWebEngine disabled",
-    "placeholder",
+    "Map unavailable",
     "map_view is None",
     "WebEngine initialization failed",
     "dashboard view active without WebEngine",
@@ -165,6 +163,9 @@ MAP_FAILURE_MARKERS = (
     "Map: inproc load failed",
     "Map: child host load failed",
     "Lazy map initialization failed",
+    "WebEngine boundary initialized",
+    "WebEngine navigation ready",
+    "dashboard view active with WebEngine ready",
 )
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
@@ -1617,32 +1618,24 @@ def _wait_for_post_action_map_ready(
     runtime_root: Path,
     cursor: LogCursor,
     *,
-    initialized_before_action: bool,
-    load_finished_before_action: bool,
     timeout: int,
 ) -> str:
-    """Require real WebEngine readiness and a Map activation after Ctrl+2."""
+    """Require a validated manual-URL widget on the active Map tab after Ctrl+2.
 
-    initialized = initialized_before_action
-    load_finished = load_finished_before_action
+    The dashboard emits this exact signal only after inspecting the mounted
+    PlainText URL widget and confirming no browser/child cleanup remains.
+    Ordinary unavailable/error messages are not readiness evidence.
+    """
+
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         suffix = _log_text_since(runtime_root, cursor)
         _raise_for_map_failure(suffix)
-        initialized = initialized or WEBENGINE_INITIALIZED_SIGNAL in suffix
-        load_finished = load_finished or MAP_LOAD_FINISHED_SIGNAL in suffix
-        dashboard_active = MAP_DASHBOARD_ACTIVE_SIGNAL in suffix
-        if initialized and load_finished and dashboard_active:
+        if MAP_DASHBOARD_ACTIVE_SIGNAL in suffix:
             return MAP_DASHBOARD_ACTIVE_SIGNAL
         time.sleep(0.25)
 
-    missing: list[str] = []
-    if not initialized:
-        missing.append(WEBENGINE_INITIALIZED_SIGNAL)
-    if not load_finished:
-        missing.append(MAP_LOAD_FINISHED_SIGNAL)
-    missing.append(MAP_DASHBOARD_ACTIVE_SIGNAL)
-    raise RuntimeError("Frozen Map validation did not observe required post-action state: " + ", ".join(missing))
+    raise RuntimeError("Frozen Map validation did not observe required post-action state: " + MAP_DASHBOARD_ACTIVE_SIGNAL)
 
 
 def _assert_post_ready_stability(
@@ -1651,7 +1644,7 @@ def _assert_post_ready_stability(
     *,
     duration: float = MAP_POST_READY_STABILITY_SECONDS,
 ) -> None:
-    """Reject renderer/navigation failures that race immediately after ready."""
+    """Reject late map failures or unexpected embedded-browser activity."""
 
     deadline = time.monotonic() + duration
     while True:
@@ -2034,14 +2027,10 @@ def _run_profile(
         startup_duration_ms = int((time.monotonic() - started_mono) * 1000)
         pre_action_text, log_cursor = _log_snapshot(runtime_root)
         _raise_for_map_failure(pre_action_text)
-        initialized_before_action = WEBENGINE_INITIALIZED_SIGNAL in pre_action_text
-        load_finished_before_action = MAP_LOAD_FINISHED_SIGNAL in pre_action_text
         _send_ctrl_key(dashboard, 0x32)  # Ctrl+2: Map
         map_result = _wait_for_post_action_map_ready(
             runtime_root,
             log_cursor,
-            initialized_before_action=initialized_before_action,
-            load_finished_before_action=load_finished_before_action,
             timeout=map_timeout,
         )
         _assert_post_ready_stability(runtime_root, log_cursor)
@@ -2063,8 +2052,8 @@ def _run_profile(
             }
         )
         webengine_helper_observed = any(name.casefold() in WEBENGINE_PROCESS_NAMES for name in process_names_observed)
-        if not webengine_helper_observed:
-            raise RuntimeError("Frozen Map readiness lacked a QtWebEngine process descendant")
+        if webengine_helper_observed:
+            raise RuntimeError("Frozen manual Map unexpectedly created a QtWebEngine process descendant")
         _raise_for_map_failure(_log_text_since(runtime_root, log_cursor))
         _send_ctrl_key(dashboard, 0x51)  # Ctrl+Q: DupeZ force-quit path
         try:
