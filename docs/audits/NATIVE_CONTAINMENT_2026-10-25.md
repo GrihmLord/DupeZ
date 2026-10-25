@@ -60,6 +60,8 @@ activated the validated manual map URL, observed no WebEngine child and exited
 cleanly with no crash files. The application's production safety dry-run mode
 was required before exercising the Map and quit shortcuts. No packet-engine or
 disruption-hotkey effect was tested.
+The actual GPU report also passes the v4 consumer contract under the required
+Windows PowerShell 5.1 release environment.
 
 The stable checkpoint suite passed **3,367 tests**, with **10 expected skips**,
 **58.40% application line coverage**, in **198.47 seconds**. Six skips require

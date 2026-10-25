@@ -95,6 +95,11 @@
     "gpu": "passed",
     "compat": "passed"
   },
+  "actual_lifecycle_consumer_check": {
+    "variant": "GPU",
+    "host": "Windows PowerShell 5.1.26100.9711",
+    "v4_contract_result": "passed"
+  },
   "browser_payload_policy": "Both Analysis and final outer/PYZ archives reject WebEngine/WebChannel/QML/Quick modules, native libraries, helpers, resources and disabled browser uic plugins.",
   "maintenance": {
     "gpu": {

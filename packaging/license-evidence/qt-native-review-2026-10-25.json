@@ -1382,7 +1382,27 @@
       },
       "candidate_native_execution_during_preparation": false,
       "manifest_receipt_binding": "SHA256 of the exact bounded bytes parsed before downloads; later source-file changes do not alter the receipt",
-      "manifest_validation": "Canonical versions, known complete module partition, exact field/type schemas, duplicate field rejection and extracted qconfig version equality precede use"
+      "manifest_validation": "Canonical versions, known complete module partition, exact field/type schemas, duplicate field rejection and extracted qconfig version equality precede use",
+      "manifest_serialization": {
+        "commit": "4f2cbe2a7198845d99e84c389ae813edef4764d6",
+        "path": "packaging/qt-candidate-inputs.json",
+        "workspace_sha256": "ac8b2a84be760d278f9303abcf7b87b97cae6677aefcfcffe74fba3fb514f86a",
+        "workspace_size": 6918,
+        "git_blob_sha256": "44daddffe1b853e1a04c8f0c9adf1b5be3945aa879848d37efe5b48da790a670",
+        "git_blob_size": 6754,
+        "historical_preparation_manifest_sha256": "ac8b2a84be760d278f9303abcf7b87b97cae6677aefcfcffe74fba3fb514f86a",
+        "workspace_equals_git_blob": false,
+        "workspace_CRLF_count": 164,
+        "git_blob_CRLF_count": 0,
+        "LF_normalized_bytes_equal": true,
+        "parsed_manifests_equal": true,
+        "canonical_json_sha256": "3bdd39a1bda73e08cbfa60cf291e185086fc6cfebdddd0248ee32171ed072237",
+        "canonical_json_equal": true,
+        "observed_on": "2026-10-25",
+        "note": "The historical preparation consumed the 6918-byte CRLF workspace manifest, not the 6754-byte LF Git blob. Git normalized 164 CRLF line endings at commit. Historical manifest and preparation receipt hashes are unchanged; the Git-blob SHA256 is recorded separately. No preparation using the LF Git blob is claimed.",
+        "canonicalization": "UTF-8 json.dumps(parsed JSON, sort_keys=True, separators=(comma,colon), ensure_ascii=True), with no trailing newline",
+        "equivalence_checks": "Assertions passed for CRLF-to-LF byte equality, parsed object equality, and canonical JSON byte/hash equality."
+      }
     }
   },
   "bundling_route": {

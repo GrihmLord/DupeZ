@@ -114,6 +114,15 @@ All **933 wheel member payloads** matched the independently prepared candidate.
 The ZIP hashes differed, so this is content equivalence rather than a claim of
 bit-for-bit reproducibility. Exact receipts are in the evidence JSON.
 
+The historical preparation consumed the **6,918-byte CRLF workspace manifest**,
+SHA256 `ac8b2a84be760d278f9303abcf7b87b97cae6677aefcfcffe74fba3fb514f86a`.
+Commit `4f2cbe2a7198845d99e84c389ae813edef4764d6` normalized its 164 CRLF line
+endings to LF; the **6,754-byte Git blob** has SHA256
+`44daddffe1b853e1a04c8f0c9adf1b5be3945aa879848d37efe5b48da790a670`.
+Byte comparison after newline normalization, parsed JSON equality, and canonical
+JSON equality all passed. The historical receipt remains unchanged. These checks
+do not claim that preparation was run using the LF Git blob.
+
 Production integration still requires coordinated changes to
 `requirements.in`, `requirements-locked.txt`, the third-party inventory,
 source inputs and license/SBOM evidence. The current lock requires separate
