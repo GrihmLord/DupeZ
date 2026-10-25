@@ -155,6 +155,38 @@ class TestDetectionLadderPriority(unittest.TestCase):
         self.assertEqual(r.platform, "ps5")
 
 
+class TestReasonPrivacy(unittest.TestCase):
+    """Detection traces retain decisions without echoing device identifiers."""
+
+    def test_mac_reason_omits_raw_oui_but_keeps_platform(self):
+        r = resolve_target_profile(
+            "192.168.137.40", mac="b4:0a:d8:11:22:33",
+        )
+        trace = " ".join(r.reasons).lower()
+        self.assertNotIn("b4:0a:d8", trace)
+        self.assertIn("mac oui category matched", trace)
+        self.assertIn("platform=ps5", trace)
+
+    def test_hostname_reason_omits_raw_value_but_keeps_platform(self):
+        hostname = "PS5-alice-private-host"
+        r = resolve_target_profile("192.168.137.41", hostname=hostname)
+        trace = " ".join(r.reasons)
+        self.assertNotIn(hostname, trace)
+        self.assertIn("hostname pattern matched", trace)
+        self.assertIn("platform=ps5", trace)
+
+    def test_device_type_reason_omits_raw_value_but_keeps_platform(self):
+        device_type = "Xbox Series X - Alice's room"
+        r = resolve_target_profile(
+            "192.168.137.42", device_type=device_type,
+        )
+        trace = " ".join(r.reasons)
+        self.assertNotIn(device_type, trace)
+        self.assertNotIn("Alice's room", trace)
+        self.assertIn("device_type category matched", trace)
+        self.assertIn("platform=xbox", trace)
+
+
 class TestUnknownDefault(unittest.TestCase):
     def test_forward_no_signals_defaults_ps5(self):
         r = resolve_target_profile("192.168.137.99")

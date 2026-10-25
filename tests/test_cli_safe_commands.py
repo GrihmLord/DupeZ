@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import io
 import sys
 from pathlib import Path
 
@@ -100,6 +101,200 @@ def test_support_command_does_not_require_admin_or_controller(monkeypatch) -> No
         "command": "support",
         "support_command": "bundle",
     }
+
+
+def test_webhook_command_does_not_require_admin_or_controller(monkeypatch) -> None:
+    from app import cli
+
+    called = {}
+
+    def fake_webhook(controller, args):
+        called["controller"] = controller
+        called["command"] = args.command
+        called["webhook_command"] = args.webhook_command
+
+    monkeypatch.setattr(cli, "is_admin", lambda: False)
+    monkeypatch.setitem(cli._CMD_MAP, "webhook", fake_webhook)
+    monkeypatch.setattr(sys, "argv", ["dupez-cli", "webhook", "status"])
+
+    cli.main()
+
+    assert called == {
+        "controller": None,
+        "command": "webhook",
+        "webhook_command": "status",
+    }
+
+
+def test_webhook_provision_never_echoes_credential(
+    monkeypatch,
+    capsys,
+) -> None:
+    import getpass
+    from app import cli
+    from app.core import audit_webhook_config
+
+    url = "https://discord.com/api/" + "webhooks/123/cli-test"
+    received = {}
+    monkeypatch.setattr(getpass, "getpass", lambda _prompt: url)
+    monkeypatch.setattr(
+        audit_webhook_config,
+        "provision_audit_webhook",
+        lambda value, **kwargs: received.update(url=value, **kwargs),
+    )
+
+    exit_code = cli.cmd_webhook(
+        None,
+        argparse_namespace(
+            webhook_command="provision",
+            apply=True,
+            url_stdin=False,
+            kind="discord",
+            rate_limit=30,
+            disabled=False,
+            json=True,
+        ),
+    )
+
+    output = capsys.readouterr().out
+    assert received["url"] == url
+    assert url not in output
+    assert "cli-test" not in output
+    assert json.loads(output)["ok"] is True
+    assert exit_code == 0
+
+
+def test_webhook_provision_without_apply_returns_usage_failure(
+    monkeypatch,
+    capsys,
+) -> None:
+    from app import cli
+
+    monkeypatch.setattr(cli, "is_admin", lambda: False)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["dupez-cli", "webhook", "provision", "--url-stdin", "--json"],
+    )
+
+    assert cli.main() == 2
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["applied"] is False
+
+
+def test_webhook_automation_failure_returns_nonzero_without_echoing_url(
+    monkeypatch,
+    capsys,
+) -> None:
+    from app import cli
+    from app.core import audit_webhook_config
+
+    url = "https://discord.com/api/" + "webhooks/123/failed-secret"
+
+    def fail_provision(*_args, **_kwargs):
+        raise audit_webhook_config.AuditWebhookSecretError("secret-store failed")
+
+    monkeypatch.setattr(cli, "is_admin", lambda: False)
+    monkeypatch.setattr(
+        audit_webhook_config,
+        "provision_audit_webhook",
+        fail_provision,
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO(url + "\n"))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "dupez-cli",
+            "webhook",
+            "provision",
+            "--apply",
+            "--url-stdin",
+            "--json",
+        ],
+    )
+
+    assert cli.main() == 1
+    output = capsys.readouterr().out
+    assert url not in output
+    assert "failed-secret" not in output
+    assert json.loads(output)["ok"] is False
+
+
+def test_webhook_disable_failure_returns_nonzero(monkeypatch, capsys) -> None:
+    from app import cli
+    from app.core import audit_webhook_config
+
+    def fail_disable(_enabled):
+        raise audit_webhook_config.AuditWebhookSecretError("secret-store failed")
+
+    monkeypatch.setattr(cli, "is_admin", lambda: False)
+    monkeypatch.setattr(
+        audit_webhook_config,
+        "configure_audit_webhook_enabled",
+        fail_disable,
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["dupez-cli", "webhook", "disable", "--json"],
+    )
+
+    assert cli.main() == 1
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def test_module_entrypoint_propagates_webhook_failure_status() -> None:
+    import subprocess
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.cli",
+            "webhook",
+            "provision",
+            "--url-stdin",
+            "--json",
+        ],
+        input="",
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert completed.returncode == 2
+    assert json.loads(completed.stdout)["ok"] is False
+
+
+def test_module_entrypoint_propagates_webhook_operational_failure() -> None:
+    import subprocess
+
+    submitted = "not-a-valid-webhook-url"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "app.cli",
+            "webhook",
+            "provision",
+            "--apply",
+            "--url-stdin",
+            "--json",
+        ],
+        input=submitted + "\n",
+        text=True,
+        capture_output=True,
+        timeout=30,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert submitted not in completed.stdout
+    assert submitted not in completed.stderr
+    assert json.loads(completed.stdout)["ok"] is False
 
 
 def test_safety_command_does_not_require_admin_or_controller(monkeypatch) -> None:
@@ -306,7 +501,7 @@ def test_disrupt_refuses_without_acknowledgement(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(acknowledgement, "is_acknowledged", lambda: False)
 
-    cli.cmd_disrupt(
+    result = cli.cmd_disrupt(
         Controller(),
         argparse_namespace(
             ip="192.168.1.20",
@@ -319,6 +514,66 @@ def test_disrupt_refuses_without_acknowledgement(monkeypatch, capsys) -> None:
     assert "Authorized-use acknowledgement is required" in (
         capsys.readouterr().out
     )
+    assert result == 2
+
+
+@pytest.mark.parametrize("all_targets", [False, True])
+def test_stop_failure_returns_nonzero(all_targets, capsys) -> None:
+    from app import cli
+
+    class Controller:
+        @staticmethod
+        def stop_disruption(_ip):
+            return False
+
+        @staticmethod
+        def stop_all_disruptions():
+            return False
+
+    result = cli.cmd_stop(
+        Controller(),
+        argparse_namespace(
+            ip=None if all_targets else "192.168.1.20",
+            all=all_targets,
+        ),
+    )
+
+    assert result == 1
+    assert "Failed" in capsys.readouterr().out
+
+
+def test_admin_dispatch_propagates_command_result(monkeypatch) -> None:
+    from app import cli
+    from app.core import controller as controller_module
+
+    class Controller:
+        @staticmethod
+        def shutdown():
+            return True
+
+    monkeypatch.setattr(controller_module, "AppController", Controller)
+    monkeypatch.setattr(cli, "is_admin", lambda: True)
+    monkeypatch.setitem(cli._CMD_MAP, "status", lambda _controller, _args: 7)
+    monkeypatch.setattr(sys, "argv", ["dupez-cli", "status"])
+
+    assert cli.main() == 7
+
+
+def test_admin_dispatch_reports_unconfirmed_shutdown(monkeypatch) -> None:
+    from app import cli
+    from app.core import controller as controller_module
+
+    class Controller:
+        @staticmethod
+        def shutdown():
+            return False
+
+    monkeypatch.setattr(controller_module, "AppController", Controller)
+    monkeypatch.setattr(cli, "is_admin", lambda: True)
+    monkeypatch.setitem(cli._CMD_MAP, "status", lambda _controller, _args: 0)
+    monkeypatch.setattr(sys, "argv", ["dupez-cli", "status"])
+
+    assert cli.main() == 1
 
 
 def test_secret_store_status_reports_health(monkeypatch, capsys) -> None:
@@ -712,6 +967,7 @@ def argparse_namespace(
     support_command: str = "",
     safety_command: str = "",
     storage_command: str = "",
+    webhook_command: str = "",
     include_account_data: bool = False,
     include_file_list: bool = False,
     json: bool = False,
@@ -727,6 +983,7 @@ def argparse_namespace(
         support_command=support_command,
         safety_command=safety_command,
         storage_command=storage_command,
+        webhook_command=webhook_command,
         include_account_data=include_account_data,
         include_file_list=include_file_list,
         json=json,

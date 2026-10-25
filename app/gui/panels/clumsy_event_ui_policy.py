@@ -4,29 +4,27 @@
 The event panel previously locked the global direction to Both because the old
 runtime only verified bidirectional requests. The owned runtime now verifies
 per-module Inbound/Outbound callbacks, so that lock is both inaccurate and
-counterproductive. This adapter also applies exact fork slider limits only
-while explicit Clumsy is selected, restoring the broader Native/Auto ranges
-when the operator switches away.
+counterproductive. Standard modules always retain the shared fork slider
+limits: changing the requested engine does not make their unsupported values
+representable. Explicit Clumsy additionally locks the legacy Disconnect-only
+fields that the fork does not expose.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from app.core.clumsy_controls import CLUMSY_NUMERIC_LIMITS
 from app.core.disruption_events import ENGINE_CLUMSY, ENGINE_NATIVE
 from app.gui.panels.clumsy_advanced_panel import ClumsyAdvancedPanel
 from app.gui.panels.disruption_event_panel import DisruptionEventPanel
 
 __all__ = ["install_clumsy_event_ui_policy"]
 
-# Exact public-slider bounds for the bundled fork. Fields omitted here already
-# match the shared 0..100 chance limits.
+# Shared standard-module bounds, plus the existing explicit-Clumsy treatment
+# of legacy Disconnect fields. Do not invent timing equivalents for the fork.
 _CLUMSY_SLIDER_LIMITS = {
-    "lag_delay": (0, 15_000),
-    "bandwidth_limit": (0, 99_999),
-    "bandwidth_queue": (0, 99_999),
-    "throttle_frame": (0, 1_000),
-    "duplicate_count": (1, 49),
+    **CLUMSY_NUMERIC_LIMITS,
     # The fork's Disconnect module has no chance or timing controls.
     "disconnect_chance": (100, 100),
     "disconnect_arm_delay_ms": (0, 0),
@@ -57,7 +55,7 @@ def _apply_clumsy_slider_policy(panel: Any) -> None:
         }
     elif not explicit and saved is not None:
         for key, slider in sliders.items():
-            minimum, maximum = original.get(
+            minimum, maximum = CLUMSY_NUMERIC_LIMITS.get(key) or original.get(
                 key,
                 (slider.minimum(), slider.maximum()),
             )
@@ -69,7 +67,7 @@ def _apply_clumsy_slider_policy(panel: Any) -> None:
 
     if not explicit:
         for key, slider in sliders.items():
-            minimum, maximum = original.get(
+            minimum, maximum = CLUMSY_NUMERIC_LIMITS.get(key) or original.get(
                 key,
                 (slider.minimum(), slider.maximum()),
             )
@@ -119,13 +117,15 @@ def _route_status(panel: Any, _index: int = -1) -> None:
         )
     elif engine == ENGINE_NATIVE:
         engine_text = (
-            "Native WinDivert is explicit: Clumsy-specific preset, timer, "
-            "bandwidth-unit, and RST-next controls do not trigger fallback."
+            "Native is only for explicitly namespaced DupeZ extensions; "
+            "standard Clumsy modules are rejected, not substituted. "
+            "Mixed standard/extension requests are unsupported."
         )
     else:
         engine_text = (
-            "Auto prefers fully verified Clumsy controls when the requested "
-            "semantics are exact, then uses Native only for a bounded equivalent."
+            "Auto selects Clumsy for standard modules and Native only for "
+            "explicitly namespaced DupeZ extensions. Mixed requests are "
+            "unsupported; a startup failure never substitutes another engine."
         )
     layer_text = (
         "Target profile chooses Local/Remote."

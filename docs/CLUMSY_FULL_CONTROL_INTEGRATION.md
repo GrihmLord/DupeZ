@@ -81,12 +81,35 @@ Direct Clumsy startup must verify, in order:
 11. Start-to-Stop transition.
 12. Optional RST-next one-shot after Start.
 
-Any missing or unconfirmed control fails explicit Clumsy closed. Auto can use
-Native only when the requested semantics remain equivalent.
+Any missing or unconfirmed control fails Clumsy closed. Auto selects the backend
+from the capability contract: standard effects use Clumsy and namespaced DupeZ
+extensions use Native. A Clumsy failure never substitutes Native, and mixed
+standard/extension requests are rejected before launch.
+
+Control wiring/readback is not proof of measured packet effects. In particular,
+the full-controls hardware test currently sets duplication chance to zero; it
+does not validate packet duplication. The remaining integration and hotkey
+acceptance matrix is tracked in the [launch plan](release-notes/LAUNCH_PLAN_5.8.0.md).
+Clumsy packet duplication is distinct from a game character/item duplication
+exploit; game cloning is not an integration acceptance criterion.
+
+## Application hotkeys
+
+Settings → Hotkeys provides optional global Start, Stop All and Panic Stop chords.
+Global operation hooks default off; Start requires its own opt-in and registered
+emergency hooks. Global actions fire on key release. F1 reports actual armed keys,
+registration failures and retained old emergency bindings separately from saved
+configuration. Start uses the normal selected-target validation path, and Stop/Panic
+cancel pending Start callbacks. No in-game cloning or timed key macros are provided.
+
+Source tests mock hook registration and Qt dispatch; they do not establish that
+keys are delivered while another app consumes them. Exact-build focus/elevation
+and cleanup tests remain mandatory. Standard UI numeric ranges now come from the
+shared backend contract, including 1–49 extra packet copies, with unchanged defaults.
 
 ## Required evidence before release
 
-- Complete pytest suite on Python 3.11 and 3.12.
+- Complete pytest suite on Python 3.12 and 3.13.
 - Authorized source-mode hardware matrix against one exact private IP/MAC.
 - No orphaned `clumsy.exe` process after normal or failed runs.
 - Generated `config.txt` / `presets.ini` restored after tests.
@@ -95,5 +118,6 @@ Native only when the requested semantics remain equivalent.
   unfinished social packages or forbidden optional dependencies.
 - Diagnostic-window restoration verified in both frozen variants.
 - Normal and forced low-resource startup/shutdown verified.
-- Installer, Authenticode/RFC3161, Defender, SBOM/VEX/provenance, and signed
-  updater-manifest gates completed before merge, tag, or publication.
+- Installer, Authenticode/RFC3161, Defender, SBOM, lock-bound vulnerability
+  review, provenance, and signed updater-manifest gates completed before
+  merge, tag, or publication.

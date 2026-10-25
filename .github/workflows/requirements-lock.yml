@@ -1,13 +1,13 @@
 name: Requirements Lock Verification
 
-# Supply-chain gate for the committed release lock.
+# Supply-chain gate for the committed runtime and release-build locks.
 #
 # Do not compare the lock against a fresh resolution of broad ranges: that
 # turns every new upstream publication into an unrelated release upgrade.
-# Instead, validate that each direct requirement is represented by a compatible
-# exact pin with hashes, then ask pip to resolve/install the committed hashed
-# graph without changing it. Windows CI covers the complete platform-specific
-# runtime path.
+# Instead, validate that each direct input is represented by a compatible exact
+# pin with hashes, then ask pip to resolve/install each committed hashed graph
+# without changing it. Windows CI checks build tooling on the canonical release
+# platform; the runtime graph retains its existing cross-platform check.
 
 on:
   push:
@@ -15,6 +15,12 @@ on:
     paths:
       - "requirements.in"
       - "requirements-locked.txt"
+      - "requirements-test.in"
+      - "requirements-test-locked.txt"
+      - "requirements-hardware-test.in"
+      - "requirements-hardware-test-locked.txt"
+      - "packaging/requirements-build.in"
+      - "packaging/requirements-build-locked.txt"
       - "scripts/lock-requirements.*"
       - "scripts/verify_requirements_lock.py"
       - ".github/workflows/requirements-lock.yml"
@@ -22,6 +28,12 @@ on:
     paths:
       - "requirements.in"
       - "requirements-locked.txt"
+      - "requirements-test.in"
+      - "requirements-test-locked.txt"
+      - "requirements-hardware-test.in"
+      - "requirements-hardware-test-locked.txt"
+      - "packaging/requirements-build.in"
+      - "packaging/requirements-build-locked.txt"
       - "scripts/lock-requirements.*"
       - "scripts/verify_requirements_lock.py"
       - ".github/workflows/requirements-lock.yml"
@@ -41,14 +53,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up canonical Python 3.11
+      - name: Set up canonical Python 3.13.17
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
+          python-version: "3.13.17"
 
       - name: Upgrade pip tooling
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade 'pip==26.2.2'
 
       - name: Verify direct requirements against hashed pins
         run: |
@@ -59,9 +71,88 @@ jobs:
       - name: Dry-run committed hashed graph
         run: |
           python -m pip install --dry-run --require-hashes \
-            -r requirements-locked.txt || {
-              echo "::warning::Full hashed install is not resolvable on Linux."
-              echo "::warning::This may be caused by Windows-only or platform-sensitive wheels."
-              echo "::warning::The Windows test/build workflows remain authoritative for the complete runtime graph."
-              exit 0
-            }
+            -r requirements-locked.txt
+
+  verify-build-lock:
+    name: Build-tool lock contract and installability
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up canonical Python 3.13.17
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.17"
+          architecture: x64
+
+      - name: Upgrade pip tooling
+        shell: bash
+        run: python -m pip install --upgrade 'pip==26.2.2'
+
+      - name: Verify build requirements against hashed pins
+        shell: bash
+        run: |
+          python scripts/verify_requirements_lock.py \
+            --requirements packaging/requirements-build.in \
+            --lock packaging/requirements-build-locked.txt
+
+      - name: Dry-run committed hashed build-tool graph
+        shell: bash
+        run: |
+          python -m pip install --dry-run --require-hashes \
+            -r packaging/requirements-build-locked.txt
+
+  verify-test-lock:
+    name: Test-tool lock contract and installability
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup canonical test Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13.17'
+
+      - name: Verify test-tool lock structure
+        shell: bash
+        run: |
+          python scripts/verify_requirements_lock.py \
+            --requirements requirements-test.in \
+            --lock requirements-test-locked.txt
+
+      - name: Verify test-tool lock installation
+        shell: bash
+        run: |
+          python -m pip install --only-binary=:all: \
+            --dry-run --require-hashes \
+            -r requirements-test-locked.txt
+
+  verify-hardware-test-lock:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup canonical hardware Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13.17'
+
+      - name: Install canonical pip
+        run: python -m pip install --upgrade 'pip==26.2.2'
+
+      - name: Verify hardware test lock structure
+        run: >-
+          python scripts/verify_requirements_lock.py
+          --requirements requirements-hardware-test.in
+          --lock requirements-hardware-test-locked.txt
+
+      - name: Verify hardware test lock installation
+        run: >-
+          python -m pip install --only-binary=:all:
+          --dry-run --require-hashes
+          -r requirements-hardware-test-locked.txt

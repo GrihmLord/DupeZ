@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import threading
 import time
+import urllib.error
 
 import pytest
 
+from app.core import audit_webhook as audit_webhook_module
 from app.core.audit_webhook import (
+    AuditSink,
     DEFAULT_EVENT_WHITELIST,
     DiscordWebhookSink,
     GenericWebhookSink,
@@ -23,13 +26,18 @@ from app.core.audit_webhook import (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_sink_registry() -> None:
+def _isolate_sink_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     """Clear the module-level sink list before AND after each test.
 
     The sink registry is process-wide; without isolation, test order
     affects results. Autouse fixture ensures every test starts and
     ends with an empty registry.
     """
+    monkeypatch.setattr(
+        audit_webhook_module,
+        "_load_operator_allowlist",
+        lambda: frozenset({"example.invalid"}),
+    )
     clear_sinks()
     yield
     clear_sinks()
@@ -192,6 +200,87 @@ class TestEventFiltering:
     def test_unknown_event_rejected(self) -> None:
         s = DiscordWebhookSink("https://example.invalid/x")
         assert s.accepts("nonexistent_event") is False
+
+
+class TestCredentialSafeFailureLogging:
+    """Transport failures must not copy bearer webhook URLs into logs."""
+
+    _URL = (
+        "https://example.invalid/api/hooks/account/"
+        "credential-token?auth=query-secret"
+    )
+
+    @staticmethod
+    def _assert_url_secrets_absent(messages: list[str]) -> None:
+        rendered = "\n".join(messages)
+        assert "credential-token" not in rendered
+        assert "query-secret" not in rendered
+        assert "https://example.invalid" not in rendered
+
+    @pytest.mark.parametrize(
+        "sink_type", [GenericWebhookSink, DiscordWebhookSink],
+    )
+    def test_urlerror_reason_does_not_leak_url(
+        self, sink_type, monkeypatch,
+    ) -> None:
+        messages: list[str] = []
+        sink = sink_type(self._URL)
+
+        def fail_open(*_args, **_kwargs):
+            raise urllib.error.URLError(
+                RuntimeError(f"connection failed for {self._URL}")
+            )
+
+        monkeypatch.setattr(audit_webhook_module, "log_warning", messages.append)
+        monkeypatch.setattr(
+            audit_webhook_module, "_open_no_redirect", fail_open,
+        )
+
+        sink._post("cut_start", {"status": "test"})
+
+        assert messages
+        self._assert_url_secrets_absent(messages)
+
+    @pytest.mark.parametrize(
+        "sink_type", [GenericWebhookSink, DiscordWebhookSink],
+    )
+    def test_http_error_does_not_leak_url(
+        self, sink_type, monkeypatch,
+    ) -> None:
+        messages: list[str] = []
+        sink = sink_type(self._URL)
+
+        def fail_open(*_args, **_kwargs):
+            raise urllib.error.HTTPError(
+                self._URL, 401, "Unauthorized", {}, None,
+            )
+
+        monkeypatch.setattr(audit_webhook_module, "log_warning", messages.append)
+        monkeypatch.setattr(
+            audit_webhook_module, "_open_no_redirect", fail_open,
+        )
+
+        sink._post("cut_start", {"status": "test"})
+
+        assert messages == [f"{sink_type.__name__} HTTP 401"]
+        self._assert_url_secrets_absent(messages)
+
+    def test_outer_failure_guard_does_not_log_exception_url(
+        self, monkeypatch,
+    ) -> None:
+        messages: list[str] = []
+
+        class LeakyFailureSink(AuditSink):
+            def _post(self, _event: str, _payload: dict) -> None:
+                raise RuntimeError(f"network failure at {self.url}")
+
+        sink = LeakyFailureSink(self._URL)
+        monkeypatch.setattr(audit_webhook_module, "log_warning", messages.append)
+
+        sink._fire_safe("cut_start", {"status": "test"})
+
+        assert messages
+        self._assert_url_secrets_absent(messages)
 
 
 class TestEmitToSinks:

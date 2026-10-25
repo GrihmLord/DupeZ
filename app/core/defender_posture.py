@@ -37,8 +37,14 @@ class DefenderPosture:
 
 
 def _powershell_path() -> Path:
-    system_root = os.environ.get("SystemRoot") or r"C:\Windows"
-    return Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    from app.core import safe_subprocess
+
+    return Path(
+        safe_subprocess.resolve_system_binary(
+            "powershell",
+            subdirectory=("WindowsPowerShell", "v1.0"),
+        )
+    )
 
 
 def _as_bool(value: Any) -> bool | None:
@@ -121,7 +127,14 @@ def query_defender_posture(days: int = 7) -> DefenderPosture:
             message="Microsoft Defender cmdlets are only available on Windows",
         )
 
-    powershell = _powershell_path()
+    try:
+        powershell = _powershell_path()
+    except Exception:
+        return DefenderPosture(
+            available=False,
+            status="unavailable",
+            message="PowerShell executable was not found",
+        )
     if not powershell.is_file():
         return DefenderPosture(
             available=False,

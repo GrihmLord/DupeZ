@@ -1,11 +1,19 @@
-# DupeZ — Master Certification v3 (Nation-State Grade)
+# DupeZ — Historical Master Certification v3 (Superseded)
 
 **Generated:** 2026-04-18T02:16Z
 **Verified on Windows host:** 2026-04-18T02:34Z (offsec-v3.json)
 **Supersedes:** `MASTER_CERTIFICATION_2026-04-17_v2.md` (BLOCKED on §9.2)
 **Product Version:** v5.6.1
 **Scope:** End-to-end 7-phase unified certification sweep
-**Verdict:** **CERTIFIED — NATION-STATE GRADE** (offsec engagement verified, §8)
+**Historical verdict:** **SUPERSEDED** for current releases.
+
+> **Current-status correction (2026-08-26):** this report records the v5.6.x
+> review and is not a current v5.8.0 certification. The present product supports
+> the TOTP gate only. The incomplete FIDO2 compatibility surface was removed.
+> DupeZ will not expose FIDO2 until it implements a complete WebAuthn registration and
+> authentication ceremony bound to a fresh challenge, RP ID, origin, user
+> presence/verification flags, and signature counter. DupeZ therefore makes no
+> current FIDO2, AAL3, or "Nation-State Grade" claim.
 
 ---
 
@@ -34,7 +42,7 @@ explicit operator duty (§8) rather than silently marked complete.
 | 4     | Complexity triage                        | CLEARED (Passes 1+2+3) |
 | 5     | Hardening directives                     | **10/10 CLEARED** (§9.2 shipped) |
 | 6     | Offensive capability layer               | CLEARED (12/12 modules) |
-| 7     | Final verification                       | CERTIFIED |
+| 7     | Final verification                       | HISTORICAL — SUPERSEDED |
 
 ---
 
@@ -140,10 +148,7 @@ explicit error types, process-wide singleton with lock).
   ±1 step (30s) clock-skew window, 256-bit CSPRNG seed, DPAPI-sealed
   on disk, constant-time comparison via `hmac.compare_digest`.
   Always available — no optional dependencies.
-- `FIDO2Provider` — WebAuthn / U2F via the optional `fido2` PyPI
-  package. Graceful degradation: `available()` returns False without
-  the library, and `verify()` is hard-coded to return False rather
-  than silently pass. No silent-fail path exists.
+- Incomplete FIDO2 enrollment/assertion APIs are not shipped.
 - `SecondFactorGate` — orchestrator with:
   - per-scope sliding-window rate limiter (5 failures / 15 min),
   - per-scope in-memory verification cache (default 5 min TTL,
@@ -170,10 +175,9 @@ explicit error types, process-wide singleton with lock).
 - CI / testing bypass: `DUPEZ_SECOND_FACTOR_DISABLED=1` environment
   variable. Production installs **MUST NOT** set this.
 
-**SP 800-63B compliance:** TOTP HMAC-SHA256 is approved for Multi-
-Factor OTP under §5.1.4.2. Seed length (256 bits) exceeds the 160-bit
-minimum. When FIDO2 + platform authenticator is enrolled the setup
-meets AAL3.
+**Current assurance boundary:** TOTP uses HMAC-SHA256 with a 256-bit seed.
+No FIDO2 enrollment path is available, and this document does not establish
+an AAL3 deployment or certify the current product against SP 800-63B.
 
 **Test coverage:** 13 dedicated pytest cases in
 `tests/test_second_factor.py` covering enrollment, verification, skew
@@ -305,8 +309,9 @@ bounds:
 
 ## §10 — Sign-off
 
-**Phase 7 Verdict:** CERTIFIED — Nation-State Grade, conditional on
-the §8 operator-side verification steps.
+**Historical Phase 7 verdict (superseded):** the original report recorded
+"CERTIFIED — Nation-State Grade" subject to the §8 operator steps. That
+verdict is not a certification of the current product.
 
 **Supersedes:** `MASTER_CERTIFICATION_2026-04-17_v2.md`.
 **Next cert review date:** triggered by any of (a) v5.7 release,

@@ -31,6 +31,10 @@ _HELP = _ROOT / "app" / "gui" / "panels" / "help_panel.py"
 _CLUMSY = _ROOT / "app" / "gui" / "clumsy_control.py"
 _PRESETS = _ROOT / "app" / "core" / "builtin_presets.py"
 _DASHBOARD = _ROOT / "app" / "gui" / "dashboard.py"
+_ROADMAP = _ROOT / "ROADMAP.md"
+_SECOND_FACTOR_CERT = (
+    _ROOT / "docs" / "release-notes" / "CERTIFICATION_v5.6.2.md"
+)
 
 # The tray-toggle is a standalone QShortcut, not a menu QAction, so the
 # menu-bar AST walk below cannot see it. It is allowed to appear in the
@@ -165,3 +169,13 @@ def test_keyboard_shortcuts_match_menu() -> None:
         f"the help KEYBOARD SHORTCUTS table lists shortcuts that no menu "
         f"action registers: {invented}"
     )
+
+
+def test_current_docs_do_not_claim_unavailable_fido2_or_aal3() -> None:
+    roadmap = _ROADMAP.read_text(encoding="utf-8")
+    certification = _SECOND_FACTOR_CERT.read_text(encoding="utf-8")
+
+    assert "no current FIDO2, AAL3" in roadmap
+    assert "current FIDO2, AAL3" in certification
+    assert "When FIDO2 + platform authenticator is enrolled" not in certification
+    assert "WebAuthn / U2F via the optional `fido2`" not in certification

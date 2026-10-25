@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import csv
 import os
+import tempfile
+from contextlib import contextmanager
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QColor, QFont
@@ -209,6 +211,77 @@ def _canon_station(val: str) -> str:
     """Return the canonical-cased station if *val* matches, else *val* as-is."""
     key = (val or "").strip().lower()
     return _STATION_CANON.get(key, val.strip() if isinstance(val, str) else val)
+
+
+def _spreadsheet_safe_text(value: object) -> str:
+    """Return export-only text that cannot become a spreadsheet formula.
+
+    CSV has no cell type metadata, so a value whose first meaningful
+    character is a formula sigil is prefixed with an apostrophe. The same
+    representation is used for XLSX exports to keep every export path
+    consistent. The in-memory account record is never modified.
+    """
+    if value is None:
+        return ""
+    text = str(value)
+    candidate = text.lstrip("\ufeff \t\r\n")
+    if text.startswith(("\t", "\r", "\n")) or candidate.startswith(
+        ("=", "+", "-", "@")
+    ):
+        return "'" + text
+    return text
+
+
+def _spreadsheet_export_row(account: Dict[str, Any]) -> List[str]:
+    """Build one formula-neutralized row in canonical field order."""
+    return [
+        _spreadsheet_safe_text(account.get(field, ""))
+        for field in ACCOUNT_FIELDS
+    ]
+
+
+@contextmanager
+def _account_export_file(file_path: str, *, binary: bool = False) -> Iterator[Any]:
+    """Publish a complete export without truncating an existing destination.
+
+    Staging on the destination filesystem also permits replacement when the
+    system temporary directory lives on a different drive. Close the handle
+    before replacement for Windows, and remove only this invocation's stage
+    on failure (including cancellation).
+    """
+    stage_path = None
+    try:
+        options = {} if binary else {"encoding": "utf-8", "newline": ""}
+        with tempfile.NamedTemporaryFile(
+            mode="w+b" if binary else "w",
+            dir=os.path.dirname(os.path.abspath(file_path)),
+            prefix=f".{os.path.basename(file_path)}.",
+            suffix=".tmp",
+            delete=False,
+            **options,
+        ) as stage:
+            stage_path = stage.name
+            yield stage
+            stage.flush()
+            os.fsync(stage.fileno())
+        os.replace(stage_path, file_path)
+    finally:
+        if stage_path is not None:
+            try:
+                os.unlink(stage_path)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                log_warning(f"Could not remove incomplete account export: {exc}")
+
+
+def _write_account_csv(file_path: str, accounts: List[Dict[str, Any]]) -> None:
+    """Write a complete, formula-neutralized CSV export."""
+    with _account_export_file(file_path) as stream:
+        writer = csv.writer(stream)
+        writer.writerow(TABLE_HEADERS)
+        for account in accounts:
+            writer.writerow(_spreadsheet_export_row(account))
 
 
 def _account_text_blob(account: Dict[str, Any]) -> str:
@@ -557,10 +630,13 @@ class DayZAccountTracker(QWidget):
         # ── Status bar ──
         status_row = QHBoxLayout()
         self.status_label = QLabel("Ready")
+        # Imported account names/statuses are data, never Qt rich-text input.
+        self.status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.status_label.setStyleSheet("color: #64748b; font-size: 11px;")
         status_row.addWidget(self.status_label)
 
         self.last_modified_label = QLabel("")
+        self.last_modified_label.setTextFormat(Qt.TextFormat.PlainText)
         self.last_modified_label.setStyleSheet("color: #475569; font-size: 10px;")
         self.last_modified_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         status_row.addWidget(self.last_modified_label)
@@ -677,6 +753,7 @@ class DayZAccountTracker(QWidget):
             if not selected_rows:
                 return
 
+            candidate = deepcopy(self.accounts)
             changed = 0
             for idx in selected_rows:
                 row = idx.row()
@@ -685,15 +762,17 @@ class DayZAccountTracker(QWidget):
                 if not name_item:
                     continue
                 name = name_item.text()
-                for acc in self.accounts:
+                for acc in candidate:
                     if acc.get('account') == name:
                         acc['status'] = new_status
                         acc['updated_at'] = datetime.now().isoformat()
                         changed += 1
                         break
 
-            if changed:
-                self._save_accounts()
+            if changed and self._save_accounts(
+                candidate,
+                operation="update account status",
+            ):
                 self._refresh_account_table()
                 self.status_label.setText(f"Set {changed} account(s) to '{new_status}'")
         except Exception as e:
@@ -788,6 +867,13 @@ class DayZAccountTracker(QWidget):
         try:
             account_data = self._show_account_dialog()
             if account_data:
+                if not self._validate_account_data(account_data):
+                    QMessageBox.warning(self, "Invalid Account",
+                        "Enter an account name with at least two characters and "
+                        "an alphanumeric character. An email, if provided, must contain @.")
+                    return
+                account_data['account'] = account_data['account'].strip()
+                account_data['email'] = account_data.get('email', '').strip()
                 now = datetime.now()
                 account_data['id'] = f"manual_{now.timestamp()}"
                 account_data['created_at'] = now.isoformat()
@@ -798,8 +884,10 @@ class DayZAccountTracker(QWidget):
                         f"An account named '{account_data.get('account', '')}' already exists.")
                     return
 
-                account_manager.add_account(account_data)
-                self.accounts = account_manager.accounts.copy()
+                candidate = deepcopy(self.accounts)
+                candidate.append(account_data)
+                if not self._save_accounts(candidate, operation="add account"):
+                    return
                 self._refresh_account_table()
                 self.status_label.setText(f"Added: {account_data.get('account', '')}")
                 log_info(f"Added new account: {account_data.get('account', '')}")
@@ -817,16 +905,49 @@ class DayZAccountTracker(QWidget):
 
             account_data = self._show_account_dialog(self.current_account)
             if account_data:
-                self.current_account.update(account_data)
-                self.current_account['updated_at'] = datetime.now().isoformat()
+                if not self._validate_account_data(account_data):
+                    QMessageBox.warning(self, "Invalid Account",
+                        "Enter an account name with at least two characters and "
+                        "an alphanumeric character. An email, if provided, must contain @.")
+                    return
+                account_data['account'] = account_data['account'].strip()
+                account_data['email'] = account_data.get('email', '').strip()
+                original_name = self.current_account.get('account', '')
+                original_id = self.current_account.get('id')
+                candidate = deepcopy(self.accounts)
+                updated_account: Optional[Dict[str, Any]] = None
+                updated_index = None
+                for index, account in enumerate(candidate):
+                    same_record = (
+                        original_id is not None
+                        and account.get('id') == original_id
+                    ) or (
+                        original_id is None
+                        and account.get('account') == original_name
+                    )
+                    if same_record:
+                        if self._is_duplicate_account(
+                            account_data, accounts=candidate[:index] + candidate[index + 1:]
+                        ):
+                            QMessageBox.warning(self, "Duplicate",
+                                f"An account named '{account_data['account']}' already exists.")
+                            return
+                        account.update(account_data)
+                        account['updated_at'] = datetime.now().isoformat()
+                        updated_account = account
+                        updated_index = index
+                        break
 
-                account_name = self.current_account.get('account', '')
-                account_manager.update_account(account_name, self.current_account)
+                if updated_account is None:
+                    raise ValueError("selected account no longer exists")
+                if not self._save_accounts(candidate, operation="update account"):
+                    return
 
-                self.accounts = account_manager.accounts.copy()
+                self.current_account = self.accounts[updated_index]
                 self._refresh_account_table()
-                self.status_label.setText(f"Updated: {self.current_account.get('account', '')}")
-                log_info(f"Updated account: {self.current_account.get('account', '')}")
+                updated_name = updated_account.get('account', '')
+                self.status_label.setText(f"Updated: {updated_name}")
+                log_info(f"Updated account: {updated_name}")
 
         except Exception as e:
             log_error(f"Failed to edit account: {e}")
@@ -853,8 +974,10 @@ class DayZAccountTracker(QWidget):
                 suffix += 1
                 cloned['account'] = f"{base_name} (copy {suffix})"
 
-            account_manager.add_account(cloned)
-            self.accounts = account_manager.accounts.copy()
+            candidate = deepcopy(self.accounts)
+            candidate.append(cloned)
+            if not self._save_accounts(candidate, operation="duplicate account"):
+                return
             self._refresh_account_table()
             self.status_label.setText(f"Duplicated: {cloned['account']}")
             log_info(f"Duplicated account: {base_name} -> {cloned['account']}")
@@ -888,17 +1011,17 @@ class DayZAccountTracker(QWidget):
                 if len(names) > 10:
                     msg += f"\n  ... and {len(names) - 10} more"
 
-            reply = QMessageBox.question(
-                self, "Delete Account(s)", msg,
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No,
-            )
+            reply = self._confirm_account_deletion(msg)
 
             if reply == QMessageBox.StandardButton.Yes:
-                for name in names:
-                    account_manager.remove_account(name)
-
-                self.accounts = account_manager.accounts.copy()
+                names_to_remove = set(names)
+                candidate = [
+                    deepcopy(account)
+                    for account in self.accounts
+                    if account.get('account') not in names_to_remove
+                ]
+                if not self._save_accounts(candidate, operation="delete account"):
+                    return
                 self._refresh_account_table()
                 self._clear_account_details()
                 self.status_label.setText(f"Deleted {len(names)} account(s)")
@@ -907,6 +1030,17 @@ class DayZAccountTracker(QWidget):
         except Exception as e:
             log_error(f"Failed to delete account: {e}")
             QMessageBox.critical(self, "Error", f"Failed to delete account: {e}")
+
+    def _confirm_account_deletion(self, message: str) -> int:
+        """Display imported names literally; never auto-detect rich text."""
+        box = QMessageBox(self)
+        box.setWindowTitle("Delete Account(s)")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setTextFormat(Qt.TextFormat.PlainText)
+        box.setText(message)
+        box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        box.setDefaultButton(QMessageBox.StandardButton.No)
+        return box.exec()
 
     def _show_account_dialog(self, account_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, str]]:
         """Present a modal form for creating or editing an account."""
@@ -979,18 +1113,20 @@ class DayZAccountTracker(QWidget):
 
             # Holding (multi-line)
             holding_input = QTextEdit()
+            holding_input.setAcceptRichText(False)
             holding_input.setMaximumHeight(60)
             holding_input.setPlaceholderText("Items currently holding")
             if account_data:
-                holding_input.setText(account_data.get('holding', ''))
+                holding_input.setPlainText(account_data.get('holding', ''))
             form.addRow("Holding:", holding_input)
 
             # Notes (multi-line)
             notes_input = QTextEdit()
+            notes_input.setAcceptRichText(False)
             notes_input.setMaximumHeight(60)
             notes_input.setPlaceholderText("Private notes about this account")
             if account_data:
-                notes_input.setText(account_data.get('notes', ''))
+                notes_input.setPlainText(account_data.get('notes', ''))
             form.addRow("Notes:", notes_input)
 
             layout.addLayout(form)
@@ -1130,13 +1266,45 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to load accounts: {e}")
             self.accounts = []
 
-    def _save_accounts(self) -> None:
-        """Flush the local account list back to the persistence layer."""
+    def _save_accounts(
+        self,
+        accounts: Optional[List[Dict[str, Any]]] = None,
+        *,
+        operation: str = "save account changes",
+    ) -> bool:
+        """Persist a candidate list and commit it to memory only on success.
+
+        ``AccountManager``'s legacy CRUD wrappers mutate their list before
+        saving and discard the boolean result.  UI actions instead stage a
+        deep-copied candidate here.  A failed or raised save therefore leaves
+        both the manager and the tracker's pre-action state intact and cannot
+        be presented as a successful mutation.
+        """
+        candidate = deepcopy(self.accounts if accounts is None else accounts)
         try:
-            account_manager.accounts[:] = self.accounts.copy()
-            account_manager.save_changes(account_manager.accounts)
+            saved = account_manager.save_changes(candidate)
         except Exception as e:
-            log_error(f"Failed to save accounts: {e}")
+            saved = False
+            detail = f" ({type(e).__name__}: {e})"
+        else:
+            detail = ""
+
+        if saved is not True:
+            message = (
+                f"Could not {operation}. No account changes were applied; "
+                "your previous account list is unchanged."
+            )
+            log_error(f"{message}{detail}")
+            status_label = getattr(self, "status_label", None)
+            if status_label is not None:
+                status_label.setText(f"Save failed: {operation}")
+            QMessageBox.critical(self, "Save Failed", message)
+            return False
+
+        committed = deepcopy(candidate)
+        account_manager.accounts[:] = committed
+        self.accounts = account_manager.accounts.copy()
+        return True
 
     def _load_template(self) -> None:
         """Load the starter template, replacing existing accounts after confirmation."""
@@ -1150,44 +1318,46 @@ class DayZAccountTracker(QWidget):
                 )
                 if reply != QMessageBox.StandardButton.Yes:
                     return
-                account_manager.accounts.clear()
 
-            self._apply_template(silent=False)
-            self._refresh_account_table()
-            self._update_statistics()
+            if self._apply_template(silent=False):
+                self._refresh_account_table()
+                self._update_statistics()
         except Exception as e:
             log_error(f"Failed to load template: {e}")
             QMessageBox.critical(self, "Error", f"Failed to load template: {e}")
 
-    def _apply_template(self, *, silent: bool = False) -> None:
-        """Insert template rows into the account manager."""
+    def _apply_template(self, *, silent: bool = False) -> bool:
+        """Atomically replace the account list with starter-template rows."""
         now = datetime.now().isoformat()
+        candidate: List[Dict[str, Any]] = []
         for idx, tmpl in enumerate(_TEMPLATE_ACCOUNTS):
             data = dict(tmpl)
             data.update(id=f"template_{idx + 1}", created_at=now, updated_at=now)
-            account_manager.accounts.append(data)
-        account_manager.save_changes(account_manager.accounts)
-        self.accounts = account_manager.accounts.copy()
+            candidate.append(data)
+        if not self._save_accounts(candidate, operation="load starter template"):
+            return False
         if not silent:
             self.status_label.setText(f"Loaded template with {len(_TEMPLATE_ACCOUNTS)} example accounts")
             QMessageBox.information(self, "Template Loaded",
                 f"Loaded {len(_TEMPLATE_ACCOUNTS)} example accounts.\n\n"
                 "Edit or replace them with your own accounts.")
         log_info(f"Template loaded: {len(_TEMPLATE_ACCOUNTS)} accounts")
+        return True
 
-    def _refresh_after_import(self) -> None:
-        """Common post-import refresh: save, rebuild table, update stats."""
-        try:
-            account_manager.save_changes(account_manager.accounts)
-        except Exception as e:
-            log_error(f"Failed to save imports: {e}")
+    def _refresh_after_import(
+        self,
+        candidate: List[Dict[str, Any]],
+    ) -> bool:
+        """Commit a staged import, then rebuild the table on success."""
+        if not self._save_accounts(candidate, operation="import accounts"):
+            return False
         self.account_table.clearContents()
         self.account_table.setRowCount(0)
-        self.accounts = account_manager.accounts.copy()
         self._setup_account_table(self.accounts)
         self._update_statistics()
         self.account_table.resizeColumnsToContents()
         self.account_table.setColumnWidth(0, 36)
+        return True
 
     # ── Table refresh / filter ────────────────────────────────────────
 
@@ -1209,9 +1379,8 @@ class DayZAccountTracker(QWidget):
             )
 
             if reply == QMessageBox.StandardButton.Yes:
-                account_manager.accounts.clear()
-                account_manager.save_changes(account_manager.accounts)
-                self.accounts = account_manager.accounts.copy()
+                if not self._save_accounts([], operation="clear all accounts"):
+                    return
                 self._refresh_account_table()
                 self.status_label.setText("All accounts cleared")
                 log_info("All accounts cleared")
@@ -1351,6 +1520,7 @@ class DayZAccountTracker(QWidget):
             accounts_imported = 0
             accounts_skipped = 0
             bases_data = []
+            candidate = deepcopy(self.accounts)
 
             # Detect where "Bases" section starts
             bases_start_row = None
@@ -1402,7 +1572,7 @@ class DayZAccountTracker(QWidget):
                     account_data.update(last_seen=now, created_date=now,
                                         id=f"xlsx_{accounts_imported + 1}_{datetime.now().timestamp()}")
 
-                    if self._try_import_account(account_data):
+                    if self._try_import_account(account_data, candidate):
                         accounts_imported += 1
                     else:
                         accounts_skipped += 1
@@ -1447,7 +1617,8 @@ class DayZAccountTracker(QWidget):
 
                 log_info(f"XLSX bases imported: {bases_imported}")
 
-            self._refresh_after_import()
+            if not self._refresh_after_import(candidate):
+                return
 
             msg = (f"Import completed!\n\n"
                    f"Accounts imported: {accounts_imported}\n"
@@ -1487,72 +1658,71 @@ class DayZAccountTracker(QWidget):
             accounts_imported = 0
             accounts_skipped = 0
             unmapped_headers: List[str] = []
+            candidate = deepcopy(self.accounts)
 
             # --- Delimiter sniff on a small probe buffer ---
-            with open(file_path, 'r', newline='', encoding='utf-8-sig',
-                      errors='replace') as probe:
+            # The probe uses universal newlines so Sniffer can recognize
+            # quoted multiline fields in Windows CRLF files. The actual
+            # reader below keeps newline='' as required by csv.reader.
+            with open(file_path, 'r', encoding='utf-8-sig') as probe:
                 sample = probe.read(4096)
             dialect_delim = ','
             if sample.strip():
                 try:
-                    dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
+                    dialect = csv.Sniffer().sniff(
+                        sample.lstrip('\r\n'), delimiters=',;\t|'
+                    )
                     dialect_delim = dialect.delimiter
                 except csv.Error:
                     dialect_delim = ','
 
-            with open(file_path, 'r', newline='', encoding='utf-8-sig',
-                      errors='replace') as file:
-                reader = csv.DictReader(file, delimiter=dialect_delim)
+            with open(file_path, 'r', newline='', encoding='utf-8-sig') as file:
+                # Lists preserve every column, including repeated empty
+                # cells in headerless input. DictReader collapsed those
+                # columns and previously mapped only the first fallback row.
+                reader = csv.reader(file, delimiter=dialect_delim, strict=True)
+                first_row = next(
+                    (row for row in reader if any(cell.strip() for cell in row)),
+                    [],
+                )
+                csv_col_map: Dict[int, str] = {}
+                for col_idx, col_name in enumerate(first_row):
+                    norm = _normalize_header(col_name)
+                    field = _XLSX_KNOWN_HEADERS.get(norm)
+                    if field is not None:
+                        if field in csv_col_map.values():
+                            raise ValueError(
+                                f"Multiple CSV columns map to '{field}'. "
+                                "Give each account field one column before importing."
+                            )
+                        csv_col_map[col_idx] = field
+                    else:
+                        unmapped_headers.append(str(col_name))
 
-                csv_col_map: Dict[str, str] = {}
-                if reader.fieldnames:
-                    for col_name in reader.fieldnames:
-                        if col_name is None:
-                            continue
-                        norm = _normalize_header(col_name)
-                        if norm in _XLSX_KNOWN_HEADERS:
-                            csv_col_map[col_name] = _XLSX_KNOWN_HEADERS[norm]
-                        else:
-                            unmapped_headers.append(str(col_name))
-
-                # Positional fallback: if we recognized no headers but the
-                # file has a row, assume the canonical ACCOUNT_FIELDS order.
-                positional_fallback = False
-                if not csv_col_map and reader.fieldnames:
+                positional_fallback = bool(first_row) and not csv_col_map
+                if positional_fallback:
                     log_warning(
-                        f"CSV headers unrecognized; falling back to positional "
-                        f"mapping. Unmapped: {reader.fieldnames}"
+                        "CSV headers unrecognized; falling back to positional mapping."
                     )
-                    positional_fallback = True
-                    # The DictReader already consumed the first row as headers;
-                    # treat those header cells as the first data row.
-                    first_row_vals = list(reader.fieldnames or [])
-                else:
-                    first_row_vals = None
+                    csv_col_map = dict(enumerate(_XLSX_DEFAULT_FIELDS))
+                    # These were data values, not unmapped header labels.
+                    unmapped_headers = []
 
                 def _row_iter():
-                    if positional_fallback and first_row_vals:
-                        yield 1, first_row_vals  # synthetic row from headers
-                    for idx, r in enumerate(reader, start=2):
-                        yield idx, r
+                    if positional_fallback:
+                        yield reader.line_num, first_row
+                    for row in reader:
+                        if any(cell.strip() for cell in row):
+                            yield reader.line_num, row
 
                 for row_num, row in _row_iter():
                     try:
                         account_data: Dict[str, str] = {f: '' for f in ACCOUNT_FIELDS}
                         account_data['status'] = 'Ready'
 
-                        if positional_fallback and isinstance(row, list):
-                            for col_idx, val in enumerate(row):
-                                if col_idx >= len(_XLSX_DEFAULT_FIELDS):
-                                    break
-                                field = _XLSX_DEFAULT_FIELDS[col_idx]
-                                if val is not None and str(val).strip():
-                                    account_data[field] = str(val).strip()
-                        else:
-                            for csv_col, field in csv_col_map.items():
-                                val = row.get(csv_col, '') if isinstance(row, dict) else ''
-                                if val:
-                                    account_data[field] = str(val).strip()
+                        for col_idx, field in csv_col_map.items():
+                            if col_idx < len(row) and row[col_idx].strip():
+                                account_data[field] = row[col_idx].strip()
 
                         # Canonicalize status / station casing.
                         if account_data.get('status'):
@@ -1566,7 +1736,7 @@ class DayZAccountTracker(QWidget):
                             id=f"imported_{accounts_imported + 1}_{datetime.now().timestamp()}",
                         )
 
-                        if self._try_import_account(account_data):
+                        if self._try_import_account(account_data, candidate):
                             accounts_imported += 1
                         else:
                             accounts_skipped += 1
@@ -1576,7 +1746,8 @@ class DayZAccountTracker(QWidget):
                         log_error(f"Error processing row {row_num}: {e}")
                         continue
 
-            self._refresh_after_import()
+            if not self._refresh_after_import(candidate):
+                return
 
             detail = (f"Delimiter: {dialect_delim!r}\n"
                       f"Accounts imported: {accounts_imported}\n"
@@ -1595,22 +1766,26 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to process CSV file: {e}")
             QMessageBox.critical(self, "Error", f"Failed to process CSV file:\n{e}")
 
-    def _try_import_account(self, account_data: dict) -> bool:
+    def _try_import_account(
+        self,
+        account_data: dict,
+        candidate: List[Dict[str, Any]],
+    ) -> bool:
         """Validate, dedup, and add a single account. Returns True if imported.
 
-        Only adds to ``account_manager`` (the source of truth).
-        ``self.accounts`` is refreshed from the manager after the
-        import batch completes via ``_refresh_after_import``.
+        Import parsing stages rows in a candidate list.  The manager remains
+        untouched until the entire batch has been persisted successfully by
+        :meth:`_refresh_after_import`.
         """
         if not self._validate_account_data(account_data):
             return False
-        if self._is_duplicate_account(account_data):
+        if self._is_duplicate_account(account_data, accounts=candidate):
             log_warning(f"Skipped duplicate: {account_data.get('account', '')}")
             return False
         try:
-            account_manager.accounts.append(account_data)
+            candidate.append(account_data)
         except Exception as e:
-            log_warning(f"Failed to add account to manager: {e}")
+            log_warning(f"Failed to stage imported account: {e}")
             return False
         log_info(f"Imported account: {account_data['account']}")
         return True
@@ -1636,13 +1811,19 @@ class DayZAccountTracker(QWidget):
             log_error(f"Error in account validation: {e}")
             return False
 
-    def _is_duplicate_account(self, account_data: Dict[str, Any]) -> bool:
+    def _is_duplicate_account(
+        self,
+        account_data: Dict[str, Any],
+        *,
+        accounts: Optional[List[Dict[str, Any]]] = None,
+    ) -> bool:
         """Return *True* if an account with the same name already exists."""
         try:
             new_name = account_data.get('account', '').strip().lower()
             if not new_name:
                 return False
-            for account in account_manager.accounts:
+            source = account_manager.accounts if accounts is None else accounts
+            for account in source:
                 if account.get('account', '').strip().lower() == new_name:
                     return True
             return False
@@ -1671,11 +1852,7 @@ class DayZAccountTracker(QWidget):
                 if ext == '.xlsx':
                     self._export_xlsx(file_path)
                 else:
-                    with open(file_path, 'w', newline='', encoding='utf-8') as file:
-                        writer = csv.writer(file)
-                        writer.writerow(TABLE_HEADERS)
-                        for account in self.accounts:
-                            writer.writerow([account.get(f, '') for f in ACCOUNT_FIELDS])
+                    _write_account_csv(file_path, self.accounts)
 
                 fmt = "XLSX" if ext == '.xlsx' else "CSV"
                 self.status_label.setText(f"Exported {len(self.accounts)} accounts to {fmt}")
@@ -1687,12 +1864,15 @@ class DayZAccountTracker(QWidget):
             log_error(f"Failed to export accounts: {e}")
             QMessageBox.critical(self, "Error", f"Failed to export accounts: {e}")
 
-    def _export_xlsx(self, file_path: str) -> None:
+    def _export_xlsx(
+        self, file_path: str, accounts: Optional[List[Dict[str, Any]]] = None,
+    ) -> None:
         """Write accounts to a styled XLSX workbook with frozen header row."""
         try:
             import openpyxl
             from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
+            records = self.accounts if accounts is None else accounts
             wb = openpyxl.Workbook()
             ws = wb.active
             ws.title = "Accounts"
@@ -1721,9 +1901,13 @@ class DayZAccountTracker(QWidget):
                            for k, c in STATUS_COLORS.items()}
             status_col_idx = fields.index('status') + 1 if 'status' in fields else None
 
-            for row_idx, account in enumerate(self.accounts, 2):
-                for col_idx, field in enumerate(fields, 1):
-                    cell = ws.cell(row=row_idx, column=col_idx, value=account.get(field, ''))
+            for row_idx, account in enumerate(records, 2):
+                safe_values = _spreadsheet_export_row(account)
+                for col_idx, (field, value) in enumerate(
+                    zip(fields, safe_values), 1
+                ):
+                    cell = ws.cell(row=row_idx, column=col_idx, value=value)
+                    cell.data_type = "s"
                     cell.border = thin_border
                     cell.alignment = Alignment(vertical='center', wrap_text=(field in ('holding', 'notes')))
 
@@ -1736,19 +1920,19 @@ class DayZAccountTracker(QWidget):
 
             for col_idx in range(1, len(headers) + 1):
                 max_len = len(headers[col_idx - 1])
-                for row_idx in range(2, len(self.accounts) + 2):
+                for row_idx in range(2, len(records) + 2):
                     val = ws.cell(row=row_idx, column=col_idx).value
                     if val:
                         max_len = max(max_len, len(str(val)))
                 ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = min(max_len + 4, 50)
 
             ws.freeze_panes = 'A2'
-            wb.save(file_path)
+            with _account_export_file(file_path, binary=True) as stream:
+                wb.save(stream)
             log_info(f"XLSX export saved to {file_path}")
 
-        except ImportError:
-            QMessageBox.critical(self, "Missing Library",
-                "openpyxl is required for XLSX export.\n\nInstall it with:\npip install openpyxl")
+        except ImportError as exc:
+            raise RuntimeError("openpyxl is required for XLSX export.") from exc
         except Exception as e:
             log_error(f"XLSX export failed: {e}")
             raise
@@ -1876,33 +2060,49 @@ class DayZAccountTracker(QWidget):
 
             operation = op_combo.currentText()
             now = datetime.now().isoformat()
+            target_keys = {
+                (account.get('id'), account.get('account'))
+                for account in targets
+            }
+            candidate = deepcopy(self.accounts)
+            candidate_targets = [
+                account
+                for account in candidate
+                if (account.get('id'), account.get('account')) in target_keys
+            ]
 
             if operation == "Change Status":
                 new_status = param_combo.currentText()
-                for acc in targets:
+                for acc in candidate_targets:
                     acc['status'] = new_status
                     acc['updated_at'] = now
-                self._save_accounts()
-                self._refresh_account_table()
-                self.status_label.setText(f"Set {len(targets)} account(s) to '{new_status}'")
+                if self._save_accounts(candidate, operation="change account status"):
+                    self._refresh_account_table()
+                    self.status_label.setText(
+                        f"Set {len(candidate_targets)} account(s) to '{new_status}'"
+                    )
 
             elif operation == "Set Location":
                 new_loc = param_line.text().strip()
                 if new_loc:
-                    for acc in targets:
+                    for acc in candidate_targets:
                         acc['location'] = new_loc
                         acc['updated_at'] = now
-                    self._save_accounts()
-                    self._refresh_account_table()
-                    self.status_label.setText(f"Set location for {len(targets)} account(s)")
+                    if self._save_accounts(candidate, operation="set account location"):
+                        self._refresh_account_table()
+                        self.status_label.setText(
+                            f"Set location for {len(candidate_targets)} account(s)"
+                        )
 
             elif operation == "Clear Notes":
-                for acc in targets:
+                for acc in candidate_targets:
                     acc['notes'] = ''
                     acc['updated_at'] = now
-                self._save_accounts()
-                self._refresh_account_table()
-                self.status_label.setText(f"Cleared notes for {len(targets)} account(s)")
+                if self._save_accounts(candidate, operation="clear account notes"):
+                    self._refresh_account_table()
+                    self.status_label.setText(
+                        f"Cleared notes for {len(candidate_targets)} account(s)"
+                    )
 
             elif operation == "Delete Accounts":
                 reply = QMessageBox.question(
@@ -1912,12 +2112,16 @@ class DayZAccountTracker(QWidget):
                     QMessageBox.StandardButton.No,
                 )
                 if reply == QMessageBox.StandardButton.Yes:
-                    names_to_remove = {a.get('account') for a in targets}
-                    for name in names_to_remove:
-                        account_manager.remove_account(name)
-                    self.accounts = account_manager.accounts.copy()
-                    self._refresh_account_table()
-                    self.status_label.setText(f"Deleted {len(names_to_remove)} account(s)")
+                    remaining = [
+                        account
+                        for account in candidate
+                        if (account.get('id'), account.get('account')) not in target_keys
+                    ]
+                    if self._save_accounts(remaining, operation="delete accounts"):
+                        self._refresh_account_table()
+                        self.status_label.setText(
+                            f"Deleted {len(candidate_targets)} account(s)"
+                        )
 
             elif operation == "Export Matching":
                 self._export_subset(targets)
@@ -1940,17 +2144,9 @@ class DayZAccountTracker(QWidget):
 
             ext = os.path.splitext(file_path)[1].lower()
             if ext == '.xlsx':
-                # Temporarily swap accounts for export
-                orig = self.accounts
-                self.accounts = subset
-                self._export_xlsx(file_path)
-                self.accounts = orig
+                self._export_xlsx(file_path, subset)
             else:
-                with open(file_path, 'w', newline='', encoding='utf-8') as f:
-                    writer = csv.writer(f)
-                    writer.writerow(TABLE_HEADERS)
-                    for acc in subset:
-                        writer.writerow([acc.get(field, '') for field in ACCOUNT_FIELDS])
+                _write_account_csv(file_path, subset)
 
             fmt = "XLSX" if ext == '.xlsx' else "CSV"
             QMessageBox.information(self, "Export Complete",

@@ -24,19 +24,12 @@ also compromising the user's DPAPI master key.
 
 Policy on load
 ~~~~~~~~~~~~~~
-1. If both file and sidecar exist AND tag verifies → load.
-2. If file exists but sidecar is missing → ONE-SHOT MIGRATION: we read
-   the file, accept it, and re-write with a fresh HMAC. This is how
-   an upgrade from v5.7.5 → v5.7.6 picks up integrity on the existing
-   settings without bricking the operator's installed config.
-3. If both exist but the tag does NOT verify → REFUSE. The function
-   returns the safe default ({}) so the rest of the app boots, logs
-   the rejection, and surfaces an audit event. The on-disk file is
-   preserved as ``settings.json.tampered.<ts>`` for forensics.
-
-Writes are always atomic (tmp → fsync → os.replace) and binary-mode so
-Windows CRLF translation cannot corrupt the bytes the HMAC was
-computed over.
+An authenticated immutable generation and atomic commit pointer are
+authoritative. ``settings.json`` and its HMAC are a compatibility projection
+that is repaired from the committed generation after an interrupted write.
+Pre-journal signed pairs migrate on first load. Unsigned settings retain the
+one-shot DPAPI-backed migration marker: after initialization, an unsigned
+legacy file is rejected rather than accepted as a fresh migration.
 """
 
 from __future__ import annotations
@@ -44,6 +37,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 from typing import Any, Dict
 
 __all__ = ["load_config", "save_config", "CONFIG_PATH", "HMAC_PATH"]
@@ -53,6 +47,23 @@ from app.core.app_paths import config_dir, ensure_runtime_migration
 ensure_runtime_migration()
 CONFIG_PATH: str = str(config_dir() / "settings.json")
 HMAC_PATH: str = CONFIG_PATH + ".hmac"
+_INTEGRITY_MARKER_KIND = "persistence.config.initialized"
+_INTEGRITY_MARKER_VALUE = b"dupez.config.integrity.v1"
+
+
+def _integrity_initialized() -> bool:
+    """Return whether unsigned-config migration has already been consumed."""
+    from app.core.secret_store import get_secret
+
+    marker = get_secret(_INTEGRITY_MARKER_KIND)
+    return marker == _INTEGRITY_MARKER_VALUE
+
+
+def _mark_integrity_initialized() -> None:
+    """Durably close the unsigned-config migration path before acceptance."""
+    from app.core.secret_store import put_secret
+
+    put_secret(_INTEGRITY_MARKER_KIND, _INTEGRITY_MARKER_VALUE)
 
 
 def _compute_tag(payload: bytes) -> str:
@@ -71,6 +82,15 @@ def _verify_tag(payload: bytes, expected_hex: str) -> bool:
     if not isinstance(expected_hex, str) or len(expected_hex) != 96:
         return False
     return _hmac.compare_digest(_compute_tag(payload), expected_hex)
+
+
+def _verify_legacy_tag(payload: bytes, expected_hex: str) -> bool:
+    """Verify a historical tag only while the real secret store works."""
+    if not isinstance(expected_hex, str) or len(expected_hex) != 96:
+        return False
+    from app.core.data_persistence import _verify_hmac_legacy
+
+    return _verify_hmac_legacy(payload, expected_hex)
 
 
 def _quarantine_tampered_file() -> None:
@@ -103,88 +123,87 @@ def load_config() -> Dict[str, Any]:
 
     Integrity policy:
 
-    * tag present + verifies → return parsed config
-    * tag missing            → ONE-SHOT migration: read, sign, return
-    * tag present + mismatch → quarantine the file, audit, return ``{}``
+    * authenticated commit present → load it and repair the compatibility pair
+    * legacy tag present + verifies → migrate to an authenticated commit
+    * tag missing + uninitialized → mark, sign transactionally, return
+    * tag missing + initialized   → quarantine and return ``{}``
+    * authenticated state invalid → quarantine, audit, return ``{}``
     * file missing           → return ``{}`` (fresh install)
     """
     try:
-        if not os.path.isfile(CONFIG_PATH):
+        from app.core.data_persistence import DataPersistenceManager
+
+        config_path = Path(CONFIG_PATH)
+        hmac_path = Path(HMAC_PATH)
+        commit_exists = DataPersistenceManager._pointer_path(config_path).is_file()
+        if commit_exists or hmac_path.is_file():
+            raw = DataPersistenceManager._read_authenticated_bytes(
+                config_path,
+                hmac_path=hmac_path,
+                require_hmac=True,
+            )
+            if raw is None:
+                _audit_tamper("authenticated settings state is invalid")
+                _quarantine_tampered_file()
+                try:
+                    os.unlink(HMAC_PATH)
+                except OSError:
+                    pass
+                return {}
+            try:
+                doc = json.loads(raw.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return {}
+            if not isinstance(doc, dict):
+                return {}
+            try:
+                if not _integrity_initialized():
+                    _mark_integrity_initialized()
+            except Exception:
+                _audit_tamper("settings integrity marker unavailable")
+                return {}
+            return doc
+
+        if not config_path.is_file():
             return {}
-        with open(CONFIG_PATH, "rb") as f:
-            raw = f.read()
         try:
+            raw = config_path.read_bytes()
             doc = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError):
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             return {}
         if not isinstance(doc, dict):
             return {}
 
-        if os.path.isfile(HMAC_PATH):
-            try:
-                with open(HMAC_PATH, "r", encoding="ascii") as hf:
-                    expected = hf.read().strip()
-            except OSError:
-                expected = ""
-            if _verify_tag(raw, expected):
-                return doc
-            # Tag present but does not match — refuse + quarantine.
-            _audit_tamper("HMAC mismatch on settings.json")
-            _quarantine_tampered_file()
-            try:
-                os.unlink(HMAC_PATH)
-            except OSError:
-                pass
-            return {}
-
-        # No sidecar: one-shot v5.7.5 → v5.7.6 migration. The existing
-        # file is accepted as authoritative on first read, then signed
-        # so subsequent reads are protected.
+        # No sidecar: permit exactly one DPAPI-marked migration. A deleted
+        # legacy sidecar after initialization is an integrity failure, not
+        # another chance to accept unsigned settings.
         try:
+            if _integrity_initialized():
+                _audit_tamper("HMAC sidecar missing after initialization")
+                _quarantine_tampered_file()
+                return {}
             save_config(doc)
-        except OSError:
-            pass
+        except Exception:
+            _audit_tamper("unsigned settings migration failed")
+            return {}
         return doc
-    except OSError:
+    except Exception:
         return {}
 
 
 def save_config(config: Dict[str, Any]) -> None:
-    """Atomically persist *config* to ``settings.json`` with HMAC sidecar.
-
-    Both files land via tmp + fsync + os.replace. Binary-mode writes so
-    Windows CRLF translation can never desync the bytes from the tag.
-    """
+    """Transactionally persist *config* and its HMAC sidecar."""
     if not isinstance(config, dict):
         raise TypeError(f"config must be dict, got {type(config).__name__}")
 
-    payload = json.dumps(config, indent=4, sort_keys=True).encode("utf-8")
-    tag = _compute_tag(payload).encode("ascii")
+    from app.core.data_persistence import DataPersistenceManager
 
-    tmp_json = CONFIG_PATH + ".tmp"
-    tmp_hmac = HMAC_PATH + ".tmp"
-    try:
-        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
-        with open(tmp_json, "wb") as f:
-            f.write(payload)
-            f.flush()
-            try:
-                os.fsync(f.fileno())
-            except OSError:
-                pass
-        with open(tmp_hmac, "wb") as f:
-            f.write(tag)
-            f.flush()
-            try:
-                os.fsync(f.fileno())
-            except OSError:
-                pass
-        os.replace(tmp_json, CONFIG_PATH)
-        os.replace(tmp_hmac, HMAC_PATH)
-    except Exception:
-        for p in (tmp_json, tmp_hmac):
-            try:
-                os.unlink(p)
-            except OSError:
-                pass
-        raise
+    payload = json.dumps(config, indent=4, sort_keys=True).encode("utf-8")
+    # Close the migration path before touching live config. If the pair write
+    # fails, future loads reject the old unsigned file instead of accepting it.
+    _mark_integrity_initialized()
+    DataPersistenceManager._replace_authenticated_pair(
+        Path(CONFIG_PATH),
+        payload,
+        hmac_path=Path(HMAC_PATH),
+    )

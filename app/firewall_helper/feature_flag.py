@@ -11,6 +11,7 @@ already returns the direct manager's complete Clumsy status dictionary.
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
 
 ARCH_INPROC = "inproc"
@@ -50,15 +51,10 @@ def _detect_gpu_available() -> bool:
     try:
         from app.core import safe_subprocess as safe_subprocess
 
-        system_root = os.environ.get("SystemRoot") or r"C:\Windows"
-        wmic_path = os.path.join(
-            system_root,
-            "System32",
-            "wbem",
-            "wmic.exe",
+        wmic_path = safe_subprocess.resolve_system_binary(
+            "wmic",
+            subdirectory=("wbem",),
         )
-        if not os.path.isfile(wmic_path):
-            return False
         result = safe_subprocess.run(
             [wmic_path, "path", "win32_videocontroller", "get", "name"],
             timeout=5.0,
@@ -85,6 +81,22 @@ def _detect_gpu_available() -> bool:
 def get_arch() -> str:
     """Return the validated active architecture mode."""
 
+    # A frozen release variant is a reviewed privilege boundary, not a runtime
+    # preference.  Never let an inherited/user-controlled environment variable
+    # turn the asInvoker GPU build into a whole-GUI High-IL process (or turn the
+    # Compat build into an unexpected proxy client).  The one frozen exception
+    # is the same-binary helper role, which must own the in-process engine.
+    if getattr(sys, "frozen", False):
+        try:
+            role_index = sys.argv.index("--role")
+            if sys.argv[role_index + 1] == "helper":
+                return ARCH_INPROC
+        except (ValueError, IndexError):
+            pass
+        return _DEFAULT_ARCH
+
+    # Source/development runs retain the explicit override used by tests and
+    # operator diagnostics.  It is intentionally unavailable in frozen builds.
     environment_value = os.environ.get(_ENV_VAR, "").strip().lower()
     if environment_value in _VALID_ARCHS:
         return environment_value

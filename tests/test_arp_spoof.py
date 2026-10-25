@@ -28,6 +28,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.safe_subprocess import SafeSubprocessError
 from app.network import arp_spoof
 from app.network.arp_spoof import (
     ArpSpoofer,
@@ -216,7 +217,11 @@ class TestGatewayDiscovery:
 
     def test_linux_parses_ip_route(self, monkeypatch):
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
-        monkeypatch.setattr("shutil.which", lambda name: "/usr/sbin/ip")
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
         monkeypatch.setattr(
             arp_spoof.safe_subprocess, "run",
             lambda *a, **kw: _StubResult(
@@ -227,7 +232,11 @@ class TestGatewayDiscovery:
 
     def test_linux_no_ip_binary(self, monkeypatch):
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
-        monkeypatch.setattr("shutil.which", lambda name: None)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: (_ for _ in ()).throw(SafeSubprocessError("missing")),
+        )
         assert get_default_gateway() is None
 
 
@@ -870,13 +879,18 @@ class TestLinuxBindFailure:
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
 
-        # ip route stub
-        import subprocess as sp_real
-
-        def _check_output(argv, **kw):
-            return "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
-
-        monkeypatch.setattr(sp_real, "check_output", _check_output)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *a, **kw: _StubResult(
+                "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
+            ),
+        )
         assert spoofer._bind_linux_socket() is True
         assert bound["args"][0] == "wlan0"
 
@@ -902,10 +916,17 @@ class TestLinuxBindFailure:
 
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
-        import subprocess as sp_real
         monkeypatch.setattr(
-            sp_real, "check_output",
-            lambda argv, **kw: "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n",
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *a, **kw: _StubResult(
+                "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
+            ),
         )
         assert spoofer._bind_linux_socket() is False
 
@@ -926,12 +947,11 @@ class TestLinuxBindFailure:
 
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
-        import subprocess as sp_real
-
-        def _raise(*a, **kw):
-            raise FileNotFoundError("ip")
-
-        monkeypatch.setattr(sp_real, "check_output", _raise)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: (_ for _ in ()).throw(SafeSubprocessError("missing")),
+        )
         assert spoofer._bind_linux_socket() is False
 
     def test_bind_returns_false_when_route_probe_fails(self, monkeypatch):

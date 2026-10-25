@@ -4,19 +4,18 @@
 # Two build variants ship from this codebase:
 #
 #   * DupeZ-GPU.exe   — asInvoker manifest, DUPEZ_ARCH=split default.
-#                       GUI runs at Medium IL → Chromium GPU process
-#                       works → embedded iZurvive map renders with
-#                       hardware raster. Elevated helper process
+#                       GUI runs at Medium IL. Embedded maps additionally
+#                       require an explicitly reviewed native runtime and
+#                       are currently unavailable. Elevated helper process
 #                       (dupez_helper.py) is auto-spawned on first
 #                       disruption_manager call and owns WinDivert.
 #
 #   * DupeZ-Compat.exe — requireAdministrator manifest,
 #                        DUPEZ_ARCH=inproc default. Single-process
 #                        build with WinDivert + netsh running
-#                        directly in-process. Chromium GPU refuses
-#                        to start under admin token → map falls
-#                        through to software raster. Identical to
-#                        pre-ADR-0001 shipping builds. For users on
+#                        directly in-process. Elevated processes cannot
+#                        host embedded maps; unavailable content presents
+#                        a manual browser URL. For users on
 #                        blocklisted GPUs or who cannot tolerate
 #                        the helper auto-spawn flow.
 #
@@ -48,10 +47,27 @@ from __future__ import annotations
 
 import os
 import sys
+import json
+from pathlib import Path
 
 from PyInstaller.building.api import EXE, PYZ
 from PyInstaller.building.build_main import Analysis
+from PyInstaller.config import CONF
 from PyInstaller.utils.hooks import collect_submodules
+
+from release_data import (
+    pyinstaller_binaries,
+    pyinstaller_datas,
+    release_binary_files,
+)
+from native_runtime_policy import (
+    FROZEN_BROWSER_EXCLUDES,
+    audit_native_binary_origins,
+    configure_windows_analysis_environment,
+    validate_no_embedded_browser_payload,
+    validate_windows_tls_binaries,
+    without_disabled_browser_uic_plugins,
+)
 
 
 # HERE  = the packaging/ dir (this file's own dir). Sibling files like
@@ -85,6 +101,25 @@ _BUILD_DEFAULT_ARCH = {arch!r}
 '''
 
 
+def _configure_build_analysis_state() -> str:
+    """Keep PyInstaller's import probes away from checkout/operator state.
+
+    ``collect_submodules`` and dependency hooks may import application modules
+    in isolated child interpreters. Several runtime modules intentionally
+    initialize persistence on import, so an unguarded build would read the
+    checkout's ``app/data`` tree. Force those probes into a private directory
+    under PyInstaller's work path; that directory is never part of ``datas``.
+    """
+    configured_workpath = CONF.get("workpath") or os.path.join(ROOT, "build")
+    analysis_user_root = os.path.abspath(
+        os.path.join(os.fspath(configured_workpath), "_analysis-user")
+    )
+    os.environ["DUPEZ_BUILD_ANALYSIS"] = "1"
+    os.environ["DUPEZ_FORCE_USER_DATA"] = "1"
+    os.environ["DUPEZ_USER_ROOT"] = analysis_user_root
+    return analysis_user_root
+
+
 def _write_build_default(variant: str) -> None:
     """Write ``_build_default.py`` with the right arch for this variant."""
     arch = {"gpu": "split", "compat": "inproc"}.get(variant)
@@ -103,7 +138,7 @@ def _write_build_default(variant: str) -> None:
 
 def _hidden_imports() -> list:
     return (
-        collect_submodules("app")
+        collect_submodules("app", filter=lambda name: name not in FROZEN_BROWSER_EXCLUDES)
         + [
             # Helper-mode entry point — dupez.py re-invokes the same frozen
             # exe with `--role helper` under DUPEZ_ARCH=split. Without this
@@ -115,16 +150,11 @@ def _hidden_imports() -> list:
             "PyQt6.QtGui",
             "PyQt6.QtCore",
             "PyQt6.sip",
-            "PyQt6.QtWebEngineWidgets",
-            "PyQt6.QtWebEngineCore",
-            "PyQt6.QtWebChannel",
             "PyQt6.QtNetwork",
             "pyqtgraph",
             "psutil",
             "keyboard",
             "PIL",
-            "scapy",
-            "scapy.all",
             "cryptography",
             "numpy",
             "openpyxl",
@@ -153,27 +183,77 @@ def _hidden_imports() -> list:
 
 
 def _datas() -> list:
-    return [
-        (os.path.join(ROOT, "app", "config"), os.path.join("app", "config")),
-        (os.path.join(ROOT, "app", "resources"), os.path.join("app", "resources")),
-        (os.path.join(ROOT, "app", "assets"), os.path.join("app", "assets")),
-        (os.path.join(ROOT, "app", "themes"), os.path.join("app", "themes")),
-    ]
+    return pyinstaller_datas(ROOT)
 
 
 def _binaries() -> list:
-    binaries = []
-    firewall_dir = os.path.join(ROOT, "app", "firewall")
-    if os.path.isdir(firewall_dir):
-        for fname in os.listdir(firewall_dir):
-            fpath = os.path.join(firewall_dir, fname)
-            if fname.endswith((".dll", ".sys", ".exe")) and os.path.isfile(fpath):
-                binaries.append((fpath, os.path.join("app", "firewall")))
-    return binaries
+    return pyinstaller_binaries(ROOT)
+
+
+def _normalise_toc_path(name: object) -> str:
+    return str(name).replace("\\", "/").strip("/").casefold()
+
+
+def _filter_root_binary_duplicates(binaries: list) -> list:
+    """Drop bindepend root copies when the managed nested copy exists."""
+    managed_paths = {
+        _normalise_toc_path(path) for path in release_binary_files()
+    }
+    present_paths = {
+        _normalise_toc_path(entry[0])
+        for entry in binaries
+        if entry
+    }
+    duplicate_basenames = {
+        path.rsplit("/", 1)[-1]
+        for path in managed_paths & present_paths
+    }
+    filtered = []
+    for entry in binaries:
+        destination = _normalise_toc_path(entry[0]) if entry else ""
+        if "/" not in destination and destination in duplicate_basenames:
+            print(
+                "[build_common] removed dependency-derived root duplicate: "
+                f"{entry[0]}"
+            )
+            continue
+        filtered.append(entry)
+    return filtered
+
+
+_UNAPPROVED_COLLECTED_BINARY_SUFFIXES = (
+    # ``sounddevice`` ships a second PortAudio build containing Steinberg's
+    # ASIO SDK.  DupeZ does not expose or support ASIO, so carrying this DLL
+    # adds third-party terms and attack surface without a product function.
+    "_sounddevice_data/portaudio-binaries/libportaudio64bit-asio.dll",
+)
+
+
+def _filter_unapproved_collected_binaries(binaries: list) -> list:
+    """Remove dependency payloads that are outside the reviewed product scope."""
+    filtered = []
+    for entry in binaries:
+        destination = _normalise_toc_path(entry[0]) if entry else ""
+        if destination.endswith(_UNAPPROVED_COLLECTED_BINARY_SUFFIXES):
+            print(
+                "[build_common] removed unapproved dependency payload: "
+                f"{entry[0]}"
+            )
+            continue
+        filtered.append(entry)
+    return filtered
 
 
 def _excludes() -> list:
     return [
+        # Both release variants expose manual map URLs and omit the inactive
+        # Chromium/QML runtime. No environment setting re-enables these bytes.
+        *FROZEN_BROWSER_EXCLUDES,
+        # Scapy is deliberately absent from the production lock. Its
+        # GPL-2.0-only terms are incompatible with the frozen PyQt release
+        # boundary, so a contaminated developer/build environment must not
+        # make it reachable to PyInstaller analysis.
+        "scapy",
         # ML / heavy libs not used
         "tensorflow",
         "torch",
@@ -246,15 +326,18 @@ def build_variant(
     Writes ``_build_default.py`` before Analysis so the frozen exe
     has the right compiled-in arch default.
     """
+    _configure_build_analysis_state()
+    windows_system_directory = configure_windows_analysis_environment()
     _write_build_default(variant)
+    managed_binary_inputs = _binaries()
 
     a = Analysis(
         [os.path.join(ROOT, "dupez.py")],
         pathex=[ROOT],
-        binaries=_binaries(),
+        binaries=managed_binary_inputs,
         datas=_datas(),
         hiddenimports=_hidden_imports(),
-        hookspath=[],
+        hookspath=[os.path.join(HERE, "hooks")],
         hooksconfig={},
         runtime_hooks=[],
         excludes=_excludes(),
@@ -263,6 +346,39 @@ def build_variant(
         cipher=BLOCK_CIPHER,
         noarchive=False,
     )
+
+    # PyInstaller's bindepend pass may rediscover DLL imports from a managed
+    # app/firewall executable and add root-level copies. Retain the exact
+    # manifest paths and remove only same-basename root duplicates.
+    a.binaries = _filter_root_binary_duplicates(a.binaries)
+    a.binaries = _filter_unapproved_collected_binaries(a.binaries)
+    a.datas = without_disabled_browser_uic_plugins(a.datas)
+    validate_no_embedded_browser_payload(
+        entry[0] for entry in [*a.binaries, *a.datas, *a.pure]
+    )
+    if sys.platform == "win32":
+        import PyQt6
+
+        a.binaries = validate_windows_tls_binaries(
+            a.binaries,
+            python_base=Path(sys.base_prefix),
+            qt_root=Path(PyQt6.__file__).resolve().parent / "Qt6",
+        )
+        native_evidence = audit_native_binary_origins(
+            a.binaries,
+            approved_roots={
+                "locked-build-venv": Path(sys.prefix),
+                "verified-base-python": Path(sys.base_prefix),
+                "windows-system32": Path(windows_system_directory),
+            },
+            managed_sources=[Path(source) for source, _destination in managed_binary_inputs],
+        )
+        evidence_path = Path(CONF["workpath"]) / "native-binaries.json"
+        evidence_path.write_text(json.dumps({
+            "schema": "dupez.native-binary-origins.v1",
+            "qt_tls_policy": "schannel-only",
+            "binaries": native_evidence,
+        }, indent=2) + "\n", encoding="utf-8")
 
     # Strip tcl/tk timezone data that sneaks in via stdlib.
     a.datas = [

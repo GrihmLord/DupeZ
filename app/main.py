@@ -10,9 +10,12 @@ from __future__ import annotations
 import ctypes
 import os
 import re
+import subprocess
 import sys
 import traceback
+from urllib.parse import urlsplit
 
+from app.core.qt_startup import normalized_qt_argv
 from dupez_single_instance import guard_gui_startup
 
 __all__ = ["dump_crash", "main"]
@@ -36,35 +39,141 @@ _PII_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(/home/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
 )
 
+_BEARER_SECRET_RE = re.compile(
+    r"(?i)\b(?P<scheme>bearer|basic)\s+"
+    r"(?P<secret>[A-Za-z0-9._~+/=-]{8,})"
+)
+_LABELED_SECRET_RE = re.compile(
+    r"(?ix)"
+    r"(?P<label>\b(?:api[_-]?key|password|passwd|secret|token|credential|"
+    r"private[_-]?key|auth)\b\s*[:=]\s*)"
+    r"(?:"
+    r"(?P<quote>[\"'])(?P<quoted>[^\r\n]*?)(?P=quote)"
+    r"|(?P<plain>[^\s,;}\]\r\n]+)"
+    r")"
+)
+_STANDALONE_SECRET_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(
+        r"\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\."
+        r"[A-Za-z0-9_-]{10,}\b"
+    ),
+)
+_URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+
+def _redact_labeled_secret(match: re.Match[str]) -> str:
+    quote = match.group("quote") or ""
+    return f"{match.group('label')}{quote}[REDACTED]{quote}"
+
+
+def _redact_crash_url(match: re.Match[str]) -> str:
+    token = match.group(0)
+    # Traceback prose commonly follows a URL with sentence punctuation. Keep
+    # that punctuation outside the parsed URL so the report remains readable.
+    core = token.rstrip("),.;]")
+    suffix = token[len(core):]
+    try:
+        parsed = urlsplit(core)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError
+        host = parsed.hostname
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = f":{parsed.port}" if parsed.port is not None else ""
+        return f"{parsed.scheme}://{host}{port}/[REDACTED]{suffix}"
+    except (TypeError, ValueError):
+        return f"[REDACTED URL]{suffix}"
+
 
 def _scrub_traceback(text: str) -> str:
-    """Redact home-directory usernames from traceback output.
+    """Redact private values from traceback output.
 
     Keeps file basenames, line numbers and code context so the dump is
-    still useful for post-mortem analysis, but removes the OS username
-    so crash reports are safe to share verbatim.
+    still useful for post-mortem analysis. Redaction is layered so a failure
+    to import one optional runtime component never restores raw output.
     """
+    try:
+        from app.core.secrets_manager import scrub_message
+
+        text = scrub_message(text)
+    except Exception:
+        pass
     for pat, repl in _PII_PATTERNS:
         text = pat.sub(repl, text)
+    try:
+        from app.core.secret_store import _redact_local_paths
+
+        text = _redact_local_paths(text)
+    except Exception:
+        pass
+    # Remove URL credentials/path/query material before field-shaped secret
+    # matching can introduce redaction markers inside the URL token.
+    text = _URL_IN_TEXT_RE.sub(_redact_crash_url, text)
+    text = _BEARER_SECRET_RE.sub(
+        lambda match: f"{match.group('scheme')} [REDACTED]",
+        text,
+    )
+    text = _LABELED_SECRET_RE.sub(_redact_labeled_secret, text)
+    for pattern in _STANDALONE_SECRET_RES:
+        text = pattern.sub("[REDACTED]", text)
+    try:
+        from app.utils.helpers import mask_ips_in_text, mask_macs_in_text
+
+        text = mask_ips_in_text(text)
+        text = mask_macs_in_text(text)
+    except Exception:
+        pass
     return text
 
 
 def _get_pythonw() -> str:
     """Return path to pythonw.exe (no-console) next to current interpreter."""
     if getattr(sys, "frozen", False):
-        return sys.executable
-    d = os.path.dirname(sys.executable)
+        return os.path.abspath(sys.executable)
+    d = os.path.dirname(os.path.abspath(sys.executable))
     pythonw = os.path.join(d, "pythonw.exe")
-    return pythonw if os.path.exists(pythonw) else sys.executable
+    return pythonw if os.path.isfile(pythonw) else os.path.abspath(sys.executable)
+
+
+def _self_elevation_command() -> tuple[str, str, str]:
+    """Return a pinned executable, CRT-safe parameters, and trusted CWD.
+
+    ``ShellExecuteW`` accepts a single parameter string rather than an argv
+    array.  Hand-written quoting is not equivalent to Windows' CRT parsing
+    rules (notably for embedded quotes and backslashes before a quote), so use
+    the same serializer as :mod:`subprocess`.  Source launches always select
+    this module explicitly; user arguments can never replace the entry point.
+    """
+    executable = os.path.abspath(_get_pythonw())
+    if not os.path.isfile(executable):
+        raise OSError("self-elevation executable is unavailable")
+
+    passthrough = list(sys.argv[1:])
+    if any(not isinstance(arg, str) or "\x00" in arg for arg in passthrough):
+        raise ValueError("self-elevation arguments contain an invalid value")
+    launch_argv = (
+        passthrough
+        if getattr(sys, "frozen", False)
+        else ["-m", "app.main", *passthrough]
+    )
+    parameters = subprocess.list2cmdline(launch_argv)
+    working_dir = (
+        os.path.dirname(executable)
+        if getattr(sys, "frozen", False)
+        else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
+    return executable, parameters, working_dir
 
 
 def dump_crash(exctype, value, tb) -> None:
     """Write unhandled exception to FATAL_CRASH.txt for post-mortem.
 
-    Paths are scrubbed of OS username before being written to disk so
-    the file is safe to share in bug reports. The original (un-scrubbed)
-    traceback still reaches stderr via ``sys.__excepthook__`` for
-    developer-side debugging.
+    The same scrubbed traceback is written to disk and stderr. Sending the raw
+    exception back through ``sys.__excepthook__`` would undo the disk privacy
+    boundary in captured console logs and CI artifacts.
     """
     try:
         try:
@@ -80,8 +189,14 @@ def dump_crash(exctype, value, tb) -> None:
         with open(crash_file, "w", encoding="utf-8") as f:
             f.write(scrubbed)
     except Exception:
+        scrubbed = "Unhandled exception (crash report unavailable)\n"
+    try:
+        sys.stderr.write(scrubbed)
+        if scrubbed and not scrubbed.endswith("\n"):
+            sys.stderr.write("\n")
+        sys.stderr.flush()
+    except Exception:
         pass
-    sys.__excepthook__(exctype, value, tb)
 
 
 sys.excepthook = dump_crash
@@ -95,13 +210,21 @@ if getattr(sys, "frozen", False):
 # LoadLibrary: PyQt6 pulls Chromium, Chromium loads ~60 .dlls, and a
 # single attacker-controlled CWD resolution there is a sideload win.
 # Keep this block above every third-party import.
+_FROZEN_WINDOWS_RELEASE = (
+    sys.platform == "win32" and bool(getattr(sys, "frozen", False))
+)
 try:
-    from app.core.self_integrity import apply_startup_hardening as _apply_hardening
+    from app.core.self_integrity import (
+        enforce_startup_hardening as _apply_hardening,
+    )
     _apply_hardening()
 except Exception:
-    # Never crash the app because hardening couldn't load — the offsec
-    # layer will catch the regression in its next detection_coverage run.
-    pass
+    if _FROZEN_WINDOWS_RELEASE:
+        raise RuntimeError(
+            "Required Windows DLL search hardening could not be applied; "
+            "refusing startup."
+        ) from None
+    # Source and non-Windows development remain best-effort.
 
 # ── QtWebEngine sandbox gating (H6) ──────────────────────────────────
 # Chromium refuses to render under Administrator (High-IL) without
@@ -122,12 +245,26 @@ def _should_disable_qt_sandbox() -> bool:
         arch = os.environ.get("DUPEZ_ARCH", "").strip().lower()
         if arch == "split":
             return False
+        # If architecture resolution itself is broken, preserve the sandbox.
+        # Compat builds resolve positively to inproc through feature_flag.
+        return arch == "inproc"
     # In-proc / Compat path runs High-IL → Chromium requires sandbox off.
     return True
 
 
-if _should_disable_qt_sandbox():
-    os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+_disable_qt_sandbox = _should_disable_qt_sandbox()
+try:
+    from app.gui.map_host.renderer_tier import apply_chromium_sandbox_policy
+
+    apply_chromium_sandbox_policy(disable=_disable_qt_sandbox)
+except Exception:
+    if _disable_qt_sandbox:
+        os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+    else:
+        # Fail closed if the policy module is unavailable: clear both known
+        # QtWebEngine sandbox bypass channels, even at the cost of GPU flags.
+        os.environ.pop("QTWEBENGINE_DISABLE_SANDBOX", None)
+        os.environ.pop("QTWEBENGINE_CHROMIUM_FLAGS", None)
 
 from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import (
@@ -147,6 +284,27 @@ from app.utils.helpers import is_admin
 IS_ADMIN: bool = is_admin()
 
 
+def _authorize_inproc_startup(*, split_mode: bool) -> bool:
+    """Authorize whole-GUI High-IL mode before engine initialization."""
+
+    if split_mode:
+        return True
+    try:
+        from app.firewall_helper.elevation import enforce_second_factor
+
+        enforce_second_factor(boundary="inproc_startup")
+        return True
+    except Exception:
+        log_warning("Privileged startup refused because authorization failed")
+        QMessageBox.critical(
+            None,
+            "Authorization Required",
+            "DupeZ could not authorize privileged firewall startup. "
+            "No network engine was initialized.",
+        )
+        return False
+
+
 def main() -> None:
     # --- Phase 1: UAC Elevation ---
     # ADR-0001 split mode: the GUI process MUST stay at Medium IL so the
@@ -161,22 +319,24 @@ def main() -> None:
         from app.firewall_helper.feature_flag import is_split_mode
         _split = is_split_mode()
     except Exception:
+        if _FROZEN_WINDOWS_RELEASE:
+            log_error("Frozen architecture policy is unavailable; refusing startup")
+            return
         _split = (os.environ.get("DUPEZ_ARCH", "").strip().lower() == "split")
 
     try:
         if not IS_ADMIN and not _split:
             log_warning("Not running as admin — auto-elevating via UAC...")
-            exe = _get_pythonw()
-            arguments = " ".join(
-                f'"{arg}"' if " " in arg else arg for arg in sys.argv[1:]
+            exe, arguments, working_dir = _self_elevation_command()
+            shell_execute = ctypes.windll.shell32.ShellExecuteW
+            try:
+                shell_execute.restype = ctypes.c_void_p
+            except (AttributeError, TypeError):
+                pass
+            result = shell_execute(
+                None, "runas", exe, arguments, working_dir, 1,
             )
-            if not getattr(sys, "frozen", False):
-                if "-m" not in arguments and "app" not in arguments:
-                    arguments = f"-m app.main {arguments}"
-            result = ctypes.windll.shell32.ShellExecuteW(
-                None, "runas", exe, arguments, os.getcwd(), 1,
-            )
-            if result <= 32:
+            if not result or int(result) <= 32:
                 log_error(f"UAC elevation failed with code: {result}")
                 ctypes.windll.user32.MessageBoxW(
                     0, "Failed to elevate. Run as Administrator.",
@@ -223,10 +383,10 @@ def main() -> None:
         # constructed. Without it, Chromium prints a warning at
         # startup and some contexts (embedded iZurvive map) can
         # render with corrupted textures on multi-GPU machines.
-        # This MUST come before `QApplication(sys.argv)` below.
+        # This MUST come before QApplication construction below.
         QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
 
-        app = QApplication(sys.argv)
+        app = QApplication(normalized_qt_argv())
 
         # Bound Qt's global worker pool before any subsystem can enqueue work.
         # This reduces stack, scheduler, and memory pressure on constrained PCs.
@@ -266,6 +426,12 @@ def main() -> None:
                 return
             record_acknowledgement()
             log_info("Authorized-use policy acknowledged")
+
+        # Compat/in-process mode runs the entire GUI at High IL. Enforce the
+        # same factor as the split helper inside this privileged process before
+        # the splash pipeline can import or initialize the firewall engine.
+        if not _authorize_inproc_startup(split_mode=_split):
+            return
 
         # --- Show splash screen and run init pipeline ---
         from app.gui.splash import DupeZSplash
@@ -330,18 +496,6 @@ def main() -> None:
                         "Controller cleanup failed after startup timeout "
                         f"(non-fatal): {shutdown_exc}"
                     )
-
-            try:
-                from app.firewall_helper.feature_flag import (
-                    get_disruption_manager,
-                )
-
-                get_disruption_manager().stop()
-            except Exception as disruption_exc:
-                log_warning(
-                    "Disruption cleanup failed after startup timeout "
-                    f"(non-fatal): {disruption_exc}"
-                )
 
             splash.close()
             splash.deleteLater()
@@ -439,12 +593,8 @@ def main() -> None:
 
         # --- Phase 3: Main Window ---
         from app.gui.dashboard import DupeZDashboard
-        from app.gui.hotkey import HotkeyListener
 
         window = DupeZDashboard(controller=controller)
-
-        hotkey = HotkeyListener(callback=controller.toggle_lag)
-        hotkey.start()
 
         window.show()
         log_info("DupeZ started successfully")
@@ -462,7 +612,6 @@ def main() -> None:
         # webhook sinks, OBS overlay) were shipped without an invocation
         # point. This block wires them in. Each step is independently
         # guarded — a failure in one does not block the others or the app.
-        _overlay_server = None
         try:
             # Episode-store rotation: enforce the 90-day / 5000-file
             # retention policy once per launch so the JSONL store does
@@ -476,20 +625,24 @@ def main() -> None:
 
         try:
             # Audit webhook sinks: register any sink the operator
-            # configured in settings so audit_event fan-out has a
-            # destination. Off unless explicitly configured.
+            # configured so audit_event fan-out has a destination.  The URL
+            # is a bearer credential and is resolved only from the OS-backed
+            # secret store; legacy plaintext settings are migrated before a
+            # sink can be registered.
             from app.core.data_persistence import settings_manager
-            _wh = settings_manager.get_setting("audit_webhook", None)
-            if isinstance(_wh, dict) and _wh.get("enabled") and _wh.get("url"):
+            from app.core.audit_webhook_config import resolve_audit_webhook
+
+            _wh = resolve_audit_webhook(manager=settings_manager)
+            if _wh is not None:
                 from app.core.audit_webhook import (
                     DiscordWebhookSink, GenericWebhookSink, register_sink,
                 )
-                kind = str(_wh.get("kind", "discord")).lower()
+                kind = _wh.kind
                 sink_cls = (DiscordWebhookSink if kind == "discord"
                             else GenericWebhookSink)
                 register_sink(sink_cls(
-                    _wh["url"],
-                    rate_limit_per_min=int(_wh.get("rate_limit_per_min", 30)),
+                    _wh.url,
+                    rate_limit_per_min=_wh.rate_limit_per_min,
                 ))
                 log_info(f"Audit webhook sink registered ({kind})")
         except Exception as e:
@@ -500,26 +653,21 @@ def main() -> None:
             # settings. The Tools menu also exposes a manual toggle.
             from app.core.data_persistence import settings_manager
             if settings_manager.get_setting("obs_overlay_enabled", False):
-                from app.core.overlay_server import OverlayServer
-                _candidate = OverlayServer(controller)
-                if _candidate.start():
-                    _overlay_server = _candidate
-                    # Hand the running server to the window so the Tools
-                    # menu toggle can stop/restart it.
-                    try:
-                        window.overlay_server = _overlay_server
-                    except Exception:
-                        pass
+                overlay_owner = window.overlay_server_owner
+                if overlay_owner.start():
                     log_info(
                         f"OBS overlay server started at "
-                        f"{_overlay_server.base_url}/overlay.html"
+                        f"{overlay_owner.base_url}/overlay.html"
                     )
                 else:
-                    # Bind failed (port in use). Leave _overlay_server
-                    # None so shutdown doesn't try to stop a dead server.
+                    retained = (
+                        " Cleanup ownership was retained for shutdown."
+                        if overlay_owner.owned
+                        else ""
+                    )
                     log_warning(
-                        "OBS overlay autostart: bind failed — overlay "
-                        "not running this session (check port 4778)"
+                        "OBS overlay autostart failed — overlay is not "
+                        f"running this session (check port 4778).{retained}"
                     )
         except Exception as e:
             log_warning(f"OBS overlay autostart failed (non-fatal): {e}")
@@ -532,7 +680,8 @@ def main() -> None:
             shutdown_state["done"] = True
 
             try:
-                hotkey.stop()
+                if not window._stop_global_hotkeys():
+                    log_warning("Global hotkey shutdown cleanup was not confirmed")
             except Exception as exc:
                 log_warning(
                     f"Hotkey shutdown failed (non-fatal): {exc}"
@@ -547,26 +696,25 @@ def main() -> None:
                 pass
 
             try:
-                if _overlay_server is not None:
-                    _overlay_server.stop()
-                    log_info("OBS overlay server stopped")
-            except Exception:
-                pass
-
-            try:
-                # Use the architecture factory so split mode stops the
-                # elevated helper and in-process mode stops the local engine.
-                from app.firewall_helper.feature_flag import (
-                    get_disruption_manager,
+                overlay_owner = getattr(
+                    window,
+                    "overlay_server_owner",
+                    None,
                 )
-
-                get_disruption_manager().stop()
-                log_info("Disruption engine stopped")
+                if overlay_owner is not None and overlay_owner.owned:
+                    if overlay_owner.stop():
+                        log_info("OBS overlay server stopped")
+                    else:
+                        log_error(
+                            "OBS overlay shutdown was not confirmed; "
+                            "ownership retained until process exit"
+                        )
             except Exception as exc:
-                log_error(f"Error stopping disruption engine on exit: {exc}")
+                log_error(f"OBS overlay shutdown failed: {exc}")
 
             try:
-                controller.shutdown()
+                if controller.shutdown() is False:
+                    log_error("Controller shutdown was not confirmed")
             except Exception as exc:
                 log_error(f"Controller shutdown failed: {exc}")
 

@@ -25,11 +25,31 @@ def _safe_stderr(message: str) -> None:
     _safe_stream_write("stderr", message)
 
 
+def _enforce_frozen_windows_startup_hardening() -> None:
+    """Refuse a frozen Windows launch before any role imports native code."""
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    try:
+        from app.core.self_integrity import enforce_startup_hardening
+
+        enforce_startup_hardening()
+    except Exception:
+        _safe_stderr(
+            "[dupez] required Windows DLL search hardening failed; "
+            "refusing startup.\n"
+        )
+        raise SystemExit(1) from None
+
+
+_enforce_frozen_windows_startup_hardening()
+
+
 def _write_verify_report(
     check: str,
     *,
     ok: bool,
     error: BaseException | None = None,
+    native_tls: dict[str, object] | None = None,
 ) -> None:
     """Write opt-in, path-free diagnostics for frozen maintenance checks."""
     report_path = os.environ.get("DUPEZ_VERIFY_REPORT")
@@ -40,16 +60,33 @@ def _write_verify_report(
         "check": check,
         "ok": ok,
     }
+    if check == "native-tls" and native_tls is not None:
+        report.update({
+            key: native_tls[key]
+            for key in ("backend", "available_backends", "supports_ssl")
+        })
     if error is not None:
         report["error_type"] = type(error).__name__
         missing_module = getattr(error, "name", None)
-        if isinstance(missing_module, str) and missing_module:
+        if check != "native-tls" and isinstance(missing_module, str) and missing_module:
             report["missing_module"] = missing_module
 
     try:
         import json
+        from pathlib import Path
+        import stat
 
-        with open(report_path, "w", encoding="utf-8", newline="\n") as handle:
+        # Keep the lexical absolute path: resolving first would hide a junction
+        # or symlink in an ancestor. Maintenance reports never replace files.
+        destination = Path(report_path).absolute()
+        for parent in destination.parents:
+            metadata = parent.lstat()
+            if (
+                not stat.S_ISDIR(metadata.st_mode)
+                or getattr(metadata, "st_file_attributes", 0) & 0x400
+            ):
+                raise ValueError("Unsafe maintenance report directory")
+        with open(destination, "x", encoding="utf-8", newline="\n") as handle:
             json.dump(report, handle, sort_keys=True)
             handle.write("\n")
     except (OSError, TypeError, ValueError):
@@ -108,7 +145,7 @@ _maybe_dispatch_helper_role()
 def _verify_runtime_imports() -> tuple[str, ...]:
     """Import every frozen Qt/direct-Clumsy boundary required by both builds."""
     import PyQt6.sip
-    from PyQt6 import QtCore, QtWebEngineWidgets, QtWidgets
+    from PyQt6 import QtCore, QtNetwork, QtWidgets
 
     import dupez_helper
     from app.core import clumsy_controls
@@ -127,7 +164,7 @@ def _verify_runtime_imports() -> tuple[str, ...]:
         PyQt6.sip,
         QtCore,
         QtWidgets,
-        QtWebEngineWidgets,
+        QtNetwork,
         clumsy_controls,
         clumsy_diagnostics,
         clumsy_full_controls,
@@ -140,7 +177,51 @@ def _verify_runtime_imports() -> tuple[str, ...]:
     return tuple(module.__name__ for module in modules)
 
 
+def _verify_native_tls() -> dict[str, object]:
+    """Probe the packaged Windows TLS backend without creating any sockets.
+
+    QCoreApplication enables Qt plugin discovery only: no QApplication,
+    WebEngine import, renderer, navigation, or event loop is started. The
+    Schannel-only policy must already hold; this probe does not switch backends.
+    """
+    if sys.platform != "win32":
+        raise RuntimeError("The native TLS maintenance probe requires Windows")
+    from PyQt6 import QtCore, QtNetwork, sip
+
+    application = QtCore.QCoreApplication.instance()
+    owns_application = application is None
+    if owns_application:
+        application = QtCore.QCoreApplication(["dupez-native-tls-verifier"])
+    try:
+        available = sorted(QtNetwork.QSslSocket.availableBackends())
+        backend = QtNetwork.QSslSocket.activeBackend()
+        supports_ssl = QtNetwork.QSslSocket.supportsSsl()
+        if available != ["schannel"] or backend != "schannel" or supports_ssl is not True:
+            raise RuntimeError("The reviewed Schannel-only TLS backend is unavailable")
+        return {
+            "backend": backend,
+            "available_backends": available,
+            "supports_ssl": supports_ssl,
+        }
+    finally:
+        if owns_application:
+            sip.delete(application)
+
+
 def _maybe_handle_v576_flags() -> None:
+    if "--verify-native-tls" in sys.argv:
+        try:
+            native_tls = _verify_native_tls()
+            _write_verify_report("native-tls", ok=True, native_tls=native_tls)
+            _safe_stdout("[dupez] native TLS backend verified: schannel\n")
+            sys.exit(0)
+        except Exception as e:
+            _write_verify_report("native-tls", ok=False, error=e)
+            _safe_stderr(
+                "[dupez] --verify-native-tls failed: "
+                f"{type(e).__name__}\n"
+            )
+            sys.exit(5)
     if "--verify-runtime-imports" in sys.argv:
         try:
             imported = ", ".join(_verify_runtime_imports())
@@ -247,22 +328,38 @@ def _inproc_self_elevate_if_needed() -> None:
     # and exit so the UAC decline doesn't look like a silent crash.
     try:
         import ctypes
-        if getattr(sys, "frozen", False):
-            # PyInstaller bundle — relaunch self.
-            lp_file = sys.executable
-            lp_params = " ".join('"' + a + '"' for a in sys.argv[1:])
-        else:
-            # Dev path — relaunch python with this script.
-            lp_file = sys.executable
-            script = os.path.abspath(__file__)
-            lp_params = '"' + script + '" ' + " ".join(
-                '"' + a + '"' for a in sys.argv[1:]
-            )
-        rc = ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", lp_file, lp_params,
-            os.path.dirname(os.path.abspath(__file__)), 1,
+        import subprocess
+
+        lp_file = os.path.abspath(sys.executable)
+        if not os.path.isfile(lp_file):
+            raise OSError("self-elevation executable is unavailable")
+        passthrough = list(sys.argv[1:])
+        if any(
+            not isinstance(arg, str) or "\x00" in arg
+            for arg in passthrough
+        ):
+            raise ValueError("self-elevation arguments contain an invalid value")
+        launch_argv = (
+            passthrough
+            if getattr(sys, "frozen", False)
+            else [os.path.abspath(__file__), *passthrough]
         )
-        if int(rc) <= 32:
+        lp_params = subprocess.list2cmdline(launch_argv)
+        working_dir = (
+            os.path.dirname(lp_file)
+            if getattr(sys, "frozen", False)
+            else os.path.dirname(os.path.abspath(__file__))
+        )
+        shell_execute = ctypes.windll.shell32.ShellExecuteW
+        try:
+            shell_execute.restype = ctypes.c_void_p
+        except (AttributeError, TypeError):
+            pass
+        rc = shell_execute(
+            None, "runas", lp_file, lp_params,
+            working_dir, 1,
+        )
+        if not rc or int(rc) <= 32:
             # ShellExecuteW returns <=32 on failure. 5 = ERROR_ACCESS_DENIED
             # is the decline path on some Windows builds; also surface any
             # other failure plainly.
@@ -297,35 +394,47 @@ if not guard_gui_startup():
 
 # ── QtWebEngine bootstrap (ADR-0001 §4.7) ──────────────────────────
 # Chromium GPU init deadlocks under an admin token, so the tier resolver
-# forces software raster whenever the GUI is elevated (legacy inproc mode)
-# and picks hardware raster / SwiftShader / CPU raster under split mode
-# based on DUPEZ_MAP_RENDERER and a best-effort GPU probe. This must run
-# BEFORE any PyQt6 import — Qt reads the Chromium flags exactly once.
+# forces software raster whenever the GUI is elevated (legacy inproc mode).
+# Split mode uses hardware raster only after a successful GPU probe and falls
+# back to CPU raster when the probe is inconclusive. This must run BEFORE any
+# PyQt6 import — Qt reads the Chromium flags exactly once.
 _root = os.path.dirname(os.path.abspath(__file__))
 if _root not in sys.path:
     sys.path.insert(0, _root)
 
 # ── Read persisted map_renderer setting early ──────────────────────
-# The user can set "gpu" / "swiftshader" / "software" in Settings →
+# The user can set "gpu" / "software" in Settings →
 # Interface → Map Renderer. We read it from the JSON file directly
 # (no AppState import, no PyQt6 import) and inject it into the env
 # var that renderer_tier.py consumes. "auto" means don't override.
+# Frozen releases accept the persisted preference, not an inherited process
+# override that can replace the reviewed Chromium command line.
+if getattr(sys, "frozen", False):
+    os.environ.pop("DUPEZ_MAP_RENDERER", None)
+
 if "DUPEZ_MAP_RENDERER" not in os.environ:
     try:
         import json as _json
-        _settings_paths = [
-            os.path.join(_root, "app", "config", "settings.json"),
-        ]
-        # Frozen exe: look relative to the exe dir as well
+        from app.core.app_paths import config_dir as _config_dir
+
+        # Resolve the same Qt-free canonical config path used by AppState.
+        # Frozen upgrades retain the old install-relative file only as a
+        # migration fallback, never as the primary source.
+        _settings_paths = [os.path.join(str(_config_dir()), "settings.json")]
         if getattr(sys, "frozen", False):
-            _settings_paths.insert(0, os.path.join(
+            _settings_paths.append(os.path.join(
                 os.path.dirname(sys.executable), "app", "config", "settings.json"))
         for _sp in _settings_paths:
             if os.path.isfile(_sp):
                 with open(_sp, "r", encoding="utf-8") as _f:
                     _cfg = _json.load(_f)
                 _mr = _cfg.get("map_renderer", "auto")
-                if _mr and _mr != "auto":
+                if _mr == "swiftshader":
+                    _mr = "software"
+                    _safe_stderr(
+                        "[dupez] legacy map renderer migrated to software\n"
+                    )
+                if _mr in {"gpu", "software"}:
                     os.environ["DUPEZ_MAP_RENDERER"] = _mr
                     _safe_stderr(f"[dupez] map_renderer from settings: {_mr}\n")
                 break
@@ -339,7 +448,7 @@ except Exception as _tier_err:
     # Fallback to the conservative pre-ADR-0001 baseline (CPU raster).
     os.environ.setdefault(
         "QTWEBENGINE_CHROMIUM_FLAGS",
-        "--no-sandbox --disable-gpu --disable-gpu-compositing",
+        "--disable-gpu",
     )
     os.environ.setdefault("QT_OPENGL", "software")
     os.environ["DUPEZ_MAP_RENDERER_TIER"] = "tier3_cpu"

@@ -69,6 +69,8 @@ _MUTATING_OPS = frozenset({
     OP_SHUTDOWN,
 })
 
+_HELPER_READY_TIMEOUT_SEC = 90.0
+
 
 class DisruptionManagerProxy:
     """Client-side façade with the same shape as the in-process manager.
@@ -97,6 +99,7 @@ class DisruptionManagerProxy:
         # the same error. A second helper also collides on the named pipe
         # (FILE_FLAG_FIRST_PIPE_INSTANCE / max_instances=1 → ERROR 231).
         self._helper_spawn_attempted = False
+        self._helper_pid: Optional[int] = None
         # 32-byte HMAC key for the mutual handshake (H2 / ADR-0001 §6).
         # Generated once per GUI lifetime; written to the sentinel file
         # for the helper to read on startup. Both sides prove knowledge
@@ -108,10 +111,10 @@ class DisruptionManagerProxy:
     def _ensure_helper(self) -> None:
         """Ensure the IPC client is connected to a running helper.
 
-        Day 4: try to connect first (helper may already be running from a
-        previous session or a manual launch). If connection fails, spawn
-        the helper using the resolved elevation strategy (runas or
-        scheduled_task), then retry the handshake.
+        Try to reconnect first in case this GUI already launched the helper.
+        If connection fails before the one allowed spawn attempt, launch the
+        helper via ``runas`` and retry the handshake. Persistent
+        highest-privilege scheduled tasks are refused.
         """
         if self._connected:
             return
@@ -131,8 +134,9 @@ class DisruptionManagerProxy:
                 from app.firewall_helper.auth import generate_token
                 self._shared_secret = generate_token()
 
-            # First attempt: connect to any existing helper (previous
-            # session or prior initialize() call in this session).
+            # First attempt: reconnect to the helper previously launched by
+            # this exact GUI process. A prior-session or manually launched
+            # helper fails the server's OS-reported client-PID check.
             self._client = PipeClient(shared_secret=self._shared_secret)
             try:
                 self._client.connect(timeout_ms=1500)
@@ -141,8 +145,8 @@ class DisruptionManagerProxy:
                     self._connected = True
                     log.info("DisruptionManagerProxy connected to existing helper")
                     return
-            except Exception as e:
-                log.info("no helper on pipe yet (%s)", e)
+            except Exception:
+                log.info("no authenticated helper is available yet")
 
             # Spawn the helper — but only once per GUI process lifetime.
             # If a prior initialize() already attempted a spawn, don't
@@ -162,9 +166,13 @@ class DisruptionManagerProxy:
                     # Pass the shared secret so elevation.ensure_helper_running
                     # writes the sentinel file before spawning. Without
                     # this, the helper will refuse to start.
-                    ensure_helper_running(shared_secret=self._shared_secret)
-                except ElevationError as e:
-                    raise RuntimeError(f"helper elevation failed: {e}") from e
+                    self._helper_pid = ensure_helper_running(
+                        shared_secret=self._shared_secret
+                    )
+                except ElevationError:
+                    raise RuntimeError("helper elevation was refused") from None
+                except Exception:
+                    raise RuntimeError("helper elevation failed") from None
             else:
                 log.info(
                     "helper spawn already attempted this session — "
@@ -172,9 +180,19 @@ class DisruptionManagerProxy:
                 )
 
             # Wait for the pipe to appear (helper boot + engine init).
-            deadline = _time.monotonic() + 15.0
-            last_err: Optional[Exception] = None
+            deadline = _time.monotonic() + _HELPER_READY_TIMEOUT_SEC
+            helper_exited = False
             while _time.monotonic() < deadline:
+                if self._helper_pid is not None:
+                    try:
+                        import psutil
+
+                        process = psutil.Process(self._helper_pid)
+                        helper_exited = not process.is_running()
+                    except Exception as exc:
+                        helper_exited = type(exc).__name__ == "NoSuchProcess"
+                    if helper_exited:
+                        break
                 try:
                     self._client = PipeClient(shared_secret=self._shared_secret)
                     self._client.connect(timeout_ms=2000)
@@ -183,12 +201,19 @@ class DisruptionManagerProxy:
                         self._connected = True
                         log.info("DisruptionManagerProxy connected to new helper")
                         return
-                    last_err = RuntimeError(resp.error_message or "ping failed")
-                except Exception as e:
-                    last_err = e
+                except Exception:
+                    pass
                 _time.sleep(0.25)
+            try:
+                from app.firewall_helper.auth import discard_token_sentinel
+
+                discard_token_sentinel()
+            except Exception:
+                pass
+            if helper_exited:
+                raise RuntimeError("helper exited before becoming ready")
             raise RuntimeError(
-                f"helper did not become ready within 15s: {last_err}"
+                "helper did not become ready within the authorization deadline"
             )
 
     def _call(self, op: str, args: Optional[Dict[str, Any]] = None) -> Response:
@@ -201,10 +226,12 @@ class DisruptionManagerProxy:
         try:
             return self._client.call(request, timeout_ms=timeout_ms)
         except (ConnectionError, OSError, BrokenPipeError, TimeoutError) as e:
-            # Pipe died (helper crashed, killed, or restarted). Reset the
-            # proxy so the NEXT call re-runs _ensure_helper() and, if the
-            # helper is still alive, rebuilds the client — or, if it's
-            # gone, retries the elevation spawn. Without this reset the
+            # Pipe died (or the helper disconnected). Reset the proxy so the
+            # NEXT call re-runs _ensure_helper() and, if the helper is still
+            # alive, rebuilds the client. A helper that exited is not
+            # auto-elevated twice during one GUI lifetime; the user can
+            # restart the GUI to make a new explicit elevation attempt.
+            # Without this reset the
             # proxy is stuck: _connected stays True, so _ensure_helper
             # short-circuits, and every subsequent call hits a dead pipe
             # and returns False forever until GUI restart.
@@ -216,6 +243,7 @@ class DisruptionManagerProxy:
                 pass
             self._client = None
             self._connected = False
+            self._helper_pid = None
             # Allow a fresh spawn attempt on reconnect — the one-shot
             # spawn guard is there to prevent UAC spam during a single
             # boot sequence, not to prevent recovery after a crash.

@@ -2,10 +2,12 @@
 """
 sbom.py — generate a CycloneDX SBOM from requirements-locked.txt.
 
-The output is a CycloneDX 1.5 JSON document suitable for publishing
-alongside each release. It lists every pinned runtime dependency with
-its PyPI ``purl``, SHA-256 hashes, and license metadata where
-available on disk.
+The output is a CycloneDX 1.5 inventory of the pinned Python runtime
+lock. It lists each locked dependency with its PyPI ``purl`` and
+SHA-256 distribution hashes. It does not currently inventory native
+subcomponents or emit license conclusions, so it must not be treated
+as a complete licensing or legal-compliance record. Distribution
+readiness is controlled separately by ``packaging/license-policy.json``.
 
 Usage::
 
@@ -37,46 +39,81 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
+import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, Sequence
+
+try:
+    from scripts.verify_requirements_lock import (
+        LockedEntry,
+        parse_release_lock_entries,
+        release_target_metadata,
+    )
+except ImportError:  # direct ``python scripts/sbom.py`` execution
+    from verify_requirements_lock import (
+        LockedEntry,
+        parse_release_lock_entries,
+        release_target_metadata,
+    )
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
-
-# Matches: ``name==version \`` followed by one-or-more ``--hash=sha256:HEX`` lines.
-_PKG_LINE_RE = re.compile(r"^([A-Za-z0-9_.\-]+)==([A-Za-z0-9_.\-]+)\s*\\?\s*$")
-_HASH_RE = re.compile(r"--hash=sha256:([0-9a-f]{64})")
+RELEASE_TARGET_PROPERTY = "dupez:release-target"
+PEP508_MARKER_PROPERTY = "dupez:pep508-marker"
 
 
-def parse_lock(path: Path) -> List[Tuple[str, str, List[str]]]:
-    """Parse a pip-compile-style lock file into (name, version, hashes)."""
-    packages: List[Tuple[str, str, List[str]]] = []
+@dataclass(frozen=True)
+class ReleasePackage:
+    name: str
+    version: str
+    hashes: tuple[str, ...]
+    marker: str = ""
+
+
+def normalize_package(
+    package: ReleasePackage | LockedEntry | tuple[str, str, Sequence[str]],
+) -> ReleasePackage:
+    """Normalize parsed entries and legacy tuple callers for artifact builders."""
+
+    if isinstance(package, ReleasePackage):
+        return package
+    if isinstance(package, LockedEntry):
+        return ReleasePackage(
+            name=package.name,
+            version=package.version,
+            hashes=package.hashes,
+            marker=package.marker,
+        )
+    name, version, hashes = package
+    return ReleasePackage(
+        name=str(name),
+        version=str(version),
+        hashes=tuple(str(digest) for digest in hashes),
+    )
+
+
+def release_target_property_value() -> str:
+    """Return the canonical serialized release-target SBOM property value."""
+
+    return json.dumps(
+        release_target_metadata(),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def parse_lock(path: Path) -> list[ReleasePackage]:
+    """Strictly parse and select packages for the canonical release target."""
+
     if not path.is_file():
         raise FileNotFoundError(f"lock file not found: {path}")
-
-    current: Tuple[str, str, List[str]] | None = None
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            if current:
-                packages.append(current)
-                current = None
-            continue
-        m = _PKG_LINE_RE.match(line)
-        if m:
-            if current:
-                packages.append(current)
-            current = (m.group(1).lower(), m.group(2), [])
-            continue
-        hm = _HASH_RE.search(line)
-        if hm and current:
-            current[2].append(hm.group(1))
-    if current:
-        packages.append(current)
-    return packages
+    return [
+        normalize_package(entry)
+        for entry in parse_release_lock_entries(path)
+    ]
 
 
 def purl_for(name: str, version: str) -> str:
@@ -85,7 +122,9 @@ def purl_for(name: str, version: str) -> str:
 
 
 def build_sbom(
-    packages: List[Tuple[str, str, List[str]]],
+    packages: Iterable[
+        ReleasePackage | LockedEntry | tuple[str, str, Sequence[str]]
+    ],
     *,
     product_version: str,
     product_name: str = "DupeZ",
@@ -93,12 +132,17 @@ def build_sbom(
 ) -> Dict:
     """Assemble a CycloneDX 1.5 JSON document."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    serial = "urn:uuid:" + hashlib.sha256(
+    serial_digest = hashlib.sha256(
         f"{product_name}@{product_version}@{now}".encode()
     ).hexdigest()[:32]
+    serial = "urn:uuid:" + str(uuid.UUID(serial_digest))
+    product_purl = f"pkg:generic/{product_name.casefold()}@{product_version}"
 
     components = []
-    for name, version, hashes in packages:
+    for raw_package in packages:
+        package = normalize_package(raw_package)
+        name = package.name
+        version = package.version
         comp = {
             "type": "library",
             "bom-ref": f"pkg:pypi/{name}@{version}",
@@ -113,10 +157,16 @@ def build_sbom(
                 }
             ],
         }
-        if hashes:
+        if package.hashes:
             comp["hashes"] = [
-                {"alg": "SHA-256", "content": h} for h in hashes
+                {"alg": "SHA-256", "content": digest}
+                for digest in package.hashes
             ]
+        if package.marker:
+            comp["properties"] = [{
+                "name": PEP508_MARKER_PROPERTY,
+                "value": package.marker,
+            }]
         components.append(comp)
 
     sbom = {
@@ -131,11 +181,15 @@ def build_sbom(
             ],
             "component": {
                 "type": "application",
-                "bom-ref": f"pkg:app/{product_name}@{product_version}",
+                "bom-ref": product_purl,
                 "name": product_name,
                 "version": product_version,
-                "purl": f"pkg:app/{product_name}@{product_version}",
+                "purl": product_purl,
             },
+            "properties": [{
+                "name": RELEASE_TARGET_PROPERTY,
+                "value": release_target_property_value(),
+            }],
         },
         "components": components,
     }

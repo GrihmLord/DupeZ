@@ -92,6 +92,7 @@ def _load_tracker_helpers():
         "_XLSX_KNOWN_HEADERS", "_XLSX_DEFAULT_FIELDS",
         "_STATUS_CANON", "_STATION_CANON",
         "_normalize_header", "_canon_status", "_canon_station",
+        "_spreadsheet_safe_text", "_spreadsheet_export_row",
         "_account_text_blob", "_infer_dayz_map", "_has_open_needs",
         "_value_bucket", "_filter_dayz_accounts",
     }
@@ -308,3 +309,38 @@ def test_xlsx_default_fields_matches_account_fields(tracker):
         "positional mapping field list must equal ACCOUNT_FIELDS — "
         "any drift here is the off-by-one regression that dropped 'value'"
     )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        "=WEBSERVICE(\"https://example.invalid\")",
+        "+cmd|' /C calc'!A0",
+        "-2+3",
+        "@SUM(1,1)",
+        "  =HYPERLINK(\"https://example.invalid\")",
+        "\t=1+1",
+        "\r@SUM(1,1)",
+        "\n+1",
+        "\ufeff=1+1",
+    ],
+)
+def test_spreadsheet_export_neutralizes_formula_prefixes(tracker, payload):
+    safe = tracker["_spreadsheet_safe_text"](payload)
+
+    assert safe == "'" + payload
+
+
+@pytest.mark.parametrize("payload", ["Main", "123", "O'Brien", ""])
+def test_spreadsheet_export_preserves_ordinary_text(tracker, payload):
+    assert tracker["_spreadsheet_safe_text"](payload) == payload
+
+
+def test_spreadsheet_export_row_covers_every_account_field(tracker):
+    fields = tracker["ACCOUNT_FIELDS"]
+    account = {field: f"={index}" for index, field in enumerate(fields)}
+
+    row = tracker["_spreadsheet_export_row"](account)
+
+    assert len(row) == len(fields)
+    assert all(value.startswith("'=") for value in row)

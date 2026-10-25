@@ -1,365 +1,201 @@
 #!/usr/bin/env python
-# app/gui/map_host/renderer_tier.py
-"""
-QtWebEngine / Chromium renderer tier detection and flag resolution.
+"""QtWebEngine renderer policy applied before any PyQt6 import.
 
-Decides which Chromium flags to set for the embedded iZurvive map based
-on:
-
-    1. The `DUPEZ_MAP_RENDERER` env var override (auto | gpu | software)
-    2. The active architecture — under DUPEZ_ARCH=inproc the GUI still
-       runs elevated and Chromium GPU init deadlocks, so force software.
-    3. A best-effort hardware probe (Windows DXGI adapter LUID presence,
-       GPU driver blocklist heuristics) to pick between hardware raster
-       and SwiftShader.
-
-Tier definitions (ADR-0001 §4.7):
-
-    Tier 1 — Modern dGPU / recent iGPU, split arch → full hardware raster
-             + GPU compositing. `--ignore-gpu-blocklist --enable-gpu-rasterization
-             --enable-zero-copy --enable-features=Vulkan`.
-
-    Tier 2 — Mid-tier or older iGPU, split arch → SwiftShader software GL.
-             `--use-gl=swiftshader --enable-gpu-rasterization`. Keeps
-             GPU compositing off to avoid buggy driver paths.
-
-    Tier 3 — Any of: inproc mode (elevated), user forced software, or
-             no usable GPU detected → pure CPU raster with no GPU
-             processes. `--disable-gpu --disable-gpu-compositing
-             --disable-software-rasterizer=false`. This is bit-for-bit
-             the behavior we shipped before ADR-0001.
-
-CRITICAL: this module must be imported and evaluated BEFORE any PyQt6
-import, because QtWebEngine reads `QTWEBENGINE_CHROMIUM_FLAGS` exactly
-once at Qt boot.
+The split GPU build uses Chromium's ANGLE/D3D11 path only after a successful
+hardware probe. Elevated, explicitly software, and inconclusive launches use
+Chromium's supported ``--disable-gpu`` fallback. Legacy SwiftShader GL flags
+are intentionally rejected: current Chromium treats that backend as removed,
+and forcing a software-GL JIT for an untrusted remote page weakens the product
+boundary as well as crashing current QtWebEngine builds.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
-from typing import Literal, Tuple
+from typing import Literal, Mapping
+
 
 log = logging.getLogger(__name__)
 
-Tier = Literal["tier1_hw", "tier2_swiftshader", "tier3_cpu"]
+Tier = Literal["tier1_hw", "tier3_cpu"]
 
-TIER_FLAGS: dict[str, str] = {
-    # tier1_hw uses ANGLE → D3D11 instead of native desktop OpenGL.
-    # Chrome itself uses ANGLE on Windows by default: desktop GL on
-    # Windows is a minefield because NV/AMD/Intel each report OpenGL
-    # version strings in slightly different formats and Qt's parser
-    # bails with "Unrecognized OpenGL version" on several of them.
-    # ANGLE sidesteps the whole problem by translating GL → D3D11,
-    # so we get hardware raster without touching driver OpenGL at all.
-    # Vulkan is deliberately NOT enabled — it's still experimental in
-    # Chromium on Windows and tends to regress on older drivers.
+TIER_FLAGS: dict[Tier, str] = {
     "tier1_hw": (
-        "--no-sandbox "
-        "--ignore-gpu-blocklist "
         "--enable-gpu-rasterization "
         "--enable-zero-copy "
         "--use-gl=angle "
         "--use-angle=d3d11 "
         "--enable-features=CanvasOopRasterization"
     ),
-    "tier2_swiftshader": (
-        "--no-sandbox "
-        "--use-gl=swiftshader "
-        "--enable-gpu-rasterization "
-        "--disable-features=Vulkan"
-    ),
-    "tier3_cpu": (
-        "--no-sandbox "
-        "--disable-gpu "
-        "--disable-gpu-compositing"
-    ),
+    "tier3_cpu": "--disable-gpu",
 }
+
+_NO_SANDBOX_FLAG_RE = re.compile(
+    r"(?<!\S)[\"']?--no-sandbox(?:=[^\s\"']*)?[\"']?(?!\S)",
+    re.IGNORECASE,
+)
+_VALID_OVERRIDES = frozenset({"auto", "gpu", "software"})
+_CHILD_RENDERER_ENV_KEYS = frozenset({
+    "dupez_map_renderer",
+    "dupez_map_renderer_tier",
+    "gallium_driver",
+    "libgl_always_software",
+    "mesa_loader_driver_override",
+    "qsg_rhi_backend",
+    "qt_angle_platform",
+    "qt_opengl",
+    "qt_qpa_platform",
+    "qt_quick_backend",
+})
+
+
+def child_webengine_environment(
+    base: Mapping[str, str],
+) -> dict[str, str]:
+    """Return a sandboxed hardware-renderer environment for the map host.
+
+    The map host may be launched from an elevated CPU-rendered parent.  It
+    must not inherit that parent's renderer, sandbox-bypass, or remote-debug
+    settings.  Other entries come from the target user's environment block
+    (or the current development environment on non-Windows platforms).
+    """
+
+    environment = {
+        str(key): str(value)
+        for key, value in base.items()
+        if (
+            str(key).casefold() not in _CHILD_RENDERER_ENV_KEYS
+            and not str(key).casefold().startswith("qtwebengine")
+        )
+    }
+    environment["QTWEBENGINE_CHROMIUM_FLAGS"] = TIER_FLAGS["tier1_hw"]
+    environment["DUPEZ_MAP_RENDERER"] = "gpu"
+    environment["DUPEZ_MAP_RENDERER_TIER"] = "tier1_hw"
+    return environment
 
 
 def _is_split_mode() -> bool:
-    arch = (os.environ.get("DUPEZ_ARCH") or "inproc").strip().lower()
-    return arch == "split"
+    try:
+        from app.firewall_helper.feature_flag import is_split_mode
+
+        return bool(is_split_mode())
+    except Exception:
+        arch = (os.environ.get("DUPEZ_ARCH") or "").strip().lower()
+        return arch == "split"
+
+
+def apply_chromium_sandbox_policy(*, disable: bool) -> None:
+    """Apply the reviewed architecture sandbox policy before Qt imports."""
+
+    if disable:
+        os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+        return
+
+    os.environ.pop("QTWEBENGINE_DISABLE_SANDBOX", None)
+    inherited = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS")
+    if inherited is None:
+        return
+    sanitized = _NO_SANDBOX_FLAG_RE.sub("", inherited).strip()
+    if sanitized:
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = sanitized
+    else:
+        os.environ.pop("QTWEBENGINE_CHROMIUM_FLAGS", None)
 
 
 def _user_override() -> str:
-    return (os.environ.get("DUPEZ_MAP_RENDERER") or "auto").strip().lower()
+    value = (os.environ.get("DUPEZ_MAP_RENDERER") or "auto").strip().lower()
+    if value == "swiftshader":
+        log.warning(
+            "legacy SwiftShader renderer preference migrated to CPU software"
+        )
+        return "software"
+    if value not in _VALID_OVERRIDES:
+        log.warning("invalid map renderer preference ignored")
+        return "auto"
+    return value
 
 
 def _is_admin_token() -> bool:
-    """Best-effort: return True if this process holds an admin token."""
+    """Best-effort check for an elevated Windows token."""
+
     if sys.platform != "win32":
         return False
     try:
         import ctypes
+
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return False
 
 
-def _probe_gpu_usable() -> Tuple[bool, str]:
-    """Heuristic: does this machine have a GPU we'd trust for Chromium raster?
-
-    Returns (usable, reason). We're deliberately conservative — a false
-    negative just drops us to software raster, which is the same as the
-    pre-ADR-0001 baseline. A false positive would mean SwiftShader or
-    hardware raster on a blocklisted driver, which Chromium itself will
-    then fall back from — so the cost of a wrong guess is bounded.
-
-    Probe chain (stops at first conclusive answer):
-      1. Pure-ctypes DXGI factory — fastest, no third-party deps.
-      2. ``wmic`` subprocess — slower (~500ms) but universally available
-         on Windows 10/11 (wmic deprecated but still ships).
-      3. Give up → (False, reason).
-    """
-    if sys.platform != "win32":
-        return (False, "non-windows")
-
-    # ── Probe 1: Pure-ctypes DXGI ──────────────────────────────────
-    # CreateDXGIFactory1 → EnumAdapters1 → GetDesc1.
-    # Works without comtypes, win32com, or any third-party package.
-    try:
-        result = _probe_dxgi_ctypes()
-        if result is not None:
-            return result
-    except Exception as e:
-        log.debug("DXGI ctypes probe failed: %s", e)
-
-    # ── Probe 2: wmic subprocess ───────────────────────────────────
-    try:
-        import os as _os
-        from app.core import safe_subprocess as _safe_sp
-        sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
-        wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
-        if not _os.path.isfile(wmic_path):
-            return (False, "wmic-not-found")
-        res = _safe_sp.run(
-            [wmic_path, "path", "win32_videocontroller", "get",
-             "name,AdapterRAM", "/format:csv"],
-            timeout=5.0,
-            expect_returncode=None,
-            intent="renderer_tier.gpu_probe_wmic",
-        )
-        out = res.stdout
-        for line in out.splitlines():
-            parts = [p.strip() for p in line.split(",")]
-            if len(parts) < 3:
-                continue
-            name = parts[1].lower()
-            if "microsoft basic" in name or "standard vga" in name:
-                continue
-            try:
-                ram = int(parts[2])
-            except (ValueError, IndexError):
-                ram = 0
-            if ram >= 256 * 1024 * 1024:  # 256 MB minimum
-                return (True, f"wmic:{parts[1]} ram={ram}")
-        return (False, "wmic:no-capable-adapter")
-    except Exception as e:
-        return (False, f"wmic-failed:{e}")
-
-
-def _probe_dxgi_ctypes() -> "Tuple[bool, str] | None":
-    """Pure-ctypes DXGI adapter enumeration.
-
-    Returns ``(usable, reason)`` if we got a conclusive answer,
-    or ``None`` if the probe couldn't run (missing DLL, etc.)
-    so the caller should try the next strategy.
-    """
-    import ctypes
-    import ctypes.wintypes as wt
-
-    try:
-        dxgi = ctypes.windll.dxgi  # type: ignore[attr-defined]
-    except (OSError, AttributeError):
-        return None
-
-    # IID_IDXGIFactory1 = {770aae78-f26f-4dba-a829-253c83d1b387}
-    IID_IDXGIFactory1 = (ctypes.c_byte * 16)(
-        0x78, 0xAE, 0x0A, 0x77, 0x6F, 0xF2, 0xBA, 0x4D,
-        0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87,
-    )
-
-    factory_ptr = ctypes.c_void_p()
-    hr = dxgi.CreateDXGIFactory1(
-        ctypes.byref(IID_IDXGIFactory1),
-        ctypes.byref(factory_ptr),
-    )
-    if hr != 0 or not factory_ptr.value:
-        return None
-
-    # IDXGIFactory1::EnumAdapters1 is vtable index 12.
-    # IDXGIAdapter1::GetDesc1 is vtable index 10.
-    # IDXGIAdapter1::Release is vtable index 2.
-    # IDXGIFactory1::Release is vtable index 2.
-    vtable = ctypes.cast(
-        factory_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))
-    )[0]
-
-    # DXGI_ADAPTER_DESC1 layout (partial — we only need Description and
-    # DedicatedVideoMemory):
-    #   WCHAR Description[128]   offset 0    (256 bytes)
-    #   UINT  VendorId           offset 256  (4 bytes)
-    #   UINT  DeviceId           offset 260  (4 bytes)
-    #   UINT  SubSysId           offset 264  (4 bytes)
-    #   UINT  Revision           offset 268  (4 bytes)
-    #   SIZE_T DedicatedVideoMemory   offset 272 (8 bytes on x64)
-    #   SIZE_T DedicatedSystemMemory  offset 280
-    #   SIZE_T SharedSystemMemory     offset 288
-    #   LUID   AdapterLuid           offset 296
-    #   UINT   Flags                 offset 304
-    # Total: ~308 bytes. Allocate 320 for safety.
-    DESC1_SIZE = 320
-
-    best_name = ""
-    best_ram = 0
-    idx = 0
-
-    while True:
-        adapter_ptr = ctypes.c_void_p()
-        # Call EnumAdapters1(factory, idx, &adapter)
-        enum_fn = ctypes.WINFUNCTYPE(
-            ctypes.c_long, ctypes.c_void_p, ctypes.c_uint,
-            ctypes.POINTER(ctypes.c_void_p),
-        )(vtable[12])
-        hr = enum_fn(factory_ptr, idx, ctypes.byref(adapter_ptr))
-        if hr != 0 or not adapter_ptr.value:
-            break
-        idx += 1
-
-        # GetDesc1
-        desc_buf = (ctypes.c_byte * DESC1_SIZE)()
-        adapter_vtable = ctypes.cast(
-            adapter_ptr, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))
-        )[0]
-        get_desc1 = ctypes.WINFUNCTYPE(
-            ctypes.c_long, ctypes.c_void_p,
-            ctypes.POINTER(ctypes.c_byte * DESC1_SIZE),
-        )(adapter_vtable[10])
-        hr_desc = get_desc1(adapter_ptr, ctypes.byref(desc_buf))
-
-        # Release adapter
-        release_fn = ctypes.WINFUNCTYPE(
-            ctypes.c_ulong, ctypes.c_void_p
-        )(adapter_vtable[2])
-        release_fn(adapter_ptr)
-
-        if hr_desc != 0:
-            continue
-
-        # Parse Description (WCHAR[128] at offset 0)
-        raw_name = bytes(desc_buf[:256])
-        try:
-            name = raw_name.decode("utf-16-le").rstrip("\x00")
-        except Exception:
-            name = ""
-
-        # Parse DedicatedVideoMemory (SIZE_T at offset 272)
-        ram_bytes = bytes(desc_buf[272:280])
-        ram = int.from_bytes(ram_bytes, byteorder="little", signed=False)
-
-        # Parse Flags (UINT at offset 304)
-        flags_bytes = bytes(desc_buf[304:308])
-        flags = int.from_bytes(flags_bytes, byteorder="little", signed=False)
-        DXGI_ADAPTER_FLAG_SOFTWARE = 2
-        if flags & DXGI_ADAPTER_FLAG_SOFTWARE:
-            continue  # Skip Microsoft Basic Render Driver / WARP
-
-        name_lower = name.lower()
-        if "microsoft basic" in name_lower or "standard vga" in name_lower:
-            continue
-
-        if ram > best_ram:
-            best_ram = ram
-            best_name = name
-
-    # Release factory
-    factory_vtable = vtable
-    release_factory = ctypes.WINFUNCTYPE(
-        ctypes.c_ulong, ctypes.c_void_p
-    )(factory_vtable[2])
-    release_factory(factory_ptr)
-
-    if best_ram >= 256 * 1024 * 1024:  # 256 MB dedicated VRAM
-        return (True, f"dxgi:{best_name} vram={best_ram}")
-    if idx == 0:
-        return None  # DXGI worked but no adapters — unusual, let next probe try
-    return (False, f"dxgi:no-capable-adapter (best={best_name} vram={best_ram})")
-
-
 def resolve_tier() -> Tier:
-    """Pick the renderer tier for this launch."""
+    """Resolve a renderer without promoting probe failure to a risky backend."""
+
     override = _user_override()
-    if override == "gpu":
-        log.info("renderer tier: tier1_hw (forced by DUPEZ_MAP_RENDERER=gpu)")
-        return "tier1_hw"
-    if override == "swiftshader":
-        log.info("renderer tier: tier2_swiftshader (forced by DUPEZ_MAP_RENDERER=swiftshader)")
-        return "tier2_swiftshader"
     if override == "software":
-        log.info("renderer tier: tier3_cpu (forced by DUPEZ_MAP_RENDERER=software)")
+        log.info("renderer tier: tier3_cpu (operator preference)")
         return "tier3_cpu"
 
-    # Auto mode.
+    # Architecture and token boundaries outrank persisted preferences. A GPU
+    # choice saved by the split build must never re-enable Chromium's GPU
+    # process when the same profile is later opened by the elevated Compat
+    # build.
     if not _is_split_mode():
-        # Legacy elevated GUI — Chromium GPU init deadlocks. Shipped baseline.
-        log.info("renderer tier: tier3_cpu (inproc mode forces software)")
+        if override == "gpu":
+            log.warning(
+                "renderer tier: GPU preference ignored in-process"
+            )
+        log.info("renderer tier: tier3_cpu (in-process architecture)")
         return "tier3_cpu"
-
     if _is_admin_token():
-        # Belt-and-suspenders: even under split arch, if the GUI is somehow
-        # still elevated (user ran the launcher elevated, or UAC broken),
-        # fall back to CPU raster to avoid the deadlock.
-        log.warning("renderer tier: tier3_cpu (split arch but GUI has admin token)")
+        if override == "gpu":
+            log.warning(
+                "renderer tier: GPU preference ignored for admin token"
+            )
+        log.warning("renderer tier: tier3_cpu (split GUI has an admin token)")
         return "tier3_cpu"
+    if override == "gpu":
+        log.info("renderer tier: tier1_hw (operator preference)")
+        return "tier1_hw"
 
     from app.core.gpu_probe import probe_gpu_usable
+
     usable, reason = probe_gpu_usable()
     if usable:
         log.info("renderer tier: tier1_hw (%s)", reason)
         return "tier1_hw"
 
-    log.info("renderer tier: tier2_swiftshader (%s)", reason)
-    return "tier2_swiftshader"
+    log.warning("renderer tier: tier3_cpu (hardware probe unavailable: %s)", reason)
+    return "tier3_cpu"
 
 
 def apply_chromium_flags() -> Tier:
-    """Set QTWEBENGINE_CHROMIUM_FLAGS + QT_OPENGL for the resolved tier.
+    """Set the reviewed Chromium and Qt renderer environment."""
 
-    Call this BEFORE importing any PyQt6 module. Returns the tier so the
-    caller can surface a one-time compatibility-mode toast in the GUI.
-    """
     tier = resolve_tier()
     flags = TIER_FLAGS[tier]
 
-    # Respect an existing override only if the user set it explicitly.
-    # (`os.environ.setdefault` would not overwrite, which is what we want
-    # for operator-provided overrides.)
-    if "QTWEBENGINE_CHROMIUM_FLAGS" not in os.environ:
+    # A frozen release is a reviewed browser boundary. Do not let inherited
+    # process environment replace its Chromium command line. Source launches
+    # retain explicit operator flags for diagnostics.
+    if (
+        getattr(sys, "frozen", False)
+        or "QTWEBENGINE_CHROMIUM_FLAGS" not in os.environ
+    ):
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = flags
-        log.info("QTWEBENGINE_CHROMIUM_FLAGS=%s", flags)
+        log.info("QTWEBENGINE_CHROMIUM_FLAGS selected for %s", tier)
     else:
-        log.info("QTWEBENGINE_CHROMIUM_FLAGS already set, not overriding")
+        log.info("operator Chromium flags retained for source diagnostics")
 
-    # QT_OPENGL must be one of {"desktop", "software"} in Qt 6 — ANGLE was
-    # removed as a Qt-side option in 6.0. Force "software" for ALL tiers:
-    #
-    #   * DupeZ's native Qt widgets don't use OpenGL for anything
-    #     visually important (no QOpenGLWidget in the app), so software
-    #     rendering of them is free.
-    #   * It sidesteps Qt's "Unrecognized OpenGL version" parser crash
-    #     seen on Grihm's NVIDIA driver under QT_OPENGL=desktop.
-    #   * The heavy lifting — Chromium rendering the iZurvive tiles —
-    #     is controlled by QTWEBENGINE_CHROMIUM_FLAGS above, which for
-    #     tier1_hw uses "--use-gl=angle --use-angle=d3d11". Chromium
-    #     bundles its own ANGLE → D3D11 GPU stack independently of
-    #     whatever Qt picks for its widget surfaces, so we still get
-    #     hardware D3D11 raster for the map while keeping Qt safe.
-    os.environ.setdefault("QT_OPENGL", "software")
+    apply_chromium_sandbox_policy(disable=not _is_split_mode())
 
-    # Make the tier visible to the rest of the app so the map widget can
-    # display a one-time toast ("running in compatibility mode") without
-    # re-running the probe.
+    if getattr(sys, "frozen", False):
+        os.environ["QT_OPENGL"] = "software"
+    else:
+        os.environ.setdefault("QT_OPENGL", "software")
+
     os.environ["DUPEZ_MAP_RENDERER_TIER"] = tier
     return tier

@@ -7,6 +7,7 @@ urllib.request.  Provides:
   - Certificate verification (always on, no bypass)
   - Request timeout enforcement
   - URL validation (scheme, host allowlist/blocklist)
+  - Redirect refusal (prevents credential/header forwarding to a new origin)
   - Response size limits
   - User-Agent identification
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 import json
 import ssl
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, Optional
 
@@ -36,6 +38,25 @@ __all__ = ["secure_get", "secure_post_json", "secure_get_json"]
 DEFAULT_TIMEOUT_S: int = 15
 MAX_RESPONSE_SIZE_BYTES: int = 10 * 1024 * 1024  # 10 MB
 USER_AGENT: str = f"DupeZ/{_DUPEZ_VERSION}"
+
+
+def _safe_url_for_log(url: object) -> str:
+    """Return a URL origin that cannot reproduce private URL components."""
+    try:
+        if not isinstance(url, str):
+            raise ValueError("URL is not text")
+        parsed = urllib.parse.urlsplit(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ValueError("URL has no log-safe origin")
+        host = parsed.hostname
+        if any(ord(character) <= 0x20 or ord(character) == 0x7F for character in host):
+            raise ValueError("URL host contains control characters")
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port = f":{parsed.port}" if parsed.port is not None else ""
+    except (TypeError, ValueError):
+        return "[REDACTED URL]"
+    return f"{parsed.scheme}://{host}{port}/[REDACTED]"
 
 # ── TLS Context ──────────────────────────────────────────────────────
 
@@ -73,12 +94,39 @@ def _create_tls_context() -> ssl.SSLContext:
 _tls_context: Optional[ssl.SSLContext] = None
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Refuse redirects so validated URLs and credentials stay origin-bound.
+
+    ``urllib`` copies ordinary request headers, including ``Authorization``,
+    into redirected requests.  A security wrapper cannot safely re-use the
+    original validation decision after a server chooses a different target,
+    so callers must resolve redirects explicitly and submit the final URL.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
 def _get_tls_context() -> ssl.SSLContext:
     """Return the singleton TLS context."""
     global _tls_context
     if _tls_context is None:
         _tls_context = _create_tls_context()
     return _tls_context
+
+
+def _open_no_redirect(
+    request: urllib.request.Request,
+    *,
+    timeout: int,
+    context: Optional[ssl.SSLContext],
+):
+    """Open one validated request without following a redirect."""
+    handlers = [_NoRedirectHandler()]
+    if context is not None:
+        handlers.append(urllib.request.HTTPSHandler(context=context))
+    opener = urllib.request.build_opener(*handlers)
+    return opener.open(request, timeout=timeout)
 
 
 # ── Public API ───────────────────────────────────────────────────────
@@ -110,7 +158,7 @@ def secure_get(url: str, headers: Optional[Dict[str, str]] = None,
     req = urllib.request.Request(url, method="GET", headers=hdrs)
 
     ctx = _get_tls_context() if url.startswith("https://") else None
-    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+    with _open_no_redirect(req, timeout=timeout, context=ctx) as resp:
         data = resp.read(MAX_RESPONSE_SIZE_BYTES + 1)
         if len(data) > MAX_RESPONSE_SIZE_BYTES:
             raise ValueError(f"Response exceeds max size ({MAX_RESPONSE_SIZE_BYTES} bytes)")
@@ -147,14 +195,20 @@ def secure_post_json(url: str, payload: dict,
 
     ctx = _get_tls_context() if url.startswith("https://") else None
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        with _open_no_redirect(req, timeout=timeout, context=ctx) as resp:
             raw = resp.read(MAX_RESPONSE_SIZE_BYTES + 1)
             if len(raw) > MAX_RESPONSE_SIZE_BYTES:
-                log_error(f"secure_post_json: response exceeds size limit for {url}")
+                log_error(
+                    "secure_post_json: response exceeds size limit for "
+                    f"{_safe_url_for_log(url)}"
+                )
                 return None
             return json.loads(raw.decode("utf-8"))
     except (urllib.error.URLError, json.JSONDecodeError) as e:
-        log_error(f"secure_post_json failed for {url}: {e}")
+        log_error(
+            f"secure_post_json failed for {_safe_url_for_log(url)} "
+            f"({e.__class__.__name__})"
+        )
         return None
 
 
@@ -167,5 +221,8 @@ def secure_get_json(url: str, headers: Optional[Dict[str, str]] = None,
                           require_https=require_https)
         return json.loads(data.decode("utf-8"))
     except (ValueError, json.JSONDecodeError) as e:
-        log_error(f"secure_get_json failed for {url}: {e}")
+        log_error(
+            f"secure_get_json failed for {_safe_url_for_log(url)} "
+            f"({e.__class__.__name__})"
+        )
         return None

@@ -1,0 +1,101 @@
+{
+  "schema": "dupez.github-governance-audit.v1",
+  "repository": "GrihmLord/DupeZ",
+  "observed_at_utc": "2026-09-04T06:36:57Z",
+  "method": "authenticated read-only gh api queries with minimized output",
+  "supersedes": "assessment/evidence/GITHUB_GOVERNANCE_AUDIT_2026-08-28.json",
+  "results": {
+    "classic_main_branch_protection": {
+      "http_status": 404,
+      "configured": false,
+      "message": "Branch not protected",
+      "note": "The active repository ruleset below protects the default branch instead."
+    },
+    "repository_rulesets": {
+      "http_status": 200,
+      "count": 1,
+      "active_default_branch_ruleset": {
+        "id": 21964214,
+        "name": "main-release-integrity",
+        "target": "branch",
+        "enforcement": "active",
+        "include": [
+          "~DEFAULT_BRANCH"
+        ],
+        "bypass_actor_count": 0,
+        "current_user_can_bypass": "never",
+        "deletion_blocked": true,
+        "non_fast_forward_blocked": true,
+        "pull_request": {
+          "required": true,
+          "required_approving_review_count": 0,
+          "required_review_thread_resolution": true,
+          "require_extra_approval_for_unattributed_changes": true
+        },
+        "required_status_checks": {
+          "strict": true,
+          "count": 14,
+          "contexts": [
+            "Analyze Python",
+            "dependency-review",
+            "GPU and Compat frozen boundary",
+            "Lockfile contract and installability",
+            "Exact-head source release policy",
+            "gitleaks",
+            "pytest (3.12)",
+            "pytest (3.13)",
+            "Build-tool lock contract and installability",
+            "detect-secrets",
+            "ruff",
+            "Test-tool lock contract and installability",
+            "ast-lint",
+            "verify-hardware-test-lock"
+          ]
+        }
+      }
+    },
+    "production_release_environment": {
+      "http_status": 200,
+      "protection_rules": [
+        "branch_policy"
+      ],
+      "required_reviewer_count": 0,
+      "deployment_branch_policy": {
+        "protected_branches": false,
+        "custom_branch_policies": true,
+        "allowed_branches": [
+          "main"
+        ]
+      }
+    },
+    "governance_ready_variable": {
+      "http_status": 200,
+      "name": "DUPEZ_RELEASE_GOVERNANCE_READY",
+      "present": true,
+      "value": "protected-main-solo-maintainer-environment",
+      "updated_at_utc": "2026-08-31T22:33:10Z"
+    },
+    "direct_collaborators": {
+      "http_status": 200,
+      "count": 1,
+      "write_capable_count": 1,
+      "accounts": [
+        {
+          "login": "GrihmLord",
+          "role_name": "admin"
+        }
+      ]
+    },
+    "pull_request_84_exact_head_checks": {
+      "http_status": 200,
+      "head_commit_prefix": "a3a3707",
+      "is_draft": true,
+      "required_check_count": 14,
+      "job_count": 14,
+      "completed_failure_count": 14,
+      "assigned_runner_count": 0,
+      "executed_step_count": 0
+    }
+  },
+  "conclusion": "The required server-side ruleset, main-only release environment policy, and solo-maintainer readiness variable are configured. Independent approval is unavailable because the sole write-capable collaborator is the pull-request author. Release remains blocked because the exact-head checks are unsuccessful and the separate license, artifact, hardware, manual, and staging gates are incomplete."
+}

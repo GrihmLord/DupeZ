@@ -1,0 +1,45 @@
+name: Source Release Preflight
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-preflight-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-preflight:
+    name: Exact-head source release policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Setup canonical release Python 3.13.17
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13.17'
+
+      - name: Install exact hashed runtime dependencies
+        run: >-
+          python -m pip --isolated install
+          --disable-pip-version-check
+          --require-hashes
+          --only-binary=:all:
+          --no-deps
+          -r requirements-locked.txt
+
+      - name: Verify source-preflight environment
+        run: python -m pip --isolated check
+
+      - name: Run source release preflight
+        run: python -I scripts/release_preflight.py

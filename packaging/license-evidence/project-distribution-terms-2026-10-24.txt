@@ -1,0 +1,56 @@
+DupeZ project-license selection record
+Record date: 2026-10-24
+Related policy decision: project-distribution-terms
+Status: license selected; rights confirmation pending
+
+OWNER SELECTION
+
+The project owner approved GNU General Public License version 3 only
+(SPDX: GPL-3.0-only) for original DupeZ code, with corresponding source,
+in the release-preparation conversation on 2026-10-24.
+
+This is a version-3-only selection, not an "or any later version" grant.
+The example notice in the unmodified GNU license appendix does not change
+the owner's version selection.
+
+LICENSE TEXT
+
+LICENSE.txt contains the unmodified full GNU GPL version 3 text retrieved
+on 2026-10-24 from:
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+No additional restrictions, author identity, copyright year, commercial
+entitlement, or ownership certification have been invented in this record.
+
+RIGHTS CONFIRMATION STILL REQUIRED
+
+Before recording project-distribution-terms as evidence-recorded, obtain
+and record the owner's confirmation that they own the original DupeZ
+contributions or have the necessary permissions to distribute them under
+GPL-3.0-only. Identify and resolve any outside, employer-owned,
+contractor-owned, or other third-party contributions that are not already
+covered by compatible terms. Preserve existing copyright and attribution
+notices; do not replace them with an unsupported blanket ownership claim.
+
+This project-license choice does not relicense third-party components.
+Their licenses and required notices remain applicable.
+
+POLICY AND DISTRIBUTION STATUS
+
+This selection record is not yet a completed owner determination for
+packaging/license-policy.json. Keep that decision unresolved, with null
+determination and empty evidence, until the rights confirmation is recorded.
+
+After confirmation, update this record with the owner's actual response
+and approval date, then pin SHA-256 hashes of LICENSE.txt and this record
+as repository-file evidence for project-distribution-terms. Do not mark
+the other five decisions approved from this project-license selection.
+
+The separate PyQt, Qt/Qt WebEngine/Chromium, notice-delivery,
+corresponding-source/relink, and Inno Setup decisions require their own
+reviewed evidence. Source publication approval does not establish that the
+complete corresponding source, build/replacement instructions, dependency
+sources, or recipient installation rights have been delivered.
+
+This record documents the stated choice and outstanding evidence; it is
+not a legal compliance opinion or a public-release authorization.
