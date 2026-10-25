@@ -1,0 +1,1399 @@
+{
+  "schema": "dupez.qt-native-review.v1",
+  "observed_on": "2026-10-25",
+  "baseline_source_commit": "6fa81f48b1c96c949abe27b4822805914d128e78",
+  "scope": "Primary-source research, candidate source mapping, and minimal isolated offline runtime proof; no finding grants release, licensing, security, or corresponding-source approval.",
+  "baseline": {
+    "bindings": "6.11.0",
+    "native_qt": "6.11.2",
+    "native_webengine": "6.11.2",
+    "python": "3.13.17",
+    "pypi_constraint": "PyQt6-Qt6 >=6.11.0,<6.12.0",
+    "qt5compat_inventory": {
+      "path": "build/recipient-evidence-20261024/baseline-venv/Lib/site-packages/PyQt6/Qt6",
+      "pattern": "*Compat*.dll",
+      "matches": [],
+      "limit": "Only baseline venv component absence; does not establish every historical/future frozen payload or global non-exploitability."
+    }
+  },
+  "pypi": [
+    {
+      "package": "PyQt6-Qt6",
+      "latest": "6.11.2",
+      "requires_dist": null,
+      "metadata_receipt": {
+        "url": "https://pypi.org/pypi/PyQt6-Qt6/json",
+        "resolved_url": "https://pypi.org/pypi/PyQt6-Qt6/json",
+        "local_path": "build/qt-native-review-20261025/PyQt6-Qt6.json",
+        "size": 161293,
+        "sha256": "3166e417f6c1b5798a79b30c53103435490fbee7f3a6006fb11806be570e871d"
+      },
+      "windows_files": [
+        {
+          "filename": "pyqt6_qt6-6.11.2-py3-none-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/f6/56/62457dd9b5738f65b9fb4ac6b3120bc0bfa0bc335857fdd456b94b0a6079/pyqt6_qt6-6.11.2-py3-none-win_amd64.whl",
+          "size": 78000994,
+          "sha256": "4b424ed1babbef07133eb2a4174c56c848d518767bca8e759aca2c8c9c313636",
+          "uploaded_at": "2026-08-23T12:59:56.429000Z"
+        }
+      ]
+    },
+    {
+      "package": "PyQt6-WebEngine-Qt6",
+      "latest": "6.11.2",
+      "requires_dist": null,
+      "metadata_receipt": {
+        "url": "https://pypi.org/pypi/PyQt6-WebEngine-Qt6/json",
+        "resolved_url": "https://pypi.org/pypi/PyQt6-WebEngine-Qt6/json",
+        "local_path": "build/qt-native-review-20261025/PyQt6-WebEngine-Qt6.json",
+        "size": 131698,
+        "sha256": "5230fdf01e42264bc72e846a90d1cea46b3ca22f3e25c2834e80db7647824c6a"
+      },
+      "windows_files": [
+        {
+          "filename": "pyqt6_webengine_qt6-6.11.2-py3-none-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/24/db/06ba5859dcee54c77f2e4a547207177bb00747e4db7adcd1b70706db14bc/pyqt6_webengine_qt6-6.11.2-py3-none-win_amd64.whl",
+          "size": 132370879,
+          "sha256": "af13f13e6620de6d904b268343d901caeb7a39b15ead92f5dde8cdd69dac179b",
+          "uploaded_at": "2026-08-23T12:58:54.323358Z"
+        }
+      ]
+    },
+    {
+      "package": "PyQt6",
+      "latest": "6.11.0",
+      "requires_dist": [
+        "PyQt6-sip<14,>=13.8",
+        "PyQt6-Qt6<6.12.0,>=6.11.0"
+      ],
+      "metadata_receipt": {
+        "url": "https://pypi.org/pypi/PyQt6/json",
+        "resolved_url": "https://pypi.org/pypi/PyQt6/json",
+        "local_path": "build/qt-native-review-20261025/PyQt6.json",
+        "size": 132655,
+        "sha256": "49c7375b54892ca5ad667791581b05905b6d9868af656a89b5cf2cfa68a052b0"
+      },
+      "windows_files": [
+        {
+          "filename": "pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/6f/85/dd9f03d78d87460e109e0121cd6201c5802bdd655656bf2780e964870fea/pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+          "size": 6844358,
+          "sha256": "bd11b459c54dca068e988a42cf838303334f0d441b9d16d92ae6719fcb5ac6ba",
+          "uploaded_at": "2026-03-30T09:16:09.766062Z"
+        }
+      ]
+    },
+    {
+      "package": "PyQt6-WebEngine",
+      "latest": "6.11.0",
+      "requires_dist": [
+        "PyQt6-sip<14,>=13.8",
+        "PyQt6-WebEngine-Qt6<6.12.0,>=6.11.0",
+        "PyQt6>=6.2.0"
+      ],
+      "metadata_receipt": {
+        "url": "https://pypi.org/pypi/PyQt6-WebEngine/json",
+        "resolved_url": "https://pypi.org/pypi/PyQt6-WebEngine/json",
+        "local_path": "build/qt-native-review-20261025/PyQt6-WebEngine.json",
+        "size": 55989,
+        "sha256": "3ffb78f86366eca113fa9f867fa7f1262bb03a5b73d2aa4c7d42b0ee0a7c0dae"
+      },
+      "windows_files": [
+        {
+          "filename": "pyqt6_webengine-6.11.0-cp310-abi3-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/d4/15/27a18e7124f85eeadd48452f96104a5a231f0ad97ab5c10e16d87a319ccb/pyqt6_webengine-6.11.0-cp310-abi3-win_amd64.whl",
+          "size": 257876,
+          "sha256": "5596ea8f7fd94a6b443c47f3c12dac619bedf5fabb646d2b8b4de1d73ec531cb",
+          "uploaded_at": "2026-03-30T09:18:12.682234Z"
+        }
+      ]
+    }
+  ],
+  "qt_6112_webengine_source": {
+    "archive": "build/source-delivery-20261024/archives/qtwebengine-everywhere-src-6.11.2.tar.xz",
+    "archive_sha256": "6101c1aa00ff933d1b65ee5d167f76e8d71b9ac5b378b0111277723ebda7c163",
+    "members": [
+      {
+        "member": "qtwebengine-everywhere-src-6.11.2/.tag",
+        "size": 41,
+        "sha256": "ae0d22216502fc6ad3050b2c4c86b90e1be420631c5a276b58d1cc33caf158ca",
+        "text": "a33fa2a897e5ee58e385b3f88dc247d99fca56db\n"
+      },
+      {
+        "member": "qtwebengine-everywhere-src-6.11.2/CHROMIUM_VERSION",
+        "size": 157,
+        "sha256": "4032b467d870b0de439eda19dee7ef8b5e8126d9555b0dda1418563874bd7995",
+        "text": "Based on Chromium version:                                      140.0.7339.264\nPatched with security patches up to Chromium version:           151.0.7922.71\n"
+      },
+      {
+        "member": "qtwebengine-everywhere-src-6.11.2/src/3rdparty/chromium/chrome/VERSION",
+        "size": 39,
+        "sha256": "ce3a513eaf4c8b8574f8512e64b0e51d66cae4ce1649cf17c2638910ae96a485",
+        "text": "MAJOR=140\nMINOR=0\nBUILD=7339\nPATCH=225\n"
+      }
+    ],
+    "limit": "CHROMIUM_VERSION declaration agrees with prior runtime probe, but the Chromium chrome/VERSION file reports a different patch component and does not establish exact binary backports or build flags."
+  },
+  "advisories": [
+    {
+      "id": "CVE-2026-95620",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-95620",
+      "module": "QtNetwork HTTP/2",
+      "baseline_6112": "affected-version; 6.11.3 or official patch required",
+      "candidate_6113_source": "6.11.3 production source reverse-patch check passes; full reverse check conflicts only in test context"
+    },
+    {
+      "id": "CVE-2026-96432",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-96432",
+      "module": "QtNetwork HTTP/2",
+      "baseline_6112": "affected-version; 6.11.3 or official patch required",
+      "candidate_6113_source": "6.11.3 full and production source reverse-patch checks pass"
+    },
+    {
+      "id": "CVE-2026-105923",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-105923",
+      "module": "QtGui triangulator via Qt Quick VectorImage",
+      "baseline_6112": "affected-version; runtime reachability not inferred from imports",
+      "candidate_6113_source": "6.11.3 full and production source reverse-patch checks pass"
+    },
+    {
+      "id": "CVE-2026-101201",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-101201",
+      "module": "Qt6 qt5compat QBinaryJson; advisory also covers older Qt Core",
+      "baseline_6112": "Qt6 official patches modify only src/core5/serialization/qbinaryjson.cpp; baseline venv has no *Compat*.dll; component absence only",
+      "candidate_6113_source": "6.11.3 contains qAddOverflow and size_t size comparisons; second patch reverse check passes, first-patch reverse context is superseded by second"
+    },
+    {
+      "id": "CVE-2026-82292",
+      "source": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-82292-qtbase-6.11.diff.mirrorlist",
+      "module": "QtXml QDom invalid-data null-node handling",
+      "baseline_6112": "official patch reviewed; do not add ReturnNullNode mitigation without checking factory/parser null handling",
+      "candidate_6113_source": "6.11.3 full and production source reverse-patch checks pass"
+    },
+    {
+      "id": "CVE-2026-15037",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-15037-xml-injection",
+      "module": "QtXml QDom serialization",
+      "baseline_6112": "earlier-than-6.12 default remains conditional exposure",
+      "candidate_6113_source": "6.11.3 is not the advisory fixed-default release"
+    },
+    {
+      "id": "CVE-2026-16762",
+      "source": "https://www.qt.io/blog/cve-2026-16762",
+      "module": "QtCore XML stream parser",
+      "baseline_6112": "fixed-version according to Qt advisory: 6.11.2",
+      "candidate_6113_source": "not a new 6.11.3 blocker"
+    },
+    {
+      "id": "CVE-2026-8168",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-8168",
+      "module": "QtSvg parser/renderer",
+      "baseline_6112": "fixed-version according to Qt advisory: 6.11.2",
+      "candidate_6113_source": "not a new 6.11.3 blocker"
+    },
+    {
+      "id": "CVE-2026-76151",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-76151",
+      "module": "QtNetwork Cache-Control parser",
+      "baseline_6112": "fixed-version according to Qt advisory: 6.11.2",
+      "candidate_6113_source": "not a new 6.11.3 blocker"
+    },
+    {
+      "id": "CVE-2026-78253",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-78253",
+      "module": "QtCore readElementText recursion",
+      "baseline_6112": "fixed-version according to Qt advisory: 6.11.2",
+      "candidate_6113_source": "not a new 6.11.3 blocker"
+    },
+    {
+      "id": "CVE-2026-79616",
+      "source": "https://www.qt.io/blog/security-advisory-cve-2026-79616",
+      "module": "QtQuick SVG path properties",
+      "baseline_6112": "fixed-version according to Qt advisory: 6.11.2",
+      "candidate_6113_source": "not a new 6.11.3 blocker"
+    }
+  ],
+  "official_patch_review_inputs": [
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-95620-qtbase-6.11.diff",
+      "resolved_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-95620-qtbase-6.11.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-95620-qtbase-6.11.diff",
+      "size": 6049,
+      "sha256": "0dcc1f494c29abaedaa78c22e7a8163036ea64598beee494da777c2eae150e52",
+      "commit_in_patch": "c4ae6491d473e36f34840a236c5fd0f4bc800558",
+      "changed_paths": [
+        "src/network/access/qhttp2connection.cpp",
+        "tests/auto/network/access/qhttp2connection/CMakeLists.txt",
+        "tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    },
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-96432-qtbase-6.11.diff",
+      "resolved_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-96432-qtbase-6.11.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-96432-qtbase-6.11.diff",
+      "size": 6592,
+      "sha256": "47eb61a047b454b5cf54631a6a5466c48a8466744b69bf84b8be4c50fda090ac",
+      "commit_in_patch": "156dcb4770d7f4747b973ba509f6df1933f64817",
+      "changed_paths": [
+        "src/network/access/qhttp2connection.cpp",
+        "tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    },
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-105923-qtbase-6.11-0001.diff",
+      "resolved_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-105923-qtbase-6.11-0001.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-105923-qtbase-6.11-0001.diff",
+      "size": 11226,
+      "sha256": "db396b2c24ae66d3bf67845f79dad3458ec3f95b7926777d10ab61d6792a109e",
+      "commit_in_patch": "d2129a7f0e1f2ebef3f4897276db9b5b05874d8f",
+      "changed_paths": [
+        "src/gui/painting/qtriangulator.cpp",
+        "tests/auto/gui/painting/CMakeLists.txt",
+        "tests/auto/gui/painting/qtriangulator/CMakeLists.txt",
+        "tests/auto/gui/painting/qtriangulator/tst_qtriangulator.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    },
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0001.diff",
+      "resolved_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0001.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-101201-qtqt5compat-6.11-0001.diff",
+      "size": 9674,
+      "sha256": "4aed3158264e5fe5d421ceaf985b85bc964bbd40b91e5dbfc950e53162f2c1de",
+      "commit_in_patch": "d0cd01d60dcf9e2422dc720ed8321a195867afe6",
+      "changed_paths": [
+        "src/core5/serialization/qbinaryjson.cpp",
+        "tests/auto/core5/serialization/json/tst_qtjson.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    },
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0002.diff",
+      "resolved_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0002.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-101201-qtqt5compat-6.11-0002.diff",
+      "size": 1830,
+      "sha256": "a2bf953db153061f397b273fa45aa7fd74934c2087a701eb837d642e5a3fb182",
+      "commit_in_patch": "6a61c8544b2d9c6ba1292ab43e81c47565dde6f9",
+      "changed_paths": [
+        "src/core5/serialization/qbinaryjson.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    },
+    {
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-82292-qtbase-6.11.diff",
+      "resolved_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-82292-qtbase-6.11.diff",
+      "local_path": "build/qt-native-review-20261025/CVE-2026-82292-qtbase-6.11.diff",
+      "size": 4790,
+      "sha256": "cb3f378890e84039c0bf444a13e0da8e06d5baab3c35302dad8344727d3bb523",
+      "commit_in_patch": "ca6d005dceb293729be56c96c26c2a7ae19877ef",
+      "changed_paths": [
+        "src/xml/dom/qdomhelpers.cpp",
+        "tests/auto/xml/dom/qdom/tst_qdom.cpp"
+      ],
+      "applied": false,
+      "executed": false
+    }
+  ],
+  "native_build_host": {
+    "visual_studio": "Build Tools 2022 17.14.27 (17.14.37012.4)",
+    "msvc_component_present": false,
+    "bundled_cmake_present": false,
+    "bundled_ninja_present": false,
+    "windows_sdk_include_versions": [
+      "10.0.19041.0"
+    ],
+    "source_build_started": false,
+    "prerequisite_source": "https://doc.qt.io/qt-6.11/qtwebengine-platform-notes.html",
+    "missing_for_webengine": [
+      "MSVC C++ compiler >=14.36 for VS2022",
+      "Windows 11 SDK >=10.0.26100.0",
+      "CMake and Ninja; exact source requirements must govern tool versions",
+      "Node/Python/html5lib/gperf/bison/flex inventory and pinned build inputs not established"
+    ],
+    "note": "Installed VS instance alone does not prove a native compiler is installed."
+  },
+  "qt_6113_candidate": {
+    "status": "public-online-installer-candidate-not-adopted",
+    "installer_metadata_receipt": {
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/Updates.xml",
+      "resolved_url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/Updates.xml",
+      "local_path": "build/qt-native-review-20261025/qt-6.11.3-installer-Updates.xml",
+      "size": 120911,
+      "sha256": "fe3bc959867df809831f6e758cf840ea29bfb4d4266990139e07f8a1a923ddb6"
+    },
+    "source_metadata_receipt": {
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/Updates.xml",
+      "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/Updates.xml",
+      "local_path": "build/qt-native-review-20261025/qt-6.11.3-source-Updates.xml",
+      "size": 73413,
+      "sha256": "9d058570540c82b6fd6b01b9739234a85348b28f96bd2484af36b7089e5b7303"
+    },
+    "installer_package": {
+      "Name": "qt.qt6.6113.win64_msvc2022_64",
+      "DisplayName": "MSVC 2022 64-bit",
+      "Version": "6.11.3-0-202610220312",
+      "ReleaseDate": "2026-10-22",
+      "DownloadableArchives": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdoc-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, d3dcompiler_47-x64.7z, opengl32sw-64-mesa_11_2_2-signed_sha256.7z"
+    },
+    "source_package": {
+      "Name": "qt.qt6.6113.src",
+      "DisplayName": "Sources",
+      "Version": "6.11.3-0-202610220312",
+      "ReleaseDate": "2026-10-22",
+      "DownloadableArchives": "qtdoc-everywhere-src-6.11.3.tar.xz, qtwayland-everywhere-src-6.11.3.tar.xz, qtbase-everywhere-src-6.11.3.tar.xz, qtsvg-everywhere-src-6.11.3.tar.xz, qtdeclarative-everywhere-src-6.11.3.tar.xz, qttools-everywhere-src-6.11.3.tar.xz, qt5compat-everywhere-src-6.11.3.tar.xz, qtshadertools-everywhere-src-6.11.3.tar.xz, qtquick3d-everywhere-src-6.11.3.tar.xz, qtquick3dphysics-everywhere-src-6.11.3.tar.xz, qtquickeffectmaker-everywhere-src-6.11.3.tar.xz, qtquicktimeline-everywhere-src-6.11.3.tar.xz, qttranslations-everywhere-src-6.11.3.tar.xz, qt5-everywhere-src-6.11.3.tar.xz, qt3d-everywhere-src-6.11.3.tar.xz, qtactiveqt-everywhere-src-6.11.3.tar.xz, qtcanvaspainter-everywhere-src-6.11.3.tar.xz, qtcharts-everywhere-src-6.11.3.tar.xz, qtcoap-everywhere-src-6.11.3.tar.xz, qtconnectivity-everywhere-src-6.11.3.tar.xz, qtdatavis3d-everywhere-src-6.11.3.tar.xz, qtgraphs-everywhere-src-6.11.3.tar.xz, qtgrpc-everywhere-src-6.11.3.tar.xz, qthttpserver-everywhere-src-6.11.3.tar.xz, qtimageformats-everywhere-src-6.11.3.tar.xz, qtlanguageserver-everywhere-src-6.11.3.tar.xz, qtlocation-everywhere-src-6.11.3.tar.xz, qtlottie-everywhere-src-6.11.3.tar.xz, qtmqtt-everywhere-src-6.11.3.tar.xz, qtmultimedia-everywhere-src-6.11.3.tar.xz, qtnetworkauth-everywhere-src-6.11.3.tar.xz, qtopcua-everywhere-src-6.11.3.tar.xz, qtopenapi-everywhere-src-6.11.3.tar.xz, qtpositioning-everywhere-src-6.11.3.tar.xz, qtremoteobjects-everywhere-src-6.11.3.tar.xz, qtscxml-everywhere-src-6.11.3.tar.xz, qtsensors-everywhere-src-6.11.3.tar.xz, qtserialbus-everywhere-src-6.11.3.tar.xz, qtserialport-everywhere-src-6.11.3.tar.xz, qtspeech-everywhere-src-6.11.3.tar.xz, qttasktree-everywhere-src-6.11.3.tar.xz, qtvirtualkeyboard-everywhere-src-6.11.3.tar.xz, qtwebchannel-everywhere-src-6.11.3.tar.xz, qtwebsockets-everywhere-src-6.11.3.tar.xz, qtwebview-everywhere-src-6.11.3.tar.xz"
+    },
+    "archives": [
+      {
+        "kind": "binary",
+        "filename": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 39790318,
+        "sha256_published_by_qt": "68be61b613b963daf206834fdcc57dd3b84baff3082e50679e5846ca4a7a8b86",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist",
+          "resolved_url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist",
+          "local_path": "build/qt-native-review-20261025/qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist.html",
+          "size": 12509,
+          "sha256": "4e7093046aa9b892f6e66960013ed360a817a66b0f3627ab26ee22b785200e1e"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "68be61b613b963daf206834fdcc57dd3b84baff3082e50679e5846ca4a7a8b86",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "native_payload_executed_during_archive_review": false
+      },
+      {
+        "kind": "binary",
+        "filename": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 683023,
+        "sha256_published_by_qt": "e8c789e1a059601dd82114dd9560952891e7c8e94e1cb291166eb61d74800353",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist",
+          "resolved_url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist",
+          "local_path": "build/qt-native-review-20261025/qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist.html",
+          "size": 12472,
+          "sha256": "55bc1b002e2e31bbc8b4850efb8308b1ae815f236e0468ceced465bf0dc7b802"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "e8c789e1a059601dd82114dd9560952891e7c8e94e1cb291166eb61d74800353",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "native_payload_executed_during_archive_review": false
+      },
+      {
+        "kind": "source",
+        "filename": "qtbase-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtbase-everywhere-src-6.11.3.tar.xz",
+        "size": 50542228,
+        "sha256_published_by_qt": "bd60222ad79b3d88e7e45c6dd1cd738d34db0ceb159b6221316da7f884525f0b",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtbase-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtbase-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "local_path": "build/qt-native-review-20261025/qtbase-everywhere-src-6.11.3.tar.xz.mirrorlist.html",
+          "size": 10420,
+          "sha256": "df2d56b00cdb8f558176945b459cb6a2c9a12cc4789e008b5d1fec3dd1a018f2"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "bd60222ad79b3d88e7e45c6dd1cd738d34db0ceb159b6221316da7f884525f0b",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qtbase-everywhere-src-6.11.3.tar.xz",
+        "native_payload_executed_during_archive_review": false
+      },
+      {
+        "kind": "source",
+        "filename": "qtsvg-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtsvg-everywhere-src-6.11.3.tar.xz",
+        "size": 2338300,
+        "sha256_published_by_qt": "b712a27d4bc6ba510bc5c082f6eaac2ce38588d8a2d2eb771d08307735f9d44c",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtsvg-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtsvg-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "local_path": "build/qt-native-review-20261025/qtsvg-everywhere-src-6.11.3.tar.xz.mirrorlist.html",
+          "size": 10384,
+          "sha256": "c28967e57e48f3afa11ce25756136e8c1791aace3866f949c550a7793e923820"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "b712a27d4bc6ba510bc5c082f6eaac2ce38588d8a2d2eb771d08307735f9d44c",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qtsvg-everywhere-src-6.11.3.tar.xz",
+        "native_payload_executed_during_archive_review": false
+      },
+      {
+        "kind": "source",
+        "filename": "qt5compat-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qt5compat-everywhere-src-6.11.3.tar.xz",
+        "size": 14626256,
+        "sha256_published_by_qt": "3c86abca6c9391657af563230fb3d739758ff2a6b094c23b68cfa3605e005219",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qt5compat-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qt5compat-everywhere-src-6.11.3.tar.xz.mirrorlist",
+          "local_path": "build/qt-native-review-20261025/qt5compat-everywhere-src-6.11.3.tar.xz.mirrorlist.html",
+          "size": 10525,
+          "sha256": "6581a8f4322233e3a2fa23db0222a5dee2460000d10e7eca7b33c8d43920c40a"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "3c86abca6c9391657af563230fb3d739758ff2a6b094c23b68cfa3605e005219",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qt5compat-everywhere-src-6.11.3.tar.xz",
+        "native_payload_executed_during_archive_review": false
+      },
+      {
+        "kind": "binary",
+        "filename": "qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qt5compat.win64_msvc2022_64/6.11.3-0-202610220312qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 1302298,
+        "sha256_published_by_qt": "16702679d47c666d826e7ee371879632200e96255b08ca0654301125ae5fe0e3",
+        "receipt": {
+          "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qt5compat.win64_msvc2022_64/6.11.3-0-202610220312qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.mirrorlist",
+          "size": 13174,
+          "sha256": "4911b6bd42784b067b11c1028308ebf51a7cc90b2cdaf582b25f6131f2642c6b"
+        },
+        "archive_downloaded": true,
+        "archive_verified": true,
+        "sha256_observed": "16702679d47c666d826e7ee371879632200e96255b08ca0654301125ae5fe0e3",
+        "local_path": "build/qt-native-review-20261025/6.11.3-qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "native_payload_executed_during_archive_review": false
+      }
+    ],
+    "source_patch_mapping": [
+      {
+        "module": "qtbase",
+        "selected_members": [
+          {
+            "member": ".cmake.conf",
+            "sha256": "2e9f581a65abc923380f42b411eff1e4f63bbe2fc6769cc88346706c579cd115",
+            "size": 3199,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/.cmake.conf"
+          },
+          {
+            "member": ".tag",
+            "sha256": "6c726bf9a5db2d225f22bf9d58e23586f2f3b9089ac041ee48783f1bdd77a827",
+            "size": 41,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/.tag",
+            "text": "138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3\n"
+          },
+          {
+            "member": "src/xml/dom/qdomhelpers.cpp",
+            "sha256": "b06c75bd199eddae2432d36ba569167253f5fe4b99fafaef0cb7e2553cf6bfe4",
+            "size": 15437,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/src/xml/dom/qdomhelpers.cpp"
+          },
+          {
+            "member": "src/network/access/qhttp2connection.cpp",
+            "sha256": "90ad149f095b8eb0fa5209c73de8b23a4297f7fa01e4f585ab3b25c50123a49d",
+            "size": 95354,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/src/network/access/qhttp2connection.cpp"
+          },
+          {
+            "member": "src/gui/painting/qtriangulator.cpp",
+            "sha256": "74810f91f577215c34297a05b4511100663dd3b96c0dfba1ccebb5ef7d05ce22",
+            "size": 88011,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/src/gui/painting/qtriangulator.cpp"
+          },
+          {
+            "member": "tests/auto/xml/dom/qdom/tst_qdom.cpp",
+            "sha256": "4fe56757b43222d528a5bca27fcc9095757b27e6b106b2b363f234fcf154b88e",
+            "size": 99787,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/xml/dom/qdom/tst_qdom.cpp"
+          },
+          {
+            "member": "tests/auto/network/access/qhttp2connection/CMakeLists.txt",
+            "sha256": "48c510f670200ab7856465b85a20fb549f8879436a0fb532fc143b0b54b63a6f",
+            "size": 480,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/network/access/qhttp2connection/CMakeLists.txt"
+          },
+          {
+            "member": "tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp",
+            "sha256": "c89c314beafa41b0a35ffdf9d817c48c9174c842a886c5c3b14cf768b2138a20",
+            "size": 75554,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp"
+          },
+          {
+            "member": "tests/auto/gui/painting/CMakeLists.txt",
+            "sha256": "6f6ceaf740b81ac41b9dbec79cce023294ba0b5145e5577ab22848936b554722",
+            "size": 765,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/gui/painting/CMakeLists.txt"
+          },
+          {
+            "member": "tests/auto/gui/painting/qtriangulator/CMakeLists.txt",
+            "sha256": "2cc7e5b8987cdf111248caa4ec389bed679c0f1f9781135d9427814c3f4b9c8b",
+            "size": 610,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/gui/painting/qtriangulator/CMakeLists.txt"
+          },
+          {
+            "member": "tests/auto/gui/painting/qtriangulator/tst_qtriangulator.cpp",
+            "sha256": "a4de81c094aca9ec2af10158ff2e2b2c1cb19e95e213f781b2adfaf7cfedbd9e",
+            "size": 4794,
+            "local_path": "build/qt-native-review-20261025/source-review/qtbase/tests/auto/gui/painting/qtriangulator/tst_qtriangulator.cpp"
+          }
+        ],
+        "reverse_patch_checks": [
+          {
+            "patch_sha256": "0dcc1f494c29abaedaa78c22e7a8163036ea64598beee494da777c2eae150e52",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-95620-qtbase-6.11.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "error: patch failed: tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp:51\nerror: tests/auto/network/access/qhttp2connection/tst_qhttp2connection.cpp: patch does not apply\n",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          },
+          {
+            "patch_sha256": "47eb61a047b454b5cf54631a6a5466c48a8466744b69bf84b8be4c50fda090ac",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-96432-qtbase-6.11.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          },
+          {
+            "patch_sha256": "db396b2c24ae66d3bf67845f79dad3458ec3f95b7926777d10ab61d6792a109e",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-105923-qtbase-6.11-0001.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          },
+          {
+            "patch_sha256": "cb3f378890e84039c0bf444a13e0da8e06d5baab3c35302dad8344727d3bb523",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-82292-qtbase-6.11.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          }
+        ]
+      },
+      {
+        "module": "qtsvg",
+        "selected_members": [
+          {
+            "member": ".cmake.conf",
+            "sha256": "b400ce890d8369f5b281a9cee4c19dc0258be1f61a0dfdeec3f202cc1795c8b9",
+            "size": 310,
+            "local_path": "build/qt-native-review-20261025/source-review/qtsvg/.cmake.conf"
+          },
+          {
+            "member": ".tag",
+            "sha256": "8544312033925a01c7539edd9e7b28a30f83c3e48f94751ddebbf94d215b6a5e",
+            "size": 41,
+            "local_path": "build/qt-native-review-20261025/source-review/qtsvg/.tag",
+            "text": "f5d99721911e4a1989965a087813cf1277519bc6\n"
+          }
+        ],
+        "reverse_patch_checks": []
+      },
+      {
+        "module": "qt5compat",
+        "selected_members": [
+          {
+            "member": ".cmake.conf",
+            "sha256": "2b547891a28bed8e747a7e42bd0dc282c19d1fbf753967f6ceb1d73bb292fbfe",
+            "size": 310,
+            "local_path": "build/qt-native-review-20261025/source-review/qt5compat/.cmake.conf"
+          },
+          {
+            "member": ".tag",
+            "sha256": "50fb816f0bf3d5411664a69c2c10bf002562b4aa7f11cccadefc6e3fba76997a",
+            "size": 41,
+            "local_path": "build/qt-native-review-20261025/source-review/qt5compat/.tag",
+            "text": "25f6ed30b083e58c44be4d58d543bed51ae90df6\n"
+          },
+          {
+            "member": "src/core5/serialization/qbinaryjson.cpp",
+            "sha256": "75c86d17b3ea7794da078222846fd64c2589562811de5b54f1d0c619617fa60c",
+            "size": 21090,
+            "local_path": "build/qt-native-review-20261025/source-review/qt5compat/src/core5/serialization/qbinaryjson.cpp"
+          },
+          {
+            "member": "tests/auto/core5/serialization/json/tst_qtjson.cpp",
+            "sha256": "4aec61b0f3f32295435da0651040d69a8c612738a6f57fdd3232185acd52a40d",
+            "size": 23778,
+            "local_path": "build/qt-native-review-20261025/source-review/qt5compat/tests/auto/core5/serialization/json/tst_qtjson.cpp"
+          }
+        ],
+        "reverse_patch_checks": [
+          {
+            "patch_sha256": "4aed3158264e5fe5d421ceaf985b85bc964bbd40b91e5dbfc950e53162f2c1de",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0001.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 1,
+            "stdout": "",
+            "stderr": "error: patch failed: tests/auto/core5/serialization/json/tst_qtjson.cpp:34\nerror: tests/auto/core5/serialization/json/tst_qtjson.cpp: patch does not apply\nerror: patch failed: src/core5/serialization/qbinaryjson.cpp:162\nerror: src/core5/serialization/qbinaryjson.cpp: patch does not apply\n",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          },
+          {
+            "patch_sha256": "a2bf953db153061f397b273fa45aa7fd74934c2087a701eb837d642e5a3fb182",
+            "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0002.diff",
+            "command": "git apply --reverse --check <official-patch>",
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "",
+            "changed_source": false,
+            "scope": "matching official source contents; does not prove binary machine code"
+          }
+        ]
+      }
+    ],
+    "binary_metadata_receipts": [
+      {
+        "archive": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qtbase-6.11.3.spdx.json",
+        "size": 3861552,
+        "sha256": "6ae3e5b5c67d46339e4aef10c1ab0c9205131490345e9b3a9e561829ae1aea4c",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtbase/sbom/qtbase-6.11.3.spdx.json",
+        "document_name": "qtbase-6.11.3",
+        "creation_info": {
+          "created": "2026-10-20T11:00:44Z",
+          "creators": [
+            "Organization: TheQtCompany",
+            "Tool: Qt Build System"
+          ],
+          "comment": "This SPDX document was created from CMake 4.3.2, using the qt\nbuild system from https://code.qt.io/cgit/qt/qtbase.git/tree/cmake/QtPublicSbomHelpers.cmake"
+        },
+        "package_count": 139,
+        "file_count": 113,
+        "root_package": [
+          {
+            "name": "qtbase",
+            "versionInfo": "b21f6a78+HEAD",
+            "downloadLocation": "git://code.qt.io/qt/qtbase.git@b21f6a785516e898388cda2fe5d3e7dacd6d4b7d",
+            "externalRefs": [
+              {
+                "referenceCategory": "SECURITY",
+                "referenceLocator": "cpe:2.3:a:qt:qtbase:6.11.3:*:*:*:*:*:*:*",
+                "referenceType": "cpe23Type"
+              },
+              {
+                "referenceCategory": "PACKAGE_MANAGER",
+                "referenceLocator": "pkg:generic/TheQtCompany/qtbase@b21f6a78+HEAD",
+                "referenceType": "purl"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "archive": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qtbase-6.11.3.source.spdx",
+        "size": 10462208,
+        "sha256": "7b5f29f47f11c529bfd3a6904de178fbab7b9a4ab3904ca7699ad45ed8e60cfe",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtbase/sbom/qtbase-6.11.3.source.spdx"
+      },
+      {
+        "archive": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "mkspecs/qconfig.pri",
+        "size": 864,
+        "sha256": "6131c0b204a5d709428ce0d85aa03c3fcc0e0ad628ca3954cc64da7500f1aaee",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtbase/mkspecs/qconfig.pri"
+      },
+      {
+        "archive": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "mkspecs/modules/qt_lib_core.pri",
+        "size": 2187,
+        "sha256": "7dc0d750f27a1110649940bd8e8437add303d11f2f66abb752fc294c776fba60",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtbase/mkspecs/modules/qt_lib_core.pri"
+      },
+      {
+        "archive": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "mkspecs/modules/qt_lib_network.pri",
+        "size": 909,
+        "sha256": "b4e1dcc149f487ec9f8fab69cdc75a087edb357508e03e9486a89c167614f6db",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtbase/mkspecs/modules/qt_lib_network.pri"
+      },
+      {
+        "archive": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qtsvg-6.11.3.spdx.json",
+        "size": 113721,
+        "sha256": "9b2c594e00100fad00533f679fb28f45cbffd0aab43b787757ae6be310b851bc",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtsvg/sbom/qtsvg-6.11.3.spdx.json",
+        "document_name": "qtsvg-6.11.3",
+        "creation_info": {
+          "created": "2026-10-20T17:55:30Z",
+          "creators": [
+            "Organization: TheQtCompany",
+            "Tool: Qt Build System"
+          ],
+          "comment": "This SPDX document was created from CMake 4.3.2, using the qt\nbuild system from https://code.qt.io/cgit/qt/qtbase.git/tree/cmake/QtPublicSbomHelpers.cmake"
+        },
+        "package_count": 10,
+        "file_count": 12,
+        "root_package": [
+          {
+            "name": "qtsvg",
+            "versionInfo": "f5d9972+HEAD",
+            "downloadLocation": "git://code.qt.io/qt/qtsvg.git@f5d99721911e4a1989965a087813cf1277519bc6",
+            "externalRefs": [
+              {
+                "referenceCategory": "SECURITY",
+                "referenceLocator": "cpe:2.3:a:qt:qtsvg:6.11.3:*:*:*:*:*:*:*",
+                "referenceType": "cpe23Type"
+              },
+              {
+                "referenceCategory": "PACKAGE_MANAGER",
+                "referenceLocator": "pkg:generic/TheQtCompany/qtsvg@f5d9972+HEAD",
+                "referenceType": "purl"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "archive": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qtsvg-6.11.3.source.spdx",
+        "size": 289834,
+        "sha256": "118619a76c57ffe9023f3631d82145410e9187f52f922ee24b98a7582c02f118",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qtsvg/sbom/qtsvg-6.11.3.source.spdx"
+      },
+      {
+        "archive": "qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qt5compat-6.11.3.spdx.json",
+        "size": 170279,
+        "sha256": "c631c50af030d9960b901fdf7cdaa8849e1aee6d92225b605bcf02aeea25ea7d",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qt5compat/sbom/qt5compat-6.11.3.spdx.json",
+        "document_name": "qt5compat-6.11.3",
+        "creation_info": {
+          "created": "2026-10-20T22:24:36Z",
+          "creators": [
+            "Organization: TheQtCompany",
+            "Tool: Qt Build System"
+          ],
+          "comment": "This SPDX document was created from CMake 4.3.2, using the qt\nbuild system from https://code.qt.io/cgit/qt/qtbase.git/tree/cmake/QtPublicSbomHelpers.cmake"
+        },
+        "package_count": 15,
+        "file_count": 8,
+        "root_package": [
+          {
+            "name": "qt5compat",
+            "versionInfo": "6.11.3",
+            "downloadLocation": "git://code.qt.io/qt/qt5compat.git",
+            "externalRefs": [
+              {
+                "referenceCategory": "SECURITY",
+                "referenceLocator": "cpe:2.3:a:qt:qt5compat:6.11.3:*:*:*:*:*:*:*",
+                "referenceType": "cpe23Type"
+              },
+              {
+                "referenceCategory": "PACKAGE_MANAGER",
+                "referenceLocator": "pkg:generic/TheQtCompany/qt5compat@6.11.3",
+                "referenceType": "purl"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "archive": "qt5compat-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "member": "sbom/qt5compat-6.11.3.source.spdx",
+        "size": 648505,
+        "sha256": "b63aebd304e5e8df72490966c257a3132295b4e09b669cddcf20cffda09e35af",
+        "local_path": "build/qt-native-review-20261025/binary-metadata/qt5compat/sbom/qt5compat-6.11.3.source.spdx"
+      }
+    ],
+    "source_sbom_comparison": [
+      {
+        "module": "qtbase",
+        "sbom_files": 22535,
+        "matched_raw_or_crlf": 22498,
+        "mismatches": [
+          {
+            "path": ".tag",
+            "sbom_sha1": "8eb01c346a92a2321c358ae8327d3b48c163b1b0",
+            "archive_sha1": "2cd0e0d4c4098c5b5c03d7f8f7396c2fb3331e81",
+            "archive_crlf_sha1": "b6644852fc0b203f950c746cdd0665bd5c2b5a17"
+          }
+        ],
+        "sbom_missing_from_archive": [
+          ".gitattributes",
+          ".gitignore",
+          "config.tests/.gitignore",
+          "src/3rdparty/.gitattributes",
+          "src/3rdparty/tinycbor/.gitignore",
+          "src/3rdparty/tinycbor/tests/.gitignore",
+          "src/android/jar/.gitignore",
+          "src/android/templates/.gitignore",
+          "src/corelib/serialization/.gitignore",
+          "src/network/android/jar/.gitignore",
+          "src/plugins/networkinformation/android/jar/.gitignore",
+          "tests/auto/cmake/test_qt_extract_metatypes/test_qt_extract_metatypes_project/testdata/.gitattributes",
+          "tests/auto/corelib/io/qfile/.gitattributes",
+          "tests/auto/corelib/io/qresourceengine/.gitattributes",
+          "tests/auto/corelib/io/qsettings/.gitattributes",
+          "tests/auto/corelib/io/qzip/.gitignore",
+          "tests/auto/corelib/plugin/qpluginloader/elftest/.gitattributes",
+          "tests/auto/corelib/serialization/qtextstream/.gitattributes",
+          "tests/auto/corelib/serialization/qxmlstream/.gitattributes",
+          "tests/auto/corelib/text/qbytearray_large/.gitattributes",
+          "tests/auto/network/access/qnetworkreply/.gitattributes",
+          "tests/auto/tools/moc/.gitattributes",
+          "tests/auto/tools/rcc/data/.gitattributes",
+          "tests/auto/tools/uic/baseline/.gitattributes",
+          "tests/auto/xml/dom/qdom/.gitattributes",
+          "tests/testserver/apache2/.gitattributes",
+          "tests/testserver/apache2/testdata/www/htdocs/rfcs/.gitattributes",
+          "tests/testserver/common/.gitattributes",
+          "tests/testserver/danted/.gitattributes",
+          "tests/testserver/ftp-proxy/.gitattributes",
+          "tests/testserver/squid/.gitattributes",
+          "tests/testserver/vsftpd/.gitattributes",
+          "util/gradientgen/.gitignore",
+          "util/sbom/cyclonedx/.gitignore",
+          "util/unicode/.gitattributes",
+          "util/x86simdgen/.gitignore"
+        ],
+        "comparison_limit": "SHA1 source inventory correlation only; not a collision-resistant artifact trust boundary or reproducible build proof",
+        "archive_not_in_sbom_count": 366
+      },
+      {
+        "module": "qtsvg",
+        "sbom_files": 638,
+        "matched_raw_or_crlf": 628,
+        "mismatches": [
+          {
+            "path": ".tag",
+            "sbom_sha1": "8eb01c346a92a2321c358ae8327d3b48c163b1b0",
+            "archive_sha1": "4172da392d169675b01961f9d59bfcb302a87723",
+            "archive_crlf_sha1": "c82eaa9d3a1f1513aa93e70feb7d64efe58a1de6"
+          }
+        ],
+        "sbom_missing_from_archive": [
+          ".gitattributes",
+          ".gitignore",
+          "tests/auto/bic/.gitignore",
+          "tests/auto/qsvggenerator/.gitignore",
+          "tests/auto/qsvgplugin/.gitignore",
+          "tests/auto/qsvgrenderer/.gitattributes",
+          "tests/auto/qsvgrenderer/.gitignore",
+          "tests/global/.gitignore",
+          "tests/manual/rendertestsuite/.gitignore"
+        ],
+        "comparison_limit": "SHA1 source inventory correlation only; not a collision-resistant artifact trust boundary or reproducible build proof",
+        "archive_not_in_sbom_count": 12
+      },
+      {
+        "module": "qt5compat",
+        "sbom_files": 1411,
+        "matched_raw_or_crlf": 1411,
+        "mismatches": [],
+        "sbom_missing_from_archive": [],
+        "comparison_limit": "SHA1 source inventory correlation only; not a collision-resistant artifact trust boundary or reproducible build proof",
+        "archive_not_in_sbom_count": 25
+      }
+    ],
+    "production_reverse_patch_checks": [
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-95620-qtbase-6.11.diff",
+        "exit_code": 0,
+        "stderr": "",
+        "production_only": true
+      },
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-96432-qtbase-6.11.diff",
+        "exit_code": 0,
+        "stderr": "",
+        "production_only": true
+      },
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-105923-qtbase-6.11-0001.diff",
+        "exit_code": 0,
+        "stderr": "",
+        "production_only": true
+      },
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0001.diff",
+        "exit_code": 1,
+        "stderr": "error: patch failed: src/core5/serialization/qbinaryjson.cpp:162\nerror: src/core5/serialization/qbinaryjson.cpp: patch does not apply\n",
+        "production_only": true
+      },
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-101201-qtqt5compat-6.11-0002.diff",
+        "exit_code": 0,
+        "stderr": "",
+        "production_only": true
+      },
+      {
+        "patch_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-82292-qtbase-6.11.diff",
+        "exit_code": 0,
+        "stderr": "",
+        "production_only": true
+      }
+    ],
+    "scope": "Official installer candidate inspected, then minimally probed in a separate venv; not adopted into runtime locks and not a release approval.",
+    "unresolved": [
+      "Ordinary official_releases/qt/6.11/6.11.3/ returned HTTP 404 while the public online installer metadata and archives were accessible.",
+      "Qtbase binary SPDX references b21f6a785516e898388cda2fe5d3e7dacd6d4b7d while the source archive .tag is 138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3; source-file correlation is recorded separately and is not an independent rebuild.",
+      "Minimal ABI/import, offscreen widget, trusted SVG and Schannel backend probes passed; a real TLS handshake, complete plugin parity, full application tests, clean packaging and recipient rebuild remain required.",
+      "The selected three modules are not a full PyQt6-Qt6 wheel replacement; a supported stripped bundle requires an explicit retained-module inventory and additional QtGui helper inputs.",
+      "QDom XML serialization default remains distinct from Qt 6.12; CVE-2026-15037 is not cleared by adopting 6.11.3.",
+      "No Chromium candidate was adopted; source version declarations alone do not establish every security backport, GN flag, generated input, notice, or native binary mapping."
+    ],
+    "isolated_runtime_probe": {
+      "schema": "dupez.qt-candidate-runtime-probe.v1",
+      "observed_on": "2026-10-25",
+      "status": "passed",
+      "python": "3.13.17 (tags/v3.13.17:64e080d, Oct 21 2026, 14:08:53) [MSC v.1944 64 bit (AMD64)]",
+      "qt_runtime": "6.11.3",
+      "pyqt_binding": "6.11.0",
+      "imported_bindings": [
+        "QtCore",
+        "QtGui",
+        "QtNetwork",
+        "QtWidgets",
+        "QtOpenGL",
+        "QtOpenGLWidgets",
+        "QtPrintSupport",
+        "QtSvg",
+        "QtSvgWidgets",
+        "QtTest"
+      ],
+      "qt_build": "6.11.3",
+      "platform": "offscreen",
+      "elevated": false,
+      "tls": {
+        "active_backend": "schannel",
+        "available_backends": [
+          "cert-only",
+          "schannel"
+        ],
+        "supports_ssl": true,
+        "network_handshake_performed": false
+      },
+      "trusted_svg_render_passed": true,
+      "loaded_qt_modules": [
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Core.dll",
+          "sha256": "3b088187284c91250fbb696b1779459ca1ab1ad14295e71ee9b12d71767c9501"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Gui.dll",
+          "sha256": "794f2cdf57333c0d44257ad383742b2d67ba9e986874d3ed8b12d04c543f96cf"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Network.dll",
+          "sha256": "f56b7e4d228f937397ed0a3c19ed987dcdcc43398140c71a4f405d16f84d79c8"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Widgets.dll",
+          "sha256": "82a31d8770391bdef7ddb71e374d6ca3dfce4584c7b453595150ec0730c529ae"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6OpenGL.dll",
+          "sha256": "294020655e666791168672563f6c3e1012bbf42c9dcc7166ac96d53d5c8c10e3"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6OpenGLWidgets.dll",
+          "sha256": "d1fd967216f94b8b8b2ba64347713316467935f49d4046dc7d274bfa585bfbaf"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+          "sha256": "4ed3a9fbb36bbb25431f96237b249704346a3257293ef9043b014e772a330d2f"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Svg.dll",
+          "sha256": "a52de2726685a955d70a07e865afa217fbea256fb815009102d0de04c40d5ec8"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+          "sha256": "46d313e8c6bcf738c5492d3001276747670c8a36099f305c8b396d5a70264d68"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Test.dll",
+          "sha256": "539a0afff6bd3c425a811fcac7f9768f337bdc9d6224b20fb6b209046d90b23e"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+          "sha256": "4f4be3c017f66fe80697e91f6b7386f62e093cf236ed2750e188d8415464bc8c"
+        },
+        {
+          "path": "build/qt-native-review-20261025/candidate-runtime-venv/Lib/site-packages/PyQt6/Qt6/plugins/tls/qschannelbackend.dll",
+          "sha256": "3c5dd934fbb5b3c02701c2df31119a69485c2552aadd6f0ddd64bb0193cb8d7c"
+        }
+      ],
+      "loaded_native_paths": [
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\python.exe",
+        "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+        "C:\\WINDOWS\\System32\\KERNEL32.DLL",
+        "C:\\WINDOWS\\System32\\KERNELBASE.dll",
+        "C:\\WINDOWS\\SYSTEM32\\apphelp.dll",
+        "C:\\WINDOWS\\System32\\ucrtbase.dll",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\VCRUNTIME140.dll",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\python313.dll",
+        "C:\\WINDOWS\\System32\\WS2_32.dll",
+        "C:\\WINDOWS\\System32\\RPCRT4.dll",
+        "C:\\WINDOWS\\SYSTEM32\\VERSION.dll",
+        "C:\\WINDOWS\\System32\\ADVAPI32.dll",
+        "C:\\WINDOWS\\System32\\msvcrt.dll",
+        "C:\\WINDOWS\\System32\\sechost.dll",
+        "C:\\WINDOWS\\SYSTEM32\\bcrypt.dll",
+        "C:\\WINDOWS\\System32\\bcryptprimitives.dll",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\python3.DLL",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\DLLs\\_ctypes.pyd",
+        "C:\\WINDOWS\\System32\\ole32.dll",
+        "C:\\WINDOWS\\System32\\msvcp_win.dll",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\DLLs\\libffi-8.dll",
+        "C:\\WINDOWS\\System32\\GDI32.dll",
+        "C:\\WINDOWS\\System32\\win32u.dll",
+        "C:\\WINDOWS\\System32\\gdi32full.dll",
+        "C:\\WINDOWS\\System32\\USER32.dll",
+        "C:\\WINDOWS\\System32\\combase.dll",
+        "C:\\WINDOWS\\System32\\OLEAUT32.dll",
+        "C:\\WINDOWS\\System32\\IMM32.DLL",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\DLLs\\_hashlib.pyd",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\DLLs\\libcrypto-3.dll",
+        "C:\\WINDOWS\\System32\\CRYPT32.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtCore.pyd",
+        "C:\\WINDOWS\\SYSTEM32\\MSVCP140.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Core.dll",
+        "<workspace>\\build\\native-security-20261024\\python-3.13.17\\runtime\\tools\\VCRUNTIME140_1.dll",
+        "C:\\WINDOWS\\System32\\SHELL32.dll",
+        "C:\\WINDOWS\\SYSTEM32\\MPR.dll",
+        "C:\\WINDOWS\\SYSTEM32\\USERENV.dll",
+        "C:\\WINDOWS\\SYSTEM32\\NETAPI32.dll",
+        "C:\\WINDOWS\\SYSTEM32\\AUTHZ.dll",
+        "C:\\WINDOWS\\SYSTEM32\\WINMM.dll",
+        "C:\\WINDOWS\\SYSTEM32\\MSVCP140_1.dll",
+        "C:\\WINDOWS\\SYSTEM32\\icuuc.dll",
+        "C:\\WINDOWS\\SYSTEM32\\CRYPTBASE.DLL",
+        "C:\\WINDOWS\\SYSTEM32\\SRVCLI.DLL",
+        "C:\\WINDOWS\\SYSTEM32\\NETUTILS.DLL",
+        "C:\\WINDOWS\\SYSTEM32\\icu.DLL",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\sip.cp313-win_amd64.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtGui.pyd",
+        "C:\\WINDOWS\\SYSTEM32\\MSVCP140_2.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Gui.dll",
+        "C:\\WINDOWS\\SYSTEM32\\d3d11.dll",
+        "C:\\WINDOWS\\SYSTEM32\\dxgi.dll",
+        "C:\\WINDOWS\\SYSTEM32\\d3d12.dll",
+        "C:\\WINDOWS\\SYSTEM32\\UxTheme.dll",
+        "C:\\WINDOWS\\SYSTEM32\\DWrite.dll",
+        "C:\\WINDOWS\\SYSTEM32\\powrprof.dll",
+        "C:\\WINDOWS\\SYSTEM32\\UMPDC.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtNetwork.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Network.dll",
+        "C:\\WINDOWS\\SYSTEM32\\Secur32.dll",
+        "C:\\WINDOWS\\SYSTEM32\\DNSAPI.dll",
+        "C:\\WINDOWS\\SYSTEM32\\IPHLPAPI.DLL",
+        "C:\\WINDOWS\\SYSTEM32\\WINHTTP.dll",
+        "C:\\WINDOWS\\SYSTEM32\\DSPARSE.dll",
+        "C:\\WINDOWS\\SYSTEM32\\SSPICLI.DLL",
+        "C:\\WINDOWS\\System32\\NSI.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtWidgets.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Widgets.dll",
+        "C:\\WINDOWS\\SYSTEM32\\dwmapi.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtOpenGL.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6OpenGL.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtOpenGLWidgets.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6OpenGLWidgets.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtPrintSupport.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6PrintSupport.dll",
+        "C:\\WINDOWS\\System32\\COMDLG32.dll",
+        "C:\\WINDOWS\\System32\\shcore.dll",
+        "C:\\WINDOWS\\System32\\SHLWAPI.dll",
+        "C:\\WINDOWS\\WinSxS\\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825\\COMCTL32.dll",
+        "C:\\WINDOWS\\SYSTEM32\\WINSPOOL.DRV",
+        "C:\\WINDOWS\\SYSTEM32\\cfgmgr32.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtSvg.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Svg.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtSvgWidgets.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6SvgWidgets.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\QtTest.pyd",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\bin\\Qt6Test.dll",
+        "C:\\WINDOWS\\SYSTEM32\\windows.storage.dll",
+        "C:\\WINDOWS\\SYSTEM32\\profapi.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\plugins\\platforms\\qoffscreen.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\plugins\\tls\\qcertonlybackend.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\plugins\\tls\\qopensslbackend.dll",
+        "<workspace>\\build\\qt-native-review-20261025\\candidate-runtime-venv\\Lib\\site-packages\\PyQt6\\Qt6\\plugins\\tls\\qschannelbackend.dll",
+        "C:\\WINDOWS\\SYSTEM32\\ncrypt.dll",
+        "C:\\WINDOWS\\SYSTEM32\\NTASN1.dll"
+      ],
+      "limits": [
+        "Offline offscreen probe only; no full app or frozen executable test",
+        "No WebEngine, real OpenGL context, TLS connection, packet manipulation, or game action",
+        "Main locks and baseline venv untouched"
+      ]
+    },
+    "isolated_bundle": {
+      "status": "review-only-wheel-produced",
+      "command": [
+        "pyqt-bundle",
+        "--qt-dir",
+        "C:\\Users\\Owner\\dev\\tools\\DupeZ\\build\\qt-native-review-20261025\\6.11.3\\msvc2022_64",
+        "--no-msvc-runtime",
+        "--no-openssl",
+        "--build-tag-suffix",
+        "dupezcandidate",
+        "--exclude",
+        "QAxContainer",
+        "--exclude",
+        "QtBluetooth",
+        "--exclude",
+        "QtDBus",
+        "--exclude",
+        "QtDesigner",
+        "--exclude",
+        "QtHelp",
+        "--exclude",
+        "QtMultimedia",
+        "--exclude",
+        "QtMultimediaWidgets",
+        "--exclude",
+        "QtNfc",
+        "--exclude",
+        "QtPdf",
+        "--exclude",
+        "QtPdfWidgets",
+        "--exclude",
+        "QtPositioning",
+        "--exclude",
+        "QtQml",
+        "--exclude",
+        "QtQuick",
+        "--exclude",
+        "QtQuick3D",
+        "--exclude",
+        "QtQuickWidgets",
+        "--exclude",
+        "QtRemoteObjects",
+        "--exclude",
+        "QtSensors",
+        "--exclude",
+        "QtSerialPort",
+        "--exclude",
+        "QtSpatialAudio",
+        "--exclude",
+        "QtSql",
+        "--exclude",
+        "QtStateMachine",
+        "--exclude",
+        "QtTextToSpeech",
+        "--exclude",
+        "QtWebChannel",
+        "--exclude",
+        "QtWebSockets",
+        "--exclude",
+        "QtXml",
+        "C:\\Users\\Owner\\dev\\tools\\DupeZ\\build\\qt-native-review-20261025\\canonical-input\\PyQt6-6.11.0-cp310-abi3-win_amd64.whl"
+      ],
+      "retained_bindings": [
+        "QtCore",
+        "QtGui",
+        "QtNetwork",
+        "QtWidgets",
+        "QtOpenGL",
+        "QtOpenGLWidgets",
+        "QtPrintSupport",
+        "QtSvg",
+        "QtSvgWidgets",
+        "QtTest"
+      ],
+      "excluded_bindings": [
+        "QAxContainer",
+        "QtBluetooth",
+        "QtDBus",
+        "QtDesigner",
+        "QtHelp",
+        "QtMultimedia",
+        "QtMultimediaWidgets",
+        "QtNfc",
+        "QtPdf",
+        "QtPdfWidgets",
+        "QtPositioning",
+        "QtQml",
+        "QtQuick",
+        "QtQuick3D",
+        "QtQuickWidgets",
+        "QtRemoteObjects",
+        "QtSensors",
+        "QtSerialPort",
+        "QtSpatialAudio",
+        "QtSql",
+        "QtStateMachine",
+        "QtTextToSpeech",
+        "QtWebChannel",
+        "QtWebSockets",
+        "QtXml"
+      ],
+      "wheel_receipts": [
+        {
+          "path": "build/qt-native-review-20261025/candidate-wheel-v3/PyQt6-6.11.0-6.11.3dupezcandidate-cp310-abi3-win_amd64.whl",
+          "size": 31640559,
+          "sha256": "faa3e693d4fb57188784799fd54a9de49f737ea0638c35e09cceb6db6be07d30"
+        }
+      ],
+      "native_payload_executed": false,
+      "main_locks_changed": false,
+      "limitations": [
+        "Not a drop-in full PyQt6 wheel replacement",
+        "No MSVC runtime bundled; reviewed matching runtime prerequisites remain required",
+        "QtGui helper Mesa 11.2.2 requires separate source/security review",
+        "Not all image-format plugins or translations from the full installer are included",
+        "Minimal offline runtime probe subsequently passed; this receipt describes wheel generation and excludes full-app/frozen/TLS-handshake validation."
+      ],
+      "tool_inputs": [
+        {
+          "package": "PyQt-builder",
+          "version": "1.20.1",
+          "filename": "pyqt_builder-1.20.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f5/51/235f77c2f373f4209523c219c46881ea1dfbf646c416f16681d20ead2a98/pyqt_builder-1.20.1-py3-none-any.whl",
+          "size": 5295878,
+          "sha256": "5780743c9e546c29c9540014d57a3da5c2ad8d08435be5c89cf9003e0f65eeb6"
+        },
+        {
+          "package": "PyQt6",
+          "version": "6.11.0",
+          "filename": "pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/6f/85/dd9f03d78d87460e109e0121cd6201c5802bdd655656bf2780e964870fea/pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+          "size": 6844358,
+          "sha256": "bd11b459c54dca068e988a42cf838303334f0d441b9d16d92ae6719fcb5ac6ba"
+        },
+        {
+          "package": "sip",
+          "version": "6.17.1",
+          "filename": "sip-6.17.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/4c/bd/6e0747e13fde880417e8f9836e8edc82a02f5926aaa568798b1bd26d6925/sip-6.17.1-py3-none-any.whl",
+          "size": 3465148,
+          "sha256": "7a9d391e2561f2debba1dcc12ea3a2fadd7f2870b63870f4ae4e1507c5cd175c"
+        },
+        {
+          "package": "packaging",
+          "version": "26.3",
+          "filename": "packaging-26.3-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+          "size": 129956,
+          "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+        },
+        {
+          "package": "setuptools",
+          "version": "84.2.1",
+          "filename": "setuptools-84.2.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "size": 876263,
+          "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        }
+      ],
+      "sip_input": {
+        "filename": "pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/e1/1f/e7e5ad77a76c00db5c8c1b9960f2b0672ec1978b971bb3509858cd7a9458/pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
+        "size": 53371,
+        "sha256": "ca24bfd4d5d8274e338433df9ac41930650088c00018d3313c6bd8de21772a02"
+      },
+      "gui_helper_inputs": [
+        {
+          "filename": "d3dcompiler_47-x64.7z",
+          "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312d3dcompiler_47-x64.7z",
+          "size": 1380117,
+          "sha256": "be4292719fe0930c988236972bca7f5926db1342e1c85b247e1cef87b903fc9a",
+          "path": "build/qt-native-review-20261025/6.11.3-d3dcompiler_47-x64.7z",
+          "payload_executed": false
+        },
+        {
+          "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+          "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+          "size": 5474526,
+          "sha256": "f9a6f0229f63d04b3ec1cc455078171f4d0c32e4fd79bc3e6a6dca54e79f7eae",
+          "path": "build/qt-native-review-20261025/6.11.3-opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+          "payload_executed": false
+        }
+      ],
+      "recipe_observations": [
+        "Use the Qt installer directory layout <prefix>/6.11.3/msvc2022_64.",
+        "QtGui helper archives contain root-level DLLs; copy those exact verified DLLs into bin/ before bundling.",
+        "Use canonical filename PyQt6-6.11.0-cp310-abi3-win_amd64.whl with unchanged PyPI bytes. Lowercase filename causes PyQt-builder 1.20.1 to retain Requires-Dist: PyQt6-Qt6 due to its case-sensitive metadata match. Canonical naming lets the unmodified official tool remove the external Qt dependency.",
+        "No --ignore-missing bypass or hand-edited wheel metadata was used.",
+        "Candidate pip check passed after installation of the bundled wheel plus PyQt6-sip13.11.1.",
+        "Host Microsoft runtime files came from System32 version14.51.36247.0; the candidate did not bundle or validate public redistribution of that prerequisite.",
+        "Use the tracked scripts/prepare_qt_candidate.py and packaging/qt-candidate-inputs.json for recipient preparation; ignored historical scripts only document the research sequence."
+      ],
+      "reproduction_scripts": [
+        {
+          "path": "build/qt-native-review-20261025/collect_review.py",
+          "sha256": "e87f9c75ade4f455f03d86b8a235ef3107f838d2cce60002f81755f77a4b759f"
+        },
+        {
+          "path": "build/qt-native-review-20261025/inspect_candidate.py",
+          "sha256": "1bb096599d67f19f0c862edd236d66a417a471bd4b0a8045971cb3d1a5247ee7"
+        },
+        {
+          "path": "build/qt-native-review-20261025/map_candidate.py",
+          "sha256": "ff5c2ab921d1ba1f82158b6590c40c12d75397c81e6aa909b194cf4925211303"
+        },
+        {
+          "path": "build/qt-native-review-20261025/check_sbom_sources.py",
+          "sha256": "c50fcfa6180708eacb3ea7c87e9db556bc7eb95441f200ba8f04e709b558de72"
+        },
+        {
+          "path": "build/qt-native-review-20261025/bundle_candidate.py",
+          "sha256": "b07ada045b04cdb2d12180efd2d39942024e46dc3fd584afccd4e0a38836ed29"
+        },
+        {
+          "path": "build/qt-native-review-20261025/run_bundle.py",
+          "sha256": "cdd2eab2aa85923b2a5d7de125b3ab67c268e3a37399f8ea4745012d96b5f6f4"
+        },
+        {
+          "path": "build/qt-native-review-20261025/probe_candidate_runtime.py",
+          "sha256": "dc2c737f97e244a039c951cbccf084833d4c6146ddd6dd753d50afe2a8421f9e"
+        }
+      ]
+    },
+    "tracked_recipient_recipe": {
+      "script": {
+        "path": "scripts/prepare_qt_candidate.py",
+        "sha256": "beed28cf6d69f2f7ba5201a303c95afb5a109ce12fc81b13b47d1bd3e965fd58"
+      },
+      "manifest": {
+        "path": "packaging/qt-candidate-inputs.json",
+        "sha256": "ac8b2a84be760d278f9303abcf7b87b97cae6677aefcfcffe74fba3fb514f86a"
+      },
+      "focused_tests": {
+        "command": "python -I -m pytest tests/test_prepare_qt_candidate.py -q --no-cov",
+        "passed": 51,
+        "failed": 0
+      },
+      "execution": "Verified local cache, fresh output, isolated Python, private child environment; no network during reproduction",
+      "output": "build/qt-candidate-reproduction-reviewed-20261025",
+      "receipt_path": "build/qt-candidate-reproduction-reviewed-20261025/preparation-receipt.json",
+      "receipt_sha256": "691d58cb71e5c1f770952cab24df59dda5db897f735d0e6e5650bf37e1b6793e",
+      "reproduced_wheel": {
+        "path": "wheel\\PyQt6-6.11.0-6.11.3dupezcandidate-cp310-abi3-win_amd64.whl",
+        "sha256": "abf7d06e6d95d85a25cdc84106b44ead37a3b5aa4c0bda1e552dfafca7decaef",
+        "size": 31640559
+      },
+      "pip_check": "passed",
+      "wheel_payload_comparison": {
+        "matched_members": 933,
+        "differences": [],
+        "bit_identical_zip": false
+      },
+      "candidate_native_execution_during_preparation": false,
+      "manifest_receipt_binding": "SHA256 of the exact bounded bytes parsed before downloads; later source-file changes do not alter the receipt",
+      "manifest_validation": "Canonical versions, known complete module partition, exact field/type schemas, duplicate field rejection and extracted qconfig version equality precede use"
+    }
+  },
+  "bundling_route": {
+    "source": "https://pyqt-builder.readthedocs.io/en/latest/pyqtbundle.html",
+    "supported_input": "Qt Company binary installer layout; source-built Qt is unsupported by this command",
+    "abi_limit": "QAxContainer requires exact Qt version used to build binding; exclude it from a candidate using existing 6.11.0 bindings",
+    "future_webengine_source": "https://www.qt.io/blog/qt-webengine-will-release-separate",
+    "future_webengine_note": "Qt6.12 separates Qt WebEngine/QtPdf versioning; no automatic mapping from a Qt6.12 bump to a safe Chromium runtime."
+  },
+  "review_inputs_receipt": {
+    "path": "build/qt-native-review-20261025/candidate-correlated.json",
+    "sha256": "2fc54d0b548fe1ec2d2329aa9cf11fb327670838592738b422a17ee914fc9a69"
+  }
+}

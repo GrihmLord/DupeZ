@@ -4,6 +4,20 @@ Reviewed October 24, 2026. This engineering record is **not** an approval of
 distribution terms, complete corresponding source, or an official release.
 The project recipient-build record is separate in `SOURCE_AND_RELINK_V5.8.0.md`.
 
+**Historical checkpoint:** the 32-archive counts, hashes and commands below
+describe the October 24 manifest at commit
+`6fa81f48b1c96c949abe27b4822805914d128e78`. The October 25 follow-up in
+[`NATIVE_SOURCE_MAPPING_2026-10-25.md`](NATIVE_SOURCE_MAPPING_2026-10-25.md)
+pins the previously missing IUP source and verifies the official release
+correspondence of all four managed native files. All 33 upstream version-source
+inputs are now pinned; exact native rebuild and delivery gaps remain.
+
+The earlier bundle and receipt remain unchanged. Because `verify-bundle`
+deliberately checks its embedded manifest against the supplied manifest, verify
+that historical bundle with the October 24 manifest via `--manifest`, not the
+updated manifest. The commands below are a historical recipe for that checkout;
+use the follow-up's current offline verification recipe for the expanded cache.
+
 ## Completed local collection
 
 All 32 pinned source archives were retained and reinspected with the final
