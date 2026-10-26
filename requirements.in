@@ -16,7 +16,7 @@ PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
 PyQtGraph>=0.13.0
 # v5.8.0 security floor; keep this release on the 12.3 line.
-Pillow>=12.3.0,<12.4
+Pillow>=13.0.0,<13.1
 
 # ── System & Process ────────────────────────────────────────────────
 psutil>=5.9.0
@@ -28,16 +28,16 @@ keyboard>=0.13.5
 pywin32>=306; sys_platform == 'win32'
 
 # ── Network ──────────────────────────────────────────────────────────
-scapy>=2.6.0
+scapy>=2.8.0
 requests>=2.34.2
 # Security floors for Requests' direct runtime dependencies. Narrow upper
 # bounds minimize release drift while clearing the v5.8.0 advisories.
-urllib3>=2.7.0,<2.8
-idna>=3.18,<3.19
+urllib3>=2.8.0,<2.9
+idna>=3.20,<3.21
 
 # mDNS hostname resolution — 4th-stage fallback in the hostname chain.
 # Stay on the patched 0.150.0 compatibility line for v5.8.0.
-zeroconf>=0.150.0,<0.150.1
+zeroconf>=0.151.5,<0.151.6
 
 # ── Data / Export ────────────────────────────────────────────────────
 openpyxl>=3.1.0
@@ -47,7 +47,7 @@ numpy>=2.4.6
 # AES-256-GCM envelope encryption for secrets, Ed25519 for update
 # manifest verification (see app/core/updater.py signed-manifest path).
 # 48.0.1 is the first patched release; avoid the unrelated 49.x jump.
-cryptography>=50.0.0,<50.1
+cryptography>=50.0.2,<50.1
 
 # ── Config ───────────────────────────────────────────────────────────
 PyYAML>=6.0.1
@@ -60,4 +60,4 @@ pyserial>=3.5
 # it pulls torch/CUDA packages, bloats release artifacts, and is excluded by
 # PyInstaller. The voice UI degrades cleanly when whisper is absent; install it
 # manually on workstations that need local voice control.
-sounddevice>=0.4.6
+sounddevice>=0.5.6
