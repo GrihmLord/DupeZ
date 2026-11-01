@@ -1,6 +1,6 @@
 {
-  "schema": "dupez.qt-candidate-inputs.v1",
-  "reviewed_on": "2026-10-25",
+  "schema": "dupez.qt-candidate-inputs.v2",
+  "reviewed_on": "2026-11-01",
   "qt_version": "6.11.3",
   "binding_version": "6.11.0",
   "scope": "isolated review candidate; never a production lock or full-module compatibility approval",
@@ -43,7 +43,67 @@
     "QtWebSockets",
     "QtXml"
   ],
+  "retained_plugins": [
+    "generic/qtuiotouchplugin.dll",
+    "iconengines/qsvgicon.dll",
+    "imageformats/qgif.dll",
+    "imageformats/qicns.dll",
+    "imageformats/qico.dll",
+    "imageformats/qjpeg.dll",
+    "imageformats/qsvg.dll",
+    "imageformats/qtga.dll",
+    "imageformats/qtiff.dll",
+    "imageformats/qwbmp.dll",
+    "imageformats/qwebp.dll",
+    "networkinformation/qnetworklistmanager.dll",
+    "platforms/qminimal.dll",
+    "platforms/qoffscreen.dll",
+    "platforms/qwindows.dll",
+    "styles/qmodernwindowsstyle.dll",
+    "tls/qschannelbackend.dll"
+  ],
+  "translation_locales": [
+    "ar", "bg", "ca", "cs", "da", "de", "en", "es", "fa", "fi", "fr", "gd",
+    "he", "hr", "hu", "it", "ja", "ka", "kk", "ko", "lg", "lv", "nl", "nn",
+    "pl", "pt_BR", "ru", "sk", "sv", "tr", "uk", "zh_CN", "zh_TW"
+  ],
   "inputs": [
+    {
+      "id": "qtimageformats-binary",
+      "role": "qt-prefix",
+      "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qtimageformats.win64_msvc2022_64/6.11.3-0-202610220312qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 832221,
+      "sha256": "fb372c6f182a50306aa5321b7063e35644f35356a63d0980f4e67fc579f666fe",
+      "member_listing_sha256": "1b85d8c09981cf342d55448d95720e155cc688a98e5bf3884cc414130b215291",
+      "members": 66
+    },
+    {
+      "id": "qtimageformats-source",
+      "role": "source",
+      "filename": "qtimageformats-everywhere-src-6.11.3.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtimageformats-everywhere-src-6.11.3.tar.xz",
+      "size": 2054556,
+      "sha256": "9074e35c9bbdb944ceebdbed03f54d7bba55703b0252491188779e4d1a714c90"
+    },
+    {
+      "id": "qttranslations-binary",
+      "role": "qt-prefix",
+      "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 2014619,
+      "sha256": "fa6da593ea97824c83acaeaddbe15d51224df5586a0609f7c2d9d8891d40c55a",
+      "member_listing_sha256": "05de6c4855e0012b1981502d6071acbf9914ee2d322fbf4c09ebec1ecc06d3dd",
+      "members": 322
+    },
+    {
+      "id": "qttranslations-source",
+      "role": "source",
+      "filename": "qttranslations-everywhere-src-6.11.3.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qttranslations-everywhere-src-6.11.3.tar.xz",
+      "size": 1742472,
+      "sha256": "b6cbcd7508afd5e5b6ab25f47436f8e0a67892214cabc9deeb1c4a9046e13952"
+    },
     {
       "id": "qtbase-binary",
       "role": "qt-prefix",

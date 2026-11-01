@@ -7,9 +7,8 @@ Properties:
   * asInvoker manifest  (GUI runs at Medium IL)
   * uac_admin = False   (no embedded admin escalation)
   * DUPEZ_ARCH default  = split
-  * Chromium GPU process starts normally → the embedded iZurvive map uses
-    ANGLE/D3D11 only after the native DXGI capability probe succeeds, with a
-    supported ``--disable-gpu`` CPU fallback.
+  * Embedded Chromium/QML payload is excluded; the Map tab presents the
+    reviewed manual browser URL.
   * WinDivert + netsh live in the auto-spawned elevated helper
     (dupez_helper.py), not in this process.
 

@@ -15,8 +15,10 @@ application — these are developer / support tools.
 | `validate_frozen_runtime.{ps1,py}` | Exercises both frozen Map profiles through real shortcuts, a validated plain-text approved URL on the active Map tab, absence of embedded-browser activity, and verified cleanup. The v4 evidence contract rejects earlier WebEngine-based v3 evidence. It read-locks the executable through each launch and writes 24-hour, session-bound private JSON. That unsigned JSON is operator evidence—not cryptographic provenance—and dirty engineering runs use a separate non-release filename. |
 | `release_git_contract.ps1` | Shared fail-closed source-provenance boundary for finalization and release evidence consumers. It pins Git under Program Files, rejects inherited Git overrides/replacement refs/unsafe worktree configuration, force-checks tracked bytes and index state, and requires a clean attached branch. |
 | `manual_release_gate_contract.ps1` · `frozen_runtime_evidence_contract.ps1` | Shared exact-schema consumers for the 16 manual walkthrough gates and per-run frozen lifecycle evidence. Staging uses the same contracts as evidence recording so missing, extra, stale, mismatched, or non-boolean claims fail closed. |
-| `fix_webengine.bat` | Repair broken PyQt6 / PyQt6-WebEngine installs when the iZurvive map shows a placeholder. Wipes every PyQt6/Qt6 wheel, clears the pip cache, reinstalls the package set in a single resolver pass, and verifies `QWebEngineView` can actually import before exiting. |
-| `diagnose_webengine.py` | Minimal smoke test that bypasses DupeZ entirely and opens iZurvive in a bare `QWebEngineView`. Prints every load event, renderer-process crash, and JS console message. Use when the map fails inside DupeZ to isolate whether the bug is in QtWebEngine itself or in DupeZ's wiring. |
+| `prepare_qt_candidate.py` | Produces an isolated, hash-pinned Qt review wheel. Its restricted profile verifies bindings, native libraries, plugins, translations and wheel RECORD. Production locks and release approvals remain separate. See the November 1 candidate audit. |
+| `probe_qt_tls.py` | Standard-user, loopback-only Schannel handshake probe. Checks a trusted peer, untrusted issuer and incorrect hostname using socket-local trust. Run with the isolated candidate interpreter and private temporary storage; it never modifies the Windows trust store. |
+| `fix_webengine.bat` | Legacy developer repair utility that replaces installed Qt packages. It is outside the locked release workflow and must not be used to prepare release evidence. Frozen builds deliberately omit the browser. |
+| `diagnose_webengine.py` | Legacy standalone browser diagnostic that opens remote content outside DupeZ's admission policy. It does not validate the current manual-URL Map feature or authorize embedded-browser use. |
 | `sbom.py` · `sign-plugin.py` · `sign_models.py` · `lock-requirements.{ps1,sh}` · `relabel_episodes.py` · `report_findings.py` · `train_models.py` | Supply-chain + ML maintenance helpers — SBOM generation, whole-bundle plugin signing, model signing, requirements pinning, episode relabeling, findings reports, and model training. Plugin manifest v2 authenticates the exact path, size, and SHA-384 of every helper/resource; legacy entry-only plugins must be re-signed. Each tool is self-documenting via `--help`. |
 
 ## Usage
@@ -28,9 +30,12 @@ otherwise.
 ```powershell
 cd C:\path\to\DupeZ
 
-# Repair QtWebEngine install
-.\scripts\fix_webengine.bat
-
-# Smoke-test QtWebEngine against iZurvive
-python scripts\diagnose_webengine.py
+# Prepare an isolated candidate (never changes the production environment)
+python -I scripts\prepare_qt_candidate.py --output build\qt-review --install-runtime
 ```
+
+The candidate's runtime installation contains only Qt and its binding support.
+Use the matching reviewed application/test dependencies for application checks.
+The loopback TLS probe also needs the locked `cryptography` dependency. Keep
+candidate and production test results distinct; see
+[`QT_CANDIDATE_VALIDATION_2026-11-01.md`](../docs/audits/QT_CANDIDATE_VALIDATION_2026-11-01.md).

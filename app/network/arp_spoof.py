@@ -528,13 +528,16 @@ def _build_arp_reply(
 # ── Windows IP forwarding ────────────────────────────────────────────
 
 def _get_ip_forwarding_state() -> bool:
-    """Check if Windows IP forwarding is enabled."""
+    """Read a known forwarding state; unavailable or ambiguous is not off."""
     if not _IS_WINDOWS:
         try:
             with open("/proc/sys/net/ipv4/ip_forward") as f:
-                return f.read().strip() == "1"
-        except Exception:
-            return False
+                state = f.read().strip()
+        except OSError as exc:
+            raise RuntimeError("IP-forwarding state could not be read") from exc
+        if state not in {"0", "1"}:
+            raise RuntimeError("IP-forwarding state is unrecognized")
+        return state == "1"
 
     # The split GUI is deliberately unelevated. Keep this privileged query in
     # the helper; the helper forces DUPEZ_ARCH=inproc, so this cannot recurse.
@@ -542,7 +545,10 @@ def _get_ip_forwarding_state() -> bool:
         from app.firewall_helper.feature_flag import is_split_mode
         if is_split_mode():
             from app.firewall_helper.ipc_client import get_proxy_manager
-            return bool(get_proxy_manager().get_ip_forwarding_state())
+            state = get_proxy_manager().get_ip_forwarding_state()
+            if type(state) is not bool:
+                raise RuntimeError("helper returned an invalid IP-forwarding state")
+            return state
     except Exception as exc:
         log_error(f"Helper IP-forwarding query failed: {exc}")
         # False is a valid state, so converting a transport failure to False
@@ -553,20 +559,25 @@ def _get_ip_forwarding_state() -> bool:
         ) from exc
 
     if not _SP_NETSH:
-        return False
+        raise RuntimeError("netsh is unavailable for IP-forwarding state query")
     try:
         result = safe_subprocess.run(
             [_SP_NETSH, "interface", "ipv4", "show", "global"],
             timeout=5.0,
             intent="arp_spoof.get_ip_forwarding_state",
         )
-        # Look for "IP Forwarding" line
-        for line in result.stdout.splitlines():
-            if "forwarding" in line.lower():
-                return "enabled" in line.lower()
     except SafeSubprocessError as e:
         log_error(f"Failed to check IP forwarding state: {e}")
-    return False
+        raise RuntimeError("netsh could not report IP-forwarding state") from e
+    if type(result.returncode) is not int or result.returncode != 0:
+        raise RuntimeError("netsh IP-forwarding state query did not succeed")
+    # This parser supports the reviewed English label only. A localized,
+    # duplicate or unknown value cannot establish ownership of host settings.
+    states = [match.group(1).strip().casefold() for line in result.stdout.splitlines()
+              if (match := re.fullmatch(r"\s*IP Forwarding\s*:(.*)", line, flags=re.IGNORECASE))]
+    if len(states) != 1 or states[0] not in {"enabled", "disabled"}:
+        raise RuntimeError("netsh IP-forwarding state is unavailable or ambiguous")
+    return states[0] == "enabled"
 
 
 def _set_ip_forwarding(enable: bool) -> bool:
@@ -930,6 +941,9 @@ class ArpSpoofer:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._forwarding_was_enabled: bool = False
+        # Only an attempted mutation after a known disabled state belongs to
+        # this instance. Unknown/early-failure state is never ours to restore.
+        self._forwarding_restore_pending: bool = False
 
         # Stats (counter accessed from forwarding setup thread and main thread)
         self._packets_sent: int = 0
@@ -957,6 +971,9 @@ class ArpSpoofer:
         if self._running:
             log_info("ArpSpoofer already running")
             return True
+        if self._forwarding_restore_pending:
+            log_error("ArpSpoofer: previous forwarding restoration is still pending")
+            return False
 
         if not self.gateway_ip:
             log_error("ArpSpoofer: cannot determine default gateway")
@@ -1009,6 +1026,9 @@ class ArpSpoofer:
                     )
                     self._cleanup_partial()
                     return False
+                # A failed setter can have partially changed the host. Record
+                # ownership before the call so that failure also rolls back.
+                self._forwarding_restore_pending = True
                 if not _set_ip_forwarding(True):
                     log_error("ArpSpoofer: failed to enable IP forwarding")
                     self._cleanup_partial()
@@ -1083,6 +1103,8 @@ class ArpSpoofer:
     def stop(self) -> None:
         """Stop local forwarding and restore real ARP entries."""
         if not self._running:
+            # Failed starts and stops may retain a rollback that needs retry.
+            self._restore_forwarding()
             return
 
         log_info("ArpSpoofer: stopping — restoring ARP caches...")
@@ -1208,11 +1230,8 @@ class ArpSpoofer:
                 log_error(f"ArpSpoofer cleanup: linux_sock.close raised: {exc!r}")
             self._linux_sock = None
 
-        # IP forwarding. _restore_forwarding only flips back to False
-        # when _forwarding_was_enabled is False — i.e. when we were the
-        # ones who turned it on. If the caller bailed before step 2,
-        # _forwarding_was_enabled is False (its __init__ default) and
-        # we'll attempt a redundant set-to-False, which is harmless.
+        # Early failures never acquired forwarding ownership, so this must not
+        # query a helper, request elevation, or disable an unrelated setting.
         try:
             self._restore_forwarding()
         except Exception as exc:
@@ -1347,9 +1366,10 @@ class ArpSpoofer:
         log_info("ArpSpoofer: ARP caches restored")
 
     def _restore_forwarding(self) -> None:
-        """Restore IP forwarding to its prior state."""
-        if not self._forwarding_was_enabled:
+        """Undo only this instance's attempted forwarding mutation."""
+        if self._forwarding_restore_pending:
             if _set_ip_forwarding(False):
+                self._forwarding_restore_pending = False
                 try:
                     from app.core.operation_journal import OperationJournal
                     OperationJournal().clear_forwarding_change()

@@ -8,8 +8,11 @@ bundler is invoked in a new venv. Runtime installation is an explicit option.
 from __future__ import annotations
 
 import argparse
+import base64
+import csv
 import ctypes
 import hashlib
+import io
 import json
 import os
 import re
@@ -21,6 +24,7 @@ import sys
 import urllib.parse
 import urllib.request
 import zipfile
+from email.parser import Parser
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,8 +42,28 @@ MODULES = frozenset({
     "QtStateMachine", "QtSvg", "QtSvgWidgets", "QtTest", "QtTextToSpeech", "QtWebChannel",
     "QtWebSockets", "QtWidgets", "QtXml",
 })
+RETAINED_BINDINGS = frozenset({"QtCore", "QtGui", "QtNetwork", "QtWidgets", "QtOpenGL", "QtOpenGLWidgets",
+                               "QtPrintSupport", "QtSvg", "QtSvgWidgets", "QtTest"})
 MANIFEST_FIELDS = frozenset({"schema", "reviewed_on", "qt_version", "binding_version", "scope",
-                             "retained_bindings", "excluded_bindings", "inputs"})
+                             "retained_bindings", "excluded_bindings", "retained_plugins",
+                             "translation_locales", "inputs"})
+PLUGIN_PATHS = frozenset({
+    "generic/qtuiotouchplugin.dll", "iconengines/qsvgicon.dll",
+    "imageformats/qgif.dll", "imageformats/qicns.dll", "imageformats/qico.dll",
+    "imageformats/qjpeg.dll", "imageformats/qsvg.dll", "imageformats/qtga.dll",
+    "imageformats/qtiff.dll", "imageformats/qwbmp.dll", "imageformats/qwebp.dll",
+    "networkinformation/qnetworklistmanager.dll", "platforms/qminimal.dll",
+    "platforms/qoffscreen.dll", "platforms/qwindows.dll", "styles/qmodernwindowsstyle.dll",
+    "tls/qschannelbackend.dll",
+})
+OMITTED_PLUGINS = frozenset({
+    "sqldrivers/qsqlibase.dll", "sqldrivers/qsqlite.dll", "sqldrivers/qsqlmimer.dll",
+    "sqldrivers/qsqloci.dll", "sqldrivers/qsqlodbc.dll", "sqldrivers/qsqlpsql.dll",
+    "tls/qcertonlybackend.dll", "tls/qopensslbackend.dll",
+})
+OMITTED_UIC_PLUGINS = frozenset({
+    "PyQt6/uic/widget-plugins/qtquickwidgets.py", "PyQt6/uic/widget-plugins/qtwebenginewidgets.py",
+})
 
 
 def check_url(url: str) -> None:
@@ -130,7 +154,7 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
         raise ValueError("Oversized candidate manifest")
     manifest = json.loads(raw, object_pairs_hook=_unique_object)
     if (not isinstance(manifest, dict) or set(manifest) != MANIFEST_FIELDS
-            or manifest.get("schema") != "dupez.qt-candidate-inputs.v1"):
+            or manifest.get("schema") != "dupez.qt-candidate-inputs.v2"):
         raise ValueError("Unknown candidate manifest")
     for field in ("qt_version", "binding_version"):
         if not isinstance(manifest[field], str) or not VERSION.fullmatch(manifest[field]):
@@ -146,8 +170,17 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
                 or len(set(names)) != len(names)):
             raise ValueError(f"Invalid candidate module names: {field}")
     retained, excluded = set(manifest["retained_bindings"]), set(manifest["excluded_bindings"])
-    if retained & excluded or retained | excluded != MODULES or "QAxContainer" not in excluded:
+    if retained != RETAINED_BINDINGS or retained & excluded or retained | excluded != MODULES:
         raise ValueError("Candidate module partition is incomplete or unsafe")
+    plugins = manifest["retained_plugins"]
+    if (not isinstance(plugins, list) or any(not isinstance(name, str) for name in plugins)
+            or len(set(plugins)) != len(plugins) or set(plugins) != PLUGIN_PATHS):
+        raise ValueError("Candidate plugin inventory differs from the reviewed Schannel-only profile")
+    locales = manifest["translation_locales"]
+    if (not isinstance(locales, list) or not 1 <= len(locales) <= 100
+            or any(not isinstance(name, str) or not re.fullmatch(r"[a-z]{2}(?:_[A-Z]{2})?", name) for name in locales)
+            or len(set(locales)) != len(locales)):
+        raise ValueError("Invalid candidate translation locales")
     if not isinstance(manifest["inputs"], list) or not 1 <= len(manifest["inputs"]) <= 32:
         raise ValueError("Invalid candidate inputs")
     seen, ids = set(), set()
@@ -278,6 +311,119 @@ def inspect_wheel(path: Path) -> None:
                 raise ValueError("Wheel symlinks and special entries are unsupported")
 
 
+def _record_digest(data: bytes) -> str:
+    return "sha256=" + base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode("ascii")
+
+
+def _wheel_record(archive: zipfile.ZipFile) -> str:
+    records = [name for name in archive.namelist() if name.endswith(".dist-info/RECORD")]
+    if len(records) != 1:
+        raise ValueError("Candidate must have exactly one wheel RECORD")
+    record = records[0]
+    rows = list(csv.reader(io.StringIO(archive.read(record).decode("utf-8"))))
+    expected = {name for name in archive.namelist() if not name.endswith("/")}
+    seen = set()
+    for row in rows:
+        # PyQt-builder 1.20.1 writes its own unhashed RECORD row with the
+        # Windows separator. No payload path or hash receives this exception.
+        if row == [record.replace("/", "\\"), "", ""]:
+            row = [record, "", ""]
+        if len(row) != 3 or row[0] in seen or row[0] not in expected:
+            raise ValueError("Invalid/duplicate wheel RECORD entry")
+        name, digest, size = row
+        seen.add(name)
+        if name == record:
+            if digest or size:
+                raise ValueError("Wheel RECORD must not hash itself")
+        else:
+            payload = archive.read(name)
+            if digest != _record_digest(payload) or size != str(len(payload)):
+                raise ValueError(f"Wheel RECORD mismatch: {name}")
+    if seen != expected:
+        raise ValueError("Wheel RECORD does not cover every member")
+    return record
+
+
+def validate_candidate_wheel(path: Path, manifest: dict) -> dict:
+    """Inspect bytes without importing Qt; reject undeclared native/browser payload."""
+    inspect_wheel(path)
+    expected_bindings = {f"PyQt6/{name}.pyd" for name in manifest["retained_bindings"]}
+    expected_libraries = {f"PyQt6/Qt6/bin/Qt6{name[2:]}.dll" for name in manifest["retained_bindings"]}
+    expected_libraries |= {"PyQt6/Qt6/bin/d3dcompiler_47.dll", "PyQt6/Qt6/bin/opengl32sw.dll"}
+    expected_plugins = {"PyQt6/Qt6/plugins/" + name for name in manifest["retained_plugins"]}
+    expected_translations = {f"PyQt6/Qt6/translations/qtbase_{name}.qm" for name in manifest["translation_locales"]}
+    with zipfile.ZipFile(path) as archive:
+        record = _wheel_record(archive)
+        names = set(archive.namelist())
+        metadata_root = record.removesuffix("RECORD")
+        if any(not name.startswith(("PyQt6/", metadata_root)) for name in names):
+            raise ValueError("Candidate contains an unexpected distribution root")
+        natives = {name for name in names if PurePosixPath(name).suffix.lower() in {".dll", ".pyd", ".exe", ".sys"}}
+        if natives != expected_bindings | expected_libraries | expected_plugins:
+            raise ValueError("Candidate native inventory differs from reviewed profile")
+        translations = {name for name in names if name.endswith(".qm")}
+        if translations != expected_translations:
+            raise ValueError("Candidate translation inventory differs from reviewed profile")
+        for name in names:
+            if (name in OMITTED_UIC_PLUGINS or name.endswith(".qml")
+                    or name.startswith(("PyQt6/Qt6/qml/", "PyQt6/Qt6/resources/", "PyQt6/Qt6/libexec/"))
+                    or any(name == f"PyQt6/{module}.pyi" or name.startswith(f"PyQt6/bindings/{module}/")
+                           for module in manifest["excluded_bindings"])):
+                raise ValueError("Excluded module/browser data remains in candidate")
+        metadata_name = record.removesuffix("RECORD") + "METADATA"
+        metadata = archive.read(metadata_name).decode("utf-8")
+        # The pinned Windows bundler can emit CRCRLF while rewriting METADATA.
+        # Normalize solely for parsing; preserve the original bytes in the wheel.
+        fields = Parser().parsestr(metadata.replace("\r\r\n", "\n"))
+        if (fields.get_all("Name") != ["PyQt6"]
+                or fields.get_all("Version") != [manifest["binding_version"]]
+                or fields.get_all("Requires-Dist") != ["PyQt6-sip (>=13.8, <14)"]):
+            raise ValueError("Candidate distribution metadata is inconsistent")
+        return {"bindings": sorted(expected_bindings), "libraries": sorted(expected_libraries),
+                "plugins": sorted(expected_plugins), "translations": sorted(translations),
+                "native_members": [{"path": name, "sha256": hashlib.sha256(archive.read(name)).hexdigest()}
+                                   for name in sorted(natives)],
+                "metadata_sha256": hashlib.sha256(archive.read(metadata_name)).hexdigest(),
+                "wheel_record_verified": True, "member_count": len(names)}
+
+
+def restrict_candidate_wheel(source: Path, destination: Path, manifest: dict) -> dict:
+    """Remove declared unsupported payload, preserve metadata, regenerate RECORD."""
+    inspect_wheel(source)
+    removed = []
+    with zipfile.ZipFile(source) as original:
+        record = _wheel_record(original)
+        with zipfile.ZipFile(destination, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as output:
+            rows = []
+            for name in sorted(original.namelist()):
+                if name.endswith("/") or name == record:
+                    continue
+                omit = (name in OMITTED_UIC_PLUGINS
+                        or (name.startswith("PyQt6/Qt6/plugins/")
+                            and name.removeprefix("PyQt6/Qt6/plugins/") in OMITTED_PLUGINS)
+                        or (name.startswith("PyQt6/Qt6/translations/") and not name.startswith("PyQt6/Qt6/translations/qtbase_"))
+                        or any(name in {f"PyQt6/{module}.pyd", f"PyQt6/{module}.pyi"}
+                               or name.startswith(f"PyQt6/bindings/{module}/") for module in manifest["excluded_bindings"]))
+                if omit:
+                    removed.append(name)
+                    continue
+                payload = original.read(name)
+                info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                info.external_attr = (stat.S_IFREG | 0o644) << 16
+                output.writestr(info, payload)
+                rows.append((name, _record_digest(payload), str(len(payload))))
+            content = io.StringIO(newline="")
+            writer = csv.writer(content, lineterminator="\n")
+            writer.writerows([*rows, (record, "", "")])
+            info = zipfile.ZipInfo(record, (1980, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = (stat.S_IFREG | 0o644) << 16
+            output.writestr(info, content.getvalue().encode("utf-8"))
+    inventory = validate_candidate_wheel(destination, manifest)
+    return {"removed_members": removed, "inventory": inventory}
+
+
 def run(argv: list[str], cwd: Path, log: Path) -> None:
     env = child_environment(log.parent / "private")
     with log.open("ab") as output:
@@ -300,7 +446,7 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
     inputs.mkdir()
     for item in manifest["inputs"]:
         fetch(item, inputs / item["filename"], cache)
-    receipt = {"schema": "dupez.qt-candidate-preparation.v1", "status": "inputs-verified",
+    receipt = {"schema": "dupez.qt-candidate-preparation.v2", "status": "inputs-verified",
                "production_locks_changed": False, "native_payload_executed": False,
                "manifest_sha256": manifest_sha256,
                "inputs": manifest["inputs"], "scope": manifest["scope"]}
@@ -336,23 +482,28 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
         binding = next(item for item in manifest["inputs"] if item["role"] == "binding-wheel")
         canonical = output / f"PyQt6-{manifest['binding_version']}-cp310-abi3-win_amd64.whl"
         shutil.copyfile(inputs / binding["filename"], canonical)
-        wheel_dir = output / "wheel"
-        wheel_dir.mkdir()
+        bundled_dir = output / "bundled-wheel"
+        bundled_dir.mkdir()
         args = [str(python), "-I", "-c", "from pyqtbuild.bundle.bundle_main import main; raise SystemExit(main())", "--qt-dir", str(prefix), "--no-msvc-runtime",
                 "--no-openssl", "--build-tag-suffix", "dupezcandidate"]
         for name in manifest["excluded_bindings"]:
             args.extend(["--exclude", name])
         args.append(str(canonical))
-        run(args, wheel_dir, log)
-        wheel = next(wheel_dir.glob("*.whl"))
-        inspect_wheel(wheel)
-        with zipfile.ZipFile(wheel) as archive:
-            metadata = archive.read(next(n for n in archive.namelist() if n.endswith(".dist-info/METADATA"))).decode()
-            if re.search(r"^Requires-Dist:\s*pyqt6-qt6", metadata, re.I | re.M):
-                raise ValueError("Bundler retained external Qt dependency")
+        run(args, bundled_dir, log)
+        bundled_wheels = list(bundled_dir.glob("*.whl"))
+        if len(bundled_wheels) != 1:
+            raise ValueError("Bundler must produce exactly one candidate wheel")
+        bundled = bundled_wheels[0]
+        wheel_dir = output / "wheel"
+        wheel_dir.mkdir()
+        wheel = wheel_dir / bundled.name
+        receipt["profile_restriction"] = restrict_candidate_wheel(bundled, wheel, manifest)
+        with bundled.open("rb") as source:
+            receipt["unrestricted_bundler_wheel"] = {"path": bundled.relative_to(output).as_posix(),
+                "sha256": hashlib.file_digest(source, "sha256").hexdigest(), "size": bundled.stat().st_size}
         with wheel.open("rb") as source:
             wheel_hash = hashlib.file_digest(source, "sha256").hexdigest()
-        receipt.update(status="candidate-wheel-prepared", wheel={"path": str(wheel.relative_to(output)),
+        receipt.update(status="candidate-wheel-prepared", wheel={"path": wheel.relative_to(output).as_posix(),
                        "sha256": wheel_hash, "size": wheel.stat().st_size}, retained_bindings=manifest["retained_bindings"])
         if install_runtime:
             runtime = output / "runtime-venv"

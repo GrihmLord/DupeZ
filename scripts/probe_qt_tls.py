@@ -17,6 +17,10 @@ import ssl
 import sys
 import tempfile
 import threading
+import time
+
+
+SCRIPT_DIGEST = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
 
 
 def make_certificates(directory: Path) -> tuple[Path, Path, bytes]:
@@ -94,8 +98,13 @@ def handshake(cert: Path, key: Path, ca: bytes, *, trust: bool, hostname: str) -
         client.connectToHostEncrypted("127.0.0.1", port)
         encrypted = client.waitForEncrypted(5000)
         if encrypted:
-            if client.bytesAvailable() or client.waitForReadyRead(3000):
-                received = bytes(client.readAll())
+            deadline = time.monotonic() + 3
+            expected_size = len(b"dupez-local-tls-probe\n")
+            while len(received) <= expected_size and time.monotonic() < deadline:
+                if client.bytesAvailable() or client.waitForReadyRead(max(1, int((deadline - time.monotonic()) * 1000))):
+                    received += bytes(client.read(expected_size + 1 - len(received)))
+                if len(received) >= expected_size or not client.isEncrypted():
+                    break
         result = {"trusted_probe_ca": trust, "peer_name": hostname,
                   "encrypted": encrypted, "ssl_errors": sorted(set(errors)),
                   "socket_error": client.error().name,
@@ -118,9 +127,9 @@ def validate_results(results: list[dict]) -> None:
             or trusted["server"].get("protocol") not in {"TLSv1.2", "TLSv1.3"}):
         raise RuntimeError("Trusted local peer failed verified TLS")
     if (untrusted["encrypted"] or untrusted["payload_verified"]
-            or not set(untrusted["ssl_errors"]) & {"CertificateUntrusted", "UnableToGetLocalIssuerCertificate",
+            or not set(untrusted["ssl_errors"]) & {"CertificateUntrusted", "UnableToGetIssuerCertificate", "UnableToGetLocalIssuerCertificate",
                                                   "SelfSignedCertificateInChain", "UnableToVerifyFirstCertificate"}):
-        raise RuntimeError("Untrusted local peer was not rejected for a certificate error")
+        raise RuntimeError(f"Untrusted local peer was not rejected for a certificate error: {untrusted!r}")
     if (wrong_host["encrypted"] or wrong_host["payload_verified"]
             or "HostNameMismatch" not in wrong_host["ssl_errors"]):
         raise RuntimeError("Wrong hostname was not rejected")
@@ -150,12 +159,14 @@ def probe(expected_qt: str) -> dict:
                    handshake(cert, key, ca, trust=True, hostname="wrong.invalid")]
     validate_results(results)
     app.processEvents()
+    if hashlib.sha256(Path(__file__).read_bytes()).hexdigest() != SCRIPT_DIGEST:
+        raise RuntimeError("Probe source changed during execution")
     return {"schema": "dupez.qt-loopback-tls-probe.v1", "status": "passed",
             "observed_at": datetime.now(timezone.utc).isoformat(), "qt_version": expected_qt,
             "python_version": sys.version.split()[0], "backend": QtNetwork.QSslSocket.activeBackend(),
-            "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            "script_sha256": SCRIPT_DIGEST,
             "cases": results, "trust_store_modified": False,
-            "scope": "Loopback TLS only; no public service, HTTP/2, full app or frozen runtime proof"}
+            "scope": "Loopback TLS only; no public service, HTTP/2, loaded DLL provenance, full app or frozen runtime proof"}
 
 
 def main() -> int:

@@ -17,6 +17,15 @@ def test_verified_handshake_and_both_negative_controls_pass():
     validate_results(passed_results())
 
 
+@pytest.mark.parametrize("error", ["CertificateUntrusted", "UnableToGetIssuerCertificate",
+                                 "UnableToGetLocalIssuerCertificate", "SelfSignedCertificateInChain",
+                                 "UnableToVerifyFirstCertificate"])
+def test_native_certificate_chain_error_names_are_rejections(error):
+    results = passed_results()
+    results[1]["ssl_errors"] = [error]
+    validate_results(results)
+
+
 @pytest.mark.parametrize("case,field,value", [
     (0, "encrypted", False), (0, "payload_verified", False),
     (0, "ssl_errors", ["CertificateUntrusted"]), (0, "server", {"protocol": "TLSv1"}),
