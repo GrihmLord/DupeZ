@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import importlib.util
 from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -57,6 +58,10 @@ def test_readiness_tracks_load_success_failure_and_renderer_crash(
     widget.deleteLater()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("PyQt6.QtWebEngineCore") is None,
+    reason="Optional WebEngine bindings are absent; this test requires real browser setting enums",
+)
 def test_hardware_tier_keeps_webgl_canvas_and_native_zoom(
     monkeypatch,
     qapp: QApplication,

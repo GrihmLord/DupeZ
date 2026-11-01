@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import ast
+import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -343,6 +344,10 @@ def test_lazy_security_assessment_error_does_not_resolve_factory(browser_harness
     lazy.deleteLater()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("PyQt6.QtWebEngineCore") is None,
+    reason="Optional WebEngine bindings are absent; this test requires the imported browser URL policy",
+)
 @pytest.mark.parametrize("url,expected_scripts", [
     ("https://izurvive.com/livonia", 4),
     ("https://example.com/map", 0),
@@ -366,6 +371,10 @@ def test_map_scripts_run_only_on_reviewed_https_origin(browser_harness, monkeypa
     widget.deleteLater()
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("PyQt6.QtWebEngineCore") is None,
+    reason="Optional WebEngine bindings are absent; this test requires real browser profile enums",
+)
 def test_map_reuses_reviewed_profile_interceptor_without_persistent_storage(monkeypatch, qapp):
     monkeypatch.setattr(map_module, "_WEBENGINE_AVAILABLE", False)
     monkeypatch.setattr(map_module, "assess_webengine_security", lambda: SimpleNamespace(allowed=True, reason=""))

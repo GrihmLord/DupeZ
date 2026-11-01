@@ -501,6 +501,7 @@ class TestIpForwarding:
 
     @pytest.mark.parametrize("output,returncode", [
         ("", 0), ("Packet Forwarding: Enabled", 0),
+        ("Multicast Forwarding: disabled\nGroup Forwarded Fragments: disabled", 0),
         ("IP Forwarding: Unknown", 0), ("IP Forwarding: 0", 0),
         ("Weiterleitung: Aktiviert", 0), ("IP Forwarding: Activado", 0),
         ("IP Forwarding: Enabled\nIP Forwarding: Disabled", 0),
@@ -651,6 +652,10 @@ class TestArpSpooferStart:
     def patched(self, monkeypatch):
         """Patch everything the spoofer touches and yield the spoofer +
         captured sender for assertions."""
+        from app.core import operation_journal
+
+        journal = MagicMock()
+        monkeypatch.setattr(operation_journal, "OperationJournal", lambda: journal)
         target_mac = b"\x11\x22\x33\x44\x55\x66"
         gateway_mac = b"\xaa\xbb\xcc\xdd\xee\xff"
         local_mac = b"\xde\xad\xbe\xef\xca\xfe"
