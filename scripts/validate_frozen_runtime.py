@@ -1299,18 +1299,19 @@ def _remember_process_tree(
 
 
 def _identity_process(identity: ProcessIdentity) -> Optional[psutil.Process]:
+    """Return only a verified live identity; inaccessible identity is not exit."""
     pid, created = identity
     try:
         process = psutil.Process(pid)
-        if abs(float(process.create_time()) - created) >= 0.001:
+        if float(process.create_time()) != created:
             return None
         if not process.is_running():
             return None
         return process
     except psutil.NoSuchProcess:
         return None
-    except (psutil.AccessDenied, OSError):
-        return psutil.Process(pid) if psutil.pid_exists(pid) else None
+    except (psutil.AccessDenied, OSError) as exc:
+        raise RuntimeError("Started process identity could not be reverified") from exc
 
 
 def _wait_for_process_identities_gone(
@@ -1720,13 +1721,19 @@ def _terminate_started_family(
     root_pid: int,
     known_identities: set[ProcessIdentity],
 ) -> None:
-    try:
-        _remember_process_tree(root_pid, known_identities)
-    except (RuntimeError, psutil.Error, OSError):
-        pass
+    # A failing or exited Popen may already have released its PID. Rediscovering
+    # its tree by that bare number can adopt an unrelated replacement process.
+    # The caller separately stops the original root through its retained Popen
+    # handle, then verifies all captured identities and global leak guards.
+    del root_pid
     candidates: list[psutil.Process] = []
     for identity in known_identities:
-        process = _identity_process(identity)
+        try:
+            process = _identity_process(identity)
+        except RuntimeError:
+            # Never turn failed identity inspection into permission to kill.
+            # The caller's subsequent exit check fails closed if still unknown.
+            continue
         if process is not None:
             candidates.append(process)
     for process in reversed(candidates):

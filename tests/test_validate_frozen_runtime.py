@@ -30,7 +30,7 @@ def test_access_denied_helper_does_not_mask_cleanup(monkeypatch) -> None:
             return 1.0
 
         def terminate(self) -> None:
-            raise psutil.AccessDenied(pid=self.pid)
+            raise AssertionError("an unverifiable helper must not be terminated")
 
         def is_running(self) -> bool:
             raise psutil.AccessDenied(pid=self.pid)
@@ -44,6 +44,62 @@ def test_access_denied_helper_does_not_mask_cleanup(monkeypatch) -> None:
     monkeypatch.setattr(validator.psutil, "pid_exists", lambda _pid: True)
 
     validator._terminate_started_family(41001, {(helper.pid, 1.0)})
+
+
+@pytest.mark.parametrize("created", [2.0, 1.0005])
+def test_reused_pid_is_not_a_cleanup_identity(monkeypatch, created) -> None:
+    class Replacement:
+        def create_time(self) -> float:
+            return created
+
+        def is_running(self) -> bool:
+            raise AssertionError("a changed creation time must be rejected first")
+
+    monkeypatch.setattr(validator.psutil, "Process", lambda _pid: Replacement())
+    assert validator._identity_process((42001, 1.0)) is None
+
+
+def test_inaccessible_identity_never_falls_back_to_bare_pid(monkeypatch) -> None:
+    calls = []
+
+    class Inaccessible:
+        def create_time(self) -> float:
+            raise psutil.AccessDenied(pid=42001)
+
+    def inspect(pid):
+        calls.append(pid)
+        return Inaccessible()
+
+    monkeypatch.setattr(validator.psutil, "Process", inspect)
+    monkeypatch.setattr(
+        validator.psutil, "pid_exists",
+        lambda _pid: pytest.fail("existence alone cannot establish process identity"),
+    )
+    with pytest.raises(RuntimeError, match="could not be reverified"):
+        validator._identity_process((42001, 1.0))
+    assert calls == [42001]
+
+
+def test_cleanup_does_not_discover_descendants_of_reused_root_pid(monkeypatch) -> None:
+    monkeypatch.setattr(
+        validator, "_remember_process_tree",
+        lambda *_args: pytest.fail("cleanup must not rediscover a tree by bare PID"),
+    )
+    monkeypatch.setattr(
+        validator.psutil, "Process",
+        lambda _pid: pytest.fail("no observed identity belongs to this cleanup"),
+    )
+    validator._terminate_started_family(41001, set())
+
+
+def test_unverifiable_identity_cannot_count_as_shutdown(monkeypatch) -> None:
+    class Inaccessible:
+        def create_time(self) -> float:
+            raise psutil.AccessDenied(pid=42001)
+
+    monkeypatch.setattr(validator.psutil, "Process", lambda _pid: Inaccessible())
+    with pytest.raises(RuntimeError, match="could not be reverified"):
+        validator._wait_for_process_identities_gone({(42001, 1.0)}, timeout=1.0)
 
 
 def test_wait_for_dashboard_rebinds_after_handle_recreation(monkeypatch) -> None:
