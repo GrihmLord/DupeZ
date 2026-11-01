@@ -5,9 +5,10 @@
 ; Start Menu/Desktop shortcuts, GPU and Compat variants, and optional
 ; Authenticode signing through the release pipeline.
 ;
-; BUILD (run from repo root):
-;   1. Build both variants:  packaging\build_variants.bat
-;   2. Compile directly:     iscc packaging\installer.iss
+; CANONICAL RELEASE BUILD (run from repo root):
+;   packaging\build_variants.bat
+; Direct ISCC invocation is unsupported and fails closed without the private
+; native snapshot created by packaging\release_data.py.
 ;   Output: dist\DupeZ_v5.8.0_Setup.exe
 ;
 ; SourceDir=.. resolves all Source paths from the repository root.
@@ -20,6 +21,11 @@
 #define MyAppExeName   "dupez.exe"
 #define MyAppUpdater   "DupeZ_v" + MyAppVersion + "_Setup.exe"
 
+#define DupeZNativeSnapshot GetEnv("DUPEZ_INSTALLER_NATIVE_SNAPSHOT")
+#if DupeZNativeSnapshot == ""
+  #error "DUPEZ_INSTALLER_NATIVE_SNAPSHOT is required; run packaging\build_variants.bat"
+#endif
+
 [Setup]
 ; Stable App ID — never change between versions.
 AppId={{7E2F9B4A-3C1D-4E8F-A5B6-D9C0E1F23456}
@@ -31,10 +37,15 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}/issues
 AppUpdatesURL={#MyAppURL}/releases
 AppContact=https://github.com/GrihmLord
+LicenseFile=dist\LICENSE.txt
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
-ArchitecturesInstallIn64BitMode=x64compatible
-ArchitecturesAllowed=x64compatible
+; WinDivert64.sys is an x64 kernel driver and cannot run under ARM64 x64 emulation.
+ArchitecturesInstallIn64BitMode=x64os
+ArchitecturesAllowed=x64os
+; Explicitly retain Inno Setup's junction/symlink traversal mitigation for both
+; elevated install and uninstall, even if a future compiler default changes.
+RedirectionGuard=yes
 DisableProgramGroupPage=yes
 UsePreviousAppDir=yes
 SourceDir=..
@@ -79,16 +90,51 @@ Name: "startmenu"; Description: "Create Start Menu shortcut"; GroupDescription: 
 Source: "dist\DupeZ-GPU.exe"; DestDir: "{app}"; DestName: "dupez.exe"; Flags: ignoreversion
 ; Compat remains available for blocklisted or problematic GPU systems.
 Source: "dist\DupeZ-Compat.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Exact-lock legal payload generated and verified before ISCC is invoked.
+Source: "dist\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\SOURCE_AND_RELINK.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\THIRD_PARTY_NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\license-payload.json"; DestDir: "{app}"; Flags: ignoreversion
 
-; Pinned firewall binaries used by the packaged runtime.
-Source: "app\firewall\*.dll"; DestDir: "{app}\app\firewall"; Flags: ignoreversion recursesubdirs
-Source: "app\firewall\*.sys"; DestDir: "{app}\app\firewall"; Flags: ignoreversion recursesubdirs
-Source: "app\firewall\*.exe"; DestDir: "{app}\app\firewall"; Flags: ignoreversion recursesubdirs
+; Fail-closed managed payload. Keep these entries synchronized with
+; packaging\release-data.json; scripts\release_preflight.py rejects wildcard,
+; recursive, unlisted, renamed, or misdirected installer sources.
 
-; Explicit runtime data directories.
-Source: "app\config\*"; DestDir: "{app}\app\config"; Flags: ignoreversion recursesubdirs
-Source: "app\themes\*"; DestDir: "{app}\app\themes"; Flags: ignoreversion recursesubdirs
-Source: "app\resources\*"; DestDir: "{app}\app\resources"; Flags: ignoreversion recursesubdirs
+; Pinned firewall runtime binaries must come from release_data.py's private
+; snapshot of the fixed, verified native stage. Standard builds sign only the
+; staged clumsy.exe; explicit unsigned builds prove the staged bytes remain
+; source-exact. Never package the tracked source files directly or recurse into
+; app\firewall\clumsy_src / vendored WinDivert sample utilities.
+Source: "{#DupeZNativeSnapshot}\app\firewall\WinDivert.dll"; DestDir: "{app}\app\firewall"; Flags: ignoreversion
+Source: "{#DupeZNativeSnapshot}\app\firewall\WinDivert64.sys"; DestDir: "{app}\app\firewall"; Flags: ignoreversion
+Source: "{#DupeZNativeSnapshot}\app\firewall\clumsy.exe"; DestDir: "{app}\app\firewall"; Flags: ignoreversion
+Source: "{#DupeZNativeSnapshot}\app\firewall\iup.dll"; DestDir: "{app}\app\firewall"; Flags: ignoreversion
+
+; Runtime data is file-by-file so local cache, HMAC, source, and mutable state
+; files can never be swept into a release installer.
+Source: "app\assets\icon.ico"; DestDir: "{app}\app\assets"; Flags: ignoreversion
+Source: "app\assets\icon_fixed.ico"; DestDir: "{app}\app\assets"; Flags: ignoreversion
+Source: "app\config\dayz_duping_config.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\dayz_firewall.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\dayz_loot.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\dayz_markers.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\dayz_servers.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\dayz_tips_tricks.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\game_profiles\dayz.json"; DestDir: "{app}\app\config\game_profiles"; Flags: ignoreversion
+Source: "app\config\gaming_rules.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\latency_config.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\memory_optimization.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\network_optimization.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\network_rules.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\profiles.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\settings.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\config\stability_config.json"; DestDir: "{app}\app\config"; Flags: ignoreversion
+Source: "app\resources\dupez.ico"; DestDir: "{app}\app\resources"; Flags: ignoreversion
+Source: "app\resources\dupez.png"; DestDir: "{app}\app\resources"; Flags: ignoreversion
+Source: "app\themes\dark.qss"; DestDir: "{app}\app\themes"; Flags: ignoreversion
+Source: "app\themes\hacker.qss"; DestDir: "{app}\app\themes"; Flags: ignoreversion
+Source: "app\themes\light.qss"; DestDir: "{app}\app\themes"; Flags: ignoreversion
+Source: "app\themes\rainbow.qss"; DestDir: "{app}\app\themes"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: startmenu; Comment: "Launch DupeZ"
@@ -122,5 +168,3 @@ Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{{7E2F9
     ValueType: string; ValueName: "URLUpdateInfo"; ValueData: "{#MyAppURL}/releases"; Flags: uninsdeletevalue
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{{7E2F9B4A-3C1D-4E8F-A5B6-D9C0E1F23456}_is1"; \
     ValueType: string; ValueName: "HelpLink"; ValueData: "{#MyAppURL}/issues"; Flags: uninsdeletevalue
-Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{{7E2F9B4A-3C1D-4E8F-A5B6-D9C0E1F23456}_is1"; \
-    ValueType: dword; ValueName: "EstimatedSize"; ValueData: "204800"; Flags: uninsdeletevalue

@@ -1,26 +1,33 @@
 """
-Capability-enforcing sandbox for DupeZ plugins.
+Best-effort capability diagnostics for fully trusted DupeZ plugins.
 
 Design
 ------
 Every loaded plugin declares a capability set in its signed manifest
-(see :mod:`app.plugins.signing`). At activation time, the loader pushes
-the plugin's capability set onto a thread-local stack and installs a
+(see :mod:`app.plugins.signing`). During import and every lifecycle callback,
+the loader pushes the plugin's capability set onto a thread-local stack and installs a
 process-wide :func:`sys.addaudithook` mediator. The mediator inspects
 every audit event raised by the CPython runtime (``socket.connect``,
 ``subprocess.Popen``, ``os.system``, ``open`` with write flags, …) and
 consults the top of the active-plugin stack to decide whether the
 event is permitted.
 
-Sandbox mode is **best-effort deterrence**, not a hardened security
-boundary: a plugin that imports ``ctypes`` can call into kernel32
-directly and bypass everything. The goal is to:
+The signing key is the trust boundary. A verified plugin runs arbitrary
+in-process Python with the host user's authority; its publisher must therefore
+be trusted like an application-code contributor. This module is **best-effort
+deterrence and diagnostics**, not a security boundary. Python reflection,
+native code, or a child thread can evade a thread-local audit scope. The goal
+is to:
 
     1. Catch accidental-looking capability escalation (a "scanner"
        plugin that suddenly opens a raw socket).
     2. Force malicious plugins to be *obviously* malicious (they must
        reach for ctypes, which is itself auditable).
     3. Give the user a readable reason when a plugin is rejected.
+
+Do not describe manifest capabilities as OS isolation or use them to justify
+trusting an otherwise untrusted publisher. A future brokered out-of-process
+host is required before capabilities can become an enforceable boundary.
 
 Thread locality
 ---------------
@@ -44,18 +51,22 @@ Usage
     )
 
     activate_sandbox()                # once, at loader init
-    with plugin_scope(manifest):
+    with plugin_scope(manifest.name, manifest.capabilities):
         instance.activate(controller)
 """
 
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import marshal
+import os
 import re
 import sys
 import threading
-from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from dataclasses import dataclass
+from types import CodeType, MappingProxyType
+from typing import Iterable, Mapping, Optional
 
 __all__ = [
     "SandboxViolation",
@@ -73,9 +84,21 @@ class SandboxViolation(RuntimeError):
 
 
 @dataclass(frozen=True)
+class _AuthorizedCodeRecord:
+    source_sha384: bytes
+    code_sha384: bytes
+
+
+@dataclass(frozen=True)
+class _VerifiedCodeAuthorization:
+    records: Mapping[str, _AuthorizedCodeRecord]
+
+
+@dataclass(frozen=True)
 class _PluginContext:
     name: str
     capabilities: frozenset
+    verified_code: Optional[_VerifiedCodeAuthorization] = None
 
 
 _thread_local = threading.local()
@@ -106,6 +129,94 @@ def snapshot_violations() -> list[dict]:
     """Return a copy of all recorded sandbox violations since process start."""
     with _violations_lock:
         return list(_violations)
+
+
+def _canonical_code_path(raw_path: object) -> str:
+    """Return a comparison-safe absolute path, or an empty value on failure."""
+    try:
+        path = os.fsdecode(raw_path)
+    except (TypeError, ValueError):
+        return ""
+    if not path or (path.startswith("<") and path.endswith(">")):
+        return ""
+    try:
+        return os.path.normcase(os.path.realpath(os.path.abspath(path)))
+    except (OSError, ValueError):
+        return ""
+
+
+def _code_digest(code: CodeType) -> bytes:
+    """Fingerprint the complete compiled code graph for exact exec approval."""
+    return hashlib.sha384(marshal.dumps(code)).digest()
+
+
+def _prepare_verified_code_authorization(
+    sources: Mapping[str, tuple[bytes, str]],
+) -> _VerifiedCodeAuthorization:
+    """Compile only manifest-hash-matched sources into an immutable allowlist.
+
+    This runs before a plugin scope is pushed. The audit hook can therefore
+    permit CPython's import-time ``compile``/``exec`` events only when their
+    source bytes, canonical filename, and resulting code object all match an
+    already verified file from the signed plugin manifest.
+    """
+    if not sources:
+        raise ValueError("verified plugin source set cannot be empty")
+
+    records: dict[str, _AuthorizedCodeRecord] = {}
+    for raw_path, source_record in sources.items():
+        if (
+            not isinstance(source_record, tuple)
+            or len(source_record) != 2
+            or not isinstance(source_record[0], bytes)
+            or not isinstance(source_record[1], str)
+        ):
+            raise TypeError(
+                "verified plugin sources must map paths to (bytes, sha384)"
+            )
+        source, expected_sha384 = source_record
+        actual_sha384 = hashlib.sha384(source).hexdigest()
+        if actual_sha384 != expected_sha384:
+            raise ValueError("verified plugin source does not match manifest hash")
+
+        filename = os.path.realpath(os.path.abspath(os.fsdecode(raw_path)))
+        canonical_path = _canonical_code_path(filename)
+        if not canonical_path or canonical_path in records:
+            raise ValueError("verified plugin source path is invalid or duplicated")
+
+        code = compile(
+            source,
+            filename,
+            "exec",
+            dont_inherit=True,
+            optimize=-1,
+        )
+        records[canonical_path] = _AuthorizedCodeRecord(
+            source_sha384=hashlib.sha384(source).digest(),
+            code_sha384=_code_digest(code),
+        )
+
+    return _VerifiedCodeAuthorization(MappingProxyType(records))
+
+
+def _authorized_compile(ctx: _PluginContext, args: tuple) -> bool:
+    authorization = ctx.verified_code
+    if authorization is None or len(args) < 2:
+        return False
+    source, filename = args[:2]
+    if not isinstance(source, bytes):
+        return False
+    record = authorization.records.get(_canonical_code_path(filename))
+    return record is not None and hashlib.sha384(source).digest() == record.source_sha384
+
+
+def _authorized_exec(ctx: _PluginContext, args: tuple) -> bool:
+    authorization = ctx.verified_code
+    if authorization is None or not args or not isinstance(args[0], CodeType):
+        return False
+    code = args[0]
+    record = authorization.records.get(_canonical_code_path(code.co_filename))
+    return record is not None and _code_digest(code) == record.code_sha384
 
 
 # ── Event policy ──────────────────────────────────────────────────
@@ -139,12 +250,29 @@ def _condition_open_write(args: tuple) -> bool:
     any mode containing ``w``, ``a``, ``x``, ``+`` as writable.
     """
     try:
-        _, mode, _ = args
+        _, mode, flags = args
     except Exception:
-        return False
+        # An unrecognised ``open`` event is safer to treat as a mutation while
+        # a plugin scope is active.  Read-only CPython events use either a
+        # string mode without write characters or integer flags equal to
+        # ``O_RDONLY`` (zero on supported platforms).
+        return True
     if isinstance(mode, str):
         return any(c in mode for c in "waxWAX+")
-    return False
+    if isinstance(flags, int):
+        write_flags = 0
+        for flag_name in (
+            "O_WRONLY",
+            "O_RDWR",
+            "O_APPEND",
+            "O_CREAT",
+            "O_TRUNC",
+            "O_EXCL",
+            "O_TMPFILE",
+        ):
+            write_flags |= int(getattr(os, flag_name, 0))
+        return bool(flags & write_flags)
+    return True
 
 
 def _condition_unsafe_import(args: tuple) -> bool:
@@ -184,7 +312,10 @@ _RULES: list[_EventRule] = [
         reason="file open for write",
     ),
     _EventRule(
-        pattern=re.compile(r"^os\.(remove|unlink|rename|rmdir|chmod|chown)$"),
+        pattern=re.compile(
+            r"^os\.(remove|unlink|rename|rmdir|chmod|chown|mkdir|link|"
+            r"symlink|truncate|utime)$"
+        ),
         capability="fs.write_user_data",
         reason="file-system mutation",
     ),
@@ -236,6 +367,15 @@ def _audit_hook(event: str, args: tuple) -> None:
         return
     ctx: _PluginContext = s[-1]
 
+    # Import machinery compiles and executes source modules. Permit those two
+    # events only for exact code prepared from the signed, freshly reverified
+    # plugin file set. Dynamic exec/eval and filename spoofing still fall
+    # through to the hard-deny rules below.
+    if event == "compile" and _authorized_compile(ctx, args):
+        return
+    if event == "exec" and _authorized_exec(ctx, args):
+        return
+
     for rule in _RULES:
         if not rule.pattern.match(event):
             continue
@@ -284,9 +424,23 @@ def activate_sandbox() -> None:
 # ── Scope helpers ─────────────────────────────────────────────────
 
 @contextlib.contextmanager
-def plugin_scope(name: str, capabilities: Iterable[str]):
-    """Push a plugin capability scope for the current thread."""
-    ctx = _PluginContext(name=name, capabilities=frozenset(capabilities))
+def plugin_scope(
+    name: str,
+    capabilities: Iterable[str],
+    *,
+    verified_code: Optional[_VerifiedCodeAuthorization] = None,
+):
+    """Push a plugin capability and exact-code scope for this thread."""
+    if verified_code is not None and not isinstance(
+        verified_code,
+        _VerifiedCodeAuthorization,
+    ):
+        raise TypeError("verified_code must be prepared by the plugin loader")
+    ctx = _PluginContext(
+        name=name,
+        capabilities=frozenset(capabilities),
+        verified_code=verified_code,
+    )
     s = _stack()
     s.append(ctx)
     try:

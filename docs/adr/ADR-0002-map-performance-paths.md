@@ -24,11 +24,20 @@ ARCH_INPROC`. The GUI boots elevated, Chromium's GPU process refuses
 to start under an admin token, and `renderer_tier.py` correctly picks
 `tier3_cpu` (software raster). That's the lag.
 
-Flip the default to split and the map runs at `tier1_hw` or
-`tier2_swiftshader`. Packet path is literally the same singleton —
-just hosted in `dupez_helper.py` instead of `dupez.exe`. Bit-for-bit
-identical WinDivert, bit-for-bit identical netsh, bit-for-bit
+Flip the default to split and a successful native DXGI probe enables
+`tier1_hw` through ANGLE/D3D11. A failed, inconclusive, or disallowed probe
+uses `tier3_cpu` with `--disable-gpu`. Packet path is literally the same
+singleton — just hosted in `dupez_helper.py` instead of `dupez.exe`.
+Bit-for-bit identical WinDivert, bit-for-bit identical netsh, bit-for-bit
 identical hotkeys. You already validated this on your own machine.
+
+**v5.8.0 implementation correction:** the original raw DXGI buffer used
+signed `ctypes.c_byte` elements, so converting a descriptor containing a
+high-bit byte could fail. Because WMIC is absent on current Windows systems,
+the false negative had no fallback and selected a legacy software-GL flag
+that current QtWebEngine rejects with a fatal `0xC0000409` exit. The probe now
+uses a typed structure with unsigned fields, and the unsupported renderer path
+is retired rather than substituted.
 
 ## Why the map is slow today
 
@@ -58,9 +67,9 @@ regardless.
 
 Effort: ~30 minutes
 Risk to duping: zero (proved via latency_regression.py on real pipe)
-Map impact: massive. Tier1 hardware raster on M1/M2-class machines,
-  tier2 SwiftShader GL on mid-tier, tier3 CPU raster only on
-  blocklisted-GPU machines — which is identical to today.
+Map impact: large when the DXGI probe succeeds and ANGLE/D3D11 hardware
+  rendering is enabled; neutral when Auto fails closed to `tier3_cpu` with
+  `--disable-gpu`.
 
 Changes required:
 - `app/firewall_helper/feature_flag.py`: `_DEFAULT_ARCH = ARCH_SPLIT`
@@ -79,12 +88,13 @@ What the user sees on a fresh launch:
 3. First control-plane call from the controller triggers helper
    auto-spawn. One UAC prompt for the helper (or zero if B2b
    scheduled task is registered).
-4. Map renders with real GPU rasterization. Duping works
-   unchanged.
+4. Map uses ANGLE/D3D11 after a successful probe or the supported
+   `--disable-gpu` CPU fallback. Duping works unchanged.
 
-Fallback path: if a user's machine has a blocklisted GPU,
-`renderer_tier.resolve_tier()` returns `tier3_cpu` and the map is
-identical to today's shipping build. Nothing regresses for anyone.
+Fallback path: if a user's machine has a blocklisted GPU or the native probe
+is unavailable or inconclusive, `renderer_tier.resolve_tier()` returns
+`tier3_cpu` and passes `--disable-gpu`. No alternate software-GL backend is
+selected.
 
 Escape hatch for paranoid users: `DUPEZ_ARCH=inproc` reverts to
 today's single-process elevated behavior — nothing is removed, just
@@ -98,27 +108,22 @@ Map impact: medium — adds a second path to GPU rendering under
   inproc mode, useful as a backup for users who can't run split
   mode for any reason.
 
-`app/gui/map_host/launcher.py` + `host.py` already implement the
-Explorer COM spawn trick: `Shell.Application.ShellExecute()` routes
-the child spawn through Explorer's Medium-IL token, bypassing the
-parent's admin token inheritance. The child gets real GPU raster.
-The current blocker is HWND reparenting across the IL boundary —
-`SetParent` fails with `ERROR_INVALID_WINDOW_HANDLE` because UIPI
-blocks cross-IL window manipulation from Medium → High.
+Current status: `app/gui/map_host/launcher.py` + `host.py` contain a
+source/development implementation. The elevated parent creates the host
+with the interactive shell's verified token, retains its process identity,
+binds the accepted loopback connection and HWND to that PID, and performs
+the native style/`SetParent`/`SetWindowPos` sequence. Candidate frames and
+shutdown are bounded, and failed authentication never exposes an HWND.
 
-Fix direction: the parent is the High-IL side. `SetParent` called
-from the parent should work (High can manipulate Medium HWNDs).
-Likely fix is ordering — parent must call `ChangeWindowMessageFilterEx`
-with `MSGFLT_ALLOW` for `WM_COPYDATA`-style messages and make sure
-the child HWND is fully realized (`WA_NativeWindow + create()` —
-already done in host.py) before `SetParent` is invoked. The symptom
-of "floating top-level flashes before reparent" is classic —
-`SetWindowLongPtr` to strip `WS_POPUP` must happen before
-`SetParent`, and `SetWindowPos SWP_FRAMECHANGED` must run after.
+This is deliberately not a frozen release path. A PyInstaller executable
+does not provide the `python -m app.gui.map_host.host` entry point, and the
+Compat executable's administrator manifest cannot serve as an asInvoker
+child. Frozen builds therefore fail closed to the in-process renderer until
+a dedicated asInvoker map-host artifact and exact frozen smoke gate exist.
 
-Why this is Option B not Option A: split mode makes this moot. B is
-only worth chasing if you ever need a no-helper single-process mode
-with GPU rendering, which you probably don't.
+Why this remains Option B rather than a shipping path: split mode makes it
+mostly unnecessary, while a second signed artifact would add packaging,
+update, and lifecycle obligations that need their own release evidence.
 
 ### Option C — Local iZurvive tile mirror + aggressive cache preload
 

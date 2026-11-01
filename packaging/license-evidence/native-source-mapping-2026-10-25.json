@@ -1,0 +1,164 @@
+{
+  "schema": "dupez.native-source-mapping-evidence.v1",
+  "reviewed_on": "2026-10-25",
+  "claim": "Exact official-release binary correspondence and upstream version-source inputs only; not independent rebuild proof, complete corresponding source, license approval or release authorization.",
+  "method": "Validate full archive sizes and SHA-256 pins with scripts/corresponding_source.py before bounded ZIP member reads. Hash selected members without extraction or execution, then compare to freshly hashed repository files and packaging/binary-provenance.json. Query public upstream release/tag metadata separately.",
+  "acquisition": {
+    "cache": "build/native-source-mapping-20261025/archives",
+    "sourceforge": "The official stable locator redirects to master.dl.sourceforge.net with an expiring signed query. A one-time bounded acquisition validated the exact HTTPS host/path, query field set, published SHA-256 and upstream Content-Length; no ambient proxy, automatic redirect, extraction or downloaded-code execution was used. Ephemeral query tokens are not retained. The general collector still rejects redirects/query tokens and requires a preverified cache for this source.",
+    "github": "Release assets were fetched through the inspected HTTPS release-assets.githubusercontent.com destination with exact size/hash pins, no ambient proxy or automatic redirect, then reverified by the source archive guard. No binaries were extracted or executed."
+  },
+  "archives": [
+    {
+      "id": "iup-source",
+      "filename": "iup-3.30_Sources.zip",
+      "url": "https://downloads.sourceforge.net/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip",
+      "size": 14226631,
+      "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6",
+      "hash_basis": "SourceForge project file metadata and download page; size from official direct response Content-Length before acquisition.",
+      "published_file_modified_utc": "2023-10-13 19:50:38",
+      "timestamp_observation": "No non-directory ZIP member has a timestamp later than 2020-08-02. ZIP timestamps are supporting metadata, not an attestation of historical source identity or build correspondence.",
+      "members": 2983,
+      "declared_expanded_bytes": 63558131,
+      "internal_links": 0
+    },
+    {
+      "id": "iup-binary-release",
+      "filename": "iup-3.30_Win64_dll16_lib.zip",
+      "url": "https://sourceforge.net/projects/iup/files/3.30/Windows%20Libraries/Dynamic/iup-3.30_Win64_dll16_lib.zip/download",
+      "size": 4323648,
+      "sha256": "10b7ea192c3fb6ca7493472ddbbffcbb4888b41053964e45802e171aa6f2e37c",
+      "hash_basis": "SourceForge project file metadata; size from official direct response Content-Length before acquisition.",
+      "published_file_modified_utc": "2020-08-02 14:04:50",
+      "upstream_platform_description": "Win64_dll16: x64 dynamic/import libraries built with Visual Studio 2019; dependency on VCRUNTIME140.DLL.",
+      "members": 73,
+      "declared_expanded_bytes": 11401924,
+      "internal_links": 0
+    },
+    {
+      "id": "clumsy-binary-release",
+      "filename": "Clumsy.0.3.4.zip",
+      "url": "https://github.com/kalirenegade-dev/clumsy/releases/download/0.3.4/Clumsy.0.3.4.zip",
+      "size": 1116496,
+      "sha256": "7ceb4dca24c428c90eb62f6b5a995a7db2a03a1be8d37a7e803887123be65af8",
+      "release_id": 171777531,
+      "asset_id": 188020420,
+      "release_published_at": "2024-08-24T08:39:09Z",
+      "tag": "0.3.4",
+      "tag_commit": "bc87e73066168520d76122c9165e99ea703b166c",
+      "hash_basis": "Previously reviewed binary-provenance pin, independently remeasured from the official HTTPS release asset; GitHub API digest is null.",
+      "members": 6,
+      "declared_expanded_bytes": 3325950,
+      "internal_links": 0
+    },
+    {
+      "id": "clumsy-source",
+      "filename": "clumsy-0.3.4-bc87e73066168520d76122c9165e99ea703b166c.zip",
+      "url": "https://codeload.github.com/kalirenegade-dev/clumsy/zip/bc87e73066168520d76122c9165e99ea703b166c",
+      "size": 18533657,
+      "sha256": "b641300d1f9c6b3be1699ea9f9222052f212b116f2c72ad18ad8f687f63337bb",
+      "members": 418,
+      "declared_expanded_bytes": 52262946,
+      "internal_links": 0
+    },
+    {
+      "id": "windivert-binary-release",
+      "filename": "WinDivert-2.2.0-A.zip",
+      "url": "https://github.com/basil00/WinDivert/releases/download/v2.2.0/WinDivert-2.2.0-A.zip",
+      "size": 394610,
+      "sha256": "2a7630aac0914746fbc565ac862fa096e3e54233883ac52d17c83107496b7a7f",
+      "tag": "v2.2.0",
+      "tag_commit": "091ffb3d49094253bacaee5c7cdd227409218ad8",
+      "tag_mapping_record": "packaging/license-evidence/source-input-collection-2026-10-24.json",
+      "hash_basis": "October 24 reviewed release-asset pin, independently remeasured from the official HTTPS asset on October 25.",
+      "members": 36,
+      "declared_expanded_bytes": 1028374,
+      "internal_links": 0
+    }
+  ],
+  "binary_matches": [
+    {
+      "repository_path": "app/firewall/clumsy.exe",
+      "size": 439808,
+      "sha256": "a9ea677795e6c92d1ca945d8b7b2ef1d264eeb7dc956feae368c7cf8b99ef37d",
+      "archive_members": [{"archive": "clumsy-binary-release", "member": "Clumsy 0.3.4/clumsy.exe"}]
+    },
+    {
+      "repository_path": "app/firewall/iup.dll",
+      "size": 2744320,
+      "sha256": "972275ea2e603f60a168d8090f8e15e4acb59512af03a51490d8c394dc6871b3",
+      "archive_members": [
+        {"archive": "clumsy-binary-release", "member": "Clumsy 0.3.4/iup.dll"},
+        {"archive": "iup-binary-release", "member": "iup.dll"},
+        {"archive": "clumsy-source", "member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/external/iup-3.30_Win64_dll16_lib/iup.dll"}
+      ]
+    },
+    {
+      "repository_path": "app/firewall/WinDivert.dll",
+      "size": 47104,
+      "sha256": "6110bfa44667405179c3e15e12af1b62037e447ed59b054b19042032995e6c7e",
+      "archive_members": [
+        {"archive": "clumsy-binary-release", "member": "Clumsy 0.3.4/WinDivert.dll"},
+        {"archive": "windivert-binary-release", "member": "WinDivert-2.2.0-A/x64/WinDivert.dll"},
+        {"archive": "clumsy-source", "member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/external/WinDivert-2.2.0-A/x64/WinDivert.dll"}
+      ]
+    },
+    {
+      "repository_path": "app/firewall/WinDivert64.sys",
+      "size": 90288,
+      "sha256": "5c3e7bbb06ebb134bed7b1231fdf3139a2052cbe5e8c8418e54237933b51bb4e",
+      "archive_members": [
+        {"archive": "clumsy-binary-release", "member": "Clumsy 0.3.4/WinDivert64.sys"},
+        {"archive": "windivert-binary-release", "member": "WinDivert-2.2.0-A/x64/WinDivert64.sys"},
+        {"archive": "clumsy-source", "member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/external/WinDivert-2.2.0-A/x64/WinDivert64.sys"}
+      ]
+    }
+  ],
+  "source_text_matches": [
+    {
+      "description": "Identical IUP public header in upstream source, official binary package and pinned Clumsy dependency.",
+      "size": 25641,
+      "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+      "declared_version": "3.30",
+      "declared_version_date": "2020/07/30",
+      "archive_members": [
+        {"archive": "iup-source", "member": "iup/include/iup.h"},
+        {"archive": "iup-binary-release", "member": "include/iup.h"},
+        {"archive": "clumsy-source", "member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/external/iup-3.30_Win64_dll16_lib/include/iup.h"}
+      ]
+    },
+    {
+      "description": "Pinned Clumsy build definition selects external/iup-3.30_Win64_dll16_lib and external/WinDivert-2.2.0-A for VS x64, and copies their native DLL/driver files. Inspected as text only.",
+      "size": 6427,
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "archive_members": [{"archive": "clumsy-source", "member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/genie.lua"}]
+    }
+  ],
+  "validation": {
+    "independent_mapping_recheck": "Passed: five full archive pins/inspections, fourteen selected archive-member hash/size comparisons, four fresh repository binary hashes, and two source-text match groups. No extraction or native execution.",
+    "source_collector_tests": "98 passed in 1.50 seconds using verified CPython 3.13.17; source URL, archive, receipt, network and no-overwrite boundaries included.",
+    "ruff": "scripts/corresponding_source.py and tests/test_corresponding_source.py passed.",
+    "policy_changes": false,
+    "native_execution": false,
+    "downloaded_code_execution": false,
+    "archive_extraction": false
+  },
+  "remaining_gaps": [
+    "The IUP source archive was replaced in 2023 after the 2020 binary package. The matching header and package version do not establish an identical source revision or absence of later source fixes.",
+    "No independently recorded IUP or Clumsy native rebuild has established exact source patches, compiler version, SDK, flags and link inputs for the distributed executables.",
+    "Official WinDivert binary correspondence and a pinned source tag do not prove an independent source rebuild or driver replacement; signing and installation constraints remain.",
+    "The source-input archives remain local ignored evidence. Public delivery/retention and owner/legal-policy approvals remain separate and unresolved."
+  ],
+  "primary_sources": [
+    "https://www.tecgraf.puc-rio.br/iup/en/download.html",
+    "https://www.tecgraf.puc-rio.br/iup/en/guide.html",
+    "https://sourceforge.net/projects/iup/files/3.30/Docs%20and%20Sources/",
+    "https://sourceforge.net/projects/iup/files/3.30/Windows%20Libraries/Dynamic/",
+    "https://sourceforge.net/projects/iup/files/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip/download",
+    "https://api.github.com/repos/kalirenegade-dev/clumsy/releases/tags/0.3.4",
+    "https://api.github.com/repos/kalirenegade-dev/clumsy/git/ref/tags/0.3.4",
+    "https://github.com/kalirenegade-dev/clumsy/blob/bc87e73066168520d76122c9165e99ea703b166c/genie.lua",
+    "https://github.com/basil00/WinDivert/releases/tag/v2.2.0",
+    "https://api.github.com/repos/basil00/WinDivert/git/ref/tags/v2.2.0"
+  ]
+}

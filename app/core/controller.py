@@ -9,15 +9,27 @@ from __future__ import annotations
 import socket
 import threading
 import time
+from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 import psutil
 
 from app.core.cut_chain import (
+    ChainConfig,
     ChainEvent,
     CutChainRunner,
     build_automatic_connection_test,
+    validate_chain_config,
+)
+from app.core.hotkey_settings import validate_hotkey_settings
+from app.core.kill_switch import (
+    KillSwitch,
+    KillSwitchConfig,
+    KillSwitchConfigurationError,
+    build_kill_switch_config,
+    sanitize_process_basenames,
 )
 from app.core.operation_journal import OperationJournal
 from app.core.safety_policy import SafetyPolicy
@@ -117,6 +129,8 @@ class AppController:
     """Top-level controller that ties together scanning, disruption,
     scheduling, plugins, and persistent state."""
 
+    _DEADLINE_RELEASE_RETRY_SECONDS = 1.0
+
     def __init__(
         self,
         *,
@@ -164,6 +178,7 @@ class AppController:
         self._started = False
         self._engine_initialized = False
         self._network_operations_blocked_reason: Optional[str] = None
+        self._kill_switch_config_error: Optional[str] = None
         self._deadline_lock = threading.Lock()
         self._deadline_generation = 0
         self._deadline_timers: Dict[str, _OperationDeadline] = {}
@@ -192,6 +207,18 @@ class AppController:
         self.plugin_loader = (
             plugin_loader if plugin_loader is not None else PluginLoader()
         )
+        try:
+            kill_switch_config = self._build_kill_switch_config(
+                self.state.settings
+            )
+        except KillSwitchConfigurationError:
+            # Keep the operator's panic stop available, but fail closed for
+            # new mutations until the malformed persisted settings are fixed.
+            self._kill_switch_config_error = (
+                "automatic kill-switch settings are invalid"
+            )
+            kill_switch_config = KillSwitchConfig(enabled=False)
+        self._kill_switch = self._new_kill_switch(kill_switch_config)
         if auto_start:
             self.start()
 
@@ -203,6 +230,7 @@ class AppController:
             try:
                 self._load_device_cache()
                 self._init_engine()
+                self._kill_switch.start()
                 if self.safety_policy.dry_run:
                     self._started = True
                     log_info(
@@ -236,6 +264,7 @@ class AppController:
     def _rollback_failed_start(self) -> None:
         """Best-effort cleanup after a partial startup failure."""
         steps = [
+            ("automatic kill switch", self._stop_kill_switch),
             ("automatic workflow", self.stop_automatic_workflow),
             ("auto-scan", self.stop_auto_scan),
             ("scheduler", self.scheduler.stop),
@@ -255,10 +284,77 @@ class AppController:
         """Stop an initialized engine and update lifecycle ownership."""
         if not self._engine_initialized:
             return
+        stopped = self._disruption_manager.stop()
+        if stopped is False:
+            raise RuntimeError("disruption engine did not confirm stop")
+        # ``None`` is the established successful return for in-process engine
+        # implementations.  Only an exception or an explicit False means the
+        # controller must retain ownership for a later cleanup attempt.
+        self._engine_initialized = False
+
+    # ── Automatic kill switch ────────────────────────────────────
+
+    def _build_kill_switch_config(self, settings: object) -> KillSwitchConfig:
+        return build_kill_switch_config(
+            settings,
+            get_drop_counters=self._get_kill_switch_drop_counters,
+        )
+
+    def _new_kill_switch(self, config: KillSwitchConfig) -> KillSwitch:
+        return KillSwitch(config, self._handle_kill_switch_fire)
+
+    def _handle_kill_switch_fire(self, _reason: str) -> bool:
+        # KillSwitch owns reason logging. Keep the callback focused on the
+        # existing restoration path so no target or per-device data is copied.
+        return self.stop_all_disruptions()
+
+    def fire_manual_kill_switch(
+        self,
+        reason: str = "operator panic stop",
+    ) -> bool:
+        """Fire the manual panic stop regardless of automatic configuration."""
+        return self._kill_switch.fire_manual(reason)
+
+    def _stop_kill_switch(self) -> None:
+        if not self._kill_switch.stop():
+            raise RuntimeError("automatic kill-switch worker did not stop")
+
+    def _install_kill_switch(
+        self,
+        config: KillSwitchConfig,
+    ) -> tuple[KillSwitch, bool]:
+        """Install a validated config without ever overlapping workers."""
+        previous = self._kill_switch
+        should_run = self._started or previous.is_running
+        if not previous.stop():
+            raise RuntimeError(
+                "automatic kill-switch worker could not be stopped"
+            )
+
+        replacement = self._new_kill_switch(config)
         try:
-            self._disruption_manager.stop()
-        finally:
-            self._engine_initialized = False
+            if should_run:
+                replacement.start()
+        except Exception:
+            if should_run:
+                previous.start()
+            raise
+        self._kill_switch = replacement
+        return previous, should_run
+
+    def _restore_kill_switch(
+        self,
+        previous: KillSwitch,
+        should_run: bool,
+    ) -> None:
+        current = self._kill_switch
+        if current is not previous and not current.stop():
+            raise RuntimeError(
+                "replacement automatic kill-switch worker could not be stopped"
+            )
+        self._kill_switch = previous
+        if should_run and not previous.is_running:
+            previous.start()
 
     # ── Disruption engine ───────────────────────────────────────
 
@@ -300,8 +396,8 @@ class AppController:
         """
         if not self.network_operations_available:
             log_error(
-                "Automatic workflow refused while recovery is incomplete: "
-                f"{self._network_operations_blocked_reason}"
+                "Automatic workflow refused while safety controls are unavailable: "
+                f"{self._current_network_block_reason()}"
             )
             return 0
         try:
@@ -316,8 +412,62 @@ class AppController:
             disrupt_kwargs=disrupt_kwargs,
         )
 
+        return self._start_owned_cut_chain(config, on_event=on_event)
+
+    def start_cut_chain(
+        self,
+        config: ChainConfig,
+        *,
+        on_event: Optional[Callable[[ChainEvent], None]] = None,
+    ) -> int:
+        """Start one validated user-configured chain under controller safety.
+
+        The supplied object is copied before ownership. The target is checked
+        against the current (possibly narrower) configured CIDRs and the
+        global chain deadline is capped by ``max_operation_seconds``.
+        ``0`` means the request was refused before a worker started.
+        """
+        if not self.network_operations_available:
+            log_error(
+                "Cut chain refused while safety controls are unavailable: "
+                f"{self._current_network_block_reason()}"
+            )
+            return 0
+        try:
+            owned = deepcopy(config)
+            owned.target_ip = self.safety_policy.validate_target(
+                owned.target_ip
+            )
+            owned.global_timeout_s = self.safety_policy.bounded_timeout(
+                owned.global_timeout_s
+            )
+            validate_chain_config(owned)
+        except (AttributeError, TypeError, ValueError) as exc:
+            log_error(f"Cut chain refused: {exc}")
+            return 0
+        return self._start_owned_cut_chain(owned, on_event=on_event)
+
+    def _start_owned_cut_chain(
+        self,
+        config: ChainConfig,
+        *,
+        on_event: Optional[Callable[[ChainEvent], None]],
+    ) -> int:
+        """Replace the controller-owned chain; caller has validated config."""
+
         with self._automatic_transition_lock:
-            self._stop_automatic_workflow_serialized()
+            with self._automatic_state_lock:
+                previous = self._automatic_runner
+            if previous is not None:
+                if not self._stop_automatic_workflow_serialized():
+                    log_error(
+                        "Cut chain refused: previous stage release was not "
+                        "confirmed"
+                    )
+                    return 0
+            else:
+                # Invalidate callbacks from any already-finished generation.
+                self._stop_automatic_workflow_serialized()
             with self._automatic_state_lock:
                 self._automatic_generation += 1
                 generation = self._automatic_generation
@@ -329,7 +479,10 @@ class AppController:
                             or self._automatic_runner is not runner
                         ):
                             return
-                        if event.kind in {"complete", "halt", "error"}:
+                        if (
+                            event.kind in {"complete", "halt", "error"}
+                            and runner.release_confirmed
+                        ):
                             self._automatic_runner = None
                     if on_event is not None:
                         try:
@@ -365,9 +518,15 @@ class AppController:
         if runner is None:
             with self._automatic_state_lock:
                 self._automatic_generation += 1
-            return False
+            # Idempotent cleanup: owning no runner is already a confirmed
+            # released state, not a stop failure.
+            return True
 
-        runner.stop()
+        if runner.stop() is not True:
+            log_error(
+                "Automatic workflow stop could not confirm stage release"
+            )
+            return False
         with self._automatic_state_lock:
             if self._automatic_runner is runner:
                 self._automatic_runner = None
@@ -375,10 +534,13 @@ class AppController:
         return True
 
     def is_automatic_workflow_running(self) -> bool:
-        """Return whether the owned automatic runner thread is active."""
+        """Return whether a runner thread or unconfirmed stage is owned."""
         with self._automatic_state_lock:
             runner = self._automatic_runner
-            return bool(runner is not None and runner.running)
+            return bool(
+                runner is not None
+                and (runner.running or not runner.release_confirmed)
+            )
 
     def disrupt_device(
         self,
@@ -396,14 +558,24 @@ class AppController:
         """
         if not self.network_operations_available:
             log_error(
-                "Disruption refused while recovery is incomplete: "
-                f"{self._network_operations_blocked_reason}"
+                "Disruption refused while safety controls are unavailable: "
+                f"{self._current_network_block_reason()}"
             )
             return False
         chain_runner = kwargs.pop("_cut_chain_runner", None)
         if chain_runner is None:
             # A direct/manual disruption replaces the automatic sequence.
-            self.stop_automatic_workflow()
+            with self._automatic_state_lock:
+                owned_runner = self._automatic_runner
+            if (
+                owned_runner is not None
+                and not self.stop_automatic_workflow()
+            ):
+                log_error(
+                    "Manual disruption refused: previous stage release was "
+                    "not confirmed"
+                )
+                return False
         else:
             # Reject a late stage from a detached/cancelled runner.  The
             # sentinel is controller-internal and never reaches the helper.
@@ -441,28 +613,62 @@ class AppController:
         """Stop disruption on *ip*."""
         chain_runner = kwargs.pop("_cut_chain_runner", None)
         if chain_runner is None:
-            self.stop_automatic_workflow()
+            if self.stop_automatic_workflow() is not True:
+                log_error(
+                    "Disruption stop refused: automatic workflow release "
+                    "was not confirmed"
+                )
+                return False
         else:
             # A runner that was cancelled/replaced must never release a
             # newer same-target stage after a slow backend call completes.
             with self._automatic_state_lock:
                 if self._automatic_runner is not chain_runner:
                     return False
-        self._cancel_operation_deadline(ip)
         if self.safety_policy.dry_run:
+            self._cancel_operation_deadline(ip)
             return True
         stopped = bool(self._disruption_manager.stop_device(ip))
         if stopped:
+            # Retain the safety deadline until the backend has positively
+            # acknowledged release.  A False result or exception leaves the
+            # owner and its automatic retry path intact.
+            self._cancel_operation_deadline(ip)
             self._maybe_clear_recovery_journal()
+        else:
+            log_error(
+                "Disruption stop was not confirmed; safety deadline retained "
+                f"for {mask_ip(ip)}"
+            )
         return stopped
 
     def stop_all_disruptions(self) -> bool:
         """Stop all active disruptions."""
-        self.stop_automatic_workflow()
-        self._cancel_all_operation_deadlines()
-        if self.safety_policy.dry_run:
-            return True
-        return self._restore_network_state()
+        with self._automatic_transition_lock:
+            self._stop_automatic_workflow_serialized()
+            restored = (
+                True
+                if self.safety_policy.dry_run
+                else self._restore_network_state()
+            )
+            if restored:
+                self._cancel_all_operation_deadlines()
+                with self._automatic_state_lock:
+                    runner = self._automatic_runner
+                if (
+                    runner is not None
+                    and runner.confirm_external_release()
+                ):
+                    with self._automatic_state_lock:
+                        if self._automatic_runner is runner:
+                            self._automatic_runner = None
+                            self._automatic_generation += 1
+            return restored
+
+    def _restore_network_state_for_shutdown(self) -> None:
+        """Require confirmed restoration before releasing shutdown deadlines."""
+        if not self.stop_all_disruptions():
+            raise RuntimeError("network restoration was not confirmed")
 
     def _recover_stale_network_state(self) -> None:
         if not self._recovery_journal.is_pending():
@@ -473,20 +679,30 @@ class AppController:
                 "stale network state could not be fully restored; "
                 "operation journal retained"
             )
-        self._audit_safety_event("stale_network_state_restored", "0.0.0.0", 0)
+        # Audit sentinel only; this value is never used to bind a socket.
+        self._audit_safety_event(  # nosec B104
+            "stale_network_state_restored", "0.0.0.0", 0
+        )
 
     @property
     def network_operations_available(self) -> bool:
         """Whether the controller may begin new network mutations."""
-        return self._network_operations_blocked_reason is None
+        return self._current_network_block_reason() is None
+
+    def _current_network_block_reason(self) -> Optional[str]:
+        return (
+            self._network_operations_blocked_reason
+            or self._kill_switch_config_error
+        )
 
     def get_startup_health(self) -> Dict[str, Any]:
         """Return a privacy-safe startup status for UI diagnostics."""
-        reason = self._network_operations_blocked_reason
+        reason = self._current_network_block_reason()
         return {
             "ready": self._started,
             "network_operations_available": reason is None,
-            "recovery_blocked": reason is not None,
+            "recovery_blocked": self._network_operations_blocked_reason is not None,
+            "kill_switch_blocked": self._kill_switch_config_error is not None,
             "message": reason or "",
         }
 
@@ -574,14 +790,50 @@ class AppController:
             current = self._deadline_timers.get(ip)
             if current is None or current.generation != generation:
                 return
-            self._deadline_timers.pop(ip, None)
         try:
-            self._disruption_manager.stop_device(ip)
-            log_info(f"Safety deadline expired; stopped {mask_ip(ip)}")
-            self._maybe_clear_recovery_journal()
-            self._audit_safety_event("operation_deadline_expired", ip, 0)
+            stopped = bool(self._disruption_manager.stop_device(ip))
         except Exception as exc:
             log_error(f"Safety deadline stop failed for {mask_ip(ip)}: {exc}")
+            self._retry_expired_operation(ip, generation)
+            return
+        if not stopped:
+            log_error(
+                "Safety deadline stop was not confirmed for "
+                f"{mask_ip(ip)}; retry remains armed"
+            )
+            self._retry_expired_operation(ip, generation)
+            return
+
+        with self._deadline_lock:
+            current = self._deadline_timers.get(ip)
+            if current is None or current.generation != generation:
+                return
+            current.timer.cancel()
+            self._deadline_timers.pop(ip, None)
+        log_info(f"Safety deadline expired; stopped {mask_ip(ip)}")
+        self._maybe_clear_recovery_journal()
+        self._audit_safety_event("operation_deadline_expired", ip, 0)
+
+    def _retry_expired_operation(self, ip: str, generation: int) -> None:
+        """Keep an expired deadline owned and retry an unconfirmed release."""
+        with self._deadline_lock:
+            current = self._deadline_timers.get(ip)
+            if current is None or current.generation != generation:
+                return
+            current.timer.cancel()
+            retry = threading.Timer(
+                self._DEADLINE_RELEASE_RETRY_SECONDS,
+                self._expire_operation,
+                args=(ip, generation),
+            )
+            retry.daemon = True
+            self._deadline_timers[ip] = _OperationDeadline(
+                generation=generation,
+                timer=retry,
+                expires_monotonic=current.expires_monotonic,
+                expires_unix=current.expires_unix,
+            )
+            retry.start()
 
     def _cancel_operation_deadline(self, ip: str) -> None:
         with self._deadline_lock:
@@ -683,6 +935,17 @@ class AppController:
     def get_engine_stats(self) -> Dict:
         """Return packet processing stats from all engines."""
         return self._disruption_manager.get_engine_stats()
+
+    def _get_kill_switch_drop_counters(self) -> Dict[str, int]:
+        """Extract only the aggregate drop count needed by the trigger."""
+        stats = self.get_engine_stats()
+        if not isinstance(stats, Mapping):
+            raise ValueError("packet engine statistics are unavailable")
+        dropped = stats.get("packets_dropped", 0)
+        if isinstance(dropped, bool) or not isinstance(dropped, int) or dropped < 0:
+            raise ValueError("aggregate packet drop count is invalid")
+        # Deliberately exclude ``per_device`` and every other engine field.
+        return {"packets_dropped": dropped}
 
     # ── Device cache ──────────────────────────────────────────────
 
@@ -789,8 +1052,8 @@ class AppController:
             return False
         if not self.network_operations_available:
             log_error(
-                "Firewall block refused while recovery is incomplete: "
-                f"{self._network_operations_blocked_reason}"
+                "Firewall block refused while safety controls are unavailable: "
+                f"{self._current_network_block_reason()}"
             )
             return False
         try:
@@ -911,41 +1174,55 @@ class AppController:
     # ── Settings ──────────────────────────────────────────────────
 
     def update_settings(self, new_settings: AppSettings) -> None:
-        """Replace settings and persist."""
+        """Validate, activate, and persist a complete settings snapshot."""
+        candidate_settings = deepcopy(new_settings)
+        # Reject malformed shortcuts before activating any settings-dependent
+        # service or touching persistence. Keep the caller's snapshot intact.
+        for action, chord in validate_hotkey_settings(candidate_settings).items():
+            setattr(candidate_settings, f"disruption_{action}_hotkey", chord)
+        candidate_settings.kill_switch_process_names = sanitize_process_basenames(
+            getattr(candidate_settings, "kill_switch_process_names", [])
+        )
+        new_kill_switch_config = self._build_kill_switch_config(
+            candidate_settings
+        )
         new_policy = None
         if not self._safety_policy_injected:
-            new_policy = SafetyPolicy.from_settings(new_settings)
-            if new_policy != self.safety_policy:
-                self.stop_all_disruptions()
-        self.state.settings = new_settings
-        if new_policy is not None:
-            self.safety_policy = new_policy
-        self.state.save_settings()
+            new_policy = SafetyPolicy.from_settings(candidate_settings)
+        with self._lifecycle_lock:
+            old_settings = self.state.settings
+            old_policy = self.safety_policy
+            old_config_error = self._kill_switch_config_error
+            if new_policy is not None and new_policy != self.safety_policy:
+                if not self.stop_all_disruptions():
+                    raise RuntimeError(
+                        "settings update refused because active network state "
+                        "could not be restored"
+                    )
+
+            previous, should_run = self._install_kill_switch(
+                new_kill_switch_config
+            )
+            try:
+                self.state.settings = candidate_settings
+                if new_policy is not None:
+                    self.safety_policy = new_policy
+                self._kill_switch_config_error = None
+                if self.state.save_settings() is False:
+                    raise RuntimeError("settings persistence was not confirmed")
+            except Exception:
+                self.state.settings = old_settings
+                self.safety_policy = old_policy
+                self._kill_switch_config_error = old_config_error
+                self._restore_kill_switch(previous, should_run)
+                raise
 
     def update_setting(self, key: str, value: Any) -> None:
-        """Update a single setting by key."""
+        """Validate and persist a single setting as a full snapshot."""
         if hasattr(self.state.settings, key):
-            old_value = getattr(self.state.settings, key)
-            setattr(self.state.settings, key, value)
-            try:
-                if (
-                    not self._safety_policy_injected
-                    and key in {
-                        "safety_dry_run",
-                        "allowed_target_cidrs",
-                        "max_operation_seconds",
-                    }
-                ):
-                    new_policy = SafetyPolicy.from_settings(
-                        self.state.settings
-                    )
-                    if new_policy != self.safety_policy:
-                        self.stop_all_disruptions()
-                    self.safety_policy = new_policy
-            except Exception:
-                setattr(self.state.settings, key, old_value)
-                raise
-            self.state.save_settings()
+            new_settings = deepcopy(self.state.settings)
+            setattr(new_settings, key, value)
+            self.update_settings(new_settings)
 
     def get_settings(self) -> AppSettings:
         """Return current settings."""
@@ -975,46 +1252,62 @@ class AppController:
         """Return metadata for all discovered plugins."""
         return self.plugin_loader.get_plugin_info()
 
-    def reload_plugins(self) -> None:
-        """Unload and re-discover all plugins."""
-        self.plugin_loader.unload_all()
-        self.plugin_loader.discover()
-        self.plugin_loader.load_all(self)
+    def reload_plugins(self) -> bool:
+        """Unload and re-discover plugins without overlapping live instances."""
+        try:
+            if self.plugin_loader.unload_all() is False:
+                log_error(
+                    "Plugin reload refused because one or more live plugins "
+                    "did not confirm deactivation"
+                )
+                return False
+            self.plugin_loader.discover()
+            return self.plugin_loader.load_all(self) is not False
+        except Exception as exc:
+            log_error(f"Plugin reload failed: {exc}")
+            return False
 
     # ── Shutdown ──────────────────────────────────────────────────
 
-    def shutdown(self) -> None:
-        """Graceful shutdown: plugins → scan → scheduler → engine → save."""
+    def shutdown(self) -> bool:
+        """Graceful shutdown; return whether every cleanup step succeeded."""
         with self._lifecycle_lock:
             if not self._started:
-                self.stop_automatic_workflow()
-                return
+                self._stop_kill_switch()
+                return self.stop_automatic_workflow()
             log_info("Controller shutting down...")
             errors = []
             if self.safety_policy.dry_run:
                 steps = [
+                    ("automatic kill switch", self._stop_kill_switch),
                     ("automatic workflow", self.stop_automatic_workflow),
                     ("operation deadlines", self._cancel_all_operation_deadlines),
                     ("persistence", self._save_all),
                 ]
             else:
                 steps = [
+                    ("automatic kill switch", self._stop_kill_switch),
                     ("plugins", self.plugin_loader.unload_all),
                     ("auto-scan", self.stop_auto_scan),
                     ("scheduler", self.scheduler.stop),
-                    ("automatic workflow", self.stop_automatic_workflow),
-                    ("operation deadlines", self._cancel_all_operation_deadlines),
-                    ("network restoration", self._restore_network_state),
+                    (
+                        "network restoration",
+                        self._restore_network_state_for_shutdown,
+                    ),
                     ("disruption engine", self._stop_engine),
                     ("persistence", self._save_all),
-                ]
+            ]
             for name, stop_fn in steps:
                 try:
-                    stop_fn()
+                    result = stop_fn()
+                    if result is False:
+                        raise RuntimeError("cleanup was not confirmed")
                 except Exception as exc:
                     errors.append(f"{name}: {exc}")
                     log_error(f"Shutdown step failed ({name}): {exc}")
-            self._started = False
+            # Retain lifecycle ownership after any failed release so another
+            # shutdown/Panic Stop attempt re-runs every cleanup boundary.
+            self._started = bool(errors)
             if errors:
                 log_error(
                     "Controller shutdown completed with errors: "
@@ -1022,3 +1315,4 @@ class AppController:
                 )
             else:
                 log_info("Controller shutdown complete")
+            return not errors

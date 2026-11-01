@@ -26,15 +26,14 @@
   <!-- ── Execution level: requireAdministrator (Compat build) ──
        The Compat variant runs the entire application in a single
        admin-elevated process, identical to shipping builds prior
-       to ADR-0001. WinDivert + netsh run directly in-process; the
-       embedded iZurvive map falls through to software raster
-       because Chromium's GPU process refuses to start under an
-       admin token. This build exists for users on blocklisted
-       GPUs or who cannot tolerate the helper auto-spawn flow.
+       to ADR-0001. WinDivert + netsh run directly in-process.
+       Both builds omit the embedded browser runtime and show an
+       approved map URL to open manually in a normal browser.
+       This build is for users who need in-process elevation.
 
-       Users who want the smooth GPU-accelerated map should run
-       DupeZ-GPU.exe instead, which ships with an asInvoker
-       manifest and spawns the elevated helper on demand. -->
+       DupeZ-GPU.exe instead uses an asInvoker manifest for its GUI
+       and spawns the elevated helper on demand. Neither build
+       enables embedded maps through renderer settings. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>

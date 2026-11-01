@@ -406,19 +406,30 @@ class DisruptionEventPanel(QGroupBox):
             self.queue_status.setText("Queue stopped")
             return
 
-        runner.stop()
-        if runner.running:
+        stopped = runner.stop()
+        if stopped is True:
+            self._runner = None
+            self._set_queue_running(False)
+            self.queue_status.setText("Queue stopped")
+            return
+
+        self._runner = runner
+        self._set_queue_running(True)
+        if runner.worker_running:
             self._runner = runner
-            self._set_queue_running(True)
             self.stop_button.setEnabled(False)
             self.queue_status.setText(
                 "Queue stopping… waiting for the current engine operation"
             )
             return
 
-        self._runner = None
-        self._set_queue_running(False)
-        self.queue_status.setText("Queue stopped")
+        # The worker is gone but the backend release was not acknowledged.
+        # Ownership remains with this runner, so leave the only safe retry
+        # action enabled instead of stranding the operator in a locked state.
+        self.stop_button.setEnabled(True)
+        self.queue_status.setText(
+            "Queue release not confirmed — retry Stop or Panic Stop"
+        )
 
     def show_diagnostic_window(self) -> None:
         targets = list(self._clumsy_view._get_targets())
@@ -455,6 +466,14 @@ class DisruptionEventPanel(QGroupBox):
         self.queue_status.setText(
             f"{status.kind.upper()}: {name}{engine}{detail}"
         )
+        if status.kind == "release_failed":
+            # A timed-out stop can leave Stop disabled while its worker is
+            # still inside a backend call. Once the worker reports retained
+            # ownership, restore the explicit retry path without unlocking
+            # competing start controls.
+            self._set_queue_running(True)
+            self.stop_button.setEnabled(True)
+            return
         if status.kind in {"complete", "stopped", "halted", "error"}:
             self._set_queue_running(False)
             if self._runner is not None and not self._runner.running:

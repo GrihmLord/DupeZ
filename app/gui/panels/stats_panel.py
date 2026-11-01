@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import threading
+from html import escape
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
@@ -460,19 +461,21 @@ class StatsPanel(QWidget):
         led = (f"<span style='color:{led_color};font-weight:700;"
                f"font-size:14px;'>●</span>")
 
-        profile = detection.get("profile", "?")
-        layer = detection.get("layer", "?")
-        parts = [f"{display_ip}&nbsp;&nbsp;{profile}/{layer}"]
+        # Keep the fixed LED markup, but never interpret runtime/device data as
+        # Qt HTML. Rich-text image tags can otherwise enter native decoders.
+        profile = escape(str(detection.get("profile", "?")))
+        layer = escape(str(detection.get("layer", "?")))
+        parts = [f"{escape(str(display_ip))}&nbsp;&nbsp;{profile}/{layer}"]
 
         if engine:
-            parts.append(f"ENGINE:{engine}")
+            parts.append(f"ENGINE:{escape(str(engine))}")
 
         if verification_state:
-            verification_label = str(verification_state).upper()
+            verification_label = escape(str(verification_state).upper())
             parts.append(f"VERIFY:{verification_label}")
 
         if arp_active is True:
-            parts.append(f"ARP:ACTIVE({arp_packets})")
+            parts.append(f"ARP:ACTIVE({escape(str(arp_packets))})")
         elif arp_active is False:
             parts.append("ARP:INACTIVE")
         elif detection.get("needs_arp_spoof"):

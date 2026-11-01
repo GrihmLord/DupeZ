@@ -6,10 +6,11 @@ description: "Use when running the Universal Software Assurance Application QA/D
 # Universal Assurance Orchestrator (DupeZ)
 
 ## Canonical framework source
-- Primary document: `C:/Users/Owner/Downloads/Universal_Software_Assurance_Application_QA_Due_Diligence_Orchestrator_v2.pdf`
-- Extracted workspace copy: `docs/release-notes/QA_DUE_DILIGENCE_ORCHESTRATOR_v2_extracted.txt`
+- Repository source: `docs/release-notes/QA_DUE_DILIGENCE_ORCHESTRATOR_v2_extracted.txt`
 
-Always use the extracted copy for deterministic line-referenced execution. If it is missing, regenerate it from the canonical PDF path before continuing.
+Always use the repository source for deterministic line-referenced execution.
+If it is missing, stop and request the framework source; never depend on a
+developer-specific absolute path.
 
 ## Required execution behavior
 - Follow phases 0-22 with explicit statuses: `COMPLETE`, `PARTIAL`, `BLOCKED`, `NOT_APPLICABLE`.

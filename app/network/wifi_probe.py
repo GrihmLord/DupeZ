@@ -45,7 +45,6 @@ from __future__ import annotations
 
 import socket
 import threading
-import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
@@ -261,6 +260,8 @@ class IsolationWatchdog:
         Optional. Used purely for log readability.
     """
 
+    _CANCEL_JOIN_TIMEOUT_S = 1.0
+
     def __init__(
         self,
         spoofer: Any,
@@ -289,17 +290,22 @@ class IsolationWatchdog:
         # the result — we don't want to call back into orchestrator
         # state mutation after the orchestrator has already moved on.
         self._cancelled = threading.Event()
+        # Serializes the cancel-vs-delivery decision. Once _fired is set,
+        # result delivery is committed and cancel() waits for the worker;
+        # otherwise cancellation converts the pending result to ABORTED.
+        self._state_lock = threading.Lock()
 
     def start(self) -> None:
         """Spawn the daemon thread. Idempotent."""
-        if self._thread is not None:
-            return
-        self._thread = threading.Thread(
-            target=self._run,
-            daemon=True,
-            name=f"IsolationWatchdog[{self._target_ip_masked}]",
-        )
-        self._thread.start()
+        with self._state_lock:
+            if self._thread is not None:
+                return
+            self._thread = threading.Thread(
+                target=self._run,
+                daemon=True,
+                name=f"IsolationWatchdog[{self._target_ip_masked}]",
+            )
+            self._thread.start()
 
     def cancel(self) -> None:
         """Cancel pending result delivery.
@@ -309,21 +315,30 @@ class IsolationWatchdog:
         firing into an orchestrator that has already torn the engine
         down — without this guard the fallback would attempt to
         restart an engine whose target was already released.
+
+        Waits up to one second for the watchdog thread to quiesce. A
+        timeout is surfaced so callers can fail closed instead of
+        assuming teardown completed. Calls from the watchdog thread
+        itself skip the join to avoid a self-deadlock.
         """
-        self._cancelled.set()
+        with self._state_lock:
+            self._cancelled.set()
+            thread = self._thread
+
+        if thread is None or thread is threading.current_thread():
+            return
+
+        thread.join(timeout=self._CANCEL_JOIN_TIMEOUT_S)
+        if thread.is_alive():
+            raise TimeoutError(
+                "IsolationWatchdog did not stop within "
+                f"{self._CANCEL_JOIN_TIMEOUT_S:.1f}s"
+            )
 
     # ── internals ────────────────────────────────────────────────
 
     def _run(self) -> None:
-        # Sleep in short ticks so cancel() is responsive.
-        deadline = time.monotonic() + self._grace_s
-        while time.monotonic() < deadline:
-            if self._cancelled.is_set():
-                self._fire(IsolationResult.ABORTED)
-                return
-            time.sleep(0.25)
-
-        if self._cancelled.is_set():
+        if self._cancelled.wait(timeout=max(0.0, self._grace_s)):
             self._fire(IsolationResult.ABORTED)
             return
 
@@ -380,9 +395,13 @@ class IsolationWatchdog:
         self._fire(IsolationResult.ISOLATION_DETECTED)
 
     def _fire(self, result: str) -> None:
-        if self._fired.is_set():
-            return
-        self._fired.set()
+        with self._state_lock:
+            if self._fired.is_set():
+                return
+            if self._cancelled.is_set():
+                result = IsolationResult.ABORTED
+            self._fired.set()
+
         try:
             self._on_result(result)
         except Exception as exc:

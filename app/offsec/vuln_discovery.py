@@ -332,17 +332,6 @@ _TOP_100 = {
     "openpyxl", "xlsxwriter", "psutil", "cffi", "pycparser",
 }
 
-# Legit packages whose names sit Levenshtein-distance-1 from a top-100
-# entry but are themselves well-known, genuine upstreams. Without this
-# allowlist the heuristic chases ghosts — e.g. `scapy` (the packet-
-# manipulation library used by WinDivert tooling) trips the rule for
-# `scipy`, `starlette` used to fire against `startlette`, etc. Entries
-# here are compared case-insensitively.
-_TYPOSQUAT_ALLOWLIST: frozenset[str] = frozenset({
-    "scapy",      # packet crafting / sniffing — not a scipy typo
-})
-
-
 def _levenshtein(a: str, b: str) -> int:
     if a == b:
         return 0
@@ -368,8 +357,6 @@ def _check_typosquat(reg: FindingRegistry) -> None:
     for name, version in pkgs:
         lower = name.lower()
         if lower in _TOP_100:
-            continue
-        if lower in _TYPOSQUAT_ALLOWLIST:
             continue
         for top in _TOP_100:
             if _levenshtein(lower, top) == 1:

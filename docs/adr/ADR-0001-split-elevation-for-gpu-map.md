@@ -295,32 +295,51 @@ Zero behavioral change from the UI's perspective.
 
 ### 4.7 GPU availability and graceful degradation
 
-**Design principle:** the split refactor is strictly Pareto-improving. GPU users get huge gains; mid-tier users get moderate gains; potato users get identical behaviour to today. Nobody regresses.
+**Implementation status (v5.8.0):** the original three-tier proposal is
+superseded. Current QtWebEngine rejects the legacy `--use-gl=swiftshader`
+configuration and can terminate startup with `0xC0000409`; DupeZ does not
+select or advertise that backend.
 
-**Chromium fallback chain (happens automatically in QtWebEngine, we just need to not fight it):**
+**Reviewed renderer outcomes:**
 
-1. **Tier 1 — Modern GPU with D3D11/ANGLE.** Hardware raster. Leaflet pans and zooms at native web speed. Target: any Intel HD 4000 (2012) or newer, any discrete GPU from the last decade. Covers ~95% of users.
-2. **Tier 2 — Old/integrated GPU, no D3D11, or driver blocklisted.** Chromium auto-falls-back to SwiftShader (software GL). Compositor thread is still unblocked because we're no longer running under the Administrator token deadlock. Map pans at ~30fps instead of today's ~10fps. Covers the laptop-with-bad-Intel-drivers bucket.
-3. **Tier 3 — Truly ancient hardware or GPU entirely blocklisted.** Chromium disables GPU, uses CPU raster. **Same behaviour as today.** Zero regression — these users are already forced into this bucket by the admin-token deadlock, so the split refactor is neutral for them.
+1. **Hardware — successful DXGI capability probe.** The non-admin split GUI
+   uses Chromium's ANGLE/D3D11 path (`tier1_hw`) for hardware raster.
+2. **CPU fallback — failed, inconclusive, or disallowed hardware probe.** The
+   process receives `--disable-gpu` (`tier3_cpu`). This is the supported,
+   fail-closed compatibility path and keeps the map functional.
 
-**Detection:** on GUI boot (`app/gui/dayz_map_gui.py` startup), probe GPU status via `QWebEngineProfile` / `chrome://gpu` introspection. Log the detected tier to `logs/gpu.log`. If Tier 2 or 3 is detected, show a one-time non-blocking toast ("Map running in compatibility mode — still functional, just not hardware-accelerated").
+**Detection:** before any PyQt6 import, `app/core/gpu_probe.py` queries DXGI and
+`app/gui/map_host/renderer_tier.py` selects one of the two reviewed outcomes.
+The v5.8.0 repair parses `DXGI_ADAPTER_DESC1` through typed unsigned fields;
+the earlier signed-byte conversion could reject a valid adapter, and WMIC is
+not available as a fallback on current Windows installations. The selected
+path and probe reason are logged. CPU fallback may be surfaced as a
+non-blocking compatibility notice.
 
 **User override:** new environment variable `DUPEZ_MAP_RENDERER=auto|gpu|software`.
-* `auto` (default): let Chromium decide based on driver capability.
-* `gpu`: force hardware raster. Used for debugging or if auto-detection misfires.
-* `software`: force CPU raster. Used if a specific user's GPU driver crashes Chromium (common on old Optimus laptops where the discrete GPU panics on QtWebEngine init).
+* `auto` (default): use ANGLE/D3D11 only after the DXGI probe succeeds;
+  otherwise pass `--disable-gpu`.
+* `gpu`: diagnostic override for the same ANGLE/D3D11 hardware path. It is
+  ignored by elevated or in-process launches and introduces no third backend.
+* `software`: pass `--disable-gpu` for CPU rendering.
 
-**Duping is unaffected regardless of tier.** The renderer choice is purely a GUI concern. WinDivert and the module chain live in the elevated helper process no matter what Chromium does with the map. A Tier 3 potato laptop user gets the *same* duping performance as a Tier 1 user — and actually benefits from the split even more, because their weak CPU is no longer sharing the elevated-process scheduling penalty between Qt and the packet loop.
+**Duping is unaffected regardless of renderer.** The renderer choice is purely
+a GUI concern. WinDivert and the module chain live in the elevated helper
+process no matter how Chromium renders the map. CPU-fallback users retain the
+same packet-path behaviour as hardware-rendering users.
 
 **QA matrix (Day 5 regression benchmark expanded):**
 
 | Machine | GPU | Expected tier | Map test | Duping test |
 |---|---|---|---|---|
-| Grihm's desktop | Modern discrete | Tier 1 | Native-feel pan/zoom | All features green |
-| Mid-tier laptop | Intel integrated ~2015 | Tier 1 or 2 | Smooth pan, slight jank on zoom | All features green |
-| Old laptop | Blocklisted or <2012 GPU | Tier 3 | Same as today (functional, not fluid) | All features green |
+| Grihm's desktop | Modern discrete | `tier1_hw` after successful DXGI probe | Native-feel pan/zoom | All features green |
+| Mid-tier laptop | Intel integrated ~2015 | `tier1_hw` if probed; otherwise `tier3_cpu` | Hardware improvement or functional CPU fallback | All features green |
+| Old laptop | Blocklisted or <2012 GPU | `tier3_cpu` with `--disable-gpu` | Functional CPU fallback | All features green |
 
-**Documented minimum spec** (README update): "Map benefits from any GPU from 2012 or newer. Below that, the map still works but runs in compatibility mode. Duping features are unaffected by GPU capability."
+**Documented minimum spec** (README update): "Hardware map rendering requires a
+successful DXGI capability probe. If the probe fails or the adapter is not
+eligible, the map remains functional through CPU compatibility mode. Duping
+features are unaffected by GPU capability."
 
 ### 4.8 Crash handling
 * Helper crash → pipe disconnects → main shows a non-blocking "Engine stopped unexpectedly" banner with a "Restart engine" button that re-runs the ShellExecute flow.
@@ -399,7 +418,7 @@ Day 5 (buffer) — Latency regression benchmarks comparing `DUPEZ_ARCH=inproc` v
 | R12 | Hot-reload config push loses a frame during param change | Low | Low | Control plane is ms-tolerant. `engine.set_params` is atomic and applies on next packet. |
 | R13 | Audit log split across two processes | Low | Medium | Helper forwards audit events to main via IPC async channel; main owns log file. Single log, no split. |
 | R14 | Dev loop painful because every change requires UAC prompt | Medium | Certain | `DUPEZ_ARCH=inproc` (default) keeps dev flow unchanged. Only switch to `split` when testing the new path. |
-| R15 | Map GPU flags need to be re-enabled carefully | Low | Low | Strip `--disable-gpu`, `--disable-gpu-compositing`, `QT_OPENGL=software` once main runs unelevated. Gate behind `DUPEZ_ARCH=split` detection. |
+| R15 | Map GPU policy selects an unsupported backend or promotes an inconclusive probe | High | Low | Use only reviewed ANGLE/D3D11 flags after a successful probe (or explicit diagnostic override in the non-admin split GUI); otherwise pass `--disable-gpu`. Gate frozen QtWebEngine construction in both modes. |
 
 **Top 5 by severity × likelihood:**
 1. R1 — refactor bug in a duping feature (mitigation: feature flag + tests)
@@ -458,9 +477,9 @@ At any checkpoint, Grihm can say stop and the feature flag lets us ship `split` 
 5. [ ] Eng: move firewall subtree (no rewrites) behind flag
 6. [ ] Eng: refactor main-side consumers to IPC client
 7. [ ] Eng: elevation bootstrap rewrite + manifest change
-8. [ ] Eng: re-enable map GPU flags with auto-detection + graceful fallback (Tier 1/2/3)
+8. [ ] Eng: enable the reviewed ANGLE/D3D11 path with a fail-closed `--disable-gpu` fallback
 8a. [ ] Eng: implement `DUPEZ_MAP_RENDERER=auto|gpu|software` override
-8b. [ ] Eng: add GPU tier detection + one-time compatibility-mode toast
+8b. [ ] Eng: add native DXGI capability detection + one-time CPU compatibility-mode toast
 8c. [ ] Eng: add three-machine QA matrix to Day 5 benchmark
 9. [ ] Grihm: end-to-end dupe QA in `split` mode on Windows box
 10. [ ] Eng: latency regression benchmark comparing inproc vs split

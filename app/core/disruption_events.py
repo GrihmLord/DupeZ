@@ -242,8 +242,21 @@ class EventSequenceRunner:
         self._state_lock = threading.Lock()
 
     @property
+    def worker_running(self) -> bool:
+        """Whether the sequence worker is still executing backend work."""
+        return bool(
+            self._thread is not None and self._thread.is_alive()
+        )
+
+    @property
     def running(self) -> bool:
-        return bool(self._thread is not None and self._thread.is_alive())
+        thread_running = self.worker_running
+        with self._state_lock:
+            owns_event = self._active_generation is not None
+        # An unconfirmed backend release remains runner-owned even after the
+        # worker exits.  Callers must not replace or discard this runner until
+        # a later stop attempt positively acknowledges the release.
+        return thread_running or owns_event
 
     def start(self) -> bool:
         if self.running:
@@ -263,11 +276,13 @@ class EventSequenceRunner:
         self._thread.start()
         return True
 
-    def stop(self) -> None:
+    def stop(self) -> bool:
         self._stop_event.set()
         if self._thread is not None and self._thread is not threading.current_thread():
             self._thread.join(timeout=2.0)
-        self._release_owned_event()
+            if self._thread.is_alive():
+                return False
+        return self._release_owned_event()
 
     def _emit(self, status: EventSequenceStatus) -> None:
         try:
@@ -367,7 +382,18 @@ class EventSequenceRunner:
                     ))
 
                     self._wait(event.duration_seconds)
-                    self._release_owned_event()
+                    if not self._release_owned_event():
+                        terminal = EventSequenceStatus(
+                            kind="release_failed",
+                            event_index=index,
+                            event_id=event.event_id,
+                            event_name=event.name,
+                            detail=(
+                                "event stop was not confirmed; ownership retained"
+                            ),
+                            actual_engine=actual_engine,
+                        )
+                        return
                     self._emit(EventSequenceStatus(
                         kind="finished",
                         event_index=index,
@@ -389,7 +415,12 @@ class EventSequenceRunner:
             log_error(f"Event sequence crashed: {exc}")
             terminal = EventSequenceStatus(kind="error", detail=str(exc))
         finally:
-            self._release_owned_event()
+            if terminal.kind != "release_failed" and not self._release_owned_event():
+                terminal = EventSequenceStatus(
+                    kind="release_failed",
+                    event_index=self._active_event_index,
+                    detail="event stop was not confirmed; ownership retained",
+                )
             self._emit(terminal)
 
     def _last_engine_error(self) -> str:
@@ -399,30 +430,54 @@ class EventSequenceRunner:
         except Exception:
             return ""
 
-    def _release_owned_event(self) -> None:
+    def _release_owned_event(self) -> bool:
         with self._state_lock:
             expected_generation = self._active_generation
-            self._active_generation = None
-            self._active_event_index = -1
         if expected_generation is None:
-            return
+            return True
         try:
             current = self._controller.get_disruption_status(
                 self._target_ip
             ) or {}
             current_generation = current.get("generation")
-            if current_generation is None or int(current_generation) != expected_generation:
+            if current_generation is None:
+                if current.get("disrupted") is not False:
+                    log_error(
+                        "Event sequence could not confirm target ownership for "
+                        f"{mask_ip(self._target_ip)}"
+                    )
+                    return False
+                self._clear_owned_generation(expected_generation)
+                return True
+            if int(current_generation) != expected_generation:
                 log_info(
                     "Event sequence did not stop a newer target generation: "
                     f"{mask_ip(self._target_ip)}"
                 )
-                return
-            self._controller.stop_disruption(self._target_ip)
+                self._clear_owned_generation(expected_generation)
+                return True
+            if not bool(self._controller.stop_disruption(self._target_ip)):
+                log_error(
+                    "Event sequence stop was not confirmed for "
+                    f"{mask_ip(self._target_ip)}; ownership retained"
+                )
+                return False
         except Exception as exc:
             log_error(
                 "Event sequence release failed for "
                 f"{mask_ip(self._target_ip)}: {exc}"
             )
+            return False
+        self._clear_owned_generation(expected_generation)
+        return True
+
+    def _clear_owned_generation(self, expected_generation: int) -> None:
+        """Clear only the exact generation whose release was confirmed."""
+        with self._state_lock:
+            if self._active_generation != expected_generation:
+                return
+            self._active_generation = None
+            self._active_event_index = -1
 
 
 class EventSequenceStore:

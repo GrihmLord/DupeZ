@@ -39,6 +39,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.core.clumsy_controls import CLUMSY_NUMERIC_LIMITS
 from app.core.data_persistence import nickname_manager
 from app.logs.logger import log_error, log_info
 from app.utils.helpers import mask_ip as _log_mask_ip
@@ -54,7 +55,7 @@ from app.gui.panels.ai_panel import (
 
 # Profile system
 try:
-    from app.core.profiles import ProfileManager
+    from app.core.profiles import ProfileManager, ProfilePersistenceError
     PROFILES_AVAILABLE = True
 except ImportError:
     PROFILES_AVAILABLE = False
@@ -108,23 +109,29 @@ def _mdef(key: str, label: str, desc: str,
     return {"key": key, "label": label, "desc": desc, "params": params or []}
 
 
+def _clumsy_param(label: str, key: str, default: int) -> Tuple:
+    """Use the same numeric bounds as validation and the owned adapter."""
+    minimum, maximum = CLUMSY_NUMERIC_LIMITS[key]
+    return label, key, minimum, maximum, default
+
+
 MODULE_DEFS: List[Dict[str, Any]] = [
-    _mdef("lag", "LAG", "Add delay to packets", [("Delay (ms)", "lag_delay", 0, 120000, 500)]),
-    _mdef("drop", "DROP", "Drop packets randomly", [("Chance %", "drop_chance", 0, 100, 100)]),
+    _mdef("lag", "LAG", "Add delay to packets", [_clumsy_param("Delay (ms)", "lag_delay", 500)]),
+    _mdef("drop", "DROP", "Drop packets randomly", [_clumsy_param("Chance %", "drop_chance", 100)]),
     _mdef("disconnect", "DISCONNECT", "Timed cut — arm → cut → release", [
         ("Chance %",       "disconnect_chance",        0, 100,   100),
         ("Arm Delay (ms)", "disconnect_arm_delay_ms",  0, 30000,   0),
         ("Duration (ms)",  "disconnect_duration_ms",   0, 60000,   0),
     ]),
     _mdef("bandwidth", "BANDWIDTH", "Limit bandwidth", [
-        ("Limit (KB/s)", "bandwidth_limit", 0, 1000, 5), ("Queue Size", "bandwidth_queue", 0, 1000, 0)]),
+        _clumsy_param("Limit (KB/s)", "bandwidth_limit", 5), _clumsy_param("Queue Size", "bandwidth_queue", 0)]),
     _mdef("throttle", "THROTTLE", "Throttle packet flow", [
-        ("Chance %", "throttle_chance", 0, 100, 80), ("Frame (ms)", "throttle_frame", 0, 1000, 100)]),
-    _mdef("duplicate", "DUPLICATE", "Clone packets", [
-        ("Chance %", "duplicate_chance", 0, 100, 50), ("Count", "duplicate_count", 1, 50, 5)]),
-    _mdef("ood", "OUT OF ORDER", "Reorder packets", [("Chance %", "ood_chance", 0, 100, 50)]),
-    _mdef("corrupt", "TAMPER", "Corrupt packet data (limited vs DayZ)", [("Chance %", "tamper_chance", 0, 100, 30)]),
-    _mdef("rst", "TCP RST", "Inject RST flags (kicks you too!)", [("Chance %", "rst_chance", 0, 100, 100)]),
+        _clumsy_param("Chance %", "throttle_chance", 80), _clumsy_param("Frame (ms)", "throttle_frame", 100)]),
+    _mdef("duplicate", "DUPLICATE", "Duplicate network packets", [
+        _clumsy_param("Chance %", "duplicate_chance", 50), _clumsy_param("Extra copies", "duplicate_count", 5)]),
+    _mdef("ood", "OUT OF ORDER", "Reorder packets", [_clumsy_param("Chance %", "ood_chance", 50)]),
+    _mdef("corrupt", "TAMPER", "Corrupt packet data (limited vs DayZ)", [_clumsy_param("Chance %", "tamper_chance", 30)]),
+    _mdef("rst", "TCP RST", "Inject RST flags (kicks you too!)", [_clumsy_param("Chance %", "rst_chance", 100)]),
 ]
 
 class ClumsyControlView(QWidget):
@@ -165,6 +172,7 @@ class ClumsyControlView(QWidget):
     _LABEL_BOLD_QSS = "color: #94a3b8; font-size: 11px; font-weight: 700;"
     _SCHED_PURPLE_QSS = "color: #a78bfa; font-size: 11px; font-weight: 600;"
     _SCHED_PINK_QSS = "color: #e879f9; font-size: 11px; font-weight: 600;"
+    _WARNING_QSS = "color: #f59e0b; font-size: 11px; font-weight: 600;"
     _RADIO_CB_QSS = _cb_qss.__func__(8, margin=False)
     _SLIDER_QSS = ("QSlider::groove:horizontal { border: 1px solid rgba(51,65,85,0.4); height: 6px; "
                    "background: rgba(15,23,42,0.6); border-radius: 3px; } "
@@ -464,9 +472,9 @@ class ClumsyControlView(QWidget):
         self.preset_combo.currentTextChanged.connect(self._on_preset_changed)
         self.preset_combo.activated.connect(self._on_preset_index_changed)
         preset_layout.addWidget(self.preset_combo)
-        self.preset_desc = QLabel(
-            PRESETS[AUTOMATIC_CONNECTION_TEST]["description"]
-        )
+        self.preset_desc = QLabel()
+        self.preset_desc.setTextFormat(Qt.TextFormat.PlainText)
+        self.preset_desc.setText(PRESETS[AUTOMATIC_CONNECTION_TEST]["description"])
         self.preset_desc.setStyleSheet(self._MUTED_PAD_QSS)
         self.preset_desc.setWordWrap(True)
         preset_layout.addWidget(self.preset_desc)
@@ -701,6 +709,7 @@ class ClumsyControlView(QWidget):
         sched_layout.addLayout(sched_row2)
 
         self.sched_status = QLabel("No scheduled disruptions")
+        self.sched_status.setTextFormat(Qt.TextFormat.PlainText)
         self.sched_status.setStyleSheet(self._MUTED_QSS)
         sched_layout.addWidget(self.sched_status)
 
@@ -750,6 +759,7 @@ class ClumsyControlView(QWidget):
         self.suggest_duration_btn.clicked.connect(self._on_suggest_duration)
         _ml_layout.addWidget(self.suggest_duration_btn)
         self.suggest_status = QLabel("")
+        self.suggest_status.setTextFormat(Qt.TextFormat.PlainText)
         self.suggest_status.setStyleSheet(self._SUBTLE_QSS)
         self.suggest_status.setWordWrap(True)
         _ml_layout.addWidget(self.suggest_status)
@@ -791,6 +801,7 @@ class ClumsyControlView(QWidget):
         _ml_layout.addLayout(_outcome_row)
 
         self.outcome_status = QLabel("")
+        self.outcome_status.setTextFormat(Qt.TextFormat.PlainText)
         self.outcome_status.setStyleSheet(self._SUBTLE_QSS)
         self.outcome_status.setWordWrap(True)
         _ml_layout.addWidget(self.outcome_status)
@@ -842,6 +853,7 @@ class ClumsyControlView(QWidget):
 
         # Clumsy status
         self.clumsy_status_label = QLabel("Clumsy: Checking...")
+        self.clumsy_status_label.setTextFormat(Qt.TextFormat.PlainText)
         self.clumsy_status_label.setStyleSheet(self._MUTED_PAD_QSS)
         right_layout.addWidget(self.clumsy_status_label)
 
@@ -1558,23 +1570,44 @@ class ClumsyControlView(QWidget):
         automatic_target = self._automatic_target_ip
         self._automatic_ui_generation += 1
         self._automatic_target_ip = None
-        if hasattr(self.controller, "stop_automatic_workflow"):
-            self.controller.stop_automatic_workflow()
-        if automatic_target:
+        automatic_stopped = True
+        if automatic_target and hasattr(self.controller, "stop_automatic_workflow"):
+            automatic_stopped = bool(self.controller.stop_automatic_workflow())
+        if automatic_target and automatic_stopped:
             self.sched_status.setText(
                 "Automatic: stopped — connection released"
             )
             self.sched_status.setStyleSheet(self._MUTED_QSS)
+        elif automatic_target:
+            self._automatic_target_ip = automatic_target
+            self.sched_status.setText(
+                "Automatic cleanup failed — disruption ownership retained"
+            )
+            self.sched_status.setStyleSheet(self._WARNING_QSS)
         if not targets and automatic_target:
             targets = [automatic_target]
         if not targets:
             return
+        failed = []
         for ip in targets:
-            self.controller.stop_disruption(ip)
-            self._disruption_timers.pop(ip, None)
-            log_info(f"Disruption stopped on {_log_mask_ip(ip)}")
+            if ip == automatic_target and automatic_stopped:
+                self._disruption_timers.pop(ip, None)
+            elif self.controller.stop_disruption(ip):
+                self._disruption_timers.pop(ip, None)
+                log_info(f"Disruption stopped on {_log_mask_ip(ip)}")
+            else:
+                failed.append(ip)
+        if automatic_target and automatic_target not in failed:
+            self._automatic_target_ip = None
         self._refresh_device_table_status()
-        self._end_smart_session()
+        if failed:
+            QMessageBox.warning(
+                self,
+                "Cleanup Not Confirmed",
+                "Could not confirm cleanup for: " + ", ".join(failed),
+            )
+        else:
+            self._end_smart_session()
 
     def _on_stop_all(self) -> None:
         """Emergency-stop all active disruptions."""
@@ -1582,18 +1615,32 @@ class ClumsyControlView(QWidget):
             automatic_target = self._automatic_target_ip
             self._automatic_ui_generation += 1
             self._automatic_target_ip = None
+            automatic_stopped = True
             if hasattr(self.controller, "stop_automatic_workflow"):
-                self.controller.stop_automatic_workflow()
-            if automatic_target:
-                self.sched_status.setText(
-                    "Automatic: stopped — connection released"
+                automatic_stopped = bool(
+                    self.controller.stop_automatic_workflow()
                 )
-                self.sched_status.setStyleSheet(self._MUTED_QSS)
-            self.controller.stop_all_disruptions()
-            self._disruption_timers.clear()
-            log_info("All disruptions stopped")
+            stopped = bool(self.controller.stop_all_disruptions())
+            stopped = stopped and automatic_stopped
+            if stopped:
+                self._disruption_timers.clear()
+                log_info("All disruptions stopped")
+            else:
+                if automatic_target:
+                    self._automatic_target_ip = automatic_target
+                self.sched_status.setText(
+                    "Stop All incomplete — cleanup ownership retained"
+                )
+                self.sched_status.setStyleSheet(self._WARNING_QSS)
+                QMessageBox.warning(
+                    self,
+                    "Cleanup Not Confirmed",
+                    "One or more disruptions could not be confirmed stopped. "
+                    "Use Panic Stop or retry cleanup.",
+                )
             self._refresh_device_table_status()
-            self._end_smart_session()
+            if stopped:
+                self._end_smart_session()
 
     # ── Scheduled / timed disruption + macros ──────────────────────
     def _on_timed_disrupt(self) -> None:
@@ -1620,31 +1667,46 @@ class ClumsyControlView(QWidget):
         params = self._collect_params()
 
         if delay == 0:
+            failed = []
             for ip in targets:
                 meta = self._lookup_device_meta(ip)
-                self.controller.disrupt_device(ip, methods, params, **meta)
-                self._disruption_timers[ip] = time.time()
+                if self.controller.disrupt_device(ip, methods, params, **meta):
+                    self._disruption_timers[ip] = time.time()
+                else:
+                    failed.append(ip)
 
             # Schedule auto-stop — use QTimer to stay on the GUI thread
-            _targets_copy = list(targets)
+            _targets_copy = [ip for ip in targets if ip not in failed]
             _dur = float(duration)
-            QTimer.singleShot(int(_dur * 1000), lambda: self._timed_auto_stop(_targets_copy, _dur))
-            self.sched_status.setText(f"Timed: {duration}s on {len(targets)} target(s)")
+            if _targets_copy:
+                QTimer.singleShot(int(_dur * 1000), lambda: self._timed_auto_stop(_targets_copy, _dur))
+            self.sched_status.setText(
+                f"Timed: {duration}s on {len(_targets_copy)} target(s)"
+            )
             self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
             self._refresh_device_table_status()
+            if failed:
+                QMessageBox.warning(
+                    self,
+                    "Timed Start Refused",
+                    "Could not start disruption on: " + ", ".join(failed),
+                )
         else:
             # Delayed start via scheduler — use epoch-based start_time
-            rule = ScheduledRule(
-                name=f"Timed-{self.selected_ip}-{duration}s",
-                target_ip=self.selected_ip,
-                methods=methods,
-                params=params,
-                start_time=str(time.time() + delay),  # epoch trigger
-                duration_seconds=duration,
-                repeat_interval=0,
+            for ip in targets:
+                rule = ScheduledRule(
+                    name=f"Timed-{ip}-{duration}s",
+                    target_ip=ip,
+                    methods=methods,
+                    params=dict(params),
+                    start_time=str(time.time() + delay),  # epoch trigger
+                    duration_seconds=duration,
+                    repeat_interval=0,
+                )
+                self.controller.scheduler.add_rule(rule)
+            self.sched_status.setText(
+                f"Scheduled: {delay}s delay → {duration}s on {len(targets)} target(s)"
             )
-            self.controller.scheduler.add_rule(rule)
-            self.sched_status.setText(f"Scheduled: {delay}s delay → {duration}s disruption")
             self.sched_status.setStyleSheet(self._SCHED_PURPLE_QSS)
 
     def _on_macro_step_event(self, event: str, ip: str, step_info: dict) -> None:
@@ -1668,18 +1730,38 @@ class ClumsyControlView(QWidget):
             self._disruption_timers.pop(ip, None)
             self.sched_status.setText(f"{macro_name} complete")
             self.sched_status.setStyleSheet(self._MUTED_QSS)
+        elif event == "cancelled":
+            self._disruption_timers.pop(ip, None)
+            self.sched_status.setText(f"{macro_name} cancelled and released")
+            self.sched_status.setStyleSheet(self._MUTED_QSS)
+        elif event == "failed":
+            if step_info.get("reason") != "stop_failed":
+                self._disruption_timers.pop(ip, None)
+            reason = str(step_info.get("reason") or "execution_failed")
+            self.sched_status.setText(f"{macro_name} failed: {reason}")
+            self.sched_status.setStyleSheet(self._WARNING_QSS)
         self._refresh_device_table_status()
 
     def _timed_auto_stop(self, targets, duration) -> None:
         """Auto-stop callback — runs on the Qt main thread via QTimer.singleShot."""
         if self.controller:
+            failed = []
             for ip in targets:
-                self.controller.stop_disruption(ip)
-                self._disruption_timers.pop(ip, None)
-            log_info(f"Timed disruption ended after {duration}s")
+                if self.controller.stop_disruption(ip):
+                    self._disruption_timers.pop(ip, None)
+                else:
+                    failed.append(ip)
+            if not failed:
+                log_info(f"Timed disruption ended after {duration}s")
             self._refresh_device_table_status()
-            self.sched_status.setText(f"Timed disruption finished ({duration}s)")
-            self.sched_status.setStyleSheet(self._MUTED_QSS)
+            if failed:
+                self.sched_status.setText(
+                    "Timed cleanup failed for: " + ", ".join(failed)
+                )
+                self.sched_status.setStyleSheet(self._WARNING_QSS)
+            else:
+                self.sched_status.setText(f"Timed disruption finished ({duration}s)")
+                self.sched_status.setStyleSheet(self._MUTED_QSS)
 
     def _on_run_macro(self) -> None:
         """Run a disruption macro — chain preset steps in sequence."""
@@ -1703,13 +1785,20 @@ class ClumsyControlView(QWidget):
                 return
             if choice != "-- Create Quick Macro --":
                 macro = next(m for m in macros if m.name == choice)
-                self.controller.scheduler.run_macro(macro.macro_id, self.selected_ip)
-                self.sched_status.setText(f"Macro '{macro.name}' running...")
-                self.sched_status.setStyleSheet(self._SCHED_PINK_QSS)
+                if self.controller.scheduler.run_macro(
+                    macro.macro_id, self.selected_ip
+                ):
+                    self.sched_status.setText(f"Macro '{macro.name}' running...")
+                    self.sched_status.setStyleSheet(self._SCHED_PINK_QSS)
+                else:
+                    self.sched_status.setText(
+                        f"Macro '{macro.name}' was not started"
+                    )
+                    self.sched_status.setStyleSheet(self._WARNING_QSS)
                 return
 
         # Quick macro: current settings → light → heavy → stop
-        duration = self.sched_duration.value() // 3 or 10
+        duration = max(1, (self.sched_duration.value() + 2) // 3)
         methods = self._get_active_methods()
         params = self._collect_params()
 
@@ -1724,23 +1813,38 @@ class ClumsyControlView(QWidget):
             ]
         )
         mid = self.controller.scheduler.add_macro(macro)
-        self.controller.scheduler.run_macro(mid, self.selected_ip)
-        self.sched_status.setText(f"Quick Macro running ({duration}s x 3 steps)...")
-        self.sched_status.setStyleSheet(self._SCHED_PINK_QSS)
+        if self.controller.scheduler.run_macro(mid, self.selected_ip):
+            self.sched_status.setText(f"Quick Macro running ({duration}s x 3 steps)...")
+            self.sched_status.setStyleSheet(self._SCHED_PINK_QSS)
+        else:
+            self.sched_status.setText("Quick Macro was not started")
+            self.sched_status.setStyleSheet(self._WARNING_QSS)
 
     def _on_stop_macro(self) -> None:
         """Stop the active macro."""
         if self.controller:
             automatic_target = self._automatic_target_ip
             self._automatic_ui_generation += 1
-            self._automatic_target_ip = None
+            automatic_stopped = automatic_target is None
             if hasattr(self.controller, "stop_automatic_workflow"):
-                self.controller.stop_automatic_workflow()
-            self.controller.scheduler.stop_macro()
-            self.sched_status.setText(
-                "Automatic stopped" if automatic_target else "Macro stopped"
-            )
-            self.sched_status.setStyleSheet(self._MUTED_QSS)
+                automatic_stopped = (
+                    self.controller.stop_automatic_workflow() is True
+                )
+            macro_stopped = self.controller.scheduler.stop_macro() is True
+            stopped = automatic_stopped and macro_stopped
+            if stopped:
+                self._automatic_target_ip = None
+                self.sched_status.setText(
+                    "Automatic stopped" if automatic_target else "Macro stopped"
+                )
+                self.sched_status.setStyleSheet(self._MUTED_QSS)
+            else:
+                self.sched_status.setText(
+                    "Automatic cleanup not confirmed — retry Stop"
+                    if automatic_target
+                    else "Macro cleanup not confirmed — retry Stop"
+                )
+                self.sched_status.setStyleSheet(self._WARNING_QSS)
 
     # ── Profile management ──────────────────────────────────────────
     def _on_save_profile(self) -> None:
@@ -1756,9 +1860,19 @@ class ClumsyControlView(QWidget):
 
         methods = self._get_active_methods()
         params = self._collect_params()
-        self._profile_manager.save(
-            name=name.strip(), methods=methods, params=params,
-            description=f"Saved from DupeZ ({len(methods)} modules)")
+        try:
+            self._profile_manager.save(
+                name=name.strip(), methods=methods, params=params,
+                description=f"Saved from DupeZ ({len(methods)} modules)")
+        except (ProfilePersistenceError, OSError, TypeError, ValueError):
+            log_error("Profile save rejected")
+            QMessageBox.warning(
+                self,
+                "Save Failed",
+                "The profile was not saved. Check the name and storage access, "
+                "then try again.",
+            )
+            return
         log_info(f"Profile saved: {name.strip()}")
         QMessageBox.information(self, "Saved", f"Profile '{name.strip()}' saved.")
 
@@ -1792,8 +1906,15 @@ class ClumsyControlView(QWidget):
             self, "Confirm Delete", f"Delete profile '{name}'?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if confirm == QMessageBox.StandardButton.Yes:
-            self._profile_manager.delete(name)
-            log_info(f"Profile deleted: {name}")
+            if self._profile_manager.delete(name):
+                log_info(f"Profile deleted: {name}")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Delete Failed",
+                    "The profile could not be deleted. Check storage access and "
+                    "try again.",
+                )
 
     def _on_export_profile(self) -> None:
         name = self._pick_profile("Export Profile", "Select profile:", "No saved profiles to export.")

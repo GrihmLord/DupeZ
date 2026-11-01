@@ -18,7 +18,17 @@ than beside binaries in `Program Files`. Upgrades perform a verified,
 copy-only migration of recognized legacy files. Existing destination files win,
 conflicts are reported, and legacy files are never deleted automatically.
 
-![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![Python](https://img.shields.io/badge/python-3.10%2B-green) ![License](https://img.shields.io/badge/license-Proprietary-red)
+![Windows](https://img.shields.io/badge/platform-Windows%2011-blue) ![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-green) ![Release](https://img.shields.io/badge/v5.8.0-release%20gates%20pending-orange)
+
+v5.8.0 is in preparation, not approved for public distribution. See the
+[current launch plan](docs/release-notes/LAUNCH_PLAN_5.8.0.md) for remaining
+owner, CI, native-runtime security, signing and exact-artifact gates. Older files in `dist` are not the
+validated v5.8.0 release. Maintainers can inspect preparation status without
+running binaries or advancing release phases:
+
+```powershell
+python scripts/release_readiness.py --version 5.8.0
+```
 
 ---
 
@@ -64,7 +74,7 @@ connection problems without claiming to manipulate public-server game state.
 
 ### Plugin API (v4.0.0+)
 
-Lightweight plugin system for community-built extensions. Four plugin types: **DisruptionPlugin**, **ScannerPlugin**, **UIPanelPlugin**, **GenericPlugin**. JSON manifest + Python entry point in `plugins/`. Hot-reload via Tools menu or CLI.
+Lightweight plugin loader for fully trusted extensions. Signed manifest-v2 bundles cover every Python helper, native module, and resource in the plugin directory; production rejects unsigned, legacy entry-only, modified, missing, or added files. The pinned publisher key—not in-process capability diagnostics—is the security boundary, because plugins run with the host user's authority. **UIPanelPlugin** and **GenericPlugin** have host integration today. **DisruptionPlugin** and **ScannerPlugin** remain typed extension contracts: the core disruption/scanner dispatch paths do not invoke them yet. Reload is an internal, fail-closed lifecycle operation and is not currently exposed through the Tools menu or CLI.
 
 ### CLI Mode (v4.0.0+)
 
@@ -76,7 +86,9 @@ Network intelligence toolkit. Four core tabs — Live Traffic Monitor, Latency O
 
 ### iZurvive Map
 
-Ad-free embedded iZurvive with two-layer ad blocking. Supports Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan.
+The map selector provides reviewed iZurvive URLs for Chernarus+ (Satellite/Topographic), Livonia, Namalsk, Sakhal, Deer Isle, Esseker, and Takistan. Embedded browsing requires a verified non-elevated Windows process, sandboxing, and an admitted patched Qt/WebEngine runtime. The currently available Qt 6.11.2 wheels do not satisfy the 6.11.3 security floor, so this candidate shows a selectable URL to open manually in your normal browser instead. It does not launch a browser from an elevated or otherwise denied context.
+
+When an admitted runtime is available, embedded navigation and resources are restricted to explicitly reviewed HTTPS hosts; popups, downloads, file selection, certificate overrides and permission requests are denied. Its browser profile is ephemeral. These controls do not replace exact-build security validation.
 
 ### Account Tracker (v5.4.0)
 
@@ -100,7 +112,9 @@ operation journal. The learning loop consumes only aggregate health outcomes so
 operators can compare lab presets without storing raw targets or packet
 payloads.
 
-Vendor column now resolves against the full IEEE OUI database (~35k entries via scapy MANUFDB) instead of the 60-entry curated table — Ring, HUMAX, Murata, Texas Instruments, Chamberlain, HP, Samsung, Apple, and every other registered manufacturer populate correctly.
+Vendor labels resolve from DupeZ's reviewed gaming/device OUI table. Unknown
+prefixes remain explicitly `Unknown`; target selection still uses the observed
+MAC and IP, so the informational label never controls network actions.
 
 ### WiFi Lab Path Reliability (v5.7.2)
 
@@ -111,15 +125,36 @@ and falls back to clearly announced self-diagnostics when the owned peer path is
 not available. `params["_force_self_disrupt"]` remains an explicit opt-in for
 operators who are intentionally testing only their own traffic.
 
-### Tools-Menu Surfaces (v5.7.4)
+### Tools-Menu Surfaces (v5.7.4, completed in v5.8.0)
 
-Six feature backends that shipped backend-only in v5.7.0/v5.7.1 are now reachable from the UI:
+Seven feature backends that shipped backend-only in v5.7.0/v5.7.1 are now reachable from the UI:
 
 - **Risk Score** — `Tools → Risk Score…` shows the live 0-100 score with the six-factor breakdown (active cuts, audit volume, kill-switch state, episode rate, server-integrity signal, network changes).
-- **Diagnostics** — `Tools → Diagnostics…` (F2) runs all 8 self-checks (Npcap, WinDivert handle, IP forwarding, ARP table, audit log, episode store, signing key, update channel) with pass/warn/fail and per-check remediation hints.
-- **Kill Switch — Panic Stop** — `Tools → Kill Switch` (Ctrl+Alt+X) immediately halts every active disruption. The manual half of the kill-switch feature; auto-triggers (server-integrity / risk threshold / packet rate) still pending a settings panel.
+- **Diagnostics** — `Tools → Diagnostics…` (F2) runs all 14 registered
+  readiness and integrity checks (including admin status, WinDivert/Npcap,
+  Wi-Fi and Clumsy availability, secret/persistence stores, audit and
+  operation journals, runtime storage, firewall posture, and update/episode
+  state) with pass/warn/fail remediation hints. Copy and Save Support Bundle
+  export only the redacted results currently shown.
+- **Cut-Chain Configurator** — `Tools → Cut-Chain Configurator…`
+  (`Ctrl+Shift+C`) builds a bounded sequence of known presets with time,
+  severed, connected, or packet-count gates. It supports atomic JSON
+  save/load, requires an owned-or-authorized private target acknowledgement,
+  and is revalidated against the current controller safety scope before use.
+- **Kill Switch** — `Tools → Kill Switch — Panic Stop` (`Ctrl+Alt+X`)
+  immediately halts every active disruption. `Settings → Network → Automatic
+  Kill Switch` configures the process-watch, risk-score, sustained packet-rate,
+  polling, and cooldown triggers; malformed persisted trigger settings block
+  new network mutations until corrected while the manual panic stop remains
+  available.
 - **OBS Overlay Server** — `Tools → Toggle OBS Overlay Server` starts/stops the localhost-bound HTTP endpoint and shows the browser-source URL. Auto-starts on launch when `settings.obs_overlay_enabled` is set.
-- **Audit Webhook Fan-Out** — `AuditLogger.log()` now actually emits configured Discord/generic webhook events after the canonical JSONL write. Best-effort, daemon-threaded, never raises into the audit hot path. Configure under Settings → Audit.
+- **Audit Webhook Fan-Out** — `Tools → Audit Webhook…` provisions, enables,
+  disables, or removes a Discord/generic webhook without displaying a stored
+  URL. `AuditLogger.log()` emits best-effort events after the canonical JSONL
+  write and never raises into the audit hot path. The CLI's hidden-input
+  `python -m app.cli webhook provision --apply` remains available for
+  automation; only non-secret metadata is kept in settings. See [audit webhook
+  credential storage](docs/WEBHOOK_SECRET_STORAGE.md).
 - **Episode Store Rotation** — 90-day / 5000-file retention now enforced once per launch; the JSONL episode store no longer grows unbounded.
 
 ### Security Hardening (v5.7.3)
@@ -128,7 +163,7 @@ Five post-audit fixes to the v5.6.9–v5.7.2 modules (added after the v5.6.2 nat
 
 ### Windows Installer & Auto-Update (v5.2.0)
 
-Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uninstall support. Windows application manifest and VS_VERSION_INFO resource for SmartScreen trust. In-app auto-updater checks GitHub Releases and can download + silently install new versions with progress feedback.
+Proper Inno Setup installer registers DupeZ in Add/Remove Programs with full uninstall support. Windows application manifest and VS_VERSION_INFO resource for SmartScreen trust. The in-app updater checks GitHub Releases and can download + silently install a newer installer only when its Ed25519-signed metadata binds a Windows-trusted Authenticode publisher. Explicitly unsigned releases remain manual download/install only and are never auto-executed.
 
 ---
 
@@ -157,18 +192,23 @@ Platform-specific presets (`pc_local`, `ps5_hotspot`, `xbox_hotspot`) live in th
 
 ## Requirements
 
-- Windows 10/11 (64-bit)
-- Python 3.10+
+- Windows 11 (64-bit), or a Windows 10 LTSC/ESU edition still receiving
+  Microsoft security updates
+- Python 3.12 or 3.13 for source use; release artifacts use Python 3.13.17 x64
 - Administrator privileges (required for WinDivert kernel driver)
 
 ### Build Dependencies (optional)
 
-- [Inno Setup 6+](https://jrsoftware.org/isinfo.php) — Required only to compile the installer (`iscc` must be on PATH)
+- [Inno Setup 6.7.1](https://jrsoftware.org/isinfo.php) — required only to
+  compile the installer. Release builds accept the exact Program Files path,
+  SHA-256, and Authenticode signer pinned in `packaging/release-tools.json`;
+  ambient `PATH` discovery is rejected.
 - Code signing certificate — Optional for local builds and mandatory for
   releases. Set `DUPEZ_SIGN_CERT`, `DUPEZ_SIGN_PASS` when required, and
-  `DUPEZ_SIGN_PRIVKEY` for updater metadata. SignTool is discovered from
-  `DUPEZ_SIGNTOOL`, `PATH`, or the standard versioned Windows SDK x64
-  directory; release artifacts use SHA-256 with RFC3161 timestamping.
+  `DUPEZ_SIGN_PRIVKEY` for updater metadata. The release finalizer accepts only
+  the exact Windows SDK x64 SignTool path, SHA-256, version, and Authenticode
+  signer pinned in `packaging/release-tools.json`; release artifacts use
+  SHA-256 with RFC3161 timestamping.
 
 ### Firewall Binaries
 
@@ -187,8 +227,8 @@ The following must be present in `app/firewall/`:
 git clone https://github.com/GrihmLord/DupeZ.git
 cd DupeZ
 
-# Install dependencies
-pip install -r requirements.txt
+# Install the reviewed, hash-pinned runtime graph
+python -m pip install --require-hashes -r requirements-locked.txt
 
 # Run GUI (auto-elevates via UAC)
 python dupez.py
@@ -264,7 +304,12 @@ also want account tracker/profile files to participate. `recovery
 audit-status` reports whether the local tamper-evident audit chain is valid,
 sealed, or running with a degraded key. `recovery secret-store-status` checks
 whether the OS-backed key store is reachable and writable. Add `--json` to
-safe maintenance commands when another tool needs parseable output. `support
+safe maintenance commands when another tool needs parseable output. `webhook
+status` reports URL-free configuration state, while `webhook provision
+--apply` stores the endpoint in the OS-backed secret store instead of settings
+or backups. Historical pre-migration archives may still contain the old bearer
+URL; revoke or rotate that provider token as described in
+[the credential migration note](docs/WEBHOOK_SECRET_STORAGE.md). `support
 bundle` writes a redacted JSON support artifact containing diagnostics,
 secret-store health, and privacy inventory metadata without raw logs, secrets,
 account contents, raw IPs, MACs, or user-specific local paths. It includes
@@ -280,36 +325,67 @@ counts with local paths redacted in JSON/support output.
 Run from the repo root. All build scripts and PyInstaller specs live in `packaging\` but write output to repo-root `dist\`.
 
 ```powershell
-# Prerequisite: .venv uses 64-bit Python 3.11.9.
+# Prerequisite: .venv uses 64-bit Python 3.13.17.
 # Each script recreates an isolated .release-venv and installs only
 # hash-pinned build/runtime dependencies.
 
-# Legacy single binary (requireAdministrator):
+# Local legacy portable (requireAdministrator, non-release):
 packaging\build.bat
-# Output: dist\dupez.exe + dist\DupeZ_v5.8.0_Setup.exe (installer)
+# Output: dist\dupez.exe only
 
-# Modern dual-variant build (RECOMMENDED):
+# Canonical release/installer build:
 packaging\build_variants.bat
 # Output: dist\DupeZ-GPU.exe (asInvoker, split-arch, GPU map)
 #         dist\DupeZ-Compat.exe (requireAdministrator, inproc, legacy fallback)
+#         dist\DupeZ_v5.8.0_Setup.exe + dist\DupeZ_Setup.exe
+#         dist\LICENSE.txt + dist\SOURCE_AND_RELINK.txt
+#         dist\THIRD_PARTY_NOTICES.txt + dist\license-payload.json
 ```
 
-Both build paths fail before signing if a PyInstaller archive contains
+`packaging\build.bat` is retained for local compatibility testing and never
+invokes Inno Setup or creates installer aliases. It is not a public-release
+entry point. All installer and release artifacts must come from
+`packaging\build_variants.bat` through the protected finalization flow.
+The finalizer also creates `dist\DupeZ-v5.8.0-source.zip` with `git archive`
+from the exact clean commit. Its hash is bound into the release checksum list
+and attestation.
+
+Both executable build paths fail before signing if a PyInstaller archive contains
 unfinished Group Finder packages or optional voice/scientific dependencies
 that are outside the v5.8.0 production lock. Packaged config, icons, and
 themes must also match `packaging/release-data.json`; generated HMACs,
 bytecode caches, and untracked local files are rejected.
+Distribution builds additionally fail unless the owner-controlled license/IP
+policy is fully evidenced. The installer displays the project license and
+installs the deterministic, exact-lock third-party notices and source/relink
+record beside the executables.
 
 ### Install via Installer (Recommended)
 
-Download `DupeZ_v5.8.0_Setup.exe` from [Releases](https://github.com/GrihmLord/DupeZ/releases) (or use the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe) alias which always points at the latest release). The installer:
+v5.8.0 remains a release candidate until every exact-artifact gate in the
+[roadmap](ROADMAP.md) passes. Until it is published, use the current public
+build from [Releases](https://github.com/GrihmLord/DupeZ/releases); do not infer
+availability from the source version. Once v5.8.0 is released, its versioned
+installer and the stable [`DupeZ_Setup.exe`](https://github.com/GrihmLord/DupeZ/releases/latest/download/DupeZ_Setup.exe)
+alias will be available there. The installer:
 
-1. Installs to `Program Files\DupeZ` — trusted path, no SmartScreen warnings after signing
+1. Installs to `Program Files\DupeZ`; standard distribution builds copy the
+   provenance-pinned native payload into an ignored stage, Authenticode-sign
+   only the staged `clumsy.exe`, and prove that it differs from the reviewed
+   unsigned source only by valid PE signing structures. Both PyInstaller
+   variants and the installer consume that verified stage; final preflight
+   remeasures the nested bytes and requires the updater-bound signer.
+   Tracked upstream binaries are never modified. Windows reputation and Smart
+   App Control decisions remain under Microsoft's policy; explicitly
+   authorized unsigned releases must disclose the resulting warnings.
 2. Registers in **Add/Remove Programs** with version, publisher, and icon
 3. Creates Start Menu and Desktop shortcuts
-4. Preserves Windows trust metadata and relies on signatures/hashes instead of overriding SmartScreen or Windows Application Control
+4. Release policy relies on Authenticode plus signed updater metadata and does not promise to bypass SmartScreen or Windows Application Control
 5. Supports upgrade-in-place — re-run a newer installer without uninstalling first
-6. **In-app auto-update** — DupeZ checks GitHub Releases on launch and can download + install updates directly
+6. **In-app auto-update** — DupeZ checks GitHub Releases on launch and can
+   download + install an update directly only when the installer has the
+   trusted Authenticode identity bound by its signed updater manifest. An
+   explicitly unsigned release requires manual download and installation.
 
 ---
 
@@ -318,19 +394,20 @@ Download `DupeZ_v5.8.0_Setup.exe` from [Releases](https://github.com/GrihmLord/D
 ```
 dupez.py                             # Entry point (GUI mode)
 dupez_helper.py                      # Elevated helper entry point (split-arch)
-requirements.txt                     # Dependencies
-requirements-locked.txt              # Pinned dependency versions
+requirements.in                      # Human-edited dependency constraints
+requirements.txt                     # Compatibility shim to the exact lock
+requirements-locked.txt              # Reviewed, hash-pinned runtime graph
 
 packaging/                           # All PyInstaller + Inno Setup build files
 ├── dupez.spec                       # Legacy single-binary PyInstaller spec
 ├── dupez_gpu.spec                   # DupeZ-GPU.exe spec (asInvoker, split)
 ├── dupez_compat.spec                # DupeZ-Compat.exe spec (requireAdmin, inproc)
 ├── build_common.py                  # Shared Analysis/PYZ/EXE factory
-├── dupez.manifest                   # Windows app manifest (GPU + legacy)
-├── dupez_compat.manifest            # Windows app manifest (Compat variant)
+├── dupez.manifest                   # Windows app manifest (GPU/asInvoker)
+├── dupez_compat.manifest            # Windows manifest (Compat + legacy/admin)
 ├── version_info.py                  # VS_VERSION_INFO resource for exe metadata
 ├── installer.iss                    # Inno Setup installer script
-├── build.bat                        # 4-stage legacy pipeline (single binary)
+├── build.bat                        # 3-step local legacy portable (non-release)
 └── build_variants.bat               # Modern dual-variant pipeline (RECOMMENDED)
 
 app/
@@ -427,8 +504,8 @@ logs/
 
 DupeZ supports two runtime architectures, selectable at build time:
 
-- **Split (GPU variant)** — Medium-integrity GUI process with an elevated helper subprocess for WinDivert operations. Launches via `asInvoker` manifest; UAC prompt only for the helper. Enables GPU-accelerated map rendering.
-- **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails.
+- **Split (GPU variant)** — Medium-integrity GUI process with an elevated helper subprocess for WinDivert operations. Launches via `asInvoker` manifest; UAC prompt only for the helper. Embedded map rendering additionally requires native-browser security admission; it is currently unavailable with the pinned Qt 6.11.2 wheels.
+- **In-process (Compat variant)** — Single elevated process with `requireAdministrator` manifest. Legacy fallback for systems where split-arch IPC fails. Remote embedded browsing is blocked; use the displayed map URL manually in a normal non-administrator browser.
 
 The active architecture is displayed in the About dialog as the ARCH field.
 
@@ -465,7 +542,15 @@ DupeZ v5.0.0+ implements defense-in-depth security hardening:
 
 ## Hotkeys
 
-The Help → Hotkeys dialog (F1) self-generates from the live menu bar, so it can never drift from the table below.
+Help → Hotkeys (F1) lists live window shortcuts separately from global hook
+registration status. The table below shows window defaults, except the optional
+global tray binding. A window shortcut is not an OS-wide emergency binding.
+
+Settings → Hotkeys adds opt-in global Stop All/Panic Stop and a separate opt-in
+Start. Defaults: Ctrl+Alt+F8 (Start), Ctrl+Alt+F9 (Stop All), Ctrl+Alt+X (Panic).
+Global actions fire on key release. Start requires both emergency hooks and uses
+the normal selected-target checks. F1 shows actual armed keys and failures;
+registration does not guarantee that another app will pass through the keys.
 
 | Key | Action |
 |-----|--------|
@@ -477,6 +562,7 @@ The Help → Hotkeys dialog (F1) self-generates from the live menu bar, so it ca
 | Ctrl+Q | Exit |
 | Ctrl+Shift+D | Toggle tray visibility |
 | Ctrl+Shift+P | Custom Preset Editor |
+| Ctrl+Shift+C | Cut-Chain Configurator |
 | Ctrl+Alt+A | Next account (multi-account quick-switch) |
 | Ctrl+Alt+Shift+A | Previous account |
 | F1 | Help → Hotkeys dialog |
@@ -498,7 +584,17 @@ See [CHANGELOG.md](CHANGELOG.md) for full details and [ROADMAP.md](ROADMAP.md) f
 
 ## License
 
-Proprietary. All rights reserved.
+The owner selected **GPL-3.0-only** for original DupeZ code, with corresponding
+source. See [LICENSE.txt](LICENSE.txt) and the
+[dated selection record](packaging/license-evidence/project-distribution-terms-2026-10-24.txt).
+Third-party components retain their own licenses; this choice does not relicense them.
+
+Release evidence remains incomplete in `packaging/license-policy.json`:
+contribution-rights confirmation, exact dependency obligations, delivered notices
+and a verified corresponding-source/rebuild route are still required. The
+[owner checklist](docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md#owner-action-checklist-2026-10-24)
+separates remaining owner decisions from engineering validation. A license
+selection is not approval to publish unvalidated v5.8.0 binaries.
 
 ---
 

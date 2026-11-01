@@ -12,10 +12,11 @@ from __future__ import annotations
 import os
 import sys
 
-# Force software rendering + no sandbox BEFORE Qt imports. Fixes ~80%
-# of blank-webengine cases on Windows under admin tokens.
+# Force software rendering BEFORE Qt imports while preserving Chromium's
+# sandbox. An elevated smoke test may fail to render; that is safer and more
+# diagnostically honest than turning a remote page into privileged code.
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS",
-                      "--no-sandbox --disable-gpu --disable-gpu-compositing")
+                      "--disable-gpu --disable-gpu-compositing")
 os.environ.setdefault("QT_OPENGL", "software")
 
 from PyQt6.QtCore import QUrl
@@ -36,7 +37,7 @@ class LoggingPage(QWebEnginePage):
 
     def certificateError(self, error):
         print(f"[cert] {error.description()}")
-        return True  # ignore cert errors for the test
+        return False
 
 
 def main() -> int:

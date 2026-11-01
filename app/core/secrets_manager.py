@@ -1,15 +1,15 @@
 """
 Secure Secrets Manager for DupeZ.
 
-Provides envelope-encrypted storage for sensitive values (API keys,
-tokens, credentials) with audit logging, automated expiry enforcement,
-and log scrubbing.
+Provides encrypted storage for sensitive values (API keys, tokens,
+credentials) with audit logging, automated expiry enforcement, and log
+scrubbing.
 
 Threat Model:
-  - At-rest protection: AES-256-GCM envelope encryption.  Each secret
-    is encrypted with a unique DEK (data encryption key) that is itself
-    encrypted by a KEK (key encryption key) derived from a machine-
-    specific seed via PBKDF2-SHA-512.
+  - At-rest protection: AES-256-GCM with a per-record HKDF key.  The
+    random root key is sealed by the operating-system secret store
+    (DPAPI user scope on Windows); it is never derived from public
+    machine metadata.
   - In-memory protection: secrets are decrypted only at point of use
     and never held in plaintext longer than necessary.
   - Log scrubbing: a global filter prevents accidental secret leakage
@@ -20,6 +20,7 @@ Threat Model:
 Storage Format (secrets.enc.json):
   {
     "<name>": {
+      "key_source": "secret-store-v1",
       "ciphertext": "<base64>",   # AES-256-GCM encrypted value
       "nonce": "<base64>",        # 96-bit GCM nonce
       "salt": "<base64>",         # 256-bit PBKDF2 salt for DEK derivation
@@ -42,7 +43,8 @@ from __future__ import annotations
 import base64
 import json
 import os
-import struct
+import hashlib
+import hmac
 import threading
 import time
 from pathlib import Path
@@ -56,6 +58,7 @@ from app.core.crypto import (
     generate_salt,
     derive_key,
 )
+from app.core.secret_store import get_or_create_secret
 from app.logs.logger import log_info, log_error, log_warning
 
 __all__ = [
@@ -77,6 +80,11 @@ MAX_SECRET_LENGTH: int = 8192
 
 # Secrets file name
 SECRETS_FILENAME: str = "secrets.enc.json"
+_MASTER_KEY_KIND: str = "secretsmanager.master"
+_KEY_SOURCE: str = "secret-store-v1"
+_MAX_STORE_BYTES: int = 2 * 1024 * 1024
+_MAX_SECRET_COUNT: int = 256
+_MAX_CIPHERTEXT_BYTES: int = MAX_SECRET_LENGTH * 4
 
 # Patterns that indicate a value is sensitive and must be scrubbed
 SENSITIVE_FIELD_PATTERNS: tuple = (
@@ -88,26 +96,20 @@ SENSITIVE_FIELD_PATTERNS: tuple = (
 )
 
 
-# ── AES-256-GCM encryption (using cryptography lib or fallback) ─────
+# ── AES-256-GCM encryption (required dependency; fail closed) ───────
 
 def _aes_gcm_encrypt(key: bytes, plaintext: bytes, nonce: bytes) -> tuple[bytes, bytes]:
     """Encrypt with AES-256-GCM.  Returns (ciphertext, tag).
 
-    Uses the 'cryptography' library if available, otherwise falls back
-    to a pure-ctypes Windows CNG implementation.
+    ``cryptography`` is a locked runtime dependency.  If it is missing,
+    storage fails closed rather than silently substituting weaker crypto.
     """
-    try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        aesgcm = AESGCM(key)
-        # AESGCM.encrypt returns ciphertext + tag concatenated
-        ct_and_tag = aesgcm.encrypt(nonce, plaintext, None)
-        # Tag is last 16 bytes
-        return ct_and_tag[:-16], ct_and_tag[-16:]
-    except ImportError:
-        # Fallback: XOR-based obfuscation with HMAC integrity
-        # (not true AES-GCM, but provides at-rest obfuscation when
-        # cryptography library is unavailable)
-        return _fallback_encrypt(key, plaintext, nonce)
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    aesgcm = AESGCM(key)
+    # AESGCM.encrypt returns ciphertext + tag concatenated
+    ct_and_tag = aesgcm.encrypt(nonce, plaintext, None)
+    # Tag is last 16 bytes
+    return ct_and_tag[:-16], ct_and_tag[-16:]
 
 
 def _aes_gcm_decrypt(key: bytes, ciphertext: bytes, nonce: bytes,
@@ -116,73 +118,20 @@ def _aes_gcm_decrypt(key: bytes, ciphertext: bytes, nonce: bytes,
 
     Raises ValueError on authentication failure.
     """
-    try:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        aesgcm = AESGCM(key)
-        ct_and_tag = ciphertext + tag
-        return aesgcm.decrypt(nonce, ct_and_tag, None)
-    except ImportError:
-        return _fallback_decrypt(key, ciphertext, nonce, tag)
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    aesgcm = AESGCM(key)
+    ct_and_tag = ciphertext + tag
+    return aesgcm.decrypt(nonce, ct_and_tag, None)
 
 
-def _fallback_encrypt(key: bytes, plaintext: bytes,
-                      nonce: bytes) -> tuple[bytes, bytes]:
-    """HMAC-authenticated XOR obfuscation fallback.
-
-    NOT cryptographically equivalent to AES-GCM, but provides
-    meaningful at-rest protection when the cryptography library
-    is unavailable.  The HMAC tag ensures integrity.
-    """
-    import hashlib
-    import hmac
-
-    # Derive a stream key from key + nonce via SHA-512
-    stream_seed = hashlib.sha512(key + nonce).digest()
-    # Extend stream to cover plaintext length
-    stream = bytearray()
-    counter = 0
-    while len(stream) < len(plaintext):
-        block = hashlib.sha512(stream_seed + struct.pack(">I", counter)).digest()
-        stream.extend(block)
-        counter += 1
-    stream = bytes(stream[:len(plaintext)])
-
-    ciphertext = bytes(a ^ b for a, b in zip(plaintext, stream))
-    tag = hmac.new(key, nonce + ciphertext, hashlib.sha384).digest()[:16]
-    return ciphertext, tag
-
-
-def _fallback_decrypt(key: bytes, ciphertext: bytes, nonce: bytes,
-                      tag: bytes) -> bytes:
-    """Decrypt the fallback XOR obfuscation."""
-    import hashlib
-    import hmac
-
-    # Verify integrity first
-    expected_tag = hmac.new(key, nonce + ciphertext, hashlib.sha384).digest()[:16]
-    if not hmac.compare_digest(tag, expected_tag):
-        raise ValueError("Secret integrity check failed — possible tampering")
-
-    stream_seed = hashlib.sha512(key + nonce).digest()
-    stream = bytearray()
-    counter = 0
-    while len(stream) < len(ciphertext):
-        block = hashlib.sha512(stream_seed + struct.pack(">I", counter)).digest()
-        stream.extend(block)
-        counter += 1
-    stream = bytes(stream[:len(ciphertext)])
-
-    return bytes(a ^ b for a, b in zip(ciphertext, stream))
-
-
-# ── Machine-specific KEK derivation ─────────────────────────────────
+# ── Legacy machine-specific KEK derivation (read/migrate only) ──────
 
 def _get_machine_seed() -> str:
-    """Derive a machine-specific seed for KEK derivation.
+    """Derive the legacy machine seed for backward-compatible migration.
 
     Combines hostname, username, and a stable machine identifier.
-    This ensures secrets encrypted on one machine cannot be decrypted
-    on another (defense-in-depth against file exfiltration).
+    New records never use this predictable value.  It remains solely so an
+    existing installation can decrypt and immediately migrate an old record.
     """
     import platform
     parts = [
@@ -296,33 +245,75 @@ class SecretsManager:
         """Load encrypted secrets metadata from disk."""
         try:
             if self._secrets_path.exists():
+                if not self._secrets_path.is_file():
+                    raise ValueError("secrets store is not a regular file")
+                if self._secrets_path.stat().st_size > _MAX_STORE_BYTES:
+                    raise ValueError("secrets store exceeds the size limit")
                 with open(self._secrets_path, "r", encoding="utf-8") as f:
-                    self._cache = json.load(f)
+                    loaded = json.load(f)
+                if not isinstance(loaded, dict):
+                    raise ValueError("secrets store root must be an object")
+                if len(loaded) > _MAX_SECRET_COUNT:
+                    raise ValueError("secrets store contains too many records")
+                if any(
+                    not isinstance(name, str)
+                    or not name
+                    or len(name) > 128
+                    or not isinstance(entry, dict)
+                    for name, entry in loaded.items()
+                ):
+                    raise ValueError("secrets store contains an invalid record")
+                self._cache = loaded
                 log_info(f"SecretsManager: loaded {len(self._cache)} secret(s)")
         except Exception as e:
-            log_error(f"SecretsManager: failed to load secrets store: {e}")
+            log_error(
+                "SecretsManager: failed to load secrets store "
+                f"({type(e).__name__})"
+            )
             self._cache = {}
 
     def _save(self) -> None:
-        """Persist encrypted secrets to disk (atomic write)."""
+        """Persist encrypted secrets to disk atomically or raise."""
+        tmp_path = self._secrets_path.with_suffix(".tmp")
         try:
-            tmp_path = self._secrets_path.with_suffix(".tmp")
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(self._cache, f, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(str(tmp_path), str(self._secrets_path))
-        except Exception as e:
-            log_error(f"SecretsManager: failed to save secrets store: {e}")
+        except Exception:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
 
     def _derive_kek(self, salt: bytes) -> bytes:
-        """Derive a KEK from machine seed + salt.  Cached per salt."""
-        salt_hex = salt.hex()
-        if salt_hex in self._kek_cache:
-            return self._kek_cache[salt_hex]
-        seed = _get_machine_seed()
-        key, _ = derive_key(seed, salt=salt)
-        self._kek_cache[salt_hex] = key
+        """Derive a per-record key from an OS-sealed random root key."""
+        cache_key = f"{_KEY_SOURCE}:{salt.hex()}"
+        if cache_key in self._kek_cache:
+            return self._kek_cache[cache_key]
+        master = get_or_create_secret(_MASTER_KEY_KIND, size=KEY_BYTES)
+        if len(master) != KEY_BYTES:
+            raise ValueError("invalid secrets-manager master key length")
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+        key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=KEY_BYTES,
+            salt=salt,
+            info=b"DupeZ SecretsManager secret-store-v1",
+        ).derive(master)
+        self._kek_cache[cache_key] = key
+        return key
+
+    def _derive_legacy_kek(self, salt: bytes) -> bytes:
+        """Derive the old metadata-based key for one-time migration."""
+        cache_key = f"legacy:{salt.hex()}"
+        if cache_key in self._kek_cache:
+            return self._kek_cache[cache_key]
+        key, _ = derive_key(_get_machine_seed(), salt=salt)
+        self._kek_cache[cache_key] = key
         return key
 
     def store(self, name: str, value: str,
@@ -337,11 +328,24 @@ class SecretsManager:
         Returns:
             True on success.
         """
-        if not name or not value:
+        if (
+            not isinstance(name, str)
+            or not name
+            or len(name) > 128
+            or not isinstance(value, str)
+            or not value
+        ):
             log_error("SecretsManager: name and value are required")
             return False
         if len(value) > MAX_SECRET_LENGTH:
             log_error(f"SecretsManager: secret '{name}' exceeds max length")
+            return False
+        if (
+            isinstance(ttl_seconds, bool)
+            or not isinstance(ttl_seconds, int)
+            or ttl_seconds < 0
+        ):
+            log_error("SecretsManager: ttl_seconds must be a non-negative integer")
             return False
 
         try:
@@ -354,6 +358,7 @@ class SecretsManager:
 
             now = int(time.time())
             entry = {
+                "key_source": _KEY_SOURCE,
                 "ciphertext": base64.b64encode(ciphertext).decode("ascii"),
                 "nonce": base64.b64encode(nonce).decode("ascii"),
                 "salt": base64.b64encode(salt).decode("ascii"),
@@ -364,8 +369,17 @@ class SecretsManager:
             }
 
             with self._lock:
+                marker = object()
+                previous = self._cache.get(name, marker)
                 self._cache[name] = entry
-                self._save()
+                try:
+                    self._save()
+                except Exception:
+                    if previous is marker:
+                        self._cache.pop(name, None)
+                    else:
+                        self._cache[name] = previous
+                    raise
 
             # Register with scrubber so value never appears in logs
             _scrubber.register(value)
@@ -386,7 +400,10 @@ class SecretsManager:
             return True
 
         except Exception as e:
-            log_error(f"SecretsManager: failed to store '{name}': {e}")
+            log_error(
+                f"SecretsManager: failed to store '{name}' "
+                f"({type(e).__name__})"
+            )
             return False
 
     def retrieve(self, name: str, allow_expired: bool = False) -> Optional[str]:
@@ -415,17 +432,47 @@ class SecretsManager:
                         "(allow_expired=True)")
 
         try:
-            ciphertext = base64.b64decode(entry["ciphertext"])
-            nonce = base64.b64decode(entry["nonce"])
-            salt = base64.b64decode(entry["salt"])
-            tag = base64.b64decode(entry["tag"])
+            ciphertext = base64.b64decode(entry["ciphertext"], validate=True)
+            nonce = base64.b64decode(entry["nonce"], validate=True)
+            salt = base64.b64decode(entry["salt"], validate=True)
+            tag = base64.b64decode(entry["tag"], validate=True)
+            if (
+                len(ciphertext) > _MAX_CIPHERTEXT_BYTES
+                or len(nonce) != NONCE_BYTES
+                or len(salt) != KEY_BYTES
+                or len(tag) != 16
+            ):
+                raise ValueError("invalid encrypted-secret record dimensions")
 
-            kek = self._derive_kek(salt)
+            legacy = entry.get("key_source") is None
+            if entry.get("key_source") not in (None, _KEY_SOURCE):
+                raise ValueError("unsupported encrypted-secret key source")
+            kek = (
+                self._derive_legacy_kek(salt)
+                if legacy
+                else self._derive_kek(salt)
+            )
             plaintext = _aes_gcm_decrypt(kek, ciphertext, nonce, tag)
             value = plaintext.decode("utf-8")
+            if len(value) > MAX_SECRET_LENGTH:
+                raise ValueError("decrypted secret exceeds the length limit")
 
             # Re-register with scrubber (in case of restart)
             _scrubber.register(value)
+
+            # Existing releases used a key derived from public machine
+            # metadata.  Re-seal a successfully decrypted, unexpired record
+            # under the OS-protected random root key immediately.
+            if legacy and not (expires_at and time.time() >= expires_at):
+                remaining_ttl = (
+                    max(1, int(expires_at - time.time()))
+                    if expires_at
+                    else 0
+                )
+                if not self.store(name, value, remaining_ttl):
+                    log_warning(
+                        f"SecretsManager: legacy migration failed for '{name}'"
+                    )
 
             return value
 
@@ -441,26 +488,39 @@ class SecretsManager:
         with self._lock:
             if name not in self._cache:
                 return False
-            del self._cache[name]
-            self._save()
+            previous = self._cache.pop(name)
+            try:
+                self._save()
+            except Exception as exc:
+                self._cache[name] = previous
+                log_error(
+                    f"SecretsManager: failed to delete '{name}' "
+                    f"({type(exc).__name__})"
+                )
+                return False
         log_info(f"SecretsManager: deleted secret '{name}'")
         return True
 
     def rotate(self, name: str, new_value: str,
                ttl_seconds: int = DEFAULT_SECRET_TTL_S) -> bool:
         """Rotate a secret — store new value and mark old as rotated."""
-        # Retrieve old to unregister from scrubber
+        # Retrieve old to unregister from scrubber after durable replacement.
         old_value = self.retrieve(name, allow_expired=True)
-        if old_value:
-            _scrubber.unregister(old_value)
-
-        with self._lock:
-            old_entry = self._cache.get(name)
-            if old_entry:
-                old_entry["rotated"] = True
-
         success = self.store(name, new_value, ttl_seconds)
         if success:
+            if old_value:
+                _scrubber.unregister(old_value)
+            _scrubber.register(new_value)
+            with self._lock:
+                if name in self._cache:
+                    self._cache[name]["rotated"] = True
+                    try:
+                        self._save()
+                    except Exception as exc:
+                        log_warning(
+                            "SecretsManager: rotation marker was not persisted "
+                            f"({type(exc).__name__})"
+                        )
             log_info(f"SecretsManager: rotated secret '{name}'")
         return success
 

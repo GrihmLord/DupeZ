@@ -17,10 +17,10 @@ positive direction.
 | M2   | Mid-tier integrated      | i5-1240P        | Intel Iris Xe (driver ≥30) | 16 GB | Win 11 22H2              |
 | M3   | Old / blocklisted GPU    | i5-6500         | Intel HD 530 (blocklisted) |  8 GB | Win 10 22H2              |
 
-M1 represents the upper tier (tier1_hw). M2 represents the typical
-player (tier2_swiftshader or tier1_hw depending on driver date). M3 is
-the no-GPU baseline (tier3_cpu) and MUST behave exactly like today's
-shipping build.
+M1 and M2 are hardware-rendering candidates: `tier1_hw` is permitted only
+when the native DXGI probe succeeds. M3 is the no-GPU baseline
+(`tier3_cpu` with `--disable-gpu`) and MUST remain functional with the same
+packet-path behaviour as the shipping build.
 
 ## Feature flag matrix (per machine)
 
@@ -71,16 +71,35 @@ for 60 seconds, and record:
 
 Expected results:
 
-| Machine | inproc baseline        | split + auto tier       | Verdict       |
-|---------|------------------------|-------------------------|---------------|
-| M1      | CPU raster, stuttery   | tier1_hw, smooth 60 FPS | win           |
-| M2      | CPU raster, stuttery   | tier2_swiftshader or    | win           |
-|         |                        | tier1_hw, smooth        |               |
-| M3      | CPU raster, stuttery   | tier3_cpu, identical    | neutral (OK)  |
+| Machine | inproc baseline      | split + auto result                         | Verdict       |
+|---------|----------------------|---------------------------------------------|---------------|
+| M1      | CPU raster, stuttery | `tier1_hw` after a successful DXGI probe    | win           |
+| M2      | CPU raster, stuttery | `tier1_hw` if probed; `tier3_cpu` otherwise | win or neutral |
+| M3      | CPU raster, stuttery | `tier3_cpu` with `--disable-gpu`            | neutral (OK)  |
 
 Config 3 (`DUPEZ_MAP_RENDERER=software`) on every machine must match the
-inproc baseline. This is the safety valve for users who hit GPU driver
-bugs — they can env-var their way back to the shipped behavior.
+inproc baseline. It is the supported `--disable-gpu` safety valve for users
+who hit GPU driver bugs.
+
+## v5.8.0 frozen renderer regression gate
+
+The v5.8.0 startup failure had a two-step cause: the original DXGI adapter
+buffer used signed `ctypes.c_byte` elements, so conversion to `bytes` could
+raise when a descriptor contained a high-bit byte; on current Windows hosts
+where WMIC is absent, no legacy fallback could recover the probe. That false
+negative selected the obsolete `--use-gl=swiftshader` path, which current
+QtWebEngine rejects with a fatal `0xC0000409` exit.
+
+The release gate therefore requires all of the following:
+
+- Unit coverage parses a DXGI adapter record containing high-bit bytes through
+  the typed, unsigned structure and returns the expected adapter metadata.
+- On a Windows host without WMIC, a usable adapter resolves Auto to
+  `tier1_hw` with ANGLE/D3D11. A failed or inconclusive probe resolves to
+  `tier3_cpu` with `--disable-gpu`.
+- Neither resolved command line contains the retired software-GL flag.
+- The exact frozen GPU artifact constructs and prewarms QtWebEngine under both
+  hardware and CPU-fallback policies without `0xC0000409`.
 
 ## Elevation path — install / uninstall
 

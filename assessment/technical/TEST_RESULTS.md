@@ -1,12 +1,28 @@
 # TEST_RESULTS
 
-## Executed in this assessment
+## Current-tree evidence (2026-08-28)
+- Source identity: uncommitted working tree based on `main@77fb1d8`; this is
+  not evidence for an exact committed SHA.
+- Full tests / CI-equivalent source gate, CPython 3.13.14 x64:
+  - Command: `.test-venv-313\Scripts\python.exe -X faulthandler -m pytest tests -q --maxfail=5 --cov=app --cov-report=term --cov-fail-under=40`
+  - Result: 2110 passed, 10 expected skips; 53.02% application coverage
+    against the 40% CI floor; 133.77s.
+  - Skip breakdown: 3 opt-in Clumsy hardware tests; 3 redactor tests requiring
+    symlink privilege; 3 opt-in hardware-smoketest tests; 1 installer symlink
+    test.
+- Source release preflight for v5.8.0 and the consolidated source-policy gates:
+  passed (E-008).
+
+## Historical executions (superseded)
+The following results predate the final current-tree gate. They remain
+historical diagnostic evidence and are not the current aggregate result.
+
 - pytest -q tests/test_clumsy_network_disruptor.py tests/test_direct_clumsy_manager.py tests/test_clumsy_engine_policy.py tests/test_disruption_presets.py
   - Result: 121 passed
 - pytest -q tests/test_active_content_safety.py tests/test_gui_startup_smoke.py
   - Result: 2 passed
-- pytest -q
-  - Result (2026-08-09 v5.8.0 candidate): 1338 passed, 8 expected opt-in/platform skips
+- .venv\\Scripts\\python.exe -X faulthandler -m pytest tests -q --maxfail=5 --cov=app --cov-report=term --cov-fail-under=40
+  - Result (2026-08-14 v5.8.0 source candidate): 1538 passed, 7 expected opt-in/host-capability skips; 46.39% coverage
 - python scripts/release_preflight.py --version 5.8.0
   - Result: Release preflight passed
 - pytest -q tests/test_engine_supervisor.py tests/test_disruption_generation_guard.py tests/test_clumsy_network_disruptor.py tests/test_direct_clumsy_manager.py tests/test_clumsy_engine_policy.py tests/test_capability_routing.py tests/test_godmode_extension.py tests/test_llm_advisor_safety.py
@@ -27,4 +43,10 @@
   - Result: passed; no canonical batch failure path can wait at `pause`
 
 ## Notes
-- Skipped tests are expected opt-in hardware/platform constrained checks and are not exact-artifact evidence.
+- The 10 skipped tests are the expected opt-in/host-capability checks itemized
+  above and are not exact-artifact evidence.
+- The final full tests and CI-equivalent source gate ran on CPython 3.13.14
+  x64. The repository CI matrix remains Python 3.12/3.13.
+- Local `.venv` and the currently materialized `.release-venv` are Python
+  3.11.9. The latter is stale/noncanonical and is not packaging evidence;
+  canonical builds must recreate `.release-venv` with CPython 3.13.14 x64.

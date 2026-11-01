@@ -1,0 +1,22 @@
+diff --git a/app/__version__.py b/app/__version__.py
+--- a/app/__version__.py
++++ b/app/__version__.py
+@@ -23,1 +23,4 @@
+ __version__ = "5.8.0"
++
++# Local recipient demonstration only; does not change official versioning.
++RECIPIENT_REBUILD_MARKER = "dupez-recipient-validation-20261024"
+diff --git a/dupez.py b/dupez.py
+--- a/dupez.py
++++ b/dupez.py
+@@ -60,4 +60,10 @@
+         "check": check,
+         "ok": ok,
+     }
++    if check == "runtime-imports" and ok:
++        from app.__version__ import RECIPIENT_REBUILD_MARKER
++        from zeroconf import recipient_rebuild_marker
++
++        report["application_marker"] = RECIPIENT_REBUILD_MARKER
++        report["library_marker"] = recipient_rebuild_marker()
+     if check == "native-tls" and native_tls is not None:

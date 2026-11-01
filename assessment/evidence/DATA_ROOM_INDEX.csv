@@ -1,2 +1,3 @@
 evidence_id,artifact_path,owner,received_date,scope_match,freshness,status,notes
-E-001,workspace://DupeZ,local-session,2026-08-06,YES,CURRENT,RECEIVED,Primary repository evidence
+E-001,workspace://DupeZ,local-session,2026-08-06,YES,STALE,SUPERSEDED,"Prior workspace snapshot; superseded by E-004"
+E-004,workspace://DupeZ,local-session,2026-08-21,YES,CURRENT,RECEIVED,"Current uncommitted working tree based on main@77fb1d8"

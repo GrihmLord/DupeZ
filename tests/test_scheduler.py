@@ -1,6 +1,25 @@
 """Tests for app.core.scheduler — rules, macros, and serialization."""
 
-from app.core.scheduler import ScheduledRule, MacroStep, DisruptionMacro
+import threading
+
+from app.core.scheduler import (
+    DisruptionMacro,
+    DisruptionScheduler,
+    MacroStep,
+    ScheduledRule,
+)
+
+
+TARGET = "198.51.100.5"
+
+
+def _one_step_macro(name: str, macro_id: str) -> DisruptionMacro:
+    return DisruptionMacro(
+        macro_id=macro_id,
+        name=name,
+        target_ip=TARGET,
+        steps=[MacroStep(methods=["lag"], duration_seconds=1)],
+    )
 
 
 class TestScheduledRule:
@@ -124,3 +143,174 @@ class TestDisruptionMacro:
         )
         assert macro.repeat_count == 1
         assert len(macro.steps) == 100
+
+
+class TestSchedulerExecutionContracts:
+    """Callback results remain authoritative for scheduler ownership."""
+
+    def test_failed_rule_start_never_claims_active_ownership(self, tmp_path):
+        starts = []
+
+        def reject_start(ip, _methods, _params):
+            starts.append(ip)
+            return False
+
+        scheduler = DisruptionScheduler(
+            reject_start,
+            lambda _ip: True,
+            str(tmp_path),
+        )
+        rule = ScheduledRule(
+            rule_id="rule-fails",
+            name="Fails",
+            target_ip=TARGET,
+            methods=["lag"],
+            start_time="100",
+        )
+        scheduler.add_rule(rule)
+
+        scheduler._scheduler_tick(100.0, "00:00")
+
+        assert starts == [TARGET]
+        assert scheduler._active_rules == {}
+        assert rule.last_run == 0.0
+
+    def test_failed_rule_stop_retains_ownership_for_retry(self, tmp_path):
+        stop_results = iter((False, True))
+        scheduler = DisruptionScheduler(
+            lambda _ip, _methods, _params: True,
+            lambda _ip: next(stop_results),
+            str(tmp_path),
+        )
+        rule = ScheduledRule(
+            rule_id="rule-active",
+            name="Active",
+            target_ip=TARGET,
+        )
+        scheduler.add_rule(rule)
+        scheduler._active_rules[rule.rule_id] = 10.0
+
+        scheduler._scheduler_tick(11.0, "00:00")
+        assert scheduler._active_rules == {rule.rule_id: 10.0}
+
+        scheduler._scheduler_tick(12.0, "00:00")
+        assert scheduler._active_rules == {}
+
+    def test_shutdown_reports_and_retains_failed_rule_release(self, tmp_path):
+        scheduler = DisruptionScheduler(
+            lambda _ip, _methods, _params: True,
+            lambda _ip: False,
+            str(tmp_path),
+        )
+        rule = ScheduledRule(
+            rule_id="rule-active",
+            name="Active",
+            target_ip=TARGET,
+        )
+        scheduler.add_rule(rule)
+        scheduler._active_rules[rule.rule_id] = 10.0
+
+        assert scheduler.stop() is False
+        assert rule.rule_id in scheduler._active_rules
+
+    def test_macro_failed_start_emits_failed_not_done(self, tmp_path):
+        events = []
+        finished = threading.Event()
+
+        def record(event, _ip, info):
+            events.append((event, info))
+            if event in {"done", "cancelled", "failed"}:
+                finished.set()
+
+        scheduler = DisruptionScheduler(
+            lambda _ip, _methods, _params: False,
+            lambda _ip: True,
+            str(tmp_path),
+            record,
+        )
+        macro = _one_step_macro("Start fails", "macro-start-fails")
+        scheduler.add_macro(macro)
+
+        assert scheduler.run_macro(macro.macro_id) is True
+        assert finished.wait(2)
+
+        assert [event for event, _ in events] == ["failed"]
+        assert events[0][1]["reason"] == "start_failed"
+        assert scheduler.is_macro_running() is False
+
+    def test_macro_cancellation_is_private_and_replacement_is_rejected(
+        self,
+        tmp_path,
+    ):
+        start_entered = threading.Event()
+        allow_start_to_return = threading.Event()
+        events = []
+        starts = []
+
+        def disrupt(ip, _methods, _params):
+            starts.append(ip)
+            start_entered.set()
+            assert allow_start_to_return.wait(2)
+            return True
+
+        scheduler = DisruptionScheduler(
+            disrupt,
+            lambda _ip: True,
+            str(tmp_path),
+            lambda event, _ip, _info: events.append(event),
+        )
+        first = _one_step_macro("First", "macro-first")
+        second = _one_step_macro("Second", "macro-second")
+        scheduler.add_macro(first)
+        scheduler.add_macro(second)
+
+        assert scheduler.run_macro(first.macro_id) is True
+        assert start_entered.wait(2)
+        assert scheduler.stop_macro(timeout=0.01) is False
+        assert scheduler.run_macro(second.macro_id) is False
+
+        worker = scheduler._macro_thread
+        assert worker is not None
+        allow_start_to_return.set()
+        worker.join(timeout=2)
+
+        assert not worker.is_alive()
+        assert starts == [TARGET]
+        assert events == ["start", "stop", "cancelled"]
+        assert scheduler.is_macro_running() is False
+
+    def test_failed_macro_stop_retains_owner_and_blocks_replacement(
+        self,
+        tmp_path,
+    ):
+        started = threading.Event()
+        stop_results = iter((False, True))
+        events = []
+
+        def record(event, _ip, info):
+            events.append((event, info))
+            if event == "start":
+                started.set()
+
+        scheduler = DisruptionScheduler(
+            lambda _ip, _methods, _params: True,
+            lambda _ip: next(stop_results),
+            str(tmp_path),
+            record,
+        )
+        first = _one_step_macro("First", "macro-first")
+        second = _one_step_macro("Second", "macro-second")
+        scheduler.add_macro(first)
+        scheduler.add_macro(second)
+
+        assert scheduler.run_macro(first.macro_id) is True
+        assert started.wait(2)
+        assert scheduler.stop_macro() is False
+        assert scheduler.is_macro_running() is True
+        assert scheduler.run_macro(second.macro_id) is False
+        assert [event for event, _ in events] == ["start", "failed"]
+        assert events[-1][1]["reason"] == "stop_failed"
+
+        assert scheduler.stop_macro() is True
+        assert scheduler.is_macro_running() is False
+        assert [event for event, _ in events] == ["start", "failed", "stop"]

@@ -14,9 +14,13 @@
 # QtWebEngineCore.dll fails to load at import time. Pin them together.
 PyQt6>=6.6.0,<6.12
 PyQt6-WebEngine>=6.6.0,<6.12
+# Latest available native patch wheels; remote embedding remains gated on
+# Qt 6.11.3 fixes which are not yet published as Riverbank wheels.
+PyQt6-Qt6>=6.11.2,<6.12
+PyQt6-WebEngine-Qt6>=6.11.2,<6.12
 PyQtGraph>=0.13.0
-# v5.8.0 security floor; keep this release on the 12.3 line.
-Pillow>=12.3.0,<12.4
+# 13.0.0 fixes the October 2026 decoder/encoder and resource-exhaustion advisories.
+Pillow>=13.0.0,<13.1
 
 # ── System & Process ────────────────────────────────────────────────
 psutil>=5.9.0
@@ -28,11 +32,16 @@ keyboard>=0.13.5
 pywin32>=306; sys_platform == 'win32'
 
 # ── Network ──────────────────────────────────────────────────────────
-scapy>=2.6.0
+# Packet capture/disruption uses the pinned WinDivert native boundary.  Do not
+# add Scapy here: the GPL-2.0-only library is incompatible with the GPL-3.0-only
+# PyQt release bindings when both are frozen into one executable.
 requests>=2.34.2
+# Remove the compromised emSign trust chain; retain a reviewed October bundle.
+certifi>=2026.10.19,<2026.11
 # Security floors for Requests' direct runtime dependencies. Narrow upper
 # bounds minimize release drift while clearing the v5.8.0 advisories.
-urllib3>=2.7.0,<2.8
+# 2.8.0 fixes the September 2026 proxy-TLS and chunked-streaming advisories.
+urllib3>=2.8.0,<2.9
 idna>=3.18,<3.19
 
 # mDNS hostname resolution — 4th-stage fallback in the hostname chain.
@@ -46,8 +55,8 @@ numpy>=2.4.6
 # ── Cryptography ────────────────────────────────────────────────────
 # AES-256-GCM envelope encryption for secrets, Ed25519 for update
 # manifest verification (see app/core/updater.py signed-manifest path).
-# 48.0.1 is the first patched release; avoid the unrelated 49.x jump.
-cryptography>=50.0.0,<50.1
+# 50.0.2 wheels refresh the bundled native OpenSSL to 4.0.3.
+cryptography>=50.0.2,<50.1
 
 # ── Config ───────────────────────────────────────────────────────────
 PyYAML>=6.0.1

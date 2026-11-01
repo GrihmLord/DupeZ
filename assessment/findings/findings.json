@@ -1,8 +1,8 @@
 {
   "summary": {
     "critical": 0,
-    "high": 1,
-    "medium": 2,
+    "high": 2,
+    "medium": 1,
     "low": 1,
     "informational": 0
   },
@@ -10,13 +10,13 @@
     {
       "id": "F-001",
       "severity": "HIGH",
-      "title": "Dist release preflight failure for signed artifact readiness",
+      "title": "Exact-current-tree distribution artifact and validation evidence unavailable",
       "status": "OPEN"
     },
     {
       "id": "F-002",
-      "severity": "MEDIUM",
-      "title": "Protected release scripts blocked by execution policy context",
+      "severity": "HIGH",
+      "title": "Missing server-side release governance controls",
       "status": "OPEN"
     },
     {

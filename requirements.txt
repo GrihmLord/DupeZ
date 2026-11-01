@@ -1,53 +1,7 @@
-# DupeZ Runtime Dependencies
-
-# GUI
-# NOTE: PyQt6 and PyQt6-WebEngine MUST be the same minor version or
-# QtWebEngineCore.dll fails to load at import time. Pin them together.
-PyQt6>=6.6.0,<6.12
-PyQt6-WebEngine>=6.6.0,<6.12
-PyQtGraph>=0.13.0
-Pillow>=9.5.0
-
-# System & Process
-psutil>=5.9.0
-keyboard>=0.13.5
-
-# Windows COM — used to spawn the unelevated map host via
-# Explorer's Shell.Application so Chromium GPU init can succeed
-# under a medium-integrity token (parent DupeZ runs elevated for
-# WinDivert). Windows-only; the launcher gracefully falls back to
-# subprocess.Popen if pywin32 is missing (no GPU, but still works).
-pywin32>=306; sys_platform == 'win32'
-
-# Network
-scapy>=2.6.0
-requests>=2.28.0
-
-# mDNS hostname resolution — the enhanced scanner uses zeroconf as
-# the 4th-stage fallback in its hostname chain (gethostbyaddr →
-# getfqdn → NetBIOS → mDNS → synthesized). If missing, the chain
-# short-circuits to the synthesized fallback, so this is technically
-# optional — bundling it means the Hostname column populates with
-# real advertised names on Apple/Bonjour/Windows-discovery devices.
-zeroconf>=0.130.0
-
-# Data / Export
-openpyxl>=3.1.0
-numpy>=1.24.0
-pandas>=2.0.0
-
-# Cryptography (AES-256-GCM envelope encryption for secrets)
-cryptography>=43.0.0
-
-# Config
-PyYAML>=6.0.1
-
-# Voice Control (optional — DupeZ runs fine without these)
-sounddevice>=0.4.6
-openai-whisper>=20231117
-
-# GPC / Cronus Device Bridge (optional)
-pyserial>=3.5
-
-# Build (only needed to compile dupez.exe)
-# pyinstaller>=6.1.0
+# Compatibility entry point for existing install commands.
+#
+# requirements.in is the human-edited source of truth and
+# requirements-locked.txt is the reviewed, hash-pinned runtime graph.  Keep
+# this file as a single include so local installs cannot silently resolve a
+# looser dependency set than release builds and CI.
+-r requirements-locked.txt

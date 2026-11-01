@@ -33,11 +33,9 @@ command-injection and PATH-hijack bug classes:
 
 Explicit overrides (use sparingly)
 ----------------------------------
-Some narrowly-scoped call sites need to bypass rule (3) — for
-example, tests that spawn a system Python via ``sys.executable`` are
-fine. Pass ``trusted_executable=True`` to opt out of the absolute-
-path check when the caller has *already* verified the path is what
-they expect.
+Some narrowly-scoped call sites may pass ``trusted_executable=True`` to
+skip a redundant file-existence check after validating a held executable.
+The absolute-path requirement is never bypassable.
 
 This module never returns a raw ``subprocess.Popen`` instance to
 callers; that would let a caller bypass the exit-auditing. The return
@@ -46,11 +44,15 @@ types are plain dataclasses or small audited wrappers.
 
 from __future__ import annotations
 
+import ctypes
+import ntpath
 import os
 import shlex
+import stat
 import subprocess
 import sys
 import time
+from ctypes import wintypes
 from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Set
 
@@ -108,6 +110,17 @@ class ManagedProcess:
             self._audit_exit(rc, killed=False)
         return rc
 
+    def wait(self, timeout_s: float) -> bool:
+        """Wait at most ``timeout_s`` for exit and audit a completed child."""
+        if timeout_s < 0:
+            raise ValueError("timeout_s must be non-negative")
+        try:
+            rc = self._proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            return False
+        self._audit_exit(rc, killed=False)
+        return True
+
     def kill(self) -> None:
         try:
             self._proc.kill()
@@ -150,14 +163,17 @@ def _validate_argv(argv: Sequence[str], *, trusted_executable: bool) -> List[str
             )
         out.append(a)
 
+    exe = out[0]
+    # ``trusted_executable`` may skip a redundant existence check for a
+    # caller-held or otherwise prevalidated file, but it must never re-enable
+    # PATH/CWD resolution.  A relative executable at a privilege boundary is
+    # unsafe regardless of who supplied it.
+    if not os.path.isabs(exe):
+        raise SafeSubprocessError(
+            f"executable must be an absolute path, got {exe!r}. "
+            "Resolve and validate it before spawning."
+        )
     if not trusted_executable:
-        exe = out[0]
-        if not os.path.isabs(exe):
-            raise SafeSubprocessError(
-                f"executable must be an absolute path, got {exe!r}. "
-                "Use shutil.which() once at startup and cache the result, "
-                "or pass trusted_executable=True if you've already verified."
-            )
         if not os.path.isfile(exe):
             raise SafeSubprocessError(f"executable does not exist: {exe}")
     return out
@@ -241,8 +257,7 @@ def run(
     """Run *argv* to completion with strict invariants.
 
     Args:
-        argv: list/tuple of strings; argv[0] must be an absolute path
-            unless ``trusted_executable`` is True.
+        argv: list/tuple of strings; argv[0] must be an absolute path.
         timeout: wall-clock seconds before SIGKILL (max 600).
         cwd: optional working directory.
         env: optional environment dict. If ``None`` we inherit from
@@ -252,8 +267,8 @@ def run(
         text: if True, decodes output as UTF-8.
         expect_returncode: iterable of allowed exit codes. Set to
             ``None`` to accept any code without raising.
-        trusted_executable: skip the absolute-path / file-exists check
-            when the caller has already verified.
+        trusted_executable: skip only the file-exists check when the
+            caller has already verified the absolute executable.
         intent: short free-form label included in the audit event so
             post-hoc analysis can map spawns back to the feature that
             triggered them (e.g. ``"netsh_firewall_rule_add"``).
@@ -441,22 +456,73 @@ def spawn_managed(
         ) from e
 
 
-def resolve_system_binary(name: str) -> str:
+def _windows_system_directory(*, kernel32=None) -> str:
+    """Resolve System32 from the OS, never from an inherited environment."""
+    if kernel32 is None:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    getter = kernel32.GetSystemDirectoryW
+    try:
+        getter.argtypes = [wintypes.LPWSTR, wintypes.UINT]
+        getter.restype = wintypes.UINT
+    except (AttributeError, TypeError):
+        pass
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = int(getter(buffer, len(buffer)))
+    if length <= 0 or length >= len(buffer) or not buffer.value:
+        raise SafeSubprocessError("Windows system directory is unavailable")
+    resolved = os.path.abspath(buffer.value)
+    if not os.path.isabs(resolved):
+        raise SafeSubprocessError("Windows system directory is not absolute")
+    return resolved
+
+
+def resolve_system_binary(
+    name: str,
+    *,
+    subdirectory: Sequence[str] = (),
+) -> str:
     """Resolve a Windows system binary to its absolute System32 path.
 
     Prevents PATH-hijack for the common case where DupeZ calls
     ``netsh``, ``arp``, ``ipconfig``, etc. — those must always come
-    from ``%SystemRoot%\\System32``, never from whatever happens to be
-    first on PATH.
+    from the System32 directory reported by Windows itself, never from an
+    inherited environment variable or whatever happens to be first on PATH.
 
-    On POSIX this falls back to :func:`shutil.which`.
+    On POSIX this searches only fixed, root-controlled system directories.
 
     Raises :class:`SafeSubprocessError` if the binary cannot be
     located.
     """
+    if (
+        not isinstance(name, str)
+        or not name
+        or "\x00" in name
+        or ntpath.basename(name) != name
+        or name in {".", ".."}
+    ):
+        raise SafeSubprocessError(f"unsafe system binary name: {name!r}")
+    clean_subdirectory: list[str] = []
+    for component in subdirectory:
+        if (
+            not isinstance(component, str)
+            or not component
+            or "\x00" in component
+            or ntpath.basename(component) != component
+            or component in {".", ".."}
+        ):
+            raise SafeSubprocessError(
+                f"unsafe system subdirectory component: {component!r}"
+            )
+        clean_subdirectory.append(component)
     if os.name == "nt":
-        sysroot = os.environ.get("SystemRoot") or r"C:\Windows"
-        candidate = os.path.join(sysroot, "System32", name)
+        system_directory = _windows_system_directory()
+        candidate = os.path.join(system_directory, *clean_subdirectory, name)
+        parent = os.path.abspath(os.path.dirname(candidate))
+        expected_parent = os.path.abspath(
+            os.path.join(system_directory, *clean_subdirectory)
+        )
+        if os.path.normcase(parent) != os.path.normcase(expected_parent):
+            raise SafeSubprocessError("system binary path escaped System32")
         if not candidate.lower().endswith(".exe"):
             candidate += ".exe"
         if os.path.isfile(candidate):
@@ -464,11 +530,59 @@ def resolve_system_binary(name: str) -> str:
         raise SafeSubprocessError(
             f"Windows system binary not found: {candidate}"
         )
-    import shutil
-    resolved = shutil.which(name)
-    if not resolved:
-        raise SafeSubprocessError(f"binary not found on PATH: {name}")
-    return resolved
+    if clean_subdirectory:
+        raise SafeSubprocessError(
+            "system subdirectories are only supported on Windows"
+        )
+    return resolve_posix_system_binary(name)
+
+
+_POSIX_SYSTEM_DIRS = ("/usr/bin", "/usr/sbin", "/bin", "/sbin")
+
+
+def resolve_posix_system_binary(name: str) -> str:
+    """Resolve *name* without consulting caller-controlled ``PATH``.
+
+    Privileged Linux helpers must not inherit executable selection from the
+    environment.  Candidates are accepted only from conventional system
+    directories and must resolve to a root-owned regular executable that is
+    not writable by group or other users.
+    """
+    if (
+        not isinstance(name, str)
+        or not name
+        or "\x00" in name
+        or ntpath.basename(name) != name
+        or name in {".", ".."}
+    ):
+        raise SafeSubprocessError(f"unsafe system binary name: {name!r}")
+
+    trusted_roots = tuple(
+        os.path.realpath(root) for root in _POSIX_SYSTEM_DIRS
+    )
+    for root, trusted_root in zip(_POSIX_SYSTEM_DIRS, trusted_roots):
+        candidate = os.path.join(root, name)
+        if not os.path.isfile(candidate) or not os.access(candidate, os.X_OK):
+            continue
+        resolved = os.path.realpath(candidate)
+        try:
+            contained = any(
+                os.path.commonpath((resolved, trusted)) == trusted
+                for trusted in trusted_roots
+            )
+            metadata = os.stat(resolved)
+        except (OSError, ValueError):
+            continue
+        if not contained or not stat.S_ISREG(metadata.st_mode):
+            continue
+        if metadata.st_uid != 0:
+            continue
+        if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            continue
+        return resolved
+    raise SafeSubprocessError(
+        f"trusted POSIX system binary not found: {name}"
+    )
 
 
 if sys.platform == "win32":  # pragma: no cover — Windows-only

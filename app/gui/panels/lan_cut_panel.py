@@ -132,6 +132,7 @@ class LanCutPanel(QWidget):
 
         # Live badge
         self.a2s_badge = QLabel("— idle —")
+        self.a2s_badge.setTextFormat(Qt.TextFormat.PlainText)
         self.a2s_badge.setStyleSheet(
             "color:#64748b; font-size:10px; font-weight:700; "
             "padding:3px 10px; background:rgba(8,12,22,0.6); "
@@ -226,7 +227,8 @@ class LanCutPanel(QWidget):
                 continue
             mac = dev.get("mac") or "—"
             host = dev.get("hostname") or dev.get("device_type") or ""
-            active = ip in self._arp_spoofers
+            owned = ip in self._arp_spoofers
+            active = self._spoofer_is_active(self._arp_spoofers.get(ip))
 
             row = self.table.rowCount()
             self.table.insertRow(row)
@@ -234,13 +236,15 @@ class LanCutPanel(QWidget):
             self.table.setItem(row, 1, QTableWidgetItem(mac))
             self.table.setItem(row, 2, QTableWidgetItem(host))
 
-            status_text = "CUT" if active else "online"
+            status_text = (
+                "CUT" if active else "RESTORE PENDING" if owned else "online"
+            )
             status_item = QTableWidgetItem(status_text)
             status_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setItem(row, 3, status_item)
 
-            btn = QPushButton("RESTORE" if active else "CUT")
-            btn.setStyleSheet(self._btn_qss(active))
+            btn = QPushButton("RESTORE" if owned else "CUT")
+            btn.setStyleSheet(self._btn_qss(owned))
             btn.clicked.connect(lambda _=False, _ip=ip: self._toggle(_ip))
             self.table.setCellWidget(row, 4, btn)
 
@@ -262,7 +266,21 @@ class LanCutPanel(QWidget):
         self._refresh_row_for(ip)
         self._refresh_active_count()
 
-    def _start_cut(self, ip: str) -> None:
+    def _start_cut(self, ip: str) -> bool:
+        """Start a cut only after safety and forwarding state are observable.
+
+        The panel owns every spoofer from the moment ``start()`` succeeds until
+        both the spoofer has stopped and the original forwarding state has
+        been restored.  That ownership is intentionally retained on cleanup
+        failure so the operator (or shutdown path) can retry.
+        """
+        try:
+            ip = self._validate_target(ip)
+        except (RuntimeError, ValueError) as exc:
+            log_error(f"[LAN CUT] refused target {ip!r}: {exc}")
+            QMessageBox.warning(self, "LAN Cut refused", str(exc))
+            return False
+
         status = check_npcap()
         if not status.available:
             QMessageBox.warning(
@@ -270,7 +288,7 @@ class LanCutPanel(QWidget):
                 f"Cannot start local forwarding — {status.reason}\n\n"
                 f"Install Npcap: {status.install_url}",
             )
-            return
+            return False
 
         try:
             from app.network.arp_spoof import ArpSpoofer, _get_ip_forwarding_state, _set_ip_forwarding
@@ -278,22 +296,45 @@ class LanCutPanel(QWidget):
             log_error(f"[LAN CUT] import failed: {exc}")
             QMessageBox.critical(self, "LAN Cut error",
                                  f"local forwarding module unavailable: {exc}")
-            return
+            return False
 
         # Remember forwarding state only on the FIRST cut of this session.
         if not self._arp_spoofers:
             try:
                 self._forwarding_was_on = _get_ip_forwarding_state()
-            except Exception:
-                self._forwarding_was_on = False
+            except Exception as exc:
+                # False is a valid state.  Treating an unavailable query as
+                # False can permanently disable forwarding that was enabled
+                # before DupeZ started, so mutation must fail closed here.
+                self._forwarding_was_on = None
+                log_error(f"[LAN CUT] forwarding-state query failed: {exc}")
+                QMessageBox.critical(
+                    self,
+                    "LAN Cut safety check failed",
+                    "Could not determine the current IP-forwarding state. "
+                    "No network changes were made.",
+                )
+                return False
 
-        spoofer = ArpSpoofer(target_ip=ip)
+        try:
+            spoofer = ArpSpoofer(target_ip=ip)
+        except Exception as exc:
+            if not self._arp_spoofers:
+                self._forwarding_was_on = None
+            log_error(f"[LAN CUT] could not create spoofer for {ip}: {exc}")
+            QMessageBox.warning(self, "LAN Cut failed", str(exc))
+            return False
         if not spoofer.start():
+            if not self._arp_spoofers:
+                self._forwarding_was_on = None
             QMessageBox.warning(
                 self, "LAN Cut failed",
                 f"Could not start local forwarding for {ip}. Check logs for details.",
             )
-            return
+            return False
+
+        # From this point on, retain ownership until restoration is confirmed.
+        self._arp_spoofers[ip] = spoofer
 
         # Kill the severance: disable IP forwarding so nothing routes through.
         try:
@@ -303,45 +344,140 @@ class LanCutPanel(QWidget):
             )
             if not _set_ip_forwarding(False):
                 raise RuntimeError("failed to disable IP forwarding")
+            if _get_ip_forwarding_state() is not False:
+                raise RuntimeError(
+                    "IP forwarding remained enabled after the disable request"
+                )
         except Exception as exc:
             log_error(f"[LAN CUT] disable forwarding failed: {exc}")
-            try:
-                spoofer.stop()
-            except Exception:
-                pass
-            return
+            restored = self._stop_cut(ip)
+            detail = (
+                "The partial operation was restored."
+                if restored
+                else "Cleanup is still pending; use RESTORE ALL before exiting."
+            )
+            QMessageBox.critical(
+                self,
+                "LAN Cut failed safely",
+                f"Could not confirm that IP forwarding was disabled. {detail}",
+            )
+            return False
 
-        self._arp_spoofers[ip] = spoofer
         log_info(f"[LAN CUT] severed {ip}")
+        return True
 
-    def _stop_cut(self, ip: str) -> None:
-        spoofer = self._arp_spoofers.pop(ip, None)
+    def _stop_cut(self, ip: str) -> bool:
+        """Stop one owned cut and return whether release was confirmed."""
+        spoofer = self._arp_spoofers.get(ip)
         if spoofer is None:
-            return
+            return True
         try:
             spoofer.stop()
         except Exception as exc:
             log_error(f"[LAN CUT] stop {ip} failed: {exc}")
+            return False
 
-        # If no more cuts, restore forwarding to its prior state
-        if not self._arp_spoofers and self._forwarding_was_on is not None:
-            try:
-                from app.network.arp_spoof import _set_ip_forwarding
-                if _set_ip_forwarding(bool(self._forwarding_was_on)):
-                    from app.core.operation_journal import OperationJournal
-                    OperationJournal().clear_forwarding_change()
-            except Exception as exc:
-                log_error(f"[LAN CUT] restore forwarding failed: {exc}")
-            self._forwarding_was_on = None
+        if self._spoofer_is_active(spoofer):
+            log_error(
+                f"[LAN CUT] stop {ip} was not confirmed; spoofer remains active"
+            )
+            return False
+
+        # Keep the final owner in the map until the process-wide forwarding
+        # state has also been restored and read back successfully.
+        if len(self._arp_spoofers) == 1 and not self._restore_forwarding():
+            return False
+
+        self._arp_spoofers.pop(ip, None)
         log_info(f"[LAN CUT] restored {ip}")
+        return True
 
-    def _restore_all(self) -> None:
-        if not self._arp_spoofers:
-            return
+    def _restore_all(self) -> bool:
+        """Attempt to release all owned cuts, retaining failed owners."""
+        restored = True
         for ip in list(self._arp_spoofers.keys()):
-            self._stop_cut(ip)
+            if not self._stop_cut(ip):
+                restored = False
             self._refresh_row_for(ip)
+
+        # Defensive recovery for a partial start that obtained the original
+        # forwarding state but failed before an owner was recorded.
+        if not self._arp_spoofers and self._forwarding_was_on is not None:
+            restored = self._restore_forwarding() and restored
+
         self._refresh_active_count()
+        return (
+            restored
+            and not self._arp_spoofers
+            and self._forwarding_was_on is None
+        )
+
+    def _restore_forwarding(self) -> bool:
+        """Restore and verify the forwarding state saved at first mutation."""
+        expected = self._forwarding_was_on
+        if expected is None:
+            log_error("[LAN CUT] forwarding restore refused: prior state unknown")
+            return False
+
+        try:
+            from app.network.arp_spoof import (
+                _get_ip_forwarding_state,
+                _set_ip_forwarding,
+            )
+
+            if not _set_ip_forwarding(bool(expected)):
+                raise RuntimeError("forwarding update was not acknowledged")
+            actual = _get_ip_forwarding_state()
+            if actual is not bool(expected):
+                raise RuntimeError(
+                    f"forwarding verification mismatch (expected {expected}, "
+                    f"observed {actual})"
+                )
+
+            from app.core.operation_journal import OperationJournal
+            OperationJournal().clear_forwarding_change()
+        except Exception as exc:
+            log_error(f"[LAN CUT] restore forwarding failed: {exc}")
+            return False
+
+        self._forwarding_was_on = None
+        return True
+
+    def _validate_target(self, ip: str) -> str:
+        """Apply the controller's fail-closed target scope to LAN Cut."""
+        controller = getattr(self._view, "controller", None)
+        policy = getattr(controller, "safety_policy", None)
+        if controller is None or policy is None:
+            raise RuntimeError(
+                "Network safety controls are unavailable; LAN Cut is disabled."
+            )
+        if getattr(controller, "network_operations_available", True) is not True:
+            raise RuntimeError(
+                "Network operations are blocked until startup recovery completes."
+            )
+
+        target = policy.validate_target(ip)
+        if bool(getattr(policy, "dry_run", False)):
+            raise RuntimeError(
+                f"Safety dry-run is enabled; LAN Cut did not modify {target}."
+            )
+        return target
+
+    @staticmethod
+    def _spoofer_is_active(spoofer: object | None) -> bool:
+        if spoofer is None:
+            return False
+        try:
+            return bool(spoofer.is_active)
+        except Exception as exc:
+            # An unreadable state is not positive confirmation of release.
+            log_error(f"[LAN CUT] could not query spoofer state: {exc}")
+            return True
+
+    def cleanup(self) -> bool:
+        """Stop monitoring and return whether every network change restored."""
+        self._stop_a2s()
+        return self._restore_all()
 
     # ------------------------------------------------------------------
     # Table helpers
@@ -350,16 +486,25 @@ class LanCutPanel(QWidget):
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item and item.text() == ip:
-                active = ip in self._arp_spoofers
-                self.table.item(row, 3).setText("CUT" if active else "online")
+                owned = ip in self._arp_spoofers
+                active = self._spoofer_is_active(self._arp_spoofers.get(ip))
+                self.table.item(row, 3).setText(
+                    "CUT" if active else "RESTORE PENDING" if owned else "online"
+                )
                 btn = self.table.cellWidget(row, 4)
                 if isinstance(btn, QPushButton):
-                    btn.setText("RESTORE" if active else "CUT")
-                    btn.setStyleSheet(self._btn_qss(active))
+                    btn.setText("RESTORE" if owned else "CUT")
+                    btn.setStyleSheet(self._btn_qss(owned))
                 return
 
     def _refresh_active_count(self) -> None:
-        self.active_label.setText(f"Active cuts: {len(self._arp_spoofers)}")
+        active = sum(
+            1 for spoofer in self._arp_spoofers.values()
+            if self._spoofer_is_active(spoofer)
+        )
+        pending = len(self._arp_spoofers) - active
+        suffix = f" · restore pending: {pending}" if pending else ""
+        self.active_label.setText(f"Active cuts: {active}{suffix}")
 
     @staticmethod
     def _btn_qss(active: bool) -> str:
@@ -478,6 +623,8 @@ class LanCutPanel(QWidget):
     # Lifecycle — ensure ARP caches are restored on panel teardown
     # ------------------------------------------------------------------
     def closeEvent(self, event) -> None:
-        self._stop_a2s()
-        self._restore_all()
+        if not self.cleanup():
+            log_error(
+                "[LAN CUT] panel closed with unconfirmed network restoration"
+            )
         super().closeEvent(event)

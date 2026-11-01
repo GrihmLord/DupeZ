@@ -1,0 +1,71 @@
+{
+  "schema": "dupez.source-input-collection-evidence.v1",
+  "reviewed_on": "2026-10-25",
+  "scope": "Local engineering evidence for all 33 retained third-party upstream version-source inputs; not public delivery, native rebuild proof or license approval.",
+  "complete_corresponding_source": false,
+  "license_policy_approval": false,
+  "source_manifest_code_checkpoint": "978fbfea22c9aa03fe8ebb029b1b8caa2b3f157b",
+  "source_manifest_canonical_sha256": "b0cdf2c9121d117c393d13faac06935df0a1de4c311040926c56fcc2e3720b9f",
+  "retained_archive_count": 33,
+  "retained_archive_bytes": 1747613457,
+  "uncollected_components": [],
+  "bundle": {
+    "path": "build/source-delivery-20261025/third-party-source-inputs.zip",
+    "size": 1747659578,
+    "sha256": "b85370af421d6acbeb357d952f9663e0f270f35675cd1d686baa1fe76698023e"
+  },
+  "collection_receipt": {
+    "path": "build/source-delivery-20261025/source-input-receipt.json",
+    "size": 17741,
+    "sha256": "90dcf3dc9cf4f13540c9fc6d8f97792b1c5ee792091dcbc245352a07f2af8f4c"
+  },
+  "independent_bundle_verification_receipt": {
+    "path": "build/source-delivery-20261025/source-bundle-verification.json",
+    "size": 17741,
+    "sha256": "90dcf3dc9cf4f13540c9fc6d8f97792b1c5ee792091dcbc245352a07f2af8f4c"
+  },
+  "iup_supplement_receipt": {
+    "path": "build/source-delivery-20261025/iup-source-input-receipt.json",
+    "size": 3763,
+    "sha256": "e1e4c18628210e48f9fe780e7c572383e965b6f7dfd7fe2b8ef76f7b6ea59d65",
+    "scope": "Only IUP selected; this separate receipt explicitly lists the other 32 components as uncollected in that selection."
+  },
+  "reviewed_files_recorded_after_verification": [
+    {
+      "path": "scripts/corresponding_source.py",
+      "size": 34309,
+      "sha256": "eb3f880331a63b2b1b04d6c96af1a882d931beecd6068e0a946438779e27404e"
+    },
+    {
+      "path": "tests/test_corresponding_source.py",
+      "size": 19507,
+      "sha256": "f25131289fab825803290f5dbac1e03ed59d35699f2b461944abac1a830b6604"
+    },
+    {
+      "path": "packaging/source-inputs.json",
+      "size": 22518,
+      "sha256": "a8a34c87ab1c1ff4d62a19deaae138c2701aaa0f886b9e552bf8e86a7b7e3ee0"
+    }
+  ],
+  "verification": {
+    "archive_reinspection": "All 33 retained archives were rehashed and reinspected offline under the current path, link, expansion, TAR metadata and ZIP central-directory guards before publishing the new bundle.",
+    "bundle_reverification": "verify-bundle independently rehashed all embedded archive bytes and verified the embedded canonical manifest, complete delivery gaps and empty uncollected list. Its receipt is byte-identical to the collection receipt.",
+    "tests": "98 dedicated source-collector tests passed in 1.50 seconds using verified CPython 3.13.17. Ruff passed for the collector and its tests.",
+    "readiness_gate": "plan --require-delivery-ready exits 1; source/build mappings and delivery decisions remain unresolved.",
+    "execution_limit": "No source extraction, package build backend, native binary execution or native rebuild was performed for this collection."
+  },
+  "previous_checkpoint_preserved": {
+    "record": "packaging/license-evidence/source-input-collection-2026-10-24.json",
+    "bundle_sha256_rechecked": "1876b6d2db883886fa3411718a61d8f81bb299de2645d635f4371566eccf7321",
+    "receipt_sha256_rechecked": "efc6fde17a0710919aacd59402b1fc28064f22a3020f5a39c080afcfc367545d",
+    "changed": false
+  },
+  "native_mapping_record": "packaging/license-evidence/native-source-mapping-2026-10-25.json",
+  "limitations": [
+    "All inventoried upstream versions are retained, but the exact Qt/Qt WebEngine Windows wheel build, patches, toolchain and transitive source mappings remain separate unresolved work.",
+    "Official release assets establish binary correspondence for Clumsy, IUP and WinDivert; independently recorded native rebuilds and driver replacement/signing constraints remain unresolved.",
+    "The IUP source archive replacement date is later than the binary release; matching header/version data and older member timestamps do not establish the exact historical source revision.",
+    "SourceForge redirects require separately reviewed acquisition and verified cache input. The general collector still rejects redirects and expiring query tokens.",
+    "Ignored build artifacts are local evidence only; public source delivery/retention and owner/legal-policy decisions are not established."
+  ]
+}

@@ -7,6 +7,7 @@ hash-mismatch detection, path-traversal refusal.
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import zipfile
 from pathlib import Path
@@ -95,6 +96,304 @@ class TestCreateBackup:
         assert "app/config/settings.json" in paths
         assert "app/data/episodes/episode_test.jsonl" in paths
 
+    def test_archives_committed_update_state_not_stale_projection(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        from app.core.data_persistence import (
+            DataPersistenceManager,
+            _compute_hmac,
+        )
+
+        target = fake_repo / "app" / "data" / "update_state.json"
+        sidecar = Path(str(target) + ".hmac")
+        committed = b'{"last_seen_version":"5.8.0"}'
+        stale_projection = b'{"last_seen_version":"1.0.0"}'
+        DataPersistenceManager._replace_authenticated_pair(
+            target,
+            committed,
+            hmac_path=sidecar,
+        )
+
+        # Simulate a crash or adversarial rewrite after the authenticated
+        # commit pointer advanced. Even a self-consistent compatibility pair
+        # is not authoritative once that pointer exists.
+        target.write_bytes(stale_projection)
+        sidecar.write_text(
+            _compute_hmac(stale_projection),
+            encoding="ascii",
+        )
+
+        out = fake_repo / "authoritative-journal.zip"
+        create_backup(out, encrypt=False)
+
+        with zipfile.ZipFile(out) as zf:
+            names = set(zf.namelist())
+            assert zf.read("files/app/data/update_state.json") == committed
+            assert zf.read(
+                "files/app/data/update_state.json.hmac"
+            ) == _compute_hmac(committed).encode("ascii")
+        assert "files/app/data/update_state.hmac" not in names
+
+    def test_legacy_webhook_url_never_enters_backup(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        url = "https://discord.com/api/" + "webhooks/123/backup-test"
+        settings = {
+            "theme": "dark",
+            "audit_webhook": {"enabled": True, "url": url},
+        }
+        (fake_repo / "app" / "data" / "settings.json").write_text(
+            json.dumps(settings),
+            encoding="utf-8",
+        )
+        (fake_repo / "app" / "data" / "settings.backup.1.json").write_text(
+            json.dumps(settings),
+            encoding="utf-8",
+        )
+        (fake_repo / "app" / "config" / "settings.json").write_text(
+            json.dumps(settings),
+            encoding="utf-8",
+        )
+
+        out = fake_repo / "bundle.zip"
+        create_backup(out, encrypt=False)
+
+        with zipfile.ZipFile(out) as zf:
+            for name in zf.namelist():
+                assert url.encode() not in zf.read(name)
+            restored_settings = json.loads(
+                zf.read("files/app/data/settings.json")
+            )
+            restored_config = json.loads(
+                zf.read("files/app/config/settings.json")
+            )
+        assert restored_settings["audit_webhook"]["enabled"] is False
+        assert "url" not in restored_settings["audit_webhook"]
+        assert restored_config["audit_webhook"]["enabled"] is False
+        assert "url" not in restored_config["audit_webhook"]
+
+
+@pytest.fixture
+def synthetic_backup_sources(tmp_path, monkeypatch):
+    """Provide explicitly selected local payloads without operator data."""
+    from app.core import backup as backup_module
+
+    entries = []
+    monkeypatch.setattr(backup_module, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(backup_module, "_collect_backup_entries", lambda: list(entries))
+
+    def add(relative_path, payload):
+        source = tmp_path / relative_path
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(payload)
+        entries.append((source, relative_path))
+        return source
+
+    return add
+
+
+class TestBackupPublication:
+    def test_plain_backup_does_not_buffer_the_archive_in_memory(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+
+        def no_memory_archive(*_args, **_kwargs):
+            raise AssertionError("plain backup buffered the complete archive")
+
+        with monkeypatch.context() as guard:
+            guard.setattr(backup_module.io, "BytesIO", no_memory_archive)
+            output = create_backup(tmp_path / "backup.zip")
+
+        assert len(list_bundle(output).entries) == 1
+
+    def test_source_read_is_bounded_even_if_the_source_grows(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        source = synthetic_backup_sources("app/data/episodes/test.jsonl", b"small")
+        reads = []
+
+        class GrowingSource(io.BytesIO):
+            def read(self, size=-1):
+                reads.append(size)
+                return super().read(size)
+
+        real_open = Path.open
+
+        def open_source(path, *args, **kwargs):
+            if path == source:
+                return GrowingSource(b"123456789")
+            return real_open(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "open", open_source)
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 8)
+
+        with pytest.raises(BackupError, match="size cap"):
+            create_backup(tmp_path / "backup.zip")
+
+        assert reads == [9]
+        assert not (tmp_path / "backup.zip").exists()
+
+    @pytest.mark.parametrize("failure", ["write", "fsync", "replace"])
+    def test_failed_publication_preserves_previous_backup(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, failure,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+        output = create_backup(tmp_path / "backup.zip")
+        previous = output.read_bytes()
+
+        def fail(*_args, **_kwargs):
+            raise OSError("injected backup I/O failure")
+
+        if failure == "write":
+            def partial_write(writer, data):
+                writer.handle.write(data[:2])
+                fail()
+
+            monkeypatch.setattr(backup_module._BoundedArchiveWriter, "write", partial_write)
+        else:
+            monkeypatch.setattr(backup_module.os, failure, fail)
+
+        with pytest.raises(BackupError, match="could not write backup"):
+            create_backup(output)
+
+        assert output.read_bytes() == previous
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    @pytest.mark.parametrize("encrypt", [False, True])
+    def test_success_replaces_from_closed_same_directory_stage(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, encrypt,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b'{"n":1}\n')
+        output = tmp_path / ("backup.zip.dpapi" if encrypt else "backup.zip")
+        output.write_bytes(b"previous backup")
+        real_replace = backup_module.os.replace
+        stages = []
+
+        def replace(source, destination):
+            source = Path(source)
+            assert source.parent == output.parent
+            assert source != output
+            assert output.read_bytes() == b"previous backup"
+            stages.append(source)
+            # Renaming an open NamedTemporaryFile fails on Windows. This also
+            # verifies that publication happens after the stage was closed.
+            real_replace(source, destination)
+
+        if encrypt:
+            monkeypatch.setattr(backup_module, "_dpapi_encrypt", lambda data: b"sealed:" + data)
+            monkeypatch.setattr(backup_module, "_dpapi_decrypt", lambda data: data[len(b"sealed:"):])
+        monkeypatch.setattr(backup_module.os, "replace", replace)
+
+        assert create_backup(tmp_path / "backup.zip", encrypt=encrypt) == output
+        assert len(stages) == 1
+        assert all(not stage.exists() for stage in stages)
+        assert len(list_bundle(output).entries) == 1
+        result = restore_backup(output, dry_run=True)
+        assert result.ok
+        assert result.restored == ["app/data/episodes/test.jsonl"]
+        if encrypt:
+            assert output.read_bytes().startswith(b"sealed:")
+
+    @pytest.mark.parametrize("cap, limit", [
+        ("_MAX_ENTRY_BYTES", 8),
+        ("_MAX_TOTAL_RESTORE_BYTES", 8),
+        ("_MAX_ARCHIVE_MEMBERS", 1),
+        ("_MAX_MANIFEST_BYTES", 1),
+        ("_MAX_BUNDLE_BYTES", 64),
+    ])
+    def test_creation_caps_preserve_existing_destination(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, cap, limit,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b"123456789")
+        output = tmp_path / "backup.zip"
+        output.write_bytes(b"previous backup")
+        monkeypatch.setattr(backup_module, cap, limit)
+
+        with pytest.raises(BackupError):
+            create_backup(output)
+
+        assert output.read_bytes() == b"previous backup"
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    @pytest.mark.parametrize("cap, limit", [
+        ("_MAX_ENTRY_BYTES", 95),
+        ("_MAX_TOTAL_RESTORE_BYTES", 97),
+        ("_MAX_ARCHIVE_MEMBERS", 2),
+    ])
+    def test_regenerated_hmac_counts_toward_creation_caps(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, cap, limit,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/sample.json", b"{}")
+        monkeypatch.setattr(backup_module, cap, limit)
+        output = tmp_path / "backup.zip"
+
+        with pytest.raises(BackupError):
+            create_backup(output)
+
+        assert not output.exists()
+        assert not list(tmp_path.glob("*.backing-up"))
+
+    def test_exact_caps_with_regenerated_sidecar_round_trip(
+        self, tmp_path, monkeypatch, synthetic_backup_sources,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        source = synthetic_backup_sources("app/data/sample.json", b"{}")
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 96)
+        monkeypatch.setattr(backup_module, "_MAX_TOTAL_RESTORE_BYTES", 98)
+        monkeypatch.setattr(backup_module, "_MAX_ARCHIVE_MEMBERS", 3)
+        output = create_backup(tmp_path / "backup.zip")
+        manifest = list_bundle(output)
+        assert sum(entry.size for entry in manifest.entries) == 98
+        source.unlink()
+
+        result = restore_backup(output)
+
+        assert result.ok
+        assert result.restored == ["app/data/sample.json"]
+        assert source.read_bytes() == b"{}"
+
+    @pytest.mark.parametrize("phase", ["archive", "encrypted"])
+    def test_encrypted_memory_cap_preserves_previous_backup(
+        self, tmp_path, monkeypatch, synthetic_backup_sources, phase,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        synthetic_backup_sources("app/data/episodes/test.jsonl", b"123456789")
+        output = tmp_path / "backup.zip.dpapi"
+        output.write_bytes(b"previous encrypted backup")
+        cap = 64 if phase == "archive" else 4096
+        monkeypatch.setattr(backup_module, "_MAX_IN_MEMORY_BUNDLE_BYTES", cap)
+        encrypted_inputs = []
+
+        def encrypt(payload):
+            encrypted_inputs.append(payload)
+            return b"x" * (cap + 1)
+
+        monkeypatch.setattr(backup_module, "_dpapi_encrypt", encrypt)
+
+        with pytest.raises(BackupError, match="size cap"):
+            create_backup(tmp_path / "backup.zip", encrypt=True)
+
+        assert bool(encrypted_inputs) == (phase == "encrypted")
+        assert output.read_bytes() == b"previous encrypted backup"
+        assert not list(tmp_path.glob("*.backing-up"))
+
 
 class TestListBundle:
     """list_bundle returns parsed manifest without touching files."""
@@ -116,6 +415,127 @@ class TestListBundle:
         with pytest.raises(BackupError, match="unsupported bundle schema"):
             list_bundle(bad)
 
+    def test_plain_zip_is_not_materialized_with_path_read_bytes(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        archive = fake_repo / "streamed.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [],
+            }))
+
+        def forbidden_read_bytes(_path: Path) -> bytes:
+            raise AssertionError("ordinary ZIP bundles must remain file-backed")
+
+        monkeypatch.setattr(Path, "read_bytes", forbidden_read_bytes)
+
+        assert list_bundle(archive).entries == []
+        assert restore_backup(archive, dry_run=True).ok
+
+    def test_rejects_outer_archive_above_size_cap(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        archive = fake_repo / "oversized-outer.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [],
+            }))
+        monkeypatch.setattr(
+            backup_module,
+            "_MAX_BUNDLE_BYTES",
+            archive.stat().st_size - 1,
+        )
+
+        with pytest.raises(BackupError, match="size cap"):
+            list_bundle(archive)
+        result = restore_backup(archive, dry_run=True)
+        assert not result.ok
+        assert "size cap" in result.error
+
+    def test_rejects_compressed_manifest_above_expanded_cap(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        archive = fake_repo / "manifest-bomb.zip"
+        manifest = json.dumps({
+            "schema": BUNDLE_SCHEMA,
+            "padding": "A" * 4_096,
+            "entries": [],
+        })
+        with zipfile.ZipFile(
+            archive,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as zf:
+            zf.writestr("manifest.json", manifest)
+        monkeypatch.setattr(backup_module, "_MAX_MANIFEST_BYTES", 128)
+
+        with pytest.raises(BackupError, match="manifest exceeds"):
+            list_bundle(archive)
+        result = restore_backup(archive, dry_run=True)
+        assert not result.ok
+        assert "manifest exceeds" in result.error
+
+    def test_rejects_excessive_zip_member_count(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        archive = fake_repo / "too-many-members.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [],
+            }))
+            zf.writestr("unexpected.txt", b"ignored")
+        monkeypatch.setattr(backup_module, "_MAX_ARCHIVE_MEMBERS", 1)
+
+        with pytest.raises(BackupError, match="too many ZIP members"):
+            list_bundle(archive)
+        result = restore_backup(archive, dry_run=True)
+        assert not result.ok
+        assert "too many ZIP members" in result.error
+
+    def test_encrypted_wrapper_is_bounded_before_dpapi_decrypt(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        archive = fake_repo / "oversized.zip.dpapi"
+        archive.write_bytes(b"x" * 9)
+        monkeypatch.setattr(backup_module, "_MAX_BUNDLE_BYTES", 32)
+        monkeypatch.setattr(backup_module, "_MAX_IN_MEMORY_BUNDLE_BYTES", 8)
+        decrypt_called = False
+
+        def forbidden_decrypt(_blob: bytes) -> bytes:
+            nonlocal decrypt_called
+            decrypt_called = True
+            raise AssertionError("oversized ciphertext reached DPAPI")
+
+        monkeypatch.setattr(backup_module, "_dpapi_decrypt", forbidden_decrypt)
+
+        with pytest.raises(BackupError, match="in-memory decryption cap"):
+            list_bundle(archive)
+        result = restore_backup(archive, dry_run=True)
+        assert not result.ok
+        assert "in-memory decryption cap" in result.error
+        assert decrypt_called is False
+
 
 class TestRestoreBackup:
     """restore_backup — round trip, hash verification, path safety."""
@@ -131,6 +551,266 @@ class TestRestoreBackup:
         assert result.ok
         assert target.exists()
         assert target.read_text() == original_content
+
+    def test_restore_advances_existing_authenticated_commit(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        from app.core.data_persistence import DataPersistenceManager
+
+        target = fake_repo / "app" / "data" / "devices.json"
+        old_payload = b'{"value":"old"}'
+        restored_payload = b'{"value":"restored"}'
+        DataPersistenceManager._replace_authenticated_pair(
+            target,
+            old_payload,
+        )
+        entry_path = "app/data/devices.json"
+        transported_hmac_path = "app/data/devices.hmac"
+        transported_hmac = b"0" * 96
+        manifest = {
+            "schema": BUNDLE_SCHEMA,
+            "created_at": "2026-08-21T00:00:00Z",
+            "app_version": "5.8.0",
+            "encrypted": False,
+            "entries": [
+                {
+                    "path": entry_path,
+                    "size": len(restored_payload),
+                    "sha256": hashlib.sha256(restored_payload).hexdigest(),
+                },
+                {
+                    "path": transported_hmac_path,
+                    "size": len(transported_hmac),
+                    "sha256": hashlib.sha256(transported_hmac).hexdigest(),
+                },
+            ],
+        }
+        archive = fake_repo / "journaled-restore.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", restored_payload)
+            zf.writestr(
+                f"files/{transported_hmac_path}",
+                transported_hmac,
+            )
+            zf.writestr("manifest.json", json.dumps(manifest))
+
+        result = restore_backup(archive)
+
+        assert result.ok
+        assert transported_hmac_path in result.skipped
+        assert DataPersistenceManager._try_load_json(target) == {
+            "value": "restored",
+        }
+        assert target.read_bytes() == restored_payload
+
+    def test_uppercase_data_alias_uses_journal_and_skips_hmac(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        target = fake_repo / "app" / "data" / "devices.json"
+        target.write_bytes(b'{"value":"existing"}')
+        payload = b'{"value":"restored"}'
+        transported_hmac = b"0" * 96
+        json_path = "app/data/DEVICES.JSON"
+        hmac_path = "app/data/DEVICES.HMAC"
+        entries = [
+            {
+                "path": json_path,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            },
+            {
+                "path": hmac_path,
+                "size": len(transported_hmac),
+                "sha256": hashlib.sha256(transported_hmac).hexdigest(),
+            },
+        ]
+        archive = fake_repo / "uppercase-alias.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{json_path}", payload)
+            zf.writestr(f"files/{hmac_path}", transported_hmac)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": entries,
+            }))
+
+        pair_calls: list[tuple[str, Path, bytes, Path]] = []
+
+        def replace_pair(
+            rel_path: str,
+            destination: Path,
+            restored_payload: bytes,
+            *,
+            hmac_path: Path,
+        ) -> None:
+            pair_calls.append((
+                rel_path,
+                destination,
+                restored_payload,
+                hmac_path,
+            ))
+
+        monkeypatch.setattr(
+            backup_module,
+            "_restore_destination",
+            lambda rel: (
+                target.with_suffix(".hmac")
+                if rel.casefold().endswith(".hmac")
+                else target
+            ),
+        )
+        monkeypatch.setattr(
+            backup_module,
+            "_replace_restored_authenticated_pair",
+            replace_pair,
+        )
+
+        result = restore_backup(archive)
+
+        assert result.ok
+        assert result.restored == [json_path]
+        assert result.skipped == [hmac_path]
+        assert pair_calls == [
+            (json_path, target, payload, target.with_suffix(".hmac"))
+        ]
+        assert target.read_bytes() == b'{"value":"existing"}'
+
+    def test_case_variants_are_all_skipped_as_one_windows_destination(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        paths = (
+            "app/data/devices.json",
+            "app/data/DEVICES.JSON",
+        )
+        payloads = (b'{"value":1}', b'{"value":2}')
+        archive = fake_repo / "case-collision.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            entries = []
+            for path, payload in zip(paths, payloads):
+                zf.writestr(f"files/{path}", payload)
+                entries.append({
+                    "path": path,
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                })
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": entries,
+            }))
+
+        target = fake_repo / "app" / "data" / "devices.json"
+        target.write_bytes(b'{"value":"trusted"}')
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert result.restored == []
+        assert result.skipped == list(paths)
+        assert list(result.failed) == list(paths)
+        assert target.read_bytes() == b'{"value":"trusted"}'
+
+    def test_filesystem_aliases_are_all_skipped_before_restore(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        paths = ("app/data/devices.json", "app/data/device-short-name.json")
+        archive = fake_repo / "filesystem-alias.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            entries = []
+            for index, path in enumerate(paths):
+                payload = json.dumps({"value": index}).encode()
+                zf.writestr(f"files/{path}", payload)
+                entries.append({
+                    "path": path,
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                })
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": entries,
+            }))
+
+        target = fake_repo / "app" / "data" / "devices.json"
+        target.write_bytes(b'{"value":"trusted"}')
+        monkeypatch.setattr(
+            backup_module,
+            "_restore_destination",
+            lambda _path: target,
+        )
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert result.restored == []
+        assert result.skipped == list(paths)
+        assert list(result.failed) == list(paths)
+        assert target.read_bytes() == b'{"value":"trusted"}'
+
+    @pytest.mark.parametrize(
+        "entry_path",
+        (
+            "app/data/devices.json.",
+            "app/data/devices.json ",
+            "app/data/devices.json:alternate",
+            "app/data/profiles./player.json",
+        ),
+    )
+    def test_windows_ambiguous_components_are_blocked(
+        self,
+        fake_repo: Path,
+        entry_path: str,
+    ) -> None:
+        payload = b"{}"
+        archive = fake_repo / "ambiguous-component.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [{
+                    "path": entry_path,
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }],
+            }))
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert result.restored == []
+        assert result.skipped == [entry_path]
+        assert list(result.failed) == [entry_path]
+
+    def test_valid_posix_nested_bundle_name_still_restores(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        entry_path = "app/data/profiles/Player One-α.json"
+        payload = b'{"valid":true}'
+        archive = fake_repo / "valid-posix-name.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [{
+                    "path": entry_path,
+                    "size": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }],
+            }))
+
+        result = restore_backup(archive)
+
+        assert result.ok
+        assert result.restored == [entry_path]
+        assert (fake_repo / entry_path).read_bytes() == payload
 
     def test_dry_run_does_not_write(self, fake_repo: Path) -> None:
         out = fake_repo / "bundle.zip"
@@ -155,7 +835,9 @@ class TestRestoreBackup:
             for item in src.namelist():
                 data = src.read(item)
                 if item.endswith("settings.json"):
-                    data = b'{"theme": "TAMPERED"}'
+                    tampered_payload = bytearray(data)
+                    tampered_payload[len(tampered_payload) // 2] ^= 1
+                    data = bytes(tampered_payload)
                 dst.writestr(item, data)
         target = fake_repo / "app" / "config" / "settings.json"
         target.unlink()
@@ -164,6 +846,343 @@ class TestRestoreBackup:
         assert any("settings.json" in m for m in result.hash_mismatches)
         # Other files still restore fine.
         assert (fake_repo / "app" / "data" / "dayz_accounts.json").exists()
+
+    def test_legacy_archive_url_is_stripped_on_restore(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        url = "https://discord.com/api/" + "webhooks/123/restore-test"
+        payload = json.dumps({
+            "theme": "dark",
+            "audit_webhook": {"enabled": True, "url": url},
+        }).encode()
+        entry_path = "app/data/settings.json"
+        manifest = {
+            "schema": BUNDLE_SCHEMA,
+            "created_at": "2026-08-12T00:00:00Z",
+            "app_version": "legacy",
+            "encrypted": False,
+            "entries": [{
+                "path": entry_path,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }],
+        }
+        archive = fake_repo / "legacy-webhook.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps(manifest))
+        from app.core.data_persistence import DataPersistenceManager
+
+        pair_calls: list[tuple[Path, Path, bytes]] = []
+
+        def replace_pair(
+            _cls,
+            destination: Path,
+            restored_payload: bytes,
+            *,
+            hmac_path: Path,
+        ) -> None:
+            pair_calls.append((destination, hmac_path, restored_payload))
+            destination.write_bytes(restored_payload)
+            hmac_path.write_bytes(b"a" * 96)
+
+        monkeypatch.setattr(
+            DataPersistenceManager,
+            "_replace_authenticated_pair",
+            classmethod(replace_pair),
+        )
+
+        result = restore_backup(archive)
+
+        assert result.ok
+        restored = (fake_repo / entry_path).read_text(encoding="utf-8")
+        assert url not in restored
+        assert json.loads(restored)["audit_webhook"]["enabled"] is False
+        assert pair_calls == [
+            (
+                fake_repo / "app" / "data" / "settings.json",
+                fake_repo / "app" / "data" / "settings.hmac",
+                restored.encode("utf-8"),
+            )
+        ]
+        assert (
+            fake_repo / "app" / "data" / "settings.hmac"
+        ).read_bytes() == b"a" * 96
+
+    def test_parent_traversal_inside_allowlisted_prefix_is_blocked(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        target = fake_repo / "dupez.py"
+        target.write_text("# trusted\n", encoding="utf-8")
+        payload = b"# replaced\n"
+        malicious_path = "app/data/../../dupez.py"
+        manifest = {
+            "schema": BUNDLE_SCHEMA,
+            "created_at": "2026-08-12T00:00:00Z",
+            "app_version": "malicious",
+            "encrypted": False,
+            "entries": [{
+                "path": malicious_path,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }],
+        }
+        archive = fake_repo / "parent-traversal.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{malicious_path}", payload)
+            zf.writestr("manifest.json", json.dumps(manifest))
+
+        result = restore_backup(archive)
+
+        assert malicious_path in result.skipped
+        assert target.read_text(encoding="utf-8") == "# trusted\n"
+
+    def test_declared_size_must_match_zip_directory_and_payload(
+        self,
+        fake_repo: Path,
+    ) -> None:
+        payload = b'{"trusted": true}'
+        entry_path = "app/data/lying-size.json"
+        manifest = {
+            "schema": BUNDLE_SCHEMA,
+            "created_at": "2026-08-12T00:00:00Z",
+            "app_version": "malicious",
+            "encrypted": False,
+            "entries": [{
+                "path": entry_path,
+                "size": 0,
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }],
+        }
+        archive = fake_repo / "lying-size.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps(manifest))
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert "size mismatch" in result.error
+        assert not (fake_repo / entry_path).exists()
+
+    def test_actual_member_sizes_enforce_aggregate_restore_cap(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        monkeypatch.setattr(backup_module, "_MAX_TOTAL_RESTORE_BYTES", 3)
+        entries = []
+        payloads = {}
+        for index in range(2):
+            entry_path = f"app/data/capped-{index}.json"
+            payload = b"{}"
+            payloads[entry_path] = payload
+            entries.append({
+                "path": entry_path,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            })
+        archive = fake_repo / "aggregate-cap.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            for entry_path, payload in payloads.items():
+                zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "created_at": "2026-08-12T00:00:00Z",
+                "app_version": "malicious",
+                "encrypted": False,
+                "entries": entries,
+            }))
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert "total restore size cap" in result.error
+
+    @pytest.mark.parametrize("invalid_size", (-1, True, "2"))
+    def test_manifest_rejects_noncanonical_sizes(
+        self,
+        fake_repo: Path,
+        invalid_size,
+    ) -> None:
+        payload = b"{}"
+        entry_path = "app/data/invalid-size.json"
+        archive = fake_repo / f"invalid-size-{invalid_size!s}.zip"
+        with zipfile.ZipFile(archive, "w") as zf:
+            zf.writestr(f"files/{entry_path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA,
+                "entries": [{
+                    "path": entry_path,
+                    "size": invalid_size,
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                }],
+            }))
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert "invalid size" in result.error
+
+    def test_restore_uses_exclusive_random_same_directory_stage(
+        self,
+        fake_repo: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        out = fake_repo / "bundle.zip"
+        create_backup(out, encrypt=False)
+        target = (
+            fake_repo
+            / "app"
+            / "data"
+            / "episodes"
+            / "episode_test.jsonl"
+        )
+        target.unlink()
+        calls = []
+        import tempfile
+
+        real_mkstemp = tempfile.mkstemp
+
+        def tracked_mkstemp(*args, **kwargs):
+            calls.append(kwargs.copy())
+            return real_mkstemp(*args, **kwargs)
+
+        monkeypatch.setattr(tempfile, "mkstemp", tracked_mkstemp)
+
+        result = restore_backup(out)
+
+        assert result.ok
+        assert calls
+        target_calls = [
+            call
+            for call in calls
+            if call.get("prefix") == f".{target.name}."
+        ]
+        assert target_calls
+        assert all(Path(call["dir"]) == target.parent for call in target_calls)
+        assert all(call["suffix"] == ".restoring" for call in calls)
+
+
+@pytest.fixture
+def synthetic_restore_archive(tmp_path, monkeypatch):
+    """Create small archives, including manifest entries absent from the ZIP."""
+    from app.core import backup as backup_module
+
+    monkeypatch.setattr(backup_module, "_repo_root", lambda: tmp_path)
+
+    def build(payloads):
+        archive = tmp_path / "restore.zip"
+        entries = []
+        with zipfile.ZipFile(archive, "w") as zf:
+            for path, payload in payloads.items():
+                expected = b"{}" if payload is None else payload
+                entries.append({
+                    "path": path,
+                    "size": len(expected),
+                    "sha256": hashlib.sha256(expected).hexdigest(),
+                })
+                if payload is not None:
+                    zf.writestr(f"files/{path}", payload)
+            zf.writestr("manifest.json", json.dumps({
+                "schema": BUNDLE_SCHEMA, "entries": entries,
+            }))
+        return archive
+
+    return build
+
+
+class TestRestoreOutcome:
+    @pytest.mark.parametrize("dry_run", [True, False])
+    @pytest.mark.parametrize("path,payload,reason", [
+        ("app/data/episodes/missing.jsonl", None, "missing"),
+        ("app/core/unsafe.py", b"{}", "not allowed"),
+        ("app/data/settings.json", b"not json", "settings payload"),
+        ("app/data/episodes/large.jsonl", b"123456789", "size cap"),
+    ])
+    def test_rejected_payload_is_incomplete_in_preview_and_restore(
+        self, tmp_path, monkeypatch, synthetic_restore_archive,
+        dry_run, path, payload, reason,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        good_path = "app/data/episodes/good.jsonl"
+        archive = synthetic_restore_archive({good_path: b"{}", path: payload})
+        monkeypatch.setattr(backup_module, "_MAX_ENTRY_BYTES", 8)
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert not result.ok
+        assert result.restored == [good_path]
+        assert result.skipped == [path]
+        assert reason in result.failed[path]
+        assert (tmp_path / good_path).exists() is not dry_run
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_expected_transported_hmac_is_not_a_failure(
+        self, tmp_path, synthetic_restore_archive, dry_run,
+    ) -> None:
+        payload_path = "app/data/sample.json"
+        hmac_path = "app/data/sample.hmac"
+        archive = synthetic_restore_archive({
+            hmac_path: b"0" * 96,
+            payload_path: b"{}",
+        })
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert result.ok
+        assert result.failed == {}
+        assert result.skipped == [hmac_path]
+        assert result.restored == [payload_path]
+        assert (tmp_path / payload_path).exists() is not dry_run
+
+    @pytest.mark.parametrize("dry_run", [True, False])
+    def test_resolved_destination_escape_is_rejected_in_preview_too(
+        self, tmp_path, monkeypatch, synthetic_restore_archive, dry_run,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        path = "app/data/episodes/test.jsonl"
+        archive = synthetic_restore_archive({path: b"{}"})
+        outside = tmp_path / "outside.jsonl"
+        monkeypatch.setattr(backup_module, "_restore_destination", lambda _path: outside)
+
+        result = restore_backup(archive, dry_run=dry_run)
+
+        assert not result.ok
+        assert result.restored == []
+        assert result.failed == {path: "destination is outside allowed storage"}
+        assert not outside.exists()
+
+    def test_write_failure_identifies_entry_and_preserves_existing_payload(
+        self, tmp_path, monkeypatch, synthetic_restore_archive,
+    ) -> None:
+        from app.core import backup as backup_module
+
+        path = "app/data/sample.json"
+        archive = synthetic_restore_archive({path: b"{}"})
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b'{"trusted":true}')
+
+        def fail(*_args, **_kwargs):
+            raise BackupError("injected restore write failure")
+
+        monkeypatch.setattr(backup_module, "_replace_restored_authenticated_pair", fail)
+
+        result = restore_backup(archive)
+
+        assert not result.ok
+        assert result.error == "injected restore write failure"
+        assert result.failed == {path: result.error}
+        assert result.restored == []
+        assert target.read_bytes() == b'{"trusted":true}'
 
 
 class TestExcludeSubstrings:

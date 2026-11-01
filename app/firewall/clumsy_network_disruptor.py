@@ -151,6 +151,19 @@ ENGINE_NATIVE        = "native"
 ENGINE_CLUMSY        = "clumsy"
 _ENGINE_PREFERENCES  = frozenset({ENGINE_AUTO, ENGINE_NATIVE, ENGINE_CLUMSY})
 
+
+def _log_basename(path: Any) -> str:
+    """Return a cross-platform basename safe for routine log messages.
+
+    Paths at this boundary can include an operator account name or private
+    workspace layout.  Logs need the artifact identity for diagnostics, not
+    the absolute executable or working-directory location.
+    """
+    raw = os.fspath(path) if path is not None else ""
+    normalized = str(raw).replace("\\", "/").rstrip("/")
+    return normalized.rsplit("/", 1)[-1] if normalized else "<unknown>"
+
+
 # Module name → clumsy UI checkbox text (from the screenshot)
 MODULE_CHECKBOX_TEXT = {
     "lag":        "Lag",
@@ -760,10 +773,10 @@ class ClumsyEngine:
             for fname, min_size in [("presets.ini", 100), ("config.txt", 10)]:
                 fpath = os.path.join(self.clumsy_dir, fname)
                 if not os.path.isfile(fpath):
-                    log_error(f"FATAL: {fname} NOT FOUND at {fpath}")
+                    log_error(f"FATAL: {fname} NOT FOUND")
                     return False
                 fsize = os.path.getsize(fpath)
-                log_info(f"{fname}: {fpath} ({fsize} bytes)")
+                log_info(f"{fname}: present ({fsize} bytes)")
                 if fsize < min_size:
                     log_error(f"FATAL: {fname} too small ({fsize} bytes)")
                     return False
@@ -777,12 +790,21 @@ class ClumsyEngine:
 
             if use_silent:
                 cmd_list = [exe, "--silent"]
-                log_info(f"ClumsyEngine CMD (silent): {cmd_list}")
+                log_info(
+                    "ClumsyEngine launch: "
+                    f"executable={_log_basename(exe)} mode=silent"
+                )
             else:
                 cmd_list = [exe]
-                log_info(f"ClumsyEngine CMD (GUI): {cmd_list}")
+                log_info(
+                    "ClumsyEngine launch: "
+                    f"executable={_log_basename(exe)} mode=GUI"
+                )
 
-            log_info(f"ClumsyEngine CWD: {self.clumsy_dir}")
+            log_info(
+                "ClumsyEngine working directory configured: "
+                f"{_log_basename(self.clumsy_dir)}"
+            )
             log_info(f"ClumsyEngine FILTER (via config.txt): {self.filter_str}")
 
             # Step 3: Launch through safe_subprocess.spawn_managed so
@@ -1345,7 +1367,7 @@ class ClumsyEngine:
 
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-        log_info(f"config.txt written: {path}")
+        log_info("config.txt written")
         log_info(f"  filter entry: DupeZ: {self.filter_str}")
 
     def _write_presets(self) -> None:
@@ -1453,7 +1475,7 @@ class ClumsyEngine:
         path = os.path.join(self.clumsy_dir, "presets.ini")
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
-        log_info(f"presets.ini written: {path} ({len(content)} chars)")
+        log_info(f"presets.ini written ({len(content)} chars)")
 class ClumsyNetworkDisruptor:
     """Disruption manager that orchestrates NativeWinDivert and ClumsyEngine.
 
@@ -1495,7 +1517,7 @@ class ClumsyNetworkDisruptor:
                            ("WinDivert64.sys", self.windivert_sys)]:
                 exists = os.path.exists(p)
                 (log_info if exists else log_error)(
-                    f"{'FOUND' if exists else 'MISSING'}: {lbl} @ {p}")
+                    f"{'FOUND' if exists else 'MISSING'}: {lbl}")
         except Exception as e:
             log_error(f"Path init failed: {e}")
 
@@ -1510,13 +1532,18 @@ class ClumsyNetworkDisruptor:
             return False
         # clumsy.exe is optional when native engine is available
         if NATIVE_ENGINE_AVAILABLE:
-            log_info(f"Disruptor initialized (native WinDivert engine, "
-                     f"DLL @ {self.windivert_dll})")
+            log_info(
+                "Disruptor initialized "
+                "(native WinDivert engine, WinDivert.dll verified)"
+            )
         elif not (self.clumsy_exe and os.path.exists(self.clumsy_exe)):
             log_error("FATAL: clumsy.exe not found and native engine unavailable")
             return False
         else:
-            log_info(f"Disruptor initialized (clumsy.exe @ {self.clumsy_exe})")
+            log_info(
+                "Disruptor initialized "
+                "(clumsy compatibility engine, clumsy.exe verified)"
+            )
         self._initialized = True
         return True
 
@@ -1594,8 +1621,8 @@ class ClumsyNetworkDisruptor:
                 return None
             if not self.clumsy_exe or not os.path.isfile(self.clumsy_exe):
                 log_error(
-                    "Clumsy compatibility requested but clumsy.exe is missing: "
-                    f"{self.clumsy_exe}"
+                    "Clumsy compatibility requested but "
+                    "clumsy.exe status=missing"
                 )
                 return None
             log_info(
