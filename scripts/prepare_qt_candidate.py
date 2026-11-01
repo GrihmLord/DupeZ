@@ -424,6 +424,77 @@ def restrict_candidate_wheel(source: Path, destination: Path, manifest: dict) ->
     return {"removed_members": removed, "inventory": inventory}
 
 
+def verify_candidate_origins(wheel: Path, manifest: dict, inputs: Path, tar: Path,
+                             env: dict | None = None) -> dict:
+    """Compare final native/catalog bytes to pinned archives, never a mutable prefix.
+
+    RECORD establishes internal consistency only. The bundler or prefix could
+    substitute bytes and regenerate RECORD, so this is a separate origin check.
+    Binary origin is not a claim of a corresponding-source/compiler rebuild.
+    """
+    ordinary_path(wheel, file=True)
+    with wheel.open("rb") as source:
+        wheel_pin = {"size": os.fstat(source.fileno()).st_size,
+                     "sha256": hashlib.file_digest(source, "sha256").hexdigest()}
+    inventory = validate_candidate_wheel(wheel, manifest)
+    items = [item for item in manifest["inputs"]
+             if item["role"] in {"binding-wheel", "qt-prefix", "qt-helper"}]
+    archives = {}
+    for item in items:
+        path = inputs / item["filename"]
+        verified(path, item)
+        if item["role"] == "binding-wheel":
+            inspect_wheel(path)
+            with zipfile.ZipFile(path) as source:
+                archives[item["id"]] = {name.casefold(): "-" for name in source.namelist()
+                                         if not name.endswith("/")}
+        else:
+            archives[item["id"]] = inspect_7z(path, item, tar, env)
+    entries = []
+    with zipfile.ZipFile(wheel) as final:
+        names = sorted([entry["path"] for entry in inventory["native_members"]]
+                       + inventory["translations"])
+        for name in names:
+            if name.startswith("PyQt6/Qt6/"):
+                member = name.removeprefix("PyQt6/Qt6/")
+                role = "qt-prefix"
+                if member in {"bin/d3dcompiler_47.dll", "bin/opengl32sw.dll"}:
+                    member, role = PurePosixPath(member).name, "qt-helper"
+            else:
+                member, role = name, "binding-wheel"
+            origins = [item for item in items if item["role"] == role
+                       and archives[item["id"]].get(member.casefold()) == "-"]
+            if len(origins) != 1:
+                raise ValueError(f"Candidate member needs exactly one pinned origin: {name}")
+            item = origins[0]
+            path = inputs / item["filename"]
+            if role == "binding-wheel":
+                with zipfile.ZipFile(path) as source:
+                    upstream = source.read(member)
+            else:
+                upstream = subprocess.run([str(tar), "-xOf", str(path), member],
+                                          capture_output=True, check=True, timeout=120, env=env).stdout
+            payload = final.read(name)
+            if payload != upstream:
+                raise ValueError(f"Candidate bytes differ from pinned origin: {name}")
+            entries.append({"path": name, "size": len(payload),
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "input_id": item["id"], "input_sha256": item["sha256"],
+                            "archive_member": member})
+    # Detect changed inputs during the comparison instead of signing off on a
+    # receipt that only validated an earlier file state.
+    for item in items:
+        verified(inputs / item["filename"], item)
+    try:
+        verified(wheel, wheel_pin)
+    except ValueError as error:
+        raise ValueError("Candidate wheel changed during origin verification") from error
+    return {"status": "exact-pinned-input-bytes", "native_count": len(inventory["native_members"]),
+            "translation_count": len(inventory["translations"]), "members": entries,
+            "wheel": wheel_pin,
+            "corresponding_source_rebuild_proven": False}
+
+
 def run(argv: list[str], cwd: Path, log: Path) -> None:
     env = child_environment(log.parent / "private")
     with log.open("ab") as output:
@@ -498,13 +569,15 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
         wheel_dir.mkdir()
         wheel = wheel_dir / bundled.name
         receipt["profile_restriction"] = restrict_candidate_wheel(bundled, wheel, manifest)
+        receipt["upstream_origins"] = verify_candidate_origins(wheel, manifest, inputs, tar, env)
         with bundled.open("rb") as source:
             receipt["unrestricted_bundler_wheel"] = {"path": bundled.relative_to(output).as_posix(),
                 "sha256": hashlib.file_digest(source, "sha256").hexdigest(), "size": bundled.stat().st_size}
-        with wheel.open("rb") as source:
-            wheel_hash = hashlib.file_digest(source, "sha256").hexdigest()
+        wheel_pin = receipt["upstream_origins"]["wheel"]
+        verified(wheel, wheel_pin)
+        wheel_hash = wheel_pin["sha256"]
         receipt.update(status="candidate-wheel-prepared", wheel={"path": wheel.relative_to(output).as_posix(),
-                       "sha256": wheel_hash, "size": wheel.stat().st_size}, retained_bindings=manifest["retained_bindings"])
+                       **wheel_pin}, retained_bindings=manifest["retained_bindings"])
         if install_runtime:
             runtime = output / "runtime-venv"
             run([sys.executable, "-I", "-m", "venv", str(runtime)], output, log)

@@ -15,7 +15,14 @@ import sys
 import traceback
 from urllib.parse import urlsplit
 
-from app.core.qt_startup import normalized_qt_argv
+from app.core.qt_startup import (
+    normalized_qt_argv,
+    sanitize_frozen_qt_graphics_environment,
+)
+
+# Keep the direct module entry point behind the same pre-import boundary.
+sanitize_frozen_qt_graphics_environment()
+
 from dupez_single_instance import guard_gui_startup
 
 __all__ = ["dump_crash", "main"]

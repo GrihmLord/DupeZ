@@ -6,6 +6,12 @@ Run this file to start DupeZ.  Works both as a script and as PyInstaller entry.
 import sys
 import os
 
+from app.core.qt_startup import sanitize_frozen_qt_graphics_environment
+
+
+# Maintenance flags import Qt before the normal renderer-tier setup below.
+sanitize_frozen_qt_graphics_environment()
+
 
 def _safe_stream_write(stream_name: str, message: str) -> None:
     """Best-effort launcher logging before the real logger is available."""

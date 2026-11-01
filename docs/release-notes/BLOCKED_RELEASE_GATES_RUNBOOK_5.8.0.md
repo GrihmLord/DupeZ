@@ -59,10 +59,12 @@ check results.
 
 The November 1 local checkpoint `dbf4d62` passes both frozen archive/native
 checks, GPU maintenance/manual-map lifecycle checks, and the full production
-source suite (3,501 passed, ten expected skips). The owner approved a normal UAC
-retry for Compat, but Windows again canceled the launch before its helper
-started. Compat requires another operator-approved normal UAC attempt and
-actual runtime reports. Offline archive success does not provide that evidence.
+source suite (3,501 passed, ten expected skips). Following the earlier canceled
+attempt, a newly owner-approved normal UAC retry passed Compat maintenance and
+both normal/low-resource dashboard safety dry-run cycles. Its actual v4 report
+passed the Windows PowerShell 5.1 consumer. These exact-build observations do
+not establish packet effects, hardware/hotkey parity or protected-main release
+validation; no further UAC retry is needed for these completed local checks.
 See the [exact-build record](../audits/NATIVE_VALIDATION_2026-11-01.md).
 
 1. Sign into the GitHub account that owns `GrihmLord/DupeZ`. Open

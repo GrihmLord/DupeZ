@@ -14,6 +14,17 @@ native member hashes, source observations and TLS results are retained in
 This continues the [October 25 Qt review](QT_NATIVE_REVIEW_2026-10-25.md);
 it does not replace its outstanding native/source limitations.
 
+The follow-up [translation rebuild review](QT_TRANSLATION_SOURCE_REVIEW_2026-11-01-followup.md)
+closes the catalog correspondence gap: all 314 official QM files reproduce
+byte-for-byte from archived or recipe-generated TS inputs, including all 33
+retained Qtbase catalogs. It uses the authenticated official compiler; it does
+not prove a rebuild of that compiler or of the Qt native libraries.
+
+The [raster runtime experiment](QT_RASTER_RUNTIME_REVIEW_2026-11-01.md) also
+passes bounded native Windows widget checks without the six OpenGL/helper
+binaries. It is a derived probe fixture; the shipped and reviewed candidate
+profiles still retain those files.
+
 ## Reproducible candidate preparation
 
 The tracked [preparer](../../scripts/prepare_qt_candidate.py) consumes schema

@@ -272,13 +272,175 @@
     }
   },
   "compat": {
-    "status": "normal-UAC-launch-canceled-before-helper-start",
-    "windows_launch_error": "The operation was canceled by the user.",
-    "user_approved_retry": true,
-    "maintenance_observed": false,
-    "lifecycle_observed": false,
-    "process_handle_returned": false,
-    "no_retry_after_cancellation": true
+    "status": "maintenance-and-v4-lifecycle-passed",
+    "user_approved_fresh_normal_uac_retry": true,
+    "runner": {
+      "runner_is_admin": true,
+      "maintenance_exit_code": 0,
+      "lifecycle_exit_code": 0,
+      "completed": true
+    },
+    "maintenance": {
+      "artifact": {
+        "name": "DupeZ-Compat.exe",
+        "sha256": "f7ab248fcea07bb038977af1e30ff942ba720606fb5b5b71f5895ccbab673338",
+        "size": 69138351
+      },
+      "checks": [
+        {
+          "check": "runtime-imports",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "check": "runtime-imports",
+            "ok": true
+          },
+          "report_sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179"
+        },
+        {
+          "check": "native-tls",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "available_backends": [
+              "schannel"
+            ],
+            "backend": "schannel",
+            "check": "native-tls",
+            "ok": true,
+            "supports_ssl": true
+          },
+          "report_sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526"
+        }
+      ],
+      "dashboard_tested": false,
+      "network_tested": false,
+      "release_approval": false,
+      "runner_is_admin": true,
+      "schema": "dupez.local-frozen-maintenance.v1",
+      "scope": "maintenance imports and local TLS backend only",
+      "variant": "Compat"
+    },
+    "lifecycle": {
+      "commit": "dbf4d62bee7c9058760d1d94092b992e50a6e0a0",
+      "cycles_per_profile": 1,
+      "executable": "DupeZ-Compat.exe",
+      "executable_sha256": "f7ab248fcea07bb038977af1e30ff942ba720606fb5b5b71f5895ccbab673338",
+      "generated_at_utc": "2026-11-01T19:45:24Z",
+      "network_validation_mode": "production-safety-dry-run",
+      "runs": [
+        {
+          "architecture_observed": "Architecture: inproc | Admin: True",
+          "clean_exit": true,
+          "commit": "dbf4d62bee7c9058760d1d94092b992e50a6e0a0",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-Compat.exe",
+          "executable_sha256": "f7ab248fcea07bb038977af1e30ff942ba720606fb5b5b71f5895ccbab673338",
+          "exit_code": 0,
+          "launched_from_admin": true,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-Compat.exe"
+          ],
+          "profile": "normal",
+          "source_fingerprint": "2c9aa7ed156d01027d840a6e44ce98c5f01908ff1749f4c6d434b921aea2bee0",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-01T19:44:53Z",
+          "startup_duration_ms": 8124,
+          "validation_session_id": "b4e8fcf8-a37c-4fb8-8c1d-f6c76d8aebd1",
+          "variant": "Compat",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 138055680
+        },
+        {
+          "architecture_observed": "Architecture: inproc | Admin: True",
+          "clean_exit": true,
+          "commit": "dbf4d62bee7c9058760d1d94092b992e50a6e0a0",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-Compat.exe",
+          "executable_sha256": "f7ab248fcea07bb038977af1e30ff942ba720606fb5b5b71f5895ccbab673338",
+          "exit_code": 0,
+          "launched_from_admin": true,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-Compat.exe"
+          ],
+          "profile": "forced-low-resource",
+          "source_fingerprint": "2c9aa7ed156d01027d840a6e44ce98c5f01908ff1749f4c6d434b921aea2bee0",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-01T19:45:09Z",
+          "startup_duration_ms": 6762,
+          "validation_session_id": "b4e8fcf8-a37c-4fb8-8c1d-f6c76d8aebd1",
+          "variant": "Compat",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 139849728
+        }
+      ],
+      "schema": "dupez.frozen-runtime-validation.v4",
+      "source_fingerprint": "2c9aa7ed156d01027d840a6e44ce98c5f01908ff1749f4c6d434b921aea2bee0",
+      "source_state": "clean",
+      "validation_host": {
+        "administrator": true,
+        "python": "3.13.17"
+      },
+      "validation_session_id": "b4e8fcf8-a37c-4fb8-8c1d-f6c76d8aebd1",
+      "variant": "Compat"
+    },
+    "consumer": {
+      "status": "passed",
+      "powershell": "5.1.26100.9711",
+      "log": {
+        "path": "build/native-verified-20261101/compat-consumer-host.log",
+        "size": 68,
+        "sha256": "5a636384d130b48ba8892fa1cc135b6efe0b58079ba7d79594f5b8bf9b6621c5"
+      }
+    },
+    "reports": [
+      {
+        "path": "build/native-verified-20261101/runtime-checkout/build/runtime/compat-runner-result.json",
+        "size": 127,
+        "sha256": "b0b80a5827af0ade0bfdf94e8ce345eb574d1406c04a23be8e87954e815afbbc"
+      },
+      {
+        "path": "build/native-verified-20261101/runtime-checkout/build/runtime/compat-maintenance/maintenance-observation.json",
+        "size": 1206,
+        "sha256": "8b9d57abe98d375d04b452547348169b20d4264f868861c371c6a4ab8c39f83d"
+      },
+      {
+        "path": "build/native-verified-20261101/runtime-checkout/build/runtime/frozen-runtime-evidence-compat.json",
+        "size": 2732,
+        "sha256": "1e7f564335e1df3fe62f5bb42d6f38e2d702dc1efe2d60e20190bdc81f30a561"
+      },
+      {
+        "path": "build/native-verified-20261101/runtime-checkout/build/runtime/compat-maintenance.log",
+        "size": 1882,
+        "sha256": "18430557d54b0942d402ee223ced5d4d9665c4ab85c9f8cce07bd3f827e799f3"
+      },
+      {
+        "path": "build/native-verified-20261101/runtime-checkout/build/runtime/compat-lifecycle.log",
+        "size": 496,
+        "sha256": "b44a3403ad5be8650e632e5dc61a667b165399e3429997257873a3cc421b820f"
+      }
+    ],
+    "prior_attempts": [
+      {
+        "status": "normal-UAC-launch-canceled-before-helper-start",
+        "windows_launch_error": "The operation was canceled by the user.",
+        "user_approved_retry": true,
+        "maintenance_observed": false,
+        "lifecycle_observed": false,
+        "process_handle_returned": false,
+        "no_retry_after_cancellation": true
+      }
+    ],
+    "scope": "Exact dbf4d62 clean build; normal and forced-low-resource production safety dry-run. No packet effects or hardware parity claim.",
+    "release_approval": false
   },
   "notices": {
     "runtime_components": 27,

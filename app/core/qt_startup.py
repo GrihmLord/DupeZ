@@ -4,9 +4,58 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import MutableMapping, Sequence
 
-__all__ = ["normalized_qt_argv"]
+__all__ = [
+    "is_qt_graphics_override",
+    "normalized_qt_argv",
+    "sanitize_frozen_qt_graphics_environment",
+]
+
+
+_QT_GRAPHICS_OVERRIDE_NAMES = frozenset({
+    "qt_angle_platform",
+    "qt_no_opengl_buglist",
+    "qt_opengl",
+    "qt_opengl_buglist",
+    "qt_opengl_dll",
+    "qt_quick_backend",
+    # Unlike ordinary DPI scaling, this enables the QRhi widget renderer.
+    "qt_widgets_highdpi_downscale",
+    "qt_widgets_rhi",
+})
+_QT_GRAPHICS_OVERRIDE_PREFIXES = ("qt_widgets_rhi_", "qsg_rhi_")
+
+
+def is_qt_graphics_override(name: str) -> bool:
+    """Identify inherited native renderer selectors without reading values."""
+    canonical = name.casefold()
+    return (
+        canonical in _QT_GRAPHICS_OVERRIDE_NAMES
+        or canonical.startswith(_QT_GRAPHICS_OVERRIDE_PREFIXES)
+    )
+
+
+def sanitize_frozen_qt_graphics_environment(
+    environment: MutableMapping[str, str] | None = None,
+) -> None:
+    """Pin frozen Windows policy before application QtGui/renderer startup.
+
+    ``QT_OPENGL=software`` alone still lets ``QT_OPENGL_DLL`` select a different
+    DLL, while inherited QRhi selectors can replace normal QWidget raster
+    presentation. Remove those controls before maintenance or GUI dispatch.
+    Preserve source diagnostics, ordinary DPI/accessibility settings, and the
+    trusted Qt plugin path installed by the PyInstaller runtime hook. That
+    internal hook loads QtCore earlier; this boundary precedes application
+    maintenance/QtGui imports and renderer initialization, not that hook.
+    """
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return
+    target = os.environ if environment is None else environment
+    for name in tuple(target):
+        if is_qt_graphics_override(name):
+            del target[name]
+    target["QT_OPENGL"] = "software"
 
 
 def normalized_qt_argv(

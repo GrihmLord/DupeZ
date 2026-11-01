@@ -361,3 +361,130 @@ def test_plugin_and_translation_manifest_profiles_are_checked(tmp_path, field, v
     path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         candidate.load_manifest(path)
+
+
+def _origin_fixture(tmp_path, monkeypatch):
+    """Real pinned files/ZIP plus a data-only stand-in for the system 7z reader."""
+    manifest = candidate.load_manifest()
+    payloads = _profile_payloads(manifest)
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    grouped = {role: {} for role in ("binding-wheel", "qt-prefix", "qt-helper")}
+    for name, value in payloads.items():
+        if name.startswith("PyQt6/Qt6/"):
+            member = name.removeprefix("PyQt6/Qt6/")
+            role = "qt-prefix"
+            if member in {"bin/opengl32sw.dll", "bin/d3dcompiler_47.dll"}:
+                member, role = Path(member).name, "qt-helper"
+        elif name.endswith(".pyd"):
+            member, role = name, "binding-wheel"
+        else:
+            continue
+        grouped[role][member] = value.decode()
+    manifest["inputs"] = []
+    for role, members in grouped.items():
+        path = inputs / (role + (".whl" if role == "binding-wheel" else ".7z"))
+        if role == "binding-wheel":
+            with zipfile.ZipFile(path, "w") as archive:
+                for name, value in members.items():
+                    archive.writestr(name, value)
+        else:
+            path.write_text(json.dumps(members))
+        manifest["inputs"].append({"id": role, "role": role, "filename": path.name,
+                                   "size": path.stat().st_size,
+                                   "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
+    monkeypatch.setattr(candidate, "inspect_7z", lambda path, *_args:
+                        {name.casefold(): "-" for name in json.loads(path.read_text())})
+
+    def read_archive(argv, **_kwargs):
+        assert argv[:2] == ["tar.exe", "-xOf"]
+        return SimpleNamespace(stdout=json.loads(Path(argv[2]).read_text())[argv[3]].encode())
+
+    monkeypatch.setattr(candidate.subprocess, "run", read_archive)
+    wheel = tmp_path / "candidate.whl"
+    _write_recorded_wheel(wheel, payloads)
+    return manifest, inputs, wheel, payloads
+
+
+def test_candidate_origin_map_covers_every_native_and_catalog(tmp_path, monkeypatch):
+    manifest, inputs, wheel, _ = _origin_fixture(tmp_path, monkeypatch)
+    result = candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+    assert result["native_count"] == 39
+    assert result["translation_count"] == 33
+    assert len(result["members"]) == 72
+    assert {entry["input_id"] for entry in result["members"]} == {"binding-wheel", "qt-prefix", "qt-helper"}
+    assert not result["corresponding_source_rebuild_proven"]
+
+
+@pytest.mark.parametrize("name", ["PyQt6/QtCore.pyd", "PyQt6/Qt6/bin/Qt6Core.dll",
+                                  "PyQt6/Qt6/bin/opengl32sw.dll",
+                                  "PyQt6/Qt6/plugins/tls/qschannelbackend.dll",
+                                  "PyQt6/Qt6/translations/qtbase_en.qm"])
+def test_recomputed_record_cannot_conceal_substituted_upstream_bytes(tmp_path, monkeypatch, name):
+    manifest, inputs, wheel, payloads = _origin_fixture(tmp_path, monkeypatch)
+    payloads[name] = b"substituted with a consistent new RECORD"
+    _write_recorded_wheel(wheel, payloads)
+    assert candidate.validate_candidate_wheel(wheel, manifest)["wheel_record_verified"]
+    with pytest.raises(ValueError, match="bytes differ from pinned origin"):
+        candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+
+
+@pytest.mark.parametrize("duplicate", [False, True])
+def test_candidate_origins_must_be_present_and_unambiguous(tmp_path, monkeypatch, duplicate):
+    manifest, inputs, wheel, _ = _origin_fixture(tmp_path, monkeypatch)
+    prefix = next(item for item in manifest["inputs"] if item["role"] == "qt-prefix")
+    if duplicate:
+        manifest["inputs"].append({**prefix, "id": "duplicate-prefix"})
+    else:
+        manifest["inputs"].remove(prefix)
+    with pytest.raises(ValueError, match="exactly one pinned origin"):
+        candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+
+
+def test_corrupt_origin_input_fails_before_archive_reader(tmp_path, monkeypatch):
+    manifest, inputs, wheel, _ = _origin_fixture(tmp_path, monkeypatch)
+    (inputs / manifest["inputs"][0]["filename"]).write_bytes(b"bad")
+    monkeypatch.setattr(candidate.subprocess, "run", lambda *_a, **_k: pytest.fail("read unpinned input"))
+    with pytest.raises(ValueError, match="input size"):
+        candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+
+
+def test_input_changed_during_origin_comparison_invalidates_receipt(tmp_path, monkeypatch):
+    manifest, inputs, wheel, _ = _origin_fixture(tmp_path, monkeypatch)
+    reader = candidate.subprocess.run
+
+    def mutate_after_read(argv, **kwargs):
+        result = reader(argv, **kwargs)
+        # Whitespace preserves the fake archive's contents while changing its pin.
+        with Path(argv[2]).open("a") as output:
+            output.write(" ")
+        return result
+
+    monkeypatch.setattr(candidate.subprocess, "run", mutate_after_read)
+    with pytest.raises(ValueError, match="input size"):
+        candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+
+
+def test_candidate_changed_after_member_comparison_invalidates_origin_receipt(tmp_path, monkeypatch):
+    manifest, inputs, wheel, payloads = _origin_fixture(tmp_path, monkeypatch)
+    reader = candidate.subprocess.run
+    reads = []
+    member = "PyQt6/Qt6/bin/Qt6Core.dll"
+
+    def change_already_compared_member(argv, **kwargs):
+        result = reader(argv, **kwargs)
+        reads.append(argv[3])
+        if len(reads) == 2:
+            # Qt6Core was already compared. Keep ZIP offsets and payload sizes
+            # stable, and regenerate a valid RECORD: neither later member reads
+            # nor a fresh internal-consistency check detects the stale proof.
+            assert reads[0] == "bin/Qt6Core.dll"
+            payloads[member] = b"X" * len(payloads[member])
+            _write_recorded_wheel(wheel, payloads)
+        return result
+
+    monkeypatch.setattr(candidate.subprocess, "run", change_already_compared_member)
+    with pytest.raises(ValueError, match="Candidate wheel changed"):
+        candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
+    assert len(reads) >= 2
+    assert candidate.validate_candidate_wheel(wheel, manifest)["wheel_record_verified"]

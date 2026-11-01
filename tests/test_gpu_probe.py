@@ -117,6 +117,23 @@ def test_child_webengine_environment_drops_parent_renderer_bypasses() -> None:
     assert environment["DUPEZ_MAP_RENDERER_TIER"] == "tier1_hw"
 
 
+@pytest.mark.parametrize("key", [
+    "QT_OPENGL_DLL", "qt_opengl_buglist", "QT_NO_OPENGL_BUGLIST",
+    "Qt_Widgets_Rhi", "QT_WIDGETS_RHI_BACKEND", "QT_WIDGETS_RHI_DEBUG_LAYER",
+    "QT_WIDGETS_HIGHDPI_DOWNSCALE", "QSG_RHI_BACKEND",
+    "qsg_rhi_prefer_software_renderer",
+])
+def test_child_environment_clears_graphics_selectors_preserving_dpi(key: str) -> None:
+    base = {key: "unreviewed", "QT_SCALE_FACTOR": "1.5", "PATH": "system-path"}
+
+    environment = renderer_tier.child_webengine_environment(base)
+
+    assert key not in environment
+    assert base[key] == "unreviewed"
+    assert environment["QT_SCALE_FACTOR"] == "1.5"
+    assert environment["PATH"] == "system-path"
+
+
 @pytest.mark.parametrize(
     "unsafe_flag",
     ["--no-sandbox", "--no-sandbox=true", '"--no-sandbox"'],

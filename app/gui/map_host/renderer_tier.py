@@ -17,6 +17,8 @@ import re
 import sys
 from typing import Literal, Mapping
 
+from app.core.qt_startup import is_qt_graphics_override
+
 
 log = logging.getLogger(__name__)
 
@@ -44,11 +46,7 @@ _CHILD_RENDERER_ENV_KEYS = frozenset({
     "gallium_driver",
     "libgl_always_software",
     "mesa_loader_driver_override",
-    "qsg_rhi_backend",
-    "qt_angle_platform",
-    "qt_opengl",
     "qt_qpa_platform",
-    "qt_quick_backend",
 })
 
 
@@ -68,6 +66,7 @@ def child_webengine_environment(
         for key, value in base.items()
         if (
             str(key).casefold() not in _CHILD_RENDERER_ENV_KEYS
+            and not is_qt_graphics_override(str(key))
             and not str(key).casefold().startswith("qtwebengine")
         )
     }

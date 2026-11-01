@@ -11,7 +11,7 @@ snapshot, or a passing source-only preflight into a release candidate.
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
 | Source changes | November 1 clean build checkpoint `dbf4d62`, later test-only fixes and separate source/candidate evidence are tracked through PR 84 | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
-| Hosted CI | October 25 verification of prior pushed head `6fa81f4` found all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
+| Hosted CI | November 1 verification of pushed head `1b60172` found all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
 | Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
@@ -21,7 +21,7 @@ snapshot, or a passing source-only preflight into a release candidate.
 | Source/rebuild evidence | All 33 upstream archives collected and independently bundle-verified; all four managed binaries match official release assets; earlier GPU application/LGPL Python-layer modification evidence retained | IUP source replacement date, exact native rebuild/replacement, public source delivery/retention and owner decisions remain unresolved |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Fresh GPU/Compat builds at `dbf4d62` pass offline checks. GPU maintenance and both v4 safety dry-run lifecycle profiles pass; the newly authorized Compat UAC attempt was again canceled before execution | Compat still requires normal operator-approved elevation and runtime evidence. Rebuild on protected main after all release gates |
+| Exact artifacts | Fresh GPU/Compat builds at `dbf4d62` pass offline checks. Both variants pass maintenance, normal/low-resource safety dry-run lifecycle checks and the v4 evidence consumer; Compat used a newly approved normal UAC retry | Hardware/hotkey parity remains open. Rebuild and validate on protected main after all release gates |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify the public download and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -47,10 +47,15 @@ downgrade or account change was made by this work.
   translations. Loopback TLS 1.3 and both negative certificate/hostname controls
   pass. Image checks retain an existing tiny-WebP decoder limitation reproduced
   on both production and candidate Qt. The Mesa/LLVM helper remains unchanged.
-- **Compat runtime remains untested:** Windows canceled the approved normal
-  UAC attempt before the helper started. No elevation bypass or retry followed.
-- Source inputs and upstream inventory correlation improved, with exact
-  native rebuild, compiled translation and public delivery gaps kept explicit.
+- **Compat runtime passed:** a newly approved normal UAC retry completed import,
+  Schannel and both dashboard lifecycle checks on the exact `dbf4d62` build.
+  Its v4 report passed the Windows PowerShell 5.1 consumer. The earlier canceled
+  attempt remains in the record; no elevation or execution-policy bypass was used.
+- All **314 compiled translation catalogs** now rebuild byte-for-byte from
+  archived or recipe-generated source using the official compiler, including
+  all 33 retained Qtbase catalogs. Native compiler/library rebuilds and public
+  delivery remain separate gaps. A bounded raster-widget experiment also
+  passes without the six GL/helper binaries; no runtime profile was changed.
   See [November 1 evidence](../audits/NATIVE_VALIDATION_2026-11-01.md) and
   [candidate review](../audits/QT_CANDIDATE_VALIDATION_2026-11-01.md).
 
