@@ -67,6 +67,12 @@ not establish packet effects, hardware/hotkey parity or protected-main release
 validation; no further UAC retry is needed for these completed local checks.
 See the [exact-build record](../audits/NATIVE_VALIDATION_2026-11-01.md).
 
+The subsequent `008b1a0` checkpoint adds the frozen Qt graphics-environment
+policy and passes 3,544 source tests with ten expected skips. Both rebuilt
+variants pass archive/native checks, maintenance, normal/low-resource safety
+dry-run lifecycles and the canonical evidence consumer. Compat used a fresh
+normal UAC approval. See the [latest build and source-mapping record](../audits/QT_STARTUP_AND_ORIGINS_2026-11-01.md).
+
 1. Sign into the GitHub account that owns `GrihmLord/DupeZ`. Open
    [Billing & licensing](https://github.com/settings/billing), then
    **Payment information**. For an organization-owned repository, use that

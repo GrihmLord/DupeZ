@@ -112,7 +112,7 @@ exact startup path before adopting any helper removal.
    assignment does not itself neutralize that override. This probe's minimal
    environment does not test ambient rendering overrides, bug lists or
    widget RHI settings.
-2. If approved for implementation, create a separately named candidate wheel
+2. After completing the startup assessment, create a separately named candidate wheel
    with a reviewed exclusion manifest, regenerated/validated RECORD and
    exact retained-byte mapping. Add packaging and final-archive rejection
    checks for the six excluded binaries and both excluded bindings, rather

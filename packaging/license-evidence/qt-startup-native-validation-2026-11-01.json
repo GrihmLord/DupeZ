@@ -1,0 +1,421 @@
+{
+  "schema": "dupez.qt-startup-native-validation.v1",
+  "reviewed_on": "2026-11-01",
+  "checkpoint": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+  "production_qt_version": "6.11.2",
+  "status": "clean-builds-maintenance-and-both-v4-lifecycles-passed",
+  "release_approved": false,
+  "source_tests": {
+    "tests": 3554,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 10,
+    "passed": 3544,
+    "seconds": 145.877,
+    "report": {
+      "path": "build/native-verified-20261101/source-followup-host-pytest.xml",
+      "size": 503158,
+      "sha256": "4c35a30354b7998ea00b2fb3bcc52495dd3738e05d65233ace3f511343993812"
+    }
+  },
+  "coverage_collected_in_this_run": false,
+  "diagnostic_sandbox_suite": {
+    "tests": 3554,
+    "failures": 22,
+    "errors": 0,
+    "skipped": 11,
+    "passed": 3521,
+    "seconds": 178.727,
+    "report": {
+      "path": "build/native-verified-20261101/source-followup-pytest.xml",
+      "size": 585672,
+      "sha256": "e2aafd0d807d9d160796a879631698c449bebe5b2926d0d9cfe79c8a2d69c9d1"
+    }
+  },
+  "diagnostic_reason": "Sandbox denied Windows hard links and loopback socket access. Tests were preserved and rerun outside that restriction; all passed.",
+  "lint_and_parse": {
+    "ruff": "passed",
+    "ast": "passed",
+    "tracked_python_files": 455
+  },
+  "source_preflight": {
+    "status": "passed",
+    "unresolved_license_policy_warnings": 6,
+    "log": {
+      "path": "build/qt-startup-verified-20261101/source-preflight.log",
+      "size": 488,
+      "sha256": "7bcbd4819eb2cf08659d6280442b36af83fd714b5a4a1183b6e028b3d89b6187"
+    }
+  },
+  "build": {
+    "checkpoint": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+    "artifacts": [
+      {
+        "path": "DupeZ-v5.8.0-source.zip",
+        "size": 25002707,
+        "sha256": "d9f791a7c0cb1307fe0802abfb9a4f47790b6ab1f3a90e9be82ce9b71f168650"
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "size": 69141594,
+        "sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222"
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "size": 69140206,
+        "sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7"
+      }
+    ]
+  },
+  "exact_source_archive_gate": "passed",
+  "frozen_dependency_archive_gate": "both passed",
+  "runtime": {
+    "GPU": {
+      "native_inventory": {
+        "artifact": {
+          "name": "DupeZ-GPU.exe",
+          "sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222",
+          "size": 69141594
+        },
+        "collection_manifest": {
+          "sha256": "bae8a5424281d6f02207ff7c9f181e4ee12bda9495faee848068f917d841579d",
+          "size": 48856
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "native_entry_count": 128,
+        "native_inventory_sha256": "e6480c24b59b7e87735a44120b5d3823c8624cea6b097c020d08b73b2a2f65df",
+        "origin_counts": {
+          "locked-build-venv": 100,
+          "managed-native": 4,
+          "verified-base-python": 24
+        },
+        "qt_tls_policy": "schannel-only",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "maintenance": {
+        "artifact": {
+          "name": "DupeZ-GPU.exe",
+          "sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222",
+          "size": 69141594
+        },
+        "checks": [
+          {
+            "check": "runtime-imports",
+            "exit_code": 0,
+            "observed_processes": 2,
+            "observed_processes_exited": true,
+            "report": {
+              "check": "runtime-imports",
+              "ok": true
+            },
+            "report_sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179"
+          },
+          {
+            "check": "native-tls",
+            "exit_code": 0,
+            "observed_processes": 2,
+            "observed_processes_exited": true,
+            "report": {
+              "available_backends": [
+                "schannel"
+              ],
+              "backend": "schannel",
+              "check": "native-tls",
+              "ok": true,
+              "supports_ssl": true
+            },
+            "report_sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526"
+          }
+        ],
+        "dashboard_tested": false,
+        "network_tested": false,
+        "release_approval": false,
+        "runner_is_admin": false,
+        "schema": "dupez.local-frozen-maintenance.v1",
+        "scope": "maintenance imports and local TLS backend only",
+        "variant": "GPU"
+      },
+      "lifecycle": {
+        "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+        "cycles_per_profile": 1,
+        "executable": "DupeZ-GPU.exe",
+        "executable_sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222",
+        "generated_at_utc": "2026-11-01T20:01:29Z",
+        "network_validation_mode": "production-safety-dry-run",
+        "runs": [
+          {
+            "architecture_observed": "Architecture: split | Admin: False",
+            "clean_exit": true,
+            "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+            "crash_files": [],
+            "cycle": 1,
+            "executable": "DupeZ-GPU.exe",
+            "executable_sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222",
+            "exit_code": 0,
+            "launched_from_admin": false,
+            "map_result": "Map: dashboard view active with manual approved URL",
+            "network_validation_mode": "production-safety-dry-run",
+            "process_names_observed": [
+              "DupeZ-GPU.exe"
+            ],
+            "profile": "normal",
+            "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+            "source_state": "clean",
+            "started_at_utc": "2026-11-01T20:00:57Z",
+            "startup_duration_ms": 7539,
+            "validation_session_id": "00389255-d191-40a5-8115-53fc009fcc25",
+            "variant": "GPU",
+            "webengine_helper_observed": false,
+            "working_set_bytes": 144908288
+          },
+          {
+            "architecture_observed": "Architecture: split | Admin: False",
+            "clean_exit": true,
+            "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+            "crash_files": [],
+            "cycle": 1,
+            "executable": "DupeZ-GPU.exe",
+            "executable_sha256": "26f2eac2a2358f450b2dfcc1156158121db7eaa5d5d2f78215b13997b4382222",
+            "exit_code": 0,
+            "launched_from_admin": false,
+            "map_result": "Map: dashboard view active with manual approved URL",
+            "network_validation_mode": "production-safety-dry-run",
+            "process_names_observed": [
+              "DupeZ-GPU.exe"
+            ],
+            "profile": "forced-low-resource",
+            "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+            "source_state": "clean",
+            "started_at_utc": "2026-11-01T20:01:12Z",
+            "startup_duration_ms": 8081,
+            "validation_session_id": "00389255-d191-40a5-8115-53fc009fcc25",
+            "variant": "GPU",
+            "webengine_helper_observed": false,
+            "working_set_bytes": 142815232
+          }
+        ],
+        "schema": "dupez.frozen-runtime-validation.v4",
+        "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+        "source_state": "clean",
+        "validation_host": {
+          "administrator": false,
+          "python": "3.13.17"
+        },
+        "validation_session_id": "00389255-d191-40a5-8115-53fc009fcc25",
+        "variant": "GPU"
+      },
+      "consumer": {
+        "status": "passed",
+        "powershell": "5.1.26100.9711",
+        "log": {
+          "path": "build/qt-startup-verified-20261101/gpu-consumer-host.log",
+          "size": 65,
+          "sha256": "9632cf4c6055be8f7a060cfa3ec366644eb157cbe036769e6023537510612d5b"
+        }
+      },
+      "reports": [
+        {
+          "path": "build/qt-startup-verified-20261101/runtime-checkout/build/runtime/gpu-maintenance/maintenance-observation.json",
+          "size": 1201,
+          "sha256": "e1016d3e6d8e54191377cebd52f54319348326c7ebc8c61ce6414f2ec0eab6ee"
+        },
+        {
+          "path": "build/qt-startup-verified-20261101/runtime-checkout/build/runtime/frozen-runtime-evidence-gpu.json",
+          "size": 2711,
+          "sha256": "6ca60392e818b0c7a8828289e6a042c31977b839945a445d1f0981b938a8b165"
+        }
+      ]
+    },
+    "Compat": {
+      "native_inventory": {
+        "artifact": {
+          "name": "DupeZ-Compat.exe",
+          "sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7",
+          "size": 69140206
+        },
+        "collection_manifest": {
+          "sha256": "7f8e48dcd0eefa1f702d3227cc6595832f0a9cf0a803d1dcc4e54b1b74d04528",
+          "size": 48856
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "native_entry_count": 128,
+        "native_inventory_sha256": "e6480c24b59b7e87735a44120b5d3823c8624cea6b097c020d08b73b2a2f65df",
+        "origin_counts": {
+          "locked-build-venv": 100,
+          "managed-native": 4,
+          "verified-base-python": 24
+        },
+        "qt_tls_policy": "schannel-only",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "maintenance": {
+        "artifact": {
+          "name": "DupeZ-Compat.exe",
+          "sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7",
+          "size": 69140206
+        },
+        "checks": [
+          {
+            "check": "runtime-imports",
+            "exit_code": 0,
+            "observed_processes": 2,
+            "observed_processes_exited": true,
+            "report": {
+              "check": "runtime-imports",
+              "ok": true
+            },
+            "report_sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179"
+          },
+          {
+            "check": "native-tls",
+            "exit_code": 0,
+            "observed_processes": 2,
+            "observed_processes_exited": true,
+            "report": {
+              "available_backends": [
+                "schannel"
+              ],
+              "backend": "schannel",
+              "check": "native-tls",
+              "ok": true,
+              "supports_ssl": true
+            },
+            "report_sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526"
+          }
+        ],
+        "dashboard_tested": false,
+        "network_tested": false,
+        "release_approval": false,
+        "runner_is_admin": true,
+        "schema": "dupez.local-frozen-maintenance.v1",
+        "scope": "maintenance imports and local TLS backend only",
+        "variant": "Compat"
+      },
+      "lifecycle": {
+        "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+        "cycles_per_profile": 1,
+        "executable": "DupeZ-Compat.exe",
+        "executable_sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7",
+        "generated_at_utc": "2026-11-01T20:02:37Z",
+        "network_validation_mode": "production-safety-dry-run",
+        "runs": [
+          {
+            "architecture_observed": "Architecture: inproc | Admin: True",
+            "clean_exit": true,
+            "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+            "crash_files": [],
+            "cycle": 1,
+            "executable": "DupeZ-Compat.exe",
+            "executable_sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7",
+            "exit_code": 0,
+            "launched_from_admin": true,
+            "map_result": "Map: dashboard view active with manual approved URL",
+            "network_validation_mode": "production-safety-dry-run",
+            "process_names_observed": [
+              "DupeZ-Compat.exe"
+            ],
+            "profile": "normal",
+            "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+            "source_state": "clean",
+            "started_at_utc": "2026-11-01T20:02:06Z",
+            "startup_duration_ms": 7782,
+            "validation_session_id": "c69a51b4-c820-411e-8c85-0d1bff0c4b96",
+            "variant": "Compat",
+            "webengine_helper_observed": false,
+            "working_set_bytes": 140107776
+          },
+          {
+            "architecture_observed": "Architecture: inproc | Admin: True",
+            "clean_exit": true,
+            "commit": "008b1a0c7638bd0f08813145abe3b3e3c5132ebf",
+            "crash_files": [],
+            "cycle": 1,
+            "executable": "DupeZ-Compat.exe",
+            "executable_sha256": "589e29c53be568a3d518fa40ffd6db707d20f4be51790fe38a2c18c13a5261f7",
+            "exit_code": 0,
+            "launched_from_admin": true,
+            "map_result": "Map: dashboard view active with manual approved URL",
+            "network_validation_mode": "production-safety-dry-run",
+            "process_names_observed": [
+              "DupeZ-Compat.exe"
+            ],
+            "profile": "forced-low-resource",
+            "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+            "source_state": "clean",
+            "started_at_utc": "2026-11-01T20:02:21Z",
+            "startup_duration_ms": 7211,
+            "validation_session_id": "c69a51b4-c820-411e-8c85-0d1bff0c4b96",
+            "variant": "Compat",
+            "webengine_helper_observed": false,
+            "working_set_bytes": 140214272
+          }
+        ],
+        "schema": "dupez.frozen-runtime-validation.v4",
+        "source_fingerprint": "514c00732c344999b783d4b72e5ab462e632afb0347304dd7998d32464f84456",
+        "source_state": "clean",
+        "validation_host": {
+          "administrator": true,
+          "python": "3.13.17"
+        },
+        "validation_session_id": "c69a51b4-c820-411e-8c85-0d1bff0c4b96",
+        "variant": "Compat"
+      },
+      "consumer": {
+        "status": "passed",
+        "powershell": "5.1.26100.9711",
+        "log": {
+          "path": "build/qt-startup-verified-20261101/compat-consumer-host.log",
+          "size": 68,
+          "sha256": "5a636384d130b48ba8892fa1cc135b6efe0b58079ba7d79594f5b8bf9b6621c5"
+        }
+      },
+      "reports": [
+        {
+          "path": "build/qt-startup-verified-20261101/runtime-checkout/build/runtime/compat-maintenance/maintenance-observation.json",
+          "size": 1206,
+          "sha256": "4683f6e451f0a336382e7b38b4a20afd29d66c1ea6751229fb9ef51783397840"
+        },
+        {
+          "path": "build/qt-startup-verified-20261101/runtime-checkout/build/runtime/frozen-runtime-evidence-compat.json",
+          "size": 2732,
+          "sha256": "6a259ba0c9a7f9a7689e364adb56fc0c94ca7adcd3578b7369ef06c8c2843ece"
+        }
+      ]
+    }
+  },
+  "compat_uac_runner": {
+    "runner_is_admin": true,
+    "maintenance_exit_code": 0,
+    "lifecycle_exit_code": 0,
+    "completed": true
+  },
+  "build_environment": {
+    "python": "3.13.17",
+    "runtime_and_build_hash_locks_unchanged": true
+  },
+  "limits": [
+    "Local engineering builds at the recorded checkpoint; not protected-main release artifacts.",
+    "The lifecycle validator sanitizes child environment; adversarial selector handling is established by dedicated source tests, not by these clean-environment dashboard runs.",
+    "Production still uses Qt 6.11.2. The Qt 6.11.3 candidate is independently reviewed and not adopted.",
+    "No packet effects, game operations, hardware smoke or live disruption-hotkey parity is established.",
+    "Native compiler/source/relink, public corresponding-source delivery, six owner policy decisions and hosted CI gates remain unresolved."
+  ]
+}

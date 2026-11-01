@@ -7,6 +7,11 @@ These are local engineering observations, not release approval.
 Machine-readable results are in
 [`native-validation-2026-11-01.json`](../../packaging/license-evidence/native-validation-2026-11-01.json).
 
+The later [Qt startup/origin follow-up](QT_STARTUP_AND_ORIGINS_2026-11-01.md)
+adds graphics-environment hardening, 3,544 passing source tests, and fresh
+GPU/Compat builds and runtime validation at `008b1a0`. The results below remain
+bound to their earlier checkpoints; they are not rewritten as new-build proof.
+
 ## Fixed security and test boundaries
 
 The frozen lifecycle validator now requires the exact observed process creation
