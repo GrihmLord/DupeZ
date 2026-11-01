@@ -1,0 +1,1592 @@
+{
+  "schema": "dupez.qt-candidate-validation.v1",
+  "reviewed_on": "2026-11-01",
+  "baseline_commit": "af461cbc899cf146d3d9808496a5806d75cb2528",
+  "status": "isolated-candidate-validation-production-integration-pending",
+  "production_qt_version": "6.11.2",
+  "candidate_qt_version": "6.11.3",
+  "production_locks_changed": false,
+  "source_delivery_approved": false,
+  "release_approved": false,
+  "scope": "Candidate preparation, inventory, pinned source correlation, and local Schannel handshakes; no complete native rebuild or release approval.",
+  "manifest_schema": "dupez.qt-candidate-inputs.v2",
+  "preparation_schema": "dupez.qt-candidate-preparation.v2",
+  "recipe": {
+    "command": "python -I scripts/prepare_qt_candidate.py --output build/qt-candidate-review --install-runtime",
+    "reviewed_python": "Windows x64 CPython 3.13.17",
+    "input_count": 16,
+    "input_bytes": 123517354,
+    "inputs": [
+      {
+        "id": "qtimageformats-binary",
+        "role": "qt-prefix",
+        "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qtimageformats.win64_msvc2022_64/6.11.3-0-202610220312qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 832221,
+        "sha256": "fb372c6f182a50306aa5321b7063e35644f35356a63d0980f4e67fc579f666fe",
+        "member_listing_sha256": "1b85d8c09981cf342d55448d95720e155cc688a98e5bf3884cc414130b215291",
+        "members": 66
+      },
+      {
+        "id": "qtimageformats-source",
+        "role": "source",
+        "filename": "qtimageformats-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtimageformats-everywhere-src-6.11.3.tar.xz",
+        "size": 2054556,
+        "sha256": "9074e35c9bbdb944ceebdbed03f54d7bba55703b0252491188779e4d1a714c90"
+      },
+      {
+        "id": "qttranslations-binary",
+        "role": "qt-prefix",
+        "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 2014619,
+        "sha256": "fa6da593ea97824c83acaeaddbe15d51224df5586a0609f7c2d9d8891d40c55a",
+        "member_listing_sha256": "05de6c4855e0012b1981502d6071acbf9914ee2d322fbf4c09ebec1ecc06d3dd",
+        "members": 322
+      },
+      {
+        "id": "qttranslations-source",
+        "role": "source",
+        "filename": "qttranslations-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qttranslations-everywhere-src-6.11.3.tar.xz",
+        "size": 1742472,
+        "sha256": "b6cbcd7508afd5e5b6ab25f47436f8e0a67892214cabc9deeb1c4a9046e13952"
+      },
+      {
+        "id": "qtbase-binary",
+        "role": "qt-prefix",
+        "filename": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 39790318,
+        "sha256": "68be61b613b963daf206834fdcc57dd3b84baff3082e50679e5846ca4a7a8b86",
+        "member_listing_sha256": "cca314ba4e068fc544dfe02ce8cfb9301f35ab2533a4ae511424afe291cd8920",
+        "members": 4732
+      },
+      {
+        "id": "qtsvg-binary",
+        "role": "qt-prefix",
+        "filename": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "size": 683023,
+        "sha256": "e8c789e1a059601dd82114dd9560952891e7c8e94e1cb291166eb61d74800353",
+        "member_listing_sha256": "03bc22ab9daf02124943c3f3ab20557a470ed0189a93348b5e2b0d1ae0cfbcf2",
+        "members": 143
+      },
+      {
+        "id": "qtbase-source",
+        "role": "source",
+        "filename": "qtbase-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtbase-everywhere-src-6.11.3.tar.xz",
+        "size": 50542228,
+        "sha256": "bd60222ad79b3d88e7e45c6dd1cd738d34db0ceb159b6221316da7f884525f0b"
+      },
+      {
+        "id": "qtsvg-source",
+        "role": "source",
+        "filename": "qtsvg-everywhere-src-6.11.3.tar.xz",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtsvg-everywhere-src-6.11.3.tar.xz",
+        "size": 2338300,
+        "sha256": "b712a27d4bc6ba510bc5c082f6eaac2ce38588d8a2d2eb771d08307735f9d44c"
+      },
+      {
+        "id": "d3dcompiler_47",
+        "role": "qt-helper",
+        "filename": "d3dcompiler_47-x64.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312d3dcompiler_47-x64.7z",
+        "size": 1380117,
+        "sha256": "be4292719fe0930c988236972bca7f5926db1342e1c85b247e1cef87b903fc9a",
+        "member_listing_sha256": "a48080769dcfbaedee7911453ea82f1bb062d4ac82b6040888c859561f07c244",
+        "members": 1
+      },
+      {
+        "id": "opengl32sw",
+        "role": "qt-helper",
+        "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+        "size": 5474526,
+        "sha256": "f9a6f0229f63d04b3ec1cc455078171f4d0c32e4fd79bc3e6a6dca54e79f7eae",
+        "member_listing_sha256": "9d14f8b2ede6a8da18136b38c8bb2fea66138e121f583535f8421bf3d5b93892",
+        "members": 1
+      },
+      {
+        "filename": "pyqt_builder-1.20.1-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/f5/51/235f77c2f373f4209523c219c46881ea1dfbf646c416f16681d20ead2a98/pyqt_builder-1.20.1-py3-none-any.whl",
+        "size": 5295878,
+        "sha256": "5780743c9e546c29c9540014d57a3da5c2ad8d08435be5c89cf9003e0f65eeb6",
+        "id": "pyqt-builder",
+        "role": "builder-wheel",
+        "package": "PyQt-builder",
+        "version": "1.20.1"
+      },
+      {
+        "filename": "pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/6f/85/dd9f03d78d87460e109e0121cd6201c5802bdd655656bf2780e964870fea/pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
+        "size": 6844358,
+        "sha256": "bd11b459c54dca068e988a42cf838303334f0d441b9d16d92ae6719fcb5ac6ba",
+        "id": "pyqt6",
+        "role": "binding-wheel",
+        "package": "PyQt6",
+        "version": "6.11.0"
+      },
+      {
+        "filename": "sip-6.17.1-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/4c/bd/6e0747e13fde880417e8f9836e8edc82a02f5926aaa568798b1bd26d6925/sip-6.17.1-py3-none-any.whl",
+        "size": 3465148,
+        "sha256": "7a9d391e2561f2debba1dcc12ea3a2fadd7f2870b63870f4ae4e1507c5cd175c",
+        "id": "sip",
+        "role": "builder-wheel",
+        "package": "sip",
+        "version": "6.17.1"
+      },
+      {
+        "filename": "packaging-26.3-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+        "size": 129956,
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+        "id": "packaging",
+        "role": "builder-wheel",
+        "package": "packaging",
+        "version": "26.3"
+      },
+      {
+        "filename": "setuptools-84.2.1-py3-none-any.whl",
+        "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+        "size": 876263,
+        "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2",
+        "id": "setuptools",
+        "role": "builder-wheel",
+        "package": "setuptools",
+        "version": "84.2.1"
+      },
+      {
+        "filename": "pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
+        "url": "https://files.pythonhosted.org/packages/e1/1f/e7e5ad77a76c00db5c8c1b9960f2b0672ec1978b971bb3509858cd7a9458/pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
+        "size": 53371,
+        "sha256": "ca24bfd4d5d8274e338433df9ac41930650088c00018d3313c6bd8de21772a02",
+        "id": "pyqt6-sip",
+        "role": "runtime-wheel",
+        "package": "PyQt6-sip",
+        "version": "13.11.1"
+      }
+    ],
+    "preparer_serialization": {
+      "workspace_bytes": {
+        "path": "scripts/prepare_qt_candidate.py",
+        "size": 29480,
+        "sha256": "8dbf68eacef4c6a7d82937b3aadc07920a0669110ecf4036059f5ef5558be0b6"
+      },
+      "crlf_count": 0,
+      "lf_normalized_size": 29480,
+      "lf_normalized_sha256": "8dbf68eacef4c6a7d82937b3aadc07920a0669110ecf4036059f5ef5558be0b6",
+      "scope": "Observed preparation used workspace bytes; normalized bytes are a serialization comparison only."
+    },
+    "manifest_serialization": {
+      "workspace_bytes": {
+        "path": "packaging/qt-candidate-inputs.json",
+        "size": 9760,
+        "sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23"
+      },
+      "crlf_count": 0,
+      "lf_normalized_size": 9760,
+      "lf_normalized_sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23",
+      "scope": "Observed preparation used workspace bytes; normalized bytes are a serialization comparison only."
+    },
+    "preparation_receipt": {
+      "path": "build/qt-candidate-parity-final-20261101/preparation-receipt.json",
+      "size": 49351,
+      "sha256": "38800401a139a1a588f5cf748528ac240433688b27bbd1173c5f0448a8ba8437"
+    },
+    "constraints": [
+      "Fresh isolated output and venvs; production locks unchanged",
+      "Pinned HTTPS downloads or hash-verified read-only cache, bounded archives and case/path/link checks",
+      "Minimal OS-derived child environment, no ambient credentials or proxies",
+      "Pinned Riverbank bundler; no archive scripts or Qt native executables run during preparation",
+      "No old Qt DLL overlay, fabricated dependency identities, or license approval changes"
+    ],
+    "published_manifest_match": {
+      "checkpoint": "dbf4d62bee7c9058760d1d94092b992e50a6e0a0",
+      "sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23",
+      "workspace_and_git_blob_bytes_equal": true,
+      "same_manifest_as_final_preparation": true
+    }
+  },
+  "profile": {
+    "retained_bindings": [
+      "QtCore",
+      "QtGui",
+      "QtNetwork",
+      "QtWidgets",
+      "QtOpenGL",
+      "QtOpenGLWidgets",
+      "QtPrintSupport",
+      "QtSvg",
+      "QtSvgWidgets",
+      "QtTest"
+    ],
+    "excluded_bindings": [
+      "QAxContainer",
+      "QtBluetooth",
+      "QtDBus",
+      "QtDesigner",
+      "QtHelp",
+      "QtMultimedia",
+      "QtMultimediaWidgets",
+      "QtNfc",
+      "QtPdf",
+      "QtPdfWidgets",
+      "QtPositioning",
+      "QtQml",
+      "QtQuick",
+      "QtQuick3D",
+      "QtQuickWidgets",
+      "QtRemoteObjects",
+      "QtSensors",
+      "QtSerialPort",
+      "QtSpatialAudio",
+      "QtSql",
+      "QtStateMachine",
+      "QtTextToSpeech",
+      "QtWebChannel",
+      "QtWebSockets",
+      "QtXml"
+    ],
+    "inventory": {
+      "bindings": [
+        "PyQt6/QtCore.pyd",
+        "PyQt6/QtGui.pyd",
+        "PyQt6/QtNetwork.pyd",
+        "PyQt6/QtOpenGL.pyd",
+        "PyQt6/QtOpenGLWidgets.pyd",
+        "PyQt6/QtPrintSupport.pyd",
+        "PyQt6/QtSvg.pyd",
+        "PyQt6/QtSvgWidgets.pyd",
+        "PyQt6/QtTest.pyd",
+        "PyQt6/QtWidgets.pyd"
+      ],
+      "libraries": [
+        "PyQt6/Qt6/bin/Qt6Core.dll",
+        "PyQt6/Qt6/bin/Qt6Gui.dll",
+        "PyQt6/Qt6/bin/Qt6Network.dll",
+        "PyQt6/Qt6/bin/Qt6OpenGL.dll",
+        "PyQt6/Qt6/bin/Qt6OpenGLWidgets.dll",
+        "PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+        "PyQt6/Qt6/bin/Qt6Svg.dll",
+        "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+        "PyQt6/Qt6/bin/Qt6Test.dll",
+        "PyQt6/Qt6/bin/Qt6Widgets.dll",
+        "PyQt6/Qt6/bin/d3dcompiler_47.dll",
+        "PyQt6/Qt6/bin/opengl32sw.dll"
+      ],
+      "plugins": [
+        "PyQt6/Qt6/plugins/generic/qtuiotouchplugin.dll",
+        "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+        "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+        "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+        "PyQt6/Qt6/plugins/imageformats/qico.dll",
+        "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+        "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+        "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+        "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+        "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+        "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+        "PyQt6/Qt6/plugins/networkinformation/qnetworklistmanager.dll",
+        "PyQt6/Qt6/plugins/platforms/qminimal.dll",
+        "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+        "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+        "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+        "PyQt6/Qt6/plugins/tls/qschannelbackend.dll"
+      ],
+      "translations": [
+        "PyQt6/Qt6/translations/qtbase_ar.qm",
+        "PyQt6/Qt6/translations/qtbase_bg.qm",
+        "PyQt6/Qt6/translations/qtbase_ca.qm",
+        "PyQt6/Qt6/translations/qtbase_cs.qm",
+        "PyQt6/Qt6/translations/qtbase_da.qm",
+        "PyQt6/Qt6/translations/qtbase_de.qm",
+        "PyQt6/Qt6/translations/qtbase_en.qm",
+        "PyQt6/Qt6/translations/qtbase_es.qm",
+        "PyQt6/Qt6/translations/qtbase_fa.qm",
+        "PyQt6/Qt6/translations/qtbase_fi.qm",
+        "PyQt6/Qt6/translations/qtbase_fr.qm",
+        "PyQt6/Qt6/translations/qtbase_gd.qm",
+        "PyQt6/Qt6/translations/qtbase_he.qm",
+        "PyQt6/Qt6/translations/qtbase_hr.qm",
+        "PyQt6/Qt6/translations/qtbase_hu.qm",
+        "PyQt6/Qt6/translations/qtbase_it.qm",
+        "PyQt6/Qt6/translations/qtbase_ja.qm",
+        "PyQt6/Qt6/translations/qtbase_ka.qm",
+        "PyQt6/Qt6/translations/qtbase_kk.qm",
+        "PyQt6/Qt6/translations/qtbase_ko.qm",
+        "PyQt6/Qt6/translations/qtbase_lg.qm",
+        "PyQt6/Qt6/translations/qtbase_lv.qm",
+        "PyQt6/Qt6/translations/qtbase_nl.qm",
+        "PyQt6/Qt6/translations/qtbase_nn.qm",
+        "PyQt6/Qt6/translations/qtbase_pl.qm",
+        "PyQt6/Qt6/translations/qtbase_pt_BR.qm",
+        "PyQt6/Qt6/translations/qtbase_ru.qm",
+        "PyQt6/Qt6/translations/qtbase_sk.qm",
+        "PyQt6/Qt6/translations/qtbase_sv.qm",
+        "PyQt6/Qt6/translations/qtbase_tr.qm",
+        "PyQt6/Qt6/translations/qtbase_uk.qm",
+        "PyQt6/Qt6/translations/qtbase_zh_CN.qm",
+        "PyQt6/Qt6/translations/qtbase_zh_TW.qm"
+      ],
+      "native_members": [
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Core.dll",
+          "sha256": "3b088187284c91250fbb696b1779459ca1ab1ad14295e71ee9b12d71767c9501"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Gui.dll",
+          "sha256": "794f2cdf57333c0d44257ad383742b2d67ba9e986874d3ed8b12d04c543f96cf"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Network.dll",
+          "sha256": "f56b7e4d228f937397ed0a3c19ed987dcdcc43398140c71a4f405d16f84d79c8"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6OpenGL.dll",
+          "sha256": "294020655e666791168672563f6c3e1012bbf42c9dcc7166ac96d53d5c8c10e3"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6OpenGLWidgets.dll",
+          "sha256": "d1fd967216f94b8b8b2ba64347713316467935f49d4046dc7d274bfa585bfbaf"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+          "sha256": "4ed3a9fbb36bbb25431f96237b249704346a3257293ef9043b014e772a330d2f"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Svg.dll",
+          "sha256": "a52de2726685a955d70a07e865afa217fbea256fb815009102d0de04c40d5ec8"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+          "sha256": "46d313e8c6bcf738c5492d3001276747670c8a36099f305c8b396d5a70264d68"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Test.dll",
+          "sha256": "539a0afff6bd3c425a811fcac7f9768f337bdc9d6224b20fb6b209046d90b23e"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+          "sha256": "82a31d8770391bdef7ddb71e374d6ca3dfce4584c7b453595150ec0730c529ae"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/d3dcompiler_47.dll",
+          "sha256": "e994847e01a6f1e4cbdc5a864616ac262f67ee4f14db194984661a8d927ab7f4"
+        },
+        {
+          "path": "PyQt6/Qt6/bin/opengl32sw.dll",
+          "sha256": "b04de4541863bc7d8879040a78889c4849c1b1da2784c4630f734c146c2998ce"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/generic/qtuiotouchplugin.dll",
+          "sha256": "0dccccd1dda8135d1ac1d7d9fcc5237565b4425e54f60b7653a36c3fbc882c6a"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+          "sha256": "e9ee3a6308bb583bb2505762dda4c00dee8df736a83b0f53c03c6cd389148bad"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+          "sha256": "6241f2a17754a76ce01a4c22bb6a49e6d5f6d18c91e44fff6be8162524909756"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+          "sha256": "64e94c83adc14e744f91b3953ce6efe81747e0a46f5cb87df528df76db1b8814"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qico.dll",
+          "sha256": "ef01b0150a5353c221c3e34a9d7265ca5c95ce18c28b2eace7a2506c96137d71"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+          "sha256": "7a5dadcdaa5770bce0a4d1670af67431df1a442c86df1a6555cadc5693a9212b"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+          "sha256": "0300c690d02874e4fe50e9d69b0114767434005ec0414cf98537c44b46c5d093"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+          "sha256": "6ec593cf60277aec8f2a239a105fd044da9c451e8a47fbf040f2f4124a5f8909"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+          "sha256": "1da94ba3740ef906557057cbdb7cd55dbb5cf50903ecc3bb6dea744efec4a985"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+          "sha256": "91d1e3248dbd57e483172d8363810cd054429b1cdba117323a7e9830578dd6b7"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+          "sha256": "e474baa919a1c0d8e16128cc205034d673fa09b8e7fbc62b7de77980937772ec"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/networkinformation/qnetworklistmanager.dll",
+          "sha256": "52991edcea633cac7ff6baf2b19c9cd56972f5bba4bb5cfdcbf97951e619c383"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/platforms/qminimal.dll",
+          "sha256": "843f96a735301fb0e5b5f49d04e1582ac6fbb4840e4afd82eabac41197acfc03"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+          "sha256": "4f4be3c017f66fe80697e91f6b7386f62e093cf236ed2750e188d8415464bc8c"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+          "sha256": "d38af0768b261f5b7a64ff2e344ab7fb52409efb1f0044749d33303c52e84f9c"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+          "sha256": "1f10b9e2dd5ec9f71ad5fb9a1f9281d18f44d68a657229666221ec397b2b6f0a"
+        },
+        {
+          "path": "PyQt6/Qt6/plugins/tls/qschannelbackend.dll",
+          "sha256": "3c5dd934fbb5b3c02701c2df31119a69485c2552aadd6f0ddd64bb0193cb8d7c"
+        },
+        {
+          "path": "PyQt6/QtCore.pyd",
+          "sha256": "91dd5166110b88a4f4d3acda6fe6c10ed699882dd3602328a59e9f656cc766b1"
+        },
+        {
+          "path": "PyQt6/QtGui.pyd",
+          "sha256": "cf5ae37fd119fb29a53f1f2cea1362fdf036d940191be45d83da0f98ce8752b8"
+        },
+        {
+          "path": "PyQt6/QtNetwork.pyd",
+          "sha256": "dc8a352ee9e67efa05bb7c59a266171faa0c0c40e0015fac9b31a9a6d058ec49"
+        },
+        {
+          "path": "PyQt6/QtOpenGL.pyd",
+          "sha256": "e713fec5304657bf10231309021b95279374de072998ee192eb324b39f6ea384"
+        },
+        {
+          "path": "PyQt6/QtOpenGLWidgets.pyd",
+          "sha256": "0f61eb1a3c8fff30e86c2ea0176b78df5f8f909a4d98e64d6355b94d5a58e859"
+        },
+        {
+          "path": "PyQt6/QtPrintSupport.pyd",
+          "sha256": "e8ff8ca8b6dfc34609eab1b0ad5933e2725b94205c06b44962b4e6081095b3be"
+        },
+        {
+          "path": "PyQt6/QtSvg.pyd",
+          "sha256": "542d023e993274d9a8c54135fba79cbeb0a99934b04bd47ae181413b55581684"
+        },
+        {
+          "path": "PyQt6/QtSvgWidgets.pyd",
+          "sha256": "0cb89d8d338c58b77ed6e8f092c9024b68b7b661783c1f65c74911bdd7ad2a7f"
+        },
+        {
+          "path": "PyQt6/QtTest.pyd",
+          "sha256": "26b0af0e59848382e81ac48a745bcb8e81f93e00897203b81277059da3aeff6f"
+        },
+        {
+          "path": "PyQt6/QtWidgets.pyd",
+          "sha256": "4f81361816e94e1ae05f178085b22d5b9b19e417713b1966dd481a4017aa3b21"
+        }
+      ],
+      "metadata_sha256": "bba82083c5d1962e85b754b5df62afd20360172e943f409fd6818f1a19627fd2",
+      "wheel_record_verified": true,
+      "member_count": 586
+    },
+    "removed_member_count": 578,
+    "removed_categories": [
+      "25 unsupported binding extension modules, their stubs and SIP data",
+      "six SQL driver plugins",
+      "qopensslbackend and qcertonlybackend",
+      "two disabled browser/Quick uic data plugins",
+      "non-qtbase translations"
+    ],
+    "profile_enforcement": [
+      "Exactly 39 native members; unknown or missing native files fail",
+      "All wheel RECORD hashes and sizes checked before and after restriction",
+      "Only unhashed upstream RECORD-self backslash path receives a narrow canonicalization exception",
+      "Other distribution roots and external Qt/WebEngine dependency metadata rejected",
+      "Retained METADATA, WHEEL and license payload bytes preserved; only RECORD regenerated",
+      "Pinned Windows bundler CRCRLF metadata normalized solely for parsing; stored bytes preserved"
+    ],
+    "all_retained_payloads_unchanged": true,
+    "preserved_distribution_metadata": [
+      "pyqt6-6.11.0.dist-info/METADATA",
+      "pyqt6-6.11.0.dist-info/WHEEL",
+      "pyqt6-6.11.0.dist-info/entry_points.txt",
+      "pyqt6-6.11.0.dist-info/licenses/LICENSE"
+    ],
+    "unrestricted_bundler_wheel": {
+      "path": "bundled-wheel/PyQt6-6.11.0-6.11.3dupezcandidate-cp310-abi3-win_amd64.whl",
+      "sha256": "fae9dc77a84b52aa97c545e2570a12245289a96cf98cd5117e42515581635884",
+      "size": 35262165
+    },
+    "restricted_wheel": {
+      "path": "build/qt-candidate-parity-final-20261101/wheel/PyQt6-6.11.0-6.11.3dupezcandidate-cp310-abi3-win_amd64.whl",
+      "size": 30238609,
+      "sha256": "5ae71fb933f4cafeaba3eac2d98a35ece588950ea34d3fa5e0252cbc811b29a9"
+    },
+    "earlier_restricted_wheel": {
+      "path": "build/qt-candidate-parity-reviewed-20261101/wheel/PyQt6-6.11.0-6.11.3dupezcandidate-cp310-abi3-win_amd64.whl",
+      "size": 30238609,
+      "sha256": "5ae71fb933f4cafeaba3eac2d98a35ece588950ea34d3fa5e0252cbc811b29a9"
+    },
+    "restricted_wheel_bytes_reproduced": true,
+    "pip_check": "passed",
+    "reproduction_scope": "Two local preparations from the same pinned cache produced identical restricted wheel bytes; no independent native source compilation or cross-host reproduction claim."
+  },
+  "focused_verification": {
+    "passed": 70,
+    "failed": 0,
+    "ruff": "passed"
+  },
+  "source_correlation": {
+    "receipt": {
+      "path": "build/qt-software-opengl-review-20261101/qt-parity-source-correlation.json",
+      "size": 18145,
+      "sha256": "4b7192c285a08a3d14ae4fca26089550189b281c66db8813bfd7ad6f4e1332e8"
+    },
+    "observations": {
+      "schema": "dupez.qt-parity-source-correlation.v1",
+      "reviewed_on": "2026-11-01",
+      "manifest_sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23",
+      "reviews": [
+        {
+          "module": "qtimageformats",
+          "verified_inputs": [
+            {
+              "id": "qtimageformats-binary",
+              "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+              "size": 832221,
+              "sha256": "fb372c6f182a50306aa5321b7063e35644f35356a63d0980f4e67fc579f666fe",
+              "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qtimageformats.win64_msvc2022_64/6.11.3-0-202610220312qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+            },
+            {
+              "id": "qtimageformats-source",
+              "filename": "qtimageformats-everywhere-src-6.11.3.tar.xz",
+              "size": 2054556,
+              "sha256": "9074e35c9bbdb944ceebdbed03f54d7bba55703b0252491188779e4d1a714c90",
+              "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtimageformats-everywhere-src-6.11.3.tar.xz"
+            }
+          ],
+          "binary_sbom_sha256": "698398c37ee02f3bebe0817b2336752ebe7a72eb6b3058af7f198e5d94ab623b",
+          "source_sbom_present_in_binary_archive": true,
+          "source_sbom_sha256": "885bf2f1e0728e4044f4f0f3179178d3e4cf69ef25b2b12097387b7637752bd7",
+          "source_archive_members": 625,
+          "source_archive_expanded_bytes": 10370193,
+          "source_files": 564,
+          "source_declarations": {
+            ".cmake.conf": "set(QT_REPO_MODULE_VERSION \"6.11.3\")\nset(QT_REPO_MODULE_PRERELEASE_VERSION_SEGMENT \"alpha1\")\nset(QT_EXTRA_INTERNAL_TARGET_DEFINES\n    \"QT_ENABLE_STRICT_MODE_UP_TO=QT_VERSION_CHECK(6,11,0)\"\n    # not yet in strict mode:\n    \"QT_LEAN_HEADERS=2\"\n    \"QT_NO_SINGLE_ARGUMENT_QHASH_OVERLOAD=1\"\n    \"QT_NO_QPAIR=1\"\n)",
+            ".tag": "434c41f81a825e0abcda13ff93ef30bc0e155d1d"
+          },
+          "source_inventory_expected_files": 552,
+          "source_matched_raw": 139,
+          "source_matched_after_crlf_normalization": 413,
+          "source_mismatches": [],
+          "source_inventory_missing_files": [],
+          "source_files_outside_inventory_count": 12,
+          "source_files_outside_inventory_examples": [
+            "LICENSES/BSD-3-Clause.txt",
+            "LICENSES/GFDL-1.3-no-invariants-only.txt",
+            "LICENSES/GPL-2.0-only.txt",
+            "LICENSES/GPL-3.0-only.txt",
+            "LICENSES/LGPL-3.0-only.txt",
+            "LICENSES/LicenseRef-Qt-Commercial.txt",
+            "LICENSES/libtiff.txt",
+            "REUSE.toml",
+            "dist/REUSE.toml",
+            "src/3rdparty/libwebp/COPYING",
+            "src/3rdparty/libwebp/REUSE.toml",
+            "src/3rdparty/libtiff/REUSE.toml"
+          ],
+          "binary_spdx_file_records": 10,
+          "binary_spdx_unique_paths": 10,
+          "binary_spdx_matching_paths": 0,
+          "binary_spdx_mismatches": [
+            {
+              "path": "plugins/imageformats/qtga.dll",
+              "sbom_sha1": "aeb01cba91df3497ebe9ee4ca3ca21469c7158ef",
+              "observed_sha1": "125ff2db042519c98a6008c193d57becf9a143ec"
+            },
+            {
+              "path": "plugins/imageformats/qtgad.dll",
+              "sbom_sha1": "2f967b929bc9ef7afd3d2fffc9780674175730bc",
+              "observed_sha1": "8175cca927efab41ad4cd1adec0b8762f9910ca6"
+            },
+            {
+              "path": "plugins/imageformats/qwbmp.dll",
+              "sbom_sha1": "d61c661520f1ad0bfa6fc460aca483c7495c126b",
+              "observed_sha1": "0ec55c2e235fcebd0431d5304c79fa54f475a1fe"
+            },
+            {
+              "path": "plugins/imageformats/qwbmpd.dll",
+              "sbom_sha1": "048350b82209b47fda427a30bff8db3dad92162f",
+              "observed_sha1": "8da62f6a8e8e63a5e4c732f393bb122287cad032"
+            },
+            {
+              "path": "plugins/imageformats/qtiff.dll",
+              "sbom_sha1": "d9759820aa2a6a475075d656115436442c02bf1e",
+              "observed_sha1": "e6f2e855e95489aae640488ea875b53ac302d0aa"
+            },
+            {
+              "path": "plugins/imageformats/qtiffd.dll",
+              "sbom_sha1": "baa976854d0c2e84abe69cc818507f1f14ded3c3",
+              "observed_sha1": "19c72f2deb7cc5a0501d32437951e39f6d8c06ea"
+            },
+            {
+              "path": "plugins/imageformats/qwebp.dll",
+              "sbom_sha1": "d3aad7ed42128507ebc53a32fc7f3d71ff820a8e",
+              "observed_sha1": "7a2a97eed24f1c955879ebf722e8e1de7ec40622"
+            },
+            {
+              "path": "plugins/imageformats/qwebpd.dll",
+              "sbom_sha1": "e33a573a06b6052e6b6db4cf59baf88d7ae6d9bb",
+              "observed_sha1": "d987753211cf4783fd4bd12c1635ffaa41b1ab48"
+            },
+            {
+              "path": "plugins/imageformats/qicns.dll",
+              "sbom_sha1": "a2dc8d34f173ab12fac2d6bf0410fb393b0a5e36",
+              "observed_sha1": "a8d32303ce8f03423110aa0e0a86f94f520d6c5a"
+            },
+            {
+              "path": "plugins/imageformats/qicnsd.dll",
+              "sbom_sha1": "c066003227514805542216cff9b9bdc6df7f1ebb",
+              "observed_sha1": "b500ec706184ba1786088903786a074f0bbe8a1d"
+            }
+          ],
+          "binary_spdx_matches_after_signing_field_normalization": [
+            {
+              "path": "plugins/imageformats/qtga.dll",
+              "normalized_sha1": "aeb01cba91df3497ebe9ee4ca3ca21469c7158ef",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "6ec593cf60277aec8f2a239a105fd044da9c451e8a47fbf040f2f4124a5f8909"
+            },
+            {
+              "path": "plugins/imageformats/qtgad.dll",
+              "normalized_sha1": "2f967b929bc9ef7afd3d2fffc9780674175730bc",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "98de8ed795a06c3e14560f734f8916487af0a5a3392ebe8c1166f6a3d651bab3"
+            },
+            {
+              "path": "plugins/imageformats/qwbmp.dll",
+              "normalized_sha1": "d61c661520f1ad0bfa6fc460aca483c7495c126b",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "91d1e3248dbd57e483172d8363810cd054429b1cdba117323a7e9830578dd6b7"
+            },
+            {
+              "path": "plugins/imageformats/qwbmpd.dll",
+              "normalized_sha1": "048350b82209b47fda427a30bff8db3dad92162f",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "b2285a7617cbcfe15fb1ab3dad76c95281f67117df44a04c5f3b81ed37143d82"
+            },
+            {
+              "path": "plugins/imageformats/qtiff.dll",
+              "normalized_sha1": "d9759820aa2a6a475075d656115436442c02bf1e",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "1da94ba3740ef906557057cbdb7cd55dbb5cf50903ecc3bb6dea744efec4a985"
+            },
+            {
+              "path": "plugins/imageformats/qtiffd.dll",
+              "normalized_sha1": "baa976854d0c2e84abe69cc818507f1f14ded3c3",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "de1cac40552e5af87bdc410b04b69552c51d8ed831c12f5b5843e4e7126fba66"
+            },
+            {
+              "path": "plugins/imageformats/qwebp.dll",
+              "normalized_sha1": "d3aad7ed42128507ebc53a32fc7f3d71ff820a8e",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "e474baa919a1c0d8e16128cc205034d673fa09b8e7fbc62b7de77980937772ec"
+            },
+            {
+              "path": "plugins/imageformats/qwebpd.dll",
+              "normalized_sha1": "e33a573a06b6052e6b6db4cf59baf88d7ae6d9bb",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "f180c3f17d712ca0f5f59a370e76e5ab7768559612aee812056854eca207a5ca"
+            },
+            {
+              "path": "plugins/imageformats/qicns.dll",
+              "normalized_sha1": "a2dc8d34f173ab12fac2d6bf0410fb393b0a5e36",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "64e94c83adc14e744f91b3953ce6efe81747e0a46f5cb87df528df76db1b8814"
+            },
+            {
+              "path": "plugins/imageformats/qicnsd.dll",
+              "normalized_sha1": "c066003227514805542216cff9b9bdc6df7f1ebb",
+              "certificate_table_bytes": 12088,
+              "distributed_sha256": "58e1d344765afbf048f95a0c7c20ee4d3f55df56e3ea6459c2e05e8142a62c3e"
+            }
+          ],
+          "normalization_scope": "in-memory only: remove the EOF certificate table, zero PE security directory and checksum; never write or execute a modified DLL",
+          "upstream_package_declarations": [
+            {
+              "name": "qtimageformats",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "QTgaPlugin",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+            },
+            {
+              "name": "QWbmpPlugin",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+            },
+            {
+              "name": "QTiffPlugin_Attribution_libtiff",
+              "versionInfo": "4.7.2",
+              "downloadLocation": "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "libtiff"
+            },
+            {
+              "name": "QTiffPlugin",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+            },
+            {
+              "name": "QWebpPlugin_Attribution_libwebp",
+              "versionInfo": "1.6.0",
+              "downloadLocation": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "BSD-3-Clause"
+            },
+            {
+              "name": "QWebpPlugin",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+            },
+            {
+              "name": "QICNSPlugin",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qtimageformats.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+            },
+            {
+              "name": "CMake",
+              "versionInfo": "4.3.2",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "CMake generator Ninja Multi-Config",
+              "versionInfo": "1.10.2",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "Compiler MSVC",
+              "versionInfo": "19.44.35227.0",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "Linker MSVC",
+              "versionInfo": "14.44.35227.0",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            }
+          ],
+          "source_attributions": [
+            {
+              "member": "src/3rdparty/libwebp/qt_attribution.json",
+              "Name": "WebP (libwebp)",
+              "Version": "1.6.0",
+              "DownloadLocation": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz",
+              "License": "BSD 3-clause \"New\" or \"Revised\" License",
+              "Id": "libwebp"
+            },
+            {
+              "member": "src/3rdparty/libtiff/qt_attribution.json",
+              "Name": "TIFF Software Distribution (libtiff)",
+              "Version": "4.7.2",
+              "DownloadLocation": "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz",
+              "License": "libtiff License",
+              "Id": "libtiff"
+            }
+          ],
+          "gaps": [
+            "SHA1 compares upstream inventory only; archive authentication uses pinned SHA256. No independent rebuild or CVE applicability verdict.",
+            "Raw distributed DLL SHA1 differs from binary SPDX; exact comparison after removing only certificate data and zeroing signing fields is recorded separately, not treated as a raw-file match."
+          ]
+        },
+        {
+          "module": "qttranslations",
+          "verified_inputs": [
+            {
+              "id": "qttranslations-binary",
+              "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+              "size": 2014619,
+              "sha256": "fa6da593ea97824c83acaeaddbe15d51224df5586a0609f7c2d9d8891d40c55a",
+              "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+            },
+            {
+              "id": "qttranslations-source",
+              "filename": "qttranslations-everywhere-src-6.11.3.tar.xz",
+              "size": 1742472,
+              "sha256": "b6cbcd7508afd5e5b6ab25f47436f8e0a67892214cabc9deeb1c4a9046e13952",
+              "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qttranslations-everywhere-src-6.11.3.tar.xz"
+            }
+          ],
+          "binary_sbom_sha256": "ac66c644a2007f32b7231821d6240596544f794b38034203fe658c217c966a3e",
+          "source_sbom_present_in_binary_archive": false,
+          "source_sbom_sha256": null,
+          "source_archive_members": 323,
+          "source_archive_expanded_bytes": 23421976,
+          "source_files": 319,
+          "source_declarations": {
+            ".cmake.conf": "set(QT_REPO_MODULE_VERSION \"6.11.3\")",
+            ".tag": "c31e087e819749e2176e657613c2ab98bfacd4a2"
+          },
+          "source_inventory_expected_files": 0,
+          "source_matched_raw": 0,
+          "source_matched_after_crlf_normalization": 0,
+          "source_mismatches": [],
+          "source_inventory_missing_files": [],
+          "source_files_outside_inventory_count": 319,
+          "source_files_outside_inventory_examples": [],
+          "binary_spdx_file_records": 630,
+          "binary_spdx_unique_paths": 315,
+          "binary_spdx_matching_paths": 315,
+          "binary_spdx_mismatches": [],
+          "binary_spdx_matches_after_signing_field_normalization": [],
+          "normalization_scope": "in-memory only: remove the EOF certificate table, zero PE security directory and checksum; never write or execute a modified DLL",
+          "upstream_package_declarations": [
+            {
+              "name": "qttranslations",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qttranslations.git",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "Translations",
+              "versionInfo": "6.11.3",
+              "downloadLocation": "git://code.qt.io/qt/qttranslations.git",
+              "licenseDeclared": "LicenseRef-Qt-Commercial OR BSD-3-Clause",
+              "licenseConcluded": "LicenseRef-Qt-Commercial OR BSD-3-Clause"
+            },
+            {
+              "name": "CMake",
+              "versionInfo": "4.3.2",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "CMake generator Ninja Multi-Config",
+              "versionInfo": "1.10.2",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "Compiler MSVC",
+              "versionInfo": "19.44.35227.0",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            },
+            {
+              "name": "Linker MSVC",
+              "versionInfo": "14.44.35227.0",
+              "downloadLocation": "NOASSERTION",
+              "licenseDeclared": "NOASSERTION",
+              "licenseConcluded": "NOASSERTION"
+            }
+          ],
+          "source_attributions": [],
+          "gaps": [
+            "SHA1 compares upstream inventory only; archive authentication uses pinned SHA256. No independent rebuild or CVE applicability verdict.",
+            "The installer binary archive contains no source SPDX file: .qm-to-.ts basename correspondence is not compiled translation reconstruction."
+          ],
+          "translation_name_correlation": {
+            "binary_qm_basenames": 314,
+            "source_ts_basenames": 301,
+            "matched_basenames": 301,
+            "qm_without_same_basename_ts": [
+              "assistant_en",
+              "designer_en",
+              "linguist_en",
+              "qt_en",
+              "qt_help_en",
+              "qtbase_en",
+              "qtconnectivity_en",
+              "qtdeclarative_en",
+              "qtlocation_en",
+              "qtmultimedia_en",
+              "qtserialport_en",
+              "qtwebengine_en",
+              "qtwebsockets_en"
+            ]
+          }
+        }
+      ],
+      "native_code_executed": false,
+      "source_rebuilt": false,
+      "source_delivery_approved": false
+    }
+  },
+  "loopback_tls": {
+    "receipt": {
+      "path": "build/qt-app-validation-20261101/tls-final.json",
+      "size": 1394,
+      "sha256": "63287e41287c0e0f73233d2638f4a6c1d9c1b29c9e967b6ed57c64bfb42a1fca"
+    },
+    "observations": {
+      "schema": "dupez.qt-loopback-tls-probe.v1",
+      "status": "passed",
+      "observed_at": "2026-11-01T19:10:21.539078+00:00",
+      "qt_version": "6.11.3",
+      "python_version": "3.13.17",
+      "backend": "schannel",
+      "script_sha256": "aaab48c594d5abdde59199fb7a112d0d83fb453ce71e7729df41955ace9614c1",
+      "cases": [
+        {
+          "trusted_probe_ca": true,
+          "peer_name": "localhost",
+          "encrypted": true,
+          "ssl_errors": [],
+          "socket_error": "UnknownSocketError",
+          "payload_verified": true,
+          "server": {
+            "protocol": "TLSv1.3"
+          }
+        },
+        {
+          "trusted_probe_ca": false,
+          "peer_name": "localhost",
+          "encrypted": false,
+          "ssl_errors": [
+            "UnableToGetIssuerCertificate"
+          ],
+          "socket_error": "SslHandshakeFailedError",
+          "payload_verified": false,
+          "server": {
+            "error_type": "SSLEOFError"
+          }
+        },
+        {
+          "trusted_probe_ca": true,
+          "peer_name": "wrong.invalid",
+          "encrypted": false,
+          "ssl_errors": [
+            "HostNameMismatch"
+          ],
+          "socket_error": "SslHandshakeFailedError",
+          "payload_verified": false,
+          "server": {
+            "error_type": "SSLEOFError"
+          }
+        }
+      ],
+      "trust_store_modified": false,
+      "scope": "Loopback TLS only; no public service, HTTP/2, loaded DLL provenance, full app or frozen runtime proof"
+    }
+  },
+  "full_application_suite": {
+    "status": "candidate-compatible-subset-passed",
+    "tests": 3463,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 18,
+    "passed": 3445,
+    "seconds": 183.588,
+    "failed_cases": [],
+    "report": {
+      "path": "build/native-verified-20261101/candidate-rerun-pytest.xml",
+      "size": 492165,
+      "sha256": "3bcc5eefdc6a5e4cc07ef280e5c11da47b00b0564245757fa9672cdeb61dd545"
+    },
+    "test_source_commit": "b59f982f4eb97912f2db63184c5c570c97b370fb",
+    "scope": {
+      "excluded_modules": [
+        "tests/test_map_request_policy.py",
+        "tests/test_codeql_remediation.py"
+      ],
+      "reason": "These modules import the deliberately absent browser; production suite covers them.",
+      "additional_optional_browser_skips": 8,
+      "scope": "Source tests using reduced Qt environment; no candidate frozen build approval"
+    },
+    "diagnostic_first_completed_run": {
+      "tests": 3462,
+      "errors": 0,
+      "failures": 4,
+      "skipped": 10,
+      "passed": 3448,
+      "seconds": 236.548,
+      "failed_cases": [
+        "tests.test_arp_spoof.TestArpSpooferStart.test_idempotent_start",
+        "tests.test_dayz_map_readiness.test_hardware_tier_keeps_webgl_canvas_and_native_zoom",
+        "tests.test_embedded_map_security.test_map_scripts_run_only_on_reviewed_https_origin[https://izurvive.com/livonia-4]",
+        "tests.test_embedded_map_security.test_map_reuses_reviewed_profile_interceptor_without_persistent_storage"
+      ],
+      "report": {
+        "path": "build/native-verified-20261101/candidate-pytest.xml",
+        "size": 494848,
+        "sha256": "cf11feb510d6d470c457d86597d5c1d3acffd9249f5274125ed9bdf8ac13e4dd"
+      }
+    },
+    "production_suite": {
+      "tests": 3511,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 10,
+      "passed": 3501,
+      "seconds": 236.298,
+      "failed_cases": [],
+      "report": {
+        "path": "build/native-verified-20261101/source-pytest.xml",
+        "size": 496671,
+        "sha256": "0909f4b4a36bedcbf8006e31841d267679837420689661ec2d5b5edb16dc0ddb"
+      }
+    },
+    "affected_production_tests": {
+      "tests": 139,
+      "errors": 0,
+      "failures": 0,
+      "skipped": 0,
+      "passed": 139,
+      "seconds": 5.444,
+      "failed_cases": [],
+      "report": {
+        "path": "build/compat-review-20261101/affected-production.xml",
+        "size": 18783,
+        "sha256": "5cfd044ef64150dae191e3c233f333b9e5170dd7285c57349b83e5dcf0eee546"
+      }
+    }
+  },
+  "remaining_limits": [
+    "Production runtime locks, installed distribution inventory, license/SBOM inventory and corresponding-source delivery need a coordinated candidate adoption change.",
+    "Candidate frozen GPU/Compat lifecycle, recipient rebuilds, OpenGL behavior and all image decoders need separate exact-artifact evidence.",
+    "Nine approved ordinary image plugins are present; qpdf/QtPdf/Chromium deliberately absent.",
+    "33 qtbase catalogs do not establish application localization; English qtbase source catalog generation remains unmapped.",
+    "No complete native source/compiler reconstruction; previous Qtbase tag mismatch and helper mapping limits remain.",
+    "Mesa 11.2.2/LLVM 3.6.2 helper unchanged; see separate software OpenGL review.",
+    "Loopback TLS does not establish HTTP/2 patch behavior, public-service compatibility, loaded-DLL provenance or frozen-runtime behavior.",
+    "GitHub billing and unresolved owner distribution decisions remain separate release gates.",
+    "A trusted 38-byte lossless WebP produced by the candidate encoder fails decoding; the 56-byte patterned case succeeds. This compatibility finding remains unresolved."
+  ],
+  "references": [
+    "https://pyqt-builder.readthedocs.io/en/latest/pyqtbundle.html",
+    "https://packaging.python.org/en/latest/specifications/binary-distribution-format/",
+    "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/Updates.xml",
+    "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/Updates.xml",
+    "docs/audits/QT_NATIVE_REVIEW_2026-10-25.md",
+    "docs/legal/QT_SOFTWARE_OPENGL_SOURCE_REVIEW_2026-11-01.md"
+  ],
+  "image_runtime_probe": {
+    "receipt": {
+      "path": "build/qt-candidate-parity-final-20261101/image-runtime-probe.json",
+      "size": 8478,
+      "sha256": "4f0408d2b0fad8239b31152993581cfa9b814e061d8abe2e6a4f13bbacd1a3bc"
+    },
+    "script": {
+      "path": "build/qt-candidate-parity-final-20261101/probe_images.py",
+      "size": 8828,
+      "sha256": "d7addc2dc29103f0c415d81f827479797b11f64d97ce3859f396d611592d8240"
+    },
+    "sanitized_launcher": {
+      "path": "build/qt-candidate-parity-final-20261101/run_image_probe.py",
+      "size": 726,
+      "sha256": "a4f3715c626d21e24482fb59331361591598e03a6c45dc2fe34f949be071ea83"
+    },
+    "observations": {
+      "schema": "dupez.qt-candidate-image-runtime-probe.v1",
+      "status": "completed-with-webp-small-input-failure",
+      "observed_at": "2026-11-01T19:19:49.348173+00:00",
+      "script_sha256": "d7addc2dc29103f0c415d81f827479797b11f64d97ce3859f396d611592d8240",
+      "preparation_receipt_sha256": "38800401a139a1a588f5cf748528ac240433688b27bbd1173c5f0448a8ba8437",
+      "wheel_sha256": "5ae71fb933f4cafeaba3eac2d98a35ece588950ea34d3fa5e0252cbc811b29a9",
+      "python_version": "3.13.17",
+      "qt_version": "6.11.3",
+      "platform": "offscreen",
+      "elevated": false,
+      "runtime_venv": "build/qt-candidate-parity-final-20261101/runtime-venv",
+      "all_39_installed_native_members_match_wheel": true,
+      "read_formats": [
+        "bmp",
+        "cur",
+        "gif",
+        "icns",
+        "ico",
+        "jfif",
+        "jpeg",
+        "jpg",
+        "pbm",
+        "pgm",
+        "png",
+        "ppm",
+        "svg",
+        "svgz",
+        "tga",
+        "tif",
+        "tiff",
+        "wbmp",
+        "webp",
+        "xbm",
+        "xpm"
+      ],
+      "write_formats": [
+        "bmp",
+        "cur",
+        "icns",
+        "ico",
+        "jfif",
+        "jpeg",
+        "jpg",
+        "pbm",
+        "pgm",
+        "png",
+        "ppm",
+        "tif",
+        "tiff",
+        "wbmp",
+        "webp",
+        "xbm",
+        "xpm"
+      ],
+      "image_cases": [
+        {
+          "format": "png",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 1129,
+          "encoded_sha256": "bd6645df310ac004f7ed7d508461922b0ac220c60d7b03fce8b491dbc7b43e88",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 0,
+          "allowed_rgb_error": 0,
+          "passed": true
+        },
+        {
+          "format": "jpeg",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 638,
+          "encoded_sha256": "c3b18273b30d9106926cec68dfe96f89d1ef647c4c6f81d8584e1b460fe26029",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 1,
+          "allowed_rgb_error": 8,
+          "passed": true
+        },
+        {
+          "format": "bmp",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 822,
+          "encoded_sha256": "5a84b1bf59fb7f0e54da2f4792a8f730ab9ed27affcab75d3b49f4631e36bbb0",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 0,
+          "allowed_rgb_error": 0,
+          "passed": true
+        },
+        {
+          "format": "ico",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 1150,
+          "encoded_sha256": "3edcace50cf89427aa47af1d4b544e5824311ea084cf1f950efa0f48c00c46f7",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 0,
+          "allowed_rgb_error": 0,
+          "passed": true
+        },
+        {
+          "format": "tiff",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 1242,
+          "encoded_sha256": "2dcd6b98717bd6e50972c54fc19c07db26afe0ac244ea4bc201c49f5f00d66a4",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 0,
+          "allowed_rgb_error": 0,
+          "passed": true
+        },
+        {
+          "format": "webp",
+          "variant": "solid",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 38,
+          "encoded_sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3",
+          "encode_succeeded": true,
+          "decode_succeeded": false,
+          "header_size_before_decode": [
+            -1,
+            -1
+          ],
+          "reader_error": "InvalidDataError",
+          "reader_error_text": "Unable to read image data",
+          "passed": false
+        },
+        {
+          "format": "webp",
+          "variant": "pattern",
+          "dimensions": [
+            16,
+            16
+          ],
+          "encoded_bytes": 56,
+          "encoded_sha256": "a49dceefea652614288c3373eb47219fa7f2faaed9669a020fa04a2b1f983a48",
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "decoded_pixels_checked": 256,
+          "maximum_rgb_error": 0,
+          "allowed_rgb_error": 8,
+          "passed": true
+        }
+      ],
+      "trusted_svg": {
+        "sha256": "92d7311e5533c42c3f83e17015e5cf30c84e668b45b807a25f9c059f5293c057",
+        "center_rgba": [
+          224,
+          32,
+          64,
+          255
+        ],
+        "corner_alpha": 0,
+        "passed": true
+      },
+      "loaded_native_members": [
+        {
+          "member": "PyQt6/Qt6/bin/Qt6Core.dll",
+          "sha256": "3b088187284c91250fbb696b1779459ca1ab1ad14295e71ee9b12d71767c9501",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/bin/Qt6Gui.dll",
+          "sha256": "794f2cdf57333c0d44257ad383742b2d67ba9e986874d3ed8b12d04c543f96cf",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/bin/Qt6Svg.dll",
+          "sha256": "a52de2726685a955d70a07e865afa217fbea256fb815009102d0de04c40d5ec8",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+          "sha256": "82a31d8770391bdef7ddb71e374d6ca3dfce4584c7b453595150ec0730c529ae",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+          "sha256": "6241f2a17754a76ce01a4c22bb6a49e6d5f6d18c91e44fff6be8162524909756",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+          "sha256": "64e94c83adc14e744f91b3953ce6efe81747e0a46f5cb87df528df76db1b8814",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qico.dll",
+          "sha256": "ef01b0150a5353c221c3e34a9d7265ca5c95ce18c28b2eace7a2506c96137d71",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+          "sha256": "7a5dadcdaa5770bce0a4d1670af67431df1a442c86df1a6555cadc5693a9212b",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+          "sha256": "0300c690d02874e4fe50e9d69b0114767434005ec0414cf98537c44b46c5d093",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+          "sha256": "6ec593cf60277aec8f2a239a105fd044da9c451e8a47fbf040f2f4124a5f8909",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+          "sha256": "1da94ba3740ef906557057cbdb7cd55dbb5cf50903ecc3bb6dea744efec4a985",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+          "sha256": "91d1e3248dbd57e483172d8363810cd054429b1cdba117323a7e9830578dd6b7",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+          "sha256": "e474baa919a1c0d8e16128cc205034d673fa09b8e7fbc62b7de77980937772ec",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+          "sha256": "4f4be3c017f66fe80697e91f6b7386f62e093cf236ed2750e188d8415464bc8c",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/QtCore.pyd",
+          "sha256": "91dd5166110b88a4f4d3acda6fe6c10ed699882dd3602328a59e9f656cc766b1",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/QtGui.pyd",
+          "sha256": "cf5ae37fd119fb29a53f1f2cea1362fdf036d940191be45d83da0f98ce8752b8",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/QtSvg.pyd",
+          "sha256": "542d023e993274d9a8c54135fba79cbeb0a99934b04bd47ae181413b55581684",
+          "resolved_inside_candidate_venv": true
+        },
+        {
+          "member": "PyQt6/QtWidgets.pyd",
+          "sha256": "4f81361816e94e1ae05f178085b22d5b9b19e417713b1966dd481a4017aa3b21",
+          "resolved_inside_candidate_venv": true
+        }
+      ],
+      "all_loaded_qt_and_plugin_members_match_wheel": true,
+      "software_opengl_helper_loaded": false,
+      "limits": [
+        "Trusted tiny generated inputs only; not malformed-input fuzzing or exhaustive decoder coverage",
+        "Plugin enumeration loads all nine image plugins but six formats and SVG are exercised",
+        "No OpenGL context, hardware rendering, network content, packet effects or elevated execution",
+        "Loaded-module observation applies to this offscreen image probe, not the separate TLS process or frozen application"
+      ]
+    },
+    "retained_diagnostic_logs": [
+      {
+        "path": "build/qt-candidate-parity-final-20261101/image-runtime-probe.log",
+        "size": 330,
+        "sha256": "a114a5ebce5fe9e39381ba8f0f9ef35beebd2d8cf41b48599eb77df93fe290d9"
+      },
+      {
+        "path": "build/qt-candidate-parity-final-20261101/image-runtime-probe-second.log",
+        "size": 379,
+        "sha256": "a96ac6be7bea582ddce338b80d823c41bfebeef95dd57fb59e7201196fb7f3ab"
+      },
+      {
+        "path": "build/qt-candidate-parity-final-20261101/image-runtime-probe-final.log",
+        "size": 482,
+        "sha256": "ace8c01656a0254777b9bbe0b7e36bd78cf9f7c559f3d6bbc4d845a759ce8efd"
+      }
+    ],
+    "small_webp_fixture": {
+      "path": "build/qt-candidate-parity-final-20261101/trusted-solid.webp",
+      "size": 38,
+      "sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3"
+    },
+    "source_correlation": {
+      "source_archive_sha256": "9074e35c9bbdb944ceebdbed03f54d7bba55703b0252491188779e4d1a714c90",
+      "members": [
+        {
+          "member": "src/plugins/imageformats/webp/qwebphandler.cpp",
+          "size": 12819,
+          "sha256": "2a0d8975b517cdcba3f71499349af5d51e12ace0ae8280b9527baaaff5fe1732"
+        },
+        {
+          "member": "src/3rdparty/libwebp/src/webp/decode.h",
+          "size": 24342,
+          "sha256": "e554551d085f234e930f36b5879a77ef58bfea34c48ebfd620426e63b224025c"
+        }
+      ],
+      "finding": "QWebpHandler::ensureScanned peeks sizeof(WebPBitstreamFeatures) and rejects shorter data. The source struct has five int fields and five uint32_t padding fields, consistent with a 40-byte minimum on this Windows target.",
+      "interpretation": "This source observation explains the 38-byte solid WebP rejection and 56-byte patterned success; no native patch, rebuilt plugin or general security verdict is claimed."
+    },
+    "independent_webp_decode": {
+      "receipt": {
+        "path": "build/qt-candidate-parity-final-20261101/webp-pillow-probe.json",
+        "size": 1058,
+        "sha256": "96945b079e00c590cc8c4d72dfcec2f0bb2649e66fac0fc81891943953f2bb45"
+      },
+      "script": {
+        "path": "build/qt-candidate-parity-final-20261101/probe_webp_pillow.py",
+        "size": 2343,
+        "sha256": "3ccc7bdaaf947f240c32264c8cf208b027f3026a0f378efd056c0d3c424f44f3"
+      },
+      "sanitized_launcher": {
+        "path": "build/qt-candidate-parity-final-20261101/run_webp_pillow_probe.py",
+        "size": 728,
+        "sha256": "83f0ef9bc9eb60772ef8332eab871b1a34c95c6df89d3e1b33466483efb0e147"
+      },
+      "observations": {
+        "schema": "dupez.qt-small-webp-independent-decode.v1",
+        "observed_at": "2026-11-01T19:21:10.282487+00:00",
+        "script_sha256": "3ccc7bdaaf947f240c32264c8cf208b027f3026a0f378efd056c0d3c424f44f3",
+        "fixture": {
+          "path": "build/qt-candidate-parity-final-20261101/trusted-solid.webp",
+          "size": 38,
+          "sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3"
+        },
+        "python_version": "3.13.17",
+        "pillow_version": "13.0.0",
+        "webp_library_version": "1.6.0",
+        "runtime_venv": "build/qt-app-validation-20261101/app-venv",
+        "load_truncated_images": false,
+        "scope": "One exact trusted 38-byte fixture; no malformed-input fuzzing or general security verdict",
+        "status": "passed",
+        "format": "WEBP",
+        "dimensions": [
+          16,
+          16
+        ],
+        "pixels_verified": 256,
+        "rgba": [
+          188,
+          40,
+          70,
+          255
+        ],
+        "decoder_module": {
+          "path": "build/qt-app-validation-20261101/app-venv/Lib/site-packages/PIL/_webp.cp313-win_amd64.pyd",
+          "sha256": "77ec2f34c0a33151c7b020dfc987163678e1e3428508117ca8cbc68dfb2af2b1"
+        }
+      },
+      "conclusion": "Locked Pillow 13.0.0 with libwebp 1.6.0 decodes the exact same 38-byte fixture and all 256 RGBA pixels match, with truncated-image loading disabled. This supports a Qt-specific decoder compatibility failure for the fixture rather than a malformed encoder result."
+    },
+    "production_baseline_comparison": {
+      "receipt": {
+        "path": "build/qt-candidate-parity-final-20261101/webp-baseline-probe.json",
+        "size": 2782,
+        "sha256": "fe01cc8c7eb3575afc5220e2c7baa26a5ae5daab52f3690d20ca11a334e36b40"
+      },
+      "script": {
+        "path": "build/qt-candidate-parity-final-20261101/probe_webp_baseline.py",
+        "size": 4580,
+        "sha256": "9f737efccafcaf4dfa5382634cedd812ab9bfcb89b207d1dbb32f8ab07daaa3d"
+      },
+      "sanitized_launcher": {
+        "path": "build/qt-candidate-parity-final-20261101/run_webp_baseline_probe.py",
+        "size": 772,
+        "sha256": "d7a26547bd30434727e685dc7b2e02f06e1a5d9d0197ea75eedd2eb202e74468"
+      },
+      "observations": {
+        "schema": "dupez.qt-small-webp-baseline-comparison.v1",
+        "status": "comparison-completed",
+        "observed_at": "2026-11-01T19:27:33.267454+00:00",
+        "script_sha256": "9f737efccafcaf4dfa5382634cedd812ab9bfcb89b207d1dbb32f8ab07daaa3d",
+        "fixture": {
+          "path": "build/qt-candidate-parity-final-20261101/trusted-solid.webp",
+          "size": 38,
+          "sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3"
+        },
+        "python_version": "3.13.17",
+        "qt_version": "6.11.2",
+        "pypi_native_distribution": "6.11.2",
+        "runtime_venv": "build/native-security-20261024/test-venv",
+        "platform": "offscreen",
+        "elevated": false,
+        "verified_baseline_members": [
+          {
+            "member": "PyQt6/Qt6/bin/Qt6Core.dll",
+            "sha256": "22c113a5644b875b2c85482723cd5d2e6a3a4029169778fcc78adde08ef3b6aa",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/Qt6/bin/Qt6Gui.dll",
+            "sha256": "19265a4e76efc12ef5f5bcf59be6c6a5b9b59ec4c89660797738bd2da7f719cc",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+            "sha256": "e6d0b7e2e697de6ad985b97f9ed8b381c1c2172fcae87b6ab08455b3b7330f32",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+            "sha256": "8f8f6614fa95ed25aee9e7f7cde64716171028f7cd06cce9b1ad5854e13446ed",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+            "sha256": "95391476bba1d0b50cc822b93d7509341024cc7c18cd615f82e471a3e3a61caa",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/QtCore.pyd",
+            "sha256": "91dd5166110b88a4f4d3acda6fe6c10ed699882dd3602328a59e9f656cc766b1",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/QtGui.pyd",
+            "sha256": "cf5ae37fd119fb29a53f1f2cea1362fdf036d940191be45d83da0f98ce8752b8",
+            "matches_clean_production_build_venv": true
+          },
+          {
+            "member": "PyQt6/QtWidgets.pyd",
+            "sha256": "4f81361816e94e1ae05f178085b22d5b9b19e417713b1966dd481a4017aa3b21",
+            "matches_clean_production_build_venv": true
+          }
+        ],
+        "loaded_webp_plugin": [
+          {
+            "path": "build/native-security-20261024/test-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+            "sha256": "8f8f6614fa95ed25aee9e7f7cde64716171028f7cd06cce9b1ad5854e13446ed"
+          }
+        ],
+        "decode_observation": {
+          "decoded": false,
+          "header_size_before_decode": [
+            -1,
+            -1
+          ],
+          "reader_error": "InvalidDataError",
+          "reader_error_text": "Unable to read image data"
+        },
+        "scope": "One trusted saved fixture, no native changes, full suite, OpenGL context, network or packet effects"
+      },
+      "classification": "existing-production-decoder-limitation-reproduced-in-candidate",
+      "conclusion": "The exact same 38-byte WebP fails with InvalidDataError in verified production Qt 6.11.2 and candidate 6.11.3, while Pillow succeeds. This particular limitation was not introduced by the candidate upgrade; it remains unresolved."
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # DupeZ v5.8.0 release and launch plan
 
-Status checked: 2026-10-25. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
+Local validation checked: 2026-11-01. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
 
 This is an execution plan, not a release approval. No public launch date is
 committed. Do not promote the old files in `dist`, the prior private engineering
@@ -10,18 +10,18 @@ snapshot, or a passing source-only preflight into a release candidate.
 
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
-| Source changes | October 25 build checkpoint `bca1e44` and separate source/candidate evidence are tracked through the existing PR 84 branch | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
+| Source changes | November 1 clean build checkpoint `dbf4d62`, later test-only fixes and separate source/candidate evidence are tracked through PR 84 | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
 | Hosted CI | October 25 verification of prior pushed head `6fa81f4` found all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
 | Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
 | Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases; verify protected updater signing separately; never share private keys in chat |
 | Dependency advisories | October 24 refresh updates Pillow, certifi, cryptography and test/bootstrap pip; updated runtime scan has zero active PyPI advisory records across 27 packages | Keep the generated locks and component inventory together; this scan does not cover native Qt/Chromium or the interpreter |
-| Native runtime security | Browser/QML payload removed from both frozen builds; 128 native entries each from approved origins. Separate Qt 6.11.3 candidate passes widget/SVG/Schannel probes | Production builds still use Qt 6.11.2; finish candidate inventory, plugin parity, frozen/TLS validation and software OpenGL review |
+| Native runtime security | Browser/QML payload removed from both frozen builds; 128 native entries each from approved origins. Qt 6.11.3 candidate now has a strict wheel inventory, real loopback TLS and image/source checks | Production remains Qt 6.11.2; finish coordinated candidate adoption, frozen validation, helper source/security and existing tiny-WebP limitation |
 | Source/rebuild evidence | All 33 upstream archives collected and independently bundle-verified; all four managed binaries match official release assets; earlier GPU application/LGPL Python-layer modification evidence retained | IUP source replacement date, exact native rebuild/replacement, public source delivery/retention and owner decisions remain unresolved |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Fresh isolated GPU/Compat at `bca1e44` pass offline checks. GPU maintenance and both v4 safety dry-run lifecycle profiles pass; Compat UAC was canceled before execution | Operator approves normal UAC to finish Compat. These are engineering artifacts; rebuild on protected main after all release gates |
+| Exact artifacts | Fresh GPU/Compat builds at `dbf4d62` pass offline checks. GPU maintenance and both v4 safety dry-run lifecycle profiles pass; the newly authorized Compat UAC attempt was again canceled before execution | Compat still requires normal operator-approved elevation and runtime evidence. Rebuild on protected main after all release gates |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify the public download and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -34,7 +34,27 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
-## October 25 containment, source mapping and candidate runtime
+## November 1 security fixes and validation
+
+- Cleanup requires verified process identity and cannot terminate a reused bare
+  PID. Forwarding rollback requires an owned mutation; unknown or ambiguous
+  forwarding state stops before changes. The observed Windows global output
+  lacks a reviewed unicast state, so that native path remains unavailable.
+- Full production-dependency suite: **3,501 passed, 10 expected skips**;
+  **139 affected tests passed** after test-only isolation changes. Both clean
+  builds, source/archive/native checks, notices and GPU lifecycle passed.
+- The Qt candidate now verifies ten bindings, seventeen plugins and thirty-three
+  translations. Loopback TLS 1.3 and both negative certificate/hostname controls
+  pass. Image checks retain an existing tiny-WebP decoder limitation reproduced
+  on both production and candidate Qt. The Mesa/LLVM helper remains unchanged.
+- **Compat runtime remains untested:** Windows canceled the approved normal
+  UAC attempt before the helper started. No elevation bypass or retry followed.
+- Source inputs and upstream inventory correlation improved, with exact
+  native rebuild, compiled translation and public delivery gaps kept explicit.
+  See [November 1 evidence](../audits/NATIVE_VALIDATION_2026-11-01.md) and
+  [candidate review](../audits/QT_CANDIDATE_VALIDATION_2026-11-01.md).
+
+## October 25 containment, source mapping and candidate runtime (historical)
 
 - Fixed the real clean-build failure caused by browser designer files collected
   as data. Both final archives reject embedded browser/QML payloads and contain

@@ -33,7 +33,7 @@ the exact frozen files that will be published.
   the prepared private-target runner without target identifiers.
 - GitHub authentication through `GITHUB_TOKEN` or `GH_TOKEN`.
 
-## Owner-action checklist (2026-10-25)
+## Owner-action checklist (2026-11-01 local validation refresh)
 
 The owner has selected the explicitly disclosed unsigned/manual-install route
 and approved GPL-3.0-only open-source distribution with corresponding source.
@@ -57,12 +57,13 @@ has not yet confirmed that the lock is resolved. Recheck the newest candidate
 head after remediation; this dated observation is not a substitute for live
 check results.
 
-The October 25 local build checkpoint `bca1e44` additionally passes both frozen
-offline archive checks and GPU maintenance/manual-map lifecycle checks. The
-Compat runtime attempt was canceled at normal Windows UAC before it started.
-Approve normal UAC when ready to complete that prepared test; do not substitute
-offline archive success for administrator runtime evidence. See the
-[exact-build record](../audits/NATIVE_CONTAINMENT_2026-10-25.md).
+The November 1 local checkpoint `dbf4d62` passes both frozen archive/native
+checks, GPU maintenance/manual-map lifecycle checks, and the full production
+source suite (3,501 passed, ten expected skips). The owner approved a normal UAC
+retry for Compat, but Windows again canceled the launch before its helper
+started. Compat requires another operator-approved normal UAC attempt and
+actual runtime reports. Offline archive success does not provide that evidence.
+See the [exact-build record](../audits/NATIVE_VALIDATION_2026-11-01.md).
 
 1. Sign into the GitHub account that owns `GrihmLord/DupeZ`. Open
    [Billing & licensing](https://github.com/settings/billing), then
