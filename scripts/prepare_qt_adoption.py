@@ -312,7 +312,7 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
         source = candidate.ordinary_path(candidate_root / "inputs" / pins[source_id]["filename"], file=True)
         candidate.verified(source, pins[source_id])
         input_pins[source] = pins[source_id]
-    output.mkdir()
+    output.mkdir(parents=True)
     (output / "packaging").mkdir()
     (output / "wheelhouse").mkdir()
     copy_inventory_documents(inventory, ROOT, output)

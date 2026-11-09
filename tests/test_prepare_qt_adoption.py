@@ -279,6 +279,15 @@ def test_stable_preparation_records_consumed_input_identities(tmp_path, monkeypa
     assert result["source_delivery_approved"] is False
 
 
+def test_clean_checkout_without_build_directory_can_prepare_profile(tmp_path, monkeypatch):
+    source, checksum, output, _wheel = _preparation_fixture(tmp_path, monkeypatch)
+    (tmp_path / "build").rmdir()
+    result = adoption.prepare(source, checksum, output, [])
+    assert output.is_dir()
+    assert (output / "engineering-profile.json").is_file()
+    assert result["profile"] == "frozen-raster"
+
+
 @pytest.mark.parametrize("relative", [
     "requirements-locked.txt", "packaging/requirements-build-locked.txt",
     "packaging/third-party-components.json", "engineering-profile.json", "engineering.sbom.json",
