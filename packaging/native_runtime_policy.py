@@ -29,6 +29,22 @@ _DISABLED_BROWSER_UIC_PLUGINS = frozenset({
     "pyqt6/uic/widget-plugins/qtquickwidgets.py",
     "pyqt6/uic/widget-plugins/qtwebenginewidgets.py",
 })
+QT_BUILD_PROFILES = ("legacy", "frozen-raster")
+FROZEN_RASTER_EXCLUDES = ("PyQt6.QtOpenGL", "PyQt6.QtOpenGLWidgets")
+_FROZEN_RASTER_NATIVE_NAMES = frozenset({
+    "qt6opengl.dll", "qt6openglwidgets.dll", "opengl32sw.dll", "d3dcompiler_47.dll",
+})
+
+
+def validate_qt_build_profile(profile: str) -> str:
+    if profile not in QT_BUILD_PROFILES:
+        raise ValueError("Unknown Qt build profile; expected legacy or frozen-raster")
+    return profile
+
+
+def configured_qt_build_profile() -> str:
+    """Read a build-only selector; runtime environment cannot change this policy."""
+    return validate_qt_build_profile(os.environ.get("DUPEZ_QT_BUILD_PROFILE", "legacy"))
 
 
 def _normalized_path(value: object) -> str:
@@ -76,6 +92,35 @@ def validate_no_embedded_browser_payload(names) -> None:
     unexpected = excluded_browser_payloads(names)
     if unexpected:
         raise RuntimeError("Excluded embedded browser/QML payload: " + ", ".join(unexpected[:10]))
+
+
+def excluded_frozen_raster_payloads(names) -> list[str]:
+    """Find GL bindings, definitions and native helpers in any archive section."""
+    found = set()
+    for value in names:
+        path = _normalized_path(value)
+        module = path.replace("/", ".")
+        basename = path.rsplit("/", 1)[-1]
+        if (
+            any(module == excluded.casefold() or module.startswith(excluded.casefold() + ".")
+                for excluded in FROZEN_RASTER_EXCLUDES)
+            or basename in _FROZEN_RASTER_NATIVE_NAMES
+            or any(basename == name or basename.startswith(name + ".")
+                   for name in ("qtopengl", "qtopenglwidgets"))
+            or any("/bindings/" + name + "/" in "/" + path + "/"
+                   for name in ("qtopengl", "qtopenglwidgets"))
+        ):
+            found.add(path)
+    return sorted(found)
+
+
+def validate_frozen_raster_payload(names, *, qt_profile: str) -> None:
+    """Reject raster-profile contamination without silently deleting payloads."""
+    if validate_qt_build_profile(qt_profile) == "legacy":
+        return
+    unexpected = excluded_frozen_raster_payloads(names)
+    if unexpected:
+        raise RuntimeError("Excluded frozen-raster payload: " + ", ".join(unexpected[:10]))
 
 
 def configure_windows_analysis_environment() -> str | None:

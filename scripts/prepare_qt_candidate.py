@@ -29,6 +29,7 @@ from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "packaging/qt-candidate-inputs.json"
+RASTER_MANIFEST = ROOT / "packaging/qt-raster-inputs.json"
 HOSTS = frozenset({"download.qt.io", "qt.mirror.constant.com", "files.pythonhosted.org"})
 ROLES = frozenset({"source", "qt-prefix", "qt-helper", "builder-wheel", "binding-wheel", "runtime-wheel"})
 MAX_FILE = 100 * 1024 * 1024
@@ -44,6 +45,13 @@ MODULES = frozenset({
 })
 RETAINED_BINDINGS = frozenset({"QtCore", "QtGui", "QtNetwork", "QtWidgets", "QtOpenGL", "QtOpenGLWidgets",
                                "QtPrintSupport", "QtSvg", "QtSvgWidgets", "QtTest"})
+RASTER_BINDINGS = RETAINED_BINDINGS - {"QtOpenGL", "QtOpenGLWidgets"}
+RASTER_EXCLUDED_NATIVE = frozenset({
+    "PyQt6/QtOpenGL.pyd", "PyQt6/QtOpenGLWidgets.pyd",
+    "PyQt6/Qt6/bin/Qt6OpenGL.dll", "PyQt6/Qt6/bin/Qt6OpenGLWidgets.dll",
+    "PyQt6/Qt6/bin/opengl32sw.dll", "PyQt6/Qt6/bin/d3dcompiler_47.dll",
+})
+RASTER_EXCLUDED_UIC = "PyQt6/uic/widget-plugins/qtopenglwidgets.py"
 MANIFEST_FIELDS = frozenset({"schema", "reviewed_on", "qt_version", "binding_version", "scope",
                              "retained_bindings", "excluded_bindings", "retained_plugins",
                              "translation_locales", "inputs"})
@@ -153,8 +161,12 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
     if len(raw) > 128 * 1024:
         raise ValueError("Oversized candidate manifest")
     manifest = json.loads(raw, object_pairs_hook=_unique_object)
-    if (not isinstance(manifest, dict) or set(manifest) != MANIFEST_FIELDS
-            or manifest.get("schema") != "dupez.qt-candidate-inputs.v2"):
+    if not isinstance(manifest, dict):
+        raise ValueError("Unknown candidate manifest")
+    raster = manifest.get("schema") == "dupez.qt-candidate-inputs.v3"
+    if (set(manifest) != MANIFEST_FIELDS | ({"profile"} if raster else set())
+            or (raster and manifest.get("profile") != "frozen-raster")
+            or (not raster and manifest.get("schema") != "dupez.qt-candidate-inputs.v2")):
         raise ValueError("Unknown candidate manifest")
     for field in ("qt_version", "binding_version"):
         if not isinstance(manifest[field], str) or not VERSION.fullmatch(manifest[field]):
@@ -170,7 +182,7 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
                 or len(set(names)) != len(names)):
             raise ValueError(f"Invalid candidate module names: {field}")
     retained, excluded = set(manifest["retained_bindings"]), set(manifest["excluded_bindings"])
-    if retained != RETAINED_BINDINGS or retained & excluded or retained | excluded != MODULES:
+    if retained != (RASTER_BINDINGS if raster else RETAINED_BINDINGS) or retained & excluded or retained | excluded != MODULES:
         raise ValueError("Candidate module partition is incomplete or unsafe")
     plugins = manifest["retained_plugins"]
     if (not isinstance(plugins, list) or any(not isinstance(name, str) for name in plugins)
@@ -349,7 +361,8 @@ def validate_candidate_wheel(path: Path, manifest: dict) -> dict:
     inspect_wheel(path)
     expected_bindings = {f"PyQt6/{name}.pyd" for name in manifest["retained_bindings"]}
     expected_libraries = {f"PyQt6/Qt6/bin/Qt6{name[2:]}.dll" for name in manifest["retained_bindings"]}
-    expected_libraries |= {"PyQt6/Qt6/bin/d3dcompiler_47.dll", "PyQt6/Qt6/bin/opengl32sw.dll"}
+    if manifest.get("profile") != "frozen-raster":
+        expected_libraries |= {"PyQt6/Qt6/bin/d3dcompiler_47.dll", "PyQt6/Qt6/bin/opengl32sw.dll"}
     expected_plugins = {"PyQt6/Qt6/plugins/" + name for name in manifest["retained_plugins"]}
     expected_translations = {f"PyQt6/Qt6/translations/qtbase_{name}.qm" for name in manifest["translation_locales"]}
     with zipfile.ZipFile(path) as archive:
@@ -366,6 +379,7 @@ def validate_candidate_wheel(path: Path, manifest: dict) -> dict:
             raise ValueError("Candidate translation inventory differs from reviewed profile")
         for name in names:
             if (name in OMITTED_UIC_PLUGINS or name.endswith(".qml")
+                    or (manifest.get("profile") == "frozen-raster" and name == RASTER_EXCLUDED_UIC)
                     or name.startswith(("PyQt6/Qt6/qml/", "PyQt6/Qt6/resources/", "PyQt6/Qt6/libexec/"))
                     or any(name == f"PyQt6/{module}.pyi" or name.startswith(f"PyQt6/bindings/{module}/")
                            for module in manifest["excluded_bindings"])):
@@ -399,6 +413,8 @@ def restrict_candidate_wheel(source: Path, destination: Path, manifest: dict) ->
                 if name.endswith("/") or name == record:
                     continue
                 omit = (name in OMITTED_UIC_PLUGINS
+                        or (manifest.get("profile") == "frozen-raster" and name in RASTER_EXCLUDED_NATIVE)
+                        or (manifest.get("profile") == "frozen-raster" and name == RASTER_EXCLUDED_UIC)
                         or (name.startswith("PyQt6/Qt6/plugins/")
                             and name.removeprefix("PyQt6/Qt6/plugins/") in OMITTED_PLUGINS)
                         or (name.startswith("PyQt6/Qt6/translations/") and not name.startswith("PyQt6/Qt6/translations/qtbase_"))
@@ -502,7 +518,10 @@ def run(argv: list[str], cwd: Path, log: Path) -> None:
                        stderr=subprocess.STDOUT, check=True, timeout=300)
 
 
-def prepare(output: Path, cache: Path | None, download_only: bool, install_runtime: bool) -> dict:
+def prepare(output: Path, cache: Path | None, download_only: bool, install_runtime: bool,
+            *, profile: str = "review") -> dict:
+    if profile not in {"review", "frozen-raster"}:
+        raise ValueError("Unknown reviewed Qt profile")
     if sys.platform != "win32" or sys.version_info[:2] != (3, 13) or struct.calcsize("P") != 8:
         raise ValueError("Use the reviewed Windows x64 CPython 3.13 interpreter")
     output = ordinary_path(output, missing=True)
@@ -511,7 +530,11 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
     if (not build_root.is_relative_to(ROOT.resolve())
             or not output.is_relative_to(build_root) or output.exists()):
         raise ValueError("Output must be a fresh directory below this checkout's build/")
-    manifest, manifest_sha256 = load_manifest_snapshot()
+    manifest, manifest_sha256 = load_manifest_snapshot(RASTER_MANIFEST if profile == "frozen-raster" else None)
+    expected_schema = "dupez.qt-candidate-inputs.v3" if profile == "frozen-raster" else "dupez.qt-candidate-inputs.v2"
+    if (manifest["schema"] != expected_schema
+            or manifest.get("profile", "review") != profile):
+        raise ValueError("Requested Qt profile does not match manifest")
     output.mkdir(parents=True)
     inputs = output / "inputs"
     inputs.mkdir()
@@ -521,6 +544,8 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
                "production_locks_changed": False, "native_payload_executed": False,
                "manifest_sha256": manifest_sha256,
                "inputs": manifest["inputs"], "scope": manifest["scope"]}
+    if profile == "frozen-raster":
+        receipt.update(schema="dupez.qt-candidate-preparation.v3", profile=profile)
     if not download_only:
         tar = ordinary_path(system_directory() / "tar.exe", file=True)
         env = child_environment(output / "private")
@@ -556,7 +581,7 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
         bundled_dir = output / "bundled-wheel"
         bundled_dir.mkdir()
         args = [str(python), "-I", "-c", "from pyqtbuild.bundle.bundle_main import main; raise SystemExit(main())", "--qt-dir", str(prefix), "--no-msvc-runtime",
-                "--no-openssl", "--build-tag-suffix", "dupezcandidate"]
+                "--no-openssl", "--build-tag-suffix", "dupezraster" if profile == "frozen-raster" else "dupezcandidate"]
         for name in manifest["excluded_bindings"]:
             args.extend(["--exclude", name])
         args.append(str(canonical))
@@ -600,8 +625,9 @@ def main() -> int:
     parser.add_argument("--cache", type=Path, help="Optional verified input cache; read only")
     parser.add_argument("--download-only", action="store_true")
     parser.add_argument("--install-runtime", action="store_true", help="Create a separate candidate venv; do not run Qt")
+    parser.add_argument("--profile", choices=("review", "frozen-raster"), default="review")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.output, args.cache, args.download_only, args.install_runtime), indent=2))
+    print(json.dumps(prepare(args.output, args.cache, args.download_only, args.install_runtime, profile=args.profile), indent=2))
     return 0
 
 

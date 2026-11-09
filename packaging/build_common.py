@@ -62,8 +62,11 @@ from release_data import (
 )
 from native_runtime_policy import (
     FROZEN_BROWSER_EXCLUDES,
+    FROZEN_RASTER_EXCLUDES,
     audit_native_binary_origins,
+    configured_qt_build_profile,
     configure_windows_analysis_environment,
+    validate_frozen_raster_payload,
     validate_no_embedded_browser_payload,
     validate_windows_tls_binaries,
     without_disabled_browser_uic_plugins,
@@ -326,6 +329,7 @@ def build_variant(
     Writes ``_build_default.py`` before Analysis so the frozen exe
     has the right compiled-in arch default.
     """
+    qt_profile = configured_qt_build_profile()
     _configure_build_analysis_state()
     windows_system_directory = configure_windows_analysis_environment()
     _write_build_default(variant)
@@ -340,11 +344,18 @@ def build_variant(
         hookspath=[os.path.join(HERE, "hooks")],
         hooksconfig={},
         runtime_hooks=[],
-        excludes=_excludes(),
+        excludes=_excludes() + (list(FROZEN_RASTER_EXCLUDES) if qt_profile == "frozen-raster" else []),
         win_no_prefer_redirects=False,
         win_private_assemblies=False,
         cipher=BLOCK_CIPHER,
         noarchive=False,
+    )
+
+    # Reject every collected payload kind before any generic TOC cleanup.
+    # The raster profile is an input/build boundary, not a DLL deletion pass.
+    validate_frozen_raster_payload(
+        (entry[0] for entry in [*a.binaries, *a.datas, *a.pure]),
+        qt_profile=qt_profile,
     )
 
     # PyInstaller's bindepend pass may rediscover DLL imports from a managed
@@ -377,6 +388,7 @@ def build_variant(
         evidence_path.write_text(json.dumps({
             "schema": "dupez.native-binary-origins.v1",
             "qt_tls_policy": "schannel-only",
+            "qt_build_profile": qt_profile,
             "binaries": native_evidence,
         }, indent=2) + "\n", encoding="utf-8")
 

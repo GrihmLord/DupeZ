@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -174,11 +175,72 @@ def test_qt_argv_returns_a_private_copy() -> None:
     assert normalized is not original
 
 
-def test_main_sets_shared_context_attribute_before_qapplication() -> None:
-    source = (
-        Path(__file__).resolve().parents[1] / "app" / "main.py"
-    ).read_text(encoding="utf-8")
+@pytest.mark.parametrize(
+    ("platform", "frozen", "architecture", "expected"),
+    [
+        ("win32", True, "split", False),
+        ("win32", True, "inproc", False),
+        ("linux", True, "split", False),
+        ("win32", False, "split", True),
+        ("win32", None, "inproc", True),
+        ("linux", None, "split", True),
+    ],
+)
+def test_main_applies_shared_context_policy_before_application_creation(
+    monkeypatch, platform: str, frozen: bool | None, architecture: str, expected: bool,
+) -> None:
+    """Exercise the real startup statements without creating a native context."""
+    monkeypatch.setattr(qt_startup.sys, "platform", platform)
+    if frozen is None:
+        monkeypatch.delattr(qt_startup.sys, "frozen", raising=False)
+    else:
+        monkeypatch.setattr(qt_startup.sys, "frozen", frozen, raising=False)
+    monkeypatch.setenv("DUPEZ_ARCH", architecture)
+    monkeypatch.setenv("DUPEZ_MAP_RENDERER", "gpu")
 
-    attribute = source.index("QCoreApplication.setAttribute(")
-    application = source.index("app = QApplication(normalized_qt_argv())")
-    assert attribute < application
+    path = Path(__file__).resolve().parents[1] / "app" / "main.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    statements = next(
+        node.body for node in ast.walk(tree)
+        if isinstance(node, ast.Try)
+        and any(
+            isinstance(statement, ast.Assign)
+            and isinstance(statement.value, ast.Call)
+            and isinstance(statement.value.func, ast.Name)
+            and statement.value.func.id == "QApplication"
+            for statement in node.body
+        )
+    )
+    app_index = next(
+        index for index, statement in enumerate(statements)
+        if isinstance(statement, ast.Assign)
+        and isinstance(statement.value, ast.Call)
+        and isinstance(statement.value.func, ast.Name)
+        and statement.value.func.id == "QApplication"
+    )
+    calls = []
+    state = {"sharing": not expected}
+    attribute = object()
+
+    def set_attribute(selected, enabled):
+        assert selected is attribute
+        assert type(enabled) is bool
+        state["sharing"] = enabled
+        calls.append("attribute")
+
+    def create_application(argv):
+        assert state["sharing"] is expected
+        assert argv == ["DupeZ.exe"]
+        calls.append("application")
+        return object()
+
+    namespace = {
+        "QCoreApplication": SimpleNamespace(setAttribute=set_attribute),
+        "Qt": SimpleNamespace(ApplicationAttribute=SimpleNamespace(AA_ShareOpenGLContexts=attribute)),
+        "QApplication": create_application,
+        "shared_opengl_contexts_enabled": qt_startup.shared_opengl_contexts_enabled,
+        "normalized_qt_argv": lambda: ["DupeZ.exe"],
+    }
+    boundary = ast.Module(body=statements[app_index - 1:app_index + 1], type_ignores=[])
+    exec(compile(boundary, str(path), "exec"), namespace)
+    assert calls == ["attribute", "application"]

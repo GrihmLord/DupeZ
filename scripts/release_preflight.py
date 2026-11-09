@@ -28,7 +28,12 @@ if str(ROOT) not in sys.path:
 _PACKAGING_MODULE_DIR = str(ROOT / "packaging")
 sys.path.insert(0, _PACKAGING_MODULE_DIR)
 try:
-    from native_runtime_policy import excluded_browser_payloads
+    from native_runtime_policy import (
+        QT_BUILD_PROFILES,
+        excluded_browser_payloads,
+        excluded_frozen_raster_payloads,
+        validate_qt_build_profile,
+    )
     from release_data import (
         verify_authenticode_source_equivalence as _verify_authenticode_source_equivalence,
     )
@@ -505,6 +510,10 @@ def _check_native_collection_policy() -> list[str]:
         "packaging/build_common.py": (
             "*FROZEN_BROWSER_EXCLUDES",
             "validate_no_embedded_browser_payload(",
+            "qt_profile = configured_qt_build_profile()",
+            "validate_frozen_raster_payload(",
+            "list(FROZEN_RASTER_EXCLUDES)",
+            '"qt_build_profile": qt_profile',
             "configure_windows_analysis_environment()",
             'hookspath=[os.path.join(HERE, "hooks")]',
             "a.binaries = validate_windows_tls_binaries(",
@@ -521,6 +530,8 @@ def _check_native_collection_policy() -> list[str]:
             '"qopensslbackend.dll"', '"qcertonlybackend.dll"',
             '"libssl-3.dll"', '"libcrypto-3.dll"',
             "Unreviewed ambient native dependency", "Unreviewed OpenSSL DLL",
+            '"DUPEZ_QT_BUILD_PROFILE"', '"frozen-raster"',
+            "Excluded frozen-raster payload",
         ),
     }
     errors = []
@@ -1518,9 +1529,14 @@ def _check_frozen_dependency_policy(
     archive_reader_cls=None,
     release_data_names: set[str] | None = None,
     release_binary_expectations: dict[str, tuple[int, str]] | None = None,
+    qt_profile: str = "legacy",
 ) -> list[str]:
     """Reject contaminated archives and verify managed native bytes."""
     errors: list[str] = []
+    try:
+        validate_qt_build_profile(qt_profile)
+    except ValueError as exc:
+        return [str(exc)]
     if release_data_names is None:
         release_data_names, manifest_errors = _release_data_archive_names()
         errors.extend(manifest_errors)
@@ -1593,6 +1609,11 @@ def _check_frozen_dependency_policy(
             errors.append(
                 f"excluded embedded browser/QML payload in {artifact.name}: {unexpected}"
             )
+        if qt_profile == "frozen-raster":
+            for unexpected in excluded_frozen_raster_payloads([*archive.toc, *embedded.toc]):
+                errors.append(
+                    f"excluded frozen-raster payload in {artifact.name}: {unexpected}"
+                )
         for forbidden_path in _FORBIDDEN_FROZEN_PATHS:
             if forbidden_path in outer_entries:
                 errors.append(
@@ -3067,7 +3088,16 @@ def main() -> int:
         action="store_true",
         help="require evidence for every owner-controlled license/IP decision",
     )
+    parser.add_argument(
+        "--qt-profile",
+        choices=QT_BUILD_PROFILES,
+        default="legacy",
+        help="Qt payload profile for --frozen-artifact inspection (default: legacy)",
+    )
     args = parser.parse_args()
+
+    if args.qt_profile != "legacy" and not args.frozen_artifact:
+        parser.error("--qt-profile frozen-raster requires --frozen-artifact")
 
     if args.license_distribution:
         if args.dist or args.frozen_artifact:
@@ -3084,7 +3114,7 @@ def main() -> int:
         return 0
 
     if args.frozen_artifact:
-        errors = _check_frozen_dependency_policy(args.frozen_artifact)
+        errors = _check_frozen_dependency_policy(args.frozen_artifact, qt_profile=args.qt_profile)
         if errors:
             for error in errors:
                 print(f"ERROR: {error}")

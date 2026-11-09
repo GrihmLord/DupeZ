@@ -488,3 +488,96 @@ def test_candidate_changed_after_member_comparison_invalidates_origin_receipt(tm
         candidate.verify_candidate_origins(wheel, manifest, inputs, Path("tar.exe"))
     assert len(reads) >= 2
     assert candidate.validate_candidate_wheel(wheel, manifest)["wheel_record_verified"]
+
+
+def test_raster_manifest_has_explicit_profile_and_removes_only_gl_bindings():
+    original = candidate.load_manifest()
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    assert raster["profile"] == "frozen-raster"
+    assert set(raster["retained_bindings"]) == set(original["retained_bindings"]) - {"QtOpenGL", "QtOpenGLWidgets"}
+    assert raster["retained_plugins"] == original["retained_plugins"]
+    assert raster["inputs"] == original["inputs"]
+    assert "CVE-2026-116337" in raster["scope"]
+
+
+@pytest.mark.parametrize("change", ["profile", "schema", "restore-gl"])
+def test_raster_profile_cannot_silently_use_another_native_partition(tmp_path, change):
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    if change == "profile":
+        raster["profile"] = "unreviewed"
+    elif change == "schema":
+        raster["schema"] = "dupez.qt-candidate-inputs.v2"
+    else:
+        raster["retained_bindings"].append("QtOpenGL")
+        raster["excluded_bindings"].remove("QtOpenGL")
+    path = tmp_path / "raster.json"
+    path.write_text(json.dumps(raster))
+    with pytest.raises(ValueError):
+        candidate.load_manifest(path)
+
+
+def test_raster_restriction_drops_exact_gl_set_and_preserves_remaining_bytes(tmp_path):
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    payloads = _profile_payloads(candidate.load_manifest())
+    payloads[candidate.RASTER_EXCLUDED_UIC] = b"disabled OpenGL designer plugin"
+    source, wheel = tmp_path / "input.whl", tmp_path / "raster.whl"
+    _write_recorded_wheel(source, payloads)
+    result = candidate.restrict_candidate_wheel(source, wheel, raster)
+    removed = candidate.RASTER_EXCLUDED_NATIVE | {candidate.RASTER_EXCLUDED_UIC}
+    assert set(result["removed_members"]) == removed
+    assert len(result["inventory"]["native_members"]) == 33
+    assert len(result["inventory"]["translations"]) == 33
+    with zipfile.ZipFile(wheel) as archive:
+        for name, value in payloads.items():
+            if name not in removed:
+                assert archive.read(name) == value
+
+
+@pytest.mark.parametrize("name", sorted(candidate.RASTER_EXCLUDED_NATIVE))
+def test_raster_wheel_cannot_retain_a_gl_binding_or_helper(tmp_path, name):
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    payloads = _profile_payloads(candidate.load_manifest())
+    payloads = {path: data for path, data in payloads.items() if path not in candidate.RASTER_EXCLUDED_NATIVE}
+    payloads[name] = b"not permitted in raster wheel"
+    wheel = tmp_path / "raster.whl"
+    _write_recorded_wheel(wheel, payloads)
+    with pytest.raises(ValueError, match="native inventory"):
+        candidate.validate_candidate_wheel(wheel, raster)
+
+
+def test_unknown_prepare_profile_fails_before_output_creation(tmp_path):
+    with pytest.raises(ValueError, match="Unknown reviewed Qt profile"):
+        candidate.prepare(tmp_path / "out", None, True, False, profile="unreviewed")
+    assert not (tmp_path / "out").exists()
+
+
+def test_raster_wheel_rejects_disabled_opengl_designer_plugin(tmp_path):
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    payloads = {path: data for path, data in _profile_payloads(candidate.load_manifest()).items()
+                if path not in candidate.RASTER_EXCLUDED_NATIVE}
+    payloads[candidate.RASTER_EXCLUDED_UIC] = b"disabled plugin smuggled back as data"
+    wheel = tmp_path / "raster.whl"
+    _write_recorded_wheel(wheel, payloads)
+    with pytest.raises(ValueError, match="Excluded module"):
+        candidate.validate_candidate_wheel(wheel, raster)
+
+
+@pytest.mark.parametrize("requested", ["review", "frozen-raster"])
+def test_prepare_rejects_valid_cross_profile_manifest_before_any_output(tmp_path, monkeypatch, requested):
+    wrong_manifest = candidate.load_manifest(candidate.RASTER_MANIFEST if requested == "review" else None)
+    manifest_path = tmp_path / "valid-but-wrong-profile.json"
+    manifest_path.write_text(json.dumps(wrong_manifest))
+    # Both documents are individually valid. The invocation must bind its
+    # requested/default profile to the document, not merely validate either schema.
+    assert candidate.load_manifest(manifest_path) == wrong_manifest
+    monkeypatch.setattr(candidate, "ROOT", tmp_path)
+    monkeypatch.setattr(candidate, "MANIFEST" if requested == "review" else "RASTER_MANIFEST", manifest_path)
+    monkeypatch.setattr(candidate.sys, "platform", "win32")
+    monkeypatch.setattr(candidate.sys, "version_info", (3, 13))
+    monkeypatch.setattr(candidate, "fetch", lambda *_args: pytest.fail("cross-profile input was fetched"))
+    output = tmp_path / "build" / "candidate"
+    # Exercise the unchanged default invocation as well as the explicit raster one.
+    kwargs = {} if requested == "review" else {"profile": requested}
+    with pytest.raises(ValueError, match="profile"):
+        candidate.prepare(output, None, True, False, **kwargs)
+    assert not (tmp_path / "build").exists()

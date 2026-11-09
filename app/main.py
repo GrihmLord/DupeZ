@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from app.core.qt_startup import (
     normalized_qt_argv,
     sanitize_frozen_qt_graphics_environment,
+    shared_opengl_contexts_enabled,
 )
 
 # Keep the direct module entry point behind the same pre-import boundary.
@@ -385,13 +386,13 @@ def main() -> None:
 
     # --- Phase 2: QApplication + Splash Screen ---
     try:
-        # QtWebEngine REQUIRES this attribute to be set on the
-        # QCoreApplication BEFORE the QApplication instance is
-        # constructed. Without it, Chromium prints a warning at
-        # startup and some contexts (embedded iZurvive map) can
-        # render with corrupted textures on multi-GPU machines.
-        # This MUST come before QApplication construction below.
-        QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts, True)
+        # Source launches retain the optional WebEngine sharing setup. Frozen
+        # builds omit that browser and use raster widgets, so explicitly clear
+        # the attribute before QApplication rather than requesting GL sharing.
+        QCoreApplication.setAttribute(
+            Qt.ApplicationAttribute.AA_ShareOpenGLContexts,
+            shared_opengl_contexts_enabled(),
+        )
 
         app = QApplication(normalized_qt_argv())
 

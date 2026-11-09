@@ -10,6 +10,7 @@ __all__ = [
     "is_qt_graphics_override",
     "normalized_qt_argv",
     "sanitize_frozen_qt_graphics_environment",
+    "shared_opengl_contexts_enabled",
 ]
 
 
@@ -56,6 +57,17 @@ def sanitize_frozen_qt_graphics_environment(
         if is_qt_graphics_override(name):
             del target[name]
     target["QT_OPENGL"] = "software"
+
+
+def shared_opengl_contexts_enabled() -> bool:
+    """Keep the optional source browser's GL-sharing setup out of frozen builds.
+
+    Both frozen variants omit WebEngine/QML and deny embedded browser admission.
+    Their raster widgets do not require application-wide OpenGL sharing. Keep
+    the existing source-launch setup for optional WebEngine use without importing
+    the browser or probing native graphics to make this startup decision.
+    """
+    return not bool(getattr(sys, "frozen", False))
 
 
 def normalized_qt_argv(
