@@ -6,9 +6,9 @@ recovery, HMAC integrity verification, and a generic collection
 manager that eliminates per-type boilerplate.
 
 Security Features:
-  - Atomic writes: tmp → fsync → replace (no partial writes on crash)
+  - Crash-consistent authenticated generations with an atomic commit pointer
   - HMAC-SHA384 integrity tags: every saved file gets a companion
-    .hmac file.  On load, integrity is verified before parsing.
+    .hmac compatibility projection; committed generations are authoritative.
   - Backup rotation with corruption recovery
   - Optional encryption at rest (via SecretsManager)
 
@@ -19,16 +19,19 @@ persistence must be available before any other subsystem initialises.
 
 from __future__ import annotations
 
+import base64
+import contextlib
 import hashlib
 import hmac
 import json
 import os
-import shutil
+import secrets
+import tempfile
 import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
 from app.logs.logger import log_error, log_info
 
@@ -71,7 +74,7 @@ __all__ = [
 # from ``platform.node() | $USERNAME | platform.machine() | <literal>``
 # — values the local attacker already owns. That scheme provided only
 # the illusion of integrity.  We retain the old derivation here **only**
-# as a one-shot verification fallback so that existing on-disk
+# as a one-shot verification rung so that existing on-disk
 # ``.hmac`` files still load; the next save re-signs them under the
 # new secret-store-rooted key.
 
@@ -83,16 +86,81 @@ _KEY_CACHE: Optional[bytes] = None
 _KEY_DEGRADED: bool = False
 
 
+# Authenticated files use an immutable generation plus one authenticated,
+# atomically-replaced commit pointer.  ``<name>.json`` and its HMAC remain as
+# a compatibility projection, but are never authoritative once a pointer
+# exists.  A process can therefore die between either projection replacement
+# without losing the last committed payload.
+_GENERATION_SCHEMA = "dupez.authenticated-generation.v1"
+_POINTER_SCHEMA = "dupez.authenticated-pointer.v1"
+_GENERATION_TOKEN_BYTES = 16
+_MAX_GENERATIONS = 2
+_TARGET_LOCKS_GUARD = threading.Lock()
+_TARGET_LOCKS: dict[str, threading.RLock] = {}
+
+
+def _persistence_fault_point(_phase: str, _target: Path) -> None:
+    """No-op fault point replaced only by focused crash tests."""
+
+
+def _target_key(path: Path) -> str:
+    """Return a stable process-local key for a logical state target."""
+    return os.path.normcase(os.path.abspath(os.fspath(path)))
+
+
+def _local_target_lock(path: Path) -> threading.RLock:
+    key = _target_key(path)
+    with _TARGET_LOCKS_GUARD:
+        return _TARGET_LOCKS.setdefault(key, threading.RLock())
+
+
+@contextlib.contextmanager
+def _authenticated_state_lock(path: Path) -> Iterator[None]:
+    """Serialize writers to *path* across both threads and processes.
+
+    The advisory byte lock is mandatory for every supported platform.  A
+    lock-backend failure aborts the transaction instead of silently reducing
+    the guarantee to process-local serialization.  The lock file is retained
+    permanently so no unlink/recreate race can split cooperating writers.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_name(f".{path.name}.auth.lock")
+    with _local_target_lock(path):
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        with os.fdopen(fd, "r+b", closefd=True) as handle:
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+                os.fsync(handle.fileno())
+            handle.seek(0)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                try:
+                    yield
+                finally:
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                try:
+                    yield
+                finally:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def _get_hmac_key() -> bytes:
     """Return the HMAC key, loading it from :mod:`secret_store` once.
 
-    On the extremely rare path where the secret store is unreachable
-    (catastrophic filesystem failure, DPAPI master key lost), we fall
-    back to the legacy derivation so the app still boots — but we flag
-    this via :data:`_KEY_DEGRADED` so that diagnostic surfaces can
-    report it. This is a fail-open choice for *availability*; the
-    integrity guarantee is reduced to "as strong as the legacy
-    derivation" in that path, which is what we have today anyway.
+    Secret-store failure is an integrity stop condition. The predictable
+    legacy machine derivation remains available only as a verification rung
+    *after* this function has successfully obtained the real secret; it is
+    never used to sign new state or as an availability fallback.
     """
     global _KEY_CACHE, _KEY_DEGRADED
     if _KEY_CACHE is not None:
@@ -111,14 +179,15 @@ def _get_hmac_key() -> bytes:
                     f"(len={len(key) if key else 0})"
                 )
             _KEY_CACHE = bytes(key)
+            _KEY_DEGRADED = False
         except Exception as e:
             log_error(
-                f"persistence: secret_store unreachable ({e}); falling back "
-                "to legacy machine-derived key. Integrity tags will still "
-                "verify for existing data but are weaker than design."
+                "persistence: secret store unavailable "
+                f"({type(e).__name__}); authenticated data operations are "
+                "disabled until secret-store access is restored"
             )
-            _KEY_CACHE = _get_legacy_hmac_key()
             _KEY_DEGRADED = True
+            raise RuntimeError("persistence HMAC key is unavailable") from e
         return _KEY_CACHE
 
 
@@ -158,7 +227,10 @@ def _verify_hmac(data: bytes, expected_hex: str) -> bool:
 
 
 def _verify_hmac_legacy(data: bytes, expected_hex: str) -> bool:
-    """Constant-time verification under the legacy machine-derived key."""
+    """Verify a legacy tag only when the durable key store is available."""
+    # This call is an explicit guard: the predictable derivation cannot become
+    # an availability fallback if the secret store is down.
+    _get_hmac_key()
     computed = hmac.new(
         _get_legacy_hmac_key(), data, hashlib.sha384
     ).hexdigest()
@@ -220,7 +292,20 @@ class DataPersistenceManager:
     # ── Save / load ───────────────────────────────────────────────
 
     def save_data(self, data_type: str, data: Any, force: bool = False) -> bool:
-        """Persist *data* as ``<data_type>.json`` (thread-safe, atomic write)."""
+        """Persist *data* behind an authenticated atomic commit pointer.
+
+        The traditional JSON/HMAC files remain a compatibility projection.
+        Readers recover that projection from the committed immutable
+        generation if the process stops between its two replacements.
+        """
+        if data_type == "settings":
+            # Webhook URLs are bearer credentials.  This serialization guard
+            # makes it impossible for a bypassing caller to write one back to
+            # settings.json; supported provisioning is routed through
+            # audit_webhook_config and the OS-backed secret store.
+            from app.core.audit_webhook_config import sanitize_settings_document
+
+            data = sanitize_settings_document(data)
         with self._lock:
             try:
                 if not force and not self._should_save_locked(data_type):
@@ -231,35 +316,13 @@ class DataPersistenceManager:
                 if self.config.backup_enabled and file_path.exists():
                     self._create_backup(file_path)
 
+                # Binary JSON avoids Windows newline translation: the exact
+                # staged bytes are what the HMAC authenticates.
+                raw_json = json.dumps(data, indent=2, ensure_ascii=False)
+                raw_bytes = raw_json.encode("utf-8")
+                self._replace_authenticated_pair(file_path, raw_bytes)
+
                 self._data_cache[data_type] = data
-
-                # Atomic write: tmp → fsync → replace
-                # CRITICAL: write binary. Text mode on Windows translates
-                # "\n" → "\r\n" on disk, so the bytes we HMAC here differ
-                # from the bytes _try_load_json reads back in "rb" mode.
-                tmp_path = file_path.with_suffix(".tmp")
-                try:
-                    raw_json = json.dumps(data, indent=2, ensure_ascii=False)
-                    raw_bytes = raw_json.encode("utf-8")
-                    with open(tmp_path, "wb") as f:
-                        f.write(raw_bytes)
-                        f.flush()
-                        os.fsync(f.fileno())
-                    os.replace(str(tmp_path), str(file_path))
-                    # Write companion HMAC tag
-                    hmac_path = file_path.with_suffix(".hmac")
-                    try:
-                        hmac_hex = _compute_hmac(raw_bytes)
-                        with open(hmac_path, "w", encoding="utf-8") as hf:
-                            hf.write(hmac_hex)
-                            hf.flush()
-                            os.fsync(hf.fileno())
-                    except Exception as he:
-                        log_error(f"Failed to write HMAC for {data_type}: {he}")
-                except Exception:
-                    tmp_path.unlink(missing_ok=True)
-                    raise
-
                 self._dirty_data.discard(data_type)
                 self._last_save_time = time.time()
                 return True
@@ -267,6 +330,445 @@ class DataPersistenceManager:
             except Exception as e:
                 log_error(f"Failed to save {data_type}: {e}")
                 return False
+
+    @staticmethod
+    def _write_staged(path: Path, payload: bytes) -> None:
+        """Write and fsync one staging file without replacing its target."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+    @classmethod
+    def _write_random_stage(
+        cls,
+        parent: Path,
+        prefix: str,
+        payload: bytes,
+    ) -> Path:
+        """Create, write, and fsync an exclusive random same-dir stage."""
+        parent.mkdir(parents=True, exist_ok=True)
+        handle = tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=prefix,
+            dir=str(parent),
+            delete=False,
+        )
+        path = Path(handle.name)
+        try:
+            with handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        return path
+
+    @staticmethod
+    def _fsync_directory(path: Path) -> None:
+        """Persist directory entry changes where the platform exposes fsync.
+
+        Windows rejects directory ``fsync``.  The Windows replacement path
+        below instead uses ``MoveFileExW(MOVEFILE_WRITE_THROUGH)``, the native
+        durability equivalent for same-volume renames.
+        """
+        if os.name == "nt":
+            return
+        flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        fd = os.open(path, flags)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+    @classmethod
+    def _durable_replace(
+        cls,
+        source: Path,
+        destination: Path,
+        *,
+        replace: bool = True,
+    ) -> None:
+        """Durably install *source* at *destination* in the same directory."""
+        source = Path(source)
+        destination = Path(destination)
+        if source.parent.resolve() != destination.parent.resolve():
+            raise OSError("authenticated state replacement must stay in one directory")
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+
+            move_file = ctypes.WinDLL("kernel32", use_last_error=True).MoveFileExW
+            move_file.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD]
+            move_file.restype = wintypes.BOOL
+            flags = 0x00000008  # MOVEFILE_WRITE_THROUGH
+            if replace:
+                flags |= 0x00000001  # MOVEFILE_REPLACE_EXISTING
+            if not move_file(
+                os.path.abspath(source),
+                os.path.abspath(destination),
+                flags,
+            ):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return
+        if replace:
+            os.replace(source, destination)
+        else:
+            # link() supplies no-overwrite semantics for immutable generations.
+            os.link(source, destination)
+            source.unlink()
+        cls._fsync_directory(destination.parent)
+
+    @staticmethod
+    def _pointer_path(file_path: Path) -> Path:
+        return file_path.with_name(f".{file_path.name}.auth-commit")
+
+    @staticmethod
+    def _generation_path(file_path: Path, token: str) -> Path:
+        return file_path.with_name(f".{file_path.name}.auth-gen-{token}")
+
+    @staticmethod
+    def _valid_generation_token(token: object) -> bool:
+        return (
+            isinstance(token, str)
+            and len(token) == _GENERATION_TOKEN_BYTES * 2
+            and all(char in "0123456789abcdef" for char in token)
+        )
+
+    @staticmethod
+    def _target_identity(file_path: Path) -> str:
+        normalized = os.path.normcase(os.path.abspath(os.fspath(file_path)))
+        return hashlib.sha384(os.fsencode(normalized)).hexdigest()
+
+    @staticmethod
+    def _canonical_record(record: dict[str, Any]) -> bytes:
+        return json.dumps(
+            record,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+
+    @classmethod
+    def _encode_authenticated_record(cls, record: dict[str, Any]) -> bytes:
+        record_bytes = cls._canonical_record(record)
+        envelope = {
+            "record": record,
+            "hmac_sha384": _compute_hmac(record_bytes),
+        }
+        return cls._canonical_record(envelope)
+
+    @classmethod
+    def _decode_authenticated_record(
+        cls,
+        raw: bytes,
+        *,
+        schema: str,
+    ) -> dict[str, Any]:
+        envelope = json.loads(raw.decode("utf-8"))
+        if not isinstance(envelope, dict) or set(envelope) != {
+            "record",
+            "hmac_sha384",
+        }:
+            raise ValueError("invalid authenticated state envelope")
+        record = envelope.get("record")
+        tag = envelope.get("hmac_sha384")
+        if not isinstance(record, dict) or not isinstance(tag, str):
+            raise ValueError("invalid authenticated state envelope fields")
+        if record.get("schema") != schema:
+            raise ValueError("authenticated state schema mismatch")
+        if not _verify_hmac(cls._canonical_record(record), tag):
+            raise ValueError("authenticated state envelope HMAC mismatch")
+        return record
+
+    @classmethod
+    def _load_pointer_locked(
+        cls,
+        file_path: Path,
+    ) -> tuple[dict[str, Any], bytes]:
+        pointer_path = cls._pointer_path(file_path)
+        raw = pointer_path.read_bytes()
+        pointer = cls._decode_authenticated_record(raw, schema=_POINTER_SCHEMA)
+        expected_keys = {
+            "schema",
+            "target_id",
+            "generation",
+            "generation_sha384",
+            "previous_generation",
+        }
+        if set(pointer) != expected_keys:
+            raise ValueError("invalid authenticated pointer fields")
+        if pointer.get("target_id") != cls._target_identity(file_path):
+            raise ValueError("authenticated pointer target mismatch")
+        generation = pointer.get("generation")
+        previous = pointer.get("previous_generation")
+        digest = pointer.get("generation_sha384")
+        if not cls._valid_generation_token(generation):
+            raise ValueError("invalid authenticated pointer generation")
+        if previous is not None and not cls._valid_generation_token(previous):
+            raise ValueError("invalid authenticated pointer predecessor")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != hashlib.sha384().digest_size * 2
+        ):
+            raise ValueError("invalid authenticated pointer digest")
+        return pointer, raw
+
+    @classmethod
+    def _load_committed_payload_locked(
+        cls,
+        file_path: Path,
+    ) -> tuple[bytes, dict[str, Any]]:
+        pointer, _raw_pointer = cls._load_pointer_locked(file_path)
+        token = pointer["generation"]
+        generation_path = cls._generation_path(file_path, token)
+        generation_raw = generation_path.read_bytes()
+        actual_digest = hashlib.sha384(generation_raw).hexdigest()
+        if not hmac.compare_digest(actual_digest, pointer["generation_sha384"]):
+            raise ValueError("committed generation digest mismatch")
+        generation = cls._decode_authenticated_record(
+            generation_raw,
+            schema=_GENERATION_SCHEMA,
+        )
+        expected_keys = {
+            "schema",
+            "target_id",
+            "generation",
+            "payload_b64",
+            "payload_sha384",
+        }
+        if set(generation) != expected_keys:
+            raise ValueError("invalid authenticated generation fields")
+        if generation.get("target_id") != cls._target_identity(file_path):
+            raise ValueError("authenticated generation target mismatch")
+        if generation.get("generation") != token:
+            raise ValueError("authenticated generation identity mismatch")
+        encoded = generation.get("payload_b64")
+        payload_digest = generation.get("payload_sha384")
+        if not isinstance(encoded, str) or not isinstance(payload_digest, str):
+            raise ValueError("invalid authenticated generation payload")
+        payload = base64.b64decode(encoded.encode("ascii"), validate=True)
+        actual_payload_digest = hashlib.sha384(payload).hexdigest()
+        if not hmac.compare_digest(actual_payload_digest, payload_digest):
+            raise ValueError("authenticated generation payload digest mismatch")
+        return payload, pointer
+
+    @classmethod
+    def _compatibility_projection_matches(
+        cls,
+        file_path: Path,
+        hmac_path: Path,
+        payload: bytes,
+    ) -> bool:
+        try:
+            if file_path.read_bytes() != payload:
+                return False
+            tag = hmac_path.read_text(encoding="ascii").strip()
+            return _verify_hmac(payload, tag)
+        except (OSError, UnicodeError):
+            return False
+
+    @classmethod
+    def _materialize_compatibility_pair_locked(
+        cls,
+        file_path: Path,
+        hmac_path: Path,
+        payload: bytes,
+    ) -> None:
+        expected_hmac = _compute_hmac(payload).encode("ascii")
+        prefix = f".{file_path.name}.auth-stage-"
+        json_stage = cls._write_random_stage(file_path.parent, prefix, payload)
+        hmac_stage: Path | None = None
+        try:
+            hmac_stage = cls._write_random_stage(
+                file_path.parent,
+                prefix,
+                expected_hmac,
+            )
+            cls._durable_replace(hmac_stage, hmac_path)
+            hmac_stage = None
+            _persistence_fault_point("hmac-mirrored", file_path)
+            cls._durable_replace(json_stage, file_path)
+            json_stage = None
+            _persistence_fault_point("json-mirrored", file_path)
+            if not cls._compatibility_projection_matches(
+                file_path,
+                hmac_path,
+                payload,
+            ):
+                raise OSError("compatibility projection verification failed")
+        finally:
+            if json_stage is not None:
+                json_stage.unlink(missing_ok=True)
+            if hmac_stage is not None:
+                hmac_stage.unlink(missing_ok=True)
+
+    @classmethod
+    def _cleanup_transaction_files_locked(
+        cls,
+        file_path: Path,
+        pointer: dict[str, Any],
+    ) -> None:
+        keep = {pointer["generation"]}
+        previous = pointer.get("previous_generation")
+        if previous is not None:
+            keep.add(previous)
+        cls._prune_transaction_files_locked(file_path, keep=keep)
+
+    @classmethod
+    def _prune_transaction_files_locked(
+        cls,
+        file_path: Path,
+        *,
+        keep: set[str],
+    ) -> None:
+        if len(keep) > _MAX_GENERATIONS:
+            raise ValueError("too many authenticated generations retained")
+        generation_prefix = f".{file_path.name}.auth-gen-"
+        stage_prefix = f".{file_path.name}.auth-stage-"
+        for candidate in file_path.parent.iterdir():
+            name = candidate.name
+            if name.startswith(generation_prefix):
+                token = name[len(generation_prefix):]
+                if token not in keep:
+                    candidate.unlink(missing_ok=True)
+            elif name.startswith(stage_prefix):
+                candidate.unlink(missing_ok=True)
+        cls._fsync_directory(file_path.parent)
+
+    @classmethod
+    def _commit_authenticated_payload_locked(
+        cls,
+        file_path: Path,
+        payload: bytes,
+        *,
+        hmac_path: Path,
+    ) -> None:
+        pointer_path = cls._pointer_path(file_path)
+        previous: str | None = None
+        if pointer_path.exists():
+            _old_payload, old_pointer = cls._load_committed_payload_locked(file_path)
+            previous = old_pointer["generation"]
+            cls._cleanup_transaction_files_locked(file_path, old_pointer)
+        else:
+            # Generations without a commit pointer are interrupted, never
+            # authoritative transactions. Prune them before the next attempt.
+            cls._prune_transaction_files_locked(file_path, keep=set())
+
+        token = secrets.token_hex(_GENERATION_TOKEN_BYTES)
+        payload_digest = hashlib.sha384(payload).hexdigest()
+        generation_record = {
+            "schema": _GENERATION_SCHEMA,
+            "target_id": cls._target_identity(file_path),
+            "generation": token,
+            "payload_b64": base64.b64encode(payload).decode("ascii"),
+            "payload_sha384": payload_digest,
+        }
+        generation_raw = cls._encode_authenticated_record(generation_record)
+        prefix = f".{file_path.name}.auth-stage-"
+        generation_stage = cls._write_random_stage(
+            file_path.parent,
+            prefix,
+            generation_raw,
+        )
+        generation_path = cls._generation_path(file_path, token)
+        try:
+            cls._durable_replace(
+                generation_stage,
+                generation_path,
+                replace=False,
+            )
+            generation_stage = None
+            _persistence_fault_point("generation-durable", file_path)
+
+            pointer_record = {
+                "schema": _POINTER_SCHEMA,
+                "target_id": cls._target_identity(file_path),
+                "generation": token,
+                "generation_sha384": hashlib.sha384(generation_raw).hexdigest(),
+                "previous_generation": previous,
+            }
+            pointer_raw = cls._encode_authenticated_record(pointer_record)
+            pointer_stage = cls._write_random_stage(
+                file_path.parent,
+                prefix,
+                pointer_raw,
+            )
+            try:
+                _persistence_fault_point("pointer-staged", file_path)
+                cls._durable_replace(pointer_stage, pointer_path)
+                pointer_stage = None
+                _persistence_fault_point("pointer-committed", file_path)
+            finally:
+                if pointer_stage is not None:
+                    pointer_stage.unlink(missing_ok=True)
+        finally:
+            if generation_stage is not None:
+                generation_stage.unlink(missing_ok=True)
+
+        # The authenticated pointer is the commit boundary.  Projection
+        # failure after this point cannot invalidate the committed state; all
+        # readers resolve the pointer first and repair this compatibility view.
+        try:
+            cls._materialize_compatibility_pair_locked(
+                file_path,
+                hmac_path,
+                payload,
+            )
+        except Exception as exc:
+            log_error(
+                f"Authenticated state committed for {file_path.name}, but its "
+                f"compatibility projection is pending ({type(exc).__name__})"
+            )
+        cls._cleanup_transaction_files_locked(file_path, pointer_record)
+
+    @classmethod
+    def _replace_authenticated_pair(
+        cls,
+        file_path: Path,
+        payload: bytes,
+        *,
+        hmac_path: Path | None = None,
+        _lock_held: bool = False,
+    ) -> None:
+        """Durably commit *payload* and refresh the legacy JSON/HMAC view."""
+        file_path = Path(file_path)
+        hmac_path = hmac_path or file_path.with_suffix(".hmac")
+        hmac_path = Path(hmac_path)
+        if hmac_path.parent.resolve() != file_path.parent.resolve():
+            raise OSError("JSON and HMAC state must share one directory")
+        # Resolve the key before creating any transaction artifact.
+        _compute_hmac(payload)
+        if _lock_held:
+            cls._commit_authenticated_payload_locked(
+                file_path,
+                payload,
+                hmac_path=hmac_path,
+            )
+            return
+        with _authenticated_state_lock(file_path):
+            cls._commit_authenticated_payload_locked(
+                file_path,
+                payload,
+                hmac_path=hmac_path,
+            )
+
+    @classmethod
+    def _remove_authenticated_state(
+        cls,
+        file_path: Path,
+        *,
+        hmac_path: Path | None = None,
+    ) -> None:
+        """Remove one logical state target, including journal generations."""
+        file_path = Path(file_path)
+        hmac_path = Path(hmac_path or file_path.with_suffix(".hmac"))
+        with _authenticated_state_lock(file_path):
+            cls._pointer_path(file_path).unlink(missing_ok=True)
+            file_path.unlink(missing_ok=True)
+            hmac_path.unlink(missing_ok=True)
+            cls._prune_transaction_files_locked(file_path, keep=set())
 
     def load_data(self, data_type: str, default: Any = None) -> Any:
         """Load ``<data_type>.json``, falling back to backups on corruption."""
@@ -286,7 +788,10 @@ class DataPersistenceManager:
             reverse=True,
         )
         for backup in backups:
-            data = self._try_load_json(backup)
+            # Rotated backups created by supported versions are always paired
+            # with an HMAC. An untagged archive is not a trustworthy recovery
+            # source and is never promoted into live application state.
+            data = self._try_load_json(backup, require_hmac=True)
             if data is not None:
                 log_info(f"Recovered {data_type} from backup: {backup.name}")
                 with self._lock:
@@ -340,60 +845,48 @@ class DataPersistenceManager:
             return True
         return False
 
-    @staticmethod
-    def _try_load_json(path: Path) -> Any:
-        """Attempt to load JSON from *path* with HMAC integrity check.
-
-        If a companion .hmac file exists, the file's contents are
-        verified against the stored HMAC before parsing.  A tampered
-        file is treated as corrupt (returns None).
-
-        Legacy self-heal: files written by the pre-binary-mode writer
-        have "\r\n" line endings on Windows; their HMAC was computed
-        over the "\n" version, so verification fails. If the file
-        parses as valid JSON and its LF-normalised form matches the
-        stored HMAC, we accept it and silently re-sign on the next
-        save. Real tampering still fails both checks.
-        """
+    @classmethod
+    def _read_legacy_authenticated_bytes_locked(
+        cls,
+        path: Path,
+        *,
+        hmac_path: Path,
+        require_hmac: bool,
+    ) -> bytes | None:
+        """Read the pre-journal JSON/HMAC representation, fail closed."""
         try:
             if not path.exists():
                 return None
-            with open(path, "rb") as f:
-                raw = f.read()
-            # HMAC integrity check
-            hmac_path = path.with_suffix(".hmac")
+            raw = path.read_bytes()
+            if require_hmac and not hmac_path.is_file():
+                log_error(
+                    f"HMAC sidecar missing for recovery file {path.name}"
+                )
+                return None
             if hmac_path.exists():
                 try:
-                    with open(hmac_path, "r", encoding="utf-8") as hf:
-                        stored_hmac = hf.read().strip()
-
-                    # Verification ladder:
-                    #   1. current key + raw bytes
-                    #   2. current key + CRLF-normalised bytes
-                    #   3. legacy key + raw bytes      (pre-DPAPI files)
-                    #   4. legacy key + CRLF-normalised
-                    # Anything passing rungs 2-4 is accepted but will
-                    # be re-signed under the current key on the next
-                    # save — the save path always rewrites the .hmac.
+                    with open(hmac_path, "r", encoding="ascii") as handle:
+                        stored_hmac = handle.read().strip()
                     normalised = raw.replace(b"\r\n", b"\n")
                     if _verify_hmac(raw, stored_hmac):
-                        pass  # healthy
+                        pass
                     elif normalised != raw and _verify_hmac(normalised, stored_hmac):
                         log_info(
                             f"HMAC accepted for {path.name} "
-                            "(CRLF-normalised); will re-sign on next save"
+                            "(CRLF-normalised); migrating authenticated state"
                         )
                     elif _verify_hmac_legacy(raw, stored_hmac):
                         log_info(
                             f"HMAC accepted for {path.name} under legacy "
-                            "machine-derived key; will re-sign under "
-                            "secret-store-rooted key on next save"
+                            "machine-derived key; migrating authenticated state"
                         )
-                    elif (normalised != raw
-                            and _verify_hmac_legacy(normalised, stored_hmac)):
+                    elif (
+                        normalised != raw
+                        and _verify_hmac_legacy(normalised, stored_hmac)
+                    ):
                         log_info(
                             f"HMAC accepted for {path.name} under legacy "
-                            "key (CRLF-normalised); will re-sign on next save"
+                            "key (CRLF-normalised); migrating authenticated state"
                         )
                     else:
                         log_error(
@@ -403,15 +896,134 @@ class DataPersistenceManager:
                         return None
                 except Exception as e:
                     log_error(f"HMAC check error for {path.name}: {e}")
-                    # Continue loading — HMAC failure is logged but
-                    # we don't want to brick the app if .hmac is missing/corrupt
+                    return None
+            return raw
+        except OSError:
+            return None
+
+    @classmethod
+    def _read_authenticated_bytes_locked(
+        cls,
+        path: Path,
+        *,
+        hmac_path: Path,
+        require_hmac: bool,
+    ) -> bytes | None:
+        pointer_path = cls._pointer_path(path)
+        if pointer_path.exists():
+            try:
+                payload, pointer = cls._load_committed_payload_locked(path)
+            except (OSError, ValueError, UnicodeError, json.JSONDecodeError) as exc:
+                log_error(
+                    f"Authenticated commit verification FAILED for {path.name} "
+                    f"({type(exc).__name__})"
+                )
+                return None
+
+            # The projection is explicitly non-authoritative.  Repair a stale
+            # or half-written pair after a crash and still return the committed
+            # generation if projection repair is temporarily unavailable.
+            if not cls._compatibility_projection_matches(
+                path,
+                hmac_path,
+                payload,
+            ):
+                try:
+                    cls._materialize_compatibility_pair_locked(
+                        path,
+                        hmac_path,
+                        payload,
+                    )
+                except Exception as exc:
+                    log_error(
+                        f"Could not repair compatibility projection for "
+                        f"{path.name} ({type(exc).__name__})"
+                    )
+            try:
+                cls._cleanup_transaction_files_locked(path, pointer)
+            except OSError as exc:
+                log_error(
+                    f"Could not prune old authenticated generations for "
+                    f"{path.name} ({type(exc).__name__})"
+                )
+            return payload
+
+        legacy = cls._read_legacy_authenticated_bytes_locked(
+            path,
+            hmac_path=hmac_path,
+            require_hmac=require_hmac,
+        )
+        if legacy is None:
+            return None
+        # A verified legacy pair is immediately placed behind a durable commit
+        # pointer.  Failure leaves the original pair untouched and readable;
+        # no partially-created generation is treated as committed.
+        try:
+            cls._commit_authenticated_payload_locked(
+                path,
+                legacy,
+                hmac_path=hmac_path,
+            )
+        except Exception as exc:
+            log_error(
+                f"Could not migrate legacy authenticated state for {path.name} "
+                f"({type(exc).__name__})"
+            )
+        return legacy
+
+    @classmethod
+    def _read_authenticated_bytes(
+        cls,
+        path: Path,
+        *,
+        hmac_path: Path | None = None,
+        require_hmac: bool = True,
+        _lock_held: bool = False,
+    ) -> bytes | None:
+        """Return the authoritative authenticated bytes for *path*."""
+        path = Path(path)
+        hmac_path = Path(hmac_path or path.with_suffix(".hmac"))
+        if hmac_path.parent.resolve() != path.parent.resolve():
+            raise OSError("JSON and HMAC state must share one directory")
+        if _lock_held:
+            return cls._read_authenticated_bytes_locked(
+                path,
+                hmac_path=hmac_path,
+                require_hmac=require_hmac,
+            )
+        with _authenticated_state_lock(path):
+            return cls._read_authenticated_bytes_locked(
+                path,
+                hmac_path=hmac_path,
+                require_hmac=require_hmac,
+            )
+
+    @classmethod
+    def _try_load_json(cls, path: Path, *, require_hmac: bool = True) -> Any:
+        """Load journaled JSON, or safely migrate a verified legacy pair."""
+        try:
+            raw = cls._read_authenticated_bytes(
+                path,
+                require_hmac=require_hmac,
+            )
+            if raw is None:
+                return None
             return json.loads(raw.decode("utf-8"))
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError, ValueError):
             return None
 
     def _create_backup(self, file_path: Path) -> None:
-        """Copy *file_path* to a timestamped backup, pruning old copies."""
+        """Create an authenticated rotated copy, then prune old pairs."""
         try:
+            payload = self._read_authenticated_bytes(
+                file_path,
+                require_hmac=True,
+            )
+            if payload is None:
+                log_error(
+                    f"Refusing to rotate unauthenticated {file_path.name}"
+                )
+                return
             timestamp = int(time.time())
             backup_path = file_path.with_suffix(f".backup.{timestamp}.json")
 
@@ -420,10 +1032,28 @@ class DataPersistenceManager:
                 key=lambda p: p.stat().st_mtime,
                 reverse=True,
             )
-            for old in backup_files[self.config.max_backups:]:
-                old.unlink(missing_ok=True)
+            if file_path.stem == "settings":
+                from app.core.audit_webhook_config import sanitize_settings_payload
 
-            shutil.copy2(file_path, backup_path)
+                payload, _recognized = sanitize_settings_payload(
+                    f"app/data/{file_path.name}",
+                    payload,
+                )
+                if payload is None:
+                    log_error(
+                        "Refusing to rotate an invalid settings payload"
+                    )
+                    return
+
+            self._replace_authenticated_pair(backup_path, payload)
+
+            backup_files = sorted(
+                file_path.parent.glob(f"{file_path.stem}.backup.*.json"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            for old in backup_files[self.config.max_backups:]:
+                self._remove_authenticated_state(old)
         except Exception as e:
             log_error(f"Failed to create backup: {e}")
 
@@ -532,6 +1162,35 @@ class SettingsManager(AutoSaveMixin):
         self.settings: Dict[str, Any] = self.load_saved_data({})
 
     def update_setting(self, key: str, value: Any) -> None:
+        if key == "audit_webhook" and isinstance(value, dict):
+            from app.core.audit_webhook_config import (
+                configure_audit_webhook_enabled,
+                provision_audit_webhook,
+            )
+
+            url = next(
+                (
+                    value.get(field)
+                    for field in ("url", "webhook_url", "endpoint_url")
+                    if value.get(field)
+                ),
+                None,
+            )
+            if url is not None:
+                provision_audit_webhook(
+                    url,
+                    kind=value.get("kind", "discord"),
+                    rate_limit_per_min=value.get("rate_limit_per_min", 30),
+                    enabled=value.get("enabled", True),
+                    manager=self,
+                )
+                return
+            if set(value).issubset({"enabled"}):
+                configure_audit_webhook_enabled(
+                    value.get("enabled", False),
+                    manager=self,
+                )
+                return
         self.settings[key] = value
         self.save_changes(self.settings)
 
@@ -673,6 +1332,9 @@ def get_persistence_info() -> Dict[str, Any]:
 
 
 def persistence_key_degraded() -> bool:
-    """Return True when persistence integrity is using the fallback key."""
-    _get_hmac_key()
+    """Return True when the durable integrity key is unavailable."""
+    try:
+        _get_hmac_key()
+    except Exception:
+        return True
     return _KEY_DEGRADED

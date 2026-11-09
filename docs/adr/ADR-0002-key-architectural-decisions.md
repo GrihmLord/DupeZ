@@ -54,9 +54,9 @@ This ADR consolidates the major architectural decisions baked into DupeZ between
 
 ---
 
-## §5 — Plugin trust model: signed bundles + capability sandbox (v5.5)
+## §5 — Plugin trust model: fully trusted signed bundles + capability diagnostics (v5.5)
 
-**Decision.** Plugins ship as Ed25519-signed ZIP bundles. The loader verifies the signature against a pinned trust list (currently project key only). Plugins run in a capability sandbox limiting filesystem + network access. Future plugin marketplace (v5.8+) will extend the trust list to community authors with first-install consent.
+**Decision.** Plugins ship as Ed25519-signed bundles whose complete file inventory is verified against a pinned trust list. A trusted signing key is the security boundary: plugin Python runs in-process with the host user's authority. Capability declarations and Python audit hooks provide best-effort diagnostics and catch accidental policy violations; they are not OS isolation and cannot make an untrusted publisher safe. Any future community trust-list expansion requires explicit publisher trust and review. Enforceable least privilege requires a brokered out-of-process host.
 
 **Trade-off accepted.** Higher contributor friction (must sign + cap-declare) in exchange for elimination of arbitrary-RCE plugins. Same threat-model logic as §2.
 

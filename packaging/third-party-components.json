@@ -1,0 +1,335 @@
+{
+  "schema": "dupez.third-party-components.v1",
+  "runtime_lock": "requirements-locked.txt",
+  "runtime_components": [
+    {
+      "name": "certifi",
+      "version": "2026.10.23",
+      "declared_license": "MPL-2.0",
+      "metadata_license": "MPL-2.0",
+      "homepage": "https://pypi.org/project/certifi/2026.10.23/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "cffi",
+      "version": "2.0.0",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/cffi/2.0.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "charset-normalizer",
+      "version": "3.4.7",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/charset-normalizer/3.4.7/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "declared_license": "BSD-3-Clause",
+      "metadata_license": null,
+      "homepage": "https://pypi.org/project/colorama/0.4.6/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "declared_license": "Apache-2.0 OR BSD-3-Clause",
+      "metadata_license": "Apache-2.0 OR BSD-3-Clause",
+      "homepage": "https://pypi.org/project/cryptography/50.0.2/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "et-xmlfile",
+      "version": "2.0.0",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/et-xmlfile/2.0.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "idna",
+      "version": "3.18",
+      "declared_license": "BSD-3-Clause",
+      "metadata_license": "BSD-3-Clause",
+      "homepage": "https://pypi.org/project/idna/3.18/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "ifaddr",
+      "version": "0.2.0",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/ifaddr/0.2.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "keyboard",
+      "version": "0.13.5",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/keyboard/0.13.5/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "numpy",
+      "version": "2.4.6",
+      "declared_license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "metadata_license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "homepage": "https://pypi.org/project/numpy/2.4.6/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "openpyxl",
+      "version": "3.1.5",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/openpyxl/3.1.5/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pillow",
+      "version": "13.0.0",
+      "declared_license": "MIT-CMU",
+      "metadata_license": "MIT-CMU",
+      "homepage": "https://pypi.org/project/pillow/13.0.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "declared_license": "BSD-3-Clause",
+      "metadata_license": "BSD-3-Clause",
+      "homepage": "https://pypi.org/project/psutil/7.2.2/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "declared_license": "BSD-3-Clause",
+      "metadata_license": "BSD-3-Clause",
+      "homepage": "https://pypi.org/project/pycparser/3.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyqt6",
+      "version": "6.11.0",
+      "declared_license": "GPL-3.0-only",
+      "metadata_license": "GPL-3.0-only",
+      "homepage": "https://pypi.org/project/PyQt6/6.11.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyqt6-qt6",
+      "version": "6.11.2",
+      "declared_license": "LGPL-3.0-only",
+      "metadata_license": "LGPL v3",
+      "homepage": "https://pypi.org/project/PyQt6-Qt6/6.11.2/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyqt6-sip",
+      "version": "13.11.1",
+      "declared_license": "BSD-2-Clause",
+      "metadata_license": "BSD-2-Clause",
+      "homepage": "https://pypi.org/project/PyQt6-sip/13.11.1/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyqt6-webengine",
+      "version": "6.11.0",
+      "declared_license": "GPL-3.0-only",
+      "metadata_license": "GPL-3.0-only",
+      "homepage": "https://pypi.org/project/PyQt6-WebEngine/6.11.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyqt6-webengine-qt6",
+      "version": "6.11.2",
+      "declared_license": "LGPL-3.0-only AND LicenseRef-Chromium-Third-Party",
+      "metadata_license": "LGPL v3",
+      "homepage": "https://pypi.org/project/PyQt6-WebEngine-Qt6/6.11.2/",
+      "fallback_files": [],
+      "supplemental_files": [
+        "packaging/licenses/Qt-WebEngine-NOTICE.txt"
+      ]
+    },
+    {
+      "name": "pyqtgraph",
+      "version": "0.14.0",
+      "declared_license": "MIT AND CC-BY-4.0",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/pyqtgraph/0.14.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyserial",
+      "version": "3.5",
+      "declared_license": "BSD-3-Clause",
+      "metadata_license": "BSD",
+      "homepage": "https://pypi.org/project/pyserial/3.5/",
+      "fallback_files": [
+        "packaging/licenses/pyserial-LICENSE.txt"
+      ],
+      "supplemental_files": []
+    },
+    {
+      "name": "pywin32",
+      "version": "312",
+      "declared_license": "PSF-2.0 AND BSD-3-Clause AND MIT",
+      "metadata_license": "PSF",
+      "homepage": "https://pypi.org/project/pywin32/312/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/PyYAML/6.0.3/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "requests",
+      "version": "2.34.2",
+      "declared_license": "Apache-2.0",
+      "metadata_license": "Apache-2.0",
+      "homepage": "https://pypi.org/project/requests/2.34.2/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "sounddevice",
+      "version": "0.5.5",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/sounddevice/0.5.5/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "urllib3",
+      "version": "2.8.0",
+      "declared_license": "MIT",
+      "metadata_license": "MIT",
+      "homepage": "https://pypi.org/project/urllib3/2.8.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    },
+    {
+      "name": "zeroconf",
+      "version": "0.150.0",
+      "declared_license": "LGPL-2.1-or-later",
+      "metadata_license": "LGPL-2.1-or-later",
+      "homepage": "https://pypi.org/project/zeroconf/0.150.0/",
+      "fallback_files": [],
+      "supplemental_files": []
+    }
+  ],
+  "additional_components": [
+    {
+      "id": "cpython-runtime",
+      "name": "CPython",
+      "version": "3.13.17",
+      "declared_license": "PSF-2.0",
+      "homepage": "https://www.python.org/downloads/release/python-31317/",
+      "source": {
+        "type": "python-runtime-license",
+        "filename": "LICENSE.txt"
+      },
+      "supplemental_files": []
+    },
+    {
+      "id": "pyinstaller-bootloader",
+      "name": "PyInstaller bootloader",
+      "version": "6.22.2",
+      "declared_license": "GPL-2.0-or-later WITH Bootloader-exception",
+      "homepage": "https://pyinstaller.org/en/v6.22.2/license.html",
+      "source": {
+        "type": "installed-distribution",
+        "distribution": "pyinstaller"
+      },
+      "supplemental_files": []
+    },
+    {
+      "id": "clumsy",
+      "name": "Clumsy",
+      "version": "0.3.4",
+      "declared_license": "MIT",
+      "homepage": "https://github.com/kalirenegade-dev/clumsy/tree/bc87e73066168520d76122c9165e99ea703b166c",
+      "source": {
+        "type": "repository-files",
+        "paths": [
+          "app/firewall/clumsy_src/LICENSE"
+        ]
+      },
+      "supplemental_files": []
+    },
+    {
+      "id": "windivert",
+      "name": "WinDivert",
+      "version": "2.2",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only",
+      "homepage": "https://github.com/basil00/WinDivert/releases/tag/v2.2.0",
+      "source": {
+        "type": "repository-files",
+        "paths": [
+          "app/firewall/clumsy_src/external/WinDivert-2.2.0-A/LICENSE"
+        ]
+      },
+      "supplemental_files": []
+    },
+    {
+      "id": "iup",
+      "name": "IUP",
+      "version": "3.30",
+      "declared_license": "MIT",
+      "homepage": "https://www.tecgraf.puc-rio.br/iup/en/copyright.html",
+      "source": {
+        "type": "repository-files",
+        "paths": [
+          "packaging/licenses/IUP-LICENSE.txt"
+        ]
+      },
+      "supplemental_files": []
+    },
+    {
+      "id": "inno-setup",
+      "name": "Inno Setup",
+      "version": "6.7.1",
+      "declared_license": "LicenseRef-Inno-Setup",
+      "homepage": "https://github.com/jrsoftware/issrc/blob/main/license.txt",
+      "source": {
+        "type": "repository-files",
+        "paths": [
+          "packaging/licenses/Inno-Setup-LICENSE.txt"
+        ]
+      },
+      "supplemental_files": []
+    }
+  ]
+}

@@ -160,7 +160,7 @@ def load_artefact(path: Path) -> Any:
     # is still a general-purpose deserialiser, but the input is now known
     # to be the exact bytes we wrote under the current secret-store key.
     try:
-        return pickle.loads(data)
+        return pickle.loads(data)  # nosec B301
     except Exception as e:
         raise ModelIntegrityError(f"pickle parse failed after HMAC OK: {e!r}")
 

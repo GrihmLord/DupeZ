@@ -18,6 +18,8 @@ Usage::
     python -m app.cli privacy scrub --apply         # Quarantine local private runtime data
     python -m app.cli recovery audit-status         # Check audit integrity state
     python -m app.cli recovery secret-store-status  # Check key-store access
+    python -m app.cli webhook status                # Check webhook configuration
+    python -m app.cli webhook provision --apply     # Prompt without terminal echo
     python -m app.cli support bundle                # Write redacted support bundle
     python -m app.cli interactive                   # Interactive REPL
 """
@@ -29,7 +31,7 @@ import json
 import logging
 import os
 import sys
-from contextlib import contextmanager, redirect_stdout
+from contextlib import contextmanager, nullcontext, redirect_stdout
 from typing import Any, Callable, Dict
 
 # Ensure we can import app modules when running frozen
@@ -67,6 +69,7 @@ __all__ = [
     "cmd_safety",
     "cmd_storage",
     "cmd_support",
+    "cmd_webhook",
     "cmd_interactive",
     "main",
 ]
@@ -166,7 +169,7 @@ def cmd_scan(controller: Any, args: argparse.Namespace) -> None:
         print(f"  {ip:<18} {mac:<20} {hostname:<25} {vendor}")
 
 
-def cmd_disrupt(controller: Any, args: argparse.Namespace) -> None:
+def cmd_disrupt(controller: Any, args: argparse.Namespace) -> int:
     """Start disruption on a target IP."""
     dry_run = bool(getattr(args, "dry_run", False))
     if not dry_run:
@@ -179,10 +182,10 @@ def cmd_disrupt(controller: Any, args: argparse.Namespace) -> None:
                 "--owned-authorized-network"
             )
             print("    Or use --dry-run to validate without changing traffic.")
-            return
+            return 2
     if not args.ip:
         print("[!] Usage: dupez cli disrupt <ip> [--methods drop,lag] [--params '{...}']")
-        return
+        return 2
 
     from app.core.validation import validate_methods, validate_params, safe_json_loads
     methods = validate_methods(args.methods.split(",")) if args.methods else None
@@ -190,7 +193,7 @@ def cmd_disrupt(controller: Any, args: argparse.Namespace) -> None:
         raw_params = safe_json_loads(args.params, context="CLI --params") if args.params else None
     except ValueError as e:
         print(f"[!] Invalid --params JSON: {e}")
-        return
+        return 2
     params = validate_params(raw_params) if raw_params else None
 
     print(f"[*] Starting disruption on {args.ip}...")
@@ -208,21 +211,29 @@ def cmd_disrupt(controller: Any, args: argparse.Namespace) -> None:
     print(f"[+] Dry run accepted for {args.ip}" if success and dry_run
           else f"[+] Disruption active on {args.ip}" if success
           else f"[!] Failed to start disruption on {args.ip}")
+    return 0 if success else 1
 
 
-def cmd_stop(controller: Any, args: argparse.Namespace) -> None:
+def cmd_stop(controller: Any, args: argparse.Namespace) -> int:
     """Stop disruption."""
     if args.all:
         print("[*] Stopping all disruptions...")
-        controller.stop_all_disruptions()
-        print("[+] All disruptions cleared")
+        success = bool(controller.stop_all_disruptions())
+        print(
+            "[+] All disruptions cleared"
+            if success
+            else "[!] Failed to confirm that all disruptions were cleared"
+        )
+        return 0 if success else 1
     elif args.ip:
         print(f"[*] Stopping disruption on {args.ip}...")
         success = controller.stop_disruption(args.ip)
         print(f"[+] Disruption stopped on {args.ip}" if success
               else f"[!] Failed to stop disruption on {args.ip}")
+        return 0 if success else 1
     else:
         print("[!] Usage: dupez cli stop <ip> or dupez cli stop --all")
+        return 2
 
 
 def cmd_status(controller: Any, args: argparse.Namespace) -> None:
@@ -754,6 +765,120 @@ def cmd_recovery(controller: Any, args: argparse.Namespace) -> None:
     )
 
 
+def cmd_webhook(controller: Any, args: argparse.Namespace) -> int:
+    """Provision and inspect the secret-backed audit webhook."""
+    del controller
+    action = getattr(args, "webhook_command", None)
+    as_json = bool(getattr(args, "json", False))
+    output_context = _json_output_context if as_json else nullcontext
+    with output_context():
+        from app.core.audit_webhook_config import (
+            AuditWebhookSecretError,
+            audit_webhook_status,
+            configure_audit_webhook_enabled,
+            provision_audit_webhook,
+        )
+
+    if action == "status":
+        with output_context():
+            status = audit_webhook_status()
+        payload = {
+            "schema": "dupez.cli.audit_webhook_status.v1",
+            "audit_webhook": status,
+        }
+        if as_json:
+            _print_json(payload)
+        else:
+            print("Audit webhook status")
+            print(f"  Configured: {status['configured']}")
+            print(f"  Enabled:    {status['enabled']}")
+            print(f"  Kind:       {status['kind'] or 'not set'}")
+            print(
+                "  Secret store accessible: "
+                f"{status['secret_store_accessible']}"
+            )
+        return 0
+
+    if action == "provision":
+        if not bool(getattr(args, "apply", False)):
+            message = (
+                "Re-run with --apply. The URL will be read without command-line "
+                "echo and stored under the current user's OS-backed secret store."
+            )
+            if as_json:
+                _print_json({
+                    "schema": "dupez.cli.audit_webhook_provision.v1",
+                    "ok": False,
+                    "applied": False,
+                    "error": message,
+                })
+            else:
+                print(f"[!] {message}")
+            return 2
+        try:
+            if bool(getattr(args, "url_stdin", False)):
+                url = sys.stdin.readline().rstrip("\r\n")
+            else:
+                import getpass
+
+                url = getpass.getpass("Audit webhook URL (input hidden): ")
+            with output_context():
+                provision_audit_webhook(
+                    url,
+                    kind=getattr(args, "kind", "discord"),
+                    rate_limit_per_min=getattr(args, "rate_limit", 30),
+                    enabled=not bool(getattr(args, "disabled", False)),
+                )
+        except (AuditWebhookSecretError, EOFError, KeyboardInterrupt):
+            payload = {
+                "schema": "dupez.cli.audit_webhook_provision.v1",
+                "ok": False,
+                "applied": False,
+                "error": "webhook provisioning failed; no credential was displayed",
+            }
+        else:
+            payload = {
+                "schema": "dupez.cli.audit_webhook_provision.v1",
+                "ok": True,
+                "applied": True,
+                "enabled": not bool(getattr(args, "disabled", False)),
+                "kind": getattr(args, "kind", "discord"),
+            }
+        if as_json:
+            _print_json(payload)
+        elif payload["ok"]:
+            print("[+] Audit webhook credential stored securely.")
+        else:
+            print(f"[!] {payload['error']}")
+        return 0 if payload["ok"] else 1
+
+    if action == "disable":
+        try:
+            with output_context():
+                configure_audit_webhook_enabled(False)
+        except AuditWebhookSecretError:
+            ok = False
+        else:
+            ok = True
+        payload = {
+            "schema": "dupez.cli.audit_webhook_disable.v1",
+            "ok": ok,
+            "enabled": False,
+        }
+        if as_json:
+            _print_json(payload)
+        else:
+            print(
+                "[+] Audit webhook disabled."
+                if ok
+                else "[!] Audit webhook could not be disabled safely."
+            )
+        return 0 if ok else 1
+
+    print("[!] Usage: webhook status | webhook provision --apply | webhook disable")
+    return 2
+
+
 def cmd_support(controller: Any, args: argparse.Namespace) -> None:
     """Generate redacted support artifacts."""
     if args.support_command != "bundle":
@@ -952,6 +1077,7 @@ _CMD_MAP = {
     "performance": cmd_performance,
     "pktmon": cmd_pktmon, "privacy": cmd_privacy, "report": cmd_report,
     "recovery": cmd_recovery, "storage": cmd_storage, "support": cmd_support,
+    "webhook": cmd_webhook,
     "safety": cmd_safety,
     "interactive": cmd_interactive, "shell": cmd_interactive,
     "repl": cmd_interactive,
@@ -959,11 +1085,11 @@ _CMD_MAP = {
 
 _NO_ADMIN_COMMANDS = {
     "diagnostics", "health", "performance", "pktmon", "privacy", "recovery", "safety",
-    "storage", "support",
+    "storage", "support", "webhook",
 }
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(
         prog="dupez-cli",
         description="DupeZ CLI — headless network disruption tool",
@@ -1185,6 +1311,66 @@ def main() -> None:
     p_support_bundle.add_argument("--json", action="store_true",
                                   help="Emit machine-readable JSON")
 
+    p_webhook = subparsers.add_parser(
+        "webhook",
+        help="Secret-backed audit webhook configuration",
+    )
+    webhook_sub = p_webhook.add_subparsers(dest="webhook_command")
+    p_webhook_status = webhook_sub.add_parser(
+        "status",
+        help="Show URL-free webhook status",
+    )
+    p_webhook_status.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    p_webhook_provision = webhook_sub.add_parser(
+        "provision",
+        help="Store a webhook URL without placing it in settings or argv",
+    )
+    p_webhook_provision.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually store the credential",
+    )
+    p_webhook_provision.add_argument(
+        "--url-stdin",
+        action="store_true",
+        help="Read one URL line from stdin instead of a hidden prompt",
+    )
+    p_webhook_provision.add_argument(
+        "--kind",
+        choices=["discord", "generic"],
+        default="discord",
+        help="Webhook payload format (default: discord)",
+    )
+    p_webhook_provision.add_argument(
+        "--rate-limit",
+        type=int,
+        default=30,
+        help="Maximum events per minute (default: 30; maximum: 600)",
+    )
+    p_webhook_provision.add_argument(
+        "--disabled",
+        action="store_true",
+        help="Store the credential but leave delivery disabled",
+    )
+    p_webhook_provision.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON",
+    )
+    p_webhook_disable = webhook_sub.add_parser(
+        "disable",
+        help="Disable delivery without deleting the stored credential",
+    )
+    p_webhook_disable.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON",
+    )
+
     p_safety = subparsers.add_parser(
         "safety",
         help="Authorized-use acknowledgement status and controls",
@@ -1251,8 +1437,8 @@ def main() -> None:
     if not (command in _NO_ADMIN_COMMANDS and _wants_json(args)):
         _print_banner()
     if command in _NO_ADMIN_COMMANDS:
-        _CMD_MAP[command](None, args)
-        return
+        result = _CMD_MAP[command](None, args)
+        return result if isinstance(result, int) else 0
 
     print(
         "[*] Initializing safety dry-run..."
@@ -1276,12 +1462,20 @@ def main() -> None:
     log_startup()
     log_info("DupeZ CLI mode started")
 
+    result = 0
+    shutdown_ok = True
     try:
-        _CMD_MAP.get(command, cmd_interactive)(controller, args)
+        command_result = _CMD_MAP.get(command, cmd_interactive)(controller, args)
+        result = command_result if isinstance(command_result, int) else 0
     finally:
-        controller.shutdown()
+        shutdown_result = controller.shutdown()
+        shutdown_ok = shutdown_result is not False
         log_shutdown()
+    if not shutdown_ok:
+        print("[!] Controller shutdown could not confirm complete cleanup.")
+        return result if result else 1
+    return result
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

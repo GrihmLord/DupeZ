@@ -1,0 +1,79 @@
+{
+  "schema": "dupez.msvc-redist-inputs.v1",
+  "reviewed_on": "2026-11-09",
+  "profile": "windows-x64-msvc-14.51.36247",
+  "scope": "Exact upstream package and three native byte identities; not a Visual Studio entitlement or redistribution approval",
+  "package": {
+    "version": "14.51.36247.0",
+    "filename": "VC_redist.x64.exe",
+    "url": "https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe",
+    "versioned_url": "https://aka.ms/vs/18/release/14.51.36247/VC_redist.x64.exe",
+    "size": 18731856,
+    "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+    "signer_thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+  },
+  "containers": {
+    "ux": {
+      "offset": 479744,
+      "size": 140070,
+      "sha256": "25eec5c5812800d93950b5fa6768072d978127b42254a13f702be081f975805e"
+    },
+    "attached": {
+      "offset": 630000,
+      "size": 18091661,
+      "sha256": "8b1595b5d0001e0747371ecfc2dccb604dc836fba0a778566e97a6bdb0816bb8"
+    }
+  },
+  "minimum_runtime": {
+    "product_code": "{931A2CF0-2404-45EA-82F5-345735AE6A90}",
+    "product_version": "14.51.36247",
+    "msi": {
+      "payload_id": "vcRuntimeMinimum_x64",
+      "source_path": "a1",
+      "file_path": "packages/vcRuntimeMinimum_amd64/vc_runtimeMinimum_x64.msi",
+      "size": 212992,
+      "sha256": "bab5d0257e6a18a4a008e683442e3077b38172dd61af3cb1c588b46724a714e2"
+    },
+    "cabinet": {
+      "payload_id": "cab5046A8AB272BF37297BB7928664C9503",
+      "source_path": "a4",
+      "file_path": "packages/vcRuntimeMinimum_amd64/cab1.cab",
+      "size": 1065893,
+      "sha256": "6e8ee73933678c55973e83366e48e948b394c7a36743a36b7224c95de979b13f"
+    }
+  },
+  "binaries": [
+    {
+      "name": "MSVCP140.dll",
+      "size": 643512,
+      "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+      "cabinet_member": "msvcp140.dll_amd64"
+    },
+    {
+      "name": "MSVCP140_1.dll",
+      "size": 35768,
+      "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+      "cabinet_member": "msvcp140_1.dll_amd64"
+    },
+    {
+      "name": "MSVCP140_2.dll",
+      "size": 274872,
+      "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+      "cabinet_member": "msvcp140_2.dll_amd64"
+    }
+  ],
+  "license_reference": {
+    "package_license_url": "https://aka.ms/VCRedistLicense",
+    "resolved_page": "https://visualstudio.microsoft.com/license-terms/vs2026-ga-visualcpp-v14-redist-runtime/",
+    "document_url": "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+    "document_size": 39553,
+    "document_sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+    "document_title": "Microsoft Visual C++ V14 Redistributable and Runtime",
+    "document_updated": "2025-10-01",
+    "eula_id": "Cpp_v14_ENU.1033",
+    "redistribution_list": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+    "scope": "The package-linked runtime terms govern installation/use and restrict redistribution. The separate Visual Studio redistribution list is conditional on a valid Visual Studio license and its terms; no owner entitlement or redistribution determination is asserted."
+  },
+  "release_approved": false,
+  "distribution_approved": false
+}

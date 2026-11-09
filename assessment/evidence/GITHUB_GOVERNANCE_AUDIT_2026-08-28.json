@@ -1,0 +1,32 @@
+{
+  "schema": "dupez.github-governance-audit.v1",
+  "repository": "GrihmLord/DupeZ",
+  "observed_at_utc": "2026-08-28T01:46:05Z",
+  "method": "authenticated read-only gh api queries with minimized output",
+  "results": {
+    "main_branch_protection": {
+      "http_status": 404,
+      "protected": false,
+      "message": "Branch not protected"
+    },
+    "repository_rulesets": {
+      "http_status": 200,
+      "count": 0
+    },
+    "production_release_environment": {
+      "http_status": 200,
+      "protection_rule_count": 0,
+      "deployment_branch_policy": null
+    },
+    "production_release_deployment_branch_policies": {
+      "http_status": 404,
+      "configured": false
+    },
+    "governance_ready_variable": {
+      "name": "DUPEZ_RELEASE_GOVERNANCE_READY",
+      "http_status": 404,
+      "present": false
+    }
+  },
+  "conclusion": "Release governance remains unconfigured and blocking."
+}

@@ -4,22 +4,52 @@ on:
   pull_request:
     paths:
       - 'app/**'
+      - 'bench/**'
+      - 'docs/**/*.py'
       - 'packaging/**'
-      - 'scripts/verify_bundled_binaries.py'
+      - 'plugins/**/*.py'
+      - 'scripts/**'
       - 'tests/**'
-      - '.github/workflows/tests-ci.yml'
+      - 'tools/**/*.py'
+      - 'dupez.py'
+      - 'dupez_helper.py'
+      - 'dupez_single_instance.py'
+      - '.github/workflows/**'
+      - 'pytest.ini'
+      - 'ruff.toml'
       - 'requirements.in'
+      - 'requirements.txt'
+      - 'requirements-locked.header'
       - 'requirements-locked.txt'
+      - 'requirements-test.in'
+      - 'requirements-test-locked.txt'
+      - 'requirements-hardware-test.in'
+      - 'requirements-hardware-test-locked.txt'
   push:
     branches: [main]
     paths:
       - 'app/**'
+      - 'bench/**'
+      - 'docs/**/*.py'
       - 'packaging/**'
-      - 'scripts/verify_bundled_binaries.py'
+      - 'plugins/**/*.py'
+      - 'scripts/**'
       - 'tests/**'
-      - '.github/workflows/tests-ci.yml'
+      - 'tools/**/*.py'
+      - 'dupez.py'
+      - 'dupez_helper.py'
+      - 'dupez_single_instance.py'
+      - '.github/workflows/**'
+      - 'pytest.ini'
+      - 'ruff.toml'
       - 'requirements.in'
+      - 'requirements.txt'
+      - 'requirements-locked.header'
       - 'requirements-locked.txt'
+      - 'requirements-test.in'
+      - 'requirements-test-locked.txt'
+      - 'requirements-hardware-test.in'
+      - 'requirements-hardware-test-locked.txt'
 
 permissions:
   contents: read
@@ -35,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.11', '3.12']
+        python-version: ['3.12', '3.13']
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,9 +79,10 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements-locked.txt
-          pip install pytest pytest-cov
+          python -m pip install --only-binary=:all: --require-hashes \
+            -r requirements-test-locked.txt
+          python -m pip install --only-binary=:all: --require-hashes \
+            -r requirements-locked.txt
 
       - name: Run pytest
         id: pytest
@@ -64,9 +95,9 @@ jobs:
           set +e
           python -X faulthandler -m pytest tests/ -vv --maxfail=5 \
             --junitxml=pytest-${{ matrix.python-version }}.xml \
-            --cov=app.core.second_factor \
-            --cov=app.gui.dayz_account_tracker \
-            --cov-report=term 2>&1 | tee pytest-${{ matrix.python-version }}.log
+            --cov=app \
+            --cov-report=term \
+            --cov-fail-under=40 2>&1 | tee pytest-${{ matrix.python-version }}.log
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
@@ -97,28 +128,75 @@ jobs:
           echo "pytest failed with exit code ${{ steps.pytest.outputs.exit_code }}"
           exit 1
 
+  ruff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: Install hash-locked test tools
+        shell: bash
+        run: >-
+          python -m pip install --only-binary=:all: --require-hashes
+          -r requirements-test-locked.txt
+
+      - name: Run Ruff on every tracked Python file
+        shell: bash
+        run: |
+          mapfile -d '' python_files < <(git ls-files -z -- '*.py')
+          if (( ${#python_files[@]} == 0 )); then
+            echo 'No tracked Python files found.' >&2
+            exit 1
+          fi
+          ruff check -- "${python_files[@]}"
+
   ast-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
-      - name: AST-parse every app/*.py
+          python-version: '3.13'
+
+      - name: AST-parse every tracked Python file
         shell: bash
         run: |
-          python -c "
-          import ast, pathlib, sys
-          fails = []
-          for p in pathlib.Path('app').rglob('*.py'):
-              try:
-                  ast.parse(p.read_text(encoding='utf-8'))
-              except SyntaxError as e:
-                  fails.append((str(p), str(e)))
-          if fails:
-              for f, err in fails:
-                  print(f'SYNTAX FAIL {f}: {err}')
+          python - <<'PY'
+          import ast
+          from pathlib import Path
+          import subprocess
+          import sys
+          import tokenize
+
+          output = subprocess.check_output(
+              ["git", "ls-files", "-z", "--", "*.py"]
+          ).decode("utf-8")
+          paths = [Path(value) for value in output.split("\0") if value]
+          if not paths:
+              print("No tracked Python files found.", file=sys.stderr)
               sys.exit(1)
-          print('AST OK: scanned all files')
-          "
+
+          failures = []
+          for path in paths:
+              try:
+                  with tokenize.open(path) as source_file:
+                      ast.parse(source_file.read(), filename=str(path))
+              except (SyntaxError, UnicodeError) as error:
+                  failures.append((path, error))
+
+          for path, error in failures:
+              print(f"SYNTAX FAIL {path}: {error}", file=sys.stderr)
+          if failures:
+              sys.exit(1)
+          print(f"AST OK: scanned {len(paths)} tracked Python files")
+          PY

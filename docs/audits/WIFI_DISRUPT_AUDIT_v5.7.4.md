@@ -76,18 +76,32 @@ Many home/office networks use /23 or /22 (especially Eero mesh, business APs). A
 **Fix:** read the actual interface netmask via `psutil.net_if_addrs()[iface][n].netmask` and use that. Fall back to /24 only when the netmask isn't available.
 
 ### M3 — Watchdog cancel-vs-fire race not fully closed
+**Current status (v5.8.0): CLOSED.** Watchdog result delivery and cancellation
+are serialized; a cancellation that wins before delivery converts the verdict
+to `ABORTED`. Fallback also binds the expected generation and engine identity,
+and its final commit rejects a concurrent replacement.
+
 **File:** `app/network/wifi_probe.py:250-311`, `app/firewall/clumsy_network_disruptor.py:1573-1582`
 **Symptom:** `reconnect_device_clumsy` calls `wd.cancel()` (sets event) then `engine.stop()`. The watchdog thread can be past its cancellation check and into the counter-read phase when cancel() lands. It then calls `_on_result(ISOLATION_DETECTED)` which calls `_fallback_to_self_disrupt`. The fallback defends with a "device already released" check (line 1717), so the user-visible damage is limited to a misleading toast — but the fallback could also race with a concurrent `disrupt_device(target_ip)` (operator re-disrupts the same target immediately) and tear down the new engine.
 
 **Fix:** in `_fire`, check `_cancelled` once more before calling `_on_result`. Tighten the device-lock window in `_fallback_to_self_disrupt` to atomically read `info` AND verify the engine reference matches the one the watchdog was armed with (compare object identity, not just dict presence).
 
 ### M4 — Watchdog thread not joined; orphan window of up to 250ms
+**Current status (v5.8.0): CLOSED.** Cancellation wakes the grace wait
+immediately and performs a bounded one-second join. A worker that does not
+quiesce raises `TimeoutError`, which cleanup callers report as an incomplete
+stop; callback self-cancellation avoids self-join.
+
 **File:** `app/network/wifi_probe.py:226-235`, `app/firewall/clumsy_network_disruptor.py:1573-1578`
 **Symptom:** `wd.cancel()` doesn't wait for the watchdog thread to exit. Until the thread polls the cancel event (max 0.25s), it holds references to the spoofer, engine, and `_on_result` callback (which closes over `self` of the disruptor). Daemon=True so the process can exit, but during operation it's a brief reference leak. Bigger issue: in `_fallback_to_self_disrupt`, the watchdog could fire AFTER we've started building the new engine, leading to confusion.
 
 **Fix:** add a `join(timeout=1.0)` after `cancel()`, log a warning if it didn't exit.
 
 ### M5 — `clear_all_disruptions_clumsy` swallows per-device errors
+**Current status (v5.8.0): CLOSED.** Cleanup aggregates false returns and
+exceptions, verifies the registry after all attempts, and returns false when
+any owned disruption remains or any stop failed.
+
 **File:** `app/firewall/clumsy_network_disruptor.py:1831-1836`
 ```python
 def clear_all_disruptions_clumsy(self) -> bool:

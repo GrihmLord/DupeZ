@@ -19,9 +19,11 @@ Sign a plugin directory::
         --priv plugin-priv.pem \\
         --plugin-dir plugins/my_cool_plugin
 
-This rewrites ``manifest.json`` in canonical form (fills in
-``entry_sha384`` from the entry file contents) and emits
-``manifest.json.sig`` alongside it.
+This upgrades and rewrites ``manifest.json`` in canonical version-2 form,
+inventorying every helper, native module, and resource by path, size, and
+SHA-384. It then emits ``manifest.json.sig`` alongside it. Remove generated
+``__pycache__``/``*.pyc`` files before signing; they are rejected rather than
+being trusted as portable plugin content.
 
 Verify locally before shipping::
 
@@ -99,7 +101,7 @@ def sign_cmd(priv_path: Path, plugin_dir: Path) -> None:
     """Sign a plugin directory in place."""
     sig_path = sign_manifest(str(priv_path), str(plugin_dir))
     print(f"Signed plugin '{plugin_dir.name}':")
-    print(f"  manifest: {plugin_dir / 'manifest.json'}  (rewritten with entry_sha384)")
+    print(f"  manifest: {plugin_dir / 'manifest.json'}  (v2 complete-file inventory)")
     print(f"  sig:      {sig_path}")
     # Self-verify against the freshly computed pubkey so we never ship a
     # sig that the client would reject.
@@ -130,6 +132,7 @@ def verify_cmd(plugin_dir: Path, pub_path: Path) -> None:
         sys.exit(2)
     print(f"Verify OK: {m.name} v{m.version} [{m.sig_state.value}]")
     print(f"  entry_sha384: {m.entry_sha384}")
+    print(f"  authenticated files: {len(m.files)}")
     print(f"  capabilities: {sorted(m.capabilities)}")
 
 

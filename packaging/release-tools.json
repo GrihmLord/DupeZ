@@ -1,0 +1,22 @@
+{
+  "schema": "dupez.release-tools.v1",
+  "iscc": {
+    "version": "6.7.1",
+    "default_base": "ProgramFilesX86",
+    "relative_path": "Inno Setup 6\\ISCC.exe",
+    "sha256": "eb6f4410c8db367a5f74127e8025ad2ccacc0afabbe783959d237df3050f97fb",
+    "signer_certificate_sha256": "4efd84e6f1091b19321231743b9aa86482effd6d0bea9f7a44db6211154616f3",
+    "signer_subject": "CN=Pyrsys B.V., O=Pyrsys B.V., S=Noord-Holland, C=NL",
+    "signer_thumbprint": "e0ab19c8d38cbf9c44709925122a7a02f8c70cb7"
+  },
+  "signtool": {
+    "version": "10.0.19041.5609",
+    "sdk_version": "10.0.19041.0",
+    "default_base": "ProgramFilesX86",
+    "relative_path": "Windows Kits\\10\\bin\\10.0.19041.0\\x64\\signtool.exe",
+    "sha256": "615b7d7a5156e53e8c500429912ff2b22eff3dc179db5e8f5c1fe4a5104804a5",
+    "signer_certificate_sha256": "da209e0fe8bf6363318b5a41e5b65f3391d17bcb8b99b91c320ad2d22ef3469f",
+    "signer_subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+    "signer_thumbprint": "0bd8c56733fdcc06f8cb919ff5a200e39b1acf71"
+  }
+}

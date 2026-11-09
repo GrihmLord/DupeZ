@@ -55,9 +55,18 @@ import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from app.logs.logger import log_error, log_info, log_warning
+
+
+_RISK_CACHE_TTL_SECONDS = 2.0
+_SERVER_START_TIMEOUT_SECONDS = 2.0
+_risk_cache_lock = threading.Lock()
+_risk_cache_score: Optional[int] = None
+_risk_cache_band: Optional[str] = None
+_risk_cache_at = 0.0
+_risk_refresh_in_progress = False
 
 
 class _NoReuseThreadingHTTPServer(ThreadingHTTPServer):
@@ -78,6 +87,7 @@ class _NoReuseThreadingHTTPServer(ThreadingHTTPServer):
 
 __all__ = [
     "OverlayServer",
+    "OverlayServerOwner",
     "build_state_snapshot",
 ]
 
@@ -135,6 +145,63 @@ tick(); setInterval(tick, 1000);
 
 # ── State snapshot ───────────────────────────────────────────────────
 
+def _refresh_risk_cache() -> None:
+    """Refresh overlay risk data off the request thread.
+
+    Risk scoring can inspect the episode store and a bounded audit-log tail.
+    Neither should make the localhost HTTP handler miss its one-second polling
+    cadence, so the endpoint serves the last complete value while one daemon
+    refresh is in flight.
+    """
+    global _risk_cache_at, _risk_cache_band, _risk_cache_score
+    global _risk_refresh_in_progress
+
+    score_value: Optional[int] = None
+    band_value: Optional[str] = None
+    try:
+        from app.core.risk_score import compute_risk_score
+
+        score = compute_risk_score()
+        score_value = int(score.score)
+        band_value = str(score.band)
+        if not 0 <= score_value <= 100 or band_value not in {
+            "green",
+            "amber",
+            "red",
+        }:
+            raise ValueError("invalid risk score result")
+    except Exception:
+        log_warning("overlay: risk score refresh unavailable")
+    finally:
+        with _risk_cache_lock:
+            if score_value is not None and band_value is not None:
+                _risk_cache_score = score_value
+                _risk_cache_band = band_value
+                _risk_cache_at = time.monotonic()
+            _risk_refresh_in_progress = False
+
+
+def _cached_risk_score() -> tuple[Optional[int], Optional[str]]:
+    """Return the last complete risk value and start one refresh if stale."""
+    global _risk_refresh_in_progress
+
+    now = time.monotonic()
+    with _risk_cache_lock:
+        stale = now - _risk_cache_at >= _RISK_CACHE_TTL_SECONDS
+        if stale and not _risk_refresh_in_progress:
+            _risk_refresh_in_progress = True
+            try:
+                threading.Thread(
+                    target=_refresh_risk_cache,
+                    daemon=True,
+                    name="OverlayRiskRefresh",
+                ).start()
+            except RuntimeError:
+                _risk_refresh_in_progress = False
+                log_warning("overlay: risk score refresh could not start")
+        return _risk_cache_score, _risk_cache_band
+
+
 def build_state_snapshot(controller: Any) -> Dict[str, Any]:
     """Render the current disruption state as a JSON-ready dict.
 
@@ -184,14 +251,9 @@ def build_state_snapshot(controller: Any) -> Dict[str, Any]:
         except Exception as exc:
             log_warning(f"overlay: target {ip} render failed: {exc}")
 
-    # Risk score (best-effort).
-    try:
-        from app.core.risk_score import compute_risk_score
-        score = compute_risk_score()
-        snapshot["risk_score"] = score.score
-        snapshot["risk_band"] = score.band
-    except Exception:
-        pass
+    # Risk score (best-effort and latency-bounded). The first request can
+    # legitimately report null while the daemon refresh warms the cache.
+    snapshot["risk_score"], snapshot["risk_band"] = _cached_risk_score()
 
     return snapshot
 
@@ -283,6 +345,9 @@ class OverlayServer:
         self._port = int(port)
         self._server: Optional[ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
+        self._ready: Optional[threading.Event] = None
+        self._serve_failed: Optional[threading.Event] = None
+        self._lifecycle_lock = threading.RLock()
 
     @property
     def base_url(self) -> str:
@@ -291,7 +356,57 @@ class OverlayServer:
     @property
     def running(self) -> bool:
         """True when the HTTP server is bound and serving."""
-        return self._server is not None
+        with self._lifecycle_lock:
+            return self._running_locked()
+
+    @property
+    def owns_resources(self) -> bool:
+        """True while this instance owns any server lifecycle resource."""
+        with self._lifecycle_lock:
+            return any(
+                item is not None
+                for item in (self._server, self._thread, self._ready)
+            )
+
+    def _running_locked(self) -> bool:
+        thread = self._thread
+        ready = self._ready
+        failed = self._serve_failed
+        return bool(
+            self._server is not None
+            and thread is not None
+            and thread.is_alive()
+            and ready is not None
+            and ready.is_set()
+            and (failed is None or not failed.is_set())
+        )
+
+    def _clear_resources_locked(self) -> None:
+        self._server = None
+        self._thread = None
+        self._ready = None
+        self._serve_failed = None
+
+    def _cleanup_failed_start_locked(
+        self,
+        server: ThreadingHTTPServer,
+        thread: threading.Thread,
+    ) -> bool:
+        """Close a bound-but-unstarted server without losing ownership."""
+        cleanup_ok = True
+        try:
+            server.server_close()
+        except Exception as exc:
+            cleanup_ok = False
+            log_error(f"OverlayServer failed-start socket cleanup failed: {exc}")
+        if thread.ident is not None and thread is not threading.current_thread():
+            thread.join(timeout=2.0)
+        if thread.is_alive():
+            cleanup_ok = False
+            log_error("OverlayServer failed-start worker did not exit")
+        if cleanup_ok:
+            self._clear_resources_locked()
+        return cleanup_ok
 
     def start(self) -> bool:
         """Start the overlay HTTP server.
@@ -304,40 +419,209 @@ class OverlayServer:
             failed bind. Pre-v5.7.5 start() always returned None and
             both callers reported success unconditionally.
         """
-        if self._server is not None:
-            return True
-        handler_cls = _make_handler_class(self._controller)
-        try:
-            self._server = _NoReuseThreadingHTTPServer(
-                (self._host, self._port), handler_cls
-            )
-        except OSError as exc:
-            log_error(
-                f"OverlayServer bind failed on {self._host}:{self._port}: "
-                f"{exc}"
-            )
-            self._server = None
-            return False
-        self._thread = threading.Thread(
-            target=self._server.serve_forever,
-            daemon=True, name="OverlayServer"
-        )
-        self._thread.start()
-        log_info(
-            f"OverlayServer listening on {self.base_url}/overlay.html"
-        )
-        return True
+        with self._lifecycle_lock:
+            if self.owns_resources:
+                if self._running_locked():
+                    return True
+                log_error(
+                    "OverlayServer start refused while prior resources remain "
+                    "owned after incomplete cleanup"
+                )
+                return False
 
-    def stop(self) -> None:
-        if self._server is None:
-            return
-        try:
-            self._server.shutdown()
-            self._server.server_close()
-        except Exception as exc:
-            log_warning(f"OverlayServer shutdown: {exc}")
-        if self._thread is not None:
-            self._thread.join(timeout=2.0)
-        self._server = None
-        self._thread = None
-        log_info("OverlayServer stopped")
+            handler_cls = _make_handler_class(self._controller)
+            try:
+                server = _NoReuseThreadingHTTPServer(
+                    (self._host, self._port), handler_cls
+                )
+            except OSError as exc:
+                log_error(
+                    f"OverlayServer bind failed on {self._host}:{self._port}: "
+                    f"{exc}"
+                )
+                return False
+
+            # Port zero asks the kernel for an ephemeral port. Publish the
+            # actual bound port before callers receive a successful result.
+            self._port = int(server.server_address[1])
+            ready = threading.Event()
+            cancel_before_serve = threading.Event()
+            serve_failed = threading.Event()
+
+            def _serve() -> None:
+                ready.set()
+                if cancel_before_serve.is_set():
+                    return
+                try:
+                    server.serve_forever()
+                except Exception as exc:
+                    serve_failed.set()
+                    log_error(f"OverlayServer worker failed: {exc}")
+
+            thread = threading.Thread(
+                target=_serve,
+                daemon=True,
+                name="OverlayServer",
+            )
+            # Publish the complete ownership record before starting the
+            # worker. If startup or cleanup fails, later stop() calls retain a
+            # truthful handle to every resource that may still be live.
+            self._server = server
+            self._thread = thread
+            self._ready = ready
+            self._serve_failed = serve_failed
+            try:
+                thread.start()
+            except RuntimeError as exc:
+                log_error(f"OverlayServer thread could not be started: {exc}")
+                self._cleanup_failed_start_locked(server, thread)
+                return False
+
+            if not ready.wait(_SERVER_START_TIMEOUT_SECONDS):
+                log_error(
+                    "OverlayServer thread did not become ready before timeout"
+                )
+                cancel_before_serve.set()
+                self._cleanup_failed_start_locked(server, thread)
+                return False
+            if not self._running_locked():
+                log_error("OverlayServer worker exited during startup")
+                self._cleanup_failed_start_locked(server, thread)
+                return False
+
+            log_info(
+                f"OverlayServer listening on {self.base_url}/overlay.html"
+            )
+            return True
+
+    def stop(self) -> bool:
+        """Release all owned resources and confirm the worker has exited."""
+        with self._lifecycle_lock:
+            if not self.owns_resources:
+                return True
+            server = self._server
+            thread = self._thread
+            cleanup_ok = True
+
+            if server is not None:
+                if thread is not None and thread.is_alive():
+                    try:
+                        server.shutdown()
+                    except Exception as exc:
+                        cleanup_ok = False
+                        log_error(f"OverlayServer shutdown failed: {exc}")
+                try:
+                    server.server_close()
+                except Exception as exc:
+                    cleanup_ok = False
+                    log_error(f"OverlayServer socket close failed: {exc}")
+
+            if thread is not None:
+                if thread is threading.current_thread():
+                    cleanup_ok = False
+                    log_error("OverlayServer cannot join its own worker")
+                elif thread.ident is not None:
+                    thread.join(timeout=2.0)
+                if thread.is_alive():
+                    cleanup_ok = False
+                    log_error("OverlayServer worker did not stop within 2s")
+
+            if not cleanup_ok:
+                log_warning(
+                    "OverlayServer cleanup was not confirmed; ownership retained"
+                )
+                return False
+
+            self._clear_resources_locked()
+            log_info("OverlayServer stopped")
+            return True
+
+
+class OverlayServerOwner:
+    """Single authoritative owner shared by startup, UI, and shutdown."""
+
+    def __init__(
+        self,
+        controller: Any,
+        host: str = "127.0.0.1",
+        port: int = 4778,
+        *,
+        server_factory: Callable[..., OverlayServer] = OverlayServer,
+    ) -> None:
+        self._controller = controller
+        self._host = host
+        self._port = int(port)
+        self._server_factory = server_factory
+        self._server: Optional[OverlayServer] = None
+        self._lock = threading.RLock()
+
+    @property
+    def owned(self) -> bool:
+        with self._lock:
+            return self._server is not None
+
+    @property
+    def running(self) -> bool:
+        with self._lock:
+            return bool(self._server is not None and self._server.running)
+
+    @property
+    def base_url(self) -> str:
+        with self._lock:
+            if self._server is not None:
+                return self._server.base_url
+            return f"http://{self._host}:{self._port}"
+
+    @property
+    def server(self) -> Optional[OverlayServer]:
+        """Expose the owned instance for diagnostics, never for mutation."""
+        with self._lock:
+            return self._server
+
+    def start(self) -> bool:
+        with self._lock:
+            if self._server is not None:
+                if self._server.running:
+                    return True
+                log_error(
+                    "OBS overlay start refused until retained resources are "
+                    "successfully cleaned up"
+                )
+                return False
+
+            candidate = self._server_factory(
+                self._controller,
+                host=self._host,
+                port=self._port,
+            )
+            try:
+                started = bool(candidate.start())
+            except Exception:
+                if candidate.owns_resources:
+                    self._server = candidate
+                raise
+            if started and candidate.running:
+                self._server = candidate
+                return True
+            if candidate.owns_resources:
+                self._server = candidate
+            if started:
+                log_error(
+                    "OBS overlay start returned success without a live worker"
+                )
+            return False
+
+    def stop(self) -> bool:
+        with self._lock:
+            server = self._server
+            if server is None:
+                return True
+            try:
+                stopped = bool(server.stop())
+            except Exception as exc:
+                log_error(f"OBS overlay owner cleanup raised: {exc}")
+                return False
+            if not stopped:
+                return False
+            self._server = None
+            return True

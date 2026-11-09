@@ -114,7 +114,7 @@ A signed-plugin distribution channel so the community can author and share prese
 
 ### Risks
 - **Curation overhead.** Even verified plugins need review. Without staffing, the "Verified" tier stays small. "Community" tier could grow organically but trust falls on the user.
-- **Malicious plugins.** Even signed plugins run with the host's privileges. The capability sandbox limits damage but isn't a full security boundary. Recommend: document the trust model prominently and surface a permissions dialog on first install of each new plugin.
+- **Malicious plugins.** Signed plugins run with the host's privileges; the publisher key is the present security boundary and capability checks are diagnostic only. Recommend: keep the trust model prominent, require explicit publisher consent/review, and move execution behind an OS-isolated RPC broker before accepting community code.
 - **Plugin API stability.** Once external plugins exist, the internal API becomes a contract. Plan for a versioned API: `app.plugins.api.v1`, etc.
 
 ### Open questions

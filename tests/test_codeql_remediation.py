@@ -4,21 +4,37 @@ import base64
 import json
 import logging
 
+import pytest
+
+from app.core import secrets_manager as secrets_manager_module
 from app.core.secrets_manager import SecretsManager, get_scrubber
-from app.gui.dayz_map_gui_new import _is_izurvive_host
+from app.gui.map_host.request_policy import is_izurvive_host
 from app.logs.logger import DupeZLogger
 
 
 def test_izurvive_host_check_is_label_bound() -> None:
-    assert _is_izurvive_host("izurvive.com")
-    assert _is_izurvive_host("tiles.izurvive.com")
-    assert _is_izurvive_host("TILES.IZURVIVE.COM.")
-    assert not _is_izurvive_host("evilizurvive.com")
-    assert not _is_izurvive_host("izurvive.com.attacker.invalid")
-    assert not _is_izurvive_host("")
+    assert is_izurvive_host("izurvive.com")
+    assert is_izurvive_host("tiles.izurvive.com")
+    assert is_izurvive_host("TILES.IZURVIVE.COM.")
+    assert not is_izurvive_host("evilizurvive.com")
+    assert not is_izurvive_host("izurvive.com.attacker.invalid")
+    assert not is_izurvive_host("")
 
 
-def test_secret_record_uses_authenticated_ciphertext_only(tmp_path) -> None:
+@pytest.fixture
+def _isolated_secrets_master(monkeypatch) -> bytes:
+    master = bytes(range(32))
+    monkeypatch.setattr(
+        secrets_manager_module,
+        "get_or_create_secret",
+        lambda *_args, **_kwargs: master,
+    )
+    return master
+
+
+def test_secret_record_uses_authenticated_ciphertext_only(
+    tmp_path, _isolated_secrets_master
+) -> None:
     canary = "redaction-canary-value"
     manager = SecretsManager(str(tmp_path))
 
@@ -28,6 +44,7 @@ def test_secret_record_uses_authenticated_ciphertext_only(tmp_path) -> None:
     stored = json.loads(store_text)["provider"]
     assert canary not in store_text
     assert "integrity" not in stored
+    assert stored["key_source"] == "secret-store-v1"
     assert manager.retrieve("provider") == canary
 
     tag = bytearray(base64.b64decode(stored["tag"]))
@@ -39,6 +56,21 @@ def test_secret_record_uses_authenticated_ciphertext_only(tmp_path) -> None:
     )
     reloaded = SecretsManager(str(tmp_path))
     assert reloaded.retrieve("provider") is None
+
+
+def test_secret_store_write_failure_rolls_back_memory(
+    tmp_path, monkeypatch, _isolated_secrets_master
+) -> None:
+    manager = SecretsManager(str(tmp_path))
+
+    def fail_replace(*_args, **_kwargs):
+        raise OSError("simulated atomic replace failure")
+
+    monkeypatch.setattr(secrets_manager_module.os, "replace", fail_replace)
+
+    assert manager.store("provider", "must-not-survive", ttl_seconds=0) is False
+    assert manager.has_secret("provider") is False
+    assert not manager._secrets_path.exists()
 
 
 def test_logger_scrubs_exception_and_context_before_output(tmp_path) -> None:

@@ -1,0 +1,385 @@
+{
+  "schema": "dupez.msvc-redist-review.v1",
+  "reviewed_on": "2026-11-09",
+  "status": "exact-upstream-package-and-three-native-files-verified",
+  "scope": "Technical follow-up to the three previously unpinned System32 runtime DLLs in the Nov9 raster engineering builds; no release or owner-licensing approval.",
+  "verification": {
+    "schema": "dupez.msvc-redist-provenance.v1",
+    "status": "exact-upstream-package-bytes-verified",
+    "reviewed_on": "2026-11-09",
+    "manifest": {
+      "name": "msvc-redist-inputs.json",
+      "size": 3466,
+      "sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d"
+    },
+    "package": {
+      "version": "14.51.36247.0",
+      "filename": "VC_redist.x64.exe",
+      "url": "https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe",
+      "versioned_url": "https://aka.ms/vs/18/release/14.51.36247/VC_redist.x64.exe",
+      "size": 18731856,
+      "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "signer_thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+    },
+    "containers": {
+      "ux": {
+        "offset": 479744,
+        "size": 140070,
+        "sha256": "25eec5c5812800d93950b5fa6768072d978127b42254a13f702be081f975805e"
+      },
+      "attached": {
+        "offset": 630000,
+        "size": 18091661,
+        "sha256": "8b1595b5d0001e0747371ecfc2dccb604dc836fba0a778566e97a6bdb0816bb8"
+      }
+    },
+    "minimum_runtime": {
+      "product_code": "{931A2CF0-2404-45EA-82F5-345735AE6A90}",
+      "product_version": "14.51.36247",
+      "msi": {
+        "payload_id": "vcRuntimeMinimum_x64",
+        "source_path": "a1",
+        "file_path": "packages/vcRuntimeMinimum_amd64/vc_runtimeMinimum_x64.msi",
+        "size": 212992,
+        "sha256": "bab5d0257e6a18a4a008e683442e3077b38172dd61af3cb1c588b46724a714e2"
+      },
+      "cabinet": {
+        "payload_id": "cab5046A8AB272BF37297BB7928664C9503",
+        "source_path": "a4",
+        "file_path": "packages/vcRuntimeMinimum_amd64/cab1.cab",
+        "size": 1065893,
+        "sha256": "6e8ee73933678c55973e83366e48e948b394c7a36743a36b7224c95de979b13f"
+      }
+    },
+    "msi_database": {
+      "product_name": "Microsoft Visual C++ 2022 X64 Minimum Runtime - 14.51.36247",
+      "product_code": "{931A2CF0-2404-45EA-82F5-345735AE6A90}",
+      "product_version": "14.51.36247",
+      "media": [
+        [
+          "1",
+          "cab1.cab"
+        ]
+      ],
+      "files": [
+        {
+          "file_key": "msvcp140.dll_amd64",
+          "filename": "msvcp140.dll",
+          "size": 643512,
+          "version": "14.51.36247.0"
+        },
+        {
+          "file_key": "msvcp140_1.dll_amd64",
+          "filename": "dnbfyxv3.dll|msvcp140_1.dll",
+          "size": 35768,
+          "version": "14.51.36247.0"
+        },
+        {
+          "file_key": "msvcp140_2.dll_amd64",
+          "filename": "3eydptme.dll|msvcp140_2.dll",
+          "size": 274872,
+          "version": "14.51.36247.0"
+        }
+      ]
+    },
+    "burn_manifest": {
+      "name": "0",
+      "size": 9259,
+      "sha256": "e82e62b82a1b09568e74a224c454bdcd41240b9f24cfc42fb2c5e0783345af7f"
+    },
+    "bootstrapper_application_data": {
+      "name": "u17",
+      "size": 7694,
+      "sha256": "0af0673e1f3ca87701e3c00d5ff004fccb00e2a983df1d72671c429cfef7f3c5"
+    },
+    "binaries": [
+      {
+        "name": "MSVCP140.dll",
+        "size": 643512,
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "cabinet_member": "msvcp140.dll_amd64",
+        "origin": "pinned-microsoft-redist-minimum-x64-cabinet"
+      },
+      {
+        "name": "MSVCP140_1.dll",
+        "size": 35768,
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "cabinet_member": "msvcp140_1.dll_amd64",
+        "origin": "pinned-microsoft-redist-minimum-x64-cabinet"
+      },
+      {
+        "name": "MSVCP140_2.dll",
+        "size": 274872,
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "cabinet_member": "msvcp140_2.dll_amd64",
+        "origin": "pinned-microsoft-redist-minimum-x64-cabinet"
+      }
+    ],
+    "previous_system_observation": {
+      "name": "system-runtime-observation.json",
+      "size": 1880,
+      "sha256": "a9aec1963b2c02b9f31abc8910c34225854e905e1b94ea0887cf99ef967ee31a"
+    },
+    "license_reference": {
+      "package_license_url": "https://aka.ms/VCRedistLicense",
+      "resolved_page": "https://visualstudio.microsoft.com/license-terms/vs2026-ga-visualcpp-v14-redist-runtime/",
+      "document_url": "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "document_size": 39553,
+      "document_sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "document_title": "Microsoft Visual C++ V14 Redistributable and Runtime",
+      "document_updated": "2025-10-01",
+      "eula_id": "Cpp_v14_ENU.1033",
+      "redistribution_list": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+      "scope": "The package-linked runtime terms govern installation/use and restrict redistribution. The separate Visual Studio redistribution list is conditional on a valid Visual Studio license and its terms; no owner entitlement or redistribution determination is asserted."
+    },
+    "license_document": {
+      "name": "Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "size": 39553,
+      "sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783"
+    },
+    "signature_observations": [
+      {
+        "name": "package",
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1",
+        "file_version": "14.51.36247.0",
+        "product_version": "14.51.36247.0"
+      },
+      {
+        "name": "expand.exe",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443",
+        "file_version": "5.00 (WinBuild.160101.0800)",
+        "product_version": "5.00"
+      },
+      {
+        "name": "minimum-runtime.msi",
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1",
+        "file_version": null,
+        "product_version": null
+      },
+      {
+        "name": "minimum-runtime.cab",
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1",
+        "file_version": null,
+        "product_version": null
+      },
+      {
+        "name": "MSVCP140.dll",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E",
+        "file_version": "14.51.36247.0",
+        "product_version": "14.51.36247.0"
+      },
+      {
+        "name": "MSVCP140_1.dll",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E",
+        "file_version": "14.51.36247.0",
+        "product_version": "14.51.36247.0"
+      },
+      {
+        "name": "MSVCP140_2.dll",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E",
+        "file_version": "14.51.36247.0",
+        "product_version": "14.51.36247.0"
+      }
+    ],
+    "extraction_tool": {
+      "name": "expand.exe",
+      "size": 73728,
+      "sha256": "e5cd2d9536b0729ce90368dce9d923dccfa6f75f2996e31bb349e6a75a2aa897"
+    },
+    "verifier": {
+      "name": "verify_msvc_redist.py",
+      "size": 23873,
+      "sha256": "e9559affbc7d8aac028b8dc80bf308175cf5debf625b7d8dd4701c4882dc81dc"
+    },
+    "consumed_artifacts": [
+      {
+        "path": "ux.cab",
+        "name": "ux.cab",
+        "size": 140070,
+        "sha256": "25eec5c5812800d93950b5fa6768072d978127b42254a13f702be081f975805e"
+      },
+      {
+        "path": "attached.cab",
+        "name": "attached.cab",
+        "size": 18091661,
+        "sha256": "8b1595b5d0001e0747371ecfc2dccb604dc836fba0a778566e97a6bdb0816bb8"
+      },
+      {
+        "path": "ux/0",
+        "name": "0",
+        "size": 9259,
+        "sha256": "e82e62b82a1b09568e74a224c454bdcd41240b9f24cfc42fb2c5e0783345af7f"
+      },
+      {
+        "path": "ux/u17",
+        "name": "u17",
+        "size": 7694,
+        "sha256": "0af0673e1f3ca87701e3c00d5ff004fccb00e2a983df1d72671c429cfef7f3c5"
+      },
+      {
+        "path": "minimum-runtime/a1",
+        "name": "a1",
+        "size": 212992,
+        "sha256": "bab5d0257e6a18a4a008e683442e3077b38172dd61af3cb1c588b46724a714e2"
+      },
+      {
+        "path": "minimum-runtime/a4",
+        "name": "a4",
+        "size": 1065893,
+        "sha256": "6e8ee73933678c55973e83366e48e948b394c7a36743a36b7224c95de979b13f"
+      },
+      {
+        "path": "dlls/msvcp140.dll_amd64",
+        "name": "msvcp140.dll_amd64",
+        "size": 643512,
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca"
+      },
+      {
+        "path": "dlls/msvcp140_1.dll_amd64",
+        "name": "msvcp140_1.dll_amd64",
+        "size": 35768,
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982"
+      },
+      {
+        "path": "dlls/msvcp140_2.dll_amd64",
+        "name": "msvcp140_2.dll_amd64",
+        "size": 274872,
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838"
+      }
+    ],
+    "installer_executed": false,
+    "global_installation_performed": false,
+    "elevation_requested": false,
+    "release_approved": false,
+    "distribution_approved": false,
+    "limitations": [
+      "Exact upstream package/three-DLL mapping closes the recorded host-origin ambiguity, not all native SBOM or source/relink requirements.",
+      "This verifier covers only the three named x64 runtime DLLs; it does not authorize other System32 dependencies.",
+      "The package-linked runtime use license is not a redistribution grant; owner Visual Studio entitlement and applicable distribution terms remain unresolved.",
+      "Matching signatures and bytes do not establish freedom from vulnerabilities or a native compiler/source rebuild.",
+      "Existing prior runtime/build observations are not rerun or replaced by this offline package verification."
+    ]
+  },
+  "verification_report": {
+    "path": "build/msvc-redist-provenance-20261109/verified-run4/receipt.json",
+    "size": 10189,
+    "sha256": "8fdc3710401285a6e292e53892c61cad09c2fbe7923e5d02557fd9061025b260"
+  },
+  "source_inputs": [
+    {
+      "path": "packaging/msvc-redist-inputs.json",
+      "size": 3466,
+      "sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d"
+    },
+    {
+      "path": "scripts/verify_msvc_redist.py",
+      "size": 23873,
+      "sha256": "e9559affbc7d8aac028b8dc80bf308175cf5debf625b7d8dd4701c4882dc81dc"
+    },
+    {
+      "path": "tests/test_verify_msvc_redist.py",
+      "size": 12031,
+      "sha256": "afb541f6b9904aded8b03a182cb2499b2346175e7af5dcc3bfde695e587b9de5"
+    }
+  ],
+  "tests": {
+    "tests": 53,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 53,
+    "seconds": 1.253,
+    "scope": "Pure parser/pin/MSI-mapping checks and inert end-to-end publication tests, including six consumed-file mutation cases; no native payload or installer execution.",
+    "junit": {
+      "path": "build/msvc-redist-provenance-20261109/verifier-tests-final.xml",
+      "size": 7471,
+      "sha256": "8db5f5b141e6f669f730b8b1ba64d8f3732c9dee5f0c244ede13e763a9c8e0c2"
+    },
+    "log": {
+      "path": "build/msvc-redist-provenance-20261109/verifier-tests-final.log",
+      "size": 250,
+      "sha256": "41096511efb844f20f297b5351e890b35884f90a3466c4e1e3bde2213425112e"
+    },
+    "ruff": "passed"
+  },
+  "diagnostic_attempts": [
+    {
+      "status": "failed-no-success-receipt",
+      "log": {
+        "path": "build/msvc-redist-provenance-20261109/verified-run.log",
+        "size": 1402,
+        "sha256": "c2254ddea180544a7c03632201d9987c0b94657d2643def6f40261b1c9d33db1"
+      },
+      "reason": "Inbox Windows PowerShell inherited a PowerShell7 module path; final verifier restricts its cmdlet path to the matching Windows installation."
+    },
+    {
+      "status": "failed-no-success-receipt",
+      "log": {
+        "path": "build/msvc-redist-provenance-20261109/verified-run2.log",
+        "size": 974,
+        "sha256": "03f5ded949d72693e7436d015e4b129663f437cd6615778672e179ae814d5193"
+      },
+      "reason": "DOCX formatting split the license marker across text runs; final parser joins runs within each paragraph."
+    },
+    {
+      "status": "failed-no-success-receipt",
+      "log": {
+        "path": "build/msvc-redist-provenance-20261109/verified-run3.log",
+        "size": 1208,
+        "sha256": "bfae2d64bb55263afa87310ca3e8b8e2a7a7c5ac29993590cbc4506157f51ea6"
+      },
+      "reason": "The pinned CAB carries a reserved signature header and certificate trailer; final bounded parser supports and tests that exact signed-CAB layout."
+    }
+  ],
+  "official_sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/cpp/windows/troubleshoot-vc-redistributable-installation-issues?view=msvc-170",
+      "purpose": "Microsoft documents the versioned vs/18/release download URL template for14.50 and later."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+      "purpose": "Conditional redistribution list for validly licensed Visual Studio users, subject to their edition license terms."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files",
+      "purpose": "Redistributable packages and individual binaries require an applicable Visual Studio licensing basis."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/expand",
+      "purpose": "Windows cabinet listing/extraction command; no installation operation used."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/msi/cabinet-files",
+      "purpose": "Cabinet file keys map to MSI File table entries."
+    },
+    {
+      "url": "https://raw.githubusercontent.com/wixtoolset/wix3/develop/src/burn/engine/section.cpp",
+      "purpose": "WiX Burn v2 section layout used for bounded inert container offsets."
+    }
+  ],
+  "closed_technical_gap": "The exact official package, minimum-runtime MSI/CAB, and all three DLL byte identities are pinned and reproducibly checked. The previous host-origin-only ambiguity is resolved.",
+  "remaining_requirements": [
+    "Owner entitlement and applicable Visual Studio redistribution terms must still be evidenced. The package-linked standalone runtime-use terms are not a redistribution grant.",
+    "Project-wide native SBOM/notice coverage and corresponding-source/relink delivery remain separate work; this record maps only the three MSVC DLLs.",
+    "Native source/compiler reconstruction and vulnerability freedom are not established by these byte/signature observations.",
+    "Prior frozen build/runtime observations remain historical; they are not rerun by this package check."
+  ],
+  "release_approved": false,
+  "distribution_approved": false,
+  "installer_executed": false,
+  "global_installation_performed": false
+}

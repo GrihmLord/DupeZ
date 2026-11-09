@@ -42,7 +42,8 @@ __all__ = ["run_fuzz_ipc", "ALLOWED_TARGETS"]
 ALLOWED_TARGETS: List[Tuple[str, str]] = [
     ("pipe", r"\\.\pipe\DupeZ.control"),
     ("pipe", r"\\.\pipe\DupeZ.helper"),
-    ("unix", "/tmp/dupez.control.sock"),
+    # Fixed endpoint is connected to only; this module never creates the path.
+    ("unix", "/tmp/dupez.control.sock"),  # nosec B108
 ]
 
 # Per-message budget — don't waste the user's time on a wedged endpoint.

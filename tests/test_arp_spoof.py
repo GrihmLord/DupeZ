@@ -28,6 +28,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.core.safe_subprocess import SafeSubprocessError
 from app.network import arp_spoof
 from app.network.arp_spoof import (
     ArpSpoofer,
@@ -40,6 +41,26 @@ from app.network.arp_spoof import (
     get_mac_for_ip,
     is_same_network,
 )
+
+
+@pytest.fixture(autouse=True)
+def deny_unstubbed_system_effects(monkeypatch):
+    """A missing unit-test stub must fail before network access or UAC."""
+    from app.firewall_helper import ipc_client
+
+    attempted = []
+
+    def deny(*_args, **_kwargs):
+        attempted.append(True)
+        pytest.fail("ARP unit test reached an unstubbed system-effect boundary")
+
+    monkeypatch.setattr(ipc_client, "get_proxy_manager", deny)
+    monkeypatch.setattr(arp_spoof.safe_subprocess, "run", deny)
+    monkeypatch.setattr(arp_spoof.socket, "socket", deny)
+    monkeypatch.setattr(arp_spoof, "NpcapSender", deny)
+    monkeypatch.setattr(arp_spoof, "_get_raw_socket", deny)
+    yield
+    assert not attempted, "A background call reached an unstubbed system-effect boundary"
 
 
 # ── safe_subprocess result stub ──────────────────────────────────────
@@ -216,7 +237,11 @@ class TestGatewayDiscovery:
 
     def test_linux_parses_ip_route(self, monkeypatch):
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
-        monkeypatch.setattr("shutil.which", lambda name: "/usr/sbin/ip")
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
         monkeypatch.setattr(
             arp_spoof.safe_subprocess, "run",
             lambda *a, **kw: _StubResult(
@@ -227,7 +252,11 @@ class TestGatewayDiscovery:
 
     def test_linux_no_ip_binary(self, monkeypatch):
         monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
-        monkeypatch.setattr("shutil.which", lambda name: None)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: (_ for _ in ()).throw(SafeSubprocessError("missing")),
+        )
         assert get_default_gateway() is None
 
 
@@ -379,6 +408,26 @@ class TestIpForwarding:
         with pytest.raises(RuntimeError, match="could not report"):
             arp_spoof._get_ip_forwarding_state()
 
+    @pytest.mark.parametrize("value", [None, 0, 1, "false", "true", {}, []])
+    def test_windows_split_query_rejects_non_boolean_response(self, monkeypatch, value):
+        from app.firewall_helper import feature_flag, ipc_client
+
+        proxy = types.SimpleNamespace(get_ip_forwarding_state=lambda: value)
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: True)
+        monkeypatch.setattr(ipc_client, "get_proxy_manager", lambda: proxy)
+        with pytest.raises(RuntimeError, match="could not report"):
+            arp_spoof._get_ip_forwarding_state()
+
+    def test_windows_split_query_preserves_disabled_boolean(self, monkeypatch):
+        from app.firewall_helper import feature_flag, ipc_client
+
+        proxy = types.SimpleNamespace(get_ip_forwarding_state=lambda: False)
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: True)
+        monkeypatch.setattr(ipc_client, "get_proxy_manager", lambda: proxy)
+        assert arp_spoof._get_ip_forwarding_state() is False
+
     def test_linux_reads_proc(self, monkeypatch, tmp_path):
         ip_fwd = tmp_path / "ip_forward"
         ip_fwd.write_text("1\n")
@@ -413,12 +462,29 @@ class TestIpForwarding:
         assert arp_spoof._set_ip_forwarding(False) is True
         assert ip_fwd.read_text() == "0"
 
+    @pytest.mark.parametrize("payload", ["", "enabled", "disabled", "2", "01", "0\n1", "1 garbage"])
+    def test_linux_query_rejects_unknown_state(self, monkeypatch, payload):
+        import io
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
+        monkeypatch.setattr("builtins.open", lambda *_args, **_kwargs: io.StringIO(payload))
+        with pytest.raises(RuntimeError, match="unrecognized"):
+            arp_spoof._get_ip_forwarding_state()
+
+    def test_linux_query_failure_is_not_disabled(self, monkeypatch):
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", False)
+
+        def unavailable(*_args, **_kwargs):
+            raise OSError("unreadable proc setting")
+
+        monkeypatch.setattr("builtins.open", unavailable)
+        with pytest.raises(RuntimeError, match="could not be read"):
+            arp_spoof._get_ip_forwarding_state()
+
     def test_windows_get_parses_netsh(self, monkeypatch):
         from app.firewall_helper import feature_flag
 
-        # _get_ip_forwarding_state returns on the FIRST line containing
-        # "forwarding" — so the test output must put forwarding+enabled
-        # on the same line.
+        # Only the reviewed, unambiguous IP Forwarding label is accepted.
         netsh_out = (
             "General Global Parameters\n"
             "----------------------------------------------------------------\n"
@@ -432,6 +498,58 @@ class TestIpForwarding:
             lambda *a, **kw: _StubResult(netsh_out),
         )
         assert arp_spoof._get_ip_forwarding_state() is True
+
+    @pytest.mark.parametrize("output,returncode", [
+        ("", 0), ("Packet Forwarding: Enabled", 0),
+        ("Multicast Forwarding: disabled\nGroup Forwarded Fragments: disabled", 0),
+        ("IP Forwarding: Unknown", 0), ("IP Forwarding: 0", 0),
+        ("Weiterleitung: Aktiviert", 0), ("IP Forwarding: Activado", 0),
+        ("IP Forwarding: Enabled\nIP Forwarding: Disabled", 0),
+        ("IP Forwarding: Disabled\nIP Forwarding: Disabled", 0),
+        ("IP Forwarding: Disabled\nIP Forwarding: Unknown", 0),
+        ("IP Forwarding: Disabled", 1), ("IP Forwarding: Enabled", -1),
+        ("IP Forwarding: Disabled", False),
+    ])
+    def test_windows_query_rejects_unknown_or_failed_output(self, monkeypatch, output, returncode):
+        from app.firewall_helper import feature_flag
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
+        monkeypatch.setattr(arp_spoof, "_SP_NETSH", r"C:\Windows\System32\netsh.exe")
+        monkeypatch.setattr(arp_spoof.safe_subprocess, "run",
+                            lambda *_args, **_kwargs: _StubResult(output, returncode))
+        with pytest.raises(RuntimeError, match="IP-forwarding state"):
+            arp_spoof._get_ip_forwarding_state()
+
+    def test_windows_query_ignores_unrelated_forwarding_label(self, monkeypatch):
+        from app.firewall_helper import feature_flag
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
+        monkeypatch.setattr(arp_spoof, "_SP_NETSH", r"C:\Windows\System32\netsh.exe")
+        monkeypatch.setattr(arp_spoof.safe_subprocess, "run", lambda *_args, **_kwargs: _StubResult(
+            "Multicast Forwarding: Enabled\n  IP Forwarding: Disabled\n"
+        ))
+        assert arp_spoof._get_ip_forwarding_state() is False
+
+    def test_windows_missing_netsh_is_not_disabled(self, monkeypatch):
+        from app.firewall_helper import feature_flag
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
+        monkeypatch.setattr(arp_spoof, "_SP_NETSH", "")
+        with pytest.raises(RuntimeError, match="netsh is unavailable"):
+            arp_spoof._get_ip_forwarding_state()
+
+    def test_windows_failed_netsh_is_not_disabled(self, monkeypatch):
+        from app.firewall_helper import feature_flag
+
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        monkeypatch.setattr(feature_flag, "is_split_mode", lambda: False)
+        monkeypatch.setattr(arp_spoof, "_SP_NETSH", r"C:\Windows\System32\netsh.exe")
+        monkeypatch.setattr(arp_spoof.safe_subprocess, "run", MagicMock(side_effect=SafeSubprocessError("failed")))
+        with pytest.raises(RuntimeError, match="could not report"):
+            arp_spoof._get_ip_forwarding_state()
 
     def test_windows_set_invokes_netsh(self, monkeypatch):
         from app.firewall_helper import feature_flag
@@ -534,6 +652,10 @@ class TestArpSpooferStart:
     def patched(self, monkeypatch):
         """Patch everything the spoofer touches and yield the spoofer +
         captured sender for assertions."""
+        from app.core import operation_journal
+
+        journal = MagicMock()
+        monkeypatch.setattr(operation_journal, "OperationJournal", lambda: journal)
         target_mac = b"\x11\x22\x33\x44\x55\x66"
         gateway_mac = b"\xaa\xbb\xcc\xdd\xee\xff"
         local_mac = b"\xde\xad\xbe\xef\xca\xfe"
@@ -832,6 +954,103 @@ class TestStartCleanupOnException:
         assert spoofer._running is False
 
 
+class TestForwardingOwnership:
+    @pytest.mark.parametrize("failure", ["local", "target", "gateway", "query", "journal"])
+    def test_failure_before_mutation_never_restores_host_forwarding(self, monkeypatch, failure):
+        from app.core import operation_journal
+
+        monkeypatch.setattr(arp_spoof, "get_local_mac",
+                            lambda *_args: None if failure == "local" else b"\x01" * 6)
+        monkeypatch.setattr(arp_spoof, "get_mac_for_ip", lambda ip: (
+            None if (failure == "target" and ip.endswith(".10"))
+            or (failure == "gateway" and ip.endswith(".1")) else b"\x02" * 6
+        ))
+        query = MagicMock(side_effect=RuntimeError("state unavailable")) if failure == "query" else MagicMock(return_value=False)
+        monkeypatch.setattr(arp_spoof, "_get_ip_forwarding_state", query)
+        setter = MagicMock(return_value=True)
+        monkeypatch.setattr(arp_spoof, "_set_ip_forwarding", setter)
+        journal = MagicMock()
+        if failure == "journal":
+            journal.mark_forwarding_change.side_effect = OSError("journal unavailable")
+        monkeypatch.setattr(operation_journal, "OperationJournal", lambda: journal)
+        spoofer = ArpSpoofer("192.168.1.10", "192.168.1.1")
+
+        assert spoofer.start() is False
+        spoofer._cleanup_partial()
+        spoofer.stop()
+        setter.assert_not_called()
+        journal.clear_forwarding_change.assert_not_called()
+        assert spoofer._forwarding_restore_pending is False
+
+    @pytest.mark.parametrize("enable_error", [False, True])
+    def test_failed_enable_attempt_still_rolls_back_known_disabled_state(self, monkeypatch, enable_error):
+        from app.core import operation_journal
+
+        monkeypatch.setattr(arp_spoof, "get_local_mac", lambda *_args: b"\x01" * 6)
+        monkeypatch.setattr(arp_spoof, "get_mac_for_ip", lambda *_args: b"\x02" * 6)
+        monkeypatch.setattr(arp_spoof, "_get_ip_forwarding_state", lambda: False)
+        journal = MagicMock()
+        monkeypatch.setattr(operation_journal, "OperationJournal", lambda: journal)
+        updates = []
+
+        def update(enable):
+            updates.append(enable)
+            if enable and enable_error:
+                raise RuntimeError("enable acknowledgement lost")
+            return not enable
+
+        monkeypatch.setattr(arp_spoof, "_set_ip_forwarding", update)
+        spoofer = ArpSpoofer("192.168.1.10", "192.168.1.1")
+        assert spoofer.start() is False
+        assert updates == [True, False]
+        assert spoofer._forwarding_restore_pending is False
+        journal.clear_forwarding_change.assert_called_once_with()
+        spoofer.stop()
+        assert updates == [True, False]
+
+    def test_failed_restore_stays_pending_and_blocks_restart_until_retry(self, monkeypatch):
+        from app.core import operation_journal
+
+        monkeypatch.setattr(arp_spoof, "get_local_mac", lambda *_args: b"\x01" * 6)
+        monkeypatch.setattr(arp_spoof, "get_mac_for_ip", lambda *_args: b"\x02" * 6)
+        query = MagicMock(return_value=False)
+        monkeypatch.setattr(arp_spoof, "_get_ip_forwarding_state", query)
+        setter = MagicMock(side_effect=[False, False, True])
+        monkeypatch.setattr(arp_spoof, "_set_ip_forwarding", setter)
+        journal = MagicMock()
+        monkeypatch.setattr(operation_journal, "OperationJournal", lambda: journal)
+        spoofer = ArpSpoofer("192.168.1.10", "192.168.1.1")
+
+        assert spoofer.start() is False
+        assert spoofer._forwarding_restore_pending is True
+        journal.clear_forwarding_change.assert_not_called()
+        assert spoofer.start() is False
+        query.assert_called_once_with()
+        assert setter.call_count == 2
+        spoofer.stop()
+        assert spoofer._forwarding_restore_pending is False
+        assert [call.args for call in setter.call_args_list] == [(True,), (False,), (False,)]
+        journal.clear_forwarding_change.assert_called_once_with()
+        spoofer.stop()
+        assert setter.call_count == 3
+
+    def test_preexisting_enabled_forwarding_is_never_owned(self, monkeypatch):
+        monkeypatch.setattr(arp_spoof, "get_local_mac", lambda *_args: b"\x01" * 6)
+        monkeypatch.setattr(arp_spoof, "get_mac_for_ip", lambda *_args: b"\x02" * 6)
+        monkeypatch.setattr(arp_spoof, "_get_ip_forwarding_state", lambda: True)
+        monkeypatch.setattr(arp_spoof, "_IS_WINDOWS", True)
+        sender = _FakeSender()
+        sender.load = lambda: False
+        monkeypatch.setattr(arp_spoof, "NpcapSender", lambda: sender)
+        setter = MagicMock(return_value=True)
+        monkeypatch.setattr(arp_spoof, "_set_ip_forwarding", setter)
+        spoofer = ArpSpoofer("192.168.1.10", "192.168.1.1")
+        assert spoofer.start() is False
+        spoofer.stop()
+        setter.assert_not_called()
+        assert spoofer._forwarding_restore_pending is False
+
+
 # ── H2: Linux bind failure path ──────────────────────────────────────
 
 class TestLinuxBindFailure:
@@ -870,13 +1089,18 @@ class TestLinuxBindFailure:
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
 
-        # ip route stub
-        import subprocess as sp_real
-
-        def _check_output(argv, **kw):
-            return "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
-
-        monkeypatch.setattr(sp_real, "check_output", _check_output)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *a, **kw: _StubResult(
+                "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
+            ),
+        )
         assert spoofer._bind_linux_socket() is True
         assert bound["args"][0] == "wlan0"
 
@@ -902,10 +1126,17 @@ class TestLinuxBindFailure:
 
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
-        import subprocess as sp_real
         monkeypatch.setattr(
-            sp_real, "check_output",
-            lambda argv, **kw: "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n",
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: "/usr/sbin/ip",
+        )
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "run",
+            lambda *a, **kw: _StubResult(
+                "1: lo inet 127.0.0.1\n2: wlan0 inet 10.0.0.5/24\n"
+            ),
         )
         assert spoofer._bind_linux_socket() is False
 
@@ -926,12 +1157,11 @@ class TestLinuxBindFailure:
 
         monkeypatch.setattr(arp_spoof.socket, "socket",
                              lambda fam, kind: _RouteSocket())
-        import subprocess as sp_real
-
-        def _raise(*a, **kw):
-            raise FileNotFoundError("ip")
-
-        monkeypatch.setattr(sp_real, "check_output", _raise)
+        monkeypatch.setattr(
+            arp_spoof.safe_subprocess,
+            "resolve_posix_system_binary",
+            lambda name: (_ for _ in ()).throw(SafeSubprocessError("missing")),
+        )
         assert spoofer._bind_linux_socket() is False
 
     def test_bind_returns_false_when_route_probe_fails(self, monkeypatch):

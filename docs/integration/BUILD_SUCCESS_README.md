@@ -1,6 +1,11 @@
-# 🎉 DupeZ iZurvive Integration Build Success!
+# Historical iZurvive Integration Build Note
 
-## ✅ Build Status: COMPLETE
+> Archived integration snapshot. This file describes the former
+> `DupeZ_izurvive.exe` experiment and is not current v5.8.0 build or release
+> evidence. Use `docs/RELEASE_VALIDATION_V5.8.0.md` and the v5.8.0 blocked-gate
+> runbook for the current artifact contract.
+
+## Historical Build Status: Complete for That Integration Snapshot
 
 The DupeZ application has been successfully rebuilt with full iZurvive DayZ map integration!
 

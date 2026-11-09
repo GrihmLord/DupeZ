@@ -1,0 +1,49 @@
+{
+  "schema": "dupez.license-policy.v1",
+  "reviewed_on": "2026-11-09",
+  "release_state": "blocked",
+  "decisions": [
+    {
+      "id": "project-distribution-terms",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "GPL-3.0-only and corresponding source are already owner-selected and LICENSE.txt is prepared. Confirm contribution rights and complete the dated project decision record before recording distribution approval."
+    },
+    {
+      "id": "pyqt-distribution-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record the GPL-3.0-only basis and required corresponding-source evidence for the actual derived PyQt6 distribution. Assess PyQt6-WebEngine separately if distributed in source/development environments; do not assume a commercial entitlement."
+    },
+    {
+      "id": "qt-qtwebengine-distribution-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record the basis for the exact retained Qt/native payload. Frozen browser/QML payloads are excluded; the new no-QtNetwork engineering profile also excludes Qt Network. Assess any separately distributed WebEngine/Chromium payload and the Microsoft runtime redistribution entitlement under their applicable terms."
+    },
+    {
+      "id": "third-party-notices-delivery",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Validate the notices for the exact release profile and both portable/installer channels. Engineering notices and pinned Microsoft runtime license references are evidence preparation, not complete public distribution or redistribution approval."
+    },
+    {
+      "id": "source-and-relink-delivery",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Complete native source/rebuild mappings, public corresponding-source and replacement/relink delivery, applicable installation information, and recipient rights for the exact shipped payload; preserve remaining QtBase/IUP/toolchain gaps."
+    },
+    {
+      "id": "inno-setup-commercial-use-basis",
+      "state": "unresolved",
+      "determination": null,
+      "evidence": [],
+      "required_owner_action": "Record whether Inno Setup is used in a commercial context and, if applicable, record the owner-approved commercial-license decision or entitlement instead of assuming one from the local compiler installation."
+    }
+  ]
+}

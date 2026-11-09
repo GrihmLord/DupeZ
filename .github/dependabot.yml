@@ -1,7 +1,9 @@
 version: 2
 updates:
   - package-ecosystem: "pip"
-    directory: "/"
+    directories:
+      - "/"
+      - "/packaging"
     schedule:
       interval: "weekly"
       day: "monday"

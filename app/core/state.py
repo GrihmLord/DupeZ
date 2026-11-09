@@ -17,7 +17,7 @@ from dataclasses import asdict, dataclass, field, fields
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
-from app.logs.logger import log_error, log_info
+from app.logs.logger import log_error, log_info, log_warning
 from app.utils.helpers import mask_ip
 
 __all__ = ["Device", "AppSettings", "AppState"]
@@ -26,6 +26,40 @@ __all__ = ["Device", "AppSettings", "AppState"]
 def _is_main_thread() -> bool:
     """Return True when called from the main thread."""
     return threading.current_thread() is threading.main_thread()
+
+
+def _qt_application() -> Any:
+    """Find an existing Qt event loop without requiring Qt in headless use."""
+    try:
+        from PyQt6.QtCore import QCoreApplication
+    except ImportError:
+        return None
+    return QCoreApplication.instance()
+
+
+def _create_observer_dispatcher(application: Any) -> Any:
+    """Create a retained signal receiver that belongs to Qt's main thread."""
+    from PyQt6.QtCore import QObject, Qt, pyqtSignal, pyqtSlot
+
+    class ObserverDispatcher(QObject):
+        requested = pyqtSignal(object)
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.requested.connect(self.dispatch, Qt.ConnectionType.QueuedConnection)
+
+        @pyqtSlot(object)
+        def dispatch(self, callback: Callable[[], None]) -> None:
+            # Creation can occur in a scanner's Python thread. Adopt the
+            # application only after reaching its thread so Qt owns cleanup.
+            if self.parent() is None:
+                self.setParent(application)
+            callback()
+
+    dispatcher = ObserverDispatcher()
+    dispatcher.moveToThread(application.thread())
+    application.aboutToQuit.connect(dispatcher.deleteLater)
+    return dispatcher
 
 
 # ── Data models ───────────────────────────────────────────────────────
@@ -88,7 +122,7 @@ class AppSettings:
     verbose_logging: bool = False
 
     # Map / GPU
-    map_renderer: str = "auto"  # "auto" | "gpu" | "swiftshader" | "software"
+    map_renderer: str = "auto"  # "auto" | "gpu" | "software"
 
     # Security
     whitelist: Optional[list] = None
@@ -101,9 +135,36 @@ class AppSettings:
     ])
     max_operation_seconds: int = 300
 
+    # Global operation shortcuts are opt-in; starting requires a second opt-in.
+    disruption_hotkeys_enabled: bool = False
+    disruption_start_hotkey_enabled: bool = False
+    disruption_start_hotkey: str = "ctrl+alt+f8"
+    disruption_stop_hotkey: str = "ctrl+alt+f9"
+    disruption_panic_hotkey: str = "ctrl+alt+x"
+
+    # Automatic kill switch (manual panic stop remains available regardless)
+    kill_switch_enabled: bool = False
+    kill_switch_process_watch_enabled: bool = True
+    kill_switch_process_names: list[str] = field(default_factory=list)
+    kill_switch_risk_threshold: int = 80
+    kill_switch_packet_drop_ceiling: int = 5000
+    kill_switch_packet_sustain_seconds: float = 5.0
+    kill_switch_poll_interval_seconds: float = 1.0
+    kill_switch_cooldown_seconds: float = 30.0
+
     def __post_init__(self) -> None:
         if self.whitelist is None:
             self.whitelist = []
+        renderer = (
+            self.map_renderer.strip().lower()
+            if isinstance(self.map_renderer, str)
+            else "auto"
+        )
+        if renderer == "swiftshader":
+            renderer = "software"
+        if renderer not in {"auto", "gpu", "software"}:
+            renderer = "auto"
+        self.map_renderer = renderer
 
 
 # ── Application state ─────────────────────────────────────────────────
@@ -131,6 +192,7 @@ class AppState:
 
         self._observers: List[Callable] = []
         self._lock = threading.Lock()
+        self._observer_dispatcher = None
 
         self.load_settings()
 
@@ -146,11 +208,14 @@ class AppState:
 
         A snapshot of the observer list is taken under the lock, then
         dispatch happens outside the lock to avoid deadlocks in
-        callbacks that touch state.  If called from a background
-        thread, marshals to the Qt event loop via ``QTimer.singleShot``.
+        callbacks that touch state. Background callers emit a queued signal
+        to a retained receiver in the application's thread. Without a Qt
+        application, headless observers are called directly.
         """
         with self._lock:
             observers = list(self._observers)
+        if not observers:
+            return
 
         def _dispatch() -> None:
             for observer in observers:
@@ -161,12 +226,22 @@ class AppState:
 
         if _is_main_thread():
             _dispatch()
-        else:
-            try:
-                from PyQt6.QtCore import QTimer
-                QTimer.singleShot(0, _dispatch)
-            except (ImportError, RuntimeError):
-                _dispatch()
+            return
+
+        application = _qt_application()
+        if application is None:
+            _dispatch()
+            return
+        try:
+            with self._lock:
+                if self._observer_dispatcher is None:
+                    self._observer_dispatcher = _create_observer_dispatcher(application)
+                dispatcher = self._observer_dispatcher
+            dispatcher.requested.emit(_dispatch)
+        except RuntimeError as exc:
+            # During Qt teardown, never fall back to touching GUI observers
+            # from a worker thread after their receiver has been destroyed.
+            log_warning(f"Observer notification unavailable during Qt shutdown: {exc}")
 
     # ── Device management ─────────────────────────────────────────
 
@@ -297,8 +372,8 @@ class AppState:
             log_error(f"Failed to load settings: {e}")
             self.settings = AppSettings()
 
-    def save_settings(self) -> None:
-        """Persist settings via atomic write (tmp → fsync → replace)."""
+    def save_settings(self) -> bool:
+        """Persist settings atomically and return whether it was durable."""
         from app.config import CONFIG_PATH, save_config
 
         if os.path.normcase(os.path.abspath(self.config_file)) == os.path.normcase(
@@ -309,7 +384,8 @@ class AppState:
                 log_info("Settings saved successfully")
             except Exception as e:
                 log_error(f"Failed to save settings: {e}")
-            return
+                return False
+            return True
         tmp_path = self.config_file + ".tmp"
         try:
             config_dir = os.path.dirname(self.config_file)
@@ -323,19 +399,23 @@ class AppState:
 
             os.replace(tmp_path, self.config_file)
             log_info("Settings saved successfully")
+            return True
         except Exception as e:
             log_error(f"Failed to save settings: {e}")
             try:
                 os.unlink(tmp_path)
             except OSError:
                 pass
+            return False
 
-    def update_setting(self, key: str, value: Any) -> None:
-        """Update a single setting by name and persist."""
+    def update_setting(self, key: str, value: Any) -> bool:
+        """Update one setting only when the new snapshot is durable."""
         if hasattr(self.settings, key):
             old_value = getattr(self.settings, key)
             setattr(self.settings, key, value)
-            self.save_settings()
+            if not self.save_settings():
+                setattr(self.settings, key, old_value)
+                return False
             self.notify_observers("setting_updated", {key: value})
             log_info(f"Setting updated: {key} = {value}")
             # Audit trail for settings changes
@@ -348,3 +428,6 @@ class AppState:
                 })
             except Exception:
                 pass
+            return True
+        log_warning(f"Unknown setting: {key}")
+        return False

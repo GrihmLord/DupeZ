@@ -226,36 +226,32 @@ class TestSmartEngine:
 
 
 # ======================================================================
-# 6. NativeDisruptEngine — stats API
+# 6. NativeWinDivertEngine — stats API
 # ======================================================================
 class TestNativeEngineStats:
     def test_get_stats_returns_dict(self):
         """Test that get_stats returns the expected structure (no WinDivert needed)."""
         # We can't actually start the engine without WinDivert, but we can
         # test the stats method on an un-started engine.
-        try:
-            from app.firewall.native_divert_engine import NativeDisruptEngine
-            engine = NativeDisruptEngine(
-                target_ip="192.168.1.1",
-                filter_str="ip.DstAddr == 192.168.1.1",
-                methods=["lag"],
-                params={"lag_delay": 500},
-            )
-            stats = engine.get_stats()
-            assert isinstance(stats, dict)
-            assert "packets_processed" in stats
-            assert "packets_dropped" in stats
-            assert "packets_inbound" in stats
-            assert "packets_outbound" in stats
-            assert "packets_passed" in stats
-            assert "alive" in stats
-            assert stats["alive"] is False  # not started
-            assert stats["target_ip"] == "192.168.1.1"
-            assert "lag" in stats["methods"]
-        except ImportError:
-            pytest.skip("WinDivert not available on this platform")
-        except OSError:
-            pytest.skip("WinDivert DLL not loadable on this platform")
+        from app.firewall.native_divert_engine import NativeWinDivertEngine
+
+        engine = NativeWinDivertEngine(
+            dll_path=r"C:\fake\WinDivert.dll",
+            filter_str="ip.DstAddr == 192.168.1.1",
+            methods=["lag"],
+            params={"lag_delay": 500, "_target_ip": "192.168.1.1"},
+        )
+        stats = engine.get_stats()
+        assert isinstance(stats, dict)
+        assert "packets_processed" in stats
+        assert "packets_dropped" in stats
+        assert "packets_inbound" in stats
+        assert "packets_outbound" in stats
+        assert "packets_passed" in stats
+        assert "alive" in stats
+        assert stats["alive"] is False  # not started
+        assert stats["target_ip"] == "192.168.1.1"
+        assert "lag" in stats["methods"]
 
     def test_format_count_helper(self):
         """Test the _format_count static method on ClumsyControlView."""

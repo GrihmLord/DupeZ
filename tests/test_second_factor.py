@@ -91,6 +91,17 @@ def test_totp_current_code_verifies(_in_memory_secret_store):
     assert totp.verify(code) is True
 
 
+def test_totp_counter_cannot_be_replayed(_in_memory_secret_store):
+    sf = _in_memory_secret_store
+    info = sf.enroll_totp()
+    gate = sf.get_gate()
+    totp = next(p for p in gate.providers if isinstance(p, sf.TOTPProvider))
+    code = sf._totp(sf._b32_decode_lenient(info["secret_b32"]))
+
+    assert totp.verify(code) is True
+    assert totp.verify(code) is False
+
+
 def test_totp_wrong_code_fails(_in_memory_secret_store):
     sf = _in_memory_secret_store
     sf.enroll_totp()
@@ -177,34 +188,70 @@ def test_gate_rate_limiter_locks_out(_in_memory_secret_store):
 
 def test_revoke_all_clears_enrollment(_in_memory_secret_store):
     sf = _in_memory_secret_store
-    sf.enroll_totp()
+    info = sf.enroll_totp()
+    code = sf._totp(sf._b32_decode_lenient(info["secret_b32"]))
     assert sf.is_enrolled() is True
-    sf.revoke_all()
+    sf.revoke_all(prompter=lambda _scope: code)
     assert sf.is_enrolled() is False
 
 
 # ── Failure-mode tests ────────────────────────────────────────────────
 
-def test_fido2_unavailable_does_not_falsely_verify(_in_memory_secret_store):
-    """The FIDO2 provider must never return True without a real assertion."""
+def test_incomplete_fido2_surface_is_not_shipped(_in_memory_secret_store):
+    """Unimplemented authentication providers must not be public stubs."""
     sf = _in_memory_secret_store
-    provider = sf.FIDO2Provider()
-    # Without the fido2 library, available() should be False and verify()
-    # must ALWAYS return False.
-    if not provider.available():
-        assert provider.verify("anything") is False
-        assert provider.verify("") is False
-        assert provider.verify('{"credentialId": "x"}') is False
-    else:
-        # If the library IS installed, verify with a bogus envelope
-        # still has to fail the cryptographic check.
-        assert provider.verify('{"credentialId": "x"}') is False
+    assert not hasattr(sf, "FIDO2Provider")
+    assert not hasattr(sf, "enroll_fido2")
+    assert [provider.name for provider in sf.SecondFactorGate.default().providers] == [
+        "totp"
+    ]
 
 
 def test_enroll_then_revoke_then_reenroll(_in_memory_secret_store):
     sf = _in_memory_secret_store
     info1 = sf.enroll_totp()
-    sf.revoke_all()
+    code = sf._totp(sf._b32_decode_lenient(info1["secret_b32"]))
+    sf.revoke_all(prompter=lambda _scope: code)
     info2 = sf.enroll_totp()
     assert info1["secret_b32"] != info2["secret_b32"], \
         "re-enrollment must rotate the seed"
+
+
+def test_existing_totp_cannot_be_replaced_without_current_factor(
+    _in_memory_secret_store,
+) -> None:
+    sf = _in_memory_secret_store
+    first = sf.enroll_totp()
+
+    with pytest.raises(sf.SecondFactorRequired):
+        sf.enroll_totp(prompter=lambda _scope: "000000")
+
+    gate = sf.get_gate()
+    provider = next(p for p in gate.providers if isinstance(p, sf.TOTPProvider))
+    valid = sf._totp(sf._b32_decode_lenient(first["secret_b32"]))
+    second = sf.enroll_totp(prompter=lambda _scope: valid)
+    assert second["secret_b32"] != first["secret_b32"]
+
+
+def test_default_gui_prompter_masks_the_totp_code(
+    _in_memory_secret_store,
+    monkeypatch,
+) -> None:
+    sf = _in_memory_secret_store
+    from PyQt6.QtWidgets import QApplication, QInputDialog, QLineEdit
+
+    captured: list[object] = []
+    monkeypatch.setattr(
+        QApplication,
+        "instance",
+        staticmethod(lambda: object()),
+    )
+
+    def get_text(*args):
+        captured.extend(args)
+        return "123456", True
+
+    monkeypatch.setattr(QInputDialog, "getText", staticmethod(get_text))
+
+    assert sf._default_prompter("elevation") == "123456"
+    assert captured[-1] == QLineEdit.EchoMode.Password

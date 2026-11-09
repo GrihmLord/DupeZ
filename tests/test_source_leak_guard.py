@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+import stat
 import subprocess
 from pathlib import Path
 
@@ -59,31 +60,68 @@ _PUBLIC_IP_ALLOWLIST = {
 
 def _tracked_text_files() -> list[Path]:
     env = dict(os.environ)
-    env.setdefault("GIT_CONFIG_GLOBAL", os.devnull)
+    env.update(
+        {
+            "GIT_ATTR_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": os.devnull,
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_SYSTEM": os.devnull,
+            "GIT_NO_REPLACE_OBJECTS": "1",
+            "GIT_OPTIONAL_LOCKS": "0",
+        }
+    )
     result = subprocess.run(
-        ["git", "ls-files"],
+        [
+            "git",
+            "--no-replace-objects",
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "-z",
+        ],
         cwd=_ROOT,
         check=True,
         capture_output=True,
         env=env,
-        text=True,
     )
     files: list[Path] = []
-    for raw in result.stdout.splitlines():
-        rel = raw.replace("\\", "/")
+    for raw in result.stdout.split(b"\0"):
+        if not raw:
+            continue
+        rel = raw.decode("utf-8", errors="strict").replace("\\", "/")
+        relative = Path(rel)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise AssertionError(f"unsafe Git path in leak scan: {rel!r}")
         if rel.startswith(_EXCLUDED_PREFIXES):
             continue
-        path = _ROOT / rel
-        if path.suffix.lower() in _TEXT_SUFFIXES:
+        path = _regular_file_in_root(relative)
+        if path is not None and path.suffix.lower() in _TEXT_SUFFIXES:
             files.append(path)
     return files
+
+
+def _regular_file_in_root(relative: Path) -> Path | None:
+    path = _ROOT / relative
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        # A tracked deletion is absent from the candidate working tree.
+        return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise AssertionError(f"leak scan source is not a regular file: {relative}")
+    try:
+        path.resolve(strict=True).relative_to(_ROOT.resolve(strict=True))
+    except ValueError as exc:
+        raise AssertionError(f"leak scan source escapes repository: {relative}") from exc
+    return path
 
 
 def _source_tree_text_files() -> list[Path]:
     files: list[Path] = []
     for root_name in ("app", "plugins", "scripts", "tools", "tests"):
         for path in (_ROOT / root_name).rglob("*"):
-            if not path.is_file() or path.suffix.lower() not in _TEXT_SUFFIXES:
+            if path.suffix.lower() not in _TEXT_SUFFIXES:
                 continue
             rel = path.relative_to(_ROOT).as_posix()
             if rel.startswith(_EXCLUDED_PREFIXES):
@@ -92,7 +130,9 @@ def _source_tree_text_files() -> list[Path]:
                 continue
             if rel.startswith("app/data/"):
                 continue
-            files.append(path)
+            regular = _regular_file_in_root(Path(rel))
+            if regular is not None:
+                files.append(regular)
     return files
 
 

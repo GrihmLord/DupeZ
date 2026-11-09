@@ -1,0 +1,385 @@
+{
+  "schema": "dupez.recipient-rebuild-evidence.v1",
+  "observed_on": "2026-10-24",
+  "scope": "Local operator-observed clean builds and GPU maintenance-only recipient modification; not release, source completeness or independent attestation.",
+  "source_commit": "1db32d750ee1a1b23733ff38f6b53fdad8957d7f",
+  "source_archive": {
+    "path": "build/recipient-evidence-20261024/DupeZ-v5.8.0-source.zip",
+    "size": 24758411,
+    "sha256": "875eb4c0f000c7a39f193b67fd7f3a10def528c5f004ff4f911d4ffb04df220f"
+  },
+  "source_archive_gate": "passed with explicit expected_commit; git ZIP comment and required input/path checks verified",
+  "build_environment": {
+    "platform": "Windows x64",
+    "python": "3.13.17",
+    "python_openssl": "3.5.9",
+    "pyinstaller": "6.22.2",
+    "install": "--only-binary=:all: --require-hashes using runtime and build locks; pip check passed",
+    "production_signing_variables": "removed from build/maintenance child shells; private key contents not read",
+    "locks": [
+      {
+        "path": "requirements-locked.txt",
+        "size": 59844,
+        "sha256": "65306f4fed33ea9b01f640d7dd0420db54d4f7705561f730ee1cd1cd423ad4f2"
+      },
+      {
+        "path": "packaging/requirements-build-locked.txt",
+        "size": 2733,
+        "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc"
+      }
+    ]
+  },
+  "clean_gpu_native": {
+    "artifact": {
+      "name": "DupeZ-GPU.exe",
+      "sha256": "58faac348127ecddd90e1e85a6f495617df6c9f064c7a5185661c3e8ef77c8e8",
+      "size": 228738729
+    },
+    "collection_manifest": {
+      "sha256": "620aa23431f7dd86ee218f66262beef10bf60fa201e7cb6948f600469efdf7fd",
+      "size": 102978
+    },
+    "disposition": "offline-local-byte-observation-not-release-approval",
+    "limitations": [
+      "No executable, renderer, socket, or packet engine was launched.",
+      "Caller-supplied local build/source inputs are not independently authenticated.",
+      "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+      "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+      "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+    ],
+    "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+    "native_entry_count": 259,
+    "native_inventory_sha256": "cd73a3afcd87d0b4218413fdce9677e1482395bfeea67ca1174426c8795b5fef",
+    "origin_counts": {
+      "locked-build-venv": 231,
+      "managed-native": 4,
+      "verified-base-python": 24
+    },
+    "qt_tls_policy": "schannel-only",
+    "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+    "schema": "dupez.native-build-observation.v1"
+  },
+  "clean_compat_native": {
+    "artifact": {
+      "name": "DupeZ-Compat.exe",
+      "sha256": "fa61ef17d86947bc01e04d14d78c06660ea85d47e084bbc8eb5c98124389d677",
+      "size": 228741028
+    },
+    "collection_manifest": {
+      "sha256": "476cb0a7d4ed1f50aa4a8d2506d02471c36eca133e2507cf60230522c2123006",
+      "size": 102978
+    },
+    "disposition": "offline-local-byte-observation-not-release-approval",
+    "limitations": [
+      "No executable, renderer, socket, or packet engine was launched.",
+      "Caller-supplied local build/source inputs are not independently authenticated.",
+      "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+      "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+      "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+    ],
+    "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+    "native_entry_count": 259,
+    "native_inventory_sha256": "cd73a3afcd87d0b4218413fdce9677e1482395bfeea67ca1174426c8795b5fef",
+    "origin_counts": {
+      "locked-build-venv": 231,
+      "managed-native": 4,
+      "verified-base-python": 24
+    },
+    "qt_tls_policy": "schannel-only",
+    "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+    "schema": "dupez.native-build-observation.v1"
+  },
+  "modified_gpu_native": {
+    "artifact": {
+      "name": "DupeZ-GPU.exe",
+      "sha256": "da1dfb1c1369b4152497108063f1c581eb4ce034013fb207f273e3a8075416ab",
+      "size": 228742100
+    },
+    "collection_manifest": {
+      "sha256": "f96b35a4b0486b9d429589b6841f465d1b8e1355e9baf65108658e8fb1f839e1",
+      "size": 102978
+    },
+    "disposition": "offline-local-byte-observation-not-release-approval",
+    "limitations": [
+      "No executable, renderer, socket, or packet engine was launched.",
+      "Caller-supplied local build/source inputs are not independently authenticated.",
+      "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+      "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+      "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+    ],
+    "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+    "native_entry_count": 259,
+    "native_inventory_sha256": "cd73a3afcd87d0b4218413fdce9677e1482395bfeea67ca1174426c8795b5fef",
+    "origin_counts": {
+      "locked-build-venv": 231,
+      "managed-native": 4,
+      "verified-base-python": 24
+    },
+    "qt_tls_policy": "schannel-only",
+    "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+    "schema": "dupez.native-build-observation.v1"
+  },
+  "clean_gpu_recipient": {
+    "additional_inputs": [
+      {
+        "name": "clean-gpu-native-tls.json",
+        "sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526",
+        "size": 117
+      },
+      {
+        "name": "clean-gpu-native.json",
+        "sha256": "215a76187ebf08bac244b7c9d4dafa3897b7227815dfbb3847d0a1255185e56a",
+        "size": 1387
+      }
+    ],
+    "artifact": {
+      "name": "DupeZ-GPU.exe",
+      "sha256": "58faac348127ecddd90e1e85a6f495617df6c9f064c7a5185661c3e8ef77c8e8",
+      "size": 228738729
+    },
+    "disposition": "local-operator-observation-not-release-approval",
+    "limitations": [
+      "Operator-supplied report and exit status are not independently authenticated.",
+      "Native Qt/Chromium replacement and complete corresponding source are not demonstrated.",
+      "No GUI, renderer, packet engine, hardware or official release validation is asserted."
+    ],
+    "observed_exit_code": 0,
+    "runtime_report": {
+      "name": "clean-gpu-runtime-imports.json",
+      "sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179",
+      "size": 41
+    },
+    "runtime_result": {
+      "check": "runtime-imports",
+      "ok": true
+    },
+    "scenario": "baseline-imports",
+    "schema": "dupez.recipient-rebuild-observation.v1",
+    "source_archive": {
+      "name": "DupeZ-v5.8.0-source.zip",
+      "sha256": "875eb4c0f000c7a39f193b67fd7f3a10def528c5f004ff4f911d4ffb04df220f",
+      "size": 24758411
+    },
+    "source_commit": "1db32d750ee1a1b23733ff38f6b53fdad8957d7f",
+    "source_prefix": "DupeZ-v5.8.0/",
+    "variant": "gpu"
+  },
+  "modified_gpu_recipient": {
+    "additional_inputs": [
+      {
+        "name": "__init__.py",
+        "sha256": "5d12425f968ff86c5c7440783d05f1f96a20c75da983fa8371c55e76dcfd5f74",
+        "size": 3903
+      },
+      {
+        "name": "__version__.py",
+        "sha256": "789574c288bf601575f19fa51bbb15e8d3ec5c14f28312d13836144cf263e9e9",
+        "size": 1282
+      },
+      {
+        "name": "application-marker.patch",
+        "sha256": "c0cea130375656a45e8754cdd8ebbf0162ee44952dd20787ca264010d205e861",
+        "size": 769
+      },
+      {
+        "name": "dupez.py",
+        "sha256": "3476f692230c7cfe2a29074958178de08d9ffe7a832283229360bc9b248e65e9",
+        "size": 18716
+      },
+      {
+        "name": "modified-gpu-native-tls.json",
+        "sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526",
+        "size": 117
+      },
+      {
+        "name": "modified-gpu-native.json",
+        "sha256": "85c2d7eaea2b555d2304369b7ff138126e35b1233e5955d471255d320860f572",
+        "size": 1387
+      },
+      {
+        "name": "zeroconf-marker.patch",
+        "sha256": "69a4f863467dd479a491759330bbfea57fa5e393eae7bb2b8c8927b967fa2c9e",
+        "size": 403
+      }
+    ],
+    "artifact": {
+      "name": "DupeZ-GPU.exe",
+      "sha256": "da1dfb1c1369b4152497108063f1c581eb4ce034013fb207f273e3a8075416ab",
+      "size": 228742100
+    },
+    "disposition": "local-operator-observation-not-release-approval",
+    "limitations": [
+      "Operator-supplied report and exit status are not independently authenticated.",
+      "Native Qt/Chromium replacement and complete corresponding source are not demonstrated.",
+      "No GUI, renderer, packet engine, hardware or official release validation is asserted."
+    ],
+    "observed_exit_code": 0,
+    "runtime_report": {
+      "name": "modified-gpu-runtime-imports.json",
+      "sha256": "c0e4d8465955623e366b028d59cf38184f6b29e37b1759c548b2f07724ca506f",
+      "size": 159
+    },
+    "runtime_result": {
+      "application_marker": "dupez-recipient-validation-20261024",
+      "check": "runtime-imports",
+      "library_marker": "dupez-recipient-validation-20261024",
+      "ok": true
+    },
+    "scenario": "modified-application-and-zeroconf-python-layer",
+    "schema": "dupez.recipient-rebuild-observation.v1",
+    "source_archive": {
+      "name": "DupeZ-v5.8.0-source.zip",
+      "sha256": "875eb4c0f000c7a39f193b67fd7f3a10def528c5f004ff4f911d4ffb04df220f",
+      "size": 24758411
+    },
+    "source_commit": "1db32d750ee1a1b23733ff38f6b53fdad8957d7f",
+    "source_prefix": "DupeZ-v5.8.0/",
+    "variant": "gpu"
+  },
+  "tls_observations": [
+    {
+      "scenario": "clean-gpu",
+      "token": "standard-user",
+      "exit_code": 0,
+      "report": {
+        "available_backends": [
+          "schannel"
+        ],
+        "backend": "schannel",
+        "check": "native-tls",
+        "ok": true,
+        "supports_ssl": true
+      },
+      "fingerprint": {
+        "path": "build/recipient-evidence-20261024/clean-gpu-native-tls.json",
+        "size": 117,
+        "sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526"
+      }
+    },
+    {
+      "scenario": "modified-gpu",
+      "token": "standard-user",
+      "exit_code": 0,
+      "report": {
+        "available_backends": [
+          "schannel"
+        ],
+        "backend": "schannel",
+        "check": "native-tls",
+        "ok": true,
+        "supports_ssl": true
+      },
+      "fingerprint": {
+        "path": "build/recipient-evidence-20261024/modified-gpu-native-tls.json",
+        "size": 117,
+        "sha256": "45d7586dc6f11791df2e6b2cc0e11057293e3307b74946d899e1e19730754526"
+      }
+    }
+  ],
+  "modified_inputs": [
+    {
+      "target": "application version module",
+      "before": {
+        "path": "build/recipient-evidence-20261024/source-clean/DupeZ-v5.8.0/app/__version__.py",
+        "size": 1141,
+        "sha256": "b584ed5af1de8cc75feca6b546d303d9768783a8745d43007c63273a7fc8e47e"
+      },
+      "after": {
+        "path": "build/recipient-evidence-20261024/source-modified/DupeZ-v5.8.0/app/__version__.py",
+        "size": 1282,
+        "sha256": "789574c288bf601575f19fa51bbb15e8d3ec5c14f28312d13836144cf263e9e9"
+      }
+    },
+    {
+      "target": "launcher maintenance reporter",
+      "before": {
+        "path": "build/recipient-evidence-20261024/source-clean/DupeZ-v5.8.0/dupez.py",
+        "size": 18432,
+        "sha256": "0c58d7594aaeb5e9f8bcf4b68d159c1fbb497876eadaf889e734861ce801d8b7"
+      },
+      "after": {
+        "path": "build/recipient-evidence-20261024/source-modified/DupeZ-v5.8.0/dupez.py",
+        "size": 18716,
+        "sha256": "3476f692230c7cfe2a29074958178de08d9ffe7a832283229360bc9b248e65e9"
+      }
+    },
+    {
+      "target": "zeroconf LGPL Python layer",
+      "before": {
+        "path": "build/recipient-evidence-20261024/baseline-venv/Lib/site-packages/zeroconf/__init__.py",
+        "size": 3741,
+        "sha256": "89681096648fab1357db68c79b7065fe632e07d545dfb9e6f0752381d0c306b1"
+      },
+      "after": {
+        "path": "build/recipient-evidence-20261024/modified-venv/Lib/site-packages/zeroconf/__init__.py",
+        "size": 3903,
+        "sha256": "5d12425f968ff86c5c7440783d05f1f96a20c75da983fa8371c55e76dcfd5f74"
+      }
+    }
+  ],
+  "modification_method": "Applied the reviewed patch contents only in fresh disposable source/venv copies; git apply --reverse --check confirmed both modified trees match the recorded recipes.",
+  "patch_representation": "The two patch fingerprints in modified_gpu_recipient.additional_inputs identify the working checkout's packaging/recipient-validation files with LF endings. The copies inside the exact source ZIP use CRLF and therefore have different byte hashes. Independent comparison after CRLF-to-LF normalization found identical patch content; no functional patch change is implied. The source ZIP hash separately binds the delivered CRLF copies.",
+  "modified_environment": "Hash-locked baseline plus recorded application/zeroconf Python patches; original wheel RECORD no longer describes modified __init__.py.",
+  "verification": {
+    "suite": {
+      "passed": 3270,
+      "skipped": 10,
+      "seconds": 238.47,
+      "app_coverage_percent": 58.28,
+      "required_coverage_percent": 40,
+      "skip_scope": "Six opt-in hardware cases; four unavailable symlink privileges",
+      "junit": {
+        "path": "build/recipient-evidence-20261024/pytest-checkpoint.xml",
+        "size": 460369,
+        "sha256": "4d10474027ca7cc0f71e815ab4a7a0357c553cf5deb767bce0ce8dde5198a579"
+      },
+      "coverage": {
+        "path": "build/recipient-evidence-20261024/coverage-checkpoint.json",
+        "size": 2061265,
+        "sha256": "e8b1dfa35c2b7494ede1a6fa3d0152af282325cdc5cc0117c44250a8e784d0f6"
+      }
+    },
+    "source_preflight": "passed",
+    "frozen_dependency_preflight": "passed for clean GPU, clean Compat and modified GPU",
+    "licensing_gate": "correctly blocked: all six owner decisions unresolved",
+    "source_delivery_ready_gate": "correctly blocked: source/build matching and delivery gaps remain",
+    "commit_hooks": "all applicable staged hooks passed at source checkpoint"
+  },
+  "checkpoint_notices": {
+    "generation": "generated and independently verified using exact extracted source checkpoint and unmodified baseline build venv",
+    "runtime_components": 27,
+    "notice_documents": 76,
+    "files": [
+      {
+        "path": "build/recipient-evidence-20261024/checkpoint-notices/license-payload.json",
+        "size": 48565,
+        "sha256": "da2eed961a3cc33f50b0688a7141688a4e5bd0bd5e2a9c6be277356926d22499"
+      },
+      {
+        "path": "build/recipient-evidence-20261024/checkpoint-notices/LICENSE.txt",
+        "size": 35129,
+        "sha256": "605e9047a563c5c8396ffb18232aa4304ec56586aee537c45064c6fb425e44ad"
+      },
+      {
+        "path": "build/recipient-evidence-20261024/checkpoint-notices/THIRD_PARTY_NOTICES.txt",
+        "size": 604368,
+        "sha256": "9063c7fe625f912bff7b03850672a341e75b2af67f0ead2642d2b5809cde7f5b"
+      },
+      {
+        "path": "build/recipient-evidence-20261024/checkpoint-notices/SOURCE_AND_RELINK.txt",
+        "size": 11497,
+        "sha256": "882e412db8fb2927f99a926816da037905fc31ec7384208733b251fe0cbeba68"
+      }
+    ]
+  },
+  "limitations": [
+    "GPU import/TLS probes only: no GUI, renderer, packet engine, game workflow, installer or hardware lifecycle was tested.",
+    "Compat was built and inspected offline but not run; its normal administrator requirement was not bypassed.",
+    "The modified zeroconf Python layer was packaged and executed; Cython/native zeroconf, Qt/Chromium and driver recompilation/replacement were not demonstrated.",
+    "No bit-for-bit reproduction claim: input pins and matching native inventories are not a deterministic whole-executable rebuild proof.",
+    "Operator-supplied local reports are not independent signed attestations.",
+    "Current native Qt/Chromium review and corresponding-source mapping/delivery remain incomplete; embedded browsing remains denied.",
+    "GitHub billing still blocks hosted checks; local results do not replace required exact-head CI.",
+    "No binaries, source bundle, tag or release were published by these observations. Documentation/evidence follow-up commits are distinct from the built checkpoint."
+  ]
+}

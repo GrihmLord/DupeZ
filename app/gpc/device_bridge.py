@@ -206,12 +206,11 @@ class DeviceDetector:
         # keep each wmic invocation simple and the resulting argv hard to
         # mis-parse if someone changes the VID constants downstream.
         try:
-            import os as _os
             from app.core import safe_subprocess as _safe_sp
-            sysroot = _os.environ.get("SystemRoot") or r"C:\Windows"
-            wmic_path = _os.path.join(sysroot, "System32", "wbem", "wmic.exe")
-            if not _os.path.isfile(wmic_path):
-                return devices
+            wmic_path = _safe_sp.resolve_system_binary(
+                "wmic",
+                subdirectory=("wbem",),
+            )
 
             for vid in SUPPORTED_VIDS:
                 # Defense in depth — argv whitelist would catch this
@@ -463,4 +462,3 @@ def scan_devices() -> List[ScriptDevice]:
 def is_device_connected() -> bool:
     """Check if any supported script device is connected."""
     return len(scan_devices()) > 0
-

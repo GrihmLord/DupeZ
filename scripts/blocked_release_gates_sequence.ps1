@@ -26,9 +26,44 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "release_git_contract.ps1")
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $repoRoot
+
+function Resolve-InboxWindowsPowerShell {
+    $systemDirectory = [Environment]::GetFolderPath(
+        [Environment+SpecialFolder]::System
+    )
+    if (
+        [string]::IsNullOrWhiteSpace($systemDirectory) -or
+        -not [IO.Path]::IsPathRooted($systemDirectory)
+    ) {
+        throw "Could not resolve the absolute Windows system directory."
+    }
+
+    $candidate = [IO.Path]::GetFullPath((
+        Join-Path $systemDirectory "WindowsPowerShell\v1.0\powershell.exe"
+    ))
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+        throw "Inbox Windows PowerShell executable is missing."
+    }
+
+    $resolved = (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
+    if (
+        -not [IO.Path]::IsPathRooted($resolved) -or
+        -not [string]::Equals(
+            $resolved,
+            $candidate,
+            [StringComparison]::OrdinalIgnoreCase
+        )
+    ) {
+        throw "Inbox Windows PowerShell executable resolved unexpectedly."
+    }
+    return $resolved
+}
+
+$inboxWindowsPowerShell = Resolve-InboxWindowsPowerShell
 
 function Test-IsAdmin {
     return (
@@ -39,15 +74,10 @@ function Test-IsAdmin {
 }
 
 function Assert-MainClean {
-    $git = (Get-Command git -ErrorAction Stop).Source
-    $branch = (& $git branch --show-current).Trim()
-    if (-not $AllowNonMainValidation -and $branch -ne "main") {
-        throw "Phase requires main branch. Current branch: $branch"
-    }
-    if (@(& $git status --porcelain).Count -ne 0) {
-        & $git status --short
-        throw "Phase requires a clean working tree."
-    }
+    $requiredBranch = if ($AllowNonMainValidation) { "" } else { "main" }
+    Get-ReleaseGitIdentity `
+        -RepositoryRoot $repoRoot `
+        -RequiredBranch $requiredBranch | Out-Null
 }
 
 function Run-Checked {
@@ -72,7 +102,9 @@ switch ($Phase) {
         )
         if ($AllowUnsigned) { $args += "-AllowUnsigned" }
         if ($AllowNonMainValidation) { $args += "-AllowNonMainValidation" }
-        Run-Checked -Name "FINALIZE RELEASE" -Action { powershell @args }
+        Run-Checked -Name "FINALIZE RELEASE" -Action {
+            & $inboxWindowsPowerShell @args
+        }
         Write-Host "admin-finalize complete. Next run gpu-validate in NON-admin desktop session."
     }
 
@@ -82,7 +114,11 @@ switch ($Phase) {
         }
         Assert-MainClean
         Run-Checked -Name "GPU FROZEN VALIDATION" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate_frozen_runtime.ps1 -Variant GPU
+            & $inboxWindowsPowerShell `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File scripts/validate_frozen_runtime.ps1 `
+                -Variant GPU
         }
         Write-Host "gpu-validate complete. Next run admin-compat in Administrator PowerShell."
     }
@@ -93,7 +129,11 @@ switch ($Phase) {
         }
         Assert-MainClean
         Run-Checked -Name "COMPAT FROZEN VALIDATION" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate_frozen_runtime.ps1 -Variant Compat
+            & $inboxWindowsPowerShell `
+                -NoProfile `
+                -ExecutionPolicy Bypass `
+                -File scripts/validate_frozen_runtime.ps1 `
+                -Variant Compat
         }
         if ([string]::IsNullOrWhiteSpace($Operator)) {
             throw "Provide -Operator for manual validation recording (e.g. -Operator GrihmLord)."
@@ -106,7 +146,7 @@ switch ($Phase) {
                 "-Operator", $Operator
             )
             if ($AllowUnsigned) { $manualArgs += "-AllowUnsigned" }
-            powershell @manualArgs
+            & $inboxWindowsPowerShell @manualArgs
         }
         Write-Host "admin-compat complete. Next run admin-stage-draft (and optionally admin-stage-publish)."
     }
@@ -120,7 +160,13 @@ switch ($Phase) {
             throw "GITHUB_TOKEN or GH_TOKEN is required for staging."
         }
         Run-Checked -Name "STAGE DRAFT RELEASE" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage_release.ps1 -Mode Draft -Version $Version
+            $stageArgs = @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                "scripts/stage_release.ps1", "-Mode", "Draft",
+                "-Version", $Version
+            )
+            if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
+            & $inboxWindowsPowerShell @stageArgs
         }
         Write-Host "admin-stage-draft complete. Next run admin-stage-publish when ready."
     }
@@ -134,7 +180,13 @@ switch ($Phase) {
             throw "GITHUB_TOKEN or GH_TOKEN is required for publish."
         }
         Run-Checked -Name "PUBLISH STAGED RELEASE" -Action {
-            powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stage_release.ps1 -Mode Publish -Version $Version
+            $stageArgs = @(
+                "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+                "scripts/stage_release.ps1", "-Mode", "Publish",
+                "-Version", $Version
+            )
+            if ($AllowUnsigned) { $stageArgs += "-AllowUnsigned" }
+            & $inboxWindowsPowerShell @stageArgs
         }
         Write-Host "admin-stage-publish complete. All blocked release gates finished."
     }

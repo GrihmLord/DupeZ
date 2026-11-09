@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import time
+from html import escape
 
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox,
@@ -168,6 +169,7 @@ class SmartModePanel(QWidget):
         # AI recommendation display
         self.smart_info_label = QLabel(
             "Select a target and click PROFILE or SMART DISRUPT")
+        self.smart_info_label.setTextFormat(Qt.TextFormat.RichText)
         self.smart_info_label.setWordWrap(True)
         self.smart_info_label.setStyleSheet(
             "color: #6b7280; font-size: 10px; padding: 4px; "
@@ -195,7 +197,7 @@ class SmartModePanel(QWidget):
                 self._view, "No Target",
                 "Select a device from the list first.")
             return
-        self.smart_info_label.setText(label)
+        self.smart_info_label.setText(escape(label))
         self.smart_info_label.setStyleSheet(
             f"color: {color}; font-size: 10px; padding: 4px; "
             f"background: #0a0f18; border: 1px solid {color}; "
@@ -257,19 +259,19 @@ class SmartModePanel(QWidget):
             f"<span style='color:#94a3b8'>Loss:</span> "
             f"<b>{profile.packet_loss_pct:.0f}%</b>",
             f"<span style='color:#94a3b8'>Type:</span> "
-            f"{profile.connection_type} / {profile.device_type} "
-            f"{'(' + profile.device_hint + ')' if profile.device_hint else ''}",
+            f"{escape(str(profile.connection_type))} / {escape(str(profile.device_type))} "
+            f"{'(' + escape(str(profile.device_hint)) + ')' if profile.device_hint else ''}",
             f"<span style='color:#94a3b8'>Quality:</span> "
             f"<b>{profile.quality_score:.0f}/100</b>",
             "",
-            f"<b style='color:#e040fb'>RECOMMENDATION: {rec.name}</b> "
-            f"<span style='color:#6b7280'>(goal: {rec.goal})</span>",
+            f"<b style='color:#e040fb'>RECOMMENDATION: {escape(str(rec.name))}</b> "
+            f"<span style='color:#6b7280'>(goal: {escape(str(rec.goal))})</span>",
             f"<span style='color:#94a3b8'>Modules:</span> "
-            f"{' + '.join(rec.methods)}",
+            f"{escape(' + '.join(map(str, rec.methods)))}",
         ]
         for reason in rec.reasoning[:3]:
             info_lines.append(
-                f"<span style='color:#6b7280'>• {reason}</span>")
+                f"<span style='color:#6b7280'>• {escape(str(reason))}</span>")
 
         severance_line = self._format_severance_line(profile, rec)
         if severance_line:
@@ -355,12 +357,12 @@ class SmartModePanel(QWidget):
         self._view._apply_recommendation(rec)
 
         info_lines = [
-            f"<b style='color:#a855f7'>AI ADVISOR: {rec.name}</b>",
-            f"<span style='color:#94a3b8'>{rec.description}</span>",
+            f"<b style='color:#a855f7'>AI ADVISOR: {escape(str(rec.name))}</b>",
+            f"<span style='color:#94a3b8'>{escape(str(rec.description))}</span>",
             f"<span style='color:#94a3b8'>Modules:</span> "
-            f"{' + '.join(rec.methods)}",
+            f"{escape(' + '.join(map(str, rec.methods)))}",
             f"<span style='color:#6b7280'>"
-            f"{rec.reasoning[0] if rec.reasoning else ''}</span>",
+            f"{escape(str(rec.reasoning[0])) if rec.reasoning else ''}</span>",
         ]
         self.smart_info_label.setText("<br>".join(info_lines))
         self.smart_confidence_bar.setValue(70)
@@ -410,15 +412,15 @@ class SmartModePanel(QWidget):
                     f"for {target_profile}/{goal}"
                 )
             color = _SEVERANCE_COLORS[tier][0]
-            return (f"<span style='color:{color}'>⏳ {label}</span>")
+            return (f"<span style='color:{color}'>⏳ {escape(label)}</span>")
 
         severed_pct = int(stats["severed_rate"] * 100)
         tier = _severance_tier(stats["severed_rate"])
         color, blurb = _SEVERANCE_COLORS[tier]
         return (
             f"<span style='color:{color}'>● "
-            f"severance: <b>{severed_pct}%</b> over {stats['n']} sessions "
-            f"({target_profile}/{goal}) — {blurb}</span>"
+            f"severance: <b>{severed_pct}%</b> over {escape(str(stats['n']))} sessions "
+            f"({escape(str(target_profile))}/{escape(str(goal))}) — {blurb}</span>"
         )
 
     @staticmethod

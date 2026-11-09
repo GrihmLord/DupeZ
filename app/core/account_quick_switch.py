@@ -18,7 +18,7 @@ API:
     get_active_account() -> Optional[str]
     set_active_account(name: str) -> bool
     cycle_active_account(direction: int = 1) -> Optional[str]
-    clear_active_account() -> None
+    clear_active_account() -> bool
 
 The active selection is persisted to ``app/data/active_account.json``
 so it survives restart.
@@ -57,9 +57,11 @@ def _load() -> Optional[str]:
         data = persistence_manager.load_data(_DATA_TYPE, default=None)
     except Exception as exc:
         log_warning(f"active_account: load failed: {exc}")
-        data = None
+        # A transient read failure is not a successfully loaded empty marker.
+        # Leave the cache unloaded so the next read can recover.
+        return None
     if isinstance(data, dict) and isinstance(data.get("name"), str):
-        _cached_name = data["name"] or None
+        _cached_name = data["name"].strip() or None
     else:
         _cached_name = None
     _cache_loaded = True
@@ -85,11 +87,19 @@ def active_account_names() -> List[str]:
     """
     try:
         from app.core.data_persistence import account_manager
-        return [
-            str(a.get("account", "")).strip()
-            for a in account_manager.accounts
-            if str(a.get("account", "")).strip()
-        ]
+        names: List[str] = []
+        seen: set[str] = set()
+        for account in account_manager.accounts:
+            if not isinstance(account, dict):
+                continue
+            name = account.get("account")
+            if not isinstance(name, str):
+                continue
+            name = name.strip()
+            if name and name not in seen:
+                names.append(name)
+                seen.add(name)
+        return names
     except Exception as exc:
         log_warning(f"active_account: list failed: {exc}")
         return []
@@ -109,7 +119,9 @@ def set_active_account(name: str) -> bool:
     typos from silently tagging episodes with a phantom name).
     """
     global _cached_name, _cache_loaded
-    name = (name or "").strip()
+    if not isinstance(name, str):
+        return False
+    name = name.strip()
     if not name:
         return False
     if name not in active_account_names():
@@ -132,6 +144,9 @@ def cycle_active_account(direction: int = 1) -> Optional[str]:
     If no active account is set, jumps to the first account. If the
     current active account no longer exists in the tracker (deleted
     after being set), restarts at the first account.
+
+    Returns None when there are no accounts or persistence fails. A failed
+    save leaves the active selection unchanged.
     """
     names = active_account_names()
     if not names:
@@ -144,25 +159,33 @@ def cycle_active_account(direction: int = 1) -> Optional[str]:
         else:
             new_idx = (names.index(current) + direction) % len(names)
         new_name = names[new_idx]
-        if _save(new_name):
-            global _cached_name, _cache_loaded
-            _cached_name = new_name
-            _cache_loaded = True
+        if not _save(new_name):
+            log_warning("active_account: cycle was not saved")
+            return None
+        global _cached_name, _cache_loaded
+        _cached_name = new_name
+        _cache_loaded = True
     log_info(f"active account cycled: {new_name}")
     return new_name
 
 
-def clear_active_account() -> None:
+def clear_active_account() -> bool:
     """Unset the active-account marker.
 
     Persists ``{"name": ""}`` to disk (not literal null) so the on-disk
     schema stays a JSON object with a string field — consistent with
     every other persisted setting in DupeZ. The reader treats empty
     string as "not set" so the round-trip yields ``None``.
+
+    Returns True only after persistence succeeds; failures preserve the
+    previous cached selection so the UI cannot announce an unsaved clear.
     """
     global _cached_name, _cache_loaded
     with _lock:
-        _save(None)  # _save normalizes None → "" before persisting
+        if not _save(None):  # _save normalizes None → "" before persisting
+            log_warning("active_account: clear was not saved")
+            return False
         _cached_name = None
         _cache_loaded = True
     log_info("active account cleared")
+    return True

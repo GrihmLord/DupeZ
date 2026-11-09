@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 import urllib.request
 
 import pytest
 
 from app.core.overlay_server import (
     OverlayServer,
+    OverlayServerOwner,
     _make_handler_class,
     build_state_snapshot,
 )
@@ -70,6 +73,35 @@ class TestBuildStateSnapshot:
         s = json.dumps(snap)
         again = json.loads(s)
         assert again["version"] == 1
+
+    def test_slow_risk_refresh_never_blocks_snapshot(self, monkeypatch) -> None:
+        from app.core import overlay_server
+        from app.core import risk_score
+
+        entered = threading.Event()
+        release = threading.Event()
+
+        def slow_score():
+            entered.set()
+            assert release.wait(2.0)
+            return type("Score", (), {"score": 17, "band": "green"})()
+
+        monkeypatch.setattr(risk_score, "compute_risk_score", slow_score)
+        monkeypatch.setattr(overlay_server, "_risk_cache_score", None)
+        monkeypatch.setattr(overlay_server, "_risk_cache_band", None)
+        monkeypatch.setattr(overlay_server, "_risk_cache_at", 0.0)
+        monkeypatch.setattr(overlay_server, "_risk_refresh_in_progress", False)
+
+        snapshot = build_state_snapshot(FakeController(with_target=False))
+
+        assert entered.wait(1.0)
+        assert snapshot["risk_score"] is None
+        assert snapshot["risk_band"] is None
+        release.set()
+        deadline = time.monotonic() + 2.0
+        while overlay_server._risk_refresh_in_progress:
+            assert time.monotonic() < deadline
+            time.sleep(0.01)
 
 
 class TestHandlerIsolation:
@@ -158,6 +190,7 @@ class TestServerLifecycle:
         try:
             assert srv.start() is True
             assert srv.running is True
+            assert not srv.base_url.endswith(":0")
             # Second start on an already-running server also returns True.
             assert srv.start() is True
         finally:
@@ -186,5 +219,119 @@ class TestServerLifecycle:
         ctrl = FakeController()
         srv = OverlayServer(ctrl, host="127.0.0.1", port=0)
         srv.start()
-        srv.stop()
-        srv.stop()  # must not raise
+        assert srv.stop() is True
+        assert srv.stop() is True
+
+    def test_failed_stop_retains_resources_for_retry(self) -> None:
+        class Worker:
+            ident = 42
+            alive = True
+
+            def is_alive(self):
+                return self.alive
+
+            def join(self, timeout=None):
+                return None
+
+        class BoundServer:
+            def __init__(self, worker):
+                self.worker = worker
+                self.fail_shutdown = True
+
+            def shutdown(self):
+                if self.fail_shutdown:
+                    raise RuntimeError("simulated shutdown failure")
+                self.worker.alive = False
+
+            def server_close(self):
+                return None
+
+        worker = Worker()
+        bound = BoundServer(worker)
+        srv = OverlayServer(FakeController(), port=0)
+        ready = threading.Event()
+        ready.set()
+        srv._server = bound  # type: ignore[assignment]
+        srv._thread = worker  # type: ignore[assignment]
+        srv._ready = ready
+        srv._serve_failed = threading.Event()
+
+        assert srv.stop() is False
+        assert srv.owns_resources is True
+        assert srv._server is bound
+        assert srv._thread is worker
+
+        bound.fail_shutdown = False
+        assert srv.stop() is True
+        assert srv.owns_resources is False
+
+    def test_dead_worker_remains_owned_until_cleanup(self) -> None:
+        srv = OverlayServer(FakeController(), host="127.0.0.1", port=0)
+        assert srv.start() is True
+        server = srv._server
+        thread = srv._thread
+        assert server is not None and thread is not None
+
+        server.shutdown()
+        thread.join(timeout=2.0)
+
+        assert srv.running is False
+        assert srv.owns_resources is True
+        assert srv.start() is False
+        assert srv.stop() is True
+
+
+class TestServerOwner:
+    class StubServer:
+        def __init__(self, *_args, **_kwargs):
+            self.running = False
+            self.owns_resources = True
+            self.stop_result = False
+            self.start_calls = 0
+            self.stop_calls = 0
+            self.base_url = "http://127.0.0.1:4778"
+
+        def start(self):
+            self.start_calls += 1
+            return False
+
+        def stop(self):
+            self.stop_calls += 1
+            return self.stop_result
+
+    def test_failed_start_and_stop_retain_one_authoritative_owner(self) -> None:
+        created = []
+
+        def factory(*args, **kwargs):
+            server = self.StubServer(*args, **kwargs)
+            created.append(server)
+            return server
+
+        owner = OverlayServerOwner(FakeController(), server_factory=factory)
+
+        assert owner.start() is False
+        assert owner.owned is True
+        assert owner.server is created[0]
+        assert owner.start() is False
+        assert len(created) == 1
+
+        assert owner.stop() is False
+        assert owner.server is created[0]
+        created[0].stop_result = True
+        assert owner.stop() is True
+        assert owner.owned is False
+        assert owner.server is None
+
+    def test_owner_accepts_start_only_when_worker_is_live(self) -> None:
+        class MisreportingServer(self.StubServer):
+            def start(self):
+                self.start_calls += 1
+                return True
+
+        owner = OverlayServerOwner(
+            FakeController(),
+            server_factory=MisreportingServer,
+        )
+
+        assert owner.start() is False
+        assert owner.owned is True
