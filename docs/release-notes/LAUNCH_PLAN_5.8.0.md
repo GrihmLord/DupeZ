@@ -10,19 +10,20 @@ snapshot, or a passing source-only preflight into a release candidate.
 
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
-| Source changes | November 9 clean build checkpoint `6c255e5` adds an explicit Qt 6.11.3 raster engineering profile, frozen startup changes, source metadata verification and integrity regressions | PR head and its checks govern source publication; a branch push does not authorize release |
-| Hosted CI | Last inspected pushed head `85ef3b8` has all 14 checks blocked before execution by the account billing lock; the current PR records the newest pushed-head check result | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
+| Source changes | Clean checkpoint `22cddda` adds the explicit `frozen-raster-no-qtnetwork` engineering profile and exact Microsoft runtime package pins | PR head and its checks govern source publication; a branch push does not authorize release |
+| Hosted CI | Last inspected pushed head `3f15a41` has all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain all checks on the newest exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
-| Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
-| Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases; verify protected updater signing separately; never share private keys in chat |
-| Dependency advisories | October 24 refresh updates Pillow, certifi, cryptography and test/bootstrap pip; updated runtime scan has zero active PyPI advisory records across 27 packages | Keep the generated locks and component inventory together; this scan does not cover native Qt/Chromium or the interpreter |
-| Native runtime security | Clean raster engineering builds use Qt 6.11.3 and exclude browser/QML plus six GL/helper binaries and the unused designer plugin. Canonical production locks still select Qt 6.11.2 | Resolve the new Qt Network CVE-2026-116337, retained native/source gaps and tiny-WebP limitation before production promotion |
-| Source/rebuild evidence | QtBase/QtSvg/QtTools `.tag` differences are explained by verified Git archive substitution. The raster wheel reproduces identically; final offline profile has 304 pinned Qt notice inputs and 376 verified notice documents | QtBase binary-revision discrepancy, exact native toolchain/rebuild, IUP correspondence, public source delivery and owner decisions remain unresolved |
-| Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
-| Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | November 9 clean GPU/Compat raster builds at `6c255e5` pass exact-source, frozen-policy and native-origin checks; GPU maintenance and both lifecycle profiles pass; Compat UAC was canceled and runtime testing remains pending | Retry Compat only with fresh consent; hardware/hotkey parity and protected-main release validation remain required |
-| Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify the public download and communicate |
+| Distribution terms | GPL-3.0-only and corresponding source already selected; contribution rights and six evidence-backed determinations remain unresolved | Owner supplies rights and use-context evidence; validate actual delivery before recording determinations |
+| Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases and verify protected updater signing separately |
+| Dependency advisories | The October 24 canonical runtime scan reported zero active PyPI advisory records across 27 packages; the engineering profile has a different effective inventory | Rescan the exact eventual release inventory; a Python package scan does not cover native libraries or the interpreter |
+| Native runtime security | New profile removes Qt Network and its dependent plugins from the Qt 6.11.3 engineering payload; outer/PYZ and PE checks enforce absence | This removes the affected component rather than patching it; older profiles and canonical Qt 6.11.2 locks are unchanged. Retained native review and the tiny-WebP limitation remain open |
+| Microsoft runtime provenance | Three runtime DLLs match the exact signed 14.51.36247 upstream package and are enforced by new-profile build/native checks and mapped in its engineering SBOM | Establish the owner's applicable redistribution basis and complete notice/delivery review; signatures and installed software do not establish entitlement |
+| Source/rebuild evidence | New wheel preparation repeats byte-for-byte; clean profile verifies 376 notice documents. Existing source archive and translation evidence remains scoped to its recorded inputs | Resolve retained QtBase revision metadata, native toolchain/rebuild, IUP correspondence, complete public source/replacement delivery and owner determinations |
+| Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect matrix on both frozen variants |
+| Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 reporting have mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
+| Exact artifacts | Both `22cddda` engineering builds pass exact-source/archive/native inspection with 114 native entries each; GPU maintenance, two dashboard lifecycle profiles and the hash-bound PowerShell 5.1 consumer pass | Compat runtime remains pending per owner instruction; no new UAC attempt was made. Hardware/hotkey and protected-main release validation remain required |
+| Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify public downloads and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
 the repository ruleset/environment APIs, and the
@@ -34,7 +35,45 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
-## November 9 raster engineering adoption
+## November 9 Qt Network exclusion and Microsoft provenance
+
+The explicit `frozen-raster-no-qtnetwork` engineering profile removes
+`QtNetwork.pyd`, `Qt6Network.dll`, the touch plugin that depends on it, the
+network-information plugin and the Schannel plugin. Browser/QML and GL/helper
+exclusions remain in force. Build selection is compiled into the executable;
+the runtime does not accept an inherited environment variable as its profile.
+Frozen archive checks and PE import/export inspection reject the excluded
+payload. Python TLS verification replaces the Qt-specific maintenance check
+only for this new profile. Older profiles retain their Schannel requirements.
+
+At clean checkpoint `22cddda2623250e08583eea14570af8ab9439d84`, the full
+production-dependency source suite passes **3,825 tests with ten expected
+skips**. Ruff and AST checks pass for all **465 tracked Python files**. Both
+clean frozen builds pass archive and native-byte checks with **114 native
+entries** each. GPU maintenance, normal and forced-low-resource dashboard
+safety dry-run lifecycles, and the hash-bound Windows PowerShell 5.1 consumer
+pass. **Compat runtime testing remains pending per owner instruction; no new
+Compat launch or UAC prompt was attempted.** The earlier raster cancellation
+is retained as a historical observation, not a test result for this build.
+
+The three MSVC runtime DLLs now match the exact signed Microsoft
+14.51.36247 package through its Burn/CAB/MSI payloads. Their exact pins are
+required by this profile and represented in its engineering SBOM. That closes
+the package-identity gap; the owner's redistribution basis and complete notice
+delivery remain unresolved.
+
+This is component exclusion, not a patched Qt Network library or general native
+security clearance. Canonical production locks remain unchanged. The retained
+QtBase/Core revision discrepancy, exact native compiler inputs and rebuilds,
+IUP correspondence, public source/replacement delivery, six policy decisions,
+hardware validation and hosted checks still block public release.
+
+See the [exact-build exclusion audit](../audits/QT_NETWORK_EXCLUSION_2026-11-09.md)
+and [Microsoft provenance review](../legal/MSVC_REDIST_PROVENANCE_REVIEW_2026-11-09.md)
+for artifact hashes, scoped tests, preserved failed-launcher diagnostics and
+remaining limitations.
+
+## November 9 raster engineering adoption (historical 6c255e5 checkpoint)
 
 The new explicit profile brings Qt 6.11.3 into both frozen engineering builds.
 It removes `QtOpenGL`, `QtOpenGLWidgets`, their DLLs, the Mesa/LLVM software

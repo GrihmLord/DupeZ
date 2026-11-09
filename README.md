@@ -592,7 +592,7 @@ Third-party components retain their own licenses; this choice does not relicense
 Release evidence remains incomplete in `packaging/license-policy.json`:
 contribution-rights confirmation, exact dependency obligations, delivered notices
 and a verified corresponding-source/rebuild route are still required. The
-[owner checklist](docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md#owner-action-checklist-2026-10-24)
+[owner checklist](docs/release-notes/BLOCKED_RELEASE_GATES_RUNBOOK_5.8.0.md#owner-action-checklist)
 separates remaining owner decisions from engineering validation. A license
 selection is not approval to publish unvalidated v5.8.0 binaries.
 

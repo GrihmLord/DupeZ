@@ -4,6 +4,28 @@ This runbook completes the protected v5.8.0 artifact gates in strict order.
 Source tests and a clean merge are prerequisites, not substitutes for testing
 the exact frozen files that will be published.
 
+## Current status — November 9
+
+The owner has already selected GPL-3.0-only with corresponding source and the
+explicitly disclosed unsigned/manual-install route. Those choices remain in
+force; no new license-route or signing-route selection is needed.
+
+Clean engineering checkpoint `22cddda` introduces
+`frozen-raster-no-qtnetwork`. Both frozen builds pass exact-source/archive and
+native-byte checks. The full source suite passes 3,825 tests with ten expected
+skips; GPU maintenance, both dashboard safety dry-run lifecycle profiles and
+the actual PowerShell 5.1 evidence consumer pass. **Compat runtime testing
+remains pending per owner instruction; no new UAC or Compat launch was
+attempted.** Prior Compat passes and the older raster UAC cancellation remain
+valid only for their recorded artifacts. See the
+[new exclusion audit](../audits/QT_NETWORK_EXCLUSION_2026-11-09.md).
+
+The last verified pushed head, `3f15a41`, had all 14 required hosted checks
+blocked before execution by GitHub's account billing lock. Refresh that dated
+observation on the newest pushed head. No billing, spending or subscription
+change was made. The existing private owner billing steps below remain the
+next action; local tests do not replace protected hosted checks.
+
 ## Preconditions
 
 - GitHub `main` requires a pull request, resolution of review conversations,
@@ -33,7 +55,9 @@ the exact frozen files that will be published.
   the prepared private-target runner without target identifiers.
 - GitHub authentication through `GITHUB_TOKEN` or `GH_TOKEN`.
 
-## Owner-action checklist (2026-11-01 local validation refresh)
+<a id="owner-action-checklist"></a>
+
+## Owner-action checklist (2026-11-09)
 
 The owner has selected the explicitly disclosed unsigned/manual-install route
 and approved GPL-3.0-only open-source distribution with corresponding source.
@@ -41,6 +65,34 @@ Those choices do not establish contribution rights, complete dependency-source
 delivery, or passing release validation. The six licensing decisions remain
 unresolved in `packaging/license-policy.json`; do not publish or mark them all
 approved merely because `LICENSE.txt` now exists.
+
+### Remaining owner inputs
+
+1. Confirm the rights to distribute the original DupeZ contributions under the
+   already-selected GPL-3.0-only route. Identify any employer, contractor,
+   copied or outside contributions whose permission is not established. The
+   release operator can then complete the dated project record and its hashes.
+2. Identify the applicable Visual Studio edition/version and valid license
+   basis held by the distributing person or organization, and retain the
+   terms/evidence supporting distribution of the three unmodified MSVC runtime
+   files. Microsoft makes redistribution conditional on that basis. Package
+   signatures, an installed runtime, and the runtime's installation license
+   are not proof of it. This does not establish that a purchase is necessary;
+   the actual eligibility and terms must be reviewed. Keep private account or
+   entitlement records private. See [Microsoft's redistribution terms](https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution)
+   and the [exact package review](../legal/MSVC_REDIST_PROVENANCE_REVIEW_2026-11-09.md).
+3. State the actual Inno Setup use context and approve the applicable basis.
+   The pinned 6.7.1 terms permit commercial use subject to their conditions;
+   the vendor's purchase FAQ requests commercial support but does not make a
+   purchase strictly mandatory. Do not infer noncommercial status from a free
+   app or public repository. Record a purchased entitlement only if one is
+   actually chosen. See the [pinned terms](https://github.com/jrsoftware/issrc/blob/is-6_7_1/license.txt)
+   and [vendor FAQ](https://jrsoftware.org/isorder.php).
+4. Review and approve the completed distribution determinations once the
+   operator has demonstrated the exact notices, source/replacement route and
+   public delivery. An owner answer cannot stand in for unfinished source
+   mapping or delivery tests. No private keys or payment details belong in
+   those records.
 
 ### 1. Resolve the GitHub Actions billing lock
 
@@ -169,12 +221,12 @@ unfinished engineering is already complete.
 
 | Decision ID | Owner determination needed | Concrete evidence to prepare and verify |
 | --- | --- | --- |
-| `project-distribution-terms` | GPL-3.0-only selection plus contribution rights | `LICENSE.txt` and completed dated project decision record |
-| `pyqt-distribution-basis` | GPL basis for both exact PyQt binding packages | Exact wheel metadata/license texts, source mapping, and dated determination |
-| `qt-qtwebengine-distribution-basis` | Open-source distribution basis for the actual bundled Qt/WebEngine/Chromium components | Exact component inventory, applicable license texts, source/patch/build-input mapping, and determination |
-| `third-party-notices-delivery` | Approval of demonstrated notice delivery in every channel | Validated `LICENSE.txt`, `THIRD_PARTY_NOTICES.txt`, and `license-payload.json`; exact portable and installer payload checks/hashes |
-| `source-and-relink-delivery` | Approval of demonstrated source/replacement route and retained availability | Exact-commit source archive, exact dependency sources and patches, usable build/replacement instructions, recipient rebuild evidence, and delivery record |
-| `inno-setup-commercial-use-basis` | Actual commercial context and use of the permissive grant or a separately evidenced entitlement | Pinned 6.7.1 terms, current vendor guidance, and dated owner decision; purchase evidence only if that route is chosen |
+| `project-distribution-terms` | Already-selected GPL-3.0-only route plus confirmed contribution rights | `LICENSE.txt` and a completed dated project decision record |
+| `pyqt-distribution-basis` | GPL-3.0-only basis for the actual derived PyQt6 distribution | Exact original/derived metadata, license texts, modifications and corresponding-source mapping. Assess PyQt6-WebEngine separately if its wheels are distributed in a source/development package |
+| `qt-qtwebengine-distribution-basis` | Applicable terms for the exact retained Qt/native payload, including the Microsoft runtime redistribution basis | Exact component/license inventory and source/patch/build mapping; Microsoft package pins plus actual entitlement/terms evidence. Browser/QML and Qt Network are absent from the new frozen profile; assess separately distributed WebEngine/Chromium payloads on their own facts |
+| `third-party-notices-delivery` | Approval of demonstrated notices for the selected release profile in every channel | Verified project/third-party notice payload and exact portable/installer payload hashes. Engineering notices and pinned license references do not alone prove public delivery |
+| `source-and-relink-delivery` | Approval of a demonstrated source/replacement route with retained availability and applicable recipient rights | Exact-commit source, exact dependency sources/patches, usable rebuild/replacement and applicable installation instructions, independent recipient evidence and actual public-delivery record |
+| `inno-setup-commercial-use-basis` | Actual usage context and selected permissive basis or separately evidenced entitlement | Pinned 6.7.1 terms, current vendor guidance and dated owner determination; no inferred purchase or noncommercial classification |
 
 The policy schema is `dupez.license-policy.v1`. Each decision has only
 `id`, `state`, `determination`, `evidence`, and `required_owner_action`.
@@ -216,10 +268,13 @@ The engineering work still must:
   dependency source archives, patches, and relevant build inputs to the
   shipped binaries. A generic upstream link or moving branch is not an exact
   source mapping. Verify and retain availability of the selected source route.
-- Include applicable Qt and Chromium notices and source obligations, even
-  where the library is unmodified. Review the actual shipped components using
+- Complete the applicable notices, source and replacement obligations for the
+  actual retained Qt/native payload. The new frozen profile excludes browser,
+  QML and Qt Network payloads. Assess WebEngine/Chromium separately if they are
+  distributed through another source/development channel; absence from one
+  executable is not evidence about another distributed package. Review
   [Qt's GPL/LGPL obligations](https://www.qt.io/development/open-source-lgpl-obligations)
-  and the [Qt 6.11 WebEngine licensing map](https://doc.qt.io/qt-6.11/qtwebengine-licensing.html).
+  against the exact inventory and applicable terms.
 - Document and test how a recipient changes the application or a covered
   library, rebuilds/replaces the frozen copy, and runs that modified copy.
   Temporary DLL extraction by a onefile executable is not, by itself, proof of
@@ -229,8 +284,13 @@ The engineering work still must:
   `docs/legal/SOURCE_AND_RELINK_V5.8.0.md`. It invokes the packaging specs in a
   separate clone rather than the protected finalizer, which requires the
   production Ed25519 updater key even for unsigned releases. Do not distribute
-  that secret or weaken updater verification. The recipe is not yet tested;
-  a recipient rebuild is not an official update or release-approved artifact.
+  that secret or weaken updater verification. The recorded October 24
+  independent recipient tests establish their stated application/Python-library
+  scope. New-profile wheel reconstruction and clean builds add engineering
+  evidence, but do not establish retained native-library rebuild/replacement,
+  complete corresponding-source mapping or public delivery. Preserve the exact
+  checkpoint and scope of each test. A recipient rebuild is not an official
+  update or release-approved artifact.
 - Keep official DupeZ release publication on this runbook's protected finalizer
   and exact-byte validation sequence. Do not add a bypass flag to solve
   recipient rebuilding. This internal release process does not restrict
