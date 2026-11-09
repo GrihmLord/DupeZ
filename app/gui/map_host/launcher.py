@@ -37,13 +37,17 @@ import struct
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Callable, Iterable, Optional, Sequence
 
 from PyQt6.QtCore import QByteArray, QObject, QTimer, pyqtSignal
-from PyQt6.QtNetwork import QHostAddress, QTcpServer, QTcpSocket
+
+from app.core.qt_startup import qt_network_enabled
 
 from app.gui.map_host.renderer_tier import child_webengine_environment
 from app.logs.logger import log_error, log_info, log_warning
+
+if TYPE_CHECKING:
+    from PyQt6.QtNetwork import QTcpSocket
 
 
 # Resolve the child script path once at import time.
@@ -1335,6 +1339,10 @@ class MapHostClient(QObject):
             Callable[[str, int, str, int], int]
         ] = None,
     ) -> None:
+        if not qt_network_enabled():
+            raise RuntimeError("map-host child mode is excluded from the QtNetwork-free profile")
+        from PyQt6.QtNetwork import QTcpServer
+
         super().__init__(parent)
         self._server: QTcpServer = QTcpServer(self)
         self._server.newConnection.connect(self._on_new_connection)
@@ -1375,6 +1383,8 @@ class MapHostClient(QObject):
             log_warning(reason)
             self.connectionFailed.emit(reason)
             return False
+        from PyQt6.QtNetwork import QHostAddress
+
         self._hwnd = None
         self._expected_pid = None
         self._authenticated_buffer = b""

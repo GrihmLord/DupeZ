@@ -37,4 +37,7 @@ paths = [
 # themed manifest Microsoft has ever shipped and is not a secret.
 regexes = [
     '''6595b64144ccf1df''',  # pragma: allowlist secret
+    # Public MSI File-table identifiers in the pinned Microsoft runtime package.
+    # These exact DLL member names are not API keys or credentials.
+    '''^msvcp140(?:_1|_2)?\.dll_amd64$''',
 ]

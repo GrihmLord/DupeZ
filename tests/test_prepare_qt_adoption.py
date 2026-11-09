@@ -152,7 +152,7 @@ def test_installer_is_offline_and_checks_metadata_and_dependency_closure(tmp_pat
 
 def test_profile_sbom_distinguishes_derived_wheel_and_native_modules():
     result = adoption.profile_sbom([entry("pyqt6", "6.11.0", "b" * 64)],
-                                   {"qt_version": "6.11.3"}, "b" * 64, "5.8.0")
+                                   {"qt_version": "6.11.3", "profile": "frozen-raster"}, "b" * 64, "5.8.0")
     python = result["components"][0]
     assert python["version"] == "6.11.0"
     assert python["hashes"] == [{"alg": "SHA-256", "content": "b" * 64}]
@@ -306,3 +306,39 @@ def test_installation_receipt_requires_unchanged_generated_inputs(tmp_path, monk
         adoption.prepare(source, checksum, output, [], install=True)
     assert (output / "engineering-profile.json").is_file()
     assert not (output / "installation-receipt.json").exists()
+
+
+def test_no_network_adoption_binds_v4_receipt_and_records_exclusion_not_patch(tmp_path, monkeypatch):
+    msvc_manifest = json.loads((adoption.ROOT / "packaging/msvc-redist-inputs.json").read_bytes())
+    source, checksum, output, _wheel = _preparation_fixture(tmp_path, monkeypatch)
+    adoption.write_json(tmp_path / "packaging/msvc-redist-inputs.json", msvc_manifest)
+    manifest_path = tmp_path / "packaging/qt-raster-no-network-inputs.json"
+    manifest = json.loads((tmp_path / "packaging/qt-raster-inputs.json").read_bytes())
+    manifest.update(profile=adoption.candidate.NO_NETWORK_PROFILE, schema="dupez.qt-candidate-inputs.v4")
+    adoption.write_json(manifest_path, manifest)
+    receipt_path = source / "preparation-receipt.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    receipt.update(profile=adoption.candidate.NO_NETWORK_PROFILE, schema="dupez.qt-candidate-preparation.v4",
+                   manifest_sha256=adoption.sha256(manifest_path))
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    result = adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE)
+    assert result["profile"] == adoption.candidate.NO_NETWORK_PROFILE
+    assert result["candidate_manifest_sha256"] == adoption.sha256(manifest_path)
+    assert "excluded, not patched" in result["limitations"][1]
+    sbom = json.loads((output / "engineering.sbom.json").read_bytes())
+    assert {"name": "dupez:qt-network-payload", "value": "excluded-not-patched"} in sbom["metadata"]["properties"]
+    native = [row for row in sbom["components"] if row["type"] == "file"]
+    assert {row["name"]: row["hashes"][0]["content"] for row in native} == {
+        row["name"]: row["sha256"] for row in msvc_manifest["binaries"]}
+    assert all(any(p["value"] == "unresolved-owner-entitlement-and-applicable-terms" for p in row["properties"])
+               for row in native)
+    assert result["msvc_runtime_mapping"]["distribution_approved"] is False
+
+
+def test_no_network_adoption_rejects_old_raster_receipt_before_output(tmp_path, monkeypatch):
+    source, checksum, output, _wheel = _preparation_fixture(tmp_path, monkeypatch)
+    old = tmp_path / "packaging/qt-raster-inputs.json"
+    (tmp_path / "packaging/qt-raster-no-network-inputs.json").write_bytes(old.read_bytes())
+    with pytest.raises(ValueError, match="receipt"):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE)
+    assert not output.exists()

@@ -581,3 +581,74 @@ def test_prepare_rejects_valid_cross_profile_manifest_before_any_output(tmp_path
     with pytest.raises(ValueError, match="profile"):
         candidate.prepare(output, None, True, False, **kwargs)
     assert not (tmp_path / "build").exists()
+
+
+def test_no_network_manifest_preserves_inputs_and_excludes_all_native_dependents():
+    raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    local = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    assert local["schema"] == "dupez.qt-candidate-inputs.v4"
+    assert local["profile"] == candidate.NO_NETWORK_PROFILE
+    assert set(local["retained_bindings"]) == set(raster["retained_bindings"]) - {"QtNetwork"}
+    assert set(local["retained_plugins"]) == set(raster["retained_plugins"]) - candidate.NETWORK_PLUGINS
+    assert local["inputs"] == raster["inputs"]
+    assert local["translation_locales"] == raster["translation_locales"]
+
+
+def test_no_network_restriction_removes_dependents_and_preserves_retained_bytes(tmp_path):
+    manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    payloads = _profile_payloads(candidate.load_manifest())
+    definitions = {"PyQt6/QtNetwork.pyi", "PyQt6/bindings/QtNetwork/QtNetwork.toml"}
+    for name in definitions | {candidate.RASTER_EXCLUDED_UIC}:
+        payloads[name] = b"excluded development definition"
+    source, destination = tmp_path / "source.whl", tmp_path / "restricted.whl"
+    _write_recorded_wheel(source, payloads)
+    receipt = candidate.restrict_candidate_wheel(source, destination, manifest)
+    removed = candidate.RASTER_EXCLUDED_NATIVE | candidate.NETWORK_NATIVE | definitions | {candidate.RASTER_EXCLUDED_UIC}
+    assert set(receipt["removed_members"]) == removed
+    assert len(receipt["inventory"]["native_members"]) == 28
+    assert len(receipt["inventory"]["translations"]) == 33
+    with zipfile.ZipFile(destination) as archive:
+        assert all(archive.read(name) == body for name, body in payloads.items() if name not in removed)
+
+
+@pytest.mark.parametrize("name", sorted(candidate.NETWORK_NATIVE))
+def test_no_network_wheel_rejects_each_native_dependent_even_with_valid_record(tmp_path, name):
+    manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    payloads = {name: body for name, body in _profile_payloads(candidate.load_manifest()).items()
+                if name not in candidate.RASTER_EXCLUDED_NATIVE | candidate.NETWORK_NATIVE}
+    payloads[name] = b"substituted affected native payload"
+    wheel = tmp_path / "substituted.whl"
+    _write_recorded_wheel(wheel, payloads)
+    with pytest.raises(ValueError, match="native inventory"):
+        candidate.validate_candidate_wheel(wheel, manifest)
+
+
+@pytest.mark.parametrize("change", ["schema", "profile", "binding", *sorted(candidate.NETWORK_PLUGINS)])
+def test_no_network_manifest_cannot_restore_network_or_claim_another_profile(tmp_path, change):
+    manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    if change == "schema":
+        manifest["schema"] = "dupez.qt-candidate-inputs.v3"
+    elif change == "profile":
+        manifest["profile"] = "frozen-raster"
+    elif change == "binding":
+        manifest["retained_bindings"].append("QtNetwork")
+        manifest["excluded_bindings"].remove("QtNetwork")
+    else:
+        manifest["retained_plugins"].append(change)
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError):
+        candidate.load_manifest(path)
+
+
+def test_no_network_prepare_rejects_valid_raster_manifest_before_output(tmp_path, monkeypatch):
+    path = tmp_path / "wrong.json"
+    path.write_text(json.dumps(candidate.load_manifest(candidate.RASTER_MANIFEST)), encoding="utf-8")
+    monkeypatch.setattr(candidate, "ROOT", tmp_path)
+    monkeypatch.setattr(candidate, "NO_NETWORK_MANIFEST", path)
+    monkeypatch.setattr(candidate.sys, "platform", "win32")
+    monkeypatch.setattr(candidate.sys, "version_info", (3, 13))
+    monkeypatch.setattr(candidate, "fetch", lambda *_args: pytest.fail("unreviewed input fetched"))
+    with pytest.raises(ValueError, match="profile"):
+        candidate.prepare(tmp_path / "build/out", None, True, False, profile=candidate.NO_NETWORK_PROFILE)
+    assert not (tmp_path / "build").exists()

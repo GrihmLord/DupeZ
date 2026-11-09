@@ -33,6 +33,12 @@ def _load_validator():
 
 validator = _load_validator()
 CHECKS = ("runtime-imports", "native-tls")
+QT_PROFILES = ("legacy", "frozen-raster", "frozen-raster-no-qtnetwork")
+
+
+def _check_qt_profile(qt_profile: str) -> None:
+    if qt_profile not in QT_PROFILES:
+        raise ValueError("Unknown frozen Qt profile")
 
 
 def _check_token(variant: str, is_admin: bool) -> None:
@@ -42,7 +48,8 @@ def _check_token(variant: str, is_admin: bool) -> None:
         raise RuntimeError("GPU requires a standard token; Compat requires normal UAC elevation")
 
 
-def _read_report(path: Path, check: str) -> tuple[dict, str]:
+def _read_report(path: Path, check: str, *, qt_profile: str = "legacy") -> tuple[dict, str]:
+    _check_qt_profile(qt_profile)
     metadata = validator._assert_regular_non_reparse_file(path, require_single_link=True)
     if metadata.st_size > 4096:
         raise RuntimeError("Maintenance report exceeds its bounded schema")
@@ -53,9 +60,13 @@ def _read_report(path: Path, check: str) -> tuple[dict, str]:
     report = json.loads(payload)
     expected = {"check": check, "ok": True}
     if check == "native-tls":
-        expected.update(backend="schannel", available_backends=["schannel"], supports_ssl=True)
-    if (not isinstance(report, dict) or report != expected or report.get("ok") is not True
-            or (check == "native-tls" and report.get("supports_ssl") is not True)):
+        if qt_profile == "frozen-raster-no-qtnetwork":
+            expected.update(backend="python-ssl", qt_network="excluded",
+                            check_hostname=True, verify_mode="CERT_REQUIRED")
+        else:
+            expected.update(backend="schannel", available_backends=["schannel"], supports_ssl=True)
+    if (not isinstance(report, dict) or report != expected
+            or any(report.get(key) is not True for key, value in expected.items() if value is True)):
         raise RuntimeError("Maintenance report did not match the required successful check")
     return report, hashlib.sha256(payload).hexdigest()
 
@@ -73,7 +84,9 @@ def _alive_owned(identities: set[tuple[int, float]]) -> list[psutil.Process]:
     return result
 
 
-def _run_check(executable: Path, root: Path, check: str, timeout: int) -> dict:
+def _run_check(executable: Path, root: Path, check: str, timeout: int,
+               *, qt_profile: str = "legacy") -> dict:
+    _check_qt_profile(qt_profile)
     if check not in CHECKS:
         raise ValueError("Unsupported maintenance operation")
     report_path = root / f"{check}.json"
@@ -101,7 +114,7 @@ def _run_check(executable: Path, root: Path, check: str, timeout: int) -> dict:
             raise RuntimeError(f"Maintenance process failed with exit code {process.returncode}")
         if _alive_owned(identities):
             raise RuntimeError("Maintenance child process remained after its parent exited")
-        report, report_hash = _read_report(report_path, check)
+        report, report_hash = _read_report(report_path, check, qt_profile=qt_profile)
         return {"check": check, "exit_code": process.returncode, "report": report,
                 "report_sha256": report_hash,
                 "observed_processes": len(identities), "observed_processes_exited": True}
@@ -122,7 +135,8 @@ def _run_check(executable: Path, root: Path, check: str, timeout: int) -> dict:
 
 
 def run(*, executable: Path, expected_sha256: str, variant: str, output_directory: Path,
-        timeout: int = 60) -> dict:
+        timeout: int = 60, qt_profile: str = "legacy") -> dict:
+    _check_qt_profile(qt_profile)
     if sys.platform != "win32":
         raise RuntimeError("Frozen maintenance validation requires Windows")
     if not re.fullmatch(r"[0-9a-f]{64}", expected_sha256) or not 1 <= timeout <= 180:
@@ -140,11 +154,13 @@ def run(*, executable: Path, expected_sha256: str, variant: str, output_director
         root.mkdir()  # Exclusive: never reuse profiles or overwrite prior evidence.
         validator._harden_private_directory(root)
         (root / "temp").mkdir()
-        records = [_run_check(executable, root, check, timeout) for check in CHECKS]
+        records = [_run_check(executable, root, check, timeout, qt_profile=qt_profile)
+                   for check in CHECKS]
         evidence = {
             "schema": "dupez.local-frozen-maintenance.v1", "variant": variant,
             "artifact": {"name": executable.name, "sha256": expected_sha256, "size": metadata.st_size},
             "runner_is_admin": is_admin, "checks": records,
+            "qt_build_profile": qt_profile,
             "scope": "maintenance imports and local TLS backend only",
             "release_approval": False, "dashboard_tested": False, "network_tested": False,
         }
@@ -161,9 +177,11 @@ def main() -> int:
     parser.add_argument("--variant", choices=("GPU", "Compat"), required=True)
     parser.add_argument("--output-directory", type=Path, required=True)
     parser.add_argument("--timeout", type=int, default=60)
+    parser.add_argument("--qt-profile", choices=QT_PROFILES, default="legacy")
     args = parser.parse_args()
     result = run(executable=args.executable, expected_sha256=args.sha256, variant=args.variant,
-                 output_directory=args.output_directory, timeout=args.timeout)
+                 output_directory=args.output_directory, timeout=args.timeout,
+                 qt_profile=args.qt_profile)
     print(json.dumps(result, sort_keys=True))
     return 0
 

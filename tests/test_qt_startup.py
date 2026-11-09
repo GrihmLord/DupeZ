@@ -6,6 +6,7 @@ import ast
 import os
 from pathlib import Path
 from types import SimpleNamespace
+import sys
 
 import pytest
 
@@ -173,6 +174,37 @@ def test_qt_argv_returns_a_private_copy() -> None:
 
     assert normalized == original
     assert normalized is not original
+
+
+@pytest.mark.parametrize("profile,expected", [
+    ("legacy", True), ("frozen-raster", True), ("frozen-raster-no-qtnetwork", False),
+])
+@pytest.mark.parametrize("environment", ["legacy", "frozen-raster-no-qtnetwork", "unknown"])
+def test_frozen_network_policy_uses_compiled_profile_not_environment(
+    monkeypatch, profile, expected, environment,
+) -> None:
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setenv("DUPEZ_QT_BUILD_PROFILE", environment)
+    monkeypatch.setenv("DUPEZ_QT_PROFILE", environment)
+    monkeypatch.setitem(sys.modules, "app.firewall_helper._build_default",
+                        SimpleNamespace(_BUILD_QT_PROFILE=profile))
+    assert qt_startup.qt_network_enabled() is expected
+
+
+@pytest.mark.parametrize("compiled", [None, SimpleNamespace(), SimpleNamespace(_BUILD_QT_PROFILE="unknown")])
+def test_frozen_network_policy_rejects_missing_or_unknown_compiled_profile(monkeypatch, compiled):
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setenv("DUPEZ_QT_BUILD_PROFILE", "legacy")
+    monkeypatch.setitem(sys.modules, "app.firewall_helper._build_default", compiled)
+    with pytest.raises(RuntimeError, match="frozen Qt build profile"):
+        qt_startup.qt_network_enabled()
+
+
+def test_source_network_policy_does_not_import_frozen_build_metadata(monkeypatch):
+    monkeypatch.delattr(sys, "frozen", raising=False)
+    monkeypatch.setenv("DUPEZ_QT_BUILD_PROFILE", "frozen-raster-no-qtnetwork")
+    monkeypatch.setitem(sys.modules, "app.firewall_helper._build_default", None)
+    assert qt_startup.qt_network_enabled() is True
 
 
 @pytest.mark.parametrize(

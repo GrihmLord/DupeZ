@@ -1051,9 +1051,11 @@ def test_map_host_frozen_runtime_fails_before_listen_or_spawn(monkeypatch) -> No
     from PyQt6.QtCore import QCoreApplication
 
     from app.gui.map_host import launcher
+    from app.firewall_helper import _build_default
 
     QCoreApplication.instance() or QCoreApplication([])
     monkeypatch.setattr(launcher.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(_build_default, "_BUILD_QT_PROFILE", "legacy", raising=False)
     monkeypatch.setattr(
         launcher,
         "_spawn_unelevated",

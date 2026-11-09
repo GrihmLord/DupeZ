@@ -9,6 +9,7 @@ from collections.abc import MutableMapping, Sequence
 __all__ = [
     "is_qt_graphics_override",
     "normalized_qt_argv",
+    "qt_network_enabled",
     "sanitize_frozen_qt_graphics_environment",
     "shared_opengl_contexts_enabled",
 ]
@@ -68,6 +69,26 @@ def shared_opengl_contexts_enabled() -> bool:
     the browser or probing native graphics to make this startup decision.
     """
     return not bool(getattr(sys, "frozen", False))
+
+
+def qt_network_enabled() -> bool:
+    """Use the compiled frozen profile, never inherited build environment.
+
+    Source launches retain optional browser networking. A frozen profile must
+    identify itself explicitly: missing or unknown build metadata cannot select
+    a different maintenance contract or silently restore excluded components.
+    """
+    if not getattr(sys, "frozen", False):
+        return True
+    try:
+        from app.firewall_helper._build_default import _BUILD_QT_PROFILE
+    except ImportError as exc:
+        raise RuntimeError("The frozen Qt build profile is unavailable") from exc
+    if _BUILD_QT_PROFILE not in {
+        "legacy", "frozen-raster", "frozen-raster-no-qtnetwork",
+    }:
+        raise RuntimeError("The frozen Qt build profile is unknown")
+    return _BUILD_QT_PROFILE != "frozen-raster-no-qtnetwork"
 
 
 def normalized_qt_argv(

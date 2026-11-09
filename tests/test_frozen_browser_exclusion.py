@@ -130,10 +130,12 @@ def _build_function_namespace(analysis, events):
         "configured_qt_build_profile": policy.configured_qt_build_profile,
         "validate_frozen_raster_payload": policy.validate_frozen_raster_payload,
         "FROZEN_RASTER_EXCLUDES": policy.FROZEN_RASTER_EXCLUDES,
+        "FROZEN_QTNETWORK_EXCLUDES": policy.FROZEN_QTNETWORK_EXCLUDES,
+        "NO_QTNETWORK_PROFILE": policy.NO_QTNETWORK_PROFILE,
         "_configure_build_analysis_state": lambda: events.append("configure"),
         "configure_windows_analysis_environment": lambda: "system",
-        "_write_build_default": lambda _variant: events.append("write-default"),
-        "_binaries": lambda: [], "_datas": lambda: [], "_hidden_imports": lambda: [],
+        "_write_build_default": lambda _variant, **_kw: events.append("write-default"),
+        "_binaries": lambda: [], "_datas": lambda: [], "_hidden_imports": lambda **_kw: [],
         "_excludes": lambda: list(policy.FROZEN_BROWSER_EXCLUDES),
         "os": os, "ROOT": str(ROOT), "HERE": str(ROOT / "packaging"),
         "BLOCK_CIPHER": None, "Analysis": analysis,
@@ -182,7 +184,7 @@ def test_final_archive_unknown_profile_fails_before_archive_access():
         archive_reader_cls=lambda _path: pytest.fail("Archive was opened"),
         release_data_names=set(), release_binary_expectations={},
     )
-    assert errors == ["Unknown Qt build profile; expected legacy or frozen-raster"]
+    assert len(errors) == 1 and errors[0].startswith("Unknown Qt build profile")
 
 
 @pytest.mark.parametrize("profile", [None, "legacy", "frozen-raster"])
@@ -234,6 +236,9 @@ def test_both_builds_share_explicit_exclusions_and_no_required_webengine_import(
     tree = ast.parse((ROOT / "packaging/build_common.py").read_text(encoding="utf-8"))
     methods = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in {"_hidden_imports", "_excludes"}]
     ns = {"FROZEN_BROWSER_EXCLUDES": policy.FROZEN_BROWSER_EXCLUDES,
+          "FROZEN_QTNETWORK_EXCLUDES": policy.FROZEN_QTNETWORK_EXCLUDES,
+          "NO_QTNETWORK_PROFILE": policy.NO_QTNETWORK_PROFILE,
+          "validate_qt_build_profile": policy.validate_qt_build_profile,
           "collect_submodules": lambda package, filter: [name for name in ["app.gui.map_host.host", "app.gui.lazy_dayz_map"] if filter(name)]}
     exec(compile(ast.Module(body=methods, type_ignores=[]), "build-functions", "exec"), ns)
     assert set(policy.FROZEN_BROWSER_EXCLUDES) <= set(ns["_excludes"]())

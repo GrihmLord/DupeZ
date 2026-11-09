@@ -18,6 +18,18 @@ import stat
 import sys
 import zlib
 
+_POLICY_DIRECTORY = str(Path(__file__).resolve().parents[1] / "packaging")
+sys.path.insert(0, _POLICY_DIRECTORY)
+try:
+    from native_runtime_policy import (
+        NO_QTNETWORK_PROFILE, QT_BUILD_PROFILES, excluded_qtnetwork_payloads,
+        validate_compiled_qt_profile, validate_frozen_raster_payload,
+        validate_no_qtnetwork_pe, validate_qt_build_profile,
+        validate_msvc_redist_rows,
+    )
+finally:
+    sys.path.remove(_POLICY_DIRECTORY)
+
 
 SCHEMA = "dupez.native-build-observation.v1"
 _FORBIDDEN = {"qopensslbackend.dll", "qcertonlybackend.dll"}
@@ -117,13 +129,25 @@ def _archive_prefix(artifact: Path, archive, metadata: tuple) -> bytes:
 def inspect_native_build(
     *, artifact: Path, manifest: Path, source_root: Path, build_venv: Path,
     python_base: Path, system_directory: Path | None = None, archive_reader_cls=None,
+    qt_profile: str = "legacy",
 ) -> dict:
     """Compare every final native entry to its recorded and approved source."""
+    validate_qt_build_profile(qt_profile)
+    no_network = qt_profile == NO_QTNETWORK_PROFILE
+    tls_policy = "qt-network-excluded" if no_network else "schannel-only"
     initial_artifact = _fingerprint(artifact)
     initial_manifest = _fingerprint(manifest)
     payload = _json(manifest)
-    if payload.get("schema") != "dupez.native-binary-origins.v1" or payload.get("qt_tls_policy") != "schannel-only":
+    if payload.get("schema") != "dupez.native-binary-origins.v1" or payload.get("qt_tls_policy") != tls_policy:
         raise ValueError("Unsupported native collection manifest")
+    if payload.get("qt_build_profile", "legacy") != qt_profile:
+        raise ValueError("Native collection manifest differs from requested Qt profile")
+    redist_fingerprint = None
+    if no_network:
+        redist_path = source_root / "packaging/msvc-redist-inputs.json"
+        redist_fingerprint = _fingerprint(redist_path)
+        if payload.get("msvc_redist_manifest_sha256") != redist_fingerprint["sha256"]:
+            raise ValueError("MSVC redistributable manifest differs from build pin")
     rows = payload.get("binaries")
     if not isinstance(rows, list) or not rows or len(rows) > 10000:
         raise ValueError("Invalid native collection inventory")
@@ -199,8 +223,17 @@ def inspect_native_build(
             native_entries[name] = entry
     if set(reported) != set(native_entries):
         raise ValueError("Final native archive inventory differs from provenance")
-    if not declared_managed.issubset(reported) or not {_SCHANNEL, *_TLS_DLLS}.issubset(reported):
+    required_tls = _TLS_DLLS if no_network else {_SCHANNEL, *_TLS_DLLS}
+    if not declared_managed.issubset(reported) or not required_tls.issubset(reported):
         raise ValueError("Frozen payload is missing a required managed or TLS dependency")
+    validate_frozen_raster_payload(entries, qt_profile=qt_profile)
+    if no_network:
+        pyz_keys = [key for key in archive.toc if _destination(key) == "pyz.pyz"]
+        if len(pyz_keys) != 1:
+            raise ValueError("Frozen archive must contain exactly one PYZ.pyz")
+        embedded = archive.open_embedded_archive(pyz_keys[0])
+        validate_compiled_qt_profile(embedded, qt_profile=qt_profile)
+        validate_frozen_raster_payload(embedded.toc, qt_profile=qt_profile)
 
     origins = Counter()
     manifest_records = []
@@ -211,7 +244,8 @@ def inspect_native_build(
         if "/plugins/tls/" in name and name != _SCHANNEL:
             raise ValueError("Unreviewed Qt TLS plugin in final native payload")
         raw_name, metadata = native_entries[name]
-        if metadata[-1] != "b" or type(metadata[2]) is not int or metadata[2] < 0 or metadata[2] > 1024 * 1024 * 1024:
+        native_size_limit = (256 if no_network else 1024) * 1024 * 1024
+        if metadata[-1] != "b" or type(metadata[2]) is not int or metadata[2] < 0 or metadata[2] > native_size_limit:
             raise ValueError("Native archive entry has an invalid type or size")
         extracted = archive.extract(raw_name)
         if not isinstance(extracted, bytes) or len(extracted) != metadata[2]:
@@ -219,6 +253,10 @@ def inspect_native_build(
         digest = hashlib.sha256(extracted).hexdigest()
         if digest != row["sha256"]:
             raise ValueError("Final native archive bytes differ from provenance")
+        if no_network:
+            if excluded_qtnetwork_payloads((row["source"],)):
+                raise ValueError("Excluded Qt Network native source")
+            validate_no_qtnetwork_pe(extracted)
         if name in managed:
             expected = managed[name]
             original = source_root / expected["path"]
@@ -249,6 +287,9 @@ def inspect_native_build(
         raise ValueError("Artifact or provenance changed during inspection")
     if _fingerprint(provenance_path) != provenance_fingerprint or _fingerprint(release_path) != release_fingerprint:
         raise ValueError("Managed-native source provenance changed during inspection")
+    if no_network:
+        if validate_msvc_redist_rows(manifest_records, redist_path) != redist_fingerprint["sha256"]:
+            raise ValueError("MSVC redistributable manifest changed during inspection")
     inventory_bytes = json.dumps(sorted(manifest_records, key=lambda row: row["destination"]), sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {
         "schema": SCHEMA,
@@ -257,7 +298,9 @@ def inspect_native_build(
         "collection_manifest": {"size": initial_manifest["size"], "sha256": initial_manifest["sha256"]},
         "managed_source_provenance_sha256": provenance_fingerprint["sha256"],
         "release_data_sha256": release_fingerprint["sha256"],
-        "qt_tls_policy": "schannel-only",
+        "qt_tls_policy": tls_policy,
+        "qt_build_profile": qt_profile,
+        **({"msvc_redist_manifest_sha256": redist_fingerprint["sha256"]} if no_network else {}),
         "native_entry_count": len(reported),
         "origin_counts": dict(sorted(origins.items())),
         "native_inventory_sha256": hashlib.sha256(inventory_bytes).hexdigest(),
@@ -275,10 +318,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("artifact", "manifest", "source-root", "build-venv", "python-base", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--qt-profile", choices=QT_BUILD_PROFILES, default="legacy")
     args = parser.parse_args()
     try:
         payload = inspect_native_build(artifact=args.artifact, manifest=args.manifest, source_root=args.source_root,
-                                       build_venv=args.build_venv, python_base=args.python_base)
+                                       build_venv=args.build_venv, python_base=args.python_base,
+                                       qt_profile=args.qt_profile)
         output = Path(os.path.abspath(args.output))
         for parent in (output.parent, *output.parent.parents):
             metadata = parent.lstat()

@@ -30,8 +30,12 @@ sys.path.insert(0, _PACKAGING_MODULE_DIR)
 try:
     from native_runtime_policy import (
         QT_BUILD_PROFILES,
+        NO_QTNETWORK_PROFILE,
         excluded_browser_payloads,
         excluded_frozen_raster_payloads,
+        excluded_qtnetwork_payloads,
+        validate_compiled_qt_profile,
+        validate_no_qtnetwork_pe,
         validate_qt_build_profile,
     )
     from release_data import (
@@ -514,6 +518,10 @@ def _check_native_collection_policy() -> list[str]:
             "validate_frozen_raster_payload(",
             "list(FROZEN_RASTER_EXCLUDES)",
             '"qt_build_profile": qt_profile',
+            "_BUILD_QT_PROFILE = {qt_profile!r}",
+            "_write_build_default(variant, qt_profile=qt_profile)",
+            "validate_msvc_redist_rows(",
+            '"msvc_redist_manifest_sha256"',
             "configure_windows_analysis_environment()",
             'hookspath=[os.path.join(HERE, "hooks")]',
             "a.binaries = validate_windows_tls_binaries(",
@@ -532,6 +540,8 @@ def _check_native_collection_policy() -> list[str]:
             "Unreviewed ambient native dependency", "Unreviewed OpenSSL DLL",
             '"DUPEZ_QT_BUILD_PROFILE"', '"frozen-raster"',
             "Excluded frozen-raster payload",
+            '"frozen-raster-no-qtnetwork"', "Excluded Qt Network payload",
+            "validate_no_qtnetwork_pe", "validate_compiled_qt_profile",
         ),
     }
     errors = []
@@ -1598,6 +1608,7 @@ def _check_frozen_dependency_policy(
             inner_names = {
                 _normalise_frozen_name(name) for name in embedded.toc
             }
+            validate_compiled_qt_profile(embedded, qt_profile=qt_profile)
         except Exception as exc:
             errors.append(
                 f"cannot inspect frozen archive {artifact.name}: {exc}"
@@ -1609,11 +1620,34 @@ def _check_frozen_dependency_policy(
             errors.append(
                 f"excluded embedded browser/QML payload in {artifact.name}: {unexpected}"
             )
-        if qt_profile == "frozen-raster":
+        if qt_profile != "legacy":
             for unexpected in excluded_frozen_raster_payloads([*archive.toc, *embedded.toc]):
                 errors.append(
                     f"excluded frozen-raster payload in {artifact.name}: {unexpected}"
                 )
+        if qt_profile == NO_QTNETWORK_PROFILE:
+            from scripts.native_build_evidence import _archive_prefix
+
+            for unexpected in excluded_qtnetwork_payloads([*archive.toc, *embedded.toc]):
+                errors.append(f"excluded Qt Network payload in {artifact.name}: {unexpected}")
+            if not {"libssl-3.dll", "libcrypto-3.dll"}.issubset(outer_entries):
+                errors.append(f"required Python OpenSSL DLL pair missing in {artifact.name}")
+            for raw_name, metadata in archive.toc.items():
+                try:
+                    suffix = PurePosixPath(str(raw_name).replace("\\", "/")).suffix.casefold()
+                    native = suffix in {".dll", ".exe", ".sys", ".pyd", ".ocx", ".cpl", ".drv"}
+                    if not native and isinstance(metadata, tuple) and len(metadata) >= 5 and metadata[-1] in {"b", "x"}:
+                        native = _archive_prefix(artifact, archive, metadata) == b"MZ"
+                    if not native:
+                        continue
+                    if not isinstance(metadata, tuple) or len(metadata) < 5 or type(metadata[2]) is not int or not 64 <= metadata[2] <= 256 * 1024 * 1024:
+                        raise ValueError("Invalid native PE archive size")
+                    data = archive.extract(raw_name)
+                    if not isinstance(data, bytes) or len(data) != metadata[2]:
+                        raise ValueError("Native PE archive extraction size mismatch")
+                    validate_no_qtnetwork_pe(data)
+                except (ValueError, OSError, RuntimeError) as exc:
+                    errors.append(f"Qt Network native exclusion failed in {artifact.name}: {exc}")
         for forbidden_path in _FORBIDDEN_FROZEN_PATHS:
             if forbidden_path in outer_entries:
                 errors.append(
@@ -3097,7 +3131,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.qt_profile != "legacy" and not args.frozen_artifact:
-        parser.error("--qt-profile frozen-raster requires --frozen-artifact")
+        parser.error("--qt-profile engineering profiles require --frozen-artifact")
 
     if args.license_distribution:
         if args.dist or args.frozen_artifact:

@@ -47,6 +47,14 @@ LIMITATIONS = [
 ]
 
 
+def profile_limitations(profile: str) -> list[str]:
+    limitations = list(LIMITATIONS)
+    if profile == candidate.NO_NETWORK_PROFILE:
+        limitations[1] = ("The affected QtNetwork payload is excluded, not patched; upstream Qt 6.11.3 "
+                          "and source-development environments remain affected. Other native/source gaps remain open.")
+    return limitations
+
+
 def sha256(path: Path) -> str:
     candidate.ordinary_path(path, file=True)
     with path.open("rb") as stream:
@@ -200,9 +208,13 @@ def stage_wheels(entries: list[LockedEntry], caches: list[Path], wheelhouse: Pat
     return [staged[name] for name in sorted(staged)], sorted(set(expected) - staged.keys())
 
 
-def profile_sbom(entries: list[LockedEntry], manifest: dict, wheel_hash: str, product_version: str) -> dict:
+def profile_sbom(entries: list[LockedEntry], manifest: dict, wheel_hash: str, product_version: str,
+                 *, msvc_manifest: dict | None = None) -> dict:
     result = sbom.build_sbom(entries, product_version=product_version)
     result["metadata"]["properties"].append({"name": "dupez:engineering-only", "value": "true"})
+    result["metadata"]["properties"].append({"name": "dupez:qt-profile", "value": manifest["profile"]})
+    if manifest["profile"] == candidate.NO_NETWORK_PROFILE:
+        result["metadata"]["properties"].append({"name": "dupez:qt-network-payload", "value": "excluded-not-patched"})
     for component in result["components"]:
         if component["name"] == "pyqt6":
             component["externalReferences"] = [{"type": "build-meta", "url": "https://github.com/GrihmLord/DupeZ"}]
@@ -217,6 +229,19 @@ def profile_sbom(entries: list[LockedEntry], manifest: dict, wheel_hash: str, pr
             "bom-ref": f"pkg:generic/qt/{name}@{manifest['qt_version']}",
             "purl": f"pkg:generic/qt/{name}@{manifest['qt_version']}",
             "properties": [{"name": "dupez:scope", "value": "source module for bundled native payload; transitive inventory incomplete"}]})
+    if msvc_manifest is not None:
+        for binary in msvc_manifest["binaries"]:
+            result["components"].append({
+                "type": "file", "name": binary["name"], "version": msvc_manifest["package"]["version"],
+                "bom-ref": "file:msvc-redist/" + binary["name"],
+                "hashes": [{"alg": "SHA-256", "content": binary["sha256"]}],
+                "externalReferences": [{"type": "distribution", "url": msvc_manifest["package"]["url"]}],
+                "properties": [
+                    {"name": "dupez:upstream-package-sha256", "value": msvc_manifest["package"]["sha256"]},
+                    {"name": "dupez:redistribution-basis", "value": "unresolved-owner-entitlement-and-applicable-terms"},
+                    {"name": "dupez:license-context", "value": msvc_manifest["license_reference"]["redistribution_list"]},
+                ],
+            })
     return result
 
 
@@ -264,7 +289,9 @@ print('Engineering notice payload verified:',len(payload['documents']),'document
 
 
 def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches: list[Path],
-            *, install: bool = False, product_version: str = "5.8.0") -> dict:
+            *, install: bool = False, product_version: str = "5.8.0", profile: str = "frozen-raster") -> dict:
+    if profile not in {"frozen-raster", candidate.NO_NETWORK_PROFILE}:
+        raise ValueError("Unreviewed engineering Qt profile")
     candidate_root = candidate.ordinary_path(candidate_root)
     output = candidate.ordinary_path(output, missing=True)
     if not output.is_relative_to(ROOT / "build") or output.exists():
@@ -273,7 +300,8 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
         raise ValueError("Invalid independent wheel SHA256")
     if not re.fullmatch(r"\d+\.\d+\.\d+", product_version):
         raise ValueError("Invalid engineering product version")
-    manifest_path = ROOT / "packaging/qt-raster-inputs.json"
+    manifest_path = ROOT / "packaging" / ("qt-raster-no-network-inputs.json" if profile == candidate.NO_NETWORK_PROFILE
+                                        else "qt-raster-inputs.json")
     manifest, manifest_hash = candidate.load_manifest_snapshot(manifest_path)
     receipt_path = candidate.ordinary_path(candidate_root / "preparation-receipt.json", file=True)
     if receipt_path.stat().st_size > 2 * 1024 * 1024:
@@ -281,8 +309,9 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     receipt_bytes = receipt_path.read_bytes()
     receipt_hash = hashlib.sha256(receipt_bytes).hexdigest()
     receipt = json.loads(receipt_bytes)
-    if (manifest.get("profile") != "frozen-raster" or receipt.get("profile") != "frozen-raster"
-            or receipt.get("schema") != "dupez.qt-candidate-preparation.v3"
+    expected_receipt_schema = candidate.PROFILE_SCHEMAS[profile].replace("inputs", "preparation")
+    if (manifest.get("profile") != profile or receipt.get("profile") != profile
+            or receipt.get("schema") != expected_receipt_schema
             or receipt.get("status") != "candidate-wheel-prepared" or receipt.get("manifest_sha256") != manifest_hash
             or receipt.get("wheel", {}).get("sha256") != expected_wheel_hash):
         raise ValueError("Unreviewed frozen raster preparation receipt")
@@ -301,6 +330,15 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
         receipt_path: {"size": len(receipt_bytes), "sha256": receipt_hash},
         wheel: {"size": wheel.stat().st_size, "sha256": expected_wheel_hash},
     }
+    msvc_manifest = None
+    if profile == candidate.NO_NETWORK_PROFILE:
+        msvc_path = ROOT / "packaging/msvc-redist-inputs.json"
+        input_pins[msvc_path] = input_pin(msvc_path)
+        msvc_manifest = json.loads(msvc_path.read_bytes(), object_pairs_hook=candidate._unique_object)
+        if (msvc_manifest.get("schema") != "dupez.msvc-redist-inputs.v1"
+                or msvc_manifest.get("distribution_approved") is not False
+                or msvc_manifest.get("release_approved") is not False):
+            raise ValueError("Unreviewed Microsoft runtime source mapping")
     runtime = effective_runtime(parse_release_lock_entries(runtime_path), manifest["binding_version"], expected_wheel_hash)
     build_entries = parse_release_lock_entries(build_path)
     inventory = json.loads(inventory_path.read_bytes())
@@ -334,15 +372,16 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     write_json(output / "packaging/third-party-components.json", inventory)
     source_info = output / "docs/legal/SOURCE_AND_RELINK_V5.8.0.md"
     source_info.parent.mkdir(parents=True)
-    source_info.write_text("# Engineering Qt source and notice review\n\n" + "\n".join(f"- {line}" for line in LIMITATIONS)
+    limitations = profile_limitations(profile)
+    source_info.write_text("# Engineering Qt source and notice review\n\n" + "\n".join(f"- {line}" for line in limitations)
                            + "\n\nExact input archives and copied notice digests are recorded in engineering-profile.json.\n",
                            encoding="utf-8")
     license_payload._load_inventory(output, output / "packaging/third-party-components.json")
     staged, missing = stage_wheels([*runtime, *build_entries], caches, output / "wheelhouse")
     verify_unchanged_inputs(input_pins)
-    result = {"schema": "dupez.qt-engineering-profile.v1", "profile": "frozen-raster",
+    result = {"schema": "dupez.qt-engineering-profile.v1", "profile": profile,
               "production_locks_changed": False, "release_approved": False, "source_delivery_approved": False,
-              "scope": "isolated engineering dependency/build/notices profile", "limitations": LIMITATIONS,
+              "scope": "isolated engineering dependency/build/notices profile", "limitations": limitations,
               "base_inputs": {path.relative_to(ROOT).as_posix(): pin["sha256"] for path, pin in base_pins.items()},
               "candidate_manifest_sha256": manifest_hash, "preparation_receipt_sha256": receipt_hash,
               "candidate_wheel": {"path": "wheelhouse/" + wheel.name, "sha256": expected_wheel_hash},
@@ -350,8 +389,13 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
               "effective_runtime_lock_sha256": sha256(output / "requirements-locked.txt"),
               "effective_inventory_sha256": sha256(output / "packaging/third-party-components.json"),
               "source_notices": source_notices, "wheelhouse": staged, "missing_wheels": missing}
+    if msvc_manifest is not None:
+        result["msvc_runtime_mapping"] = {"manifest_sha256": input_pins[msvc_path]["sha256"],
+                                          "package": msvc_manifest["package"],
+                                          "binaries": msvc_manifest["binaries"], "distribution_approved": False}
     write_json(output / "engineering-profile.json", result)
-    write_json(output / "engineering.sbom.json", profile_sbom(runtime, manifest, expected_wheel_hash, product_version))
+    write_json(output / "engineering.sbom.json", profile_sbom(runtime, manifest, expected_wheel_hash, product_version,
+                                                             msvc_manifest=msvc_manifest))
     if install:
         if missing:
             raise ValueError("Offline wheel cache is incomplete: " + ", ".join(missing))
@@ -374,9 +418,10 @@ def main() -> int:
     parser.add_argument("--wheel-cache", type=Path, action="append", default=[])
     parser.add_argument("--install-build-env", action="store_true")
     parser.add_argument("--product-version", default="5.8.0")
+    parser.add_argument("--profile", choices=("frozen-raster", candidate.NO_NETWORK_PROFILE), default="frozen-raster")
     args = parser.parse_args()
     result = prepare(args.candidate_root, args.expected_wheel_sha256, args.output, args.wheel_cache,
-                     install=args.install_build_env, product_version=args.product_version)
+                     install=args.install_build_env, product_version=args.product_version, profile=args.profile)
     print(json.dumps({"runtime_distributions": result["runtime_distribution_count"],
                       "missing_wheels": result["missing_wheels"], "release_approved": False}))
     return 0

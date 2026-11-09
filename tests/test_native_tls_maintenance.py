@@ -1,9 +1,12 @@
 """Exercise launcher TLS maintenance without importing Qt or launching DupeZ."""
 
 import ast
+import builtins
+import importlib.util
 import json
 from pathlib import Path
 import stat
+import ssl
 import sys
 from types import SimpleNamespace
 
@@ -18,7 +21,8 @@ def launcher():
     source = (ROOT / "dupez.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
-    namespace = {"sys": SimpleNamespace(platform="win32", argv=[], exit=sys.exit)}
+    namespace = {"sys": SimpleNamespace(platform="win32", argv=[], exit=sys.exit),
+                 "qt_network_enabled": lambda: True}
     exec(compile(ast.Module(body=functions, type_ignores=[]), "dupez-functions", "exec"), namespace)
     return namespace
 
@@ -79,6 +83,52 @@ def test_probe_does_not_delete_an_existing_core_application(launcher, qt):
     assert qt.created == qt.deleted == []
 
 
+@pytest.fixture
+def without_qt_network(launcher, monkeypatch):
+    launcher["qt_network_enabled"] = lambda: False
+    discoveries = []
+
+    def absent(name):
+        discoveries.append(name)
+        assert name == "PyQt6.QtNetwork"
+        return None
+
+    monkeypatch.setattr(importlib.util, "find_spec", absent)
+    return discoveries
+
+
+def test_no_network_profile_checks_real_python_tls_defaults_without_qt(launcher, without_qt_network, qt):
+    assert launcher["_verify_native_tls"]() == {
+        "backend": "python-ssl", "qt_network": "excluded",
+        "check_hostname": True, "verify_mode": "CERT_REQUIRED",
+    }
+    assert without_qt_network == ["PyQt6.QtNetwork"]
+    assert qt.created == qt.deleted == []
+
+
+def test_no_network_profile_rejects_discoverable_qt_network_before_tls(
+    launcher, without_qt_network, monkeypatch,
+):
+    monkeypatch.setattr(importlib.util, "find_spec", lambda _name: object())
+    monkeypatch.setattr(ssl, "create_default_context", lambda: pytest.fail("must reject unexpected binding first"))
+    with pytest.raises(RuntimeError, match="QtNetwork is present"):
+        launcher["_verify_native_tls"]()
+
+
+@pytest.mark.parametrize("hostname,verify_mode", [
+    (False, ssl.CERT_REQUIRED), (1, ssl.CERT_REQUIRED), (True, ssl.CERT_NONE),
+    (True, ssl.CERT_OPTIONAL),
+])
+def test_no_network_profile_rejects_unverified_python_tls_defaults(
+    launcher, without_qt_network, monkeypatch, hostname, verify_mode,
+):
+    monkeypatch.setattr(ssl, "create_default_context", lambda: SimpleNamespace(
+        check_hostname=hostname, verify_mode=verify_mode,
+    ))
+    with pytest.raises(RuntimeError, match="certificate verification defaults"):
+        launcher["_verify_native_tls"]()
+
+
 @pytest.mark.parametrize("field,value", [
     ("available", []), ("available", ["openssl"]),
     ("available", ["schannel", "openssl"]),
@@ -130,6 +180,21 @@ def test_native_tls_flag_records_bounded_safe_fields(launcher, qt, tmp_path):
     assert messages == ["[dupez] native TLS backend verified: schannel\n"]
 
 
+def test_no_network_tls_flag_records_its_explicit_contract(
+    launcher, without_qt_network, qt, tmp_path,
+):
+    report, messages = _capture_dispatch(launcher, tmp_path)
+    with pytest.raises(SystemExit) as caught:
+        launcher["_maybe_handle_v576_flags"]()
+    assert caught.value.code == 0
+    assert json.loads(report.read_text(encoding="utf-8")) == {
+        "check": "native-tls", "ok": True, "backend": "python-ssl",
+        "qt_network": "excluded", "check_hostname": True, "verify_mode": "CERT_REQUIRED",
+    }
+    assert messages == ["[dupez] native TLS backend verified: python-ssl\n"]
+    assert qt.created == qt.deleted == []
+
+
 def test_native_tls_flag_failure_logs_only_exception_type(launcher, qt, tmp_path):
     report, messages = _capture_dispatch(launcher, tmp_path)
     qt.error = RuntimeError("C:/private/path?secret=value")
@@ -152,6 +217,37 @@ def test_runtime_import_flag_report_is_unchanged(launcher, tmp_path):
     assert json.loads(report.read_text(encoding="utf-8")) == {
         "check": "runtime-imports", "ok": True,
     }
+
+
+@pytest.mark.parametrize("network_enabled", [True, False])
+def test_runtime_import_probe_obeys_compiled_network_policy(launcher, monkeypatch, network_enabled):
+    launcher["qt_network_enabled"] = lambda: network_enabled
+    real_import = builtins.__import__
+    requested = []
+    pyqt = SimpleNamespace(sip=SimpleNamespace(__name__="PyQt6.sip"))
+    for name in ("QtCore", "QtWidgets", "QtNetwork"):
+        setattr(pyqt, name, SimpleNamespace(__name__="PyQt6." + name))
+
+    def inert_import(name, globals=None, locals=None, fromlist=(), level=0):
+        fromlist = fromlist or ()
+        if name.startswith("PyQt6"):
+            requested.extend(fromlist)
+            if not network_enabled:
+                assert "QtNetwork" not in fromlist
+            return pyqt
+        if name == "dupez_helper":
+            return SimpleNamespace(__name__=name)
+        if name.startswith("app."):
+            return SimpleNamespace(**{
+                member: SimpleNamespace(__name__=f"{name}.{member}") for member in fromlist
+            })
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", inert_import)
+    result = launcher["_verify_runtime_imports"]()
+    assert ("PyQt6.QtNetwork" in result) is network_enabled
+    assert ("QtNetwork" in requested) is network_enabled
+    assert "PyQt6.QtWidgets" in result and "dupez_helper" in result
 
 
 def test_verify_report_never_overwrites_an_existing_target(launcher, tmp_path):

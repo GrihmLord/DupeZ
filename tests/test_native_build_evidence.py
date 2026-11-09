@@ -63,6 +63,8 @@ def build(tmp_path):
     table["PYZ.pyz"] = (0, 1, 1, 0, "z")
 
     class Archive:
+        compiled_profile = "legacy"
+
         def __init__(self, filename):
             assert filename == str(artifact)
             self.toc = table
@@ -71,16 +73,24 @@ def build(tmp_path):
         def extract(self, name):
             return payloads[name]
 
-    def inspect():
-        manifest.write_text(json.dumps({"schema": "dupez.native-binary-origins.v1",
-                                       "qt_tls_policy": "schannel-only", "binaries": rows}), encoding="utf-8")
+        def open_embedded_archive(self, _name):
+            return SimpleNamespace(toc={"app.firewall_helper._build_default": ()}, extract=lambda _key:
+                                   compile(f"_BUILD_QT_PROFILE = {self.compiled_profile!r}", "fixture", "exec"))
+
+    def inspect(qt_profile="legacy", manifest_profile=None, tls_policy="schannel-only", redist_sha=None):
+        document = {"schema": "dupez.native-binary-origins.v1", "qt_tls_policy": tls_policy, "binaries": rows}
+        if manifest_profile is not None:
+            document["qt_build_profile"] = manifest_profile
+        if redist_sha is not None:
+            document["msvc_redist_manifest_sha256"] = redist_sha
+        manifest.write_text(json.dumps(document), encoding="utf-8")
         return evidence.inspect_native_build(artifact=artifact, manifest=manifest, source_root=source_root,
                                              build_venv=venv, python_base=base, system_directory=system,
-                                             archive_reader_cls=Archive)
+                                             archive_reader_cls=Archive, qt_profile=qt_profile)
 
     return SimpleNamespace(inspect=inspect, add=add, artifact=artifact, manifest=manifest, source_root=source_root,
                            venv=venv, base=base, system=system, rows=rows, payloads=payloads, table=table,
-                           tmp_path=tmp_path, managed=managed)
+                           tmp_path=tmp_path, managed=managed, Archive=Archive)
 
 
 def test_success_is_sanitized_non_approval_and_deterministic(build):
@@ -221,3 +231,67 @@ def test_cli_writes_exclusive_sanitized_summary(tmp_path, monkeypatch, capsys):
     assert evidence.main() == 1
     assert output.read_bytes() == original
     assert str(tmp_path) not in capsys.readouterr().out
+
+
+@pytest.fixture
+def no_network_build(build, monkeypatch):
+    # Native PE import parsing is exercised independently with real inert PE
+    # import/delay/export tables; here isolate complete archive/provenance binding.
+    inspected = []
+    monkeypatch.setattr(evidence, "validate_no_qtnetwork_pe", lambda data: inspected.append(data))
+    for name in ("PyQt6/Qt6/plugins/tls/qschannelbackend.dll", "system.dll"):
+        build.rows[:] = [row for row in build.rows if row["destination"] != name]
+        del build.payloads[name]
+        del build.table[name]
+    pins = []
+    for name in ("MSVCP140.dll", "MSVCP140_1.dll", "MSVCP140_2.dll"):
+        data = b"inert-pinned-msvc-" + name.encode()
+        build.add(name, build.system / name, "windows-system32", data)
+        build.table[name] = (0, len(data), len(data), 0, "b")
+        pins.append({"name": name, "size": len(data), "sha256": _hash(data)})
+    redist = build.source_root / "packaging/msvc-redist-inputs.json"
+    redist.write_text(json.dumps({"schema": "dupez.msvc-redist-inputs.v1", "binaries": pins}))
+    build.redist_sha = _hash(redist.read_bytes())
+    build.redist = redist
+    build.Archive.compiled_profile = evidence.NO_QTNETWORK_PROFILE
+    build.inspected = inspected
+    build.inspect_new = lambda **kwargs: build.inspect(qt_profile=evidence.NO_QTNETWORK_PROFILE,
+        manifest_profile=evidence.NO_QTNETWORK_PROFILE, tls_policy="qt-network-excluded",
+        redist_sha=kwargs.get("redist_sha", build.redist_sha))
+    return build
+
+
+def test_new_profile_binds_manifest_compiled_policy_and_msvc_pins(no_network_build):
+    report = no_network_build.inspect_new()
+    assert report["qt_build_profile"] == evidence.NO_QTNETWORK_PROFILE
+    assert report["qt_tls_policy"] == "qt-network-excluded"
+    assert report["msvc_redist_manifest_sha256"] == no_network_build.redist_sha
+    assert len(no_network_build.inspected) == report["native_entry_count"]
+
+
+@pytest.mark.parametrize("requested", ["legacy", "frozen-raster"])
+def test_new_manifest_cannot_be_inspected_under_older_profile(build, requested):
+    with pytest.raises(ValueError, match="manifest"):
+        build.inspect(qt_profile=requested, manifest_profile=evidence.NO_QTNETWORK_PROFILE,
+                      tls_policy="qt-network-excluded")
+
+
+@pytest.mark.parametrize("mutation", ["compiled_profile", "manifest_pin", "changed_pin", "extra_system", "source_name", "network_bytes"])
+def test_new_native_evidence_rejects_profile_source_and_system_drift(no_network_build, monkeypatch, mutation):
+    build = no_network_build
+    if mutation == "compiled_profile":
+        build.Archive.compiled_profile = "legacy"
+    elif mutation == "manifest_pin":
+        build.redist_sha = "0" * 64
+    elif mutation == "changed_pin":
+        build.redist.write_text(build.redist.read_text() + "\n")
+    elif mutation == "extra_system":
+        build.add("extra.dll", build.system / "extra.dll", "windows-system32")
+        build.table["extra.dll"] = (0, len(build.payloads["extra.dll"]), len(build.payloads["extra.dll"]), 0, "b")
+    elif mutation == "source_name":
+        row = next(row for row in build.rows if row["destination"] == "extension.pyd")
+        row["source"] = str(_write(build.venv / "Qt6Network.dll", build.payloads["extension.pyd"]))
+    else:
+        monkeypatch.setattr(evidence, "validate_no_qtnetwork_pe", lambda _data: (_ for _ in ()).throw(ValueError("Qt6Network import")))
+    with pytest.raises((ValueError, RuntimeError)):
+        build.inspect_new()

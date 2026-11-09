@@ -6,7 +6,7 @@ Run this file to start DupeZ.  Works both as a script and as PyInstaller entry.
 import sys
 import os
 
-from app.core.qt_startup import sanitize_frozen_qt_graphics_environment
+from app.core.qt_startup import qt_network_enabled, sanitize_frozen_qt_graphics_environment
 
 
 # Maintenance flags import Qt before the normal renderer-tier setup below.
@@ -67,9 +67,14 @@ def _write_verify_report(
         "ok": ok,
     }
     if check == "native-tls" and native_tls is not None:
+        fields = (
+            ("backend", "qt_network", "check_hostname", "verify_mode")
+            if native_tls.get("backend") == "python-ssl"
+            else ("backend", "available_backends", "supports_ssl")
+        )
         report.update({
             key: native_tls[key]
-            for key in ("backend", "available_backends", "supports_ssl")
+            for key in fields
         })
     if error is not None:
         report["error_type"] = type(error).__name__
@@ -151,7 +156,13 @@ _maybe_dispatch_helper_role()
 def _verify_runtime_imports() -> tuple[str, ...]:
     """Import every frozen Qt/direct-Clumsy boundary required by both builds."""
     import PyQt6.sip
-    from PyQt6 import QtCore, QtNetwork, QtWidgets
+    from PyQt6 import QtCore, QtWidgets
+
+    network_modules = ()
+    if qt_network_enabled():
+        from PyQt6 import QtNetwork
+
+        network_modules = (QtNetwork,)
 
     import dupez_helper
     from app.core import clumsy_controls
@@ -170,7 +181,7 @@ def _verify_runtime_imports() -> tuple[str, ...]:
         PyQt6.sip,
         QtCore,
         QtWidgets,
-        QtNetwork,
+        *network_modules,
         clumsy_controls,
         clumsy_diagnostics,
         clumsy_full_controls,
@@ -184,14 +195,29 @@ def _verify_runtime_imports() -> tuple[str, ...]:
 
 
 def _verify_native_tls() -> dict[str, object]:
-    """Probe the packaged Windows TLS backend without creating any sockets.
+    """Probe the compiled profile's Windows TLS contract without sockets.
 
     QCoreApplication enables Qt plugin discovery only: no QApplication,
     WebEngine import, renderer, navigation, or event loop is started. The
-    Schannel-only policy must already hold; this probe does not switch backends.
+    Legacy Schannel-only policy must already hold; no backends are switched.
+    The QtNetwork-free profile instead checks Python's verified TLS defaults and
+    confirms that the excluded binding cannot be discovered.
     """
     if sys.platform != "win32":
         raise RuntimeError("The native TLS maintenance probe requires Windows")
+    if not qt_network_enabled():
+        import importlib.util
+        import ssl
+
+        if importlib.util.find_spec("PyQt6.QtNetwork") is not None:
+            raise RuntimeError("QtNetwork is present in the QtNetwork-free profile")
+        context = ssl.create_default_context()
+        if context.check_hostname is not True or context.verify_mode != ssl.CERT_REQUIRED:
+            raise RuntimeError("Python TLS certificate verification defaults are unavailable")
+        return {
+            "backend": "python-ssl", "qt_network": "excluded",
+            "check_hostname": True, "verify_mode": "CERT_REQUIRED",
+        }
     from PyQt6 import QtCore, QtNetwork, sip
 
     application = QtCore.QCoreApplication.instance()
@@ -219,7 +245,7 @@ def _maybe_handle_v576_flags() -> None:
         try:
             native_tls = _verify_native_tls()
             _write_verify_report("native-tls", ok=True, native_tls=native_tls)
-            _safe_stdout("[dupez] native TLS backend verified: schannel\n")
+            _safe_stdout(f"[dupez] native TLS backend verified: {native_tls['backend']}\n")
             sys.exit(0)
         except Exception as e:
             _write_verify_report("native-tls", ok=False, error=e)

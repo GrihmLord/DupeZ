@@ -63,12 +63,16 @@ from release_data import (
 from native_runtime_policy import (
     FROZEN_BROWSER_EXCLUDES,
     FROZEN_RASTER_EXCLUDES,
+    FROZEN_QTNETWORK_EXCLUDES,
+    NO_QTNETWORK_PROFILE,
     audit_native_binary_origins,
     configured_qt_build_profile,
     configure_windows_analysis_environment,
     validate_frozen_raster_payload,
     validate_no_embedded_browser_payload,
     validate_windows_tls_binaries,
+    validate_qt_build_profile,
+    validate_msvc_redist_rows,
     without_disabled_browser_uic_plugins,
 )
 
@@ -101,6 +105,7 @@ _BUILD_DEFAULT_TEMPLATE = '''# app/firewall_helper/_build_default.py
 # (dev run from source), the fallback default is "inproc".
 
 _BUILD_DEFAULT_ARCH = {arch!r}
+_BUILD_QT_PROFILE = {qt_profile!r}
 '''
 
 
@@ -123,14 +128,15 @@ def _configure_build_analysis_state() -> str:
     return analysis_user_root
 
 
-def _write_build_default(variant: str) -> None:
+def _write_build_default(variant: str, qt_profile: str = "legacy") -> None:
     """Write ``_build_default.py`` with the right arch for this variant."""
+    validate_qt_build_profile(qt_profile)
     arch = {"gpu": "split", "compat": "inproc"}.get(variant)
     if arch is None:
         raise ValueError(f"unknown variant {variant!r}; expected gpu or compat")
     os.makedirs(os.path.dirname(_BUILD_DEFAULT_MODULE), exist_ok=True)
     with open(_BUILD_DEFAULT_MODULE, "w", encoding="utf-8") as fh:
-        fh.write(_BUILD_DEFAULT_TEMPLATE.format(arch=arch))
+        fh.write(_BUILD_DEFAULT_TEMPLATE.format(arch=arch, qt_profile=qt_profile))
     print(
         f"[build_common] wrote {_BUILD_DEFAULT_MODULE} "
         f"(variant={variant}, arch={arch})"
@@ -139,9 +145,11 @@ def _write_build_default(variant: str) -> None:
 
 # ── Shared analysis inputs ─────────────────────────────────────────
 
-def _hidden_imports() -> list:
-    return (
-        collect_submodules("app", filter=lambda name: name not in FROZEN_BROWSER_EXCLUDES)
+def _hidden_imports(qt_profile: str = "legacy") -> list:
+    validate_qt_build_profile(qt_profile)
+    excluded = (*FROZEN_BROWSER_EXCLUDES, *(FROZEN_QTNETWORK_EXCLUDES if qt_profile == NO_QTNETWORK_PROFILE else ()))
+    imports = (
+        collect_submodules("app", filter=lambda name: name not in excluded)
         + [
             # Helper-mode entry point — dupez.py re-invokes the same frozen
             # exe with `--role helper` under DUPEZ_ARCH=split. Without this
@@ -183,6 +191,7 @@ def _hidden_imports() -> list:
             "zeroconf._services.info",
         ]
     )
+    return [name for name in imports if name not in excluded]
 
 
 def _datas() -> list:
@@ -332,7 +341,7 @@ def build_variant(
     qt_profile = configured_qt_build_profile()
     _configure_build_analysis_state()
     windows_system_directory = configure_windows_analysis_environment()
-    _write_build_default(variant)
+    _write_build_default(variant, qt_profile=qt_profile)
     managed_binary_inputs = _binaries()
 
     a = Analysis(
@@ -340,11 +349,12 @@ def build_variant(
         pathex=[ROOT],
         binaries=managed_binary_inputs,
         datas=_datas(),
-        hiddenimports=_hidden_imports(),
+        hiddenimports=_hidden_imports(qt_profile=qt_profile),
         hookspath=[os.path.join(HERE, "hooks")],
         hooksconfig={},
         runtime_hooks=[],
-        excludes=_excludes() + (list(FROZEN_RASTER_EXCLUDES) if qt_profile == "frozen-raster" else []),
+        excludes=_excludes() + (list(FROZEN_RASTER_EXCLUDES) if qt_profile != "legacy" else [])
+        + (list(FROZEN_QTNETWORK_EXCLUDES) if qt_profile == NO_QTNETWORK_PROFILE else []),
         win_no_prefer_redirects=False,
         win_private_assemblies=False,
         cipher=BLOCK_CIPHER,
@@ -374,6 +384,7 @@ def build_variant(
             a.binaries,
             python_base=Path(sys.base_prefix),
             qt_root=Path(PyQt6.__file__).resolve().parent / "Qt6",
+            qt_profile=qt_profile,
         )
         native_evidence = audit_native_binary_origins(
             a.binaries,
@@ -385,10 +396,16 @@ def build_variant(
             managed_sources=[Path(source) for source, _destination in managed_binary_inputs],
         )
         evidence_path = Path(CONF["workpath"]) / "native-binaries.json"
+        redist_evidence = {}
+        if qt_profile == NO_QTNETWORK_PROFILE:
+            redist_evidence["msvc_redist_manifest_sha256"] = validate_msvc_redist_rows(
+                native_evidence, Path(HERE) / "msvc-redist-inputs.json",
+            )
         evidence_path.write_text(json.dumps({
             "schema": "dupez.native-binary-origins.v1",
-            "qt_tls_policy": "schannel-only",
+            "qt_tls_policy": "qt-network-excluded" if qt_profile == NO_QTNETWORK_PROFILE else "schannel-only",
             "qt_build_profile": qt_profile,
+            **redist_evidence,
             "binaries": native_evidence,
         }, indent=2) + "\n", encoding="utf-8")
 
