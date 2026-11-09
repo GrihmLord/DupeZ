@@ -1,6 +1,6 @@
 # DupeZ v5.8.0 release and launch plan
 
-Local validation checked: 2026-11-01. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
+Local validation checked: 2026-11-09. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
 
 This is an execution plan, not a release approval. No public launch date is
 committed. Do not promote the old files in `dist`, the prior private engineering
@@ -10,18 +10,18 @@ snapshot, or a passing source-only preflight into a release candidate.
 
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
-| Source changes | November 1 latest clean build checkpoint `008b1a0` includes frozen Qt graphics-environment hardening; source/candidate evidence is tracked through PR 84 | PR head and its checks are authoritative for source publication; neither a branch push nor this plan authorizes release |
-| Hosted CI | November 1 verification of pushed head `1b60172` found all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
+| Source changes | November 9 clean build checkpoint `6c255e5` adds an explicit Qt 6.11.3 raster engineering profile, frozen startup changes, source metadata verification and integrity regressions | PR head and its checks govern source publication; a branch push does not authorize release |
+| Hosted CI | Last inspected pushed head `85ef3b8` has all 14 checks blocked before execution by the account billing lock; the current PR records the newest pushed-head check result | Owner resolves the account restriction privately; obtain checks on the newest exact head without bypass |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
 | Distribution terms | GPL-3.0-only selected by owner; full license and selection record prepared, contribution rights still unconfirmed; six decisions unresolved | Owner confirms rights and use context; complete dependency/notices/source-delivery evidence before recording approvals |
 | Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases; verify protected updater signing separately; never share private keys in chat |
 | Dependency advisories | October 24 refresh updates Pillow, certifi, cryptography and test/bootstrap pip; updated runtime scan has zero active PyPI advisory records across 27 packages | Keep the generated locks and component inventory together; this scan does not cover native Qt/Chromium or the interpreter |
-| Native runtime security | Browser/QML payload removed from both frozen builds; 128 native entries each from approved origins. Qt 6.11.3 candidate now has a strict wheel inventory, real loopback TLS and image/source checks | Production remains Qt 6.11.2; finish coordinated candidate adoption, frozen validation, helper source/security and existing tiny-WebP limitation |
-| Source/rebuild evidence | All 33 upstream archives collected and independently bundle-verified; all four managed binaries match official release assets; earlier GPU application/LGPL Python-layer modification evidence retained | IUP source replacement date, exact native rebuild/replacement, public source delivery/retention and owner decisions remain unresolved |
+| Native runtime security | Clean raster engineering builds use Qt 6.11.3 and exclude browser/QML plus six GL/helper binaries and the unused designer plugin. Canonical production locks still select Qt 6.11.2 | Resolve the new Qt Network CVE-2026-116337, retained native/source gaps and tiny-WebP limitation before production promotion |
+| Source/rebuild evidence | QtBase/QtSvg/QtTools `.tag` differences are explained by verified Git archive substitution. The raster wheel reproduces identically; final offline profile has 304 pinned Qt notice inputs and 376 verified notice documents | QtBase binary-revision discrepancy, exact native toolchain/rebuild, IUP correspondence, public source delivery and owner decisions remain unresolved |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect evidence matrix below on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 registration reporting implemented with mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Fresh GPU/Compat builds at `008b1a0` pass offline checks. Both variants pass maintenance, normal/low-resource safety dry-run lifecycle checks and the v4 evidence consumer; Compat used normal owner-approved UAC | Hardware/hotkey parity remains open. Rebuild and validate on protected main after all release gates |
+| Exact artifacts | November 9 clean GPU/Compat raster builds at `6c255e5` pass exact-source, frozen-policy and native-origin checks; GPU maintenance and both lifecycle profiles pass; Compat UAC was canceled and runtime testing remains pending | Retry Compat only with fresh consent; hardware/hotkey parity and protected-main release validation remain required |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify the public download and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -34,7 +34,37 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
-## November 1 security fixes and validation
+## November 9 raster engineering adoption
+
+The new explicit profile brings Qt 6.11.3 into both frozen engineering builds.
+It removes `QtOpenGL`, `QtOpenGLWidgets`, their DLLs, the Mesa/LLVM software
+OpenGL helper, the Direct3D compiler helper and the unused designer plugin.
+Frozen startup no longer requests the source browser's shared OpenGL contexts.
+Build-time and final-archive checks reject those excluded payloads.
+
+The final clean checkpoint is `6c255e59195017627728e498324f5bbac48755f3`.
+The production-dependency source suite passes **3,662 tests with ten expected
+skips**. The raster-compatible suite passes **3,588 tests with 18 expected
+skips**, excluding two modules that import absent browser bindings. Its new
+preparation/recipient fixes have **35 additional focused passing tests**.
+The full raster suite preceded those preparation-only fixes; the frozen builds
+use the final committed recipe. Source preflight still has six unresolved
+policy warnings. GPU maintenance and both normal/low-resource lifecycle profiles
+pass. Compat runtime testing remains pending after Windows canceled normal UAC;
+the owner requested publication of the verified work with that limitation.
+The three collected System32 MSVC runtime files have matching hashes and valid
+Microsoft signatures; upstream package/licensing/native-SBOM pins remain open.
+
+A new Qt Network advisory prevents claiming native security clearance. Qt
+6.11.3 lacks both CVE-2026-116337 HTTP-response guards. Canonical production
+locks and distribution approval remain unchanged. Source notices and repeated
+wheel construction do not prove a native compiler/library rebuild or complete
+public corresponding-source delivery.
+
+See the [raster adoption and runtime evidence](../audits/QT_RASTER_ADOPTION_2026-11-09.md)
+and [source metadata/security review](../audits/QT_SOURCE_METADATA_REVIEW_2026-11-09.md).
+
+## November 1 security fixes and validation (historical)
 
 - Cleanup requires verified process identity and cannot terminate a reused bare
   PID. Forwarding rollback requires an owned mutation; unknown or ambiguous

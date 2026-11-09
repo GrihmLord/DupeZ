@@ -1,4 +1,4 @@
-# Qt source metadata and security follow-up â€” 2026-11-09
+# Qt source metadata and security follow-up — 2026-11-09
 
 The previously unexplained `.tag` checksum differences in QtBase, QtSvg and
 QtTools are now explained and reproducibly verified. The Git source contains an
@@ -42,7 +42,7 @@ does not assert that every omitted nested Git metadata file was retrieved or
 that the native binaries were independently rebuilt. QtBase's binary SPDX still
 names `b21f6a785516e898388cda2fe5d3e7dacd6d4b7d`. The official cgit commit and
 `.tag` endpoints for that revision returned HTTP 404 on November 9; the tarball's
-`138f955â€¦` commit is public. A 404 does not explain the revision discrepancy, so
+`138f955…` commit is public. A 404 does not explain the revision discrepancy, so
 the verifier keeps that finding unresolved.
 
 ## New retained Qt Network issue
