@@ -1,0 +1,431 @@
+{
+  "schema": "dupez.qt-security-primary-metadata.v1",
+  "reviewed_on": "2026-11-24",
+  "scope": "Read-only official release, package and advisory metadata; no package installed or executed",
+  "local_inputs": [
+    {
+      "path": "packaging/qt-raster-no-network-inputs.json",
+      "size": 9895,
+      "sha256": "5e248e866836780babc68451e12b9d05086c558d81ec3ac60577f2d28f349c18"
+    },
+    {
+      "path": "packaging/license-evidence/qt-network-exclusion-2026-11-09.json",
+      "size": 111904,
+      "sha256": "4d8dfdfba9879a30db760204681fcd07c558f0eecbb528ff7c0d4cc15c167908"
+    },
+    {
+      "path": "build/qt-network-verified-20261109/runtime-checkout/build/clean-gpu/dupez_gpu/native-binaries.json",
+      "size": 46480,
+      "sha256": "01b2cdbfedbd922f7d7223ce2ee72aadb4958aa10b30b31ed78da966959dfbaf"
+    }
+  ],
+  "observations": [
+    {
+      "id": "qt6121-announcement",
+      "url": "https://www.qt.io/blog/qt-6.12.1-released",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/qt-6.12.1-released",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt6121-announcement.body",
+        "size": 178587,
+        "sha256": "b33b13d2e4ff0d5eda935a1bc3e1c2438128a4fd9859d68b845f6b150010ffc6"
+      }
+    },
+    {
+      "id": "qt612-release-plan",
+      "url": "https://wiki.qt.io/Qt_6.12_Release",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://wiki.qt.io/Qt_6.12_Release",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt612-release-plan.body",
+        "size": 67815,
+        "sha256": "dc2994d8690d0e8c6791d2db874fdf6dcd4210cbeae8f154b00245963a1a3f74"
+      }
+    },
+    {
+      "id": "qt68-release-plan",
+      "url": "https://wiki.qt.io/Qt_6.8_Release",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://wiki.qt.io/Qt_6.8_Release",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt68-release-plan.body",
+        "size": 75257,
+        "sha256": "db470735239b58c94b472641be995043321c3ee2800a45ec8048c86b23759406"
+      }
+    },
+    {
+      "id": "qt-vulnerability-list",
+      "url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt-vulnerability-list.body",
+        "size": 89258,
+        "sha256": "c9c70f5f7be9e021b6c09b72f39283d997f7e77ca654363007bc2e3abb4c67cd"
+      }
+    },
+    {
+      "id": "qt-blog-index",
+      "url": "https://www.qt.io/blog/all",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/all",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt-blog-index.body",
+        "size": 633632,
+        "sha256": "3ba79fd5a4d1ca0b3807a1d9d16b31ad67c721d839627e4e0a5daa19c1394e97"
+      }
+    },
+    {
+      "id": "pyqt6",
+      "url": "https://pypi.org/pypi/PyQt6/json",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://pypi.org/pypi/PyQt6/json",
+      "content_type": "application/json",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/pyqt6.body",
+        "size": 142552,
+        "sha256": "95b54fd5ba63b4fe62222e6f9f0ea31e89565507d6a0343434c6700b4a9a0faa"
+      },
+      "package": {
+        "name": "PyQt6",
+        "version": "6.12.1",
+        "requires_dist": [
+          "PyQt6-sip<14,>=13.13",
+          "PyQt6-Qt6<6.13.0,>=6.12.0"
+        ],
+        "selected_files": [
+          {
+            "filename": "pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+            "url": "https://files.pythonhosted.org/packages/22/a2/9b45fd134614f76ea9ba37dded8e57360a6a8d73407bff6a93bc214aed01/pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+            "size": 7092507,
+            "sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+            "uploaded": "2026-11-14T14:52:45.497951Z"
+          },
+          {
+            "filename": "pyqt6-6.12.1.tar.gz",
+            "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+            "size": 1108330,
+            "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58",
+            "uploaded": "2026-11-14T14:52:49.456852Z"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pyqt6-qt6",
+      "url": "https://pypi.org/pypi/PyQt6-Qt6/json",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://pypi.org/pypi/PyQt6-Qt6/json",
+      "content_type": "application/json",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/pyqt6-qt6.body",
+        "size": 145324,
+        "sha256": "813631a1c5f0d8a55418aad7b69b10f8ee22920551eedf18b5d94074ab5ea409"
+      },
+      "package": {
+        "name": "PyQt6-Qt6",
+        "version": "6.12.0",
+        "requires_dist": null,
+        "selected_files": [
+          {
+            "filename": "pyqt6_qt6-6.12.0-py3-none-win_amd64.whl",
+            "url": "https://files.pythonhosted.org/packages/31/35/1bf45d60b44c7f942d73cb6455b39974b2c6101ff068f568e4acce6f52cb/pyqt6_qt6-6.12.0-py3-none-win_amd64.whl",
+            "size": 79706707,
+            "sha256": "a0f3e52fcd014b3d40f4aa856f8cb6843cf13720a2c2f31267f03702bc54d07b",
+            "uploaded": "2026-10-28T15:18:19.996554Z"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pyqt6-qt6-6121",
+      "url": "https://pypi.org/pypi/PyQt6-Qt6/6.12.1/json",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 404
+    },
+    {
+      "id": "pyqt6-sip",
+      "url": "https://pypi.org/pypi/PyQt6-sip/json",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://pypi.org/pypi/PyQt6-sip/json",
+      "content_type": "application/json",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/pyqt6-sip.body",
+        "size": 430057,
+        "sha256": "e855139508262ba7c6c7551a2270ab0e2198782d30c91a04cc0811068b664680"
+      },
+      "package": {
+        "name": "PyQt6-sip",
+        "version": "13.13.1",
+        "requires_dist": null,
+        "selected_files": [
+          {
+            "filename": "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+            "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+            "size": 53787,
+            "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8",
+            "uploaded": "2026-11-11T12:33:16.056307Z"
+          },
+          {
+            "filename": "pyqt6_sip-13.13.1.tar.gz",
+            "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+            "size": 95283,
+            "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe",
+            "uploaded": "2026-11-11T12:33:32.625504Z"
+          }
+        ]
+      }
+    },
+    {
+      "id": "qt6121-windows",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/Updates.xml",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/Updates.xml",
+      "content_type": "application/xml",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt6121-windows.body",
+        "size": 114200,
+        "sha256": "353db09fbe4221d818ccb82a105d3a44d7c32dc4e175380d747548786aa1947a"
+      },
+      "selected_packages": [
+        {
+          "Name": "qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64",
+          "Version": "6.12.1-0-202611180427",
+          "ReleaseDate": "2026-11-18",
+          "Dependencies": "qt.qt6.6121.win64_msvc2022_64",
+          "DownloadableArchives": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+        },
+        {
+          "Name": "qt.qt6.6121.win64_msvc2022_64",
+          "Version": "6.12.1-0-202611180427",
+          "ReleaseDate": "2026-11-18",
+          "Dependencies": "qt.tools.qtcreator, qt.qt6.6121.doc, qt.qt6.6121.examples",
+          "DownloadableArchives": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdoc-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, opengl32sw-64-mesa_11_2_2-signed_sha256.7z"
+        }
+      ]
+    },
+    {
+      "id": "qt6121-source-metadata",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/Updates.xml",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/Updates.xml",
+      "content_type": "application/xml",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt6121-source-metadata.body",
+        "size": 70051,
+        "sha256": "99ee8d2e301bc93f7f027698debfda3bc38f6c5979e5d1209ee825c7bd90b202"
+      },
+      "selected_packages": [
+        {
+          "Name": "qt.qt6.6121.src",
+          "Version": "6.12.1-0-202611180426",
+          "ReleaseDate": "2026-11-18",
+          "DownloadableArchives": "qtdoc-everywhere-src-6.12.1.tar.xz, qtwayland-everywhere-src-6.12.1.tar.xz, qtbase-everywhere-src-6.12.1.tar.xz, qtsvg-everywhere-src-6.12.1.tar.xz, qtdeclarative-everywhere-src-6.12.1.tar.xz, qttools-everywhere-src-6.12.1.tar.xz, qt5compat-everywhere-src-6.12.1.tar.xz, qtshadertools-everywhere-src-6.12.1.tar.xz, qtquick3d-everywhere-src-6.12.1.tar.xz, qtquick3dphysics-everywhere-src-6.12.1.tar.xz, qtquickeffectmaker-everywhere-src-6.12.1.tar.xz, qtquicktimeline-everywhere-src-6.12.1.tar.xz, qttranslations-everywhere-src-6.12.1.tar.xz, qt5-everywhere-src-6.12.1.tar.xz, qtactiveqt-everywhere-src-6.12.1.tar.xz, qtcanvaspainter-everywhere-src-6.12.1.tar.xz, qtcharts-everywhere-src-6.12.1.tar.xz, qtcoap-everywhere-src-6.12.1.tar.xz, qtconnectivity-everywhere-src-6.12.1.tar.xz, qtdatavis3d-everywhere-src-6.12.1.tar.xz, qtgraphs-everywhere-src-6.12.1.tar.xz, qtgrpc-everywhere-src-6.12.1.tar.xz, qthttpserver-everywhere-src-6.12.1.tar.xz, qtimageformats-everywhere-src-6.12.1.tar.xz, qtlanguageserver-everywhere-src-6.12.1.tar.xz, qtlottie-everywhere-src-6.12.1.tar.xz, qtmqtt-everywhere-src-6.12.1.tar.xz, qtmultimedia-everywhere-src-6.12.1.tar.xz, qtnetworkauth-everywhere-src-6.12.1.tar.xz, qtopcua-everywhere-src-6.12.1.tar.xz, qtopenapi-everywhere-src-6.12.1.tar.xz, qtpositioning-everywhere-src-6.12.1.tar.xz, qtremoteobjects-everywhere-src-6.12.1.tar.xz, qtscxml-everywhere-src-6.12.1.tar.xz, qtsensors-everywhere-src-6.12.1.tar.xz, qtserialbus-everywhere-src-6.12.1.tar.xz, qtserialport-everywhere-src-6.12.1.tar.xz, qtspeech-everywhere-src-6.12.1.tar.xz, qttasktree-everywhere-src-6.12.1.tar.xz, qtvirtualkeyboard-everywhere-src-6.12.1.tar.xz, qtwebchannel-everywhere-src-6.12.1.tar.xz, qtwebsockets-everywhere-src-6.12.1.tar.xz, qtwebview-everywhere-src-6.12.1.tar.xz"
+        }
+      ]
+    },
+    {
+      "id": "qt6121-public-sources",
+      "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/qt6121-public-sources.body",
+        "size": 25362,
+        "sha256": "47c372fbe775a74c61175f3d2802a2df21210a236f7c6bed6e1068cd47d15252"
+      },
+      "selected_sources": [
+        "qtbase-everywhere-src-6.12.1.tar.xz",
+        "qtimageformats-everywhere-src-6.12.1.tar.xz",
+        "qtsvg-everywhere-src-6.12.1.tar.xz",
+        "qttranslations-everywhere-src-6.12.1.tar.xz"
+      ]
+    },
+    {
+      "id": "qt6810-public-sources",
+      "url": "https://download.qt.io/official_releases/qt/6.8/6.8.10/submodules/",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 404
+    },
+    {
+      "id": "cve-116337",
+      "url": "https://www.qt.io/blog/security-issue-cve-2026-116337",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-issue-cve-2026-116337",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-116337.body",
+        "size": 184162,
+        "sha256": "99b94bb80c5b36cdc36eefa2e98eae6c4c6d33cbd1fb4e23f9b6235654323544"
+      }
+    },
+    {
+      "id": "cve-105924",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-105924",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-105924",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-105924.body",
+        "size": 182512,
+        "sha256": "38acf316d84b1094aee94f63bda7d5bcf4086f8111afd7a4000288e9f6c4a9b4"
+      }
+    },
+    {
+      "id": "cve-101201",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-101201",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-101201",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-101201.body",
+        "size": 183148,
+        "sha256": "7921d1472af5d1014b2c7264ed7e116d02f7dce41c05c0f6f05ca1ef9229c12e"
+      }
+    },
+    {
+      "id": "cve-8168",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-8168",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-8168",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-8168.body",
+        "size": 187273,
+        "sha256": "bf33eaec6b3d41f9ce3472f1fe022339a2e501c8a982aa7c40a59bcc94b04132"
+      }
+    },
+    {
+      "id": "cve-82292",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-82292",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-82292",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-82292.body",
+        "size": 182618,
+        "sha256": "93130bc8e68380be8ffce265dd8d3a0a0fb391deb9ce8a121c58c8cfe9388270"
+      }
+    },
+    {
+      "id": "cve-8461",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-8461",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-8461",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-8461.body",
+        "size": 181704,
+        "sha256": "cd190a66baf147699c6233913b4cb3c25b2cb951548c0b4d456d47e434c3faf6"
+      }
+    },
+    {
+      "id": "cve-114369",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-114369",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-114369",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-114369.body",
+        "size": 184084,
+        "sha256": "e86b81b5cc66f93f94c6f0930a8a577be4e64c0ba12cf41090d4bfa0a8a92bbb"
+      }
+    },
+    {
+      "id": "cve-97845",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-97845",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-97845",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-97845.body",
+        "size": 182631,
+        "sha256": "59c151bd081c2539b1bf0d1f93a06c9352a91c20daef6b85074ea8da33f8c7a1"
+      }
+    },
+    {
+      "id": "cve-103645",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-103645",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-103645",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-103645.body",
+        "size": 180647,
+        "sha256": "c475a37cc3b5afed871eb75d476510827307d4d2e0785ae6a2616981e9239b2f"
+      }
+    },
+    {
+      "id": "cve-105925",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-105925",
+      "method": "HTTPS GET",
+      "observed_on": "2026-11-24",
+      "http_status": 200,
+      "resolved_url": "https://www.qt.io/blog/security-advisory-cve-2026-105925",
+      "content_type": "text/html",
+      "response": {
+        "path": "build/qt-security-refresh-20261124/responses/cve-105925.body",
+        "size": 182617,
+        "sha256": "31d47046687e5bc9f89dd90d2272af1ff4b8342abcd4ac177512bf8d84d14df6"
+      }
+    }
+  ],
+  "recipe": {
+    "path": "build/qt-security-refresh-20261124/fetch_primary_metadata.py",
+    "size": 6930,
+    "sha256": "4b10f53156e5810436378abde06007ca329d07316111f3e1dc7ccaee98b37b24"
+  },
+  "native_binary_downloaded": false,
+  "toolchain_installed": false,
+  "runtime_executed": false,
+  "compat_tested": false,
+  "release_approved": false
+}

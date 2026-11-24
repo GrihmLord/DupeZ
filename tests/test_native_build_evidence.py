@@ -77,12 +77,14 @@ def build(tmp_path):
             return SimpleNamespace(toc={"app.firewall_helper._build_default": ()}, extract=lambda _key:
                                    compile(f"_BUILD_QT_PROFILE = {self.compiled_profile!r}", "fixture", "exec"))
 
-    def inspect(qt_profile="legacy", manifest_profile=None, tls_policy="schannel-only", redist_sha=None):
+    def inspect(qt_profile="legacy", manifest_profile=None, tls_policy="schannel-only", redist_sha=None, stage_header=None):
         document = {"schema": "dupez.native-binary-origins.v1", "qt_tls_policy": tls_policy, "binaries": rows}
         if manifest_profile is not None:
             document["qt_build_profile"] = manifest_profile
         if redist_sha is not None:
             document["msvc_redist_manifest_sha256"] = redist_sha
+        if stage_header is not None:
+            document.update(stage_header)
         manifest.write_text(json.dumps(document), encoding="utf-8")
         return evidence.inspect_native_build(artifact=artifact, manifest=manifest, source_root=source_root,
                                              build_venv=venv, python_base=base, system_directory=system,
@@ -267,6 +269,7 @@ def test_new_profile_binds_manifest_compiled_policy_and_msvc_pins(no_network_bui
     assert report["qt_tls_policy"] == "qt-network-excluded"
     assert report["msvc_redist_manifest_sha256"] == no_network_build.redist_sha
     assert len(no_network_build.inspected) == report["native_entry_count"]
+    assert report["msvc_runtime_origin_policy"] == "historical-system32"
 
 
 @pytest.mark.parametrize("requested", ["legacy", "frozen-raster"])
@@ -295,3 +298,79 @@ def test_new_native_evidence_rejects_profile_source_and_system_drift(no_network_
         monkeypatch.setattr(evidence, "validate_no_qtnetwork_pe", lambda _data: (_ for _ in ()).throw(ValueError("Qt6Network import")))
     with pytest.raises((ValueError, RuntimeError)):
         build.inspect_new()
+
+
+@pytest.fixture
+def staged_build(build, monkeypatch):
+    from scripts import msvc_runtime_stage
+    from tests.test_msvc_runtime_stage import make_verified_inputs
+
+    monkeypatch.setattr(evidence, "validate_no_qtnetwork_pe", lambda _data: None)
+    for name in ("PyQt6/Qt6/plugins/tls/qschannelbackend.dll", "system.dll"):
+        build.rows[:] = [row for row in build.rows if row["destination"] != name]
+        del build.payloads[name]
+        del build.table[name]
+    inputs = make_verified_inputs(build.tmp_path / "msvc-inputs")
+    redist = build.source_root / "packaging/msvc-redist-inputs.json"
+    redist.write_bytes(inputs.manifest.read_bytes())
+    stage_dir = build.venv.parent / "msvc-runtime"
+    stage = msvc_runtime_stage.prepare_stage(inputs.verified, stage_dir, redist)
+    for row in stage["binaries"]:
+        data = Path(row["source"]).read_bytes()
+        build.add(row["name"], Path(row["source"]), "pinned-msvc-redist", data)
+        build.table[row["name"]] = (0, len(data), len(data), 0, "b")
+        _write(build.system / row["name"], b"different-host-installed-runtime")
+    build.Archive.compiled_profile = evidence.NO_QTNETWORK_PROFILE
+    build.stage_header = evidence.msvc_stage_header(stage)
+    build.stage_dir = stage_dir
+    build.stage = stage
+    build.inspect_staged = lambda: build.inspect(qt_profile=evidence.NO_QTNETWORK_PROFILE,
+        manifest_profile=evidence.NO_QTNETWORK_PROFILE, tls_policy="qt-network-excluded", stage_header=build.stage_header)
+    return build
+
+
+def test_staged_native_inspection_ignores_different_host_runtime(staged_build):
+    value = staged_build.inspect_staged()
+    assert value["origin_counts"]["pinned-msvc-redist"] == 3
+    assert "windows-system32" not in value["origin_counts"]
+    assert value["msvc_runtime_origin_policy"] == "private-pinned-stage"
+    for key, pin in staged_build.stage_header.items():
+        assert value[key] == pin
+
+
+@pytest.mark.parametrize("mutation", ["header", "partial_header", "removed_header", "extra_system", "host_source", "copied_source", "stage_extra", "stage_bytes", "renamed"])
+def test_staged_native_inspection_rejects_tampering_and_host_fallback(staged_build, mutation):
+    build = staged_build
+    row = next(row for row in build.rows if row["origin"] == "pinned-msvc-redist")
+    if mutation == "header": build.stage_header["msvc_stage_receipt_sha256"] = "0" * 64
+    if mutation == "partial_header": del build.stage_header["msvc_stage_receipt_sha256"]
+    if mutation == "removed_header":
+        build.stage_header = {"msvc_redist_manifest_sha256": build.stage_header["msvc_redist_manifest_sha256"]}
+    if mutation == "extra_system":
+        build.add("ambient.dll", build.system / "ambient.dll", "windows-system32", b"ambient")
+        build.table["ambient.dll"] = (0, 7, 7, 0, "b")
+    if mutation in {"host_source", "copied_source"}:
+        destination = (build.system if mutation == "host_source" else build.venv) / row["destination"]
+        destination.write_bytes(build.payloads[row["destination"]])
+        row["source"] = str(destination)
+    if mutation == "stage_extra": (build.stage_dir / "extra.dll").write_bytes(b"unreviewed")
+    if mutation == "stage_bytes": Path(row["source"]).write_bytes(b"changed")
+    if mutation == "renamed": row["destination"] = "renamed.dll"
+    with pytest.raises((ValueError, RuntimeError, OSError)):
+        build.inspect_staged()
+
+
+def test_stage_is_rechecked_after_native_archive_reads(staged_build, monkeypatch):
+    build = staged_build
+    original = build.Archive.extract
+    changed = False
+    def mutate(self, name):
+        nonlocal changed
+        result = original(self, name)
+        if not changed:
+            changed = True
+            (build.stage_dir / "stage-receipt.json").write_text("{}")
+        return result
+    monkeypatch.setattr(build.Archive, "extract", mutate)
+    with pytest.raises(ValueError, match="receipt"):
+        build.inspect_staged()

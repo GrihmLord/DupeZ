@@ -73,6 +73,9 @@ from native_runtime_policy import (
     validate_windows_tls_binaries,
     validate_qt_build_profile,
     validate_msvc_redist_rows,
+    load_msvc_runtime_stage,
+    msvc_stage_header,
+    validate_msvc_stage_binaries,
     without_disabled_browser_uic_plugins,
 )
 
@@ -343,11 +346,18 @@ def build_variant(
     windows_system_directory = configure_windows_analysis_environment()
     _write_build_default(variant, qt_profile=qt_profile)
     managed_binary_inputs = _binaries()
+    msvc_stage = None
+    staged_binary_inputs = []
+    if qt_profile == NO_QTNETWORK_PROFILE:
+        msvc_stage = load_msvc_runtime_stage(
+            Path(sys.prefix).parent / "msvc-runtime", Path(HERE) / "msvc-redist-inputs.json",
+        )
+        staged_binary_inputs = [(row["source"], ".") for row in msvc_stage["binaries"]]
 
     a = Analysis(
         [os.path.join(ROOT, "dupez.py")],
         pathex=[ROOT],
-        binaries=managed_binary_inputs,
+        binaries=[*managed_binary_inputs, *staged_binary_inputs],
         datas=_datas(),
         hiddenimports=_hidden_imports(qt_profile=qt_profile),
         hookspath=[os.path.join(HERE, "hooks")],
@@ -374,6 +384,8 @@ def build_variant(
     a.binaries = _filter_root_binary_duplicates(a.binaries)
     a.binaries = _filter_unapproved_collected_binaries(a.binaries)
     a.datas = without_disabled_browser_uic_plugins(a.datas)
+    if msvc_stage is not None:
+        validate_msvc_stage_binaries(a.binaries, msvc_stage)
     validate_no_embedded_browser_payload(
         entry[0] for entry in [*a.binaries, *a.datas, *a.pure]
     )
@@ -391,16 +403,21 @@ def build_variant(
             approved_roots={
                 "locked-build-venv": Path(sys.prefix),
                 "verified-base-python": Path(sys.base_prefix),
-                "windows-system32": Path(windows_system_directory),
+                **({"windows-system32": Path(windows_system_directory)} if msvc_stage is None else {}),
             },
             managed_sources=[Path(source) for source, _destination in managed_binary_inputs],
+            pinned_msvc_sources={row["name"]: Path(row["source"]) for row in msvc_stage["binaries"]} if msvc_stage else None,
         )
         evidence_path = Path(CONF["workpath"]) / "native-binaries.json"
         redist_evidence = {}
         if qt_profile == NO_QTNETWORK_PROFILE:
-            redist_evidence["msvc_redist_manifest_sha256"] = validate_msvc_redist_rows(
-                native_evidence, Path(HERE) / "msvc-redist-inputs.json",
+            manifest_pin = validate_msvc_redist_rows(
+                native_evidence, Path(HERE) / "msvc-redist-inputs.json", origin="pinned-msvc-redist",
             )
+            current_stage = load_msvc_runtime_stage(Path(sys.prefix).parent / "msvc-runtime", Path(HERE) / "msvc-redist-inputs.json")
+            if current_stage != msvc_stage or manifest_pin != msvc_stage["manifest_sha256"]:
+                raise RuntimeError("MSVC stage changed during native collection")
+            redist_evidence = msvc_stage_header(msvc_stage)
         evidence_path.write_text(json.dumps({
             "schema": "dupez.native-binary-origins.v1",
             "qt_tls_policy": "qt-network-excluded" if qt_profile == NO_QTNETWORK_PROFILE else "schannel-only",

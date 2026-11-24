@@ -1,0 +1,345 @@
+{
+  "schema": "dupez.qt-security-refresh.v1",
+  "reviewed_on": "2026-11-24",
+  "baseline_source_commit": "078067cc25db27105a1aa3768a43911e2cac3da9",
+  "scope": "Primary release/package metadata and targeted advisory triage against the recorded Nov9 no-QtNetwork frozen inventory",
+  "primary_metadata": {
+    "path": "build/qt-security-refresh-20261124/primary-metadata.json",
+    "size": 18952,
+    "sha256": "93a884cc4825986132149d3d3414991800016e3d1969789b6fb4471f7504d679"
+  },
+  "recorded_native_inventory": {
+    "manifest": {
+      "path": "build/qt-network-verified-20261109/runtime-checkout/build/clean-gpu/dupez_gpu/native-binaries.json",
+      "size": 46480,
+      "sha256": "01b2cdbfedbd922f7d7223ce2ee72aadb4958aa10b30b31ed78da966959dfbaf"
+    },
+    "qt_profile": "frozen-raster-no-qtnetwork",
+    "qt_native_paths": [
+      "pyqt6/qt6/bin/qt6core.dll",
+      "pyqt6/qt6/bin/qt6gui.dll",
+      "pyqt6/qt6/bin/qt6svg.dll",
+      "pyqt6/qt6/bin/qt6test.dll",
+      "pyqt6/qt6/bin/qt6widgets.dll",
+      "pyqt6/qt6/plugins/iconengines/qsvgicon.dll",
+      "pyqt6/qt6/plugins/imageformats/qgif.dll",
+      "pyqt6/qt6/plugins/imageformats/qicns.dll",
+      "pyqt6/qt6/plugins/imageformats/qico.dll",
+      "pyqt6/qt6/plugins/imageformats/qjpeg.dll",
+      "pyqt6/qt6/plugins/imageformats/qsvg.dll",
+      "pyqt6/qt6/plugins/imageformats/qtga.dll",
+      "pyqt6/qt6/plugins/imageformats/qtiff.dll",
+      "pyqt6/qt6/plugins/imageformats/qwbmp.dll",
+      "pyqt6/qt6/plugins/imageformats/qwebp.dll",
+      "pyqt6/qt6/plugins/platforms/qminimal.dll",
+      "pyqt6/qt6/plugins/platforms/qoffscreen.dll",
+      "pyqt6/qt6/plugins/platforms/qwindows.dll",
+      "pyqt6/qt6/plugins/styles/qmodernwindowsstyle.dll",
+      "pyqt6/qtcore.pyd",
+      "pyqt6/qtgui.pyd",
+      "pyqt6/qtsvg.pyd",
+      "pyqt6/qttest.pyd",
+      "pyqt6/qtwidgets.pyd",
+      "pyqt6/sip.cp313-win_amd64.pyd"
+    ],
+    "selected_advisory_modules_absent": [
+      "qt6core5compat.dll",
+      "qt6multimedia.dll",
+      "qt6network.dll",
+      "qt6websockets.dll",
+      "qt6xml.dll"
+    ]
+  },
+  "availability": {
+    "qt_6_12_1": {
+      "announcement_date": "2026-11-24",
+      "release_plan_realized_date": "2026-11-23",
+      "announcement_url": "https://www.qt.io/blog/qt-6.12.1-released",
+      "windows_metadata": {
+        "id": "qt6121-windows",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/Updates.xml",
+        "method": "HTTPS GET",
+        "observed_on": "2026-11-24",
+        "http_status": 200,
+        "resolved_url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/Updates.xml",
+        "content_type": "application/xml",
+        "response": {
+          "path": "build/qt-security-refresh-20261124/responses/qt6121-windows.body",
+          "size": 114200,
+          "sha256": "353db09fbe4221d818ccb82a105d3a44d7c32dc4e175380d747548786aa1947a"
+        },
+        "selected_packages": [
+          {
+            "Name": "qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64",
+            "Version": "6.12.1-0-202611180427",
+            "ReleaseDate": "2026-11-18",
+            "Dependencies": "qt.qt6.6121.win64_msvc2022_64",
+            "DownloadableArchives": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+          },
+          {
+            "Name": "qt.qt6.6121.win64_msvc2022_64",
+            "Version": "6.12.1-0-202611180427",
+            "ReleaseDate": "2026-11-18",
+            "Dependencies": "qt.tools.qtcreator, qt.qt6.6121.doc, qt.qt6.6121.examples",
+            "DownloadableArchives": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdeclarative-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qtdoc-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z, opengl32sw-64-mesa_11_2_2-signed_sha256.7z"
+          }
+        ]
+      },
+      "source_metadata": {
+        "id": "qt6121-source-metadata",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/Updates.xml",
+        "method": "HTTPS GET",
+        "observed_on": "2026-11-24",
+        "http_status": 200,
+        "resolved_url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/Updates.xml",
+        "content_type": "application/xml",
+        "response": {
+          "path": "build/qt-security-refresh-20261124/responses/qt6121-source-metadata.body",
+          "size": 70051,
+          "sha256": "99ee8d2e301bc93f7f027698debfda3bc38f6c5979e5d1209ee825c7bd90b202"
+        },
+        "selected_packages": [
+          {
+            "Name": "qt.qt6.6121.src",
+            "Version": "6.12.1-0-202611180426",
+            "ReleaseDate": "2026-11-18",
+            "DownloadableArchives": "qtdoc-everywhere-src-6.12.1.tar.xz, qtwayland-everywhere-src-6.12.1.tar.xz, qtbase-everywhere-src-6.12.1.tar.xz, qtsvg-everywhere-src-6.12.1.tar.xz, qtdeclarative-everywhere-src-6.12.1.tar.xz, qttools-everywhere-src-6.12.1.tar.xz, qt5compat-everywhere-src-6.12.1.tar.xz, qtshadertools-everywhere-src-6.12.1.tar.xz, qtquick3d-everywhere-src-6.12.1.tar.xz, qtquick3dphysics-everywhere-src-6.12.1.tar.xz, qtquickeffectmaker-everywhere-src-6.12.1.tar.xz, qtquicktimeline-everywhere-src-6.12.1.tar.xz, qttranslations-everywhere-src-6.12.1.tar.xz, qt5-everywhere-src-6.12.1.tar.xz, qtactiveqt-everywhere-src-6.12.1.tar.xz, qtcanvaspainter-everywhere-src-6.12.1.tar.xz, qtcharts-everywhere-src-6.12.1.tar.xz, qtcoap-everywhere-src-6.12.1.tar.xz, qtconnectivity-everywhere-src-6.12.1.tar.xz, qtdatavis3d-everywhere-src-6.12.1.tar.xz, qtgraphs-everywhere-src-6.12.1.tar.xz, qtgrpc-everywhere-src-6.12.1.tar.xz, qthttpserver-everywhere-src-6.12.1.tar.xz, qtimageformats-everywhere-src-6.12.1.tar.xz, qtlanguageserver-everywhere-src-6.12.1.tar.xz, qtlottie-everywhere-src-6.12.1.tar.xz, qtmqtt-everywhere-src-6.12.1.tar.xz, qtmultimedia-everywhere-src-6.12.1.tar.xz, qtnetworkauth-everywhere-src-6.12.1.tar.xz, qtopcua-everywhere-src-6.12.1.tar.xz, qtopenapi-everywhere-src-6.12.1.tar.xz, qtpositioning-everywhere-src-6.12.1.tar.xz, qtremoteobjects-everywhere-src-6.12.1.tar.xz, qtscxml-everywhere-src-6.12.1.tar.xz, qtsensors-everywhere-src-6.12.1.tar.xz, qtserialbus-everywhere-src-6.12.1.tar.xz, qtserialport-everywhere-src-6.12.1.tar.xz, qtspeech-everywhere-src-6.12.1.tar.xz, qttasktree-everywhere-src-6.12.1.tar.xz, qtvirtualkeyboard-everywhere-src-6.12.1.tar.xz, qtwebchannel-everywhere-src-6.12.1.tar.xz, qtwebsockets-everywhere-src-6.12.1.tar.xz, qtwebview-everywhere-src-6.12.1.tar.xz"
+          }
+        ]
+      },
+      "public_source_directory": {
+        "id": "qt6121-public-sources",
+        "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/",
+        "method": "HTTPS GET",
+        "observed_on": "2026-11-24",
+        "http_status": 200,
+        "resolved_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/",
+        "content_type": "text/html",
+        "response": {
+          "path": "build/qt-security-refresh-20261124/responses/qt6121-public-sources.body",
+          "size": 25362,
+          "sha256": "47c372fbe775a74c61175f3d2802a2df21210a236f7c6bed6e1068cd47d15252"
+        },
+        "selected_sources": [
+          "qtbase-everywhere-src-6.12.1.tar.xz",
+          "qtimageformats-everywhere-src-6.12.1.tar.xz",
+          "qtsvg-everywhere-src-6.12.1.tar.xz",
+          "qttranslations-everywhere-src-6.12.1.tar.xz"
+        ]
+      },
+      "native_archives_downloaded_or_verified": false
+    },
+    "pyqt6": {
+      "name": "PyQt6",
+      "version": "6.12.1",
+      "requires_dist": [
+        "PyQt6-sip<14,>=13.13",
+        "PyQt6-Qt6<6.13.0,>=6.12.0"
+      ],
+      "selected_files": [
+        {
+          "filename": "pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/22/a2/9b45fd134614f76ea9ba37dded8e57360a6a8d73407bff6a93bc214aed01/pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+          "size": 7092507,
+          "sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+          "uploaded": "2026-11-14T14:52:45.497951Z"
+        },
+        {
+          "filename": "pyqt6-6.12.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+          "size": 1108330,
+          "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58",
+          "uploaded": "2026-11-14T14:52:49.456852Z"
+        }
+      ]
+    },
+    "pyqt6_qt6": {
+      "name": "PyQt6-Qt6",
+      "version": "6.12.0",
+      "requires_dist": null,
+      "selected_files": [
+        {
+          "filename": "pyqt6_qt6-6.12.0-py3-none-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/31/35/1bf45d60b44c7f942d73cb6455b39974b2c6101ff068f568e4acce6f52cb/pyqt6_qt6-6.12.0-py3-none-win_amd64.whl",
+          "size": 79706707,
+          "sha256": "a0f3e52fcd014b3d40f4aa856f8cb6843cf13720a2c2f31267f03702bc54d07b",
+          "uploaded": "2026-10-28T15:18:19.996554Z"
+        }
+      ]
+    },
+    "pyqt6_qt6_6_12_1_endpoint_status": 404,
+    "pyqt6_sip": {
+      "name": "PyQt6-sip",
+      "version": "13.13.1",
+      "requires_dist": null,
+      "selected_files": [
+        {
+          "filename": "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+          "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+          "size": 53787,
+          "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8",
+          "uploaded": "2026-11-11T12:33:16.056307Z"
+        },
+        {
+          "filename": "pyqt6_sip-13.13.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+          "size": 95283,
+          "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe",
+          "uploaded": "2026-11-11T12:33:32.625504Z"
+        }
+      ]
+    },
+    "qt_6_8_10": {
+      "public_source_directory_status": 404,
+      "official_planned_date": "2026-12-09",
+      "release_plan_url": "https://wiki.qt.io/Qt_6.8_Release",
+      "channel": "commercial LTS plan"
+    }
+  },
+  "advisories": [
+    {
+      "cve": "CVE-2026-116337",
+      "component": "Qt Network",
+      "source_id": "cve-116337",
+      "fixed_route": "6.12.1; vendor also names 6.8.10",
+      "profile_disposition": "Affected module absent from recorded no-QtNetwork frozen inventory; upstream 6.11.3 is not patched by removal",
+      "canonical_6_11_2_disposition": "Retained upstream Network version remains in affected range",
+      "url": "https://www.qt.io/blog/security-issue-cve-2026-116337"
+    },
+    {
+      "cve": "CVE-2026-105924",
+      "component": "Qt Core QCborValue to JSON",
+      "source_id": "cve-105924",
+      "fixed_route": "6.11.3 or 6.12.1",
+      "profile_disposition": "Retained Core version is listed as fixed by upstream; no independent exploit or native-rebuild verification made",
+      "canonical_6_11_2_disposition": "Upstream version is listed as affected",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-105924"
+    },
+    {
+      "cve": "CVE-2026-101201",
+      "component": "Qt Core / Qt5Compat JSON",
+      "source_id": "cve-101201",
+      "fixed_route": "6.11.3",
+      "profile_disposition": "Retained Core version is listed as fixed by upstream; Qt5Compat is absent",
+      "canonical_6_11_2_disposition": "Upstream version is listed as affected; actual API/build exposure needs review",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-101201"
+    },
+    {
+      "cve": "CVE-2026-107157",
+      "component": "Qt Core QCborValue parsing",
+      "source_id": "qt-vulnerability-list",
+      "fixed_route": "6.11.2 or 6.12.0",
+      "profile_disposition": "6.11.3 is beyond upstream fixed-version boundary",
+      "url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products"
+    },
+    {
+      "cve": "CVE-2026-16762",
+      "component": "Qt Core QXmlStreamReader",
+      "source_id": "qt-vulnerability-list",
+      "fixed_route": "6.11.2 or 6.12.0",
+      "profile_disposition": "6.11.3 is beyond upstream fixed-version boundary",
+      "url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products"
+    },
+    {
+      "cve": "CVE-2026-78253",
+      "component": "Qt Core QXmlStreamReader",
+      "source_id": "qt-vulnerability-list",
+      "fixed_route": "6.11.2",
+      "profile_disposition": "6.11.3 is beyond upstream fixed-version boundary",
+      "url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products"
+    },
+    {
+      "cve": "CVE-2026-8168",
+      "component": "Qt SVG",
+      "source_id": "cve-8168",
+      "fixed_route": "6.11.2 or 6.12.0",
+      "profile_disposition": "Retained SVG version 6.11.3 is beyond upstream fixed-version boundary",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-8168"
+    },
+    {
+      "cve": "CVE-2026-6210",
+      "component": "Qt SVG markers",
+      "source_id": "qt-vulnerability-list",
+      "fixed_route": "6.11.1",
+      "profile_disposition": "Retained SVG version 6.11.3 is beyond upstream fixed-version boundary",
+      "url": "https://wiki.qt.io/List_of_known_vulnerabilities_in_Qt_products"
+    },
+    {
+      "cve": "CVE-2026-82292",
+      "component": "Qt XML",
+      "published_on": "2026-11-11",
+      "source_id": "cve-82292",
+      "fixed_route": "6.11.3",
+      "profile_disposition": "Qt XML is absent from recorded frozen inventory",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-82292"
+    },
+    {
+      "cve": "CVE-2026-8461",
+      "component": "Qt Multimedia FFmpeg",
+      "published_on": "2026-11-11",
+      "source_id": "cve-8461",
+      "fixed_route": "6.11.2",
+      "profile_disposition": "Qt Multimedia is absent from recorded frozen inventory",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-8461"
+    },
+    {
+      "cve": "CVE-2026-114369",
+      "component": "Qt WebSockets",
+      "published_on": "2026-11-12",
+      "source_id": "cve-114369",
+      "fixed_route": "6.12.1; vendor also names 6.8.10",
+      "profile_disposition": "Qt WebSockets is absent; upstream 6.11.3 would remain affected if this module were added",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-114369"
+    },
+    {
+      "cve": "CVE-2026-97845",
+      "component": "Qt5Compat XML",
+      "published_on": "2026-11-12",
+      "source_id": "cve-97845",
+      "fixed_route": "6.11.3 or 6.12.0",
+      "profile_disposition": "Qt5Compat is absent from recorded frozen inventory",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-97845"
+    },
+    {
+      "cve": "CVE-2026-103645",
+      "component": "Qt5Compat ICU codec",
+      "published_on": "2026-11-13",
+      "source_id": "cve-103645",
+      "fixed_route": "6.11.3 or 6.12.0",
+      "profile_disposition": "Qt5Compat is absent from recorded frozen inventory",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-103645"
+    },
+    {
+      "cve": "CVE-2026-105925",
+      "component": "Qt5Compat XML",
+      "published_on": "2026-11-16",
+      "source_id": "cve-105925",
+      "fixed_route": "6.11.3 or 6.12.1",
+      "profile_disposition": "Qt5Compat is absent from recorded frozen inventory",
+      "url": "https://www.qt.io/blog/security-advisory-cve-2026-105925"
+    }
+  ],
+  "conclusions": [
+    "Qt 6.12.1 is a newly available fixed upstream route; a future isolated candidate can now be investigated using official Windows/source inputs.",
+    "Installing PyQt6 6.12.1 from current PyPI metadata alone still selects native Qt 6.12.0, not fixed Qt 6.12.1. Binding and native runtime versions must be verified independently.",
+    "Current PyQt6 6.12.1 requires Qt>=6.12,<6.13 and SIP>=13.13,<14; it cannot simply replace the current 6.11.0 binding while retaining the existing 6.11.3 native/SIP 13.11.1 inputs.",
+    "Reviewed November 11-16 advisories affect modules absent from the recorded restricted profile. Reviewed retained Core/SVG advisories list fixed versions no later than 6.11.3. This is targeted triage, not comprehensive native security clearance.",
+    "Keep the existing profile while completing independent MSVC staging/source mapping. A future 6.12.1 candidate must preserve exclusions and establish exact archives, native/source/SPDX correspondence, binding/plugin ABI and runtime validation before any canonical promotion."
+  ],
+  "remaining_gaps": [
+    "Retained QtBase/Core b21f6a metadata versus public 138f955 source revision remains unresolved by this metadata refresh.",
+    "Bundled/transitive image/font/compression-library advisories and exact native build inputs/rebuilds were not comprehensively reassessed.",
+    "Qt 6.12.1 binary/source checksums, archive contents and actual compatibility were not tested; no new runtime was acquired or adopted.",
+    "Public source/relink delivery, owner redistribution determinations, hosted CI and Compat runtime remain separate unfinished gates."
+  ],
+  "runtime_changed": false,
+  "canonical_locks_changed": false,
+  "native_execution": false,
+  "compat_tested": false,
+  "release_approved": false,
+  "recipe": {
+    "path": "build/qt-security-refresh-20261124/build_review_record.py",
+    "size": 9309,
+    "sha256": "674dd2589dcdafb4899f28c8868a70656ca3d0f3ad72dadff039220ab59d8ede"
+  }
+}

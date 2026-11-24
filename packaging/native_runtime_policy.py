@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -229,8 +230,50 @@ def validate_compiled_qt_profile(embedded, *, qt_profile: str) -> None:
         raise ValueError("Frozen compiled Qt profile differs from requested validation profile")
 
 
-def validate_msvc_redist_rows(rows: list[dict], manifest_path: Path) -> str:
-    """Require exactly the three reviewed System32 redistributable bytes."""
+def load_msvc_runtime_stage(stage: Path, manifest_path: Path) -> dict:
+    """Load the source-owned pure data verifier by its exact repository path."""
+    path = Path(__file__).resolve().parents[1] / "scripts/msvc_runtime_stage.py"
+    spec = importlib.util.spec_from_file_location("_dupez_msvc_runtime_stage", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.validate_stage(stage, manifest_path)
+
+
+def msvc_stage_header(stage: dict) -> dict:
+    return {"msvc_redist_manifest_sha256": stage["manifest_sha256"],
+            "msvc_redist_package_sha256": stage["package_sha256"],
+            "msvc_stage_receipt_sha256": stage["stage_receipt_sha256"],
+            "msvc_upstream_receipt_sha256": stage["upstream_receipt_sha256"]}
+
+
+def validate_msvc_stage_binaries(binaries: list, stage: dict) -> None:
+    """Require the explicit stage files in Analysis; never replace ambient DLLs."""
+    expected = {row["name"].casefold(): row for row in stage["binaries"]}
+    sources = {Path(row["source"]): name for name, row in expected.items()}
+    found = set()
+    for destination, source, _kind in binaries:
+        name = _normalized_path(destination)
+        path = Path(os.path.abspath(source))
+        if name.rsplit("/", 1)[-1] in expected or path in sources:
+            if name not in expected or name in found or path != Path(expected[name]["source"]):
+                raise ValueError("MSVC dependency was not collected from its exact staged file")
+            with path.open("rb") as stream:
+                data = stream.read(expected[name]["size"] + 1)
+            if len(data) != expected[name]["size"] or hashlib.sha256(data).hexdigest() != expected[name]["sha256"]:
+                raise ValueError("MSVC staged source changed during Analysis")
+            found.add(name)
+    if found != set(expected):
+        raise ValueError("Analysis is missing an explicitly staged MSVC runtime")
+
+
+def validate_msvc_redist_rows(rows: list[dict], manifest_path: Path, *, origin: str = "windows-system32") -> str:
+    """Require exactly three pinned runtime entries with the selected origin.
+
+    System32 is retained only for explicitly historical evidence without a stage
+    header. New builds select pinned-msvc-redist and admit no System32 natives.
+    """
+    if origin not in {"windows-system32", "pinned-msvc-redist"}:
+        raise ValueError("Unknown MSVC runtime origin policy")
     with manifest_path.open("rb") as stream:
         data = stream.read(1024 * 1024 + 1)
     if len(data) > 1024 * 1024:
@@ -255,7 +298,9 @@ def validate_msvc_redist_rows(rows: list[dict], manifest_path: Path) -> str:
            or not re.fullmatch(r"[a-f0-9]{64}", str(pin.get("sha256"))) for pin in pins):
         raise ValueError("Invalid MSVC redistributable byte pins")
     expected = {pin["name"].casefold(): pin for pin in pins}
-    system_rows = [row for row in rows if row["origin"] == "windows-system32"]
+    if origin == "pinned-msvc-redist" and any(row["origin"] == "windows-system32" for row in rows):
+        raise ValueError("System32 fallback is forbidden for staged MSVC builds")
+    system_rows = [row for row in rows if row["origin"] == origin]
     if len(system_rows) != 3 or {_normalized_path(row["destination"]) for row in system_rows} != expected_names:
         raise ValueError("System32 native inventory differs from pinned MSVC redistributable")
     for row in system_rows:
@@ -358,6 +403,7 @@ def audit_native_binary_origins(
     *,
     approved_roots: dict[str, Path],
     managed_sources: list[Path],
+    pinned_msvc_sources: dict[str, Path] | None = None,
 ) -> list[dict[str, str]]:
     """Fail closed on ambient DLL/PYD origins and hash the actual final TOC.
 
@@ -367,10 +413,14 @@ def audit_native_binary_origins(
     """
     roots = {label: root.resolve(strict=True) for label, root in approved_roots.items()}
     managed = {source.resolve(strict=True) for source in managed_sources}
+    pinned_msvc = {_normalized_path(name): Path(source) for name, source in (pinned_msvc_sources or {}).items()}
     report = []
     for destination, source, kind in binaries:
         path = Path(source).resolve(strict=True)
-        origin = "managed-native" if path in managed else next(
+        staged = pinned_msvc.get(_normalized_path(destination))
+        if staged is not None and Path(os.path.abspath(source)) != staged:
+            raise RuntimeError("MSVC native source differs from its explicit stage mapping")
+        origin = "pinned-msvc-redist" if staged is not None else "managed-native" if path in managed else next(
             (label for label, root in roots.items() if path.is_relative_to(root)), None,
         )
         if origin is None:

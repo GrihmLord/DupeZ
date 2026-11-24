@@ -26,6 +26,7 @@ try:
         validate_compiled_qt_profile, validate_frozen_raster_payload,
         validate_no_qtnetwork_pe, validate_qt_build_profile,
         validate_msvc_redist_rows,
+        load_msvc_runtime_stage, msvc_stage_header,
     )
 finally:
     sys.path.remove(_POLICY_DIRECTORY)
@@ -143,11 +144,21 @@ def inspect_native_build(
     if payload.get("qt_build_profile", "legacy") != qt_profile:
         raise ValueError("Native collection manifest differs from requested Qt profile")
     redist_fingerprint = None
+    msvc_stage = None
+    stage_fields = {"msvc_stage_receipt_sha256", "msvc_upstream_receipt_sha256", "msvc_redist_package_sha256"}
+    if not no_network and stage_fields.intersection(payload):
+        raise ValueError("MSVC stage header requires the explicit Qt profile")
     if no_network:
         redist_path = source_root / "packaging/msvc-redist-inputs.json"
         redist_fingerprint = _fingerprint(redist_path)
         if payload.get("msvc_redist_manifest_sha256") != redist_fingerprint["sha256"]:
             raise ValueError("MSVC redistributable manifest differs from build pin")
+        if stage_fields.intersection(payload):
+            if not stage_fields.issubset(payload):
+                raise ValueError("Incomplete MSVC stage provenance header")
+            msvc_stage = load_msvc_runtime_stage(build_venv.parent / "msvc-runtime", redist_path)
+            if any(payload.get(key) != value for key, value in msvc_stage_header(msvc_stage).items()):
+                raise ValueError("MSVC stage provenance differs from build header")
     rows = payload.get("binaries")
     if not isinstance(rows, list) or not rows or len(rows) > 10000:
         raise ValueError("Invalid native collection inventory")
@@ -184,8 +195,9 @@ def inspect_native_build(
     roots = {
         "locked-build-venv": build_venv,
         "verified-base-python": python_base,
-        "windows-system32": (system_directory or _system_directory()).resolve(strict=True),
+        **({"windows-system32": (system_directory or _system_directory()).resolve(strict=True)} if msvc_stage is None else {}),
     }
+    staged_sources = {row["name"].casefold(): Path(row["source"]) for row in msvc_stage["binaries"]} if msvc_stage else {}
 
     if archive_reader_cls is None:
         from PyInstaller.archive.readers import CArchiveReader
@@ -268,7 +280,12 @@ def inspect_native_build(
             if not isinstance(row["source"], str) or not Path(row["source"]).is_absolute():
                 raise ValueError("Native source must be an absolute local path")
             source = _regular(Path(row["source"]))
-            origin = next((label for label, root in roots.items() if source.is_relative_to(root)), None)
+            if name in staged_sources:
+                if source != staged_sources[name]:
+                    raise ValueError("MSVC source differs from the exact private stage")
+                origin = "pinned-msvc-redist"
+            else:
+                origin = next((label for label, root in roots.items() if source.is_relative_to(root)), None)
             if origin is None:
                 raise ValueError("Ambient native source is outside approved build roots")
             if _fingerprint(source)["sha256"] != digest:
@@ -288,8 +305,11 @@ def inspect_native_build(
     if _fingerprint(provenance_path) != provenance_fingerprint or _fingerprint(release_path) != release_fingerprint:
         raise ValueError("Managed-native source provenance changed during inspection")
     if no_network:
-        if validate_msvc_redist_rows(manifest_records, redist_path) != redist_fingerprint["sha256"]:
+        redist_origin = "pinned-msvc-redist" if msvc_stage else "windows-system32"
+        if validate_msvc_redist_rows(manifest_records, redist_path, origin=redist_origin) != redist_fingerprint["sha256"]:
             raise ValueError("MSVC redistributable manifest changed during inspection")
+        if msvc_stage is not None and load_msvc_runtime_stage(build_venv.parent / "msvc-runtime", redist_path) != msvc_stage:
+            raise ValueError("MSVC stage changed during archive inspection")
     inventory_bytes = json.dumps(sorted(manifest_records, key=lambda row: row["destination"]), sort_keys=True, separators=(",", ":")).encode("utf-8")
     return {
         "schema": SCHEMA,
@@ -301,6 +321,8 @@ def inspect_native_build(
         "qt_tls_policy": tls_policy,
         "qt_build_profile": qt_profile,
         **({"msvc_redist_manifest_sha256": redist_fingerprint["sha256"]} if no_network else {}),
+        **(msvc_stage_header(msvc_stage) if msvc_stage else {}),
+        **({"msvc_runtime_origin_policy": "private-pinned-stage" if msvc_stage else "historical-system32"} if no_network else {}),
         "native_entry_count": len(reported),
         "origin_counts": dict(sorted(origins.items())),
         "native_inventory_sha256": hashlib.sha256(inventory_bytes).hexdigest(),

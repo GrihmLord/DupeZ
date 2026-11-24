@@ -198,7 +198,7 @@ def test_license_text_preserves_words_split_between_formatting_runs():
     assert verifier.word_text(xml) == "Cpp_v14_ENU.1033 Last Updated: October 1, 2025"
 
 
-def mocked_preparation(tmp_path, monkeypatch, mutation=None):
+def mocked_preparation(tmp_path, monkeypatch, mutation=None, *, compare_system=True):
     """Exercise receipt publication with inert fixtures in place of OS readers."""
     data = manifest()
     package = tmp_path / "package.exe"
@@ -271,7 +271,10 @@ def mocked_preparation(tmp_path, monkeypatch, mutation=None):
     monkeypatch.setattr(verifier, "extract", fake_extract)
     monkeypatch.setattr(verifier, "signatures", fake_signatures)
     monkeypatch.setattr(verifier, "read_msi_tables", fake_tables)
-    return lambda: verifier.prepare(package, license_doc, observation, output, manifest_path), output
+    if not compare_system:
+        observation.unlink()
+    return lambda: verifier.prepare(package, license_doc, observation if compare_system else None,
+                                    output, manifest_path), output
 
 
 def test_receipt_publication_with_stable_consumed_inputs(tmp_path, monkeypatch):
@@ -280,6 +283,19 @@ def test_receipt_publication_with_stable_consumed_inputs(tmp_path, monkeypatch):
     assert result["status"] == "exact-upstream-package-bytes-verified"
     assert (output / "receipt.json").is_file()
     assert len(result["consumed_artifacts"]) == 9
+    assert result["system_observation_compared"] is True
+
+
+def test_package_verification_does_not_require_recipient_system_runtime_match(tmp_path, monkeypatch):
+    prepare, output = mocked_preparation(tmp_path, monkeypatch, compare_system=False)
+    result = prepare()
+    assert result["status"] == "exact-upstream-package-bytes-verified"
+    assert result["previous_system_observation"] is None
+    assert result["system_observation_compared"] is False
+    assert len(result["binaries"]) == 3
+    assert len(result["consumed_artifacts"]) == 9
+    assert result["installer_executed"] is result["global_installation_performed"] is False
+    assert (output / "receipt.json").is_file()
 
 
 @pytest.mark.parametrize("stage,target", [("signature", "dll"), ("signature", "msi"),

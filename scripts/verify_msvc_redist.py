@@ -322,12 +322,16 @@ def word_text(document_xml: bytes) -> str:
                     for paragraph in root.iter(namespace + "p"))
 
 
-def prepare(package: Path, license_doc: Path, observation_path: Path, output: Path,
+def prepare(package: Path, license_doc: Path, observation_path: Path | None, output: Path,
             manifest_path: Path = MANIFEST) -> dict:
-    inputs = {path: identity(path) for path in (package, license_doc, observation_path, manifest_path, Path(__file__))}
-    manifest, observation = read_json(manifest_path), read_json(observation_path)
+    paths = [package, license_doc, manifest_path, Path(__file__)]
+    if observation_path is not None:
+        paths.append(observation_path)
+    inputs = {path: identity(path) for path in paths}
+    manifest = read_json(manifest_path)
     validate_manifest(manifest)
-    verify_observation(observation, manifest["binaries"])
+    if observation_path is not None:
+        verify_observation(read_json(observation_path), manifest["binaries"])
     verify(package, manifest["package"])
     license_pin = {"size": manifest["license_reference"]["document_size"], "sha256": manifest["license_reference"]["document_sha256"]}
     verify(license_doc, license_pin)
@@ -402,7 +406,8 @@ def prepare(package: Path, license_doc: Path, observation_path: Path, output: Pa
         "reviewed_on": "2026-11-09", "manifest": inputs[manifest_path], "package": manifest["package"],
         "containers": containers, "minimum_runtime": minimum, "msi_database": mapping,
         "burn_manifest": identity(ux["0"]), "bootstrapper_application_data": identity(ux["u17"]),
-        "binaries": binaries, "previous_system_observation": inputs[observation_path],
+        "binaries": binaries, "previous_system_observation": inputs.get(observation_path),
+        "system_observation_compared": observation_path is not None,
         "license_reference": manifest["license_reference"], "license_document": inputs[license_doc],
         "signature_observations": before_signatures + final_signatures,
         "extraction_tool": consumed[expand], "verifier": inputs[Path(__file__)],
@@ -426,7 +431,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", required=True, type=Path)
     parser.add_argument("--license-document", required=True, type=Path)
-    parser.add_argument("--system-observation", required=True, type=Path)
+    parser.add_argument("--system-observation", type=Path,
+                        help="Optional prior System32 observation to compare; package verification does not require it")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     result = prepare(args.package, args.license_document, args.system_observation, args.output)

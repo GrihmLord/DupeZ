@@ -28,7 +28,7 @@ if str(ROOT) not in sys.path:
 from packaging.tags import compatible_tags, cpython_tags
 from packaging.utils import canonicalize_name, parse_wheel_filename
 
-from scripts import license_payload, prepare_qt_candidate as candidate, sbom
+from scripts import license_payload, msvc_runtime_stage, prepare_qt_candidate as candidate, sbom
 from scripts.verify_requirements_lock import LockedEntry, parse_release_lock_entries
 
 REMOVED = frozenset({"pyqt6-qt6", "pyqt6-webengine", "pyqt6-webengine-qt6"})
@@ -289,7 +289,8 @@ print('Engineering notice payload verified:',len(payload['documents']),'document
 
 
 def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches: list[Path],
-            *, install: bool = False, product_version: str = "5.8.0", profile: str = "frozen-raster") -> dict:
+            *, install: bool = False, product_version: str = "5.8.0", profile: str = "frozen-raster",
+            msvc_redist_root: Path | None = None) -> dict:
     if profile not in {"frozen-raster", candidate.NO_NETWORK_PROFILE}:
         raise ValueError("Unreviewed engineering Qt profile")
     candidate_root = candidate.ordinary_path(candidate_root)
@@ -315,6 +316,12 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
             or receipt.get("status") != "candidate-wheel-prepared" or receipt.get("manifest_sha256") != manifest_hash
             or receipt.get("wheel", {}).get("sha256") != expected_wheel_hash):
         raise ValueError("Unreviewed frozen raster preparation receipt")
+    if profile == candidate.NO_NETWORK_PROFILE:
+        if msvc_redist_root is None:
+            raise ValueError("The QtNetwork-free profile requires --msvc-redist-root with verified package inputs")
+        msvc_redist_root = candidate.ordinary_path(msvc_redist_root)
+    elif msvc_redist_root is not None:
+        raise ValueError("Private Microsoft runtime staging requires the QtNetwork-free profile")
     candidate.safe_member(receipt["wheel"]["path"])
     wheel = candidate.ordinary_path(candidate_root / receipt["wheel"]["path"], file=True)
     if sha256(wheel) != expected_wheel_hash:
@@ -353,6 +360,9 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     output.mkdir(parents=True)
     (output / "packaging").mkdir()
     (output / "wheelhouse").mkdir()
+    runtime_stage = None
+    if msvc_manifest is not None:
+        runtime_stage = msvc_runtime_stage.prepare_stage(msvc_redist_root, output / "msvc-runtime", msvc_path)
     copy_inventory_documents(inventory, ROOT, output)
     write_lock(output / "requirements-locked.txt", runtime)
     (output / "packaging/requirements-build-locked.txt").write_bytes(build_path.read_bytes())
@@ -379,6 +389,8 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     license_payload._load_inventory(output, output / "packaging/third-party-components.json")
     staged, missing = stage_wheels([*runtime, *build_entries], caches, output / "wheelhouse")
     verify_unchanged_inputs(input_pins)
+    if runtime_stage is not None and msvc_runtime_stage.validate_stage(output / "msvc-runtime", msvc_path) != runtime_stage:
+        raise ValueError("Private Microsoft runtime stage changed during preparation")
     result = {"schema": "dupez.qt-engineering-profile.v1", "profile": profile,
               "production_locks_changed": False, "release_approved": False, "source_delivery_approved": False,
               "scope": "isolated engineering dependency/build/notices profile", "limitations": limitations,
@@ -393,6 +405,13 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
         result["msvc_runtime_mapping"] = {"manifest_sha256": input_pins[msvc_path]["sha256"],
                                           "package": msvc_manifest["package"],
                                           "binaries": msvc_manifest["binaries"], "distribution_approved": False}
+        result["msvc_runtime_stage"] = {
+            "path": "msvc-runtime",
+            **{key: runtime_stage[key] for key in (
+                "manifest_sha256", "package_sha256", "stage_receipt_sha256", "upstream_receipt_sha256")},
+            "binaries": [{key: row[key] for key in ("name", "size", "sha256")}
+                         for row in runtime_stage["binaries"]],
+        }
     write_json(output / "engineering-profile.json", result)
     write_json(output / "engineering.sbom.json", profile_sbom(runtime, manifest, expected_wheel_hash, product_version,
                                                              msvc_manifest=msvc_manifest))
@@ -404,8 +423,12 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
             output / "packaging/third-party-components.json", output / "engineering-profile.json",
             output / "engineering.sbom.json", output / "wheelhouse" / wheel.name,
         )}
+        if runtime_stage is not None:
+            generated_pins.update({path: input_pin(path) for path in (output / "msvc-runtime").iterdir()})
         installed = install_environment(output, product_version)
         verify_unchanged_inputs({**input_pins, **generated_pins})
+        if runtime_stage is not None:
+            msvc_runtime_stage.validate_stage(output / "msvc-runtime", msvc_path)
         write_json(output / "installation-receipt.json", installed)
     return result
 
@@ -419,9 +442,12 @@ def main() -> int:
     parser.add_argument("--install-build-env", action="store_true")
     parser.add_argument("--product-version", default="5.8.0")
     parser.add_argument("--profile", choices=("frozen-raster", candidate.NO_NETWORK_PROFILE), default="frozen-raster")
+    parser.add_argument("--msvc-redist-root", type=Path,
+                        help="Verified Microsoft package output; required for the QtNetwork-free profile")
     args = parser.parse_args()
     result = prepare(args.candidate_root, args.expected_wheel_sha256, args.output, args.wheel_cache,
-                     install=args.install_build_env, product_version=args.product_version, profile=args.profile)
+                     install=args.install_build_env, product_version=args.product_version, profile=args.profile,
+                     msvc_redist_root=args.msvc_redist_root)
     print(json.dumps({"runtime_distributions": result["runtime_distribution_count"],
                       "missing_wheels": result["missing_wheels"], "release_approved": False}))
     return 0

@@ -199,3 +199,66 @@ def test_final_archive_profile_binding_and_real_native_import_scan(tmp_path, req
         Archive.toc["renamed.pyd"] = (0, 1024, 1024, 0, "b")
         errors = release_preflight._check_frozen_dependency_policy([artifact], **options)
         assert any("Qt6Network identity or import" in error for error in errors)
+
+
+@pytest.fixture
+def msvc_stage(tmp_path):
+    from scripts import msvc_runtime_stage
+    from tests.test_msvc_runtime_stage import make_verified_inputs
+    inputs = make_verified_inputs(tmp_path)
+    return msvc_runtime_stage.prepare_stage(inputs.verified, inputs.output, inputs.manifest), inputs
+
+
+def test_explicit_stage_sources_are_admitted_without_a_broad_root(msvc_stage, tmp_path):
+    stage, inputs = msvc_stage
+    entries = [(row["name"], row["source"], "BINARY") for row in stage["binaries"]]
+    policy.validate_msvc_stage_binaries(entries, stage)
+    report = policy.audit_native_binary_origins(entries, approved_roots={}, managed_sources=[],
+        pinned_msvc_sources={row["name"]: Path(row["source"]) for row in stage["binaries"]})
+    assert {row["origin"] for row in report} == {"pinned-msvc-redist"}
+    assert policy.validate_msvc_redist_rows(report, inputs.manifest, origin="pinned-msvc-redist") == stage["manifest_sha256"]
+    neighbor = inputs.output / "ambient.dll"
+    neighbor.write_bytes(b"outside-the-explicit-file-map")
+    with pytest.raises(RuntimeError, match="ambient"):
+        policy.audit_native_binary_origins([("ambient.dll", str(neighbor), "BINARY")], approved_roots={}, managed_sources=[],
+            pinned_msvc_sources={row["name"]: Path(row["source"]) for row in stage["binaries"]})
+
+
+@pytest.mark.parametrize("mutation", ["missing", "duplicate", "renamed", "nested", "host", "bytes"])
+def test_final_analysis_msvc_sources_must_equal_explicit_stage(msvc_stage, tmp_path, mutation):
+    stage, _ = msvc_stage
+    entries = [(row["name"], row["source"], "BINARY") for row in stage["binaries"]]
+    if mutation == "missing": entries.pop()
+    if mutation == "duplicate": entries.append(entries[0])
+    if mutation == "renamed": entries[0] = ("alias.dll", entries[0][1], "BINARY")
+    if mutation == "nested": entries[0] = ("nested/" + entries[0][0], entries[0][1], "BINARY")
+    if mutation == "host":
+        host = tmp_path / "host.dll"
+        host.write_bytes(Path(entries[0][1]).read_bytes())
+        entries[0] = (entries[0][0], str(host), "BINARY")
+    if mutation == "bytes": Path(entries[0][1]).write_bytes(b"wrong-runtime")
+    with pytest.raises(ValueError, match="MSVC"):
+        policy.validate_msvc_stage_binaries(entries, stage)
+
+
+def test_staged_inventory_rejects_even_extra_system32_native(msvc_stage):
+    stage, inputs = msvc_stage
+    rows = [{"destination": row["name"], "source": row["source"], "origin": "pinned-msvc-redist",
+             "size": row["size"], "sha256": row["sha256"]} for row in stage["binaries"]]
+    rows.append({"destination": "unreviewed.dll", "origin": "windows-system32", "size": 1, "sha256": "0" * 64})
+    with pytest.raises(ValueError, match="fallback"):
+        policy.validate_msvc_redist_rows(rows, inputs.manifest, origin="pinned-msvc-redist")
+
+
+def test_stage_is_loaded_before_analysis_and_cannot_be_silently_replaced():
+    tree = ast.parse((ROOT / "packaging/build_common.py").read_text(encoding="utf-8"))
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "build_variant")
+    calls = [node for node in ast.walk(function) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
+    locations = {name: min(node.lineno for node in calls if node.func.id == name)
+                 for name in ("load_msvc_runtime_stage", "Analysis", "validate_msvc_stage_binaries", "audit_native_binary_origins")}
+    assert locations["load_msvc_runtime_stage"] < locations["Analysis"] < locations["validate_msvc_stage_binaries"]
+    assert locations["validate_msvc_stage_binaries"] < locations["audit_native_binary_origins"]
+    analysis = next(node for node in calls if node.func.id == "Analysis")
+    binary_value = next(keyword.value for keyword in analysis.keywords if keyword.arg == "binaries")
+    assert isinstance(binary_value, ast.List)
+    assert [node.value.id for node in binary_value.elts] == ["managed_binary_inputs", "staged_binary_inputs"]

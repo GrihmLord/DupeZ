@@ -308,10 +308,34 @@ def test_installation_receipt_requires_unchanged_generated_inputs(tmp_path, monk
     assert not (output / "installation-receipt.json").exists()
 
 
-def test_no_network_adoption_binds_v4_receipt_and_records_exclusion_not_patch(tmp_path, monkeypatch):
+def _no_network_preparation_fixture(tmp_path, monkeypatch):
     msvc_manifest = json.loads((adoption.ROOT / "packaging/msvc-redist-inputs.json").read_bytes())
     source, checksum, output, _wheel = _preparation_fixture(tmp_path, monkeypatch)
+    redist = tmp_path / "verified-redist"
+    (redist / "dlls").mkdir(parents=True)
+    for row in msvc_manifest["binaries"]:
+        path = redist / "dlls" / row["cabinet_member"]
+        path.write_bytes(("Inert fixture: " + row["name"]).encode())
+        row.update(size=path.stat().st_size, sha256=adoption.sha256(path))
     adoption.write_json(tmp_path / "packaging/msvc-redist-inputs.json", msvc_manifest)
+    upstream = {
+        "schema": "dupez.msvc-redist-provenance.v1", "status": "exact-upstream-package-bytes-verified",
+        "manifest": adoption.input_pin(tmp_path / "packaging/msvc-redist-inputs.json"),
+        "package": msvc_manifest["package"],
+        "binaries": [{**row, "origin": "pinned-microsoft-redist-minimum-x64-cabinet"}
+                     for row in msvc_manifest["binaries"]],
+        **{key: False for key in ("release_approved", "distribution_approved", "installer_executed",
+                                 "global_installation_performed", "elevation_requested")},
+        "signature_observations": [
+            {"name": name, "status": "Valid", "subject": "O=Microsoft Corporation",
+             "file_version": msvc_manifest["package"]["version"],
+             "thumbprint": msvc_manifest["package"]["signer_thumbprint"]}
+            for name in ["package", *(row["name"] for row in msvc_manifest["binaries"])]] ,
+        "consumed_artifacts": [
+            {"path": "dlls/" + row["cabinet_member"], "size": row["size"], "sha256": row["sha256"]}
+            for row in msvc_manifest["binaries"]],
+    }
+    adoption.write_json(redist / "receipt.json", upstream)
     manifest_path = tmp_path / "packaging/qt-raster-no-network-inputs.json"
     manifest = json.loads((tmp_path / "packaging/qt-raster-inputs.json").read_bytes())
     manifest.update(profile=adoption.candidate.NO_NETWORK_PROFILE, schema="dupez.qt-candidate-inputs.v4")
@@ -321,7 +345,13 @@ def test_no_network_adoption_binds_v4_receipt_and_records_exclusion_not_patch(tm
     receipt.update(profile=adoption.candidate.NO_NETWORK_PROFILE, schema="dupez.qt-candidate-preparation.v4",
                    manifest_sha256=adoption.sha256(manifest_path))
     receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
-    result = adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE)
+    return source, checksum, output, redist, manifest_path, msvc_manifest
+
+
+def test_no_network_adoption_binds_v4_receipt_and_records_exclusion_not_patch(tmp_path, monkeypatch):
+    source, checksum, output, redist, manifest_path, msvc_manifest = _no_network_preparation_fixture(tmp_path, monkeypatch)
+    result = adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                              msvc_redist_root=redist)
     assert result["profile"] == adoption.candidate.NO_NETWORK_PROFILE
     assert result["candidate_manifest_sha256"] == adoption.sha256(manifest_path)
     assert "excluded, not patched" in result["limitations"][1]
@@ -333,6 +363,53 @@ def test_no_network_adoption_binds_v4_receipt_and_records_exclusion_not_patch(tm
     assert all(any(p["value"] == "unresolved-owner-entitlement-and-applicable-terms" for p in row["properties"])
                for row in native)
     assert result["msvc_runtime_mapping"]["distribution_approved"] is False
+    assert result["msvc_runtime_stage"]["path"] == "msvc-runtime"
+    assert result["msvc_runtime_stage"]["stage_receipt_sha256"] == adoption.sha256(output / "msvc-runtime/stage-receipt.json")
+    assert all(set(row) == {"name", "size", "sha256"} for row in result["msvc_runtime_stage"]["binaries"])
+
+
+def test_no_network_adoption_requires_private_runtime_input_before_output(tmp_path, monkeypatch):
+    source, checksum, output, _redist, _manifest, _msvc = _no_network_preparation_fixture(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="requires --msvc-redist-root"):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE)
+    assert not output.exists()
+
+
+def test_old_profile_cannot_silently_ignore_private_runtime_input(tmp_path, monkeypatch):
+    source, checksum, output, _wheel = _preparation_fixture(tmp_path, monkeypatch)
+    with pytest.raises(ValueError, match="requires the QtNetwork-free profile"):
+        adoption.prepare(source, checksum, output, [], msvc_redist_root=tmp_path)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("relative", ["MSVCP140.dll", "upstream-receipt.json", "stage-receipt.json"])
+def test_private_runtime_mutation_during_installation_cannot_issue_receipt(tmp_path, monkeypatch, relative):
+    source, checksum, output, redist, _manifest, _msvc = _no_network_preparation_fixture(tmp_path, monkeypatch)
+
+    def corrupt_stage(profile, _version):
+        with (profile / "msvc-runtime" / relative).open("ab") as stream:
+            stream.write(b"changed after stage validation")
+        return {"pip_check": "passed"}
+
+    monkeypatch.setattr(adoption, "install_environment", corrupt_stage)
+    with pytest.raises(ValueError, match="Engineering input changed during preparation"):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                         msvc_redist_root=redist, install=True)
+    assert not (output / "installation-receipt.json").exists()
+
+
+def test_private_runtime_mutation_before_profile_receipt_is_rejected(tmp_path, monkeypatch):
+    source, checksum, output, redist, _manifest, _msvc = _no_network_preparation_fixture(tmp_path, monkeypatch)
+
+    def corrupt_stage(*_args):
+        (output / "msvc-runtime/MSVCP140.dll").write_bytes(b"corrupt")
+        return [], []
+
+    monkeypatch.setattr(adoption, "stage_wheels", corrupt_stage)
+    with pytest.raises(ValueError):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                         msvc_redist_root=redist)
+    assert not (output / "engineering-profile.json").exists()
 
 
 def test_no_network_adoption_rejects_old_raster_receipt_before_output(tmp_path, monkeypatch):
