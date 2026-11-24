@@ -9,23 +9,27 @@ the exact frozen files that will be published.
 GPL-3.0-only with corresponding source and the disclosed unsigned/manual-install
 route remain selected. No new license-route or signing-route choice is needed.
 
-Clean engineering checkpoint `a017ee2` supplies pinned Microsoft runtime DLLs
-from a private stage. Both builds pass source/archive/native inspection with
-114 entries each and no System32-origin files. The full source suite records
-**3,901 passed, 10 expected skips**; Ruff/AST pass all 469 tracked Python files. GPU
-import/TLS maintenance, both safety dry-run lifecycle profiles and the actual
-hash-bound PowerShell 5.1 consumer pass. **Compat runtime remains pending per
-owner instruction; no new UAC or Compat launch was attempted.** See the
-[private runtime audit](../audits/MSVC_PRIVATE_STAGE_2026-11-24.md).
+Clean checkpoint `d16d5c6a59e62087dc2d04213ce075b71c0abdd1` adopts Qt/PyQt 6.12.1 and SIP 13.13.1
+in the explicit no-QtNetwork engineering profile. Both frozen builds pass
+source/archive/native checks with 114 entries each and no System32 origins.
+The full source suite records **4,017 passed, 10 expected skips**; Ruff/AST pass
+all 475 tracked Python files. GPU import/TLS maintenance, both dashboard
+safety dry-run profiles and the actual hash-bound PowerShell 5.1 consumer pass.
+**Compat runtime remains pending per owner instruction; no new UAC attempt
+or Compat launch occurred.** See the [Qt adoption audit](../audits/QT_6121_ADOPTION_2026-11-24.md).
 
-The last inspected pushed head `078067c` had all 14 hosted checks blocked before
-execution by GitHub's billing lock on November 9. Refresh checks on the newest
-push. No billing, spending or subscription change was made; the private owner
-steps below remain applicable if that restriction continues.
+All 2,745 retained IUP source files match historical SVN r5892 exactly or only
+by CRLF/LF differences. All 314 Qt translations rebuild byte for byte. New
+QtBase/Core and SVG binary metadata match the exported source revisions.
+ImageFormats/Translations revision metadata, native C/C++ reproduction and
+complete public source/relink delivery remain unfinished. The local toolchain
+has no VC compiler components. The tiny-WebP limitation persists on 6.12.1.
 
-Next engineering work is the coordinated Qt 6.12.1 candidate and retained native
-source/rebuild mapping. The seven exact IUP source matches are partial evidence;
-full corresponding-source and public recipient delivery remain unfinished.
+Before this checkpoint, all 14 hosted checks on pushed head
+`6de2023f65eca81f43d44bbffbf17fb2dcf1b858` were blocked before execution by
+GitHub billing on November 24. Consult
+[PR 84](https://github.com/GrihmLord/DupeZ/pull/84) for diagnostics on the newest push.
+No account, payment or spending change is part of this work.
 
 ## Preconditions
 

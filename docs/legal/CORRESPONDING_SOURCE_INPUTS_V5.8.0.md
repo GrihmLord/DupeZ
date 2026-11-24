@@ -18,6 +18,14 @@ that historical bundle with the October 24 manifest via `--manifest`, not the
 updated manifest. The commands below are a historical recipe for that checkout;
 use the follow-up's current offline verification recipe for the expanded cache.
 
+## November 24 engineering follow-up
+
+The [Qt 6.12.1 audit](../audits/QT_6121_ADOPTION_2026-11-24.md) records new
+coordinated Qt/PyQt/SIP sources, full IUP archive comparison and byte-identical
+Qt translation reconstruction. It resolves the candidate QtBase/Core declared
+revision discrepancy. These separate evidence records do not replace the
+historical bundle below or establish complete public corresponding source.
+
 ## Completed local collection
 
 All 32 pinned source archives were retained and reinspected with the final

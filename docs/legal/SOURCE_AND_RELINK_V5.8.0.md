@@ -6,18 +6,15 @@ source/relink release gate has passed. The governing project license
 is supplied separately as `LICENSE.txt`; third-party terms are reproduced in
 `THIRD_PARTY_NOTICES.txt`.
 
-## Current engineering profile — November 9
+## Current engineering profile — November 24
 
-The separate `frozen-raster-no-qtnetwork` profile at clean checkpoint
-`22cddda` uses a restricted Qt 6.11.3 wheel and pins the three Microsoft runtime
-DLLs to their exact upstream package. Its repeated wheel preparation, clean
-builds and scoped validation are documented in the
-[Qt Network exclusion audit](../audits/QT_NETWORK_EXCLUSION_2026-11-09.md).
-Compat runtime remains pending per owner instruction. These engineering results
-do not close retained native-source/rebuild, redistribution-basis or public
-corresponding-source/replacement delivery gaps. The canonical production locks
-and default rebuilding instructions below remain unchanged; use the audit's
-explicit profile recipe when reproducing that engineering artifact set.
+The explicit `frozen-raster-no-qtnetwork` profile now uses Qt/PyQt 6.12.1,
+SIP 13.13.1 and the verified private Microsoft runtime stage. See the
+[Qt adoption audit](../audits/QT_6121_ADOPTION_2026-11-24.md) for the exact source
+checkpoint, hashes, clean recipient recipe and scoped test evidence.
+Compat runtime remains pending. Canonical production locks and the default
+protected release path below remain unchanged. Full third-party source/relink
+delivery and native library reconstruction remain unfinished.
 
 ## Exact DupeZ source
 
