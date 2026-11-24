@@ -1,0 +1,365 @@
+{
+  "schema": "dupez.iup-native-compilation-evidence.v1",
+  "observed_on": "2026-11-24",
+  "code_checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+  "status": "isolated-native-build-and-inert-api-test-passed",
+  "source_archive": {
+    "path": "build/source-delivery-20261024/archives/iup-3.30_Sources.zip",
+    "size": 14226631,
+    "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+  },
+  "reviewed_patch": {
+    "path": "packaging/native-patches/iup-3.30-win32-dib-pointer.patch",
+    "size": 501,
+    "sha256": "498a45796bf6cfb390a718df7a322d0b87670babf6d2696693428bb5ff33a6ae"
+  },
+  "portable_toolchain_acquisition": {
+    "path": "build/native-compilation-20261124/toolchain-acquisition.json",
+    "size": 1236,
+    "sha256": "f73cd4acf2280e3cf5aaddfc56bf47bb31f78845e1fbada2a0affa04b6294b50"
+  },
+  "portable_toolchain": {
+    "release": "LLVM-MinGW 20261117 UCRT x86_64",
+    "llvm_version": "23.1.6",
+    "archive": {
+      "path": "build/native-compilation-20261124/inputs/llvm-mingw-20261117-ucrt-x86_64.zip",
+      "size": 191082415,
+      "sha256": "4d002e330a0f703625aa5ccbc37e96f8f824413e163bfc7336774aabd2c3a412"
+    },
+    "upstream_url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261117/llvm-mingw-20261117-ucrt-x86_64.zip",
+    "inventory": {
+      "path": "build/native-compilation-20261124/toolchain-inventory.json",
+      "size": 2125303,
+      "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e"
+    },
+    "files": 9069,
+    "notices": [
+      {
+        "path": "build/native-compilation-20261124/toolchain/llvm-mingw-20261117-ucrt-x86_64/LICENSE.TXT",
+        "size": 15141,
+        "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee"
+      },
+      {
+        "path": "build/native-compilation-20261124/toolchain/llvm-mingw-20261117-ucrt-x86_64/x86_64-w64-mingw32/share/mingw32/COPYING.MinGW-w64-runtime.txt",
+        "size": 12155,
+        "sha256": "1db8da07b436c68833c0673ffee3d9fcb2526047f3820b81661865dfedc79a1f"
+      },
+      {
+        "path": "build/native-compilation-20261124/toolchain/llvm-mingw-20261117-ucrt-x86_64/x86_64-w64-mingw32/share/mingw32/COPYING.MinGW-w64.txt",
+        "size": 5905,
+        "sha256": "f38e6194bd3bfa1b654f118e5acefe0aead437bbe669eee43957ccc65a7127f1"
+      }
+    ],
+    "global_installation_performed": false
+  },
+  "initial_diagnostic": {
+    "receipt": {
+      "path": "build/native-compilation-20261124/iup-attempt-1/receipt.json",
+      "size": 252308,
+      "sha256": "b4a5e82ed9cc4707c3af9019d5573dd5acea73e98d7fbfb129b1ae3f00294038"
+    },
+    "compiled_c_files": 160,
+    "failed_c_files": 1,
+    "failed_log": {
+      "path": "build/native-compilation-20261124/iup-attempt-1/logs/compile-116.log",
+      "size": 804,
+      "sha256": "89cd6cc573a132d06a0c893b964c121904214572d0fa5ffcb60b5cc07e37a312"
+    },
+    "reason": "BYTE** argument rejected for CreateDIBSection void** output",
+    "superseded_by_reviewed_typed_pointer_patch": true
+  },
+  "builds": [
+    {
+      "receipt": {
+        "path": "build/native-compilation-20261124/iup-attempt-2/receipt.json",
+        "size": 291860,
+        "sha256": "537b5ce5dd74758dae43172be7ad160a6a5a3731e24a90775686a3950b2d3280"
+      },
+      "plan": {
+        "path": "build/native-compilation-20261124/iup-attempt-2/plan.json",
+        "size": 7217,
+        "sha256": "9e1d5bd1f6834cc3d0a58213904ce8441fb52e471774f235d9cb2fbd10858514"
+      },
+      "source_inventory": {
+        "path": "build/native-compilation-20261124/iup-attempt-2/source-inventory.json",
+        "size": 588277,
+        "sha256": "2afe7c426081e4268b1875fa098ad2deda295b733000c22c6f96465bc81acec5"
+      },
+      "source_files": 2745,
+      "compiled_c_files": 161,
+      "successful_commands": 164,
+      "artifacts": [
+        {
+          "path": "build/native-compilation-20261124/iup-attempt-2/iup.dll",
+          "size": 1244160,
+          "sha256": "6f883d57a8504981c78caf0136f1c5b9b6b0ba7860c6995a0303ddb2d5ea9b81"
+        },
+        {
+          "path": "build/native-compilation-20261124/iup-attempt-2/libiup.dll.a",
+          "size": 151134,
+          "sha256": "1fc6e602e7f05339d5f5914ad65055606b1480a30dc1ea63d198a3b23aa9e511"
+        }
+      ],
+      "guard_dependencies": [
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "size": 8217,
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be"
+        },
+        {
+          "path": "scripts/native_rebuild/process.py",
+          "size": 11526,
+          "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15"
+        }
+      ],
+      "source_delta": {
+        "path": "src/win/iupwin_image.c",
+        "patch": {
+          "path": "packaging/native-patches/iup-3.30-win32-dib-pointer.patch",
+          "size": 501,
+          "sha256": "498a45796bf6cfb390a718df7a322d0b87670babf6d2696693428bb5ff33a6ae"
+        },
+        "before": {
+          "size": 22602,
+          "sha256": "60f8ca5876dcd106985e2ea0ca8658434352d06f98da8f13a3d606b9f926192e"
+        },
+        "after": {
+          "size": 22661,
+          "sha256": "3d1ace4340996853c9bdaa4b7210d151ca2efb77ba8f5398ee0820b20eed8717"
+        },
+        "reason": "Typed void pointer bridge for CreateDIBSection output; no warning suppression",
+        "other_source_files_changed": 0
+      }
+    },
+    {
+      "receipt": {
+        "path": "build/native-compilation-20261124/iup-repeat-1/receipt.json",
+        "size": 291367,
+        "sha256": "3bee8e5138b7fb3bb489a2823366fb9e94c47af9681955084e7a9a17b770d340"
+      },
+      "plan": {
+        "path": "build/native-compilation-20261124/iup-repeat-1/plan.json",
+        "size": 7216,
+        "sha256": "e0b0376903703253f184e23c756836fd1eb789f4e14e734b4d0714cc07f112e4"
+      },
+      "source_inventory": {
+        "path": "build/native-compilation-20261124/iup-repeat-1/source-inventory.json",
+        "size": 588277,
+        "sha256": "2afe7c426081e4268b1875fa098ad2deda295b733000c22c6f96465bc81acec5"
+      },
+      "source_files": 2745,
+      "compiled_c_files": 161,
+      "successful_commands": 164,
+      "artifacts": [
+        {
+          "path": "build/native-compilation-20261124/iup-repeat-1/iup.dll",
+          "size": 1244160,
+          "sha256": "6f883d57a8504981c78caf0136f1c5b9b6b0ba7860c6995a0303ddb2d5ea9b81"
+        },
+        {
+          "path": "build/native-compilation-20261124/iup-repeat-1/libiup.dll.a",
+          "size": 151134,
+          "sha256": "1fc6e602e7f05339d5f5914ad65055606b1480a30dc1ea63d198a3b23aa9e511"
+        }
+      ],
+      "guard_dependencies": [
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "size": 8217,
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be"
+        },
+        {
+          "path": "scripts/native_rebuild/process.py",
+          "size": 11526,
+          "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15"
+        }
+      ],
+      "source_delta": {
+        "path": "src/win/iupwin_image.c",
+        "patch": {
+          "path": "packaging/native-patches/iup-3.30-win32-dib-pointer.patch",
+          "size": 501,
+          "sha256": "498a45796bf6cfb390a718df7a322d0b87670babf6d2696693428bb5ff33a6ae"
+        },
+        "before": {
+          "size": 22602,
+          "sha256": "60f8ca5876dcd106985e2ea0ca8658434352d06f98da8f13a3d606b9f926192e"
+        },
+        "after": {
+          "size": 22661,
+          "sha256": "3d1ace4340996853c9bdaa4b7210d151ca2efb77ba8f5398ee0820b20eed8717"
+        },
+        "reason": "Typed void pointer bridge for CreateDIBSection output; no warning suppression",
+        "other_source_files_changed": 0
+      }
+    }
+  ],
+  "repeat_artifacts_byte_identical": true,
+  "pe_comparison": {
+    "observation": {
+      "path": "build/native-compilation-20261124/iup-rebuilt-pe-observation.json",
+      "size": 80608,
+      "sha256": "43622f4e68fe2cf4f5298a72c2468794c464f27251c08134902ea189697b6ec7"
+    },
+    "machine": "AMD64",
+    "export_count": 728,
+    "export_names_and_ordinals_match_original": true,
+    "clumsy_required_named_exports_present": 32,
+    "import_dlls": [
+      "KERNEL32.dll",
+      "USER32.dll",
+      "GDI32.dll",
+      "comdlg32.dll",
+      "ADVAPI32.dll",
+      "SHELL32.dll",
+      "ole32.dll",
+      "COMCTL32.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-math-l1-1-0.dll",
+      "api-ms-win-crt-convert-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-time-l1-1-0.dll",
+      "api-ms-win-crt-environment-l1-1-0.dll",
+      "api-ms-win-crt-utility-l1-1-0.dll"
+    ],
+    "pe_timestamp": 0
+  },
+  "inert_api_harness": {
+    "receipt": {
+      "path": "build/native-compilation-20261124/iup-inert-harness-1/receipt.json",
+      "size": 19980,
+      "sha256": "49ebf6c561d2bd3aa4b07f7ae3c8a1235f49acf97d5e9c4b23ca34f98945e8d4"
+    },
+    "source": {
+      "path": "build/native-compilation-20261124/iup-inert-harness.c",
+      "size": 6959,
+      "sha256": "ef172eba569af4bd98df815099a9679dba9a6089fd39290638366ebb16227d22"
+    },
+    "source_text": "/* Inert IUP-only smoke test. No Clumsy, WinDivert, network, or visible windows. */\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>\n#include <stdio.h>\n#include <wchar.h>\n#include <string.h>\n#include \"iup.h\"\n\nstatic int clicks = 0;\nstatic int on_click(Ihandle* button) { if (!button) return IUP_ERROR; ++clicks; return IUP_DEFAULT; }\n\n#define DECLARE(name, result, arguments) typedef result (*name##_type) arguments; name##_type p##name = NULL\n#define RESOLVE(name) do { p##name = (name##_type)GetProcAddress(module, #name); if (!p##name) { failure = #name \" missing\"; goto cleanup; } } while (0)\n#define REQUIRE(condition, label) do { if (!(condition)) { failure = label; goto cleanup; } } while (0)\n\nint wmain(int argc, wchar_t** argv) {\n  HMODULE module = NULL;\n  Ihandle *label = NULL, *button = NULL, *image = NULL, *box = NULL, *dialog = NULL;\n  HDC dc = NULL;\n  HBITMAP bitmap = NULL;\n  HGDIOBJ previous = NULL;\n  HANDLE token = NULL;\n  TOKEN_ELEVATION elevation;\n  DWORD token_size = 0;\n  wchar_t loaded[MAX_PATH];\n  const char* failure = NULL;\n  int opened = 0, mapped = 0, result = 1;\n  unsigned char pixels[16] = {255,0,0,255, 0,255,0,255, 0,0,255,255, 255,255,255,255};\n  Ihandle* children[3];\n  BITMAPINFO info;\n  void* dib = NULL;\n  DRAWITEMSTRUCT draw;\n  HWND label_hwnd, button_hwnd;\n  DECLARE(IupOpen, int, (int*, char***));\n  DECLARE(IupClose, void, (void));\n  DECLARE(IupVersion, char*, (void));\n  DECLARE(IupVersionNumber, int, (void));\n  DECLARE(IupImageRGBA, Ihandle*, (int, int, const unsigned char*));\n  DECLARE(IupLabel, Ihandle*, (const char*));\n  DECLARE(IupButton, Ihandle*, (const char*, const char*));\n  DECLARE(IupVboxv, Ihandle*, (Ihandle**));\n  DECLARE(IupDialog, Ihandle*, (Ihandle*));\n  DECLARE(IupSetAttribute, void, (Ihandle*, const char*, const char*));\n  DECLARE(IupSetStrAttribute, void, (Ihandle*, const char*, const char*));\n  DECLARE(IupGetAttribute, char*, (Ihandle*, const char*));\n  DECLARE(IupSetAttributeHandle, void, (Ihandle*, const char*, Ihandle*));\n  DECLARE(IupSetCallback, Icallback, (Ihandle*, const char*, Icallback));\n  DECLARE(IupMap, int, (Ihandle*));\n  DECLARE(IupUnmap, void, (Ihandle*));\n  DECLARE(IupDestroy, void, (Ihandle*));\n\n  REQUIRE(argc == 2 && wcslen(argv[1]) < MAX_PATH, \"exact DLL path argument required\");\n  REQUIRE(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token), \"token query\");\n  REQUIRE(GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &token_size), \"token elevation query\");\n  REQUIRE(!elevation.TokenIsElevated, \"standard token required\");\n  CloseHandle(token); token = NULL;\n  REQUIRE(SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32), \"system-only default DLL directories\");\n  module = LoadLibraryExW(argv[1], NULL, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);\n  REQUIRE(module, \"restricted IUP load\");\n  REQUIRE(GetModuleFileNameW(module, loaded, MAX_PATH) > 0 && !_wcsicmp(loaded, argv[1]), \"loaded DLL origin\");\n  RESOLVE(IupOpen); RESOLVE(IupClose); RESOLVE(IupVersion); RESOLVE(IupVersionNumber);\n  RESOLVE(IupImageRGBA); RESOLVE(IupLabel); RESOLVE(IupButton); RESOLVE(IupVboxv); RESOLVE(IupDialog);\n  RESOLVE(IupSetAttribute); RESOLVE(IupSetStrAttribute); RESOLVE(IupGetAttribute); RESOLVE(IupSetAttributeHandle);\n  RESOLVE(IupSetCallback); RESOLVE(IupMap); RESOLVE(IupUnmap); RESOLVE(IupDestroy);\n  REQUIRE(pIupVersionNumber() == 330000 && strcmp(pIupVersion(), \"3.30\") == 0, \"IUP version\");\n  REQUIRE(pIupOpen(NULL, NULL) == IUP_NOERROR, \"IupOpen\"); opened = 1;\n  image = pIupImageRGBA(2, 2, pixels); REQUIRE(image, \"RGBA image creation\");\n  label = pIupLabel(NULL); REQUIRE(label, \"label creation\");\n  button = pIupButton(\"Inert callback\", NULL); REQUIRE(button, \"button creation\");\n  pIupSetAttributeHandle(label, \"IMAGE\", image);\n  pIupSetAttribute(label, \"RASTERSIZE\", \"2x2\");\n  pIupSetAttribute(label, \"ALIGNMENT\", \"ALEFT:ATOP\");\n  pIupSetStrAttribute(button, \"TITLE\", \"Attribute roundtrip\");\n  REQUIRE(strcmp(pIupGetAttribute(button, \"TITLE\"), \"Attribute roundtrip\") == 0, \"attribute roundtrip\");\n  pIupSetCallback(button, \"ACTION\", (Icallback)on_click);\n  children[0] = label; children[1] = button; children[2] = NULL;\n  box = pIupVboxv(children); REQUIRE(box, \"container creation\");\n  dialog = pIupDialog(box); REQUIRE(dialog, \"dialog creation\");\n  REQUIRE(pIupMap(dialog) == IUP_NOERROR, \"hidden mapping\"); mapped = 1;\n  REQUIRE(!IsWindowVisible((HWND)pIupGetAttribute(dialog, \"WID\")), \"dialog remained hidden\");\n  label_hwnd = (HWND)pIupGetAttribute(label, \"WID\");\n  button_hwnd = (HWND)pIupGetAttribute(button, \"WID\");\n  REQUIRE(IsWindow(label_hwnd) && IsWindow(button_hwnd), \"native control handles\");\n  SendMessageW(button_hwnd, BM_CLICK, 0, 0);\n  REQUIRE(clicks == 1, \"inert native callback\");\n\n  /* Draw only our hidden image label into a private two-by-two memory bitmap.\n     The IUP owner-draw path requests its native image and exercises the DIB bridge. */\n  ZeroMemory(&info, sizeof(info));\n  info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);\n  info.bmiHeader.biWidth = 2; info.bmiHeader.biHeight = -2;\n  info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32;\n  info.bmiHeader.biCompression = BI_RGB;\n  dc = CreateCompatibleDC(NULL); REQUIRE(dc, \"memory DC\");\n  bitmap = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &dib, NULL, 0); REQUIRE(bitmap && dib, \"memory DIB\");\n  previous = SelectObject(dc, bitmap); REQUIRE(previous && previous != HGDI_ERROR, \"memory bitmap selection\");\n  memset(dib, 0, 16);\n  ZeroMemory(&draw, sizeof(draw));\n  draw.CtlType = ODT_STATIC; draw.CtlID = (UINT)GetDlgCtrlID(label_hwnd);\n  draw.itemAction = ODA_DRAWENTIRE; draw.hwndItem = label_hwnd; draw.hDC = dc;\n  draw.rcItem.right = 2; draw.rcItem.bottom = 2;\n  SendMessageW(GetParent(label_hwnd), WM_DRAWITEM, draw.CtlID, (LPARAM)&draw);\n  REQUIRE(GetPixel(dc,0,0) == RGB(255,0,0) && GetPixel(dc,1,0) == RGB(0,255,0)\n          && GetPixel(dc,0,1) == RGB(0,0,255) && GetPixel(dc,1,1) == RGB(255,255,255), \"RGBA owner-draw pixel roundtrip\");\n  result = 0;\n\ncleanup:\n  if (previous && previous != HGDI_ERROR) SelectObject(dc, previous);\n  if (bitmap) DeleteObject(bitmap);\n  if (dc) DeleteDC(dc);\n  if (dialog && pIupDestroy) { if (mapped) pIupUnmap(dialog); pIupDestroy(dialog); }\n  else if (box && pIupDestroy) pIupDestroy(box);\n  else if (pIupDestroy) { if (label) pIupDestroy(label); if (button) pIupDestroy(button); }\n  if (image && pIupDestroy) pIupDestroy(image);\n  if (opened) pIupClose();\n  if (module) FreeLibrary(module);\n  if (token) CloseHandle(token);\n  if (failure) fprintf(stderr, \"IUP inert harness failed: %s\\n\", failure);\n  else puts(\"{\\\"status\\\":\\\"passed\\\",\\\"iup_version\\\":\\\"3.30\\\",\\\"version_number\\\":330000,\\\"standard_token\\\":true,\\\"restricted_dll_origin_verified\\\":true,\\\"hidden_controls_mapped\\\":true,\\\"attribute_roundtrip\\\":true,\\\"native_callback_count\\\":1,\\\"rgba_pixels_verified\\\":4,\\\"iup_closed\\\":true,\\\"clumsy_executed\\\":false,\\\"packet_activity\\\":false}\");\n  return result;\n}\n",
+    "commands": [
+      {
+        "command": [
+          "<workspace>/build/native-compilation-20261124/toolchain/llvm-mingw-20261117-ucrt-x86_64/bin/x86_64-w64-mingw32-clang.exe",
+          "--no-default-config",
+          "-std=gnu99",
+          "-O2",
+          "-Wall",
+          "-Wextra",
+          "-fno-ident",
+          "-municode",
+          "-rtlib=compiler-rt",
+          "-unwindlib=libunwind",
+          "-stdlib=libc++",
+          "-fuse-ld=lld",
+          "-Wl,--no-insert-timestamp",
+          "-ffile-prefix-map=<workspace>/build/native-compilation-20261124=native-proof",
+          "-I<workspace>/build/native-compilation-20261124/iup-patched-source/iup/include",
+          "<workspace>/build/native-compilation-20261124/iup-inert-harness.c",
+          "-lkernel32",
+          "-luser32",
+          "-lgdi32",
+          "-ladvapi32",
+          "-o",
+          "<workspace>/build/native-compilation-20261124/iup-inert-harness-1/iup-inert-harness.exe"
+        ],
+        "cwd": "build/native-compilation-20261124/iup-inert-harness-1",
+        "exit_code": 0,
+        "log": {
+          "path": "build/native-compilation-20261124/iup-inert-harness-1/compile.log",
+          "size": 106,
+          "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a"
+        },
+        "process_ownership": {
+          "launch_suspended": true,
+          "job_assigned_before_resume": true,
+          "inherited_handles": "log-only",
+          "active_processes_after_cleanup": 0
+        }
+      },
+      {
+        "command": [
+          "<workspace>/build/native-compilation-20261124/iup-inert-harness-1/iup-inert-harness.exe",
+          "<workspace>/build/native-compilation-20261124/iup-attempt-2/iup.dll"
+        ],
+        "exit_code": 0,
+        "log": {
+          "path": "build/native-compilation-20261124/iup-inert-harness-1/runtime.log",
+          "size": 300,
+          "sha256": "218c80cdfe935285825ede607b168e9681c6d1aea87449ab90810230497f52a2"
+        },
+        "process_ownership": {
+          "launch_suspended": true,
+          "job_assigned_before_resume": true,
+          "inherited_handles": "log-only",
+          "active_processes_after_cleanup": 0
+        }
+      }
+    ],
+    "executable": {
+      "path": "build/native-compilation-20261124/iup-inert-harness-1/iup-inert-harness.exe",
+      "size": 66560,
+      "sha256": "36fc30ed55ca98ab5c32bb1074180e287dee3b593f1aac8c7bf1cb981b7c2b40"
+    },
+    "pe_imports": [
+      "ADVAPI32.dll",
+      "GDI32.dll",
+      "KERNEL32.dll",
+      "USER32.dll",
+      "api-ms-win-crt-environment-l1-1-0.dll",
+      "api-ms-win-crt-heap-l1-1-0.dll",
+      "api-ms-win-crt-locale-l1-1-0.dll",
+      "api-ms-win-crt-math-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll",
+      "api-ms-win-crt-runtime-l1-1-0.dll",
+      "api-ms-win-crt-stdio-l1-1-0.dll",
+      "api-ms-win-crt-string-l1-1-0.dll"
+    ],
+    "observation": {
+      "status": "passed",
+      "iup_version": "3.30",
+      "version_number": 330000,
+      "standard_token": true,
+      "restricted_dll_origin_verified": true,
+      "hidden_controls_mapped": true,
+      "attribute_roundtrip": true,
+      "native_callback_count": 1,
+      "rgba_pixels_verified": 4,
+      "iup_closed": true,
+      "clumsy_executed": false,
+      "packet_activity": false
+    }
+  },
+  "focused_guard_tests": {
+    "junit": {
+      "path": "build/native-compilation-20261124/native-guard-tests-final.xml",
+      "size": 9905,
+      "sha256": "3d6bdb5f3cb6262ed958fee3df1bf10c8325ec943189a65598d8a5ec240fa62a"
+    },
+    "passed": 74,
+    "failed": 0,
+    "skipped": 0
+  },
+  "collector": {
+    "path": "build/native-compilation-20261124/collect_iup_evidence.py",
+    "size": 15878,
+    "sha256": "1c91b9322d1abcc5ad08c69a5bf178ddc20160ba661a077a04bb460b0278f5c3"
+  },
+  "limits": [
+    "This rebuild uses LLVM-MinGW and one disclosed C source patch; the historical MSVC DLL is not reproduced.",
+    "Equal export names/ordinals and the inert IUP harness do not prove complete Clumsy or application runtime compatibility.",
+    "The harness maps hidden IUP controls, invokes one harmless callback and verifies four private bitmap pixels; no Clumsy/WinDivert/game/network activity occurs.",
+    "Both builds use the same verified local source and portable toolchain inputs in distinct output directories; this is not an independent recipient-machine rebuild.",
+    "The native candidates are evidence artifacts and do not replace shipped binaries or approve distribution/license obligations.",
+    "Compat runtime testing remains pending; this evidence does not resolve Qt or other native component rebuild/source gaps."
+  ],
+  "original_msvc_binary_reproduction_claimed": false,
+  "full_clumsy_runtime_compatibility_claimed": false,
+  "shipped_binaries_replaced": false,
+  "compat_runtime_tested": false,
+  "licensing_approval_inferred": false,
+  "release_approval": false
+}

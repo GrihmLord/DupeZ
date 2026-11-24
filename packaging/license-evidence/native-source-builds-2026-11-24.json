@@ -1,0 +1,2190 @@
+{
+  "build": {
+    "artifacts": [
+      {
+        "path": "DupeZ-v5.8.0-source.zip",
+        "sha256": "a6570dde831fefe60cceb428dc3429dda8b5896b4a64f918b782b0e32c05dec5",
+        "size": 25467638
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+        "size": 57273211
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "sha256": "2962628520d3ab21a029092ad04924d5b13ad8a2154e0f2ad1368da996506942",
+        "size": 57275131
+      }
+    ],
+    "build_environment": "runtime-checkout/build/qt-profile/build-venv",
+    "checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+    "qt_build_profile": "frozen-raster-no-qtnetwork"
+  },
+  "build_receipt": {
+    "path": "build/native-source-release-20261124/build-receipt.json",
+    "sha256": "9cec99adaed5bdf64a0e82d143d59f21ab7d96bafb875bb13452d9d4527ca859",
+    "size": 757
+  },
+  "canonical_production_locks_changed": false,
+  "checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+  "collector": {
+    "path": "build/native-source-release-20261124/collect_evidence.py",
+    "sha256": "f26bef16feb0270fa15aa9e7ffc494e6cb1f1f4e3fc4bab783a419cf63a9a54e",
+    "size": 37429
+  },
+  "compat_runtime": {
+    "absent_reports": [
+      "build/native-source-release-20261124/runtime-checkout/build/runtime/compat-maintenance/maintenance-observation.json",
+      "build/native-source-release-20261124/runtime-checkout/build/runtime/frozen-runtime-evidence-compat.json",
+      "build/native-source-release-20261124/runtime-checkout/build/runtime/compat-runner-result.json",
+      "build/native-source-release-20261124/compat-consumer-hash-bound.log"
+    ],
+    "fresh_uac_attempt": false,
+    "prior_runtime_evidence_reused": false,
+    "runtime_tested": false,
+    "status": "pending-by-owner-instruction"
+  },
+  "complete_corresponding_source": false,
+  "coordinated_qt_candidate": {
+    "binding_version": "6.12.1",
+    "manifest": {
+      "path": "packaging/qt-raster-no-network-inputs.json",
+      "sha256": "5371b077d07336086513a7563a074d0fc505df027bd1f7699f764cca2ca41ff1",
+      "size": 10732
+    },
+    "native_compilation_performed": false,
+    "preparations": [
+      {
+        "origins": {
+          "corresponding_source_rebuild_proven": false,
+          "members": [
+            {
+              "archive_member": "bin/Qt6Core.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Core.dll",
+              "sha256": "3b803976495efa3f9e53b95d1dbdeec78504d6a6c9136665f119f8c6f37602a2",
+              "size": 10501944
+            },
+            {
+              "archive_member": "bin/Qt6Gui.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Gui.dll",
+              "sha256": "b78e2fd6e66abe4965cec8fe5d70b386aa5e54fc703b248176bc153d8b6c947f",
+              "size": 9795896
+            },
+            {
+              "archive_member": "bin/Qt6PrintSupport.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+              "sha256": "89d76863c01cf5ceff46fda9d4f13be648d29537d5bf5c95769926562afdbb19",
+              "size": 403768
+            },
+            {
+              "archive_member": "bin/Qt6Svg.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/bin/Qt6Svg.dll",
+              "sha256": "8fb5c2f56d3d181ebda9b46713cbfcd2391d283755644155db2bbbed4e6375b5",
+              "size": 609592
+            },
+            {
+              "archive_member": "bin/Qt6SvgWidgets.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+              "sha256": "b5a14612931068f6f62a6585a030bb5b6d80d23a0d3ac61f197a3cc859e3b93e",
+              "size": 59192
+            },
+            {
+              "archive_member": "bin/Qt6Test.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Test.dll",
+              "sha256": "70bfa0af5682c648c8b15acb137339a50edf681f891ff826055346b585dee25d",
+              "size": 384824
+            },
+            {
+              "archive_member": "bin/Qt6Widgets.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+              "sha256": "6bad5cb160b00467e2e41f30312509bc148dae259cbf4d7050ed62464f899aa9",
+              "size": 6488376
+            },
+            {
+              "archive_member": "plugins/iconengines/qsvgicon.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+              "sha256": "3bc33eed194f27889a75e9d17e3c3c52d48688fdac5ced0482d2948f1873b85d",
+              "size": 72504
+            },
+            {
+              "archive_member": "plugins/imageformats/qgif.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+              "sha256": "095227acd9df49577ba2e0822d6b71b04a5924868ed70c71554000a9d146b7b8",
+              "size": 45368
+            },
+            {
+              "archive_member": "plugins/imageformats/qicns.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+              "sha256": "3d05303687d2b5a58f8a7f34ea77766027b302148d93224d6afe0163eb0a9496",
+              "size": 56632
+            },
+            {
+              "archive_member": "plugins/imageformats/qico.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qico.dll",
+              "sha256": "22c206efc97130882ab364f8e9311913efa36edcfe56c301593f14edbf805a6f",
+              "size": 46392
+            },
+            {
+              "archive_member": "plugins/imageformats/qjpeg.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+              "sha256": "90ff30df6d7e5a074aad2640a6a368ed0ab1984640bd90fd2876b5a87a7f6a95",
+              "size": 592184
+            },
+            {
+              "archive_member": "plugins/imageformats/qsvg.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+              "sha256": "5a62f7d1cc6bd439ecb76819d34997123be035d75468210930c90c19f362126b",
+              "size": 39736
+            },
+            {
+              "archive_member": "plugins/imageformats/qtga.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+              "sha256": "25358a16fc9edd3d884d5bae89a4c80fd1455a7bc2372c230e8782a7a298dda5",
+              "size": 38712
+            },
+            {
+              "archive_member": "plugins/imageformats/qtiff.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+              "sha256": "62fa19df707ccdf1baa8659c51233e4666ec611b71742574fd534defc1ea4e59",
+              "size": 991544
+            },
+            {
+              "archive_member": "plugins/imageformats/qwbmp.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+              "sha256": "32eb1c81ce9e2e3b372fb1e1b71c9a1f75da58db2480306a96f11c8c4c7526b8",
+              "size": 36664
+            },
+            {
+              "archive_member": "plugins/imageformats/qwebp.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+              "sha256": "d1201f19aa1681fe29a1cc273a4bbd26df75f9b51e5066f0b316c36fea5cc157",
+              "size": 565048
+            },
+            {
+              "archive_member": "plugins/platforms/qminimal.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qminimal.dll",
+              "sha256": "4afe3df996d24490c7136d53a7ad89acfeefabddf21b809b7f4586d76576fbce",
+              "size": 62264
+            },
+            {
+              "archive_member": "plugins/platforms/qoffscreen.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+              "sha256": "64dc04fad8003397222a2deb6f2851fd3f6173cc3a3b8aa886475d851d25f3d2",
+              "size": 111416
+            },
+            {
+              "archive_member": "plugins/platforms/qwindows.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+              "sha256": "e6c4a38afdee49baffd207ccd7001bd409141f2c61a3798720350630ae5400ee",
+              "size": 1004344
+            },
+            {
+              "archive_member": "plugins/styles/qmodernwindowsstyle.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+              "sha256": "e81cfe30cb66b36231c2dcb725e1ddfbe2934dba71510836c67d00a6a2ee730d",
+              "size": 240440
+            },
+            {
+              "archive_member": "translations/qtbase_ar.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ar.qm",
+              "sha256": "e03fe68d83201543698fd7fe267dd5dfc5bfd195147e74ff2f19ac3491401263",
+              "size": 160017
+            },
+            {
+              "archive_member": "translations/qtbase_bg.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_bg.qm",
+              "sha256": "e448ac9e3f16c29eb27af3012efe21052daa78fabfb34cd6dff2f69ee3bd3cdb",
+              "size": 165337
+            },
+            {
+              "archive_member": "translations/qtbase_ca.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ca.qm",
+              "sha256": "5298532fc52ffbc4e2c549f277151a61e741921c834286f7c04d3753677b6b04",
+              "size": 269007
+            },
+            {
+              "archive_member": "translations/qtbase_cs.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_cs.qm",
+              "sha256": "03028b42df5479270371e4c3bdc7df2f56cbbe6dda956a2864ac6f6415861fe8",
+              "size": 174701
+            },
+            {
+              "archive_member": "translations/qtbase_da.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_da.qm",
+              "sha256": "7d1e5ca3310b54d104c19bf2abd402b38e584e87039a70e153c4a9af74b25c22",
+              "size": 181387
+            },
+            {
+              "archive_member": "translations/qtbase_de.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_de.qm",
+              "sha256": "a1483bae0385c380edad72b818ce7c2f54ba617ba4c709b2a34a76886d5b5f3d",
+              "size": 224345
+            },
+            {
+              "archive_member": "translations/qtbase_en.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_en.qm",
+              "sha256": "494ac9a2b2cb2fdeced353f4a9f898ed8dcf616e9bc667438c62681e3f7f79cf",
+              "size": 33
+            },
+            {
+              "archive_member": "translations/qtbase_es.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_es.qm",
+              "sha256": "7b64ba9e921234a38495410f431338af6a3e91982c92df33b2e466d421338152",
+              "size": 269055
+            },
+            {
+              "archive_member": "translations/qtbase_fa.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fa.qm",
+              "sha256": "f78e59b5bdd586181a999034ba418868ed17fe9c05707fb65e523f70e92253d2",
+              "size": 148156
+            },
+            {
+              "archive_member": "translations/qtbase_fi.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fi.qm",
+              "sha256": "e47fe13713e184d07fa4495dde0c589b0e8f562e91574a3558a9363443a4fa72",
+              "size": 179941
+            },
+            {
+              "archive_member": "translations/qtbase_fr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fr.qm",
+              "sha256": "314243a55c32679ad473fdfe48dc7d66e973ad0fc8bf2164480c58dddb50c1a7",
+              "size": 159463
+            },
+            {
+              "archive_member": "translations/qtbase_gd.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_gd.qm",
+              "sha256": "63b439dd44139aa3aed54c2ebe03fa9bc77f22c14ed8fba8eff2608445bb233d",
+              "size": 189580
+            },
+            {
+              "archive_member": "translations/qtbase_he.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_he.qm",
+              "sha256": "e1ebca16afe8994356f81ca007fbdb9ddf865842010fe908923d873b687cad3f",
+              "size": 138690
+            },
+            {
+              "archive_member": "translations/qtbase_hr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_hr.qm",
+              "sha256": "bb9eec9a9a652c1340dc75eb2e749be50df00f885b3d6900dfc76799c45b244d",
+              "size": 149711
+            },
+            {
+              "archive_member": "translations/qtbase_hu.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_hu.qm",
+              "sha256": "98463295539d769c8645a0b7fb95ad38454cfd0b14f36af485513f036ddbbbc6",
+              "size": 205885
+            },
+            {
+              "archive_member": "translations/qtbase_it.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_it.qm",
+              "sha256": "7808ed542a7833c4bd94ec8bdfbbca00bb4f2fe15979b9121ce3249323687300",
+              "size": 161166
+            },
+            {
+              "archive_member": "translations/qtbase_ja.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ja.qm",
+              "sha256": "2b9581c69b975f59be505b127cd3c19d403ef3d12e0e8386fb97238223e9c1df",
+              "size": 129913
+            },
+            {
+              "archive_member": "translations/qtbase_ka.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ka.qm",
+              "sha256": "e55e4b72fa620bebee5297ca59dfe2f49894a1e544f2b7485b1cfd8829289d6f",
+              "size": 201105
+            },
+            {
+              "archive_member": "translations/qtbase_kk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_kk.qm",
+              "sha256": "daea83490e02f54547078f4bd5bde2767f0746c0ffc6cad1ed5c6b8f49099511",
+              "size": 261008
+            },
+            {
+              "archive_member": "translations/qtbase_ko.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ko.qm",
+              "sha256": "0179ed1b136e1cb3f583351eaa2c545ba3d83a6ee3f82c32505926a1a5f5f183",
+              "size": 156799
+            },
+            {
+              "archive_member": "translations/qtbase_lg.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_lg.qm",
+              "sha256": "31c0cc4ce13b1d74fe0c19ed0b47638fb31e20c93ee08092533e884007aebfb5",
+              "size": 315764
+            },
+            {
+              "archive_member": "translations/qtbase_lv.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_lv.qm",
+              "sha256": "846e047573ae40c83671c3ba7f73e27efc24b98c82701da0df9973e574178bb2",
+              "size": 153608
+            },
+            {
+              "archive_member": "translations/qtbase_nl.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_nl.qm",
+              "sha256": "f61513bcdbb6ad800585f9437a95d018aab17fa12ee414aa31462ff279d8240e",
+              "size": 202861
+            },
+            {
+              "archive_member": "translations/qtbase_nn.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_nn.qm",
+              "sha256": "f9f2fb7c60e7fcb38bbd3c1314ef122145594265e20b0659ff00004baab13ac7",
+              "size": 196411
+            },
+            {
+              "archive_member": "translations/qtbase_pl.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_pl.qm",
+              "sha256": "3cf6b5c14d5eb0cf81e9af2066e66b3aa579a6b9b3c323ed670761f6254a8c54",
+              "size": 162962
+            },
+            {
+              "archive_member": "translations/qtbase_pt_BR.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_pt_BR.qm",
+              "sha256": "3475d61604b938d459949801a906dbd34a8ca824ade94120015d676e208da859",
+              "size": 290955
+            },
+            {
+              "archive_member": "translations/qtbase_ru.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ru.qm",
+              "sha256": "3da6605668f9178d11a838c4515478084dcfb4f9cf22f99d7a92b492db9c224b",
+              "size": 203767
+            },
+            {
+              "archive_member": "translations/qtbase_sk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_sk.qm",
+              "sha256": "d586ae2c314074cf398417fdecb40709d5478dfeb0a67c2fe60d509ee9b59ed7",
+              "size": 125763
+            },
+            {
+              "archive_member": "translations/qtbase_sv.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_sv.qm",
+              "sha256": "5a2178dd2c03cc4516697f1fb0049649c9ed53f5cde6b937786733dae06aeda8",
+              "size": 249963
+            },
+            {
+              "archive_member": "translations/qtbase_tr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_tr.qm",
+              "sha256": "353fdfd7165659a49212e7a25bf91c0a71588e52c836f7496640f26782414634",
+              "size": 248720
+            },
+            {
+              "archive_member": "translations/qtbase_uk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_uk.qm",
+              "sha256": "51b8ff55b37dc5907d637a8ddda12fbe816852b0244c74eb4f0fb84867a786e0",
+              "size": 158274
+            },
+            {
+              "archive_member": "translations/qtbase_zh_CN.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_zh_CN.qm",
+              "sha256": "0481a9b92a6f0578400e960a7d5ee70217a6a450eaf7f98b7d32b8dbd0d58616",
+              "size": 147222
+            },
+            {
+              "archive_member": "translations/qtbase_zh_TW.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_zh_TW.qm",
+              "sha256": "21012b2b427f8d09d31ce9cae582ca27955b478ca3dc2ec18a3068d808638c6a",
+              "size": 126185
+            },
+            {
+              "archive_member": "PyQt6/QtCore.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtCore.pyd",
+              "sha256": "5ab19c7d3c4bb76c2c0cb73838d01bad27d49c6200a220ed597c70a336581f98",
+              "size": 2779648
+            },
+            {
+              "archive_member": "PyQt6/QtGui.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtGui.pyd",
+              "sha256": "fa5e3f7cd005a7c96972cd0ac3ac82be57db76127c47f3ffe24c33a80d930b40",
+              "size": 2780160
+            },
+            {
+              "archive_member": "PyQt6/QtPrintSupport.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtPrintSupport.pyd",
+              "sha256": "1c936fc10b44a9b688bdccec55903c1f8baf73747e52aabdb13dbfab1db4ed25",
+              "size": 263680
+            },
+            {
+              "archive_member": "PyQt6/QtSvg.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtSvg.pyd",
+              "sha256": "0702766d7b90245ce3a24f07858c90f759c6f60855d9bfcac2e186e4db057136",
+              "size": 50688
+            },
+            {
+              "archive_member": "PyQt6/QtSvgWidgets.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtSvgWidgets.pyd",
+              "sha256": "896ad7f59a7dd9920c02cb11939d7ddf916e1971518113c41e79c6814dc6ebe3",
+              "size": 98304
+            },
+            {
+              "archive_member": "PyQt6/QtTest.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtTest.pyd",
+              "sha256": "e2dd78a9a34c1793a46e3637a61ef7414fbd6c076010da42e2069b3328b70f84",
+              "size": 68096
+            },
+            {
+              "archive_member": "PyQt6/QtWidgets.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtWidgets.pyd",
+              "sha256": "3e6438e4a776b377b8165982cb120d13cb9a8fb6f7d5a0a7cefccd4a47a51bdb",
+              "size": 5236224
+            }
+          ],
+          "native_count": 28,
+          "status": "exact-pinned-input-bytes",
+          "translation_count": 33,
+          "wheel": {
+            "sha256": "f97423543906d716ab9860fef856d2c899d59ca39787d0a90c084ae1f130e2ca",
+            "size": 19275925
+          }
+        },
+        "prepare_log": {
+          "path": "build/qt6121-candidate-20261124/prepare.log",
+          "sha256": "5b7aa677932cecaecd9115a6feb625e7c7c550eddefebe7dd1c41ff7ae1b732c",
+          "size": 896
+        },
+        "receipt": {
+          "path": "build/qt6121-candidate-20261124/preparation-receipt.json",
+          "sha256": "97aec70f465f8b365c3e9f975f20b060f868c1b5973461022b747e188387f375",
+          "size": 75233
+        },
+        "wheel": {
+          "path": "build/qt6121-candidate-20261124/wheel/PyQt6-6.12.1-6.12.1dupezrasternonet-cp310-abi3-win_amd64.whl",
+          "sha256": "f97423543906d716ab9860fef856d2c899d59ca39787d0a90c084ae1f130e2ca",
+          "size": 19275925
+        }
+      },
+      {
+        "origins": {
+          "corresponding_source_rebuild_proven": false,
+          "members": [
+            {
+              "archive_member": "bin/Qt6Core.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Core.dll",
+              "sha256": "3b803976495efa3f9e53b95d1dbdeec78504d6a6c9136665f119f8c6f37602a2",
+              "size": 10501944
+            },
+            {
+              "archive_member": "bin/Qt6Gui.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Gui.dll",
+              "sha256": "b78e2fd6e66abe4965cec8fe5d70b386aa5e54fc703b248176bc153d8b6c947f",
+              "size": 9795896
+            },
+            {
+              "archive_member": "bin/Qt6PrintSupport.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+              "sha256": "89d76863c01cf5ceff46fda9d4f13be648d29537d5bf5c95769926562afdbb19",
+              "size": 403768
+            },
+            {
+              "archive_member": "bin/Qt6Svg.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/bin/Qt6Svg.dll",
+              "sha256": "8fb5c2f56d3d181ebda9b46713cbfcd2391d283755644155db2bbbed4e6375b5",
+              "size": 609592
+            },
+            {
+              "archive_member": "bin/Qt6SvgWidgets.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+              "sha256": "b5a14612931068f6f62a6585a030bb5b6d80d23a0d3ac61f197a3cc859e3b93e",
+              "size": 59192
+            },
+            {
+              "archive_member": "bin/Qt6Test.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Test.dll",
+              "sha256": "70bfa0af5682c648c8b15acb137339a50edf681f891ff826055346b585dee25d",
+              "size": 384824
+            },
+            {
+              "archive_member": "bin/Qt6Widgets.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+              "sha256": "6bad5cb160b00467e2e41f30312509bc148dae259cbf4d7050ed62464f899aa9",
+              "size": 6488376
+            },
+            {
+              "archive_member": "plugins/iconengines/qsvgicon.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+              "sha256": "3bc33eed194f27889a75e9d17e3c3c52d48688fdac5ced0482d2948f1873b85d",
+              "size": 72504
+            },
+            {
+              "archive_member": "plugins/imageformats/qgif.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+              "sha256": "095227acd9df49577ba2e0822d6b71b04a5924868ed70c71554000a9d146b7b8",
+              "size": 45368
+            },
+            {
+              "archive_member": "plugins/imageformats/qicns.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+              "sha256": "3d05303687d2b5a58f8a7f34ea77766027b302148d93224d6afe0163eb0a9496",
+              "size": 56632
+            },
+            {
+              "archive_member": "plugins/imageformats/qico.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qico.dll",
+              "sha256": "22c206efc97130882ab364f8e9311913efa36edcfe56c301593f14edbf805a6f",
+              "size": 46392
+            },
+            {
+              "archive_member": "plugins/imageformats/qjpeg.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+              "sha256": "90ff30df6d7e5a074aad2640a6a368ed0ab1984640bd90fd2876b5a87a7f6a95",
+              "size": 592184
+            },
+            {
+              "archive_member": "plugins/imageformats/qsvg.dll",
+              "input_id": "qtsvg-binary",
+              "input_sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+              "path": "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+              "sha256": "5a62f7d1cc6bd439ecb76819d34997123be035d75468210930c90c19f362126b",
+              "size": 39736
+            },
+            {
+              "archive_member": "plugins/imageformats/qtga.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+              "sha256": "25358a16fc9edd3d884d5bae89a4c80fd1455a7bc2372c230e8782a7a298dda5",
+              "size": 38712
+            },
+            {
+              "archive_member": "plugins/imageformats/qtiff.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+              "sha256": "62fa19df707ccdf1baa8659c51233e4666ec611b71742574fd534defc1ea4e59",
+              "size": 991544
+            },
+            {
+              "archive_member": "plugins/imageformats/qwbmp.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+              "sha256": "32eb1c81ce9e2e3b372fb1e1b71c9a1f75da58db2480306a96f11c8c4c7526b8",
+              "size": 36664
+            },
+            {
+              "archive_member": "plugins/imageformats/qwebp.dll",
+              "input_id": "qtimageformats-binary",
+              "input_sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+              "path": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+              "sha256": "d1201f19aa1681fe29a1cc273a4bbd26df75f9b51e5066f0b316c36fea5cc157",
+              "size": 565048
+            },
+            {
+              "archive_member": "plugins/platforms/qminimal.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qminimal.dll",
+              "sha256": "4afe3df996d24490c7136d53a7ad89acfeefabddf21b809b7f4586d76576fbce",
+              "size": 62264
+            },
+            {
+              "archive_member": "plugins/platforms/qoffscreen.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+              "sha256": "64dc04fad8003397222a2deb6f2851fd3f6173cc3a3b8aa886475d851d25f3d2",
+              "size": 111416
+            },
+            {
+              "archive_member": "plugins/platforms/qwindows.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+              "sha256": "e6c4a38afdee49baffd207ccd7001bd409141f2c61a3798720350630ae5400ee",
+              "size": 1004344
+            },
+            {
+              "archive_member": "plugins/styles/qmodernwindowsstyle.dll",
+              "input_id": "qtbase-binary",
+              "input_sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+              "path": "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+              "sha256": "e81cfe30cb66b36231c2dcb725e1ddfbe2934dba71510836c67d00a6a2ee730d",
+              "size": 240440
+            },
+            {
+              "archive_member": "translations/qtbase_ar.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ar.qm",
+              "sha256": "e03fe68d83201543698fd7fe267dd5dfc5bfd195147e74ff2f19ac3491401263",
+              "size": 160017
+            },
+            {
+              "archive_member": "translations/qtbase_bg.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_bg.qm",
+              "sha256": "e448ac9e3f16c29eb27af3012efe21052daa78fabfb34cd6dff2f69ee3bd3cdb",
+              "size": 165337
+            },
+            {
+              "archive_member": "translations/qtbase_ca.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ca.qm",
+              "sha256": "5298532fc52ffbc4e2c549f277151a61e741921c834286f7c04d3753677b6b04",
+              "size": 269007
+            },
+            {
+              "archive_member": "translations/qtbase_cs.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_cs.qm",
+              "sha256": "03028b42df5479270371e4c3bdc7df2f56cbbe6dda956a2864ac6f6415861fe8",
+              "size": 174701
+            },
+            {
+              "archive_member": "translations/qtbase_da.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_da.qm",
+              "sha256": "7d1e5ca3310b54d104c19bf2abd402b38e584e87039a70e153c4a9af74b25c22",
+              "size": 181387
+            },
+            {
+              "archive_member": "translations/qtbase_de.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_de.qm",
+              "sha256": "a1483bae0385c380edad72b818ce7c2f54ba617ba4c709b2a34a76886d5b5f3d",
+              "size": 224345
+            },
+            {
+              "archive_member": "translations/qtbase_en.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_en.qm",
+              "sha256": "494ac9a2b2cb2fdeced353f4a9f898ed8dcf616e9bc667438c62681e3f7f79cf",
+              "size": 33
+            },
+            {
+              "archive_member": "translations/qtbase_es.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_es.qm",
+              "sha256": "7b64ba9e921234a38495410f431338af6a3e91982c92df33b2e466d421338152",
+              "size": 269055
+            },
+            {
+              "archive_member": "translations/qtbase_fa.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fa.qm",
+              "sha256": "f78e59b5bdd586181a999034ba418868ed17fe9c05707fb65e523f70e92253d2",
+              "size": 148156
+            },
+            {
+              "archive_member": "translations/qtbase_fi.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fi.qm",
+              "sha256": "e47fe13713e184d07fa4495dde0c589b0e8f562e91574a3558a9363443a4fa72",
+              "size": 179941
+            },
+            {
+              "archive_member": "translations/qtbase_fr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_fr.qm",
+              "sha256": "314243a55c32679ad473fdfe48dc7d66e973ad0fc8bf2164480c58dddb50c1a7",
+              "size": 159463
+            },
+            {
+              "archive_member": "translations/qtbase_gd.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_gd.qm",
+              "sha256": "63b439dd44139aa3aed54c2ebe03fa9bc77f22c14ed8fba8eff2608445bb233d",
+              "size": 189580
+            },
+            {
+              "archive_member": "translations/qtbase_he.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_he.qm",
+              "sha256": "e1ebca16afe8994356f81ca007fbdb9ddf865842010fe908923d873b687cad3f",
+              "size": 138690
+            },
+            {
+              "archive_member": "translations/qtbase_hr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_hr.qm",
+              "sha256": "bb9eec9a9a652c1340dc75eb2e749be50df00f885b3d6900dfc76799c45b244d",
+              "size": 149711
+            },
+            {
+              "archive_member": "translations/qtbase_hu.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_hu.qm",
+              "sha256": "98463295539d769c8645a0b7fb95ad38454cfd0b14f36af485513f036ddbbbc6",
+              "size": 205885
+            },
+            {
+              "archive_member": "translations/qtbase_it.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_it.qm",
+              "sha256": "7808ed542a7833c4bd94ec8bdfbbca00bb4f2fe15979b9121ce3249323687300",
+              "size": 161166
+            },
+            {
+              "archive_member": "translations/qtbase_ja.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ja.qm",
+              "sha256": "2b9581c69b975f59be505b127cd3c19d403ef3d12e0e8386fb97238223e9c1df",
+              "size": 129913
+            },
+            {
+              "archive_member": "translations/qtbase_ka.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ka.qm",
+              "sha256": "e55e4b72fa620bebee5297ca59dfe2f49894a1e544f2b7485b1cfd8829289d6f",
+              "size": 201105
+            },
+            {
+              "archive_member": "translations/qtbase_kk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_kk.qm",
+              "sha256": "daea83490e02f54547078f4bd5bde2767f0746c0ffc6cad1ed5c6b8f49099511",
+              "size": 261008
+            },
+            {
+              "archive_member": "translations/qtbase_ko.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ko.qm",
+              "sha256": "0179ed1b136e1cb3f583351eaa2c545ba3d83a6ee3f82c32505926a1a5f5f183",
+              "size": 156799
+            },
+            {
+              "archive_member": "translations/qtbase_lg.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_lg.qm",
+              "sha256": "31c0cc4ce13b1d74fe0c19ed0b47638fb31e20c93ee08092533e884007aebfb5",
+              "size": 315764
+            },
+            {
+              "archive_member": "translations/qtbase_lv.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_lv.qm",
+              "sha256": "846e047573ae40c83671c3ba7f73e27efc24b98c82701da0df9973e574178bb2",
+              "size": 153608
+            },
+            {
+              "archive_member": "translations/qtbase_nl.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_nl.qm",
+              "sha256": "f61513bcdbb6ad800585f9437a95d018aab17fa12ee414aa31462ff279d8240e",
+              "size": 202861
+            },
+            {
+              "archive_member": "translations/qtbase_nn.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_nn.qm",
+              "sha256": "f9f2fb7c60e7fcb38bbd3c1314ef122145594265e20b0659ff00004baab13ac7",
+              "size": 196411
+            },
+            {
+              "archive_member": "translations/qtbase_pl.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_pl.qm",
+              "sha256": "3cf6b5c14d5eb0cf81e9af2066e66b3aa579a6b9b3c323ed670761f6254a8c54",
+              "size": 162962
+            },
+            {
+              "archive_member": "translations/qtbase_pt_BR.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_pt_BR.qm",
+              "sha256": "3475d61604b938d459949801a906dbd34a8ca824ade94120015d676e208da859",
+              "size": 290955
+            },
+            {
+              "archive_member": "translations/qtbase_ru.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_ru.qm",
+              "sha256": "3da6605668f9178d11a838c4515478084dcfb4f9cf22f99d7a92b492db9c224b",
+              "size": 203767
+            },
+            {
+              "archive_member": "translations/qtbase_sk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_sk.qm",
+              "sha256": "d586ae2c314074cf398417fdecb40709d5478dfeb0a67c2fe60d509ee9b59ed7",
+              "size": 125763
+            },
+            {
+              "archive_member": "translations/qtbase_sv.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_sv.qm",
+              "sha256": "5a2178dd2c03cc4516697f1fb0049649c9ed53f5cde6b937786733dae06aeda8",
+              "size": 249963
+            },
+            {
+              "archive_member": "translations/qtbase_tr.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_tr.qm",
+              "sha256": "353fdfd7165659a49212e7a25bf91c0a71588e52c836f7496640f26782414634",
+              "size": 248720
+            },
+            {
+              "archive_member": "translations/qtbase_uk.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_uk.qm",
+              "sha256": "51b8ff55b37dc5907d637a8ddda12fbe816852b0244c74eb4f0fb84867a786e0",
+              "size": 158274
+            },
+            {
+              "archive_member": "translations/qtbase_zh_CN.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_zh_CN.qm",
+              "sha256": "0481a9b92a6f0578400e960a7d5ee70217a6a450eaf7f98b7d32b8dbd0d58616",
+              "size": 147222
+            },
+            {
+              "archive_member": "translations/qtbase_zh_TW.qm",
+              "input_id": "qttranslations-binary",
+              "input_sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+              "path": "PyQt6/Qt6/translations/qtbase_zh_TW.qm",
+              "sha256": "21012b2b427f8d09d31ce9cae582ca27955b478ca3dc2ec18a3068d808638c6a",
+              "size": 126185
+            },
+            {
+              "archive_member": "PyQt6/QtCore.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtCore.pyd",
+              "sha256": "5ab19c7d3c4bb76c2c0cb73838d01bad27d49c6200a220ed597c70a336581f98",
+              "size": 2779648
+            },
+            {
+              "archive_member": "PyQt6/QtGui.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtGui.pyd",
+              "sha256": "fa5e3f7cd005a7c96972cd0ac3ac82be57db76127c47f3ffe24c33a80d930b40",
+              "size": 2780160
+            },
+            {
+              "archive_member": "PyQt6/QtPrintSupport.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtPrintSupport.pyd",
+              "sha256": "1c936fc10b44a9b688bdccec55903c1f8baf73747e52aabdb13dbfab1db4ed25",
+              "size": 263680
+            },
+            {
+              "archive_member": "PyQt6/QtSvg.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtSvg.pyd",
+              "sha256": "0702766d7b90245ce3a24f07858c90f759c6f60855d9bfcac2e186e4db057136",
+              "size": 50688
+            },
+            {
+              "archive_member": "PyQt6/QtSvgWidgets.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtSvgWidgets.pyd",
+              "sha256": "896ad7f59a7dd9920c02cb11939d7ddf916e1971518113c41e79c6814dc6ebe3",
+              "size": 98304
+            },
+            {
+              "archive_member": "PyQt6/QtTest.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtTest.pyd",
+              "sha256": "e2dd78a9a34c1793a46e3637a61ef7414fbd6c076010da42e2069b3328b70f84",
+              "size": 68096
+            },
+            {
+              "archive_member": "PyQt6/QtWidgets.pyd",
+              "input_id": "pyqt6",
+              "input_sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+              "path": "PyQt6/QtWidgets.pyd",
+              "sha256": "3e6438e4a776b377b8165982cb120d13cb9a8fb6f7d5a0a7cefccd4a47a51bdb",
+              "size": 5236224
+            }
+          ],
+          "native_count": 28,
+          "status": "exact-pinned-input-bytes",
+          "translation_count": 33,
+          "wheel": {
+            "sha256": "f97423543906d716ab9860fef856d2c899d59ca39787d0a90c084ae1f130e2ca",
+            "size": 19275925
+          }
+        },
+        "prepare_log": {
+          "path": "build/qt6121-candidate-repeat-20261124/prepare.log",
+          "sha256": "26afdf48a8d8a2a5b2574f17c2c31fa572f8298d811ef030c33a217ac8bc989d",
+          "size": 931
+        },
+        "receipt": {
+          "path": "build/qt6121-candidate-repeat-20261124/preparation-receipt.json",
+          "sha256": "f9406657e51858c19bada829d0f70840b8685838da590c284ae653a8fed32b60",
+          "size": 75233
+        },
+        "wheel": {
+          "path": "build/qt6121-candidate-repeat-20261124/wheel/PyQt6-6.12.1-6.12.1dupezrasternonet-cp310-abi3-win_amd64.whl",
+          "sha256": "f97423543906d716ab9860fef856d2c899d59ca39787d0a90c084ae1f130e2ca",
+          "size": 19275925
+        }
+      }
+    ],
+    "qt_version": "6.12.1",
+    "repeated_wheel_bytes_identical": true,
+    "sip_version": "13.13.1"
+  },
+  "distribution_approved": false,
+  "exact_git_archive_match": true,
+  "frozen_artifacts": {
+    "compat": {
+      "archive_preflight": {
+        "path": "build/native-source-release-20261124/compat-archive.log",
+        "sha256": "6e8ea1a1daac11b790a0690da43237d8a3a3e9ed37619c173ff9a1e8919796fe",
+        "size": 37
+      },
+      "artifact": {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "sha256": "2962628520d3ab21a029092ad04924d5b13ad8a2154e0f2ad1368da996506942",
+        "size": 57275131
+      },
+      "manifest": {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/clean-compat/dupez_compat/native-binaries.json",
+        "sha256": "c9e7a0fd6266172497b83098f9bc99dcf4064012e9af27e859e37f930dd56bfe",
+        "size": 47276
+      },
+      "observation": {
+        "artifact": {
+          "name": "DupeZ-Compat.exe",
+          "sha256": "2962628520d3ab21a029092ad04924d5b13ad8a2154e0f2ad1368da996506942",
+          "size": 57275131
+        },
+        "collection_manifest": {
+          "sha256": "c9e7a0fd6266172497b83098f9bc99dcf4064012e9af27e859e37f930dd56bfe",
+          "size": 47276
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "msvc_redist_manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+        "msvc_redist_package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+        "msvc_runtime_origin_policy": "private-pinned-stage",
+        "msvc_stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "msvc_upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "native_entry_count": 114,
+        "native_inventory_sha256": "f121ab9471932caaaa744c9926360d229c3f98ba228b828fe5922b00e855fe29",
+        "origin_counts": {
+          "locked-build-venv": 83,
+          "managed-native": 4,
+          "pinned-msvc-redist": 3,
+          "verified-base-python": 24
+        },
+        "qt_build_profile": "frozen-raster-no-qtnetwork",
+        "qt_tls_policy": "qt-network-excluded",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "report": {
+        "path": "build/native-source-release-20261124/compat-native.json",
+        "sha256": "cc1d32ba95fc2cb050f983fc08a4f607d3e91e0ca219d6c6963e998ad2037d92",
+        "size": 1932
+      }
+    },
+    "gpu": {
+      "archive_preflight": {
+        "path": "build/native-source-release-20261124/gpu-archive.log",
+        "sha256": "6e8ea1a1daac11b790a0690da43237d8a3a3e9ed37619c173ff9a1e8919796fe",
+        "size": 37
+      },
+      "artifact": {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+        "size": 57273211
+      },
+      "manifest": {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/clean-gpu/dupez_gpu/native-binaries.json",
+        "sha256": "010325db6ae0e19d77f80986118251de033a6b8bb1527f34e86f9e6a74a87f6f",
+        "size": 47276
+      },
+      "observation": {
+        "artifact": {
+          "name": "DupeZ-GPU.exe",
+          "sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+          "size": 57273211
+        },
+        "collection_manifest": {
+          "sha256": "010325db6ae0e19d77f80986118251de033a6b8bb1527f34e86f9e6a74a87f6f",
+          "size": 47276
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "msvc_redist_manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+        "msvc_redist_package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+        "msvc_runtime_origin_policy": "private-pinned-stage",
+        "msvc_stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "msvc_upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "native_entry_count": 114,
+        "native_inventory_sha256": "f121ab9471932caaaa744c9926360d229c3f98ba228b828fe5922b00e855fe29",
+        "origin_counts": {
+          "locked-build-venv": 83,
+          "managed-native": 4,
+          "pinned-msvc-redist": 3,
+          "verified-base-python": 24
+        },
+        "qt_build_profile": "frozen-raster-no-qtnetwork",
+        "qt_tls_policy": "qt-network-excluded",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "report": {
+        "path": "build/native-source-release-20261124/gpu-native.json",
+        "sha256": "ff35245f816f12ae924661c22ecf302e5baad23ef987f3ce467a44b921fbcae7",
+        "size": 1929
+      }
+    }
+  },
+  "full_source_tests": {
+    "checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+    "child_environment_names_removed": [
+      "GIT_CONFIG_COUNT",
+      "GIT_CONFIG_KEY_0",
+      "GIT_CONFIG_KEY_1",
+      "GIT_CONFIG_KEY_2",
+      "GIT_CONFIG_KEY_3",
+      "GIT_CONFIG_KEY_4",
+      "GIT_CONFIG_KEY_5",
+      "GIT_CONFIG_KEY_6",
+      "GIT_CONFIG_KEY_7",
+      "GIT_CONFIG_KEY_8",
+      "GIT_CONFIG_KEY_9",
+      "GIT_CONFIG_VALUE_0",
+      "GIT_CONFIG_VALUE_1",
+      "GIT_CONFIG_VALUE_2",
+      "GIT_CONFIG_VALUE_3",
+      "GIT_CONFIG_VALUE_4",
+      "GIT_CONFIG_VALUE_5",
+      "GIT_CONFIG_VALUE_6",
+      "GIT_CONFIG_VALUE_7",
+      "GIT_CONFIG_VALUE_8",
+      "GIT_CONFIG_VALUE_9"
+    ],
+    "counts": {
+      "errors": 0,
+      "failures": 0,
+      "passed": 4135,
+      "skipped": 10,
+      "tests": 4145
+    },
+    "input_pins": [
+      {
+        "path": "build/native-source-release-20261124/run_full_tests_clean.py",
+        "sha256": "a1fd3e87b99ab2d6673faaa0f32c8398fe6f5dad38a5178475abbea2980fc058",
+        "size": 6751
+      },
+      {
+        "path": "packaging/requirements-build-locked.txt",
+        "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+        "size": 2733
+      },
+      {
+        "path": "requirements-test-locked.txt",
+        "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+        "size": 13127
+      },
+      {
+        "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+        "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+        "size": 74766
+      }
+    ],
+    "junit": {
+      "path": "build/native-source-release-20261124/full-source-tests-clean/junit.xml",
+      "sha256": "1299f25225f5590a38ad2a14f819b8bcbd09150890f86593bcf7c28ba6e5b6e4",
+      "size": 592375
+    },
+    "log": {
+      "path": "build/native-source-release-20261124/full-source-tests-clean/pytest.log",
+      "sha256": "11a3501fb21dc1461b50903ce627865fb9e09f72f55349d873e5e4430ade4589",
+      "size": 7042
+    },
+    "python_version": "3.13.17",
+    "receipt": {
+      "path": "build/native-source-release-20261124/full-source-tests-clean/receipt.json",
+      "sha256": "c51ffb8afe94e0c24dc484414242de85d3f6ccda16033efd2dc99a4057722724",
+      "size": 3094
+    },
+    "runner_is_admin": false,
+    "skip_identity_baseline": {
+      "path": "packaging/license-evidence/msvc-private-stage-2026-11-24.json",
+      "sha256": "4dcca1aa66dcdd524bb6d4d97ee7ed6c5d312357095239f8f43bc172282eadc1",
+      "size": 43462
+    },
+    "skipped_test_ids": [
+      "tests.test_clumsy_full_controls_hardware::test_every_clumsy_control_runs_on_one_owned_private_target",
+      "tests.test_clumsy_hidden_window_hardware::test_owned_clumsy_is_hidden_until_authenticated_diagnostic_restore",
+      "tests.test_direct_clumsy_event_hardware::test_explicit_direct_clumsy_event_runs_and_releases_cleanly",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlink_root",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[False]",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[True]",
+      "tests.test_hardware_smoketest::test_bundled_clumsy_gui_automation_starts_verified",
+      "tests.test_hardware_smoketest::test_each_advertised_module_receives_hardware_traffic",
+      "tests.test_hardware_smoketest::test_scan_then_lag_then_stop_pipeline",
+      "tests.test_release_data::test_prepare_rejects_real_symlink_escape_when_supported"
+    ],
+    "tracked_source_unchanged": true
+  },
+  "gpu_runtime": {
+    "consumer_log": {
+      "path": "build/native-source-release-20261124/gpu-consumer-hash-bound.log",
+      "sha256": "6eaccd5293b5ed0cf84f8e064fce37e3725b8ec3d62e9daaa5d727cacfb2ecb4",
+      "size": 158
+    },
+    "consumer_validated_evidence_sha256": "16373140264576e8cc337965c2ee31b465cbefb54dba3c47915593b2a7879e98",
+    "lifecycle": {
+      "commit": "1668606e2856296a757d2442d90fa226bdaae9eb",
+      "cycles_per_profile": 1,
+      "executable": "DupeZ-GPU.exe",
+      "executable_sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+      "generated_at_utc": "2026-11-24T21:59:45Z",
+      "network_validation_mode": "production-safety-dry-run",
+      "runs": [
+        {
+          "architecture_observed": "Architecture: split | Admin: False",
+          "clean_exit": true,
+          "commit": "1668606e2856296a757d2442d90fa226bdaae9eb",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-GPU.exe",
+          "executable_sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+          "exit_code": 0,
+          "launched_from_admin": false,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-GPU.exe"
+          ],
+          "profile": "normal",
+          "source_fingerprint": "5c2481fb772588714c58c364ac261bca615bcf676f99e220d9333bb73a3e9430",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-24T21:59:18Z",
+          "startup_duration_ms": 6291,
+          "validation_session_id": "40cf2659-41c6-4c32-9e23-91e4036eba48",
+          "variant": "GPU",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 139321344
+        },
+        {
+          "architecture_observed": "Architecture: split | Admin: False",
+          "clean_exit": true,
+          "commit": "1668606e2856296a757d2442d90fa226bdaae9eb",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-GPU.exe",
+          "executable_sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+          "exit_code": 0,
+          "launched_from_admin": false,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-GPU.exe"
+          ],
+          "profile": "forced-low-resource",
+          "source_fingerprint": "5c2481fb772588714c58c364ac261bca615bcf676f99e220d9333bb73a3e9430",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-24T21:59:31Z",
+          "startup_duration_ms": 5830,
+          "validation_session_id": "40cf2659-41c6-4c32-9e23-91e4036eba48",
+          "variant": "GPU",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 136617984
+        }
+      ],
+      "schema": "dupez.frozen-runtime-validation.v4",
+      "source_fingerprint": "5c2481fb772588714c58c364ac261bca615bcf676f99e220d9333bb73a3e9430",
+      "source_state": "clean",
+      "validation_host": {
+        "administrator": false,
+        "python": "3.13.17"
+      },
+      "validation_session_id": "40cf2659-41c6-4c32-9e23-91e4036eba48",
+      "variant": "GPU"
+    },
+    "lifecycle_report": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/frozen-runtime-evidence-gpu.json",
+      "sha256": "16373140264576e8cc337965c2ee31b465cbefb54dba3c47915593b2a7879e98",
+      "size": 2711
+    },
+    "maintenance": {
+      "artifact": {
+        "name": "DupeZ-GPU.exe",
+        "sha256": "0164d93bdfdd8bf188de81911510275e56eb42dcbce0074139b3db48e91c102a",
+        "size": 57273211
+      },
+      "checks": [
+        {
+          "check": "runtime-imports",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "check": "runtime-imports",
+            "ok": true
+          },
+          "report_sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179"
+        },
+        {
+          "check": "native-tls",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "backend": "python-ssl",
+            "check": "native-tls",
+            "check_hostname": true,
+            "ok": true,
+            "qt_network": "excluded",
+            "verify_mode": "CERT_REQUIRED"
+          },
+          "report_sha256": "6581b72cfc1cd84f88d3c0b7bc20327a10f115372d8bccdfd53056ca9efedd4d"
+        }
+      ],
+      "dashboard_tested": false,
+      "network_tested": false,
+      "qt_build_profile": "frozen-raster-no-qtnetwork",
+      "release_approval": false,
+      "runner_is_admin": false,
+      "schema": "dupez.local-frozen-maintenance.v1",
+      "scope": "maintenance imports and local TLS backend only",
+      "variant": "GPU"
+    },
+    "maintenance_report": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/gpu-maintenance/maintenance-observation.json",
+      "sha256": "70a2ae2e13c2e6feae4639bb7eb072d731fa0df2d39e75fa8af1c4bdbb9514f9",
+      "size": 1267
+    },
+    "raw_reports": [
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/gpu-maintenance/runtime-imports.json",
+        "sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179",
+        "size": 41
+      },
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/runtime/gpu-maintenance/native-tls.json",
+        "sha256": "6581b72cfc1cd84f88d3c0b7bc20327a10f115372d8bccdfd53056ca9efedd4d",
+        "size": 143
+      }
+    ],
+    "source_preflight": {
+      "path": "build/native-source-release-20261124/source-preflight.log",
+      "sha256": "7bcbd4819eb2cf08659d6280442b36af83fd714b5a4a1183b6e028b3d89b6187",
+      "size": 488
+    },
+    "source_preflight_warning_count": 6
+  },
+  "installed_engineering_profile": {
+    "installation": {
+      "build_venv": "build-venv",
+      "installed_wheel_payload": "verified",
+      "log_sha256": "b6ba6988482088d098ee3b0f4031cce0a5184180350211f9d0525358e9256e7e",
+      "notice_payload": "verified",
+      "pip_check": "passed"
+    },
+    "installation_receipt": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/installation-receipt.json",
+      "sha256": "10ab564209d6f81cc318e8e09ce85618fb2e8fdfcb7c77c0322ed7295e0851e3",
+      "size": 215
+    },
+    "notice_payload": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/notices/license-payload.json",
+      "sha256": "10cf7b4c53ae486142ac7e9ee27baa35a132ea26646d65e7be6d119e8648dfbf",
+      "size": 258602
+    },
+    "profile": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/engineering-profile.json",
+      "sha256": "6e6f4ef2896754483b0903bb7914841607a401131e2f89d356ae9b43c3499e7e",
+      "size": 106312
+    },
+    "python_source_inputs": {
+      "binding-source": {
+        "filename": "pyqt6-6.12.1.tar.gz",
+        "id": "binding-source",
+        "path": "source-inputs/pyqt6-6.12.1.tar.gz",
+        "role": "source",
+        "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58",
+        "size": 1108330,
+        "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz"
+      },
+      "sip-source": {
+        "filename": "pyqt6_sip-13.13.1.tar.gz",
+        "id": "sip-source",
+        "path": "source-inputs/pyqt6_sip-13.13.1.tar.gz",
+        "role": "source",
+        "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe",
+        "size": 95283,
+        "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz"
+      }
+    },
+    "runtime_distributions": 24,
+    "sbom": {
+      "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/engineering.sbom.json",
+      "sha256": "e330d93fc772c40f741765d06aa79d056cd2e69cffc62366d6b26eea611c44b9",
+      "size": 102969
+    },
+    "sip_runtime_input": {
+      "filename": "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "id": "pyqt6-sip",
+      "package": "PyQt6-sip",
+      "role": "runtime-wheel",
+      "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8",
+      "size": 53787,
+      "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "version": "13.13.1"
+    },
+    "source_notice_count": 307,
+    "wheelhouse_count": 31
+  },
+  "limitations": [
+    "Private stage bytes close ambient System32 collection for these two builds; signatures do not establish redistribution entitlement.",
+    "Separately recorded Qt/IUP source and catalog evidence does not prove complete native compiler/DLL reproduction or public source delivery.",
+    "This adopts the upstream Qt6.12.1 release while continuing to exclude Qt Network; targeted advisory research is not comprehensive native security clearance.",
+    "GPU validation used safety dry-runs; Compat runtime testing remains pending and no fresh UAC prompt was requested.",
+    "Hosted CI/billing and public release gates remain separate; no public binary release or license approval is asserted."
+  ],
+  "msvc_package_and_stage": {
+    "binaries": [
+      {
+        "cabinet_member": "msvcp140.dll_amd64",
+        "name": "MSVCP140.dll",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "cabinet_member": "msvcp140_1.dll_amd64",
+        "name": "MSVCP140_1.dll",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "cabinet_member": "msvcp140_2.dll_amd64",
+        "name": "MSVCP140_2.dll",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      }
+    ],
+    "consumed_artifacts": [
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux.cab",
+        "sha256": "25eec5c5812800d93950b5fa6768072d978127b42254a13f702be081f975805e",
+        "size": 140070
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/attached.cab",
+        "sha256": "8b1595b5d0001e0747371ecfc2dccb604dc836fba0a778566e97a6bdb0816bb8",
+        "size": 18091661
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux/0",
+        "sha256": "e82e62b82a1b09568e74a224c454bdcd41240b9f24cfc42fb2c5e0783345af7f",
+        "size": 9259
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux/u17",
+        "sha256": "0af0673e1f3ca87701e3c00d5ff004fccb00e2a983df1d72671c429cfef7f3c5",
+        "size": 7694
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/minimum-runtime/a1",
+        "sha256": "bab5d0257e6a18a4a008e683442e3077b38172dd61af3cb1c588b46724a714e2",
+        "size": 212992
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/minimum-runtime/a4",
+        "sha256": "6e8ee73933678c55973e83366e48e948b394c7a36743a36b7224c95de979b13f",
+        "size": 1065893
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140.dll_amd64",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140_1.dll_amd64",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140_2.dll_amd64",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      }
+    ],
+    "distribution_approved": false,
+    "elevation_requested": false,
+    "extraction_tool_observation": {
+      "name": "expand.exe",
+      "sha256": "e5cd2d9536b0729ce90368dce9d923dccfa6f75f2996e31bb349e6a75a2aa897",
+      "size": 73728
+    },
+    "global_installation_performed": false,
+    "installer_executed": false,
+    "license_document": {
+      "path": "build/msvc-redist-provenance-20261109/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "size": 39553
+    },
+    "license_reference": {
+      "document_sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "document_size": 39553,
+      "document_title": "Microsoft Visual C++ V14 Redistributable and Runtime",
+      "document_updated": "2025-10-01",
+      "document_url": "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "eula_id": "Cpp_v14_ENU.1033",
+      "package_license_url": "https://aka.ms/VCRedistLicense",
+      "redistribution_list": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+      "resolved_page": "https://visualstudio.microsoft.com/license-terms/vs2026-ga-visualcpp-v14-redist-runtime/",
+      "scope": "The package-linked runtime terms govern installation/use and restrict redistribution. The separate Visual Studio redistribution list is conditional on a valid Visual Studio license and its terms; no owner entitlement or redistribution determination is asserted."
+    },
+    "log": {
+      "path": "build/msvc-private-stage-20261124/package-verification.log",
+      "sha256": "034d7523dd464574302c8f7e1b6a28c25e180b24a0e8a566f75cdebb5a6bf8f3",
+      "size": 100
+    },
+    "package": {
+      "filename": "VC_redist.x64.exe",
+      "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "signer_thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1",
+      "size": 18731856,
+      "url": "https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe",
+      "version": "14.51.36247.0",
+      "versioned_url": "https://aka.ms/vs/18/release/14.51.36247/VC_redist.x64.exe"
+    },
+    "receipt": {
+      "path": "build/msvc-private-stage-20261124/verified-package/receipt.json",
+      "sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+      "size": 10049
+    },
+    "signature_observations": [
+      {
+        "file_version": "14.51.36247.0",
+        "name": "package",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": "5.00 (WinBuild.160101.0800)",
+        "name": "expand.exe",
+        "product_version": "5.00",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443"
+      },
+      {
+        "file_version": null,
+        "name": "minimum-runtime.msi",
+        "product_version": null,
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": null,
+        "name": "minimum-runtime.cab",
+        "product_version": null,
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "667BBA1E1F478221AA65DE4F75187A751B03A453"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140_1.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140_2.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+      }
+    ],
+    "stage": {
+      "manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+      "package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+      "upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584"
+    },
+    "stage_files": [
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140.dll",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140_1.dll",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140_2.dll",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      },
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/msvc-runtime/stage-receipt.json",
+        "sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "size": 1614
+      },
+      {
+        "path": "build/native-source-release-20261124/runtime-checkout/build/qt-profile/msvc-runtime/upstream-receipt.json",
+        "sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "size": 10049
+      }
+    ],
+    "system_observation_compared": false,
+    "verification_reused_from": "2026-11-24-private-stage-package-verification"
+  },
+  "native_source_rebuild_proven": false,
+  "observed_on": "2026-11-24",
+  "recipe_inputs": [
+    {
+      "path": "packaging/qt-candidate-inputs.json",
+      "sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23",
+      "size": 9760
+    },
+    {
+      "path": "packaging/qt-raster-inputs.json",
+      "sha256": "af97a4de1b3dd2f630687c8594c8c27f763fca7c0e33d1103bcca69f18bfdc2f",
+      "size": 9959
+    },
+    {
+      "path": "packaging/qt-raster-no-network-inputs.json",
+      "sha256": "5371b077d07336086513a7563a074d0fc505df027bd1f7699f764cca2ca41ff1",
+      "size": 10732
+    },
+    {
+      "path": "packaging/msvc-redist-inputs.json",
+      "sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+      "size": 3466
+    },
+    {
+      "path": "packaging/native_runtime_policy.py",
+      "sha256": "1c7c6ad26b6580f5b1c7f1f8436838dd313dcd54a28d5d25d5aca0af55fe2608",
+      "size": 22171
+    },
+    {
+      "path": "packaging/build_common.py",
+      "sha256": "6894ad4736b84a1744d0cdf7b1c6ec53c494b1ec966a8c4a48f6984e652165aa",
+      "size": 17502
+    },
+    {
+      "path": "packaging/release_data.py",
+      "sha256": "33e0665aea033fcf3a0a0937c663f26de8efcf1ed366b6b3feb408919d97ceae",
+      "size": 52808
+    },
+    {
+      "path": "packaging/binary-provenance.json",
+      "sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+      "size": 1658
+    },
+    {
+      "path": "packaging/release-data.json",
+      "sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+      "size": 1010
+    },
+    {
+      "path": "packaging/dupez_gpu.spec",
+      "sha256": "f1e6a03213ad4f57fed35082581f5b58ec25e860f61b5873f6cc030ba13d36fd",
+      "size": 812
+    },
+    {
+      "path": "packaging/dupez_compat.spec",
+      "sha256": "a97e769164b53c36e4a5d9f84c7291fa26af628561a42c759786f641b65f6ab9",
+      "size": 1014
+    },
+    {
+      "path": "packaging/hooks/hook-PyQt6.QtNetwork.py",
+      "sha256": "cc5f1aaa60c20ba9d9e03bba57c5c219dd26394fea6d89472758afefce4340c1",
+      "size": 482
+    },
+    {
+      "path": "requirements-locked.txt",
+      "sha256": "65306f4fed33ea9b01f640d7dd0420db54d4f7705561f730ee1cd1cd423ad4f2",
+      "size": 59844
+    },
+    {
+      "path": "requirements-test-locked.txt",
+      "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+      "size": 13127
+    },
+    {
+      "path": "packaging/requirements-build-locked.txt",
+      "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+      "size": 2733
+    },
+    {
+      "path": "packaging/third-party-components.json",
+      "sha256": "b4af6a502f08fbb7685c25121684a2a69f173f2f8d8392f4e579e4797327a71d",
+      "size": 9874
+    },
+    {
+      "path": "LICENSE.txt",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "size": 35149
+    },
+    {
+      "path": "scripts/prepare_qt_candidate.py",
+      "sha256": "2a73c9465a9e5cf05305f2277041aa0dae0d3240fec5bd758ac766376aeca017",
+      "size": 38588
+    },
+    {
+      "path": "scripts/prepare_qt_adoption.py",
+      "sha256": "1428652ceed866e792db91e7ecc3f9ff926f754f4376cd52f593aecfd02bc80b",
+      "size": 31214
+    },
+    {
+      "path": "scripts/license_payload.py",
+      "sha256": "a54a088a5475811e9369bd78f4c705bc2d15fdfe9a3471eacd1d827cf2cf792d",
+      "size": 32828
+    },
+    {
+      "path": "scripts/sbom.py",
+      "sha256": "40397a56c7c12f50d783c3d13208fb17047723faf1a93ee3035b0661a94b49c8",
+      "size": 7266
+    },
+    {
+      "path": "scripts/verify_requirements_lock.py",
+      "sha256": "c71e7d9518269388c16e62276f88e4a6506b686c1586757bfcc01743b01fdc4e",
+      "size": 14264
+    },
+    {
+      "path": "scripts/native_build_evidence.py",
+      "sha256": "bfb532794003c67ff4aa8be48d5441b87cdc2c255ae843f725ef67b1010c4164",
+      "size": 19208
+    },
+    {
+      "path": "scripts/release_preflight.py",
+      "sha256": "506bf5458c64f43b128adc751e06332fb8b1fee4027a9454aa40cdd9f216012b",
+      "size": 121964
+    },
+    {
+      "path": "scripts/verify_msvc_redist.py",
+      "sha256": "142e6fde9e273368a5a094629741159d4a190637f14bdf9ad66c747969c601a4",
+      "size": 24150
+    },
+    {
+      "path": "scripts/msvc_runtime_stage.py",
+      "sha256": "f30e92e936cc08fcfe3ad27be1a99a5238006d9cb73d8561c9577773aef99540",
+      "size": 10997
+    },
+    {
+      "path": "scripts/verify_iup_source_revision.py",
+      "sha256": "7c861f108007d68949c4b92048db7da196938a49a3ca2144d332849045372aab",
+      "size": 9202
+    },
+    {
+      "path": "scripts/verify_frozen_maintenance.py",
+      "sha256": "9c0fa9267f24b62c99ef941071d36c3af36513cfd29aa22ad510e4f819c119c6",
+      "size": 8552
+    },
+    {
+      "path": "scripts/probe_python_tls.py",
+      "sha256": "c37f7a354d5cecb1eb7d63d601772d5ad9240e54602811d46a784cba5f032e0c",
+      "size": 11848
+    },
+    {
+      "path": "scripts/validate_frozen_runtime.py",
+      "sha256": "44d1d4aaead0d01e3b4e16cb71c9bab1cfde96a3853e1e1543a0e11456d3c471",
+      "size": 85139
+    },
+    {
+      "path": "scripts/validate_frozen_runtime.ps1",
+      "sha256": "92f25bb40db2adad6d7f89899a550c0c1563543a170233d2cfab9f211c0b65b0",
+      "size": 2216
+    },
+    {
+      "path": "scripts/frozen_runtime_evidence_contract.ps1",
+      "sha256": "184d9c95ce40d06b06b528c306c17e21008d065b994e5d1c1ba149f0bff744a3",
+      "size": 10264
+    },
+    {
+      "path": "app/core/qt_startup.py",
+      "sha256": "945697b482624ccb3a33d4fabaccd6114d6231d0beaa1df9d1720681ab44cd2a",
+      "size": 4190
+    },
+    {
+      "path": "app/gui/map_host/launcher.py",
+      "sha256": "9cca103e284ae070508eea9722dd0157a4d01a69c8be0e5043895d23e5f5e5b4",
+      "size": 69522
+    },
+    {
+      "path": "app/gui/map_host/renderer_tier.py",
+      "sha256": "5e20584edfa6b2247045182d0efe22c38b3fb99c645651dbf2870193b98de093",
+      "size": 6396
+    },
+    {
+      "path": "dupez.py",
+      "sha256": "7ce5d03436f65a417f6726f4e2fee1d69608025158638d876db21f21d9bfcee4",
+      "size": 19713
+    },
+    {
+      "path": "app/main.py",
+      "sha256": "64cdbb93c31cd8c0ee9fe9d99b3cffffa8ff12ae70645eee3ae25476f482d90a",
+      "size": 29841
+    },
+    {
+      "path": "tests/test_no_qtnetwork_build_policy.py",
+      "sha256": "b6abf44a2e7479c1fe23aef6c7e1b234637529cfae5224bec0b9dfdf376a58fa",
+      "size": 14627
+    },
+    {
+      "path": "tests/test_no_qtnetwork_runtime.py",
+      "sha256": "a12187a4fb8df6abfcbdc6a7cdebd54b72639e974f7476678ac26aa833eb56ea",
+      "size": 2743
+    },
+    {
+      "path": "tests/test_native_build_evidence.py",
+      "sha256": "732c7c16e2cb9f68a64cf4520e503e86a44c722692df0e886ce2b1aa54c560d3",
+      "size": 18346
+    },
+    {
+      "path": "tests/test_prepare_qt_candidate.py",
+      "sha256": "0d059c39c19536218b6b22b604a6ca265af74aac6a200b381f024646d43f2251",
+      "size": 36023
+    },
+    {
+      "path": "tests/test_prepare_qt_adoption.py",
+      "sha256": "8d36b7ca8c9732482e9a76a30da0e8a56efca53b3b947eedaba92ed14592adf7",
+      "size": 29935
+    },
+    {
+      "path": "tests/test_msvc_runtime_stage.py",
+      "sha256": "7469c49133717865bb9fa606a0f1a0b37ec0768c6be52daea01d892e9429ddff",
+      "size": 9746
+    },
+    {
+      "path": "tests/test_verify_msvc_redist.py",
+      "sha256": "4868989b20a4f74be52c8e8c4e08099e41b496cad62381bb385445788242ed05",
+      "size": 12860
+    },
+    {
+      "path": "tests/test_verify_iup_source_revision.py",
+      "sha256": "4265ffbb54d9bc4e365b02cabb7b66f54823894d985b05d1c3c109342f2e187b",
+      "size": 6686
+    },
+    {
+      "path": "scripts/verify_qt_source_correspondence.py",
+      "sha256": "5969002ec9e9929502f1db20fda6cb6d21aa4d5db0ea39f3c63f3422445144f1",
+      "size": 12320
+    },
+    {
+      "path": "tests/test_verify_qt_source_correspondence.py",
+      "sha256": "ac19b4afe3c599cc6d291d723061349b6a858a9e57f36c142e952db4edc6bd0d",
+      "size": 7243
+    },
+    {
+      "path": "scripts/verify_iup_source_archive.py",
+      "sha256": "d5f68769f0dc080e6a73f950b158b8e94706a76c3eaa15b8cb00912d3f118a46",
+      "size": 18589
+    },
+    {
+      "path": "tests/test_verify_iup_source_archive.py",
+      "sha256": "6ea85e44bbd839f4f03cc35b9bef295be95330a931b9e840da660594f04ba227",
+      "size": 10862
+    },
+    {
+      "path": "scripts/verify_qt6121_translation_sources.py",
+      "sha256": "68281bc222605c47ce9d05d49b28db96273328a103f5ee75c17e317385c399bf",
+      "size": 17963
+    },
+    {
+      "path": "tests/test_verify_qt6121_translation_sources.py",
+      "sha256": "e5788c4f82350ddb646f93ed937dd43ca369af9e6d29557d15fd8095f3e034c3",
+      "size": 7449
+    },
+    {
+      "path": "scripts/engineering_source_bundle.py",
+      "sha256": "57b9167575fe1784f34bb8468b11d5b640651fce903bee24f4f5adcbac4ce15d",
+      "size": 27027
+    },
+    {
+      "path": "packaging/engineering-source-inputs.json",
+      "sha256": "ad365fa4e9439e5f6a4c74c301d2c314e59514acac9d40b6641326b204f769b5",
+      "size": 35254
+    },
+    {
+      "path": "tests/test_engineering_source_bundle.py",
+      "sha256": "8abb121e0654c78478b49e7d14998f99a1097af03eff74e2a8c9823dc8e44a43",
+      "size": 11266
+    },
+    {
+      "path": "docs/legal/ENGINEERING_SOURCE_REBUILD_2026-11-24.md",
+      "sha256": "f9c9861a867910467aa2427e360334cfc1374ee5eee450155f47ed93fa39a927",
+      "size": 9702
+    },
+    {
+      "path": "scripts/native_rebuild/__init__.py",
+      "sha256": "dfa4762318ebf9851ca3dc1a7ba03253c1eee9d4849f42080ad93def4f9c46ed",
+      "size": 71
+    },
+    {
+      "path": "scripts/native_rebuild/common.py",
+      "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+      "size": 8217
+    },
+    {
+      "path": "scripts/native_rebuild/process.py",
+      "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15",
+      "size": 11526
+    },
+    {
+      "path": "scripts/native_rebuild/acquire_toolchain.py",
+      "sha256": "96ed6c66f8794f85ea393c6b28db6be2b80c79e9de5a9422f3cea165cb437872",
+      "size": 8230
+    },
+    {
+      "path": "scripts/native_rebuild/build_iup.py",
+      "sha256": "c5644331787912978847f7e59a6241bf4e4da1011512c55f65625b9eb883db5b",
+      "size": 13209
+    },
+    {
+      "path": "scripts/native_rebuild/build_clumsy.py",
+      "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+      "size": 12006
+    },
+    {
+      "path": "packaging/native-patches/iup-3.30-win32-dib-pointer.patch",
+      "sha256": "498a45796bf6cfb390a718df7a322d0b87670babf6d2696693428bb5ff33a6ae",
+      "size": 501
+    },
+    {
+      "path": "tests/test_native_rebuild_inputs.py",
+      "sha256": "cec3fc92479be0be89381f0c51c006ed5cada523c0b3b723ce13355250214cec",
+      "size": 8593
+    },
+    {
+      "path": "tests/test_native_rebuild_process.py",
+      "sha256": "144fce28621657e82d2b7f0c131a947a12e8f4cc48ef63f75158b4b5c43fc378",
+      "size": 5791
+    },
+    {
+      "path": "tests/test_rebuild_clumsy_native.py",
+      "sha256": "2c51f157fc8207e41783c68240155ba5f9801353f75f4f35af0afb2d18591504",
+      "size": 3740
+    }
+  ],
+  "release_approved": false,
+  "research_records": [
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-input-review-2026-11-24.json",
+        "sha256": "d3adb16e9389055e8cc5c2b6a00949f58de2a542f260536e3e268d7ee5731475",
+        "size": 37260
+      },
+      "schema": "dupez.qt6121-input-review.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-source-correspondence-2026-11-24.json",
+        "sha256": "11c4a11a540e2098ac4c970f665d4cb36a594e8f6730dcc4d62318bf7e4aab30",
+        "size": 16474
+      },
+      "schema": "dupez.qt-source-correspondence.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-network-source-fix-2026-11-24.json",
+        "sha256": "bba9de419647452a4827316cbcbeb3b6e3c54be103efcefef729fc44addc746b",
+        "size": 12026
+      },
+      "schema": "dupez.qt-network-source-fix-presence.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/iup-source-archive-review-2026-11-24.json",
+        "sha256": "a6c0ed23efe6535dba76cb11cb1afca04001872cdbdca92992092c4637c55cd1",
+        "size": 34142
+      },
+      "schema": "dupez.iup-complete-archive-source-review.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-translations-2026-11-24.json",
+        "sha256": "d0e1b4fcbeec0ccc6302527cef932d706ea51d1abc8e11b5b1793f8860518759",
+        "size": 159446
+      },
+      "schema": "dupez.qt6121-translation-rebuild.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-image-probe-2026-11-24.json",
+        "sha256": "e83db0d92ef3fe640dc5f500ab9168991dca3b8312a891bcb14863e80d12cd0e",
+        "size": 24728
+      },
+      "schema": "dupez.qt6121-image-probe-review.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    },
+    {
+      "record": {
+        "path": "packaging/license-evidence/qt-6121-licensing-review-2026-11-24.json",
+        "sha256": "e231e28d497e96fd7c018cedd66ec47dd54c306b2285b5d5d16b7c9bbd901f42",
+        "size": 23459
+      },
+      "schema": "dupez.qt6121-licensing-preparation.v1",
+      "scope": "Separately verified source/research observation; this build collector does not promote it to native rebuild proof."
+    }
+  ],
+  "runner_recipes": [
+    {
+      "path": "build/native-source-release-20261124/build_checkpoint.py",
+      "sha256": "021681facab1074a9f505e4fc1879b3c6bc8ef550d962fc41a02181e17dc2b7d",
+      "size": 3636
+    },
+    {
+      "path": "build/native-source-release-20261124/verify_archives.py",
+      "sha256": "17e4da4a91806ac997c8cdf799d3a129d27ae6242b869ba770b42802c86b65ba",
+      "size": 2161
+    },
+    {
+      "path": "build/native-source-release-20261124/verify_gpu_runtime.py",
+      "sha256": "e38e08f520fa9fd6b7d03c71782536542ce973bcc3dced271f1c222ba66e38e2",
+      "size": 2592
+    },
+    {
+      "path": "build/native-source-release-20261124/run_full_tests_clean.py",
+      "sha256": "a1fd3e87b99ab2d6673faaa0f32c8398fe6f5dad38a5178475abbea2980fc058",
+      "size": 6751
+    },
+    {
+      "path": "build/native-source-release-20261124/run_lint_ast.py",
+      "sha256": "5ab69e6b1cedab12ae5048596026a96d1d39c48954bf6d1bf148604e2a6638a7",
+      "size": 6800
+    },
+    {
+      "path": "build/native-source-release-20261124/check-gpu-evidence.ps1",
+      "sha256": "7ff5ec105bf8582337760ccdee5a6558663a1024ad4e86c58bfd2158cf3d7563",
+      "size": 948
+    }
+  ],
+  "schema": "dupez.qt6121-adoption-verification.v1",
+  "source_archive": {
+    "path": "build/native-source-release-20261124/DupeZ-v5.8.0-source.zip",
+    "sha256": "a6570dde831fefe60cceb428dc3429dda8b5896b4a64f918b782b0e32c05dec5",
+    "size": 25467638
+  },
+  "source_checkout_clean": true,
+  "source_lint_and_ast": {
+    "ast_failures": [],
+    "log": {
+      "path": "build/native-source-release-20261124/lint-ast.log",
+      "sha256": "ed9f81b9cbb1d55db7657a6e379d1a20653900d0e34334ce22364187b8c9e915",
+      "size": 363
+    },
+    "receipt": {
+      "path": "build/native-source-release-20261124/lint-ast-receipt.json",
+      "sha256": "781f986865e05f8c9e4f41b83351d9c8dc1bc3fd416b8e5cadc0b6b50152adf8",
+      "size": 82155
+    },
+    "recipe": {
+      "path": "build/native-source-release-20261124/run_lint_ast.py",
+      "sha256": "5ab69e6b1cedab12ae5048596026a96d1d39c48954bf6d1bf148604e2a6638a7",
+      "size": 6800
+    },
+    "ruff_passed": true,
+    "ruff_version": "0.7.4",
+    "source_unchanged": true,
+    "tracked_python_files": 486
+  },
+  "status": "verified-qt6121-engineering-builds-compat-runtime-pending"
+}

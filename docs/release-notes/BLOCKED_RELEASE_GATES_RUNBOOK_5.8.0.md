@@ -9,24 +9,28 @@ the exact frozen files that will be published.
 GPL-3.0-only with corresponding source and the disclosed unsigned/manual-install
 route remain selected. No new license-route or signing-route choice is needed.
 
-Clean checkpoint `d16d5c6a59e62087dc2d04213ce075b71c0abdd1` adopts Qt/PyQt 6.12.1 and SIP 13.13.1
-in the explicit no-QtNetwork engineering profile. Both frozen builds pass
-source/archive/native checks with 114 entries each and no System32 origins.
-The full source suite records **4,017 passed, 10 expected skips**; Ruff/AST pass
-all 475 tracked Python files. GPU import/TLS maintenance, both dashboard
-safety dry-run profiles and the actual hash-bound PowerShell 5.1 consumer pass.
-**Compat runtime remains pending per owner instruction; no new UAC attempt
-or Compat launch occurred.** See the [Qt adoption audit](../audits/QT_6121_ADOPTION_2026-11-24.md).
+Clean checkpoint `1668606e2856296a757d2442d90fa226bdaae9eb` adds isolated
+native compilation and source delivery to the Qt/PyQt 6.12.1, SIP 13.13.1
+no-QtNetwork engineering profile. Both frozen builds pass source/archive/native
+checks with 114 entries each and no System32 origins. The full suite records
+**4,135 passed, 10 expected skips**; Ruff/AST pass all **486** tracked Python
+files. GPU import/TLS maintenance, both dashboard safety dry-run profiles and
+the hash-bound PowerShell 5.1 consumer pass. **Compat runtime remains pending
+per owner instruction; no new UAC attempt or Compat launch occurred.**
 
-All 2,745 retained IUP source files match historical SVN r5892 exactly or only
-by CRLF/LF differences. All 314 Qt translations rebuild byte for byte. New
-QtBase/Core and SVG binary metadata match the exported source revisions.
-ImageFormats/Translations revision metadata, native C/C++ reproduction and
-complete public source/relink delivery remain unfinished. The local toolchain
-has no VC compiler components. The tiny-WebP limitation persists on 6.12.1.
+Repeated compilation of IUP and upstream Clumsy with the private pinned
+LLVM-MinGW toolchain produces identical bytes. IUP passes export comparison
+and an inert control/image harness. Clumsy has data-only import/export checks;
+it was not executed. Neither candidate replaces the managed runtime files.
+The engineering source bundle covers 46 components and retains 45 archives;
+complete native reconstruction, source/replacement mappings and public
+source/relink delivery remain unfinished. No MSVC compiler was found in the
+inspected PATH and Build Tools locations.
+ImageFormats/Translations binary revision metadata and the tiny-WebP limitation
+remain open. See the [native compilation and delivery audit](../audits/NATIVE_COMPILATION_SOURCE_DELIVERY_2026-11-24.md).
 
 Before this checkpoint, all 14 hosted checks on pushed head
-`6de2023f65eca81f43d44bbffbf17fb2dcf1b858` were blocked before execution by
+`03c867794045098f6a84599625a4d8072978da2d` were blocked before execution by
 GitHub billing on November 24. Consult
 [PR 84](https://github.com/GrihmLord/DupeZ/pull/84) for diagnostics on the newest push.
 No account, payment or spending change is part of this work.
@@ -62,7 +66,7 @@ No account, payment or spending change is part of this work.
 
 <a id="owner-action-checklist"></a>
 
-## Owner-action checklist (2026-11-09)
+## Owner-action checklist (2026-11-24)
 
 The owner has selected the explicitly disclosed unsigned/manual-install route
 and approved GPL-3.0-only open-source distribution with corresponding source.

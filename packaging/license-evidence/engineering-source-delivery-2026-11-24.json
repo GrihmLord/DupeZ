@@ -1,0 +1,387 @@
+{
+  "adoption_evidence": {
+    "path": "packaging/license-evidence/native-source-builds-2026-11-24.json",
+    "sha256": "13f63c96b052416f13a7332ba23a9cf9b3c42622d308dd43dc34d0ce10418460",
+    "size": 100432
+  },
+  "all_file_bytes_verified": true,
+  "all_recipe_files_match_application_checkpoint": true,
+  "application_checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+  "application_source_archive": {
+    "path": "build/native-source-release-20261124/DupeZ-v5.8.0-source.zip",
+    "sha256": "a6570dde831fefe60cceb428dc3429dda8b5896b4a64f918b782b0e32c05dec5",
+    "size": 25467638
+  },
+  "collector": {
+    "path": "build/engineering-source-20261124/collect_delivery.py",
+    "sha256": "cf0b40bb46690f73a605b7f0d972d3381f11702cfb040839ecbe3335d6a0114e",
+    "size": 10535
+  },
+  "compat_runtime_tested": false,
+  "complete_corresponding_source": false,
+  "creation_scope": "Offline source and metadata collection, exact Git archive/recipe checks and data-only frozen inventory inspection; no bundled source, payload, driver, installer, build backend or Compat runtime executed.",
+  "delivery_gaps": [
+    "Engineering frozen-raster-no-qtnetwork profile only. These retained source inputs and recipes do not establish complete corresponding source, native reproducibility, public delivery, licensing or release approval.",
+    "Source and binary package inventories distinguish retained runtime payloads from candidate-only Qt modules and build tools. Excluded WebEngine and software-OpenGL helper source archives are not supplied.",
+    "Transitive static/native dependency mappings, exact build toolchains, recipient native replacement tests, public retention and owner distribution terms remain unresolved. Existing source notices are conservative and may cover files not linked into retained binaries.",
+    "The exact application source checkpoint, observed frozen native inventories, profile lock, effective component inventory, source records and recipient recipes are bound by the engineering bundle receipt.",
+    "bundle-packaging: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "bundle-pyqt-builder: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "bundle-setuptools: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "bundle-sip: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "cffi: Bundled libffi and generated compiler inputs require exact source/build mapping beyond the CFFI source archive.",
+    "charset-normalizer: Compiled mypyc extensions and bundled runtime helpers require exact mypy/mypyc toolchain and source mapping.",
+    "clumsy: The release tag resolves to the pinned source commit, and its external IUP dependency matches the official IUP DLL. Independently reconstruct the Clumsy executable and record exact compiler/configuration inputs; release-asset correspondence is not source rebuild proof.",
+    "cpython-runtime: Windows bundled OpenSSL, libffi and statically linked compression/parser libraries require exact source revisions, patches and build-input mapping beyond the CPython archive. OS-loaded DLLs are not supplied as source inputs.",
+    "cryptography: The native Rust extension embeds OpenSSL and Rust crates; exact vendor sources, lockfile/toolchain correspondence, patches and rebuild proof remain unresolved.",
+    "freeze-altgraph: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "freeze-packaging: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "freeze-pefile: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "freeze-pyinstaller-hooks-contrib: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "freeze-pywin32-ctypes: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "freeze-setuptools: Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels.",
+    "inno-setup: Retained as effective-inventory tooling metadata; no installer executable is included in the two frozen application artifacts.",
+    "iup: The bundled iup.dll exactly matches the official IUP 3.30 Win64 dll16 package and pinned Clumsy dependency; its header matches the retained source archive. SourceForge replaced the source archive on 2023-10-13 after the 2020 binary release. Exact source revision, patches, compiler/toolchain inputs and independently verified rebuild remain unresolved.",
+    "iup: SourceForge's stable archive locator redirects to an expiring signed mirror URL. The collector intentionally rejects redirects and query tokens; use a separately reviewed bounded acquisition, then verify the cached size/hash before collection.",
+    "numpy: The shipped OpenBLAS DLL and its compiled numerical/Fortran dependencies require exact source/build mapping; the separately bundled renamed MSVC runtime requires its own distribution provenance.",
+    "pillow: Native image extensions embed codec/color/compression dependencies, including AVIF/WebP/JPEG/TIFF/LittleCMS families; exact linked dependency inventory, source pins and build recipes remain unresolved.",
+    "psutil: Native extension compiler/configuration correspondence remains unproven.",
+    "pyqt6: Exact upstream source retained; native binding/runtime rebuild configuration, toolchain and reproducibility remain unproven.",
+    "pyqt6-sip: Exact upstream source retained; native binding/runtime rebuild configuration, toolchain and reproducibility remain unproven.",
+    "pywin32: Native extension and bundled Windows runtime/toolchain source correspondence remains unproven.",
+    "pyyaml: The compiled YAML extension requires exact libyaml source/build mapping beyond the Python sdist.",
+    "qtbase-native: Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven.",
+    "qtimageformats-native: Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven.",
+    "qtsvg-native: Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven.",
+    "qttools-translation-compiler: Source for the reviewed translation compiler is supplied; the compiler and QtCore were not independently rebuilt. Rebuilding catalogs used exact publisher binaries and private MSVC runtime inputs.",
+    "qttranslations-native: Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven.",
+    "runtime-msvc: Microsoft runtime source is not supplied. Exact private-stage binaries and Python-bundled VCRUNTIME pins are recorded separately; distribution entitlement and applicable licensed runtime/toolchain terms are unresolved.",
+    "sounddevice: The shipped PortAudio DLL requires exact upstream revision, patches, toolchain and source-rebuild mapping.",
+    "windivert: Both bundled WinDivert DLL and driver match the official v2.2.0 release asset, whose tag resolves to the pinned source commit (recorded 2026-10-24). Independent source rebuild/replacement evidence, exact build inputs and applicable driver-signing constraints remain unresolved.",
+    "zeroconf: Generated C extension/toolchain correspondence remains unproven."
+  ],
+  "distribution_approved": false,
+  "independent_recipient_machine_rebuild_proven": false,
+  "independent_verification_processes": 2,
+  "inventory": {
+    "all_native_source_mapping_complete": false,
+    "observed_native_files": {
+      "compat": 114,
+      "gpu": 114
+    },
+    "outer_zip_members_including_receipt": 98,
+    "payload_file_groups": {
+      "application": 1,
+      "archives": 45,
+      "context": 5,
+      "evidence": 10,
+      "notices": 4,
+      "recipes": 30
+    },
+    "payload_files": 97,
+    "source_archive_bytes": 227653716,
+    "source_archives": 45,
+    "source_components": 46,
+    "uncollected_components": [
+      "runtime-msvc"
+    ]
+  },
+  "licensing_approval_inferred": false,
+  "limitations": [
+    "Every observed native file is assigned a source component, not an attested source rebuild.",
+    "Version-matched sources do not prove all static dependencies, patches or compiler inputs.",
+    "Candidate-only modules and build tools remain separately inventoried; full source archives can contain unused code.",
+    "Existing recipe and notice files are reproduced as evidence, not licensing or release approval.",
+    "Separately dated IUP and Clumsy records demonstrate bounded alternative-toolchain compilations; they do not reproduce the historical shipped binaries or establish full application compatibility.",
+    "The local bundle has not been uploaded or delivered to a recipient, and its large source archives remain outside the tracked evidence JSON.",
+    "MSVC source is uncollected; technical provenance does not decide distribution entitlement. Native transitive sources and original compiler/build configurations remain incomplete."
+  ],
+  "native_application_executed_during_collection": false,
+  "native_rebuild_proven": false,
+  "observed_on": "2026-11-24",
+  "packet_or_driver_effects_activated": false,
+  "preliminary_diagnostic": {
+    "exit_code": 1,
+    "log": {
+      "path": "build/engineering-source-20261124/create-final-a.log",
+      "sha256": "54449e9fd46c2f9b4dc851cabcd801d5feeb56bac5c20d254d330dce6bfda73c",
+      "size": 302
+    },
+    "published_bundle": false,
+    "reason": "Filesystem sandbox denied the link with WinError 5 after collection.",
+    "retry_changed_tracked_code": false,
+    "retry_scope": "Same reviewed recipe, fresh workspace output, standard token outside filesystem sandbox.",
+    "stage": "no-overwrite final hard-link publication"
+  },
+  "profile": "frozen-raster-no-qtnetwork",
+  "public_delivery_proven": false,
+  "recipe_and_manifest_checkpoint": "1668606e2856296a757d2442d90fa226bdaae9eb",
+  "recipe_inputs": [
+    {
+      "path": "scripts/engineering_source_bundle.py",
+      "sha256": "57b9167575fe1784f34bb8468b11d5b640651fce903bee24f4f5adcbac4ce15d",
+      "size": 27027
+    },
+    {
+      "path": "scripts/corresponding_source.py",
+      "sha256": "eb3f880331a63b2b1b04d6c96af1a882d931beecd6068e0a946438779e27404e",
+      "size": 34309
+    },
+    {
+      "path": "scripts/prepare_qt_candidate.py",
+      "sha256": "2a73c9465a9e5cf05305f2277041aa0dae0d3240fec5bd758ac766376aeca017",
+      "size": 38588
+    },
+    {
+      "path": "scripts/prepare_qt_adoption.py",
+      "sha256": "1428652ceed866e792db91e7ecc3f9ff926f754f4376cd52f593aecfd02bc80b",
+      "size": 31214
+    },
+    {
+      "path": "scripts/verify_qt_source_correspondence.py",
+      "sha256": "5969002ec9e9929502f1db20fda6cb6d21aa4d5db0ea39f3c63f3422445144f1",
+      "size": 12320
+    },
+    {
+      "path": "scripts/verify_qt6121_translation_sources.py",
+      "sha256": "68281bc222605c47ce9d05d49b28db96273328a103f5ee75c17e317385c399bf",
+      "size": 17963
+    },
+    {
+      "path": "scripts/verify_qt_translation_sources.py",
+      "sha256": "bafb3fbc008de815f67c67ab08afa996d8679a673b85b98e7e044e3be47c7a6e",
+      "size": 13658
+    },
+    {
+      "path": "scripts/validate_frozen_runtime.py",
+      "sha256": "44d1d4aaead0d01e3b4e16cb71c9bab1cfde96a3853e1e1543a0e11456d3c471",
+      "size": 85139
+    },
+    {
+      "path": "scripts/msvc_runtime_stage.py",
+      "sha256": "f30e92e936cc08fcfe3ad27be1a99a5238006d9cb73d8561c9577773aef99540",
+      "size": 10997
+    },
+    {
+      "path": "scripts/native_build_evidence.py",
+      "sha256": "bfb532794003c67ff4aa8be48d5441b87cdc2c255ae843f725ef67b1010c4164",
+      "size": 19208
+    },
+    {
+      "path": "scripts/license_payload.py",
+      "sha256": "a54a088a5475811e9369bd78f4c705bc2d15fdfe9a3471eacd1d827cf2cf792d",
+      "size": 32828
+    },
+    {
+      "path": "scripts/release_preflight.py",
+      "sha256": "506bf5458c64f43b128adc751e06332fb8b1fee4027a9454aa40cdd9f216012b",
+      "size": 121964
+    },
+    {
+      "path": "scripts/sbom.py",
+      "sha256": "40397a56c7c12f50d783c3d13208fb17047723faf1a93ee3035b0661a94b49c8",
+      "size": 7266
+    },
+    {
+      "path": "scripts/verify_requirements_lock.py",
+      "sha256": "c71e7d9518269388c16e62276f88e4a6506b686c1586757bfcc01743b01fdc4e",
+      "size": 14264
+    },
+    {
+      "path": "packaging/build_common.py",
+      "sha256": "6894ad4736b84a1744d0cdf7b1c6ec53c494b1ec966a8c4a48f6984e652165aa",
+      "size": 17502
+    },
+    {
+      "path": "scripts/native_rebuild/__init__.py",
+      "sha256": "dfa4762318ebf9851ca3dc1a7ba03253c1eee9d4849f42080ad93def4f9c46ed",
+      "size": 71
+    },
+    {
+      "path": "scripts/native_rebuild/common.py",
+      "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+      "size": 8217
+    },
+    {
+      "path": "scripts/native_rebuild/process.py",
+      "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15",
+      "size": 11526
+    },
+    {
+      "path": "scripts/native_rebuild/acquire_toolchain.py",
+      "sha256": "96ed6c66f8794f85ea393c6b28db6be2b80c79e9de5a9422f3cea165cb437872",
+      "size": 8230
+    },
+    {
+      "path": "scripts/native_rebuild/build_iup.py",
+      "sha256": "c5644331787912978847f7e59a6241bf4e4da1011512c55f65625b9eb883db5b",
+      "size": 13209
+    },
+    {
+      "path": "scripts/native_rebuild/build_clumsy.py",
+      "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+      "size": 12006
+    },
+    {
+      "path": "packaging/native-patches/iup-3.30-win32-dib-pointer.patch",
+      "sha256": "498a45796bf6cfb390a718df7a322d0b87670babf6d2696693428bb5ff33a6ae",
+      "size": 501
+    },
+    {
+      "path": "docs/legal/ENGINEERING_SOURCE_REBUILD_2026-11-24.md",
+      "sha256": "f9c9861a867910467aa2427e360334cfc1374ee5eee450155f47ed93fa39a927",
+      "size": 9702
+    },
+    {
+      "path": "packaging/native_runtime_policy.py",
+      "sha256": "1c7c6ad26b6580f5b1c7f1f8436838dd313dcd54a28d5d25d5aca0af55fe2608",
+      "size": 22171
+    },
+    {
+      "path": "packaging/msvc-redist-inputs.json",
+      "sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+      "size": 3466
+    },
+    {
+      "path": "packaging/qt-raster-no-network-inputs.json",
+      "sha256": "5371b077d07336086513a7563a074d0fc505df027bd1f7699f764cca2ca41ff1",
+      "size": 10732
+    },
+    {
+      "path": "packaging/requirements-build-locked.txt",
+      "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+      "size": 2733
+    },
+    {
+      "path": "packaging/dupez_gpu.spec",
+      "sha256": "f1e6a03213ad4f57fed35082581f5b58ec25e860f61b5873f6cc030ba13d36fd",
+      "size": 812
+    },
+    {
+      "path": "packaging/dupez_compat.spec",
+      "sha256": "a97e769164b53c36e4a5d9f84c7291fa26af628561a42c759786f641b65f6ab9",
+      "size": 1014
+    },
+    {
+      "path": "packaging/engineering-source-inputs.json",
+      "sha256": "ad365fa4e9439e5f6a4c74c301d2c314e59514acac9d40b6641326b204f769b5",
+      "size": 35254
+    }
+  ],
+  "release_approved": false,
+  "repeat_bundle_bytes_identical": true,
+  "repeat_receipt_bytes_identical": true,
+  "runs": [
+    {
+      "bundle": {
+        "path": "build/engineering-source-20261124/final-a2/engineering-source-inputs.zip",
+        "sha256": "dfb8b18dfd060db38685be0386d3a063b90bc73367d5ffe64e9de2639a00bd8e",
+        "size": 256667781
+      },
+      "creation_exit_code": 0,
+      "creation_log": {
+        "path": "build/engineering-source-20261124/create-final-a2.log",
+        "sha256": "b9044cb2526ed0ecf05c7f612377012dd1fd965c29e215d128d24ef484e20ccd",
+        "size": 369
+      },
+      "creation_verification": {
+        "path": "build/engineering-source-20261124/final-a2/bundle-verification.json",
+        "sha256": "1769efc66c95af2b5a21cc31e8bc0bbc121a93d06dcbfbfd5e22fe7b9e4da8c9",
+        "size": 396
+      },
+      "directory": "build/engineering-source-20261124/final-a2",
+      "independent_verification_log": {
+        "path": "build/engineering-source-20261124/verify-final-a2.log",
+        "sha256": "b9044cb2526ed0ecf05c7f612377012dd1fd965c29e215d128d24ef484e20ccd",
+        "size": 369
+      },
+      "receipt": {
+        "path": "build/engineering-source-20261124/final-a2/bundle-receipt.json",
+        "sha256": "97b3b841cfbe0c519e554e8eea644f2948bee8f5c4c763e838258ca81a379628",
+        "size": 25652
+      },
+      "separate_verification_exit_code": 0
+    },
+    {
+      "bundle": {
+        "path": "build/engineering-source-20261124/final-b/engineering-source-inputs.zip",
+        "sha256": "dfb8b18dfd060db38685be0386d3a063b90bc73367d5ffe64e9de2639a00bd8e",
+        "size": 256667781
+      },
+      "creation_exit_code": 0,
+      "creation_log": {
+        "path": "build/engineering-source-20261124/create-final-b.log",
+        "sha256": "b9044cb2526ed0ecf05c7f612377012dd1fd965c29e215d128d24ef484e20ccd",
+        "size": 369
+      },
+      "creation_verification": {
+        "path": "build/engineering-source-20261124/final-b/bundle-verification.json",
+        "sha256": "1769efc66c95af2b5a21cc31e8bc0bbc121a93d06dcbfbfd5e22fe7b9e4da8c9",
+        "size": 396
+      },
+      "directory": "build/engineering-source-20261124/final-b",
+      "independent_verification_log": {
+        "path": "build/engineering-source-20261124/verify-final-b.log",
+        "sha256": "b9044cb2526ed0ecf05c7f612377012dd1fd965c29e215d128d24ef484e20ccd",
+        "size": 369
+      },
+      "receipt": {
+        "path": "build/engineering-source-20261124/final-b/bundle-receipt.json",
+        "sha256": "97b3b841cfbe0c519e554e8eea644f2948bee8f5c4c763e838258ca81a379628",
+        "size": 25652
+      },
+      "separate_verification_exit_code": 0
+    }
+  ],
+  "same_host_repeat_only": true,
+  "schema": "dupez.engineering-source-delivery-evidence.v1",
+  "separately_dated_supporting_evidence": [
+    {
+      "path": "packaging/license-evidence/qt-6121-input-review-2026-11-24.json",
+      "sha256": "d3adb16e9389055e8cc5c2b6a00949f58de2a542f260536e3e268d7ee5731475",
+      "size": 37260
+    },
+    {
+      "path": "packaging/license-evidence/qt-6121-source-correspondence-2026-11-24.json",
+      "sha256": "11c4a11a540e2098ac4c970f665d4cb36a594e8f6730dcc4d62318bf7e4aab30",
+      "size": 16474
+    },
+    {
+      "path": "packaging/license-evidence/qt-6121-translations-2026-11-24.json",
+      "sha256": "d0e1b4fcbeec0ccc6302527cef932d706ea51d1abc8e11b5b1793f8860518759",
+      "size": 159446
+    },
+    {
+      "path": "packaging/license-evidence/qt-6121-licensing-review-2026-11-24.json",
+      "sha256": "e231e28d497e96fd7c018cedd66ec47dd54c306b2285b5d5d16b7c9bbd901f42",
+      "size": 23459
+    },
+    {
+      "path": "packaging/license-evidence/msvc-private-stage-2026-11-24.json",
+      "sha256": "4dcca1aa66dcdd524bb6d4d97ee7ed6c5d312357095239f8f43bc172282eadc1",
+      "size": 43462
+    },
+    {
+      "path": "packaging/license-evidence/iup-source-review-2026-11-24.json",
+      "sha256": "f5b7f1c2db958a9d0a8359c04e9b1b6196aee55bb0c981070a53e43512248f14",
+      "size": 11151
+    },
+    {
+      "path": "packaging/license-evidence/iup-source-archive-review-2026-11-24.json",
+      "sha256": "a6c0ed23efe6535dba76cb11cb1afca04001872cdbdca92992092c4637c55cd1",
+      "size": 34142
+    },
+    {
+      "path": "packaging/license-evidence/clumsy-native-compilation-2026-11-24.json",
+      "sha256": "962d9fc7fcfcd35c85e22d35cf6228f40c215e25f48cca225a6a3fb2d730898c",
+      "size": 172364
+    },
+    {
+      "path": "packaging/license-evidence/iup-native-compilation-2026-11-24.json",
+      "sha256": "a0f78631d70836f0dec2d31d80ff3fc8dbf72cc8349b1f52ddaa2aa0ee06170a",
+      "size": 21439
+    }
+  ],
+  "status": "two-local-bundles-byte-identical-and-separately-verified",
+  "supporting_evidence_scope": "Hash-bound observations supplied separately; not asserted to be files from the application checkpoint."
+}

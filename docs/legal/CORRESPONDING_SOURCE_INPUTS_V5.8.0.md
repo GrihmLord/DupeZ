@@ -18,7 +18,25 @@ that historical bundle with the October 24 manifest via `--manifest`, not the
 updated manifest. The commands below are a historical recipe for that checkout;
 use the follow-up's current offline verification recipe for the expanded cache.
 
-## November 24 engineering follow-up
+## November 24 native compilation and delivery follow-up
+
+The [native compilation and delivery audit](../audits/NATIVE_COMPILATION_SOURCE_DELIVERY_2026-11-24.md)
+records two identical IUP builds, two identical upstream Clumsy builds and an
+inert IUP control/image test. These are alternative-toolchain candidates, not
+reconstructions of the original managed binaries. Clumsy was not executed and
+Compat runtime remains pending.
+
+The separate [engineering manifest](../../packaging/engineering-source-inputs.json)
+tracks 46 components for the Qt 6.12.1 no-QtNetwork profile. Its bundle retains
+45 source archives, exact application source at checkpoint `1668606`, effective
+notices, recipes and both frozen native mappings. Microsoft runtime source
+remains uncollected. See the [recipient instructions](ENGINEERING_SOURCE_REBUILD_2026-11-24.md)
+and [delivery evidence](../../packaging/license-evidence/engineering-source-delivery-2026-11-24.json).
+Native reconstruction, complete source/replacement mappings and public delivery
+remain incomplete; no distribution determination was approved. The historical
+bundles and their manifests below are preserved.
+
+## Earlier November 24 engineering follow-up
 
 The [Qt 6.12.1 audit](../audits/QT_6121_ADOPTION_2026-11-24.md) records new
 coordinated Qt/PyQt/SIP sources, full IUP archive comparison and byte-identical

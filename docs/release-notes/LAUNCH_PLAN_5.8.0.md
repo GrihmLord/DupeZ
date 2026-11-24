@@ -10,8 +10,8 @@ snapshot, or a passing source-only preflight into a release candidate.
 
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
-| Source changes | Clean checkpoint `d16d5c6` coordinates Qt/PyQt 6.12.1 and SIP 13.13.1 with verified private MSVC inputs | Keep exact-commit evidence bound; source push is not public release approval |
-| Hosted CI | All 14 checks on prior pushed head `6de2023` were billing-blocked on November 24; see PR 84 for diagnostics on the newest push | Owner resolves the account restriction privately; local tests remain separate |
+| Source changes | Clean checkpoint `1668606` adds isolated native compilation and source delivery to the Qt/PyQt 6.12.1 engineering profile | Keep exact-commit evidence bound; source push is not public release approval |
+| Hosted CI | All 14 checks on prior pushed head `03c8677` were billing-blocked on November 24; see PR 84 for diagnostics on the newest push | Owner resolves the account restriction privately; local tests remain separate |
 | Main governance | The September 4 governance audit recorded protected main, no bypass actors, PR/review-thread requirements and 14 strict checks | Preserve controls and reverify live settings before merge/publication |
 | Production environment | The recorded governance audit limits production-release deployments to main | Reverify live settings before release; no independent maintainer review is claimed |
 | Distribution terms | GPL-3.0-only and corresponding source already selected; contribution rights and six evidence-backed determinations remain unresolved | Owner supplies rights and use-context evidence; validate actual delivery before recording determinations |
@@ -19,10 +19,10 @@ snapshot, or a passing source-only preflight into a release candidate.
 | Dependency advisories | The October 24 canonical runtime scan reported zero active PyPI advisory records across 27 packages; the engineering profile has a different effective inventory | Rescan the exact eventual release inventory; a Python package scan does not cover native libraries or the interpreter |
 | Native runtime security | New engineering builds adopt Qt 6.12.1; all three vendor HTTP-response guards are present in its source, while Qt Network remains excluded | Canonical Qt 6.11.2 remains unchanged/affected; retained native security review and tiny-WebP limitation remain open |
 | Microsoft runtime provenance | Both new builds collect exactly three signed-package-pinned DLLs from the closed private stage; no System32 origin is accepted | Preserve exact-stage validation; applicable redistribution basis and complete notice/delivery review remain separate |
-| Source/rebuild evidence | Full 2,745-file IUP comparison and 314 byte-identical Qt catalog rebuilds; QtBase/Core and SVG declared revisions match source exports | Complete missing module metadata, native C/C++ reconstruction and public corresponding-source/relink delivery |
+| Source/rebuild evidence | Repeated IUP and upstream Clumsy compilation produces identical bytes; IUP inert API/image test passes; source bundle covers 46 components with 45 retained archives | Complete remaining native reconstruction, source/replacement mappings and public corresponding-source/relink delivery |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect matrix on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 reporting have mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Both `d16d5c6` builds pass exact-source/archive/native inspection; GPU maintenance, two safety dry-run lifecycle profiles and PS5.1 evidence consumer pass | Compat runtime remains pending; hardware/hotkey and protected-main release validation remain required |
+| Exact artifacts | Both `1668606` builds pass exact-source/archive/native inspection; 4,135 tests pass with ten skips; GPU maintenance, two safety dry-run lifecycle profiles and PS5.1 evidence consumer pass | Compat runtime remains pending; hardware/hotkey and protected-main release validation remain required |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify public downloads and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -35,7 +35,30 @@ refresh verified successful October 6–7 hosted runs, including
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
 
-## November 24 Qt 6.12.1 adoption and source follow-up
+## November 24 native compilation and source delivery
+
+Clean checkpoint `1668606e2856296a757d2442d90fa226bdaae9eb` passes
+**4,135 tests with ten expected skips** and Ruff/AST checks for all **486**
+tracked Python files. Both fresh Qt 6.12.1 engineering builds pass source,
+archive and native checks, with 114 native entries each and no System32 origins.
+GPU maintenance, normal and low-resource dashboard safety dry-runs and the
+hash-bound PowerShell 5.1 consumer pass. **Compat runtime remains pending.**
+
+Two isolated IUP builds and two upstream Clumsy builds each produce identical
+bytes. IUP's 728 export names/ordinals match the original library, and its inert
+control/image harness passes. Clumsy's 32 IUP and seven WinDivert imports are
+covered; the executable was not run. These alternative-toolchain candidates
+have not replaced the managed binaries. Complete Qt/native reconstruction and
+full integration remain unfinished.
+
+The engineering source bundle retains 45 source archives for 46 components,
+the exact application source, effective inventory, notices and recipes.
+Microsoft source, complete native reconstruction/replacement and public
+delivery remain open. Six distribution determinations remain unresolved.
+See the [native compilation and delivery audit](../audits/NATIVE_COMPILATION_SOURCE_DELIVERY_2026-11-24.md)
+and [recipient recipe](../legal/ENGINEERING_SOURCE_REBUILD_2026-11-24.md).
+
+## Earlier November 24 Qt 6.12.1 adoption and source follow-up
 
 Clean checkpoint `d16d5c6a59e62087dc2d04213ce075b71c0abdd1` adopts Qt/PyQt 6.12.1 and SIP 13.13.1
 in the explicit no-QtNetwork engineering profile. Both frozen builds pass

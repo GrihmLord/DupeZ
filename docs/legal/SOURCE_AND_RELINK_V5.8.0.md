@@ -8,13 +8,24 @@ is supplied separately as `LICENSE.txt`; third-party terms are reproduced in
 
 ## Current engineering profile — November 24
 
-The explicit `frozen-raster-no-qtnetwork` profile now uses Qt/PyQt 6.12.1,
-SIP 13.13.1 and the verified private Microsoft runtime stage. See the
-[Qt adoption audit](../audits/QT_6121_ADOPTION_2026-11-24.md) for the exact source
-checkpoint, hashes, clean recipient recipe and scoped test evidence.
+The explicit `frozen-raster-no-qtnetwork` profile uses Qt/PyQt 6.12.1,
+SIP 13.13.1 and the verified private Microsoft runtime stage. Clean checkpoint
+`1668606e2856296a757d2442d90fa226bdaae9eb` adds isolated native build recipes
+and an exact-commit engineering source bundle. See the
+[native compilation and delivery audit](../audits/NATIVE_COMPILATION_SOURCE_DELIVERY_2026-11-24.md)
+and [recipient recipe](ENGINEERING_SOURCE_REBUILD_2026-11-24.md) for hashes,
+commands and scoped verification. Earlier Qt adoption evidence remains in the
+[Qt audit](../audits/QT_6121_ADOPTION_2026-11-24.md).
+
+Repeated IUP and upstream Clumsy compilation produces identical outputs on
+this machine. IUP's inert control/image test passes; Clumsy was not executed.
+The application still contains the original managed native files. The source
+bundle retains 45 archives for 46 inventoried components, exact application
+source, notices and recipes. Its byte verification does not establish complete
+corresponding source, public delivery or historical binary reconstruction.
 Compat runtime remains pending. Canonical production locks and the default
 protected release path below remain unchanged. Full third-party source/relink
-delivery and native library reconstruction remain unfinished.
+delivery, native reconstruction and six distribution determinations remain open.
 
 ## Exact DupeZ source
 
