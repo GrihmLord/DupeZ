@@ -1,0 +1,864 @@
+{
+  "schema": "dupez.source-inputs.v1",
+  "reviewed_on": "2026-11-24",
+  "scope": "third-party-source-inputs",
+  "delivery_gaps": [
+    "Engineering frozen-raster-no-qtnetwork profile only. These retained source inputs and recipes do not establish complete corresponding source, native reproducibility, public delivery, licensing or release approval.",
+    "Source and binary package inventories distinguish retained runtime payloads from candidate-only Qt modules and build tools. Excluded WebEngine and software-OpenGL helper source archives are not supplied.",
+    "Transitive static/native dependency mappings, exact build toolchains, recipient native replacement tests, public retention and owner distribution terms remain unresolved. Existing source notices are conservative and may cover files not linked into retained binaries.",
+    "The exact application source checkpoint, observed frozen native inventories, profile lock, effective component inventory, source records and recipient recipes are bound by the engineering bundle receipt."
+  ],
+  "components": [
+    {
+      "id": "bundle-packaging",
+      "version": "26.3",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "packaging-26.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz",
+          "size": 313412,
+          "sha256": "94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/packaging/26.3/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "bundle-pyqt-builder",
+      "version": "1.20.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pyqt_builder-1.20.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/01/3d/eae24a561b731624ed44dc5d0f047e1b14d22497ac602e9739a8cb416561/pyqt_builder-1.20.1.tar.gz",
+          "size": 5249945,
+          "sha256": "b303cd9ec7a04100ecb66fcbcae432c409e22a98153249bf504db5900a361de3"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/PyQt-builder/1.20.1/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "bundle-setuptools",
+      "version": "84.2.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "setuptools-84.2.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/70/b3/c19426f783614d625699a4b247faf628ea9ab1db228674491767b417f9e1/setuptools-84.2.1.tar.gz",
+          "size": 1230289,
+          "sha256": "3ff8b3b5492a0aa66960f4419365a86b84e013070d4313e4d4a6894f5d64d6bc"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/setuptools/84.2.1/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "bundle-sip",
+      "version": "6.17.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "sip-6.17.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/0d/d6/4108ef066e4a8452b393d5acd03fed176d7178c0512b2ecf564dc8dcf796/sip-6.17.1.tar.gz",
+          "size": 3158278,
+          "sha256": "34e2c1389e25394f5ba3c6b9d999d04373baf8d7161410536d444f48226d2f50"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/sip/6.17.1/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "certifi",
+      "version": "2026.10.23",
+      "artifacts": [
+        {
+          "filename": "certifi-2026.10.23.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+          "size": 136225,
+          "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/certifi/2026.10.23/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "cffi",
+      "version": "2.0.0",
+      "artifacts": [
+        {
+          "filename": "cffi-2.0.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz",
+          "size": 523588,
+          "sha256": "44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/cffi/2.0.0/json"
+      ],
+      "gaps": [
+        "Bundled libffi and generated compiler inputs require exact source/build mapping beyond the CFFI source archive."
+      ]
+    },
+    {
+      "id": "charset-normalizer",
+      "version": "3.4.7",
+      "artifacts": [
+        {
+          "filename": "charset_normalizer-3.4.7.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/e7/a1/67fe25fac3c7642725500a3f6cfe5821ad557c3abb11c9d20d12c7008d3e/charset_normalizer-3.4.7.tar.gz",
+          "size": 144271,
+          "sha256": "ae89db9e5f98a11a4bf50407d4363e7b09b31e55bc117b4f7d80aab97ba009e5"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/charset-normalizer/3.4.7/json"
+      ],
+      "gaps": [
+        "Compiled mypyc extensions and bundled runtime helpers require exact mypy/mypyc toolchain and source mapping."
+      ]
+    },
+    {
+      "id": "clumsy",
+      "version": "0.3.4",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://github.com/kalirenegade-dev/clumsy/tree/bc87e73066168520d76122c9165e99ea703b166c"
+      ],
+      "gaps": [
+        "The release tag resolves to the pinned source commit, and its external IUP dependency matches the official IUP DLL. Independently reconstruct the Clumsy executable and record exact compiler/configuration inputs; release-asset correspondence is not source rebuild proof."
+      ],
+      "artifacts": [
+        {
+          "filename": "clumsy-0.3.4-bc87e73066168520d76122c9165e99ea703b166c.zip",
+          "url": "https://codeload.github.com/kalirenegade-dev/clumsy/zip/bc87e73066168520d76122c9165e99ea703b166c",
+          "size": 18533657,
+          "sha256": "b641300d1f9c6b3be1699ea9f9222052f212b116f2c72ad18ad8f687f63337bb"
+        }
+      ]
+    },
+    {
+      "id": "colorama",
+      "version": "0.4.6",
+      "artifacts": [
+        {
+          "filename": "colorama-0.4.6.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz",
+          "size": 27697,
+          "sha256": "08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/colorama/0.4.6/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "cpython-runtime",
+      "version": "3.13.17",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://www.python.org/downloads/release/python-31317/"
+      ],
+      "gaps": [
+        "Windows bundled OpenSSL, libffi and statically linked compression/parser libraries require exact source revisions, patches and build-input mapping beyond the CPython archive. OS-loaded DLLs are not supplied as source inputs."
+      ],
+      "artifacts": [
+        {
+          "filename": "Python-3.13.17.tar.xz",
+          "url": "https://www.python.org/ftp/python/3.13.17/Python-3.13.17.tar.xz",
+          "size": 23233336,
+          "sha256": "6020bd10aff3bf4821be16f088ebb1591beb7b811dcd8fab1da8f7c22a7b27e7"
+        }
+      ]
+    },
+    {
+      "id": "cryptography",
+      "version": "50.0.2",
+      "artifacts": [
+        {
+          "filename": "cryptography-50.0.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/9d/af/182eb91b0df3fe75c4d9f26fe70684569566745f6ba7e5c9c73a862c5252/cryptography-50.0.2.tar.gz",
+          "size": 880623,
+          "sha256": "7b46165bb56eb4704e2eaaf86f3c940d19154535d9b0ca7d6d590b04060e00d5"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/cryptography/50.0.2/json"
+      ],
+      "gaps": [
+        "The native Rust extension embeds OpenSSL and Rust crates; exact vendor sources, lockfile/toolchain correspondence, patches and rebuild proof remain unresolved."
+      ]
+    },
+    {
+      "id": "et-xmlfile",
+      "version": "2.0.0",
+      "artifacts": [
+        {
+          "filename": "et_xmlfile-2.0.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz",
+          "size": 17234,
+          "sha256": "dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/et-xmlfile/2.0.0/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "freeze-altgraph",
+      "version": "0.17.5",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "altgraph-0.17.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/7e/f8/97fdf103f38fed6792a1601dbc16cc8aac56e7459a9fff08c812d8ae177a/altgraph-0.17.5.tar.gz",
+          "size": 48428,
+          "sha256": "c87b395dd12fabde9c99573a9749d67da8d29ef9de0125c7f536699b4a9bc9e7"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/altgraph/0.17.5/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "freeze-packaging",
+      "version": "26.2",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "packaging-26.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/d7/f1/e7a6dd94a8d4a5626c03e4e99c87f241ba9e350cd9e6d75123f992427270/packaging-26.2.tar.gz",
+          "size": 228134,
+          "sha256": "ff452ff5a3e828ce110190feff1178bb1f2ea2281fa2075aadb987c2fb221661"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/packaging/26.2/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "freeze-pefile",
+      "version": "2024.8.26",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pefile-2024.8.26.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/03/4f/2750f7f6f025a1507cd3b7218691671eecfd0bbebebe8b39aa0fe1d360b8/pefile-2024.8.26.tar.gz",
+          "size": 76008,
+          "sha256": "3ff6c5d8b43e8c37bb6e6dd5085658d658a7a0bdcd20b6a07b1fcfc1c4e9d632"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/pefile/2024.8.26/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "freeze-pyinstaller-hooks-contrib",
+      "version": "2026.6",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pyinstaller_hooks_contrib-2026.6.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/94/5b/c9fe0db5e83ee1c39b2258fa21d23b15e1a60786b6c5990ee5074ead8bb6/pyinstaller_hooks_contrib-2026.6.tar.gz",
+          "size": 173354,
+          "sha256": "bef5002c32f4f50bd55b005da12cff64eca8783e7eaf86a06a62410164bab725"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyinstaller-hooks-contrib/2026.6/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "freeze-pywin32-ctypes",
+      "version": "0.2.3",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pywin32-ctypes-0.2.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/85/9f/01a1a99704853cb63f253eea009390c88e7131c67e66a0a02099a8c917cb/pywin32-ctypes-0.2.3.tar.gz",
+          "size": 29471,
+          "sha256": "d162dc04946d704503b2edc4d55f3dba5c1d539ead017afa00142c38b9885755"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/pywin32-ctypes/0.2.3/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "freeze-setuptools",
+      "version": "83.0.0",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "setuptools-83.0.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/34/26/f5d29e25ffdb535afef2d35cdb55b325298f96debd670da4c325e08d70f4/setuptools-83.0.0.tar.gz",
+          "size": 1154254,
+          "sha256": "025bccbbf0fa05b6192bc64ae1e7b16e001fd6d6d4d5de03c97b1c1ade523bef"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/setuptools/83.0.0/json"
+      ],
+      "gaps": [
+        "Build-tool source retained; this does not establish the native toolchain or complete offline reconstruction of upstream wheels."
+      ]
+    },
+    {
+      "id": "idna",
+      "version": "3.18",
+      "artifacts": [
+        {
+          "filename": "idna-3.18.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/cd/63/9496c57188a2ee585e0f1db071d75089a11e98aa86eb99d9d7618fc1edce/idna-3.18.tar.gz",
+          "size": 196711,
+          "sha256": "ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/idna/3.18/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "ifaddr",
+      "version": "0.2.0",
+      "artifacts": [
+        {
+          "filename": "ifaddr-0.2.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/e8/ac/fb4c578f4a3256561548cd825646680edcadb9440f3f68add95ade1eb791/ifaddr-0.2.0.tar.gz",
+          "size": 10485,
+          "sha256": "cc0cbfcaabf765d44595825fb96a99bb12c79716b73b44330ea38ee2b0c4aed4"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/ifaddr/0.2.0/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "inno-setup",
+      "version": "6.7.1",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://api.github.com/repos/jrsoftware/issrc/git/tags/484a38a681f41ced5f8f0eb9890f7932ca6a244c"
+      ],
+      "gaps": [
+        "Retained as effective-inventory tooling metadata; no installer executable is included in the two frozen application artifacts."
+      ],
+      "artifacts": [
+        {
+          "filename": "inno-setup-6.7.1-cfdf48923178df4b4f040e038b423aa555a61ffc.zip",
+          "url": "https://codeload.github.com/jrsoftware/issrc/zip/cfdf48923178df4b4f040e038b423aa555a61ffc",
+          "size": 5605977,
+          "sha256": "a34e941cc11eed78258cf6ec91d3db3685789c6df286ad0d34feeddcd205ffa3"
+        }
+      ]
+    },
+    {
+      "id": "iup",
+      "version": "3.30",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://github.com/kalirenegade-dev/clumsy/tree/bc87e73066168520d76122c9165e99ea703b166c",
+        "https://www.tecgraf.puc-rio.br/iup/en/download.html",
+        "https://sourceforge.net/projects/iup/files/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip/download"
+      ],
+      "gaps": [
+        "The bundled iup.dll exactly matches the official IUP 3.30 Win64 dll16 package and pinned Clumsy dependency; its header matches the retained source archive. SourceForge replaced the source archive on 2023-10-13 after the 2020 binary release. Exact source revision, patches, compiler/toolchain inputs and independently verified rebuild remain unresolved.",
+        "SourceForge's stable archive locator redirects to an expiring signed mirror URL. The collector intentionally rejects redirects and query tokens; use a separately reviewed bounded acquisition, then verify the cached size/hash before collection."
+      ],
+      "artifacts": [
+        {
+          "filename": "iup-3.30_Sources.zip",
+          "url": "https://downloads.sourceforge.net/project/iup/3.30/Docs%20and%20Sources/iup-3.30_Sources.zip",
+          "size": 14226631,
+          "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+        }
+      ]
+    },
+    {
+      "id": "keyboard",
+      "version": "0.13.5",
+      "artifacts": [
+        {
+          "filename": "keyboard-0.13.5.zip",
+          "url": "https://files.pythonhosted.org/packages/79/75/c969f2258e908c39aadfc57d1cb78247dc49e6d36371bb3a48c194640c01/keyboard-0.13.5.zip",
+          "size": 71798,
+          "sha256": "63ed83305955939ca5c9a73755e5cc43e8242263f5ad5fd3bb7e0b032f3d308b"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/keyboard/0.13.5/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "numpy",
+      "version": "2.4.6",
+      "artifacts": [
+        {
+          "filename": "numpy-2.4.6.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/d0/ad/fed0499ce6a338d2a03ebae59cd15093910c8875328855781952abf6c2fe/numpy-2.4.6.tar.gz",
+          "size": 20735807,
+          "sha256": "f3a3570c4a2a16746ac2c31a7c7c7b0c186b95ce902e33db6f28094ed7387dda"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/numpy/2.4.6/json"
+      ],
+      "gaps": [
+        "The shipped OpenBLAS DLL and its compiled numerical/Fortran dependencies require exact source/build mapping; the separately bundled renamed MSVC runtime requires its own distribution provenance."
+      ]
+    },
+    {
+      "id": "openpyxl",
+      "version": "3.1.5",
+      "artifacts": [
+        {
+          "filename": "openpyxl-3.1.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz",
+          "size": 186464,
+          "sha256": "cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/openpyxl/3.1.5/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "pillow",
+      "version": "13.0.0",
+      "artifacts": [
+        {
+          "filename": "pillow-13.0.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ce/a4/9cc30690a394a8305e8be4c9036aa16d0dfddadd09079860b582f562496d/pillow-13.0.0.tar.gz",
+          "size": 47058631,
+          "sha256": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/pillow/13.0.0/json"
+      ],
+      "gaps": [
+        "Native image extensions embed codec/color/compression dependencies, including AVIF/WebP/JPEG/TIFF/LittleCMS families; exact linked dependency inventory, source pins and build recipes remain unresolved."
+      ]
+    },
+    {
+      "id": "psutil",
+      "version": "7.2.2",
+      "artifacts": [
+        {
+          "filename": "psutil-7.2.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/aa/c6/d1ddf4abb55e93cebc4f2ed8b5d6dbad109ecb8d63748dd2b20ab5e57ebe/psutil-7.2.2.tar.gz",
+          "size": 493740,
+          "sha256": "0746f5f8d406af344fd547f1c8daa5f5c33dbc293bb8d6a16d80b4bb88f59372"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/psutil/7.2.2/json"
+      ],
+      "gaps": [
+        "Native extension compiler/configuration correspondence remains unproven."
+      ]
+    },
+    {
+      "id": "pycparser",
+      "version": "3.0",
+      "artifacts": [
+        {
+          "filename": "pycparser-3.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/1b/7d/92392ff7815c21062bea51aa7b87d45576f649f16458d78b7cf94b9ab2e6/pycparser-3.0.tar.gz",
+          "size": 103492,
+          "sha256": "600f49d217304a5902ac3c37e1281c9fe94e4d0489de643a9504c5cdfdfc6b29"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/pycparser/3.0/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "pyinstaller-bootloader",
+      "version": "6.22.2",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyinstaller/6.22.2/json",
+        "https://pyinstaller.org/en/v6.22.2/bootloader-building.html"
+      ],
+      "gaps": [],
+      "artifacts": [
+        {
+          "filename": "pyinstaller-6.22.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/cc/2b/836d9def811c02522e0921d8b8cdf0c16b0545a216e97e71041758057859/pyinstaller-6.22.2.tar.gz",
+          "size": 4092631,
+          "sha256": "89b65a3ad07d9dd5832253e37bc45f31872d10d7f9d5c9fd0fdd6088a83829dd"
+        }
+      ]
+    },
+    {
+      "id": "pyqt6",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pyqt6-6.12.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+          "size": 1108330,
+          "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyqt6/6.12.1/json"
+      ],
+      "gaps": [
+        "Exact upstream source retained; native binding/runtime rebuild configuration, toolchain and reproducibility remain unproven."
+      ]
+    },
+    {
+      "id": "pyqt6-sip",
+      "version": "13.13.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "pyqt6_sip-13.13.1.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+          "size": 95283,
+          "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe"
+        }
+      ],
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyqt6-sip/13.13.1/json"
+      ],
+      "gaps": [
+        "Exact upstream source retained; native binding/runtime rebuild configuration, toolchain and reproducibility remain unproven."
+      ]
+    },
+    {
+      "id": "pyqtgraph",
+      "version": "0.14.0",
+      "artifacts": [
+        {
+          "filename": "pyqtgraph-0.14.0-a20028b98294b9cc8770f2015a92eb342224b788.zip",
+          "url": "https://codeload.github.com/pyqtgraph/pyqtgraph/zip/a20028b98294b9cc8770f2015a92eb342224b788",
+          "size": 2753547,
+          "sha256": "dac660287f19e5603a3a60af5e17d21fb1aa96236052fcade777003fd0be1e83"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://api.github.com/repos/pyqtgraph/pyqtgraph/git/ref/tags/pyqtgraph-0.14.0"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "pyserial",
+      "version": "3.5",
+      "artifacts": [
+        {
+          "filename": "pyserial-3.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/1e/7d/ae3f0a63f41e4d2f6cb66a5b57197850f919f59e558159a4dd3a818f5082/pyserial-3.5.tar.gz",
+          "size": 159125,
+          "sha256": "3c77e014170dfffbd816e6ffc205e9842efb10be9f58ec16d3e8675b4925cddb"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyserial/3.5/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "pywin32",
+      "version": "312",
+      "artifacts": [
+        {
+          "filename": "pywin32-312-2a277cb5552756c2b4d42b524dc36d25e0bb6354.zip",
+          "url": "https://codeload.github.com/mhammond/pywin32/zip/2a277cb5552756c2b4d42b524dc36d25e0bb6354",
+          "size": 5898850,
+          "sha256": "1e679e6b691e153c1665e7ac2c03dd4e0e491cbedf3d01db2c61c36257c4ed39"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://api.github.com/repos/mhammond/pywin32/git/ref/tags/b312"
+      ],
+      "gaps": [
+        "Native extension and bundled Windows runtime/toolchain source correspondence remains unproven."
+      ]
+    },
+    {
+      "id": "pyyaml",
+      "version": "6.0.3",
+      "artifacts": [
+        {
+          "filename": "pyyaml-6.0.3.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/05/8e/961c0007c59b8dd7729d542c61a4d537767a59645b82a0b521206e1e25c2/pyyaml-6.0.3.tar.gz",
+          "size": 130960,
+          "sha256": "d76623373421df22fb4cf8817020cbb7ef15c725b9d5e45f17e189bfc384190f"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/pyyaml/6.0.3/json"
+      ],
+      "gaps": [
+        "The compiled YAML extension requires exact libyaml source/build mapping beyond the Python sdist."
+      ]
+    },
+    {
+      "id": "qtbase-native",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "qtbase-everywhere-src-6.12.1.tar.xz",
+          "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtbase-everywhere-src-6.12.1.tar.xz",
+          "size": 51507200,
+          "sha256": "cd837bb9fd631e20439a04eaa0c2f252f19ad92fdf5adf10229d0fbc2fab2d53"
+        }
+      ],
+      "evidence_urls": [
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtbase-everywhere-src-6.12.1.tar.xz",
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtbase-everywhere-src-6.12.1.tar.xz.sha256"
+      ],
+      "gaps": [
+        "Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven."
+      ]
+    },
+    {
+      "id": "qtimageformats-native",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "qtimageformats-everywhere-src-6.12.1.tar.xz",
+          "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtimageformats-everywhere-src-6.12.1.tar.xz",
+          "size": 1847108,
+          "sha256": "20a40732228cf0734c5b2335d4a816c1cab97dcdcc6d13073c0b1065e1c6c608"
+        }
+      ],
+      "evidence_urls": [
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtimageformats-everywhere-src-6.12.1.tar.xz",
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtimageformats-everywhere-src-6.12.1.tar.xz.sha256"
+      ],
+      "gaps": [
+        "Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven."
+      ]
+    },
+    {
+      "id": "qtsvg-native",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "qtsvg-everywhere-src-6.12.1.tar.xz",
+          "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtsvg-everywhere-src-6.12.1.tar.xz",
+          "size": 2342960,
+          "sha256": "6a7157a9a0556a129ae6582c7fbe57a0d6c0b83083cfcbd38d5d4a93b30c46e1"
+        }
+      ],
+      "evidence_urls": [
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtsvg-everywhere-src-6.12.1.tar.xz",
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtsvg-everywhere-src-6.12.1.tar.xz.sha256"
+      ],
+      "gaps": [
+        "Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven."
+      ]
+    },
+    {
+      "id": "qttools-translation-compiler",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "qttools-everywhere-src-6.12.1.tar.xz",
+          "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttools-everywhere-src-6.12.1.tar.xz",
+          "size": 10937792,
+          "sha256": "0d3d1a7eba32d1477f36211fb527c2c75f60cb10f3ddc41fdb804fd94147b640"
+        }
+      ],
+      "evidence_urls": [
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttools-everywhere-src-6.12.1.tar.xz",
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttools-everywhere-src-6.12.1.tar.xz.sha256"
+      ],
+      "gaps": [
+        "Source for the reviewed translation compiler is supplied; the compiler and QtCore were not independently rebuilt. Rebuilding catalogs used exact publisher binaries and private MSVC runtime inputs."
+      ]
+    },
+    {
+      "id": "qttranslations-native",
+      "version": "6.12.1",
+      "source_status": "upstream-source-pinned",
+      "artifacts": [
+        {
+          "filename": "qttranslations-everywhere-src-6.12.1.tar.xz",
+          "url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttranslations-everywhere-src-6.12.1.tar.xz",
+          "size": 1770004,
+          "sha256": "5d537a0b849df9a0586fb20435ce232bc3e21e95025134f6ea8f5cc19622158a"
+        }
+      ],
+      "evidence_urls": [
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttranslations-everywhere-src-6.12.1.tar.xz",
+        "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttranslations-everywhere-src-6.12.1.tar.xz.sha256"
+      ],
+      "gaps": [
+        "Official-release source contents match the installer export after removing only its declared root prefix; differing container metadata is retained in the source-export evidence. Native compiler flags, tools, patches, transitive-source completeness and DLL reproduction remain unproven."
+      ]
+    },
+    {
+      "id": "requests",
+      "version": "2.34.2",
+      "artifacts": [
+        {
+          "filename": "requests-2.34.2.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz",
+          "size": 142856,
+          "sha256": "f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/requests/2.34.2/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "runtime-msvc",
+      "version": "14.51.36247.0",
+      "source_status": "unresolved",
+      "artifacts": [],
+      "evidence_urls": [
+        "https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist"
+      ],
+      "gaps": [
+        "Microsoft runtime source is not supplied. Exact private-stage binaries and Python-bundled VCRUNTIME pins are recorded separately; distribution entitlement and applicable licensed runtime/toolchain terms are unresolved."
+      ]
+    },
+    {
+      "id": "sounddevice",
+      "version": "0.5.5",
+      "artifacts": [
+        {
+          "filename": "sounddevice-0.5.5.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/2a/f9/2592608737553638fca98e21e54bfec40bf577bb98a61b2770c912aab25e/sounddevice-0.5.5.tar.gz",
+          "size": 143191,
+          "sha256": "22487b65198cb5bf2208755105b524f78ad173e5ab6b445bdab1c989f6698df3"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/sounddevice/0.5.5/json"
+      ],
+      "gaps": [
+        "The shipped PortAudio DLL requires exact upstream revision, patches, toolchain and source-rebuild mapping."
+      ]
+    },
+    {
+      "id": "urllib3",
+      "version": "2.8.0",
+      "artifacts": [
+        {
+          "filename": "urllib3-2.8.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz",
+          "size": 458972,
+          "sha256": "63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/urllib3/2.8.0/json"
+      ],
+      "gaps": []
+    },
+    {
+      "id": "windivert",
+      "version": "2.2",
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://api.github.com/repos/basil00/WinDivert/git/ref/tags/v2.2.0",
+        "https://github.com/basil00/WinDivert/releases/tag/v2.2.0"
+      ],
+      "gaps": [
+        "Both bundled WinDivert DLL and driver match the official v2.2.0 release asset, whose tag resolves to the pinned source commit (recorded 2026-10-24). Independent source rebuild/replacement evidence, exact build inputs and applicable driver-signing constraints remain unresolved."
+      ],
+      "artifacts": [
+        {
+          "filename": "WinDivert-2.2.0-091ffb3d49094253bacaee5c7cdd227409218ad8.zip",
+          "url": "https://codeload.github.com/basil00/WinDivert/zip/091ffb3d49094253bacaee5c7cdd227409218ad8",
+          "size": 203333,
+          "sha256": "ffcf5d57a4c461d632b9d615fa71436ec8055447993f440676b5965de85a9e16"
+        }
+      ]
+    },
+    {
+      "id": "zeroconf",
+      "version": "0.150.0",
+      "artifacts": [
+        {
+          "filename": "zeroconf-0.150.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/09/ea/34bb185645ecaa18d34e5883bffea71aa9bffbbb994634884e8b2f3ad0c4/zeroconf-0.150.0.tar.gz",
+          "size": 213634,
+          "sha256": "a5fe7feab1de6ef5e541e0a3d07e534fd91629b813fc27281593584100f63164"
+        }
+      ],
+      "source_status": "upstream-source-pinned",
+      "evidence_urls": [
+        "https://pypi.org/pypi/zeroconf/0.150.0/json"
+      ],
+      "gaps": [
+        "Generated C extension/toolchain correspondence remains unproven."
+      ]
+    }
+  ]
+}

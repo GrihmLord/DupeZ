@@ -1,6 +1,6 @@
 {
   "schema": "dupez.license-policy.v1",
-  "reviewed_on": "2026-11-09",
+  "reviewed_on": "2026-11-24",
   "release_state": "blocked",
   "decisions": [
     {
@@ -15,35 +15,35 @@
       "state": "unresolved",
       "determination": null,
       "evidence": [],
-      "required_owner_action": "Record the GPL-3.0-only basis and required corresponding-source evidence for the actual derived PyQt6 distribution. Assess PyQt6-WebEngine separately if distributed in source/development environments; do not assume a commercial entitlement."
+      "required_owner_action": "Complete the distribution record for the already-selected GPL-3.0-only route using the verified PyQt6 6.12.1 GPL-3.0-only and PyQt6-sip 13.13.1 BSD-2-Clause metadata/license texts, derived-wheel modifications and source/rebuild delivery. Commercial PyQt purchase is not the selected route. Assess PyQt6-WebEngine separately only if that package is distributed through another channel."
     },
     {
       "id": "qt-qtwebengine-distribution-basis",
       "state": "unresolved",
       "determination": null,
       "evidence": [],
-      "required_owner_action": "Record the basis for the exact retained Qt/native payload. Frozen browser/QML payloads are excluded; the new no-QtNetwork engineering profile also excludes Qt Network. Assess any separately distributed WebEngine/Chromium payload and the Microsoft runtime redistribution entitlement under their applicable terms."
+      "required_owner_action": "Complete the terms/source record for the actual retained Qt 6.12.1 payload and third-party code. Browser/QML, GL helpers and Qt Network remain excluded from this engineering profile. Record the distributing person's or organization's actual Visual Studio edition/version and applicable redistribution entitlement for the private Microsoft runtime files; installed tools and signed runtime bytes do not establish that fact. Assess separately distributed WebEngine/Chromium on its own payload."
     },
     {
       "id": "third-party-notices-delivery",
       "state": "unresolved",
       "determination": null,
       "evidence": [],
-      "required_owner_action": "Validate the notices for the exact release profile and both portable/installer channels. Engineering notices and pinned Microsoft runtime license references are evidence preparation, not complete public distribution or redistribution approval."
+      "required_owner_action": "Validate delivery of the exact profile's notices in each intended portable and installer channel. The Qt 6.12.1 engineering profile has 307 collected Qt source notice documents, verified PyQt/SIP license texts and pinned Microsoft references; these prepared inputs do not establish final public delivery or redistribution entitlement."
     },
     {
       "id": "source-and-relink-delivery",
       "state": "unresolved",
       "determination": null,
       "evidence": [],
-      "required_owner_action": "Complete native source/rebuild mappings, public corresponding-source and replacement/relink delivery, applicable installation information, and recipient rights for the exact shipped payload; preserve remaining QtBase/IUP/toolchain gaps."
+      "required_owner_action": "Complete exact native build-input and replacement/rebuild mappings, public corresponding-source delivery/retention and applicable installation information. Preserve the remaining QtBase/SVG source-SPDX differences, absent ImageFormats/Translations binary revision metadata, historical native compiler/build gaps and IUP original-binary reconstruction/compatibility gaps. Release-source tag matches, the full IUP archive comparison and byte-identical translation rebuilds are bounded evidence, not complete corresponding-source delivery."
     },
     {
       "id": "inno-setup-commercial-use-basis",
       "state": "unresolved",
       "determination": null,
       "evidence": [],
-      "required_owner_action": "Record whether Inno Setup is used in a commercial context and, if applicable, record the owner-approved commercial-license decision or entitlement instead of assuming one from the local compiler installation."
+      "required_owner_action": "Record the actual Inno Setup usage context and applicable distribution basis. The pinned 6.7.1 license permits commercial use subject to its notice/origin conditions; the vendor requests commercial support but does not strictly require purchase. Do not infer noncommercial status, invent a purchased entitlement or require payment as a substitute for reviewing the actual installer and its notices."
     }
   ]
 }

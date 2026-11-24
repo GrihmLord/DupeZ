@@ -1,0 +1,12 @@
+--- a/src/win/iupwin_image.c
++++ b/src/win/iupwin_image.c
+@@ -518,2 +518,3 @@
+     HDC hDC;
++    void* dib_bits = NULL;
+     BITMAPINFOHEADER* bmih = malloc(sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD)*colors_count);
+@@ -540,3 +541,4 @@
+     hDC = GetDC(NULL);
+-    hBitmap = CreateDIBSection(hDC, (BITMAPINFO*)bmih, DIB_RGB_COLORS, &bits, NULL, 0x0);
++    hBitmap = CreateDIBSection(hDC, (BITMAPINFO*)bmih, DIB_RGB_COLORS, &dib_bits, NULL, 0x0);
++    bits = (BYTE*)dib_bits;
+     ReleaseDC(NULL, hDC);
