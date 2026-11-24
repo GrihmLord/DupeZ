@@ -1,9 +1,9 @@
 {
-  "schema": "dupez.qt-candidate-inputs.v4",
-  "reviewed_on": "2026-11-09",
-  "qt_version": "6.11.3",
-  "binding_version": "6.11.0",
-  "scope": "isolated raster engineering candidate excluding the affected Qt Network payload; no native patch, production lock change or release approval; other native/source gaps remain open",
+  "schema": "dupez.qt-candidate-inputs.v5",
+  "reviewed_on": "2026-11-24",
+  "qt_version": "6.12.1",
+  "binding_version": "6.12.1",
+  "scope": "isolated Qt 6.12.1 raster engineering candidate retaining existing no-Network/browser/QML/GL exclusions; no production lock change or release approval; exact source and native rebuild gaps remain separately reviewed",
   "retained_bindings": [
     "QtCore",
     "QtGui",
@@ -31,6 +31,7 @@
     "QtQml",
     "QtQuick",
     "QtQuick3D",
+    "QtQuickControls2",
     "QtQuickWidgets",
     "QtRemoteObjects",
     "QtSensors",
@@ -99,73 +100,73 @@
       "id": "qtimageformats-binary",
       "role": "qt-prefix",
       "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.addons.qtimageformats.win64_msvc2022_64/6.11.3-0-202610220312qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "size": 832221,
-      "sha256": "fb372c6f182a50306aa5321b7063e35644f35356a63d0980f4e67fc579f666fe",
-      "member_listing_sha256": "1b85d8c09981cf342d55448d95720e155cc688a98e5bf3884cc414130b215291",
-      "members": 66
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64/6.12.1-0-202611180427qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 1055282,
+      "sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+      "members": 66,
+      "member_listing_sha256": "7311994ca301158c5c2222977b605445f7e5e8888870fa6b791894943732a457"
     },
     {
       "id": "qtimageformats-source",
       "role": "source",
-      "filename": "qtimageformats-everywhere-src-6.11.3.tar.xz",
-      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtimageformats-everywhere-src-6.11.3.tar.xz",
-      "size": 2054556,
-      "sha256": "9074e35c9bbdb944ceebdbed03f54d7bba55703b0252491188779e4d1a714c90"
+      "filename": "qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "size": 1846256,
+      "sha256": "f7b57c913d53c7ff1bc7f75a06773bf01802bce0b70e1de6399a3d96ea44fce1"
     },
     {
       "id": "qttranslations-binary",
       "role": "qt-prefix",
       "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "size": 2014619,
-      "sha256": "fa6da593ea97824c83acaeaddbe15d51224df5586a0609f7c2d9d8891d40c55a",
-      "member_listing_sha256": "05de6c4855e0012b1981502d6071acbf9914ee2d322fbf4c09ebec1ecc06d3dd",
-      "members": 322
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 2033078,
+      "sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+      "members": 322,
+      "member_listing_sha256": "01daf51a1e567cb097b223838a4fb9dd82c4855ea4a93bef6364cc782fc0ff03"
     },
     {
       "id": "qttranslations-source",
       "role": "source",
-      "filename": "qttranslations-everywhere-src-6.11.3.tar.xz",
-      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qttranslations-everywhere-src-6.11.3.tar.xz",
-      "size": 1742472,
-      "sha256": "b6cbcd7508afd5e5b6ab25f47436f8e0a67892214cabc9deeb1c4a9046e13952"
+      "filename": "qttranslations-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttranslations-everywhere-src-6.12.1.tar.xz",
+      "size": 1768500,
+      "sha256": "8e716946e5eec4fa0202ce20494ee4152f3e92ebdc282fe7ff7904e50e1f181e"
     },
     {
       "id": "qtbase-binary",
       "role": "qt-prefix",
       "filename": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "size": 39790318,
-      "sha256": "68be61b613b963daf206834fdcc57dd3b84baff3082e50679e5846ca4a7a8b86",
-      "member_listing_sha256": "cca314ba4e068fc544dfe02ce8cfb9301f35ab2533a4ae511424afe291cd8920",
-      "members": 4732
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 40457937,
+      "sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+      "members": 4793,
+      "member_listing_sha256": "888d663fd02da932b71b2f79c0a94ae395862b171af6d8fc232c739e1a207a40"
     },
     {
       "id": "qtsvg-binary",
       "role": "qt-prefix",
       "filename": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
-      "size": 683023,
-      "sha256": "e8c789e1a059601dd82114dd9560952891e7c8e94e1cb291166eb61d74800353",
-      "member_listing_sha256": "03bc22ab9daf02124943c3f3ab20557a470ed0189a93348b5e2b0d1ae0cfbcf2",
-      "members": 143
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 690396,
+      "sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+      "members": 144,
+      "member_listing_sha256": "afaf93d16fdf6af55eea895fe57c2c75077f4959773a3e1b6d5f43ee04a26154"
     },
     {
       "id": "qtbase-source",
       "role": "source",
-      "filename": "qtbase-everywhere-src-6.11.3.tar.xz",
-      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtbase-everywhere-src-6.11.3.tar.xz",
-      "size": 50542228,
-      "sha256": "bd60222ad79b3d88e7e45c6dd1cd738d34db0ceb159b6221316da7f884525f0b"
+      "filename": "qtbase-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz",
+      "size": 51329912,
+      "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
     },
     {
       "id": "qtsvg-source",
       "role": "source",
-      "filename": "qtsvg-everywhere-src-6.11.3.tar.xz",
-      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6113_unix_line_endings_src/qt.qt6.6113.src/6.11.3-0-202610220312qtsvg-everywhere-src-6.11.3.tar.xz",
-      "size": 2338300,
-      "sha256": "b712a27d4bc6ba510bc5c082f6eaac2ce38588d8a2d2eb771d08307735f9d44c"
+      "filename": "qtsvg-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtsvg-everywhere-src-6.12.1.tar.xz",
+      "size": 2338900,
+      "sha256": "d4b9618c2d268a8769f05aabe1e22bf121038c63b52e5c7ad7bf18b2574318b7"
     },
     {
       "id": "d3dcompiler_47",
@@ -181,11 +182,11 @@
       "id": "opengl32sw",
       "role": "qt-helper",
       "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
-      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
       "size": 5474526,
-      "sha256": "f9a6f0229f63d04b3ec1cc455078171f4d0c32e4fd79bc3e6a6dca54e79f7eae",
-      "member_listing_sha256": "9d14f8b2ede6a8da18136b38c8bb2fea66138e121f583535f8421bf3d5b93892",
-      "members": 1
+      "sha256": "0a3913ba2b7472043a5eb7cbb5d081cf8753ae76fea92856545e9b54c8a8b9ea",
+      "members": 1,
+      "member_listing_sha256": "9d14f8b2ede6a8da18136b38c8bb2fea66138e121f583535f8421bf3d5b93892"
     },
     {
       "filename": "pyqt_builder-1.20.1-py3-none-any.whl",
@@ -198,14 +199,14 @@
       "version": "1.20.1"
     },
     {
-      "filename": "pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
-      "url": "https://files.pythonhosted.org/packages/6f/85/dd9f03d78d87460e109e0121cd6201c5802bdd655656bf2780e964870fea/pyqt6-6.11.0-cp310-abi3-win_amd64.whl",
-      "size": 6844358,
-      "sha256": "bd11b459c54dca068e988a42cf838303334f0d441b9d16d92ae6719fcb5ac6ba",
+      "filename": "pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/22/a2/9b45fd134614f76ea9ba37dded8e57360a6a8d73407bff6a93bc214aed01/pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+      "size": 7092507,
+      "sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
       "id": "pyqt6",
       "role": "binding-wheel",
       "package": "PyQt6",
-      "version": "6.11.0"
+      "version": "6.12.1"
     },
     {
       "filename": "sip-6.17.1-py3-none-any.whl",
@@ -238,15 +239,32 @@
       "version": "84.2.1"
     },
     {
-      "filename": "pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
-      "url": "https://files.pythonhosted.org/packages/e1/1f/e7e5ad77a76c00db5c8c1b9960f2b0672ec1978b971bb3509858cd7a9458/pyqt6_sip-13.11.1-cp313-cp313-win_amd64.whl",
-      "size": 53371,
-      "sha256": "ca24bfd4d5d8274e338433df9ac41930650088c00018d3313c6bd8de21772a02",
+      "filename": "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "size": 53787,
+      "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8",
       "id": "pyqt6-sip",
       "role": "runtime-wheel",
       "package": "PyQt6-sip",
-      "version": "13.11.1"
+      "version": "13.13.1"
+    },
+    {
+      "id": "binding-source",
+      "role": "source",
+      "filename": "pyqt6-6.12.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+      "size": 1108330,
+      "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58"
+    },
+    {
+      "id": "sip-source",
+      "role": "source",
+      "filename": "pyqt6_sip-13.13.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+      "size": 95283,
+      "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe"
     }
   ],
-  "profile": "frozen-raster-no-qtnetwork"
+  "profile": "frozen-raster-no-qtnetwork",
+  "binding_sip_requirement": "PyQt6-sip (>=13.13, <14)"
 }

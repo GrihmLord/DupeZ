@@ -1,0 +1,320 @@
+{
+  "all_declared_revisions_match_exports": false,
+  "complete_corresponding_source_proven": false,
+  "limitations": [
+    "Publisher source/checksum and revision comparisons, not native binary reconstruction.",
+    "Line-ending-equivalent matches are separately counted and are not raw-byte matches.",
+    "Missing, mismatched and unrecorded source files remain explicit; no licensing approval is inferred."
+  ],
+  "manifest_sha256": "5371b077d07336086513a7563a074d0fc505df027bd1f7699f764cca2ca41ff1",
+  "modules": {
+    "qtbase": {
+      "all_binary_revision_values_present": true,
+      "all_declared_revisions_match_export": true,
+      "binary_input": {
+        "filename": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "id": "qtbase-binary",
+        "member_listing_sha256": "888d663fd02da932b71b2f79c0a94ae395862b171af6d8fc232c739e1a207a40",
+        "members": 4793,
+        "role": "qt-prefix",
+        "sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+        "size": 40457937,
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+      },
+      "binary_spdx": {
+        "sha256": "f97cf63f69016dab95a9a2d09d624b2cbf81e2ed341181439651995d6ddcbd44",
+        "size": 3914531
+      },
+      "declared_binary_revisions": {
+        "Bootstrap": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Concurrent": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Core": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "DBus": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "DeviceDiscoverySupportPrivate": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "EntryPointPrivate": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "FbSupportPrivate": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "GlobalConfig": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "GlobalConfigPrivate": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Gui": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Network": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "OpenGL": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "OpenGLWidgets": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Platform": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformAppInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformCommonInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformExampleInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformModuleInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformPluginInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PlatformToolInternal": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "PrintSupport": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QGifPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QIBaseDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QICOPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QJpegPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QMimerSQLDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QMinimalIntegrationPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QModernWindowsStylePlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QNLMNIPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QOCIDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QODBCDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QOffscreenIntegrationPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QPSQLDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QSQLiteDriverPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QSchannelBackendPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QTlsBackendCertOnlyPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QTlsBackendOpenSSLPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QTuioTouchPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QWindowsDirect2DIntegrationPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QWindowsIntegrationPlugin": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "QtLibraryInfo": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Sql": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Test": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "TestInternalsPrivate": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Widgets": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "Xml": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "androiddeployqt": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "androidtestrunner": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "cmake_automoc_parser": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "harmonydeployqt": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "harmonyostestrunner": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "moc": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qdbuscpp2xml": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qdbusxml2cpp": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qlalr": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qmake": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qtbase": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qtpaths": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "qvkgen": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "rcc": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "syncqt": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "tracegen": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "tracepointgen": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "uic": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "wasmdeployqt": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+        "windeployqt": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634"
+      },
+      "exported_revision": "5af1a37e31a869cd6eb8a73d82e2c71a450e6634",
+      "source_archive_files": 23625,
+      "source_comparison": {
+        "all_recorded_files_match_raw_or_crlf": false,
+        "archive_files": 23625,
+        "archive_files_without_spdx_record": 372,
+        "crlf_matches": 16271,
+        "mismatched": [
+          ".tag"
+        ],
+        "missing": [
+          ".gitattributes",
+          ".gitignore",
+          "config.tests/.gitignore",
+          "src/3rdparty/.gitattributes",
+          "src/3rdparty/tinycbor/.gitignore",
+          "src/3rdparty/tinycbor/tests/.gitignore",
+          "src/android/jar/.gitignore",
+          "src/android/templates/.gitignore",
+          "src/android/templates_aar/.gitignore",
+          "src/android/templates_cmake/.gitignore",
+          "src/corelib/serialization/.gitignore",
+          "src/network/android/jar/.gitignore",
+          "src/plugins/networkinformation/android/jar/.gitignore",
+          "tests/auto/cmake/test_qt_extract_metatypes/test_qt_extract_metatypes_project/testdata/.gitattributes",
+          "tests/auto/corelib/io/qfile/.gitattributes",
+          "tests/auto/corelib/io/qresourceengine/.gitattributes",
+          "tests/auto/corelib/io/qsettings/.gitattributes",
+          "tests/auto/corelib/io/qzip/.gitignore",
+          "tests/auto/corelib/plugin/qpluginloader/elftest/.gitattributes",
+          "tests/auto/corelib/serialization/qtextstream/.gitattributes",
+          "tests/auto/corelib/serialization/qxmlstream/.gitattributes",
+          "tests/auto/corelib/text/qbytearray_large/.gitattributes",
+          "tests/auto/network/access/qnetworkreply/.gitattributes",
+          "tests/auto/tools/moc/.gitattributes",
+          "tests/auto/tools/rcc/data/.gitattributes",
+          "tests/auto/tools/uic/baseline/.gitattributes",
+          "tests/auto/xml/dom/qdom/.gitattributes",
+          "tests/testserver/apache2/.gitattributes",
+          "tests/testserver/apache2/testdata/www/htdocs/rfcs/.gitattributes",
+          "tests/testserver/common/.gitattributes",
+          "tests/testserver/danted/.gitattributes",
+          "tests/testserver/ftp-proxy/.gitattributes",
+          "tests/testserver/squid/.gitattributes",
+          "tests/testserver/vsftpd/.gitattributes",
+          "util/gradientgen/.gitignore",
+          "util/sbom/cyclonedx/.gitignore",
+          "util/unicode/.gitattributes",
+          "util/x86simdgen/.gitignore"
+        ],
+        "raw_matches": 6981,
+        "source_inventory_sha256": "57a1215a296b0514461c0a0902470dcd5bc2bff15509e7a8852a2a33a555d15a",
+        "spdx_records": 23291
+      },
+      "source_input": {
+        "filename": "qtbase-everywhere-src-6.12.1.tar.xz",
+        "id": "qtbase-source",
+        "role": "source",
+        "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813",
+        "size": 51329912,
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz"
+      },
+      "source_spdx": {
+        "sha256": "184b51ae783356c2e01591c8b854bc6756c4e04b4a9fc6f226550b632c0b9d61",
+        "size": 10949657
+      },
+      "source_spdx_status": "present"
+    },
+    "qtimageformats": {
+      "all_binary_revision_values_present": false,
+      "all_declared_revisions_match_export": false,
+      "binary_input": {
+        "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "id": "qtimageformats-binary",
+        "member_listing_sha256": "7311994ca301158c5c2222977b605445f7e5e8888870fa6b791894943732a457",
+        "members": 66,
+        "role": "qt-prefix",
+        "sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+        "size": 1055282,
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64/6.12.1-0-202611180427qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+      },
+      "binary_spdx": {
+        "sha256": "368d1119d7d5020d76bedd33abd16798d1fb6bd8e4210c8361c23ffecab6be60",
+        "size": 188579
+      },
+      "declared_binary_revisions": {
+        "QICNSPlugin": null,
+        "QTgaPlugin": null,
+        "QTiffPlugin": null,
+        "QWbmpPlugin": null,
+        "QWebpPlugin": null,
+        "qtimageformats": null
+      },
+      "exported_revision": "032f617fbb10c3116e1cf23b630974f9f729efd1",
+      "source_archive_files": 518,
+      "source_comparison": {
+        "all_recorded_files_match_raw_or_crlf": true,
+        "archive_files": 518,
+        "archive_files_without_spdx_record": 12,
+        "crlf_matches": 404,
+        "mismatched": [],
+        "missing": [],
+        "raw_matches": 102,
+        "source_inventory_sha256": "6893eccb0bbdae118423b0551fee3dbd73b87ab766498e777f2c0b4a4c42f506",
+        "spdx_records": 506
+      },
+      "source_input": {
+        "filename": "qtimageformats-everywhere-src-6.12.1.tar.xz",
+        "id": "qtimageformats-source",
+        "role": "source",
+        "sha256": "f7b57c913d53c7ff1bc7f75a06773bf01802bce0b70e1de6399a3d96ea44fce1",
+        "size": 1846256,
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtimageformats-everywhere-src-6.12.1.tar.xz"
+      },
+      "source_spdx": {
+        "sha256": "1ac76f1c16c390b682d0cb24d680e55936e09895c8b88f97722afede7fb5f3ed",
+        "size": 213112
+      },
+      "source_spdx_status": "present"
+    },
+    "qtsvg": {
+      "all_binary_revision_values_present": true,
+      "all_declared_revisions_match_export": true,
+      "binary_input": {
+        "filename": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "id": "qtsvg-binary",
+        "member_listing_sha256": "afaf93d16fdf6af55eea895fe57c2c75077f4959773a3e1b6d5f43ee04a26154",
+        "members": 144,
+        "role": "qt-prefix",
+        "sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+        "size": 690396,
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+      },
+      "binary_spdx": {
+        "sha256": "0e67b5ba2ea935d07f27173710ac9b268e7907dbdb3f3253cc74d6ab8de6311f",
+        "size": 113906
+      },
+      "declared_binary_revisions": {
+        "QSvgIconPlugin": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00",
+        "QSvgPlugin": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00",
+        "Svg": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00",
+        "SvgWidgets": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00",
+        "qtsvg": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00"
+      },
+      "exported_revision": "ce2d9787bf7c6e4d9ab79b33b99ebbcfec7aef00",
+      "source_archive_files": 646,
+      "source_comparison": {
+        "all_recorded_files_match_raw_or_crlf": false,
+        "archive_files": 646,
+        "archive_files_without_spdx_record": 11,
+        "crlf_matches": 556,
+        "mismatched": [
+          ".tag"
+        ],
+        "missing": [
+          ".gitattributes",
+          ".gitignore",
+          "tests/auto/bic/.gitignore",
+          "tests/auto/qsvggenerator/.gitignore",
+          "tests/auto/qsvgplugin/.gitignore",
+          "tests/auto/qsvgrenderer/.gitattributes",
+          "tests/auto/qsvgrenderer/.gitignore",
+          "tests/global/.gitignore",
+          "tests/manual/rendertestsuite/.gitignore"
+        ],
+        "raw_matches": 78,
+        "source_inventory_sha256": "ee3200cbe96c97a24ad35e55a679ea66d9fb522004a234f6af6da2bc886405bc",
+        "spdx_records": 644
+      },
+      "source_input": {
+        "filename": "qtsvg-everywhere-src-6.12.1.tar.xz",
+        "id": "qtsvg-source",
+        "role": "source",
+        "sha256": "d4b9618c2d268a8769f05aabe1e22bf121038c63b52e5c7ad7bf18b2574318b7",
+        "size": 2338900,
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtsvg-everywhere-src-6.12.1.tar.xz"
+      },
+      "source_spdx": {
+        "sha256": "95aecc9295c2643a4b7be32642edd65987867223970735465799c1e1ea114aab",
+        "size": 292427
+      },
+      "source_spdx_status": "present"
+    },
+    "qttranslations": {
+      "all_binary_revision_values_present": false,
+      "all_declared_revisions_match_export": false,
+      "binary_input": {
+        "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+        "id": "qttranslations-binary",
+        "member_listing_sha256": "01daf51a1e567cb097b223838a4fb9dd82c4855ea4a93bef6364cc782fc0ff03",
+        "members": 322,
+        "role": "qt-prefix",
+        "sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+        "size": 2033078,
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z"
+      },
+      "binary_spdx": {
+        "sha256": "3b6ef95523d8a27702a73ff07c019564c5998ede9e578b4ee23327dae17bdcbc",
+        "size": 1079240
+      },
+      "declared_binary_revisions": {
+        "Translations": null,
+        "qttranslations": null
+      },
+      "exported_revision": "201bdab42f65751f1392b38a5f64ecccc9a0657d",
+      "source_archive_files": 320,
+      "source_comparison": null,
+      "source_input": {
+        "filename": "qttranslations-everywhere-src-6.12.1.tar.xz",
+        "id": "qttranslations-source",
+        "role": "source",
+        "sha256": "8e716946e5eec4fa0202ce20494ee4152f3e92ebdc282fe7ff7904e50e1f181e",
+        "size": 1768500,
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttranslations-everywhere-src-6.12.1.tar.xz"
+      },
+      "source_spdx": null,
+      "source_spdx_status": "absent-from-pinned-binary-archive"
+    }
+  },
+  "native_compiler_executed": false,
+  "native_rebuild_proven": false,
+  "qt_version": "6.12.1",
+  "release_approved": false,
+  "schema": "dupez.qt-source-correspondence.v1"
+}

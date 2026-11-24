@@ -1,8 +1,10 @@
 """Engineering adoption keeps real distribution identities and bounded inputs."""
 from dataclasses import replace
 import io
+import importlib.metadata
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import tarfile
 import zipfile
 
@@ -419,3 +421,112 @@ def test_no_network_adoption_rejects_old_raster_receipt_before_output(tmp_path, 
     with pytest.raises(ValueError, match="receipt"):
         adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE)
     assert not output.exists()
+
+
+def _coordinated_preparation_fixture(tmp_path, monkeypatch):
+    source, checksum, output, redist, manifest_path, _msvc = _no_network_preparation_fixture(tmp_path, monkeypatch)
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest.update(schema=adoption.candidate.COORDINATED_SCHEMA, qt_version="6.12.1", binding_version="6.12.1",
+                    binding_sip_requirement=adoption.candidate.COORDINATED_SIP_REQUIREMENT)
+    for source_id, filename in (("binding-source", "pyqt6-6.12.1.tar.gz"), ("sip-source", "pyqt6_sip-13.13.1.tar.gz")):
+        path = source / "inputs" / filename
+        path.write_bytes(b"Inert source archive, copied only, never executed")
+        manifest["inputs"].append({"id": source_id, "role": "source", "filename": filename,
+                                   "url": "https://files.pythonhosted.org/" + filename, **adoption.input_pin(path)})
+    sip = source / "inputs/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl"
+    wheel(sip)
+    manifest["inputs"].append({"id": "sip-runtime", "role": "runtime-wheel", "package": "PyQt6-sip",
+                               "version": "13.13.1", "filename": sip.name, "url": "https://files.pythonhosted.org/" + sip.name,
+                               **adoption.input_pin(sip)})
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    receipt_path = source / "preparation-receipt.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    receipt.update(schema=adoption.candidate.COORDINATED_SCHEMA.replace("inputs", "preparation"),
+                   manifest_sha256=adoption.sha256(manifest_path))
+    receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+    return source, checksum, output, redist, manifest
+
+
+def test_coordinated_profile_updates_only_binding_and_sip_and_stages_exact_sources(tmp_path, monkeypatch):
+    source, checksum, output, redist, manifest = _coordinated_preparation_fixture(tmp_path, monkeypatch)
+    canonical = {path: path.read_bytes() for path in (tmp_path / "requirements-locked.txt",
+                 tmp_path / "packaging/third-party-components.json", tmp_path / "packaging/requirements-build-locked.txt")}
+    result = adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                              msvc_redist_root=redist)
+    entries = {row.name: row for row in parse_release_lock_entries(output / "requirements-locked.txt")}
+    assert entries["pyqt6"].version == "6.12.1" and entries["pyqt6"].hashes == (checksum,)
+    sip = adoption.candidate.coordinated_runtime(manifest)
+    assert entries["pyqt6-sip"].version == "13.13.1" and entries["pyqt6-sip"].hashes == (sip["sha256"],)
+    assert all(path.read_bytes() == data for path, data in canonical.items())
+    inventory = json.loads((output / "packaging/third-party-components.json").read_bytes())
+    assert {row["name"]: row["version"] for row in inventory["runtime_components"]} == {name: row.version for name, row in entries.items()}
+    assert all(row["version"] in row["homepage"] for row in inventory["runtime_components"])
+    assert result["binding_sip_requirement"] == "PyQt6-sip (>=13.13, <14)"
+    assert "6.12.1" in result["limitations"][1]
+    for row in result["python_source_inputs"].values():
+        assert (output / row["path"]).read_bytes() == (source / "inputs" / row["filename"]).read_bytes()
+    assert (output / "wheelhouse" / sip["filename"]).read_bytes() == (source / "inputs" / sip["filename"]).read_bytes()
+
+
+@pytest.mark.parametrize("relative", ["source-inputs/pyqt6-6.12.1.tar.gz", "source-inputs/pyqt6_sip-13.13.1.tar.gz",
+                                       "wheelhouse/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl"])
+@pytest.mark.parametrize("phase", ["preparation", "installation"])
+def test_coordinated_copied_sources_and_sip_are_rechecked_before_receipts(tmp_path, monkeypatch, relative, phase):
+    source, checksum, output, redist, _manifest = _coordinated_preparation_fixture(tmp_path, monkeypatch)
+    def mutate(*_args):
+        (output / relative).write_bytes(b"changed staged input")
+        return ([], []) if phase == "preparation" else {"pip_check": "passed"}
+    monkeypatch.setattr(adoption, "stage_wheels" if phase == "preparation" else "install_environment", mutate)
+    with pytest.raises(ValueError):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                         msvc_redist_root=redist, install=phase == "installation")
+    assert not (output / ("engineering-profile.json" if phase == "preparation" else "installation-receipt.json")).exists()
+
+
+def test_coordinated_inventory_cannot_silently_relabel_changed_canonical_metadata(tmp_path, monkeypatch):
+    source, checksum, output, redist, _manifest = _coordinated_preparation_fixture(tmp_path, monkeypatch)
+    path = tmp_path / "packaging/third-party-components.json"
+    inventory = json.loads(path.read_bytes())
+    inventory["runtime_components"][0]["version"] = "unreviewed"
+    path.write_text(json.dumps(inventory), encoding="utf-8")
+    with pytest.raises(ValueError, match="Canonical inventory"):
+        adoption.prepare(source, checksum, output, [], profile=adoption.candidate.NO_NETWORK_PROFILE,
+                         msvc_redist_root=redist)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("tamper", [None, "payload", "version", "wheel"])
+def test_installed_sip_check_rejects_changed_bytes_or_version(tmp_path, monkeypatch, tamper):
+    monkeypatch.setattr(adoption.sys, "platform", "win32")
+    monkeypatch.setattr(adoption.sys, "version_info", (3, 13, 17))
+    monkeypatch.setattr(adoption.candidate, "child_environment", lambda _path: {})
+    commands = []
+    monkeypatch.setattr(adoption.subprocess, "run", lambda args, **_kwargs: commands.append(args))
+    adoption.install_environment(tmp_path, "5.8.0")
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    target = tmp_path / "installed"
+    target.mkdir()
+    with zipfile.ZipFile(wheelhouse / "binding.whl", "w") as archive:
+        archive.writestr("binding.bin", b"binding fixture")
+    (target / "binding.bin").write_bytes(b"binding fixture")
+    with zipfile.ZipFile(wheelhouse / "sip.whl", "w") as archive:
+        archive.writestr("sip.bin", b"SIP fixture")
+    (target / "sip.bin").write_bytes(b"changed" if tamper == "payload" else b"SIP fixture")
+    adoption.write_json(tmp_path / "engineering-profile.json", {
+        "candidate_wheel": {"path": "wheelhouse/binding.whl"},
+        "sip_runtime_input": {"filename": "sip.whl", "version": "13.13.1", "sha256": adoption.sha256(wheelhouse / "sip.whl")},
+    })
+    if tamper == "wheel":
+        with (wheelhouse / "sip.whl").open("ab") as stream:
+            stream.write(b"substitution")
+    distributions = {name: SimpleNamespace(metadata={"Name": name}, version="13.11.1" if tamper == "version" else "13.13.1",
+                    locate_file=lambda name: target / name) for name in ("PyQt6", "PyQt6-sip")}
+    monkeypatch.setattr(importlib.metadata, "distributions", lambda: list(distributions.values()))
+    monkeypatch.setattr(importlib.metadata, "distribution", lambda name: distributions[name])
+    monkeypatch.setattr(adoption.sys, "argv", ["metadata-check", str(tmp_path)])
+    if tamper:
+        with pytest.raises(RuntimeError, match="SIP .*differs"):
+            exec(commands[3][3], {})
+    else:
+        exec(commands[3][3], {})

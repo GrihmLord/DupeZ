@@ -207,14 +207,18 @@ def _profile_payloads(manifest):
     names |= {"PyQt6/Qt6/plugins/" + name for name in manifest["retained_plugins"]}
     names |= {f"PyQt6/Qt6/translations/qtbase_{name}.qm" for name in manifest["translation_locales"]}
     payloads = {name: b"test-only payload, never executed" for name in names}
-    payloads["pyqt6-6.11.0.dist-info/METADATA"] = b"Name: PyQt6\nVersion: 6.11.0\nRequires-Dist: PyQt6-sip (>=13.8, <14)\n"
-    payloads["pyqt6-6.11.0.dist-info/WHEEL"] = b"Wheel-Version: 1.0\nRoot-Is-Purelib: false\nTag: cp310-abi3-win_amd64\n"
-    payloads["pyqt6-6.11.0.dist-info/licenses/LICENSE"] = b"license preserved"
+    metadata_root = f"pyqt6-{manifest['binding_version']}.dist-info/"
+    requirement = manifest.get("binding_sip_requirement", "PyQt6-sip (>=13.8, <14)")
+    payloads[metadata_root + "METADATA"] = (
+        f"Name: PyQt6\nVersion: {manifest['binding_version']}\nRequires-Dist: {requirement}\n").encode()
+    payloads[metadata_root + "WHEEL"] = b"Wheel-Version: 1.0\nRoot-Is-Purelib: false\nTag: cp310-abi3-win_amd64\n"
+    payloads[metadata_root + "licenses/LICENSE"] = b"license preserved"
     return payloads
 
 
 def _write_recorded_wheel(path, payloads, *, corrupt_record=False):
-    record = "pyqt6-6.11.0.dist-info/RECORD"
+    record = next(name.removesuffix("METADATA") + "RECORD" for name in payloads
+                  if name.endswith(".dist-info/METADATA") and name.startswith("pyqt6-"))
     content = io.StringIO(newline="")
     writer = csv.writer(content, lineterminator="\n")
     with zipfile.ZipFile(path, "w") as archive:
@@ -583,20 +587,23 @@ def test_prepare_rejects_valid_cross_profile_manifest_before_any_output(tmp_path
     assert not (tmp_path / "build").exists()
 
 
-def test_no_network_manifest_preserves_inputs_and_excludes_all_native_dependents():
+def test_no_network_manifest_coordinates_runtime_and_excludes_all_native_dependents():
     raster = candidate.load_manifest(candidate.RASTER_MANIFEST)
     local = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
-    assert local["schema"] == "dupez.qt-candidate-inputs.v4"
+    assert local["schema"] == candidate.COORDINATED_SCHEMA
     assert local["profile"] == candidate.NO_NETWORK_PROFILE
     assert set(local["retained_bindings"]) == set(raster["retained_bindings"]) - {"QtNetwork"}
     assert set(local["retained_plugins"]) == set(raster["retained_plugins"]) - candidate.NETWORK_PLUGINS
-    assert local["inputs"] == raster["inputs"]
+    assert local["qt_version"] == local["binding_version"] == "6.12.1"
+    assert candidate.coordinated_runtime(local)["version"] == "13.13.1"
+    assert {row["id"] for row in local["inputs"]} == {row["id"] for row in raster["inputs"]} | {"binding-source", "sip-source"}
     assert local["translation_locales"] == raster["translation_locales"]
 
 
 def test_no_network_restriction_removes_dependents_and_preserves_retained_bytes(tmp_path):
     manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
-    payloads = _profile_payloads(candidate.load_manifest())
+    payloads = _profile_payloads(manifest)
+    payloads.update({name: b"excluded dependency" for name in candidate.NETWORK_NATIVE | candidate.RASTER_EXCLUDED_NATIVE})
     definitions = {"PyQt6/QtNetwork.pyi", "PyQt6/bindings/QtNetwork/QtNetwork.toml"}
     for name in definitions | {candidate.RASTER_EXCLUDED_UIC}:
         payloads[name] = b"excluded development definition"
@@ -614,7 +621,7 @@ def test_no_network_restriction_removes_dependents_and_preserves_retained_bytes(
 @pytest.mark.parametrize("name", sorted(candidate.NETWORK_NATIVE))
 def test_no_network_wheel_rejects_each_native_dependent_even_with_valid_record(tmp_path, name):
     manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
-    payloads = {name: body for name, body in _profile_payloads(candidate.load_manifest()).items()
+    payloads = {name: body for name, body in _profile_payloads(manifest).items()
                 if name not in candidate.RASTER_EXCLUDED_NATIVE | candidate.NETWORK_NATIVE}
     payloads[name] = b"substituted affected native payload"
     wheel = tmp_path / "substituted.whl"
@@ -652,3 +659,49 @@ def test_no_network_prepare_rejects_valid_raster_manifest_before_output(tmp_path
     with pytest.raises(ValueError, match="profile"):
         candidate.prepare(tmp_path / "build/out", None, True, False, profile=candidate.NO_NETWORK_PROFILE)
     assert not (tmp_path / "build").exists()
+
+
+@pytest.mark.parametrize("change", ["dependency", "old-sip", "foreign-runtime", "duplicate-runtime", "foreign-wheel", "missing-source"])
+def test_coordinated_manifest_rejects_unreviewed_dependency_transition(tmp_path, change):
+    manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    runtime = next(row for row in manifest["inputs"] if row["role"] == "runtime-wheel")
+    if change == "dependency":
+        manifest["binding_sip_requirement"] = "PyQt6-sip (>=13.8, <14)"
+    elif change == "old-sip":
+        runtime["version"] = "13.11.1"
+    elif change == "foreign-runtime":
+        runtime["package"] = "other-package"
+    elif change == "duplicate-runtime":
+        manifest["inputs"].append({**runtime, "id": "duplicate", "filename": "other.whl"})
+    elif change == "foreign-wheel":
+        runtime["filename"] = "pyqt6_sip-13.13.1-cp313-cp313-manylinux_2_34_x86_64.whl"
+    else:
+        manifest["inputs"] = [row for row in manifest["inputs"] if row["id"] != "binding-source"]
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="coordinated|Coordinated"):
+        candidate.load_manifest(path)
+
+
+@pytest.mark.parametrize("requirement", ["PyQt6-sip (>=13.8, <14)", "other-package", "PyQt6-sip (>=13.13, <14)\nRequires-Dist: other"])
+def test_new_candidate_wheel_rejects_old_or_additional_dependency_metadata(tmp_path, requirement):
+    manifest = candidate.load_manifest(candidate.NO_NETWORK_MANIFEST)
+    payloads = {name: value for name, value in _profile_payloads(manifest).items()
+                if name not in candidate.RASTER_EXCLUDED_NATIVE}
+    metadata = f"pyqt6-{manifest['binding_version']}.dist-info/METADATA"
+    payloads[metadata] = f"Name: PyQt6\nVersion: 6.12.1\nRequires-Dist: {requirement}\n".encode()
+    path = tmp_path / "invalid.whl"
+    _write_recorded_wheel(path, payloads)
+    with pytest.raises(ValueError, match="metadata"):
+        candidate.validate_candidate_wheel(path, manifest)
+
+
+def test_historical_v4_no_network_manifest_remains_explicitly_readable(tmp_path):
+    manifest = candidate.load_manifest(candidate.RASTER_MANIFEST)
+    manifest.update(schema=candidate.LEGACY_NO_NETWORK_SCHEMA, profile=candidate.NO_NETWORK_PROFILE)
+    manifest["retained_bindings"].remove("QtNetwork")
+    manifest["excluded_bindings"].append("QtNetwork")
+    manifest["retained_plugins"] = [p for p in manifest["retained_plugins"] if p not in candidate.NETWORK_PLUGINS]
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    assert candidate.load_manifest(path) == manifest

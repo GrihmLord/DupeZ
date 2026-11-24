@@ -47,11 +47,14 @@ LIMITATIONS = [
 ]
 
 
-def profile_limitations(profile: str) -> list[str]:
+def profile_limitations(profile: str, manifest: dict | None = None) -> list[str]:
     limitations = list(LIMITATIONS)
     if profile == candidate.NO_NETWORK_PROFILE:
         limitations[1] = ("The affected QtNetwork payload is excluded, not patched; upstream Qt 6.11.3 "
                           "and source-development environments remain affected. Other native/source gaps remain open.")
+    if manifest is not None and manifest.get("schema") == candidate.COORDINATED_SCHEMA:
+        limitations[1] = ("Qt 6.12.1 is the reviewed upstream candidate; QtNetwork remains excluded. "
+                          "Canonical source-development locks are unchanged. Native/source and release gaps remain open.")
     return limitations
 
 
@@ -84,12 +87,20 @@ def write_json(path: Path, value: object) -> None:
         stream.write("\n")
 
 
-def effective_runtime(entries: list[LockedEntry], version: str, wheel_hash: str) -> list[LockedEntry]:
+def effective_runtime(entries: list[LockedEntry], version: str, wheel_hash: str,
+                      *, manifest: dict | None = None) -> list[LockedEntry]:
     if not HASH.fullmatch(wheel_hash):
         raise ValueError("Invalid independent wheel SHA256")
     by_name = {entry.name: entry for entry in entries}
     if not REMOVED <= by_name.keys() or by_name.get("pyqt6") is None:
         raise ValueError("Canonical runtime Qt distribution set changed")
+    if manifest is not None and manifest.get("schema") == candidate.COORDINATED_SCHEMA:
+        sip = candidate.coordinated_runtime(manifest)
+        if version != manifest["binding_version"] or "pyqt6-sip" not in by_name:
+            raise ValueError("Coordinated runtime lacks binding/SIP identities")
+        overrides = {"pyqt6": (version, wheel_hash), "pyqt6-sip": (sip["version"], sip["sha256"])}
+        return [replace(entry, version=overrides[entry.name][0], hashes=(overrides[entry.name][1],))
+                if entry.name in overrides else entry for entry in entries if entry.name not in REMOVED]
     if by_name["pyqt6"].version != version:
         raise ValueError("Candidate binding version differs from the reviewed runtime")
     return [replace(entry, hashes=(wheel_hash,)) if entry.name == "pyqt6" else entry
@@ -214,7 +225,8 @@ def profile_sbom(entries: list[LockedEntry], manifest: dict, wheel_hash: str, pr
     result["metadata"]["properties"].append({"name": "dupez:engineering-only", "value": "true"})
     result["metadata"]["properties"].append({"name": "dupez:qt-profile", "value": manifest["profile"]})
     if manifest["profile"] == candidate.NO_NETWORK_PROFILE:
-        result["metadata"]["properties"].append({"name": "dupez:qt-network-payload", "value": "excluded-not-patched"})
+        result["metadata"]["properties"].append({"name": "dupez:qt-network-payload", "value": "excluded" if
+            manifest.get("schema") == candidate.COORDINATED_SCHEMA else "excluded-not-patched"})
     for component in result["components"]:
         if component["name"] == "pyqt6":
             component["externalReferences"] = [{"type": "build-meta", "url": "https://github.com/GrihmLord/DupeZ"}]
@@ -267,6 +279,15 @@ with zipfile.ZipFile(wheel) as archive:
  for name in archive.namelist():
   if name.endswith('/') or name.endswith('.dist-info/RECORD'): continue
   if archive.read(name) != pathlib.Path(dist.locate_file(name)).read_bytes(): raise RuntimeError('Installed candidate payload differs')
+if 'sip_runtime_input' in records:
+ sip=records['sip_runtime_input']; sip_dist=m.distribution('PyQt6-sip'); sip_wheel=root/'wheelhouse'/sip['filename']
+ if sip_dist.version != sip['version']: raise RuntimeError('Installed SIP version differs')
+ if hashlib.sha256(sip_wheel.read_bytes()).hexdigest()!=sip['sha256']: raise RuntimeError('Staged SIP wheel differs')
+ with zipfile.ZipFile(sip_wheel) as archive:
+  for name in archive.namelist():
+   if name.endswith('/') or name.endswith('.dist-info/RECORD'): continue
+   if archive.read(name) != pathlib.Path(sip_dist.locate_file(name)).read_bytes(): raise RuntimeError('Installed SIP payload differs')
+ print('Installed pinned SIP wheel payload verified')
 print('Installed real PyQt6 metadata and wheel payload verified')
 """
     commands.append([str(build / "Scripts/python.exe"), "-I", "-c", metadata_check, str(output)])
@@ -310,7 +331,8 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     receipt_bytes = receipt_path.read_bytes()
     receipt_hash = hashlib.sha256(receipt_bytes).hexdigest()
     receipt = json.loads(receipt_bytes)
-    expected_receipt_schema = candidate.PROFILE_SCHEMAS[profile].replace("inputs", "preparation")
+    manifest_schema = manifest.get("schema", candidate.PROFILE_SCHEMAS[profile])
+    expected_receipt_schema = manifest_schema.replace("inputs", "preparation")
     if (manifest.get("profile") != profile or receipt.get("profile") != profile
             or receipt.get("schema") != expected_receipt_schema
             or receipt.get("status") != "candidate-wheel-prepared" or receipt.get("manifest_sha256") != manifest_hash
@@ -346,17 +368,34 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
                 or msvc_manifest.get("distribution_approved") is not False
                 or msvc_manifest.get("release_approved") is not False):
             raise ValueError("Unreviewed Microsoft runtime source mapping")
-    runtime = effective_runtime(parse_release_lock_entries(runtime_path), manifest["binding_version"], expected_wheel_hash)
+    canonical_runtime = parse_release_lock_entries(runtime_path)
+    runtime = effective_runtime(canonical_runtime, manifest["binding_version"], expected_wheel_hash, manifest=manifest)
     build_entries = parse_release_lock_entries(build_path)
     inventory = json.loads(inventory_path.read_bytes())
+    if {row["name"]: row["version"] for row in inventory["runtime_components"]} != {
+            entry.name: entry.version for entry in canonical_runtime}:
+        raise ValueError("Canonical inventory differs from runtime lock")
     inventory["runtime_components"] = [row for row in inventory["runtime_components"] if row["name"] not in REMOVED]
+    coordinated = manifest.get("schema") == candidate.COORDINATED_SCHEMA
+    if coordinated:
+        versions = {entry.name: entry.version for entry in runtime}
+        for row in inventory["runtime_components"]:
+            if row["name"] in {"pyqt6", "pyqt6-sip"}:
+                row["version"] = versions[row["name"]]
+                row["homepage"] = f"https://pypi.org/project/{row['name']}/{row['version']}/"
     if {row["name"]: row["version"] for row in inventory["runtime_components"]} != {entry.name: entry.version for entry in runtime}:
         raise ValueError("Engineering runtime inventory differs from effective lock")
     pins = {item["id"]: item for item in manifest["inputs"]}
-    for source_id in SOURCE_IDS:
+    source_ids = (*SOURCE_IDS, "binding-source", "sip-source") if coordinated else SOURCE_IDS
+    for source_id in source_ids:
         source = candidate.ordinary_path(candidate_root / "inputs" / pins[source_id]["filename"], file=True)
         candidate.verified(source, pins[source_id])
         input_pins[source] = pins[source_id]
+    sip_input = candidate.coordinated_runtime(manifest) if coordinated else None
+    if sip_input is not None:
+        sip_wheel = candidate_root / "inputs" / sip_input["filename"]
+        candidate.verified(sip_wheel, sip_input)
+        input_pins[sip_wheel] = sip_input
     output.mkdir(parents=True)
     (output / "packaging").mkdir()
     (output / "wheelhouse").mkdir()
@@ -369,6 +408,16 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     shutil.copyfile(wheel, output / "wheelhouse" / wheel.name)
     if sha256(output / "wheelhouse" / wheel.name) != expected_wheel_hash:
         raise ValueError("Candidate wheel changed during staging")
+    python_sources = {}
+    if sip_input is not None:
+        shutil.copyfile(sip_wheel, output / "wheelhouse" / sip_input["filename"])
+        candidate.verified(output / "wheelhouse" / sip_input["filename"], sip_input)
+        (output / "source-inputs").mkdir()
+        for source_id in ("binding-source", "sip-source"):
+            destination = output / "source-inputs" / pins[source_id]["filename"]
+            shutil.copyfile(candidate_root / "inputs" / pins[source_id]["filename"], destination)
+            candidate.verified(destination, pins[source_id])
+            python_sources[source_id] = {**pins[source_id], "path": destination.relative_to(output).as_posix()}
     source_notices = {}
     for source_id in SOURCE_IDS:
         component_id = source_id.removesuffix("-source") + "-native"
@@ -382,13 +431,16 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
     write_json(output / "packaging/third-party-components.json", inventory)
     source_info = output / "docs/legal/SOURCE_AND_RELINK_V5.8.0.md"
     source_info.parent.mkdir(parents=True)
-    limitations = profile_limitations(profile)
+    limitations = profile_limitations(profile, manifest)
     source_info.write_text("# Engineering Qt source and notice review\n\n" + "\n".join(f"- {line}" for line in limitations)
                            + "\n\nExact input archives and copied notice digests are recorded in engineering-profile.json.\n",
                            encoding="utf-8")
     license_payload._load_inventory(output, output / "packaging/third-party-components.json")
     staged, missing = stage_wheels([*runtime, *build_entries], caches, output / "wheelhouse")
     verify_unchanged_inputs(input_pins)
+    if coordinated:
+        verify_unchanged_inputs({output / row["path"]: row for row in python_sources.values()})
+        candidate.verified(output / "wheelhouse" / sip_input["filename"], sip_input)
     if runtime_stage is not None and msvc_runtime_stage.validate_stage(output / "msvc-runtime", msvc_path) != runtime_stage:
         raise ValueError("Private Microsoft runtime stage changed during preparation")
     result = {"schema": "dupez.qt-engineering-profile.v1", "profile": profile,
@@ -401,6 +453,10 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
               "effective_runtime_lock_sha256": sha256(output / "requirements-locked.txt"),
               "effective_inventory_sha256": sha256(output / "packaging/third-party-components.json"),
               "source_notices": source_notices, "wheelhouse": staged, "missing_wheels": missing}
+    if coordinated:
+        result["python_source_inputs"] = python_sources
+        result["binding_sip_requirement"] = manifest["binding_sip_requirement"]
+        result["sip_runtime_input"] = sip_input
     if msvc_manifest is not None:
         result["msvc_runtime_mapping"] = {"manifest_sha256": input_pins[msvc_path]["sha256"],
                                           "package": msvc_manifest["package"],
@@ -423,6 +479,11 @@ def prepare(candidate_root: Path, expected_wheel_hash: str, output: Path, caches
             output / "packaging/third-party-components.json", output / "engineering-profile.json",
             output / "engineering.sbom.json", output / "wheelhouse" / wheel.name,
         )}
+        if coordinated:
+            generated_pins.update({output / row["path"]: input_pin(output / row["path"])
+                                   for row in python_sources.values()})
+            sip_output = output / "wheelhouse" / sip_input["filename"]
+            generated_pins[sip_output] = input_pin(sip_output)
         if runtime_stage is not None:
             generated_pins.update({path: input_pin(path) for path in (output / "msvc-runtime").iterdir()})
         installed = install_environment(output, product_version)

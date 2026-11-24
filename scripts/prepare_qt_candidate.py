@@ -34,7 +34,10 @@ NO_NETWORK_MANIFEST = ROOT / "packaging/qt-raster-no-network-inputs.json"
 NO_NETWORK_PROFILE = "frozen-raster-no-qtnetwork"
 PROFILE_SCHEMAS = {"review": "dupez.qt-candidate-inputs.v2",
                    "frozen-raster": "dupez.qt-candidate-inputs.v3",
-                   NO_NETWORK_PROFILE: "dupez.qt-candidate-inputs.v4"}
+                   NO_NETWORK_PROFILE: "dupez.qt-candidate-inputs.v5"}
+LEGACY_NO_NETWORK_SCHEMA = "dupez.qt-candidate-inputs.v4"
+COORDINATED_SCHEMA = PROFILE_SCHEMAS[NO_NETWORK_PROFILE]
+COORDINATED_SIP_REQUIREMENT = "PyQt6-sip (>=13.13, <14)"
 HOSTS = frozenset({"download.qt.io", "qt.mirror.constant.com", "files.pythonhosted.org"})
 ROLES = frozenset({"source", "qt-prefix", "qt-helper", "builder-wheel", "binding-wheel", "runtime-wheel"})
 MAX_FILE = 100 * 1024 * 1024
@@ -174,9 +177,11 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
     manifest = json.loads(raw, object_pairs_hook=_unique_object)
     if not isinstance(manifest, dict):
         raise ValueError("Unknown candidate manifest")
-    profile = next((name for name, schema in PROFILE_SCHEMAS.items() if schema == manifest.get("schema")), None)
+    profile = manifest_profile(manifest)
     raster = profile in {"frozen-raster", NO_NETWORK_PROFILE}
+    coordinated = manifest.get("schema") == COORDINATED_SCHEMA
     if (set(manifest) != MANIFEST_FIELDS | ({"profile"} if raster else set())
+            | ({"binding_sip_requirement"} if coordinated else set())
             or profile is None or (raster and manifest.get("profile") != profile)):
         raise ValueError("Unknown candidate manifest")
     for field in ("qt_version", "binding_version"):
@@ -189,12 +194,13 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
         raise ValueError("Invalid review metadata")
     for field in ("retained_bindings", "excluded_bindings"):
         names = manifest[field]
-        if (not isinstance(names, list) or not names or any(not isinstance(name, str) or name not in MODULES for name in names)
+        modules = MODULES | {"QtQuickControls2"} if coordinated else MODULES
+        if (not isinstance(names, list) or not names or any(not isinstance(name, str) or name not in modules for name in names)
                 or len(set(names)) != len(names)):
             raise ValueError(f"Invalid candidate module names: {field}")
     retained, excluded = set(manifest["retained_bindings"]), set(manifest["excluded_bindings"])
     expected_bindings = NO_NETWORK_BINDINGS if profile == NO_NETWORK_PROFILE else RASTER_BINDINGS if raster else RETAINED_BINDINGS
-    if retained != expected_bindings or retained & excluded or retained | excluded != MODULES:
+    if retained != expected_bindings or retained & excluded or retained | excluded != modules:
         raise ValueError("Candidate module partition is incomplete or unsafe")
     plugins = manifest["retained_plugins"]
     if (not isinstance(plugins, list) or any(not isinstance(name, str) for name in plugins)
@@ -241,7 +247,34 @@ def load_manifest_snapshot(path: Path | None = None) -> tuple[dict, str]:
     bindings = [item for item in manifest["inputs"] if item["role"] == "binding-wheel"]
     if len(bindings) != 1 or bindings[0]["package"] != "PyQt6" or bindings[0]["version"] != manifest["binding_version"]:
         raise ValueError("Binding wheel does not match candidate version")
+    if coordinated:
+        coordinated_runtime(manifest)
     return manifest, hashlib.sha256(raw).hexdigest()
+
+
+def manifest_profile(manifest: dict) -> str | None:
+    if manifest.get("schema") == LEGACY_NO_NETWORK_SCHEMA:
+        return NO_NETWORK_PROFILE
+    return next((name for name, schema in PROFILE_SCHEMAS.items() if schema == manifest.get("schema")), None)
+
+
+def coordinated_runtime(manifest: dict) -> dict:
+    """Admit only the reviewed binding/SIP transition, never arbitrary overrides."""
+    if (manifest.get("schema") != COORDINATED_SCHEMA or manifest.get("profile") != NO_NETWORK_PROFILE
+            or manifest.get("qt_version") != "6.12.1" or manifest.get("binding_version") != "6.12.1"
+            or manifest.get("binding_sip_requirement") != COORDINATED_SIP_REQUIREMENT):
+        raise ValueError("Unreviewed coordinated Qt/SIP contract")
+    runtimes = [row for row in manifest["inputs"] if row.get("role") == "runtime-wheel"]
+    if (len(runtimes) != 1 or runtimes[0].get("package") != "PyQt6-sip"
+            or runtimes[0].get("version") != "13.13.1"
+            or runtimes[0].get("filename", "").lower() != "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl"
+            or not re.fullmatch(r"[0-9a-f]{64}", runtimes[0].get("sha256", ""))):
+        raise ValueError("Coordinated candidate requires one pinned Windows CPython 3.13 SIP wheel")
+    for source_id, filename in (("binding-source", "pyqt6-6.12.1.tar.gz"), ("sip-source", "pyqt6_sip-13.13.1.tar.gz")):
+        sources = [row for row in manifest["inputs"] if row.get("id") == source_id]
+        if len(sources) != 1 or sources[0].get("role") != "source" or sources[0].get("filename") != filename:
+            raise ValueError("Coordinated candidate lacks exact binding/SIP source inputs")
+    return runtimes[0]
 
 
 def load_manifest(path: Path | None = None) -> dict:
@@ -371,6 +404,8 @@ def _wheel_record(archive: zipfile.ZipFile) -> str:
 
 def validate_candidate_wheel(path: Path, manifest: dict) -> dict:
     """Inspect bytes without importing Qt; reject undeclared native/browser payload."""
+    if manifest.get("schema") == COORDINATED_SCHEMA:
+        coordinated_runtime(manifest)
     inspect_wheel(path)
     expected_bindings = {f"PyQt6/{name}.pyd" for name in manifest["retained_bindings"]}
     expected_libraries = {f"PyQt6/Qt6/bin/Qt6{name[2:]}.dll" for name in manifest["retained_bindings"]}
@@ -404,7 +439,7 @@ def validate_candidate_wheel(path: Path, manifest: dict) -> dict:
         fields = Parser().parsestr(metadata.replace("\r\r\n", "\n"))
         if (fields.get_all("Name") != ["PyQt6"]
                 or fields.get_all("Version") != [manifest["binding_version"]]
-                or fields.get_all("Requires-Dist") != ["PyQt6-sip (>=13.8, <14)"]):
+                or fields.get_all("Requires-Dist") != [manifest.get("binding_sip_requirement", "PyQt6-sip (>=13.8, <14)")]):
             raise ValueError("Candidate distribution metadata is inconsistent")
         return {"bindings": sorted(expected_bindings), "libraries": sorted(expected_libraries),
                 "plugins": sorted(expected_plugins), "translations": sorted(translations),
@@ -546,8 +581,8 @@ def prepare(output: Path, cache: Path | None, download_only: bool, install_runti
         raise ValueError("Output must be a fresh directory below this checkout's build/")
     manifest_path = NO_NETWORK_MANIFEST if profile == NO_NETWORK_PROFILE else RASTER_MANIFEST if profile == "frozen-raster" else None
     manifest, manifest_sha256 = load_manifest_snapshot(manifest_path)
-    expected_schema = PROFILE_SCHEMAS[profile]
-    if (manifest["schema"] != expected_schema
+    expected_schema = manifest["schema"]
+    if (manifest_profile(manifest) != profile
             or manifest.get("profile", "review") != profile):
         raise ValueError("Requested Qt profile does not match manifest")
     output.mkdir(parents=True)
