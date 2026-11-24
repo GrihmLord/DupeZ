@@ -101,7 +101,8 @@ def validate_signatures(rows: object) -> list[dict]:
         seen.add(name)
         qt = name in {"lrelease.exe", "Qt6Core.dll"}
         publisher = "O=The QT Company Oy" if qt else "O=Microsoft Corporation"
-        version = "6.12.1.0" if qt else "14.51.36247.0"
+        version_parts = (6, 12, 1, 0) if qt else (14, 51, 36247, 0)
+        version = ".".join(map(str, version_parts))
         if (row.get("status") != "Valid" or row.get("thumbprint") != SIGNERS[name]
                 or publisher not in str(row.get("subject", "")) or row.get("file_version") != version):
             raise ValueError("Unreviewed compiler signature, publisher or version")

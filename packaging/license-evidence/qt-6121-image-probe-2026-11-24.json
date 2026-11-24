@@ -1,0 +1,622 @@
+{
+  "schema": "dupez.qt6121-image-probe-review.v1",
+  "reviewed_on": "2026-11-24",
+  "scope": "Isolated prepared-candidate image fixtures; not frozen application or decoder-wide validation",
+  "raw_records": {
+    "receipt.json": {
+      "path": "build/qt6121-image-probe-20261124/receipt.json",
+      "size": 12885,
+      "sha256": "70f609c14d2f9ca0fdf112005d02d3f7f0963e0c310caee9a97100fff2336ceb"
+    },
+    "observation.json": {
+      "path": "build/qt6121-image-probe-20261124/observation.json",
+      "size": 9932,
+      "sha256": "ce2df4c2df0dc71b6ba69c61a86fde6b6d9094e3171c8fc4af5a4eaeade4eb6d"
+    }
+  },
+  "execution": {
+    "schema": "dupez.qt6121-image-probe-run.v1",
+    "exit_code": 0,
+    "runner_is_admin": false,
+    "recipes": [
+      {
+        "path": "build/qt6121-image-probe-20261124/run_probe.py",
+        "size": 6095,
+        "sha256": "192cf873ba60ace21fd8517780dfe3d8ff7aafb3b7b31ff06f6c2e5b0e7eea26"
+      },
+      {
+        "path": "build/qt6121-image-probe-20261124/probe_images.py",
+        "size": 7564,
+        "sha256": "abbe7bd16bb2cf83ff072477369bdf04dbd94728b2b47f718123428bb2772df2"
+      },
+      {
+        "path": "scripts/prepare_qt_candidate.py",
+        "size": 38588,
+        "sha256": "2a73c9465a9e5cf05305f2277041aa0dae0d3240fec5bd758ac766376aeca017"
+      },
+      {
+        "path": "scripts/msvc_runtime_stage.py",
+        "size": 10997,
+        "sha256": "f30e92e936cc08fcfe3ad27be1a99a5238006d9cb73d8561c9577773aef99540"
+      },
+      {
+        "path": "scripts/validate_frozen_runtime.py",
+        "size": 85139,
+        "sha256": "44d1d4aaead0d01e3b4e16cb71c9bab1cfde96a3853e1e1543a0e11456d3c471"
+      }
+    ],
+    "candidate_receipt": {
+      "path": "build/qt6121-candidate-20261124/preparation-receipt.json",
+      "size": 75233,
+      "sha256": "97aec70f465f8b365c3e9f975f20b060f868c1b5973461022b747e188387f375"
+    },
+    "candidate_wheel": {
+      "path": "build/qt6121-candidate-20261124/wheel/PyQt6-6.12.1-6.12.1dupezrasternonet-cp310-abi3-win_amd64.whl",
+      "size": 19275925,
+      "sha256": "f97423543906d716ab9860fef856d2c899d59ca39787d0a90c084ae1f130e2ca"
+    },
+    "profile_records": [
+      {
+        "path": "build/qt6121-profile-20261124/engineering-profile.json",
+        "size": 106312,
+        "sha256": "6e6f4ef2896754483b0903bb7914841607a401131e2f89d356ae9b43c3499e7e"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/installation-receipt.json",
+        "size": 215,
+        "sha256": "a292395dad6add663635c881d782b712b41feb652c5fca81ac8e187d49354e83"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/stage-receipt.json",
+        "size": 1614,
+        "sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/upstream-receipt.json",
+        "size": 10049,
+        "sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/pyvenv.cfg",
+        "size": 443,
+        "sha256": "36ec212f8432a49589e4543643985bd4bc7f45a14ed2f5c57c0168d2772bc309"
+      }
+    ],
+    "input_contract": {
+      "path": "build/qt6121-image-probe-20261124/input-contract.json",
+      "size": 8615,
+      "sha256": "8c618e305f35fce00f81cfe041dbc6aacbdbf6f242ea977e6e4d88f35f1b023a"
+    },
+    "runtime_inputs": [
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Core.dll",
+        "size": 10501944,
+        "sha256": "3b803976495efa3f9e53b95d1dbdeec78504d6a6c9136665f119f8c6f37602a2"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Gui.dll",
+        "size": 9795896,
+        "sha256": "b78e2fd6e66abe4965cec8fe5d70b386aa5e54fc703b248176bc153d8b6c947f"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+        "size": 403768,
+        "sha256": "89d76863c01cf5ceff46fda9d4f13be648d29537d5bf5c95769926562afdbb19"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Svg.dll",
+        "size": 609592,
+        "sha256": "8fb5c2f56d3d181ebda9b46713cbfcd2391d283755644155db2bbbed4e6375b5"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+        "size": 59192,
+        "sha256": "b5a14612931068f6f62a6585a030bb5b6d80d23a0d3ac61f197a3cc859e3b93e"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Test.dll",
+        "size": 384824,
+        "sha256": "70bfa0af5682c648c8b15acb137339a50edf681f891ff826055346b585dee25d"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Widgets.dll",
+        "size": 6488376,
+        "sha256": "6bad5cb160b00467e2e41f30312509bc148dae259cbf4d7050ed62464f899aa9"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+        "size": 72504,
+        "sha256": "3bc33eed194f27889a75e9d17e3c3c52d48688fdac5ced0482d2948f1873b85d"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qgif.dll",
+        "size": 45368,
+        "sha256": "095227acd9df49577ba2e0822d6b71b04a5924868ed70c71554000a9d146b7b8"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qicns.dll",
+        "size": 56632,
+        "sha256": "3d05303687d2b5a58f8a7f34ea77766027b302148d93224d6afe0163eb0a9496"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qico.dll",
+        "size": 46392,
+        "sha256": "22c206efc97130882ab364f8e9311913efa36edcfe56c301593f14edbf805a6f"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+        "size": 592184,
+        "sha256": "90ff30df6d7e5a074aad2640a6a368ed0ab1984640bd90fd2876b5a87a7f6a95"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+        "size": 39736,
+        "sha256": "5a62f7d1cc6bd439ecb76819d34997123be035d75468210930c90c19f362126b"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qtga.dll",
+        "size": 38712,
+        "sha256": "25358a16fc9edd3d884d5bae89a4c80fd1455a7bc2372c230e8782a7a298dda5"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+        "size": 991544,
+        "sha256": "62fa19df707ccdf1baa8659c51233e4666ec611b71742574fd534defc1ea4e59"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+        "size": 36664,
+        "sha256": "32eb1c81ce9e2e3b372fb1e1b71c9a1f75da58db2480306a96f11c8c4c7526b8"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+        "size": 565048,
+        "sha256": "d1201f19aa1681fe29a1cc273a4bbd26df75f9b51e5066f0b316c36fea5cc157"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/platforms/qminimal.dll",
+        "size": 62264,
+        "sha256": "4afe3df996d24490c7136d53a7ad89acfeefabddf21b809b7f4586d76576fbce"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+        "size": 111416,
+        "sha256": "64dc04fad8003397222a2deb6f2851fd3f6173cc3a3b8aa886475d851d25f3d2"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/platforms/qwindows.dll",
+        "size": 1004344,
+        "sha256": "e6c4a38afdee49baffd207ccd7001bd409141f2c61a3798720350630ae5400ee"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+        "size": 240440,
+        "sha256": "e81cfe30cb66b36231c2dcb725e1ddfbe2934dba71510836c67d00a6a2ee730d"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtCore.pyd",
+        "size": 2779648,
+        "sha256": "5ab19c7d3c4bb76c2c0cb73838d01bad27d49c6200a220ed597c70a336581f98"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtGui.pyd",
+        "size": 2780160,
+        "sha256": "fa5e3f7cd005a7c96972cd0ac3ac82be57db76127c47f3ffe24c33a80d930b40"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtPrintSupport.pyd",
+        "size": 263680,
+        "sha256": "1c936fc10b44a9b688bdccec55903c1f8baf73747e52aabdb13dbfab1db4ed25"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtSvg.pyd",
+        "size": 50688,
+        "sha256": "0702766d7b90245ce3a24f07858c90f759c6f60855d9bfcac2e186e4db057136"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtSvgWidgets.pyd",
+        "size": 98304,
+        "sha256": "896ad7f59a7dd9920c02cb11939d7ddf916e1971518113c41e79c6814dc6ebe3"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtTest.pyd",
+        "size": 68096,
+        "sha256": "e2dd78a9a34c1793a46e3637a61ef7414fbd6c076010da42e2069b3328b70f84"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtWidgets.pyd",
+        "size": 5236224,
+        "sha256": "3e6438e4a776b377b8165982cb120d13cb9a8fb6f7d5a0a7cefccd4a47a51bdb"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/sip.cp313-win_amd64.pyd",
+        "size": 111616,
+        "sha256": "8460f5445dff3af37ddc6dc2586ae9a655831171a33afe6d894a9f738fe52157"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140.dll",
+        "size": 643512,
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140_1.dll",
+        "size": 35768,
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140_2.dll",
+        "size": 274872,
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Scripts/python.exe",
+        "size": 255200,
+        "sha256": "4e67d9e9a3673aa7b6219f1280d5ec3f1b6c0d5bd98ea8688c72d0cb7582d664"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python.exe",
+        "size": 105696,
+        "sha256": "7c2fc2b303a4ee3cc14cc17b47bc6e8bca98c78792edd123b846a560da44b203"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python3.dll",
+        "size": 72416,
+        "sha256": "a45d898ba8b796f1883fc2fcd55e4736163dfb7cea825d52e3477f1957dfb45a"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python313.dll",
+        "size": 6142688,
+        "sha256": "26026530507a7389e7892ce130e7c1753b32a2df03ec3721d45ad8c1705d40eb"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/vcruntime140.dll",
+        "size": 178616,
+        "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/vcruntime140_1.dll",
+        "size": 50112,
+        "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+      }
+    ],
+    "historical_fixture": {
+      "path": "build/qt-candidate-parity-final-20261101/trusted-solid.webp",
+      "size": 38,
+      "sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3"
+    },
+    "environment": {
+      "SystemRoot": "<windows-system-path>",
+      "WINDIR": "<windows-system-path>",
+      "SystemDrive": "C:",
+      "ComSpec": "<windows-system-path>",
+      "PATH": "<windows-system-path>",
+      "PATHEXT": ".COM;.EXE;.BAT;.CMD",
+      "OS": "Windows_NT",
+      "TEMP": "<workspace>/build/qt6121-image-probe-20261124/private/temp",
+      "TMP": "<workspace>/build/qt6121-image-probe-20261124/private/temp",
+      "TMPDIR": "<workspace>/build/qt6121-image-probe-20261124/private/temp",
+      "USERPROFILE": "<workspace>/build/qt6121-image-probe-20261124/private/profile",
+      "HOME": "<workspace>/build/qt6121-image-probe-20261124/private/profile",
+      "LOCALAPPDATA": "<workspace>/build/qt6121-image-probe-20261124/private/profile",
+      "APPDATA": "<workspace>/build/qt6121-image-probe-20261124/private/profile",
+      "PYTHONNOUSERSITE": "1",
+      "PIP_CONFIG_FILE": "nul",
+      "QT_QPA_PLATFORM": "offscreen"
+    },
+    "environment_policy": "Explicit allowlist; private profile/temp; offscreen Qt; isolated Python; no inherited plugin overrides.",
+    "input_lock_policy": "All recipe, fixture, profile, wheel and native input pins held read-only across child execution.",
+    "log": {
+      "path": "build/qt6121-image-probe-20261124/probe.log",
+      "size": 223,
+      "sha256": "e4535e404323bb17a4c073e2e44b6454a740addf1189b0e052b8795e0922ee00"
+    },
+    "compat_runtime_tested": false,
+    "release_approved": false,
+    "native_source_rebuild_proven": false,
+    "complete_decoder_coverage": false,
+    "observation": {
+      "path": "build/qt6121-image-probe-20261124/observation.json",
+      "size": 9932,
+      "sha256": "ce2df4c2df0dc71b6ba69c61a86fde6b6d9094e3171c8fc4af5a4eaeade4eb6d"
+    }
+  },
+  "results": {
+    "schema": "dupez.qt6121-tiny-image-probe.v1",
+    "qt_version": "6.12.1",
+    "python_version": "3.13.17",
+    "status": "tiny-webp-limitation-persists",
+    "positive_and_negative_controls_passed": true,
+    "tiny_fixture_matches_expected_pixels": null,
+    "platform": "offscreen",
+    "runner_is_admin": false,
+    "image_allocation_limit_mib": 1,
+    "encoded_input_limit_bytes": 65536,
+    "cases": [
+      {
+        "name": "historical-solid-webp",
+        "expectation": "Observe prior compatibility limitation",
+        "fixture": {
+          "path": "build/qt6121-image-probe-20261124/historical-solid.webp",
+          "size": 38,
+          "sha256": "b3dce118e4c5f2e1be9047f3aefe5443f9e0a2018d002867289b5a80231665c3"
+        },
+        "observation": {
+          "decoded": false,
+          "header_size_before_decode": [
+            -1,
+            -1
+          ],
+          "reader_error": "InvalidDataError",
+          "reader_error_text": "Unable to read image data"
+        }
+      },
+      {
+        "name": "png-positive-control",
+        "expectation": "Decode with exact RGBA pixels",
+        "fixture": {
+          "path": "build/qt6121-image-probe-20261124/positive.png",
+          "size": 1129,
+          "sha256": "bd6645df310ac004f7ed7d508461922b0ac220c60d7b03fce8b491dbc7b43e88"
+        },
+        "observation": {
+          "decoded": true,
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "reader_error": "UnknownError",
+          "reader_error_text": "Unknown error",
+          "dimensions": [
+            16,
+            16
+          ],
+          "all_256_rgba_pixels_match": true
+        },
+        "passed": true
+      },
+      {
+        "name": "webp-positive-control",
+        "expectation": "Decode with exact RGBA pixels",
+        "fixture": {
+          "path": "build/qt6121-image-probe-20261124/positive.webp",
+          "size": 56,
+          "sha256": "a49dceefea652614288c3373eb47219fa7f2faaed9669a020fa04a2b1f983a48"
+        },
+        "observation": {
+          "decoded": true,
+          "header_size_before_decode": [
+            16,
+            16
+          ],
+          "reader_error": "UnknownError",
+          "reader_error_text": "Unknown error",
+          "dimensions": [
+            16,
+            16
+          ],
+          "all_256_rgba_pixels_match": true
+        },
+        "passed": true
+      },
+      {
+        "name": "empty-webp",
+        "expectation": "Reject incomplete local bytes",
+        "fixture": {
+          "path": "build/qt6121-image-probe-20261124/empty-webp.webp",
+          "size": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "observation": {
+          "decoded": false,
+          "header_size_before_decode": [
+            -1,
+            -1
+          ],
+          "reader_error": "InvalidDataError",
+          "reader_error_text": "Unable to read image data"
+        },
+        "passed": true
+      },
+      {
+        "name": "truncated-webp-header",
+        "expectation": "Reject incomplete local bytes",
+        "fixture": {
+          "path": "build/qt6121-image-probe-20261124/truncated-webp-header.webp",
+          "size": 12,
+          "sha256": "ba9d6f15cdf173422713af4d29be06f539df932339546214c63c552ed1f1be66"
+        },
+        "observation": {
+          "decoded": false,
+          "header_size_before_decode": [
+            -1,
+            -1
+          ],
+          "reader_error": "InvalidDataError",
+          "reader_error_text": "Unable to read image data"
+        },
+        "passed": true
+      }
+    ],
+    "read_formats": [
+      "bmp",
+      "cur",
+      "gif",
+      "icns",
+      "ico",
+      "jfif",
+      "jpeg",
+      "jpg",
+      "pbm",
+      "pgm",
+      "png",
+      "ppm",
+      "svg",
+      "svgz",
+      "tga",
+      "tif",
+      "tiff",
+      "wbmp",
+      "webp",
+      "xbm",
+      "xpm"
+    ],
+    "write_formats": [
+      "bmp",
+      "cur",
+      "icns",
+      "ico",
+      "jfif",
+      "jpeg",
+      "jpg",
+      "pbm",
+      "pgm",
+      "png",
+      "ppm",
+      "tif",
+      "tiff",
+      "wbmp",
+      "webp",
+      "xbm",
+      "xpm"
+    ],
+    "loaded_candidate_native_members": [
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python.exe",
+        "size": 105696,
+        "sha256": "7c2fc2b303a4ee3cc14cc17b47bc6e8bca98c78792edd123b846a560da44b203"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python3.dll",
+        "size": 72416,
+        "sha256": "a45d898ba8b796f1883fc2fcd55e4736163dfb7cea825d52e3477f1957dfb45a"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/python313.dll",
+        "size": 6142688,
+        "sha256": "26026530507a7389e7892ce130e7c1753b32a2df03ec3721d45ad8c1705d40eb"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/vcruntime140.dll",
+        "size": 178616,
+        "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+      },
+      {
+        "path": "build/native-security-20261024/python-3.13.17/runtime/tools/vcruntime140_1.dll",
+        "size": 50112,
+        "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Core.dll",
+        "size": 10501944,
+        "sha256": "3b803976495efa3f9e53b95d1dbdeec78504d6a6c9136665f119f8c6f37602a2"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Gui.dll",
+        "size": 9795896,
+        "sha256": "b78e2fd6e66abe4965cec8fe5d70b386aa5e54fc703b248176bc153d8b6c947f"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Svg.dll",
+        "size": 609592,
+        "sha256": "8fb5c2f56d3d181ebda9b46713cbfcd2391d283755644155db2bbbed4e6375b5"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/bin/Qt6Widgets.dll",
+        "size": 6488376,
+        "sha256": "6bad5cb160b00467e2e41f30312509bc148dae259cbf4d7050ed62464f899aa9"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qgif.dll",
+        "size": 45368,
+        "sha256": "095227acd9df49577ba2e0822d6b71b04a5924868ed70c71554000a9d146b7b8"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qicns.dll",
+        "size": 56632,
+        "sha256": "3d05303687d2b5a58f8a7f34ea77766027b302148d93224d6afe0163eb0a9496"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qico.dll",
+        "size": 46392,
+        "sha256": "22c206efc97130882ab364f8e9311913efa36edcfe56c301593f14edbf805a6f"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+        "size": 592184,
+        "sha256": "90ff30df6d7e5a074aad2640a6a368ed0ab1984640bd90fd2876b5a87a7f6a95"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+        "size": 39736,
+        "sha256": "5a62f7d1cc6bd439ecb76819d34997123be035d75468210930c90c19f362126b"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qtga.dll",
+        "size": 38712,
+        "sha256": "25358a16fc9edd3d884d5bae89a4c80fd1455a7bc2372c230e8782a7a298dda5"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+        "size": 991544,
+        "sha256": "62fa19df707ccdf1baa8659c51233e4666ec611b71742574fd534defc1ea4e59"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+        "size": 36664,
+        "sha256": "32eb1c81ce9e2e3b372fb1e1b71c9a1f75da58db2480306a96f11c8c4c7526b8"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+        "size": 565048,
+        "sha256": "d1201f19aa1681fe29a1cc273a4bbd26df75f9b51e5066f0b316c36fea5cc157"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+        "size": 111416,
+        "sha256": "64dc04fad8003397222a2deb6f2851fd3f6173cc3a3b8aa886475d851d25f3d2"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtCore.pyd",
+        "size": 2779648,
+        "sha256": "5ab19c7d3c4bb76c2c0cb73838d01bad27d49c6200a220ed597c70a336581f98"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtGui.pyd",
+        "size": 2780160,
+        "sha256": "fa5e3f7cd005a7c96972cd0ac3ac82be57db76127c47f3ffe24c33a80d930b40"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/QtWidgets.pyd",
+        "size": 5236224,
+        "sha256": "3e6438e4a776b377b8165982cb120d13cb9a8fb6f7d5a0a7cefccd4a47a51bdb"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/build-venv/Lib/site-packages/PyQt6/sip.cp313-win_amd64.pyd",
+        "size": 111616,
+        "sha256": "8460f5445dff3af37ddc6dc2586ae9a655831171a33afe6d894a9f738fe52157"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140.dll",
+        "size": 643512,
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140_1.dll",
+        "size": 35768,
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982"
+      },
+      {
+        "path": "build/qt6121-profile-20261124/msvc-runtime/MSVCP140_2.dll",
+        "size": 274872,
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838"
+      }
+    ],
+    "qt_network_browser_qml_software_opengl_observed": false,
+    "compat_runtime_tested": false,
+    "release_approved": false,
+    "complete_decoder_coverage": false,
+    "scope": "One historical tiny fixture and four bounded local controls; no application, network, packet, OpenGL context or malformed-input campaign."
+  },
+  "compat_runtime_tested": false,
+  "release_approved": false
+}

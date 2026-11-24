@@ -3378,8 +3378,8 @@
   "recipes": [
     {
       "name": "verify_qt6121_translation_sources.py",
-      "size": 17899,
-      "sha256": "47aa774490ff00ce81ebc275af48a98fa41c6d09c6392e29a899dfe23fe0aebd"
+      "size": 17963,
+      "sha256": "68281bc222605c47ce9d05d49b28db96273328a103f5ee75c17e317385c399bf"
     },
     {
       "name": "verify_qt_translation_sources.py",
@@ -3420,23 +3420,23 @@
   "observed_on": "2026-11-24",
   "recipe": {
     "path": "scripts/verify_qt6121_translation_sources.py",
-    "size": 17899,
-    "sha256": "47aa774490ff00ce81ebc275af48a98fa41c6d09c6392e29a899dfe23fe0aebd"
+    "size": 17963,
+    "sha256": "68281bc222605c47ce9d05d49b28db96273328a103f5ee75c17e317385c399bf"
   },
   "source_receipt": {
-    "path": "build/qt6121-translations-20261124/rebuild-locked/receipt.json",
+    "path": "build/qt6121-translations-20261124/rebuild-final/receipt.json",
     "size": 154386,
-    "sha256": "7210765d599e1bc961acafe486e91b91b7089d06e4639bf88873fffe9eccf8ba"
+    "sha256": "9dd5bfaf67605a971317a30fb51bdc98dc7bb76acf7aaf1b00b77bb6a10190ed"
   },
   "run_log": {
-    "path": "build/qt6121-translations-20261124/rebuild-locked.log",
+    "path": "build/qt6121-translations-20261124/rebuild-final.log",
     "size": 94,
     "sha256": "c6257077b83f2bea977c2aee9285e5add8be8ffb714d18914d3771710293c486"
   },
   "publisher_recipe": {
-    "path": "build/qt6121-translations-20261124/publish_review.py",
-    "size": 5014,
-    "sha256": "e4ca1d9fe945db467a338a605d33e98ff21c77c5e31cf83290a3304c2fa25705"
+    "path": "build/qt6121-translations-20261124/publish_final.py",
+    "size": 5778,
+    "sha256": "fc1c526ffac0a7e5d220e70123e472d0d1ca8a8c67e3d88f302212b6b546ba1f"
   },
   "execution": {
     "standard_user_token": true,
@@ -3447,27 +3447,63 @@
   },
   "focused_validation": {
     "counts": {
-      "tests": 39,
+      "tests": 41,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "passed": 39
+      "passed": 41
     },
     "log": {
-      "path": "build/qt6121-translations-20261124/locked-tests.log",
-      "size": 254,
-      "sha256": "0264dd6af6718d24ae50b3a210c7712a434d5359da4442e198df505a2aff6a2e"
+      "path": "build/qt6121-translations-20261124/final-tests.log",
+      "size": 253,
+      "sha256": "96cc753c9298abdbca81b99b91c6cd1e2ed774e1e41dc420cb098e0080815b41"
     },
     "junit": {
-      "path": "build/qt6121-translations-20261124/locked-tests.xml",
-      "size": 6192,
-      "sha256": "b105ccf9730569ed2e6c7749920d28245f2482db502d2862311a3f145346eaec"
+      "path": "build/qt6121-translations-20261124/final-tests.xml",
+      "size": 6464,
+      "sha256": "c5ff5e4d5f9371ec4c17783fcfa2058e68e4fc6543935913ae7036c16e193ff8"
     },
     "tests": {
       "path": "tests/test_verify_qt6121_translation_sources.py",
       "size": 7449,
       "sha256": "e5788c4f82350ddb646f93ed937dd43ca369af9e6d29557d15fd8095f3e034c3"
-    }
+    },
+    "modules": [
+      {
+        "path": "tests/test_verify_qt6121_translation_sources.py",
+        "size": 7449,
+        "sha256": "e5788c4f82350ddb646f93ed937dd43ca369af9e6d29557d15fd8095f3e034c3"
+      },
+      {
+        "path": "tests/test_verify_qt_translation_sources.py",
+        "size": 5499,
+        "sha256": "e93c012d4a79cf2c634386546475b20095e8865ee42b86e1764e237c0807e102"
+      },
+      {
+        "path": "tests/test_source_leak_guard.py",
+        "size": 5620,
+        "sha256": "cb4fc6d79d5a4e6b5c76a1bcbe1c545ed9a0ac5779cdcb54df1af54fc51abfd6"
+      }
+    ]
+  },
+  "previous_locked_attempt": {
+    "receipt": {
+      "path": "build/qt6121-translations-20261124/rebuild-locked/receipt.json",
+      "size": 154386,
+      "sha256": "7210765d599e1bc961acafe486e91b91b7089d06e4639bf88873fffe9eccf8ba"
+    },
+    "log": {
+      "path": "build/qt6121-translations-20261124/rebuild-locked.log",
+      "size": 94,
+      "sha256": "c6257077b83f2bea977c2aee9285e5add8be8ffb714d18914d3771710293c486"
+    },
+    "publication": {
+      "path": "build/qt6121-translations-20261124/publication-locked.json",
+      "size": 157963,
+      "sha256": "045485940ec1064012b9f88eeb4744dd24364e110366444cc3337a93394dda05"
+    },
+    "used_as_final_rebuild_evidence": false,
+    "reason": "This successful locked run predates the equivalent integer-tuple representation of exact version pins needed by the repository leak guard. The final run repeats all 314 catalogs with the corrected recipe."
   },
   "preliminary_attempt": {
     "receipt": {

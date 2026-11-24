@@ -1,0 +1,146 @@
+{
+  "schema": "dupez.qt6121-initial-validation-diagnostic.v1",
+  "observed_on": "2026-11-24",
+  "checkpoint": "d9ad7064406a14e08295454124fad42790e62b52",
+  "status": "superseded-after-version-literal-false-positive",
+  "full_source_tests": {
+    "checkpoint": "d9ad7064406a14e08295454124fad42790e62b52",
+    "checkpoint_after": "d9ad7064406a14e08295454124fad42790e62b52",
+    "compat_runtime_tested": false,
+    "counts": {
+      "errors": 0,
+      "failures": 1,
+      "passed": 4016,
+      "skipped": 10,
+      "tests": 4027
+    },
+    "environment_removed": [
+      "GIT_CONFIG_COUNT",
+      "GIT_CONFIG_KEY_0",
+      "GIT_CONFIG_KEY_1",
+      "GIT_CONFIG_KEY_2",
+      "GIT_CONFIG_KEY_3",
+      "GIT_CONFIG_KEY_4",
+      "GIT_CONFIG_KEY_5",
+      "GIT_CONFIG_KEY_6",
+      "GIT_CONFIG_KEY_7",
+      "GIT_CONFIG_KEY_8",
+      "GIT_CONFIG_KEY_9",
+      "GIT_CONFIG_VALUE_0",
+      "GIT_CONFIG_VALUE_1",
+      "GIT_CONFIG_VALUE_2",
+      "GIT_CONFIG_VALUE_3",
+      "GIT_CONFIG_VALUE_4",
+      "GIT_CONFIG_VALUE_5",
+      "GIT_CONFIG_VALUE_6",
+      "GIT_CONFIG_VALUE_7",
+      "GIT_CONFIG_VALUE_8",
+      "GIT_CONFIG_VALUE_9"
+    ],
+    "environment_set": [
+      "TEMP",
+      "TMP",
+      "QT_QPA_PLATFORM"
+    ],
+    "exit_code": 1,
+    "finished_at": "2026-11-24T20:58:58.090344+00:00",
+    "input_pins": [
+      {
+        "path": "build/qt6121-adoption-20261124/run_full_tests_clean.py",
+        "sha256": "a1fd3e87b99ab2d6673faaa0f32c8398fe6f5dad38a5178475abbea2980fc058",
+        "size": 6751
+      },
+      {
+        "path": "packaging/requirements-build-locked.txt",
+        "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+        "size": 2733
+      },
+      {
+        "path": "requirements-test-locked.txt",
+        "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+        "size": 13127
+      },
+      {
+        "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+        "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+        "size": 74766
+      }
+    ],
+    "junit": {
+      "path": "build/qt6121-adoption-20261124/full-source-tests-clean/junit.xml",
+      "sha256": "4a003dbc10999f00197c30150e137b1cdf25151b9b51aa56e4072b850f9402c0",
+      "size": 577269
+    },
+    "log": {
+      "path": "build/qt6121-adoption-20261124/full-source-tests-clean/pytest.log",
+      "sha256": "ce8f018b5a44d62fa184438d2ee9a3089dc086fac181df618da2ceb270b51698",
+      "size": 8037
+    },
+    "packaging_version": "26.3",
+    "python": "build/native-security-20261024/test-venv/Scripts/python.exe",
+    "python_version": "3.13.17",
+    "recipe_and_lock_inputs_unchanged": true,
+    "release_approval": false,
+    "runner_is_admin": false,
+    "schema": "dupez.qt-no-network-full-source-test.v1",
+    "scope": "Full source pytest suite in reviewed production test environment; supplemental PE parser only",
+    "started_at": "2026-11-24T20:55:55.562173+00:00",
+    "supplemental_dependency": {
+      "installation": "verified wheel on subprocess sys.path; no environment installation",
+      "name": "pefile",
+      "source_lock": "packaging/requirements-build-locked.txt",
+      "version": "2024.8.26",
+      "wheel": {
+        "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+        "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+        "size": 74766
+      }
+    },
+    "tracked_source_unchanged": true
+  },
+  "build": {
+    "checkpoint": "d9ad7064406a14e08295454124fad42790e62b52",
+    "qt_build_profile": "frozen-raster-no-qtnetwork",
+    "build_environment": "runtime-checkout/build/qt-profile/build-venv",
+    "artifacts": [
+      {
+        "path": "DupeZ-v5.8.0-source.zip",
+        "size": 25368204,
+        "sha256": "3bb099566037e2f8d48f9fec9e1e8d33a7a40318800f5346d1959d01ba0cf42d"
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "size": 57272975,
+        "sha256": "aa5502435f77bb971994b254a894735904765beb0be319213f6f09c1d5d7e008"
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "size": 57275458,
+        "sha256": "bc6b78d37516423608d544a7e0df57da04018089cca5548e82da7af71790c978"
+      }
+    ]
+  },
+  "raw_records": [
+    {
+      "path": "build/qt6121-adoption-20261124/full-source-tests-clean/receipt.json",
+      "size": 3076,
+      "sha256": "eaee750e2cfdebab3f76fb73908e6ab97b986892e0f11e9040f1e6846d6e9234"
+    },
+    {
+      "path": "build/qt6121-adoption-20261124/build-receipt.json",
+      "size": 757,
+      "sha256": "ed6d7e3aae3fb9a38aaaf35c3d7150d358d35a4b78339f73216b2c2d7a9d69a2"
+    },
+    {
+      "path": "build/qt6121-adoption-20261124/lint-ast-receipt.json",
+      "size": 80270,
+      "sha256": "3ea3a7ca2f952741e83511ab06cc0d0443bfd6e3f9caea02d9d75f787294a9bc"
+    }
+  ],
+  "failed_test": "tests/test_source_leak_guard.py::test_shipped_app_config_has_no_unapproved_public_ipv4_literals",
+  "cause": "The strict leak scan interpreted the Qt Authenticode file version 6.12.1.0 in the translation verifier as a public IPv4 literal.",
+  "correction": "Represent exact file-version pins as integer tuples and format them for the same strict comparison. The leak guard is unchanged.",
+  "build_scope": "Both initial clean builds completed; these initial artifacts were not runtime-validated or promoted as final evidence.",
+  "compat_runtime_tested": false,
+  "release_approved": false
+}
