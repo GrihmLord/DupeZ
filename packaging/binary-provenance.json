@@ -28,6 +28,17 @@
       "release_asset": "Clumsy.0.3.4.zip",
       "release_asset_sha256": "7ceb4dca24c428c90eb62f6b5a995a7db2a03a1be8d37a7e803887123be65af8",
       "authenticode": "unsigned"
+    },
+    {
+      "path": "app/firewall/iup.dll",
+      "sha256": "972275ea2e603f60a168d8090f8e15e4acb59512af03a51490d8c394dc6871b3",
+      "size": 2744320,
+      "version": "3.30",
+      "source": "https://github.com/kalirenegade-dev/clumsy/releases/tag/0.3.4",
+      "source_commit": "bc87e73066168520d76122c9165e99ea703b166c",
+      "release_asset": "Clumsy.0.3.4.zip",
+      "release_asset_sha256": "7ceb4dca24c428c90eb62f6b5a995a7db2a03a1be8d37a7e803887123be65af8",
+      "authenticode": "unsigned"
     }
   ]
 }

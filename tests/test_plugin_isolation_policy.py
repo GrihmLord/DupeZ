@@ -1,5 +1,6 @@
 """Tests for the in-process plugin containment policy."""
 
+import os
 import sys
 
 import pytest
@@ -38,3 +39,25 @@ def test_ctypes_audit_events_are_denied_inside_plugin_scope() -> None:
     with plugin_scope("test-plugin", {"network.http"}):
         with pytest.raises(SandboxViolation, match="native memory"):
             sys.audit("ctypes.dlopen", "untrusted.dll")
+
+
+@pytest.mark.parametrize(
+    "flags",
+    (
+        os.O_WRONLY,
+        os.O_RDWR,
+        os.O_CREAT | os.O_WRONLY,
+        os.O_TRUNC | os.O_WRONLY,
+    ),
+)
+def test_low_level_open_write_flags_require_declared_capability(flags: int) -> None:
+    activate_sandbox()
+    with plugin_scope("test-plugin", set()):
+        with pytest.raises(SandboxViolation, match="file open for write"):
+            sys.audit("open", "test-output", None, flags)
+
+
+def test_low_level_read_only_open_remains_available() -> None:
+    activate_sandbox()
+    with plugin_scope("test-plugin", set()):
+        sys.audit("open", "test-input", None, os.O_RDONLY)

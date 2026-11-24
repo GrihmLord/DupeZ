@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any, Dict
 
@@ -39,21 +38,23 @@ def _marker_state(root: Path, marker_name: str) -> Dict[str, Any]:
         "conflicts": 0,
         "errors": 0,
     }
-    if not marker.exists():
+    if not payload["exists"]:
         return payload
     try:
-        doc = json.loads(marker.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        payload["error"] = str(exc)
+        doc = app_paths.read_migration_marker(marker)
+    except (OSError, ValueError, RecursionError) as exc:
+        payload["error"] = (
+            "migration marker could not be read or validated "
+            f"({type(exc).__name__})"
+        )
         return payload
     payload.update({
-        "schema": doc.get("schema"),
-        "ok": doc.get("schema") == app_paths.MIGRATION_SCHEMA
-        and not doc.get("errors"),
-        "copied": len(doc.get("copied", [])),
-        "conflicts": len(doc.get("conflicts", [])),
-        "errors": len(doc.get("errors", [])),
-        "legacy_files_deleted": bool(doc.get("legacy_files_deleted", False)),
+        "schema": doc["schema"],
+        "ok": not doc["errors"],
+        "copied": len(doc["copied"]),
+        "conflicts": len(doc["conflicts"]),
+        "errors": len(doc["errors"]),
+        "legacy_files_deleted": False,
     })
     return payload
 
@@ -109,6 +110,11 @@ def build_storage_status() -> Dict[str, Any]:
     }
 
     recommendations: list[str] = []
+    if any(state["exists"] and not state["ok"] for state in migration.values()):
+        recommendations.append(
+            "A migration marker is invalid or reports errors; preserve legacy "
+            "files and inspect diagnostics before retrying migration."
+        )
     if app_paths.is_installed_runtime():
         incomplete = [
             name for name, state in migration.items()

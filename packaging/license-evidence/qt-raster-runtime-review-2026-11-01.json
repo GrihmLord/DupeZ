@@ -1,0 +1,770 @@
+{
+  "schema": "dupez.qt-raster-runtime-review.v1",
+  "status": "isolated-native-windows-widget-probe-passed-not-adopted",
+  "observed_at": "2026-11-01T19:47:42.805579+00:00",
+  "source_checkpoint": "1b6017245886d795a1a84e1b01b7b1e5d689854e",
+  "production_locks_changed": false,
+  "candidate_profile_changed": false,
+  "source_wheel_sha256": "5ae71fb933f4cafeaba3eac2d98a35ece588950ea34d3fa5e0252cbc811b29a9",
+  "sip_wheel_sha256": "ca24bfd4d5d8274e338433df9ac41930650088c00018d3313c6bd8de21772a02",
+  "probe_script": {
+    "path": "scripts/probe_qt_raster_runtime.py",
+    "sha256": "7fb0eb23e20f13f0b21459ee7b4c612fc7a5c1d0d381c808c9614456f27e1913"
+  },
+  "raw_evidence": [
+    {
+      "path": "build/qt-raster-runtime-final-20261101/inventory.json",
+      "sha256": "6695a30b8eb506b4b7881d5a802da5660e67849fd87065c284f7d92c5e5328ee",
+      "size": 21013
+    },
+    {
+      "path": "build/qt-raster-runtime-final-20261101/runtime.json",
+      "sha256": "c67ca9e68119e9a9281a5ee1a9dd6f0aff5dcadd35a20ea9635fdbaf093eaf5f",
+      "size": 2809
+    },
+    {
+      "path": "build/qt-raster-runtime-final-20261101/runtime.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    }
+  ],
+  "derived_tree_is_installable_artifact": false,
+  "removed_native_bytes": 28077416,
+  "removed_native_members": [
+    {
+      "member": "PyQt6/Qt6/bin/Qt6OpenGL.dll",
+      "sha256": "294020655e666791168672563f6c3e1012bbf42c9dcc7166ac96d53d5c8c10e3",
+      "size": 1988408
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6OpenGLWidgets.dll",
+      "sha256": "d1fd967216f94b8b8b2ba64347713316467935f49d4046dc7d274bfa585bfbaf",
+      "size": 65336
+    },
+    {
+      "member": "PyQt6/Qt6/bin/d3dcompiler_47.dll",
+      "sha256": "e994847e01a6f1e4cbdc5a864616ac262f67ee4f14db194984661a8d927ab7f4",
+      "size": 4173928
+    },
+    {
+      "member": "PyQt6/Qt6/bin/opengl32sw.dll",
+      "sha256": "b04de4541863bc7d8879040a78889c4849c1b1da2784c4630f734c146c2998ce",
+      "size": 20639888
+    },
+    {
+      "member": "PyQt6/QtOpenGL.pyd",
+      "sha256": "e713fec5304657bf10231309021b95279374de072998ee192eb324b39f6ea384",
+      "size": 1140224
+    },
+    {
+      "member": "PyQt6/QtOpenGLWidgets.pyd",
+      "sha256": "0f61eb1a3c8fff30e86c2ea0176b78df5f8f909a4d98e64d6355b94d5a58e859",
+      "size": 69632
+    }
+  ],
+  "remaining_native_members_including_sip": 34,
+  "remaining_native_sha256": {
+    "PyQt6/Qt6/bin/Qt6Core.dll": "3b088187284c91250fbb696b1779459ca1ab1ad14295e71ee9b12d71767c9501",
+    "PyQt6/Qt6/bin/Qt6Gui.dll": "794f2cdf57333c0d44257ad383742b2d67ba9e986874d3ed8b12d04c543f96cf",
+    "PyQt6/Qt6/bin/Qt6Network.dll": "f56b7e4d228f937397ed0a3c19ed987dcdcc43398140c71a4f405d16f84d79c8",
+    "PyQt6/Qt6/bin/Qt6PrintSupport.dll": "4ed3a9fbb36bbb25431f96237b249704346a3257293ef9043b014e772a330d2f",
+    "PyQt6/Qt6/bin/Qt6Svg.dll": "a52de2726685a955d70a07e865afa217fbea256fb815009102d0de04c40d5ec8",
+    "PyQt6/Qt6/bin/Qt6SvgWidgets.dll": "46d313e8c6bcf738c5492d3001276747670c8a36099f305c8b396d5a70264d68",
+    "PyQt6/Qt6/bin/Qt6Test.dll": "539a0afff6bd3c425a811fcac7f9768f337bdc9d6224b20fb6b209046d90b23e",
+    "PyQt6/Qt6/bin/Qt6Widgets.dll": "82a31d8770391bdef7ddb71e374d6ca3dfce4584c7b453595150ec0730c529ae",
+    "PyQt6/Qt6/plugins/generic/qtuiotouchplugin.dll": "0dccccd1dda8135d1ac1d7d9fcc5237565b4425e54f60b7653a36c3fbc882c6a",
+    "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll": "e9ee3a6308bb583bb2505762dda4c00dee8df736a83b0f53c03c6cd389148bad",
+    "PyQt6/Qt6/plugins/imageformats/qgif.dll": "6241f2a17754a76ce01a4c22bb6a49e6d5f6d18c91e44fff6be8162524909756",
+    "PyQt6/Qt6/plugins/imageformats/qicns.dll": "64e94c83adc14e744f91b3953ce6efe81747e0a46f5cb87df528df76db1b8814",
+    "PyQt6/Qt6/plugins/imageformats/qico.dll": "ef01b0150a5353c221c3e34a9d7265ca5c95ce18c28b2eace7a2506c96137d71",
+    "PyQt6/Qt6/plugins/imageformats/qjpeg.dll": "7a5dadcdaa5770bce0a4d1670af67431df1a442c86df1a6555cadc5693a9212b",
+    "PyQt6/Qt6/plugins/imageformats/qsvg.dll": "0300c690d02874e4fe50e9d69b0114767434005ec0414cf98537c44b46c5d093",
+    "PyQt6/Qt6/plugins/imageformats/qtga.dll": "6ec593cf60277aec8f2a239a105fd044da9c451e8a47fbf040f2f4124a5f8909",
+    "PyQt6/Qt6/plugins/imageformats/qtiff.dll": "1da94ba3740ef906557057cbdb7cd55dbb5cf50903ecc3bb6dea744efec4a985",
+    "PyQt6/Qt6/plugins/imageformats/qwbmp.dll": "91d1e3248dbd57e483172d8363810cd054429b1cdba117323a7e9830578dd6b7",
+    "PyQt6/Qt6/plugins/imageformats/qwebp.dll": "e474baa919a1c0d8e16128cc205034d673fa09b8e7fbc62b7de77980937772ec",
+    "PyQt6/Qt6/plugins/networkinformation/qnetworklistmanager.dll": "52991edcea633cac7ff6baf2b19c9cd56972f5bba4bb5cfdcbf97951e619c383",
+    "PyQt6/Qt6/plugins/platforms/qminimal.dll": "843f96a735301fb0e5b5f49d04e1582ac6fbb4840e4afd82eabac41197acfc03",
+    "PyQt6/Qt6/plugins/platforms/qoffscreen.dll": "4f4be3c017f66fe80697e91f6b7386f62e093cf236ed2750e188d8415464bc8c",
+    "PyQt6/Qt6/plugins/platforms/qwindows.dll": "d38af0768b261f5b7a64ff2e344ab7fb52409efb1f0044749d33303c52e84f9c",
+    "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll": "1f10b9e2dd5ec9f71ad5fb9a1f9281d18f44d68a657229666221ec397b2b6f0a",
+    "PyQt6/Qt6/plugins/tls/qschannelbackend.dll": "3c5dd934fbb5b3c02701c2df31119a69485c2552aadd6f0ddd64bb0193cb8d7c",
+    "PyQt6/QtCore.pyd": "91dd5166110b88a4f4d3acda6fe6c10ed699882dd3602328a59e9f656cc766b1",
+    "PyQt6/QtGui.pyd": "cf5ae37fd119fb29a53f1f2cea1362fdf036d940191be45d83da0f98ce8752b8",
+    "PyQt6/QtNetwork.pyd": "dc8a352ee9e67efa05bb7c59a266171faa0c0c40e0015fac9b31a9a6d058ec49",
+    "PyQt6/QtPrintSupport.pyd": "e8ff8ca8b6dfc34609eab1b0ad5933e2725b94205c06b44962b4e6081095b3be",
+    "PyQt6/QtSvg.pyd": "542d023e993274d9a8c54135fba79cbeb0a99934b04bd47ae181413b55581684",
+    "PyQt6/QtSvgWidgets.pyd": "0cb89d8d338c58b77ed6e8f092c9024b68b7b661783c1f65c74911bdd7ad2a7f",
+    "PyQt6/QtTest.pyd": "26b0af0e59848382e81ac48a745bcb8e81f93e00897203b81277059da3aeff6f",
+    "PyQt6/QtWidgets.pyd": "4f81361816e94e1ae05f178085b22d5b9b19e417713b1966dd481a4017aa3b21",
+    "PyQt6/sip.cp313-win_amd64.pyd": "3f36d67b20f505dde46032f79d5e384ef3ba34faed586ee086f5827867f6bdb0"
+  },
+  "pe_import_and_delay_import_review": [
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Core.dll",
+      "imports_and_delay_imports": [
+        "advapi32.dll",
+        "api-ms-win-core-synch-l1-2-0.dll",
+        "api-ms-win-core-winrt-error-l1-1-1.dll",
+        "api-ms-win-core-winrt-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "authz.dll",
+        "icuuc.dll",
+        "kernel32.dll",
+        "mpr.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "netapi32.dll",
+        "ntdll.dll",
+        "ole32.dll",
+        "oleaut32.dll",
+        "shell32.dll",
+        "user32.dll",
+        "userenv.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "version.dll",
+        "winmm.dll",
+        "ws2_32.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Gui.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "d3d11.dll",
+        "d3d12.dll",
+        "dwrite.dll",
+        "dxgi.dll",
+        "gdi32.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "msvcp140_2.dll",
+        "ole32.dll",
+        "qt6core.dll",
+        "shell32.dll",
+        "user32.dll",
+        "uxtheme.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Network.dll",
+      "imports_and_delay_imports": [
+        "advapi32.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "dnsapi.dll",
+        "iphlpapi.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "qt6core.dll",
+        "secur32.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "winhttp.dll",
+        "ws2_32.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6PrintSupport.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "comdlg32.dll",
+        "gdi32.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6widgets.dll",
+        "user32.dll",
+        "vcruntime140.dll",
+        "winspool.drv"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Svg.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6svg.dll",
+        "qt6widgets.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Test.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "qt6core.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "dwmapi.dll",
+        "gdi32.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "msvcp140_1.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "user32.dll",
+        "uxtheme.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/generic/qtuiotouchplugin.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6network.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/iconengines/qsvgicon.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6svg.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qgif.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qicns.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qico.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qjpeg.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qsvg.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6svg.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qtga.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qtiff.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qwbmp.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/imageformats/qwebp.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/networkinformation/qnetworklistmanager.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-core-winrt-error-l1-1-1.dll",
+        "api-ms-win-core-winrt-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "ole32.dll",
+        "oleaut32.dll",
+        "qt6core.dll",
+        "qt6network.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/platforms/qminimal.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/platforms/qoffscreen.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+      "imports_and_delay_imports": [
+        "advapi32.dll",
+        "api-ms-win-core-winrt-error-l1-1-1.dll",
+        "api-ms-win-core-winrt-l1-1-0.dll",
+        "api-ms-win-core-winrt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-shcore-scaling-l1-1-1.dll",
+        "comdlg32.dll",
+        "d3d9.dll",
+        "dwmapi.dll",
+        "gdi32.dll",
+        "imm32.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "ole32.dll",
+        "oleaut32.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "setupapi.dll",
+        "shell32.dll",
+        "shlwapi.dll",
+        "uiautomationcore.dll",
+        "user32.dll",
+        "vcruntime140.dll",
+        "vcruntime140_1.dll",
+        "winmm.dll",
+        "wtsapi32.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "dwmapi.dll",
+        "gdi32.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6widgets.dll",
+        "user32.dll",
+        "uxtheme.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/Qt6/plugins/tls/qschannelbackend.dll",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "bcrypt.dll",
+        "crypt32.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "ncrypt.dll",
+        "qt6core.dll",
+        "qt6network.dll",
+        "secur32.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtCore.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtGui.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "msvcp140_2.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtNetwork.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "msvcp140.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6network.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtPrintSupport.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "kernel32.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6printsupport.dll",
+        "qt6widgets.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtSvg.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "kernel32.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6svg.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtSvgWidgets.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "kernel32.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6svgwidgets.dll",
+        "qt6widgets.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtTest.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "kernel32.dll",
+        "python3.dll",
+        "qt6core.dll",
+        "qt6gui.dll",
+        "qt6test.dll",
+        "qt6widgets.dll",
+        "vcruntime140.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/QtWidgets.pyd",
+      "imports_and_delay_imports": [
+        "qt6widgets.dll"
+      ]
+    },
+    {
+      "member": "PyQt6/sip.cp313-win_amd64.pyd",
+      "imports_and_delay_imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "kernel32.dll",
+        "python313.dll",
+        "vcruntime140.dll"
+      ]
+    }
+  ],
+  "runtime": {
+    "status": "passed",
+    "qt_version": "6.11.3",
+    "platform": "windows",
+    "elevated": false,
+    "qt_opengl": "software",
+    "surface_type": "RasterSurface",
+    "widget_capture": true,
+    "button_input": true,
+    "table_selection": true,
+    "svg_center_rgba": [
+      188,
+      40,
+      70,
+      255
+    ],
+    "clean_close": true,
+    "application_collapsible_card_toggle": true,
+    "application_widget_sha256": "416a01731b580bdd37d092a9d712051af50a209c21013568bb040a555c836a7d",
+    "excluded_bindings_not_importable": true,
+    "loaded_native_members": [
+      {
+        "member": "PyQt6/Qt6/bin/Qt6Core.dll",
+        "sha256": "3b088187284c91250fbb696b1779459ca1ab1ad14295e71ee9b12d71767c9501"
+      },
+      {
+        "member": "PyQt6/Qt6/bin/Qt6Gui.dll",
+        "sha256": "794f2cdf57333c0d44257ad383742b2d67ba9e986874d3ed8b12d04c543f96cf"
+      },
+      {
+        "member": "PyQt6/Qt6/bin/Qt6Svg.dll",
+        "sha256": "a52de2726685a955d70a07e865afa217fbea256fb815009102d0de04c40d5ec8"
+      },
+      {
+        "member": "PyQt6/Qt6/bin/Qt6SvgWidgets.dll",
+        "sha256": "46d313e8c6bcf738c5492d3001276747670c8a36099f305c8b396d5a70264d68"
+      },
+      {
+        "member": "PyQt6/Qt6/bin/Qt6Test.dll",
+        "sha256": "539a0afff6bd3c425a811fcac7f9768f337bdc9d6224b20fb6b209046d90b23e"
+      },
+      {
+        "member": "PyQt6/Qt6/bin/Qt6Widgets.dll",
+        "sha256": "82a31d8770391bdef7ddb71e374d6ca3dfce4584c7b453595150ec0730c529ae"
+      },
+      {
+        "member": "PyQt6/Qt6/plugins/platforms/qwindows.dll",
+        "sha256": "d38af0768b261f5b7a64ff2e344ab7fb52409efb1f0044749d33303c52e84f9c"
+      },
+      {
+        "member": "PyQt6/Qt6/plugins/styles/qmodernwindowsstyle.dll",
+        "sha256": "1f10b9e2dd5ec9f71ad5fb9a1f9281d18f44d68a657229666221ec397b2b6f0a"
+      },
+      {
+        "member": "PyQt6/QtCore.pyd",
+        "sha256": "91dd5166110b88a4f4d3acda6fe6c10ed699882dd3602328a59e9f656cc766b1"
+      },
+      {
+        "member": "PyQt6/QtGui.pyd",
+        "sha256": "cf5ae37fd119fb29a53f1f2cea1362fdf036d940191be45d83da0f98ce8752b8"
+      },
+      {
+        "member": "PyQt6/QtSvg.pyd",
+        "sha256": "542d023e993274d9a8c54135fba79cbeb0a99934b04bd47ae181413b55581684"
+      },
+      {
+        "member": "PyQt6/QtSvgWidgets.pyd",
+        "sha256": "0cb89d8d338c58b77ed6e8f092c9024b68b7b661783c1f65c74911bdd7ad2a7f"
+      },
+      {
+        "member": "PyQt6/QtTest.pyd",
+        "sha256": "26b0af0e59848382e81ac48a745bcb8e81f93e00897203b81277059da3aeff6f"
+      },
+      {
+        "member": "PyQt6/QtWidgets.pyd",
+        "sha256": "4f81361816e94e1ae05f178085b22d5b9b19e417713b1966dd481a4017aa3b21"
+      },
+      {
+        "member": "PyQt6/sip.cp313-win_amd64.pyd",
+        "sha256": "3f36d67b20f505dde46032f79d5e384ef3ba34faed586ee086f5827867f6bdb0"
+      }
+    ],
+    "removed_native_members_loaded": [],
+    "loaded_system_graphics_basenames": [
+      "d3d11.dll",
+      "d3d12.dll",
+      "d3d9.dll",
+      "dxgi.dll"
+    ]
+  },
+  "static_application_review": {
+    "paths": [
+      "app/",
+      "dupez.py"
+    ],
+    "gl_binding_or_gl_widget_or_qquick_usage_found": false,
+    "current_frozen_qt_opengl": "software",
+    "painting_example": "app/gui/splash.py uses QPainter",
+    "scope": "Source text inspection; no proof of all transitive or dynamic behavior"
+  },
+  "official_references": [
+    "https://doc.qt.io/qt-6.11/windows-graphics.html",
+    "https://doc.qt.io/qt-6.11/qpainter.html#performance",
+    "https://doc.qt.io/qt-6.11/qsurface.html#SurfaceType-enum"
+  ],
+  "limits": [
+    "Probe import tree is extracted from hash-pinned candidate and sip wheels; not a repackaged or installed release wheel",
+    "QWidget/QTableWidget/QSvgWidget and actual CollapsibleCard only; no full dashboard, startup pipeline, map, plugins or frozen application lifecycle",
+    "Native Windows platform and standard-user token only; no Compat elevation, normal/low-resource full lifecycle, display matrix or remote desktop coverage",
+    "All retained native import/delay-import tables were inspected; dynamically selected libraries are not proven absent by PE import analysis",
+    "QT_OPENGL=software was preserved in a minimal child environment; inherited QT_OPENGL_DLL, QT_OPENGL_BUGLIST and rendering overrides were not tested",
+    "QtGui still exposes QOpenGLContext and the underlying QtGui/qwindows runtime retains graphics support; excluding two bindings does not disable all GL APIs",
+    "The process loaded Windows Direct3D/DXGI libraries; a raster surface does not mean all graphics-related libraries are absent",
+    "No OpenGL context requested, GPU rendering validation, packet effects, game operations, network requests or elevation",
+    "No production dependency removal, native security clearance, Qt source/rebuild correspondence clearance or license approval",
+    "Production 6.11.2 payload and reviewed 6.11.3 candidate profile remain unchanged, including Mesa and d3dcompiler helpers"
+  ]
+}

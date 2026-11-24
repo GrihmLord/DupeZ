@@ -25,6 +25,7 @@ are lazy so missing packages only surface when voice is actually activated.
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from typing import Any, Callable, Optional
@@ -51,6 +52,12 @@ _voice_deps_resolved: bool = False
 SOUNDDEVICE: Any = None
 WHISPER: Any = None
 VOICE_AVAILABLE: bool = False
+_UNSUPPORTED_ASIO_ENV = "SD_ENABLE_ASIO"
+
+
+def _enforce_reviewed_audio_backend() -> None:
+    """Keep sounddevice on the bundled, reviewed non-ASIO PortAudio build."""
+    os.environ.pop(_UNSUPPORTED_ASIO_ENV, None)
 
 
 def _try_import(name: str) -> Any:
@@ -75,6 +82,7 @@ def _resolve_voice_deps() -> None:
         return
     _voice_deps_resolved = True
 
+    _enforce_reviewed_audio_backend()
     SOUNDDEVICE = _try_import("sounddevice")
     WHISPER = _try_import("whisper")
     VOICE_AVAILABLE = SOUNDDEVICE is not None and WHISPER is not None
@@ -728,4 +736,3 @@ def get_missing_packages() -> list:
     if WHISPER is None:
         missing.append("openai-whisper")
     return missing
-

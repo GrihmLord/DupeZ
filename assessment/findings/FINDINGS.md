@@ -4,10 +4,15 @@
 - None confirmed in current in-scope technical evidence.
 
 ## High
-- Release artifact integrity gate failed (unsigned/missing sidecars in dist preflight).
+- Exact-current-tree distribution artifacts and mandatory validation evidence
+  are unavailable. The authorized unsigned exception is not itself a failure;
+  stale artifacts and missing sidecars/evidence remain blocking.
+- Required server-side release governance is absent: a 2026-08-28 read-only
+  GitHub API inspection found no branch protection or ruleset on `main`, and
+  no protection rules or deployment-branch policy on `production-release`;
+  the governance-ready repository variable is absent as well.
 
 ## Medium
-- Protected release scripts blocked by required execution context (admin + main clean state).
 - Non-technical diligence evidence not provided (legal/financial/insurance).
 
 ## Low

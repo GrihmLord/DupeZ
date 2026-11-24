@@ -42,10 +42,17 @@ test_report.json
 htmlcov/
 .pytest_cache/
 
+# Local validation/security-scan scratch. These trees can contain copied
+# runtime profiles, logs, HMAC material, and other private operator data.
+/.validation*/
+/.validation-*.json
+/.audit-*.json
+
 # Repo-local pytest basetemp (pinned in tests/conftest.py to dodge the
 # Windows %LOCALAPPDATA%\Temp\pytest-of-USER access-denied trap; see the
 # header comment in tests/conftest.py for full reasoning).
 .pytest-tmp/
+/.pytest-tmp-updater-*/
 
 # Build artifacts
 build/

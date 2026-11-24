@@ -4,9 +4,156 @@ All notable changes to DupeZ are documented here. Format follows [Keep a Changel
 
 ---
 
-## v5.8.0 -- 2026-08-09 (Bounded resilience, release reliability, and hot-path optimization)
+## v5.8.0 -- Unreleased (Bounded resilience, release reliability, and hot-path optimization)
 
 ### Changed
+
+- **Cut-chain orchestration is now an operator-facing, fail-closed feature.**
+  `Tools → Cut-Chain Configurator…` (`Ctrl+Shift+C`) provides an accessible
+  multi-stage preset editor with add/remove/reorder, bounded gate selection,
+  private-target acknowledgement, and atomic JSON save/load. The controller
+  revalidates the configured safety scope and caps the whole-chain deadline
+  before owning the background run.
+- **Cut-chain failure behavior now matches its contract.** State and packet
+  gate timeouts are failures instead of successful advances; `halt` stops and
+  releases, `continue` releases before advancing, and the previously advertised
+  but never implemented `rewind` value is explicitly rejected.
+- **The remaining operator surfaces are complete.** Settings now owns the
+  automatic kill-switch process/risk/packet-rate controls; Tools exposes a
+  sealed Audit Webhook dialog; Diagnostics can copy or atomically save its
+  exact redacted results; and the hotkey reference includes the cut-chain
+  configurator.
+- **Routine data paths now resist hostile input.** CSV/XLSX exports neutralize
+  spreadsheet formulas, backup parsing has bounded members and expansion,
+  profile names and saves are strict and atomic, and crash reports redact
+  credentials and user-specific paths before persistence.
+- **Local Ollama and OBS paths no longer block or broaden trust.** Ollama
+  requests are restricted to loopback endpoints, while OBS risk aggregation
+  refreshes asynchronously and publishes its actual ready ephemeral port.
+- **Plugin publisher trust is explicit.** Complete manifest-v2 signatures bind
+  every bundle file, while Python capability hooks are documented as
+  best-effort diagnostics rather than OS isolation. Production accepts only
+  pinned, fully trusted publishers; enforceable least privilege remains an
+  out-of-process broker requirement.
+- **Updater trust is bound end to end.** Signed update metadata records the
+  measured Authenticode signer certificate fingerprint, prerelease versions
+  follow SemVer precedence, Windows download provenance is retained, and the
+  signer is rechecked immediately before launch.
+
+- **Source installs and release builds now consume one dependency graph.**
+  `requirements.txt` delegates to the reviewed, hash-pinned production lock;
+  the README no longer directs users to the former loose and divergent set.
+- **Release supply-chain evidence is exact and fail-closed.** The SBOM covers
+  every marker-qualified lock entry with a canonical CycloneDX UUID, and a
+  lock-bound PyPI advisory review is mandatory. PyPI responses must match each
+  requested canonical name/version and contain a valid advisory list, and the
+  review must be no more than 24 hours old at every distribution preflight.
+  Clean reviews omit OpenVEX; OpenVEX is generated only for actual findings
+  and is never empty.
+- **Installer and frozen payloads use one explicit allowlist.** Recursive
+  source-tree sweeps can no longer package sample executables, caches,
+  bytecode, HMAC sidecars, or local runtime state.
+- **CI now covers all tracked Python entry points and release scripts.** Ruff
+  and whole-tree AST checks are enforced, dependency review is blocking,
+  changes to any workflow trigger the policy suite, and test bootstrap tools
+  are version-pinned. Lock parsing is shared by verification, SBOM, VEX, and
+  vulnerability review and rejects every unsupported or unhashed logical line;
+  a path-unfiltered source preflight checks each exact pull-request head.
+- **Test tooling is reproducible.** `requirements-test-locked.txt` pins and
+  hashes pytest, coverage, Ruff, pip, and their transitive wheels; CI and the
+  lock workflow install it with both `--require-hashes` and
+  `--only-binary=:all:` alongside the production lock.
+- **Hardware smoke is now evidence-bearing.** A passing run records the exact
+  commit, GitHub workflow/run identity, exact canonical test suite,
+  independently measured post-cleanup process count, and source-native
+  provenance hashes without storing the authorized target IP, MAC, or CIDR.
+  The workflow holds the verified native files read-locked from before the
+  tests through evidence creation. Local or partial-suite evidence cannot be
+  created, and staging authenticates the exact GitHub artifact ID, archive
+  digest, and evidence bytes before accepting it.
+
+### Security
+
+- **Frozen executables use the patched PyInstaller bootloader.** The release
+  build lock now requires PyInstaller 6.22.2, closing
+  `GHSA-9fxf-4qw3-ghmr` for elevated one-file executables while retaining the
+  Windows symlink/junction compatibility fix shipped immediately afterward.
+- **Updater downgrade, replay, and launch-time replacement paths fail
+  closed.** The version floor includes the installed build, manifests bind to
+  the selected release and asset, downloads use private exclusive paths, and
+  bytes are reverified immediately before elevation.
+- **Downloaded installers retain Windows Attachment Services provenance.** The
+  updater applies Attachment Execution Services policy, requires durable zone
+  evidence, then rechecks the signed manifest, SHA-256, signer, and evidence
+  under a final deny-write/delete lock immediately before launch.
+- **GitHub release redirects are restored only inside the updater trust
+  boundary.** The generic secure HTTP client still refuses every redirect.
+  The updater prefers the API's version-bound installer URL; its query-free
+  canonical GitHub alias remains a fallback. Redirects follow an explicit
+  two-hop state machine: an alias may resolve only to this repository's tagged
+  path for the identical filename, and a tagged path may resolve only to the
+  exact GitHub release-asset CDN. Extra hops, lookalike/private hosts, encoded
+  separators, malformed targets, and URL-bearing transport failures are
+  refused, while only innocuous headers cross origins. Final bytes still cross
+  the signed-manifest, size/hash, Authenticode, Attachment Services, and locked
+  launch gates.
+- **Isolation-watchdog cancellation is linearized against callback delivery.**
+  A shared state lock makes a cancel-first isolation verdict become `ABORTED`;
+  when callback delivery commits first, cancellation waits for bounded
+  quiescence and raises rather than falsely report success on timeout.
+  Watchdog-thread self-cancellation avoids joining itself.
+- **JUnit release evidence is parsed as hostile XML.** Report bytes must decode
+  as strict UTF-8, and DTD or entity declarations are rejected before XML
+  parsing, removing encoding ambiguity and entity-expansion paths from release
+  evidence ingestion.
+- **Model deserialization retains an authenticated-before-unpickle boundary.**
+  Regression coverage performs real HMAC-SHA384 verification and proves that
+  missing, malformed, incorrect, or artifact-mismatched tags cannot reach
+  `pickle.loads`; the Bandit `B301` suppression is scoped to that guarded call.
+- **Release tools and remote publication are identity-bound.** Inno Setup and
+  SignTool are accepted only at manifest-pinned Program Files paths with exact
+  hashes and Authenticode certificate identities, and are reverified at their
+  use sites. Draft creation, upload, and publication each recheck that the
+  canonical GitHub `main` ref still names the exact staged commit.
+- **Emergency unsigned builds cannot publish directly.** They produce
+  evidence-only artifacts and must pass the same GPU, Compat, interactive,
+  draft, and staged-download gates before a separate publication step.
+- **Outer signing is no longer treated as child-process signing.** Standard
+  builds verify and copy the unsigned upstream `clumsy.exe` into a fixed
+  ignored stage, sign only that copy, prove PE source-equivalence, and bind its
+  exact bytes and signer into distribution provenance. Both frozen variants
+  are independently inspected, and final preflight requires the nested signer
+  to match the Authenticode identity authenticated by updater metadata.
+- **Draft uploads are immutable across validation and publication.** Staging
+  copies the validated public asset inventory into an owner-only snapshot,
+  holds read locks that deny writes and deletion through upload/readback, and
+  compares the downloaded draft to the captured size/SHA-256 map.
+- **Trusted plugin signatures cover the complete bundle.** Manifest v2 binds
+  every canonical path, size, and SHA-384; modified helpers/resources and
+  unsigned additions fail before import. Legacy entry-only manifests must be
+  re-signed, discovery results are re-verified at load time, minimum host
+  versions are strict SemVer and enforced before import, and failed activation
+  is rolled back with best-effort deactivation and module cleanup.
+- **The experimental elevated map parent authenticates its unelevated
+  child.** The retained spawn PID must match the actual Windows TCP peer, the
+  child's claim, and the HWND owner before privileged reparenting. Qt input is
+  bounded before allocation, post-hello input is rejected, and shutdown uses
+  a bounded graceful wait followed by owned-process termination. The source
+  diagnostic fails closed to the in-process renderer in frozen builds until a
+  dedicated asInvoker host artifact has its own release evidence.
+- **Audit webhook bearer URLs moved out of settings and backups.** Legacy
+  URLs migrate to the CurrentUser OS-backed secret store before metadata-only
+  settings are committed; startup fails closed when migration or retrieval is
+  unavailable. Hidden-input CLI provisioning, backup/restore sanitation, and
+  support-bundle URL redaction prevent new plaintext copies.
+- **Persistence and restore integrity now fail closed.** JSON and HMAC files
+  commit as a verified pair with rollback; live files and rotated backups
+  require sidecars, the predictable legacy key is verification-only, and
+  deleting `settings.json.hmac` cannot reopen the one-time marked migration.
+  Restore canonicalizes logical POSIX paths before I/O and rejects absolute,
+  backslash, dot-segment, duplicate, and parent-traversal entries. Restored
+  data JSON advances the authoritative commit journal instead of being
+  reverted later by a stale generation pointer.
 
 - **v5.7.9 ownership repairs are now the supported baseline.** Standard
   effects remain owned by the pinned Kalirenegade Clumsy process; Native
@@ -411,7 +558,7 @@ Bundles what was originally scoped as v5.7.0 (telemetry + safety) and v5.7.1 (po
 
 ### Added — orchestration + UX polish
 
-- **Cut chaining (`app/core/cut_chain.py`).** Sequence N presets against a target with operator-configurable timing gates. Gate kinds: `time` (wait N seconds), `severed` / `connected` (wait for A2S verifier state with fallback timeout), `packets` (wait until engine processed N packets). `ChainConfig` declares stages + `on_failure` (halt / continue / rewind) + global timeout. `CutChainRunner` daemon-threads the walk, emits `ChainEvent` per stage transition. Self-tested with a fake controller — emits stage_start/stage_end/complete in correct sequence.
+- **Cut chaining (`app/core/cut_chain.py`).** Sequence N presets against a target with operator-configurable timing gates. Gate kinds: `time` (wait N seconds), `severed` / `connected` (wait for A2S verifier state with fallback timeout), `packets` (wait until engine processed N packets). `ChainConfig` declares stages + `on_failure` (halt / continue) + global timeout. The original release notes also named `rewind`, but no rewind implementation shipped; v5.8.0 makes that historical mismatch explicit and rejects the value. `CutChainRunner` daemon-threads the walk and emits `ChainEvent` per stage transition.
 - **Multi-account quick-switch (`app/core/account_quick_switch.py`).** Persistent "active account" marker stored at `app/data/active_account.json`. Episode recorder + audit log can consume `get_active_account()` to tag entries with the operator's currently-selected tracker account. `cycle_active_account(direction)` for a forward/backward hotkey (UI binding lives in v5.7.x). Refuses to set an active name not present in the tracker — prevents phantom tagging from typos.
 - **OBS overlay HTTP endpoint (`app/core/overlay_server.py`).** Tiny localhost HTTP server (default 127.0.0.1:4778) exposing two endpoints: `GET /state` returns JSON snapshot of active targets + risk score; `GET /overlay.html` serves a self-contained HTML page that polls `/state` every 1s and renders an overlay (drop into OBS as a Browser Source). Bound to loopback by default — no LAN exposure unless explicitly reconfigured. Read-only, no write endpoints. CORS allowed so OBS Browser Source can fetch without friction.
 

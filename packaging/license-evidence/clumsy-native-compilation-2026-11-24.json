@@ -1,0 +1,4241 @@
+{
+  "claim": "Two isolated successful compilations of exact upstream source with a pinned alternative toolchain; data-only PE and import/export checks. Not a shipped-binary reconstruction or runtime test.",
+  "compat_runtime_tested": false,
+  "compilation_passed": true,
+  "complete_corresponding_source": false,
+  "dependency_comparison": {
+    "added_dlls": [
+      "api-ms-win-crt-environment-l1-1-0.dll",
+      "api-ms-win-crt-private-l1-1-0.dll"
+    ],
+    "iup_import_tables_equal": true,
+    "removed_dlls": [
+      "vcruntime140.dll"
+    ],
+    "windivert_import_tables_equal": true
+  },
+  "detailed_observation": {
+    "path": "build/clumsy-native-rebuild-20261124/evidence-final-1/clumsy-native-compilation-detail.json",
+    "sha256": "5297ef9a50de1afe71e158a3336898b7f6795d1cc46b6b66cd56ef3eb98b4988",
+    "size": 567672
+  },
+  "distribution_approved": false,
+  "failed_preliminary_attempts": [
+    {
+      "all_historical_recipe_and_helper_bytes_proven": false,
+      "command_log_pins": [
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-1/compiler-version.log",
+            "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+            "size": 281
+          }
+        },
+        {
+          "command_exit_code": 1,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-1/bandwidth.c.log",
+            "sha256": "cccf02fdbd2c5597532f3e780694fc842cafe10529d5aa835d676823c8680c73",
+            "size": 355
+          }
+        }
+      ],
+      "compilation_success": false,
+      "diagnosis": "Missing iupkey.h in the preliminary header staging; later attempts stage all pinned IUP headers.",
+      "exact_historical_driver_bytes_retained": false,
+      "failure": "bandwidth.c",
+      "legacy_count_note": "Historical field counted attempted compiler calls; success count is recomputed from command exit codes.",
+      "legacy_receipt_source_files_compiled_field": 1,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/attempt-1/receipt.json",
+        "sha256": "804152e9351ef8d878a6a6b07ec12230c6b71c36093d3c472a233a47a33244e1",
+        "size": 12065
+      },
+      "recorded_driver_pin": {
+        "path": "build/clumsy-native-rebuild-20261124/build_clumsy.py",
+        "sha256": "940fcb9cd7c8bfb1e00b5dc1481f9929602726e7109b9d3cdfd9fc210131014f",
+        "size": 9643
+      },
+      "run": "attempt-1",
+      "source_files_attempted_from_commands": 1,
+      "source_files_succeeded_from_exit_codes": 0
+    },
+    {
+      "all_historical_recipe_and_helper_bytes_proven": false,
+      "command_log_pins": [
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/compiler-version.log",
+            "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+            "size": 281
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/bandwidth.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/disconnect.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/divert.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/drop.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/duplicate.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/elevate.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/ini.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/lag.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/main.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/ood.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/packet.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/reset.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/tamper.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/throttle.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/utils.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/resource.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 1,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-2/link.log",
+            "sha256": "0fbe1e99c9a9a2b605e8dd6f1856809dbc8b69ef726796f4b80ac0c0fd1a4c6d",
+            "size": 311
+          }
+        }
+      ],
+      "compilation_success": false,
+      "diagnosis": "Clang selected a POSIX ld wrapper, which Windows rejected with 0xC1; later recipe explicitly selects LLD.",
+      "exact_historical_driver_bytes_retained": false,
+      "failure": "link",
+      "legacy_count_note": "Historical field counted attempted compiler calls; success count is recomputed from command exit codes.",
+      "legacy_receipt_source_files_compiled_field": 15,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/attempt-2/receipt.json",
+        "sha256": "c19ff8a6ae1b233d7e27728af27c46b1694585ec0d4487a159712aa70312eab6",
+        "size": 40225
+      },
+      "recorded_driver_pin": {
+        "path": "build/clumsy-native-rebuild-20261124/build_clumsy.py",
+        "sha256": "9b5224e7ac2e3630c86d646632a7338dcad737eb81c776d6dce7883f7e6e80d2",
+        "size": 9742
+      },
+      "run": "attempt-2",
+      "source_files_attempted_from_commands": 15,
+      "source_files_succeeded_from_exit_codes": 15
+    },
+    {
+      "all_historical_recipe_and_helper_bytes_proven": false,
+      "command_log_pins": [
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/compiler-version.log",
+            "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+            "size": 281
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/bandwidth.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/disconnect.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/divert.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/drop.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/duplicate.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/elevate.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/ini.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/lag.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/main.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/ood.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/packet.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/reset.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/tamper.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/throttle.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/utils.c.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 0,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/resource.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "size": 0
+          }
+        },
+        {
+          "command_exit_code": 1,
+          "log": {
+            "path": "build/clumsy-native-rebuild-20261124/attempt-3/link.log",
+            "sha256": "efc7c2fce31f3f0ab6a9de965bff3c5e64db98b29742f8a0bd299580f4f13765",
+            "size": 3787
+          }
+        }
+      ],
+      "compilation_success": false,
+      "diagnosis": "Modern default no-common C semantics rejected the upstream NetworkType tentative definition repeated in multiple units; final recipe requests -fcommon.",
+      "exact_historical_driver_bytes_retained": true,
+      "failure": "link",
+      "legacy_count_note": "Historical field counted attempted compiler calls; success count is recomputed from command exit codes.",
+      "legacy_receipt_source_files_compiled_field": 15,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/attempt-3/receipt.json",
+        "sha256": "25dd043784a06b68613751b32f0fdcc904170807f268862e26c15bb95f391eb0",
+        "size": 40338
+      },
+      "recorded_driver_pin": {
+        "path": "build/clumsy-native-rebuild-20261124/build_clumsy.py",
+        "sha256": "21edff259dc1adf738b3e4a4fc7d2f10690f93cebcc983632270150dab2ee26c",
+        "size": 9861
+      },
+      "run": "attempt-3",
+      "source_files_attempted_from_commands": 15,
+      "source_files_succeeded_from_exit_codes": 15
+    }
+  ],
+  "input_pins": [
+    {
+      "path": "app/firewall/WinDivert.dll",
+      "sha256": "6110bfa44667405179c3e15e12af1b62037e447ed59b054b19042032995e6c7e",
+      "size": 47104
+    },
+    {
+      "path": "app/firewall/WinDivert64.sys",
+      "sha256": "5c3e7bbb06ebb134bed7b1231fdf3139a2052cbe5e8c8418e54237933b51bb4e",
+      "size": 90288
+    },
+    {
+      "path": "app/firewall/clumsy.exe",
+      "sha256": "a9ea677795e6c92d1ca945d8b7b2ef1d264eeb7dc956feae368c7cf8b99ef37d",
+      "size": 439808
+    },
+    {
+      "path": "app/firewall/clumsy_src/LICENSE",
+      "sha256": "4ffad0f10a3f6f4f8b2272777d164638745714a373e4ac3cade009e677708f0f",
+      "size": 1184
+    },
+    {
+      "path": "app/firewall/clumsy_src/build.zig",
+      "sha256": "1081a93fb90db82d9760e068aa439ceb75fe25caaa816e0d229817c0db563424",
+      "size": 6418
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/chkstk.s",
+      "sha256": "187588361386e4c0bfb592a32243b3e32155448da0e15aa6d50781cf2e4d8d57",
+      "size": 395
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/clumsy-icon.ico",
+      "sha256": "956d5254c524a2f12c1bfd8979e854a278e4ab890ebad8065aba0173b5ed5ad2",
+      "size": 370070
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/clumsy-icon.png",
+      "sha256": "ec9fbecf651c8f2cc8137a27efdbc6497ae13ab292b24ee035fb023041b78bc0",
+      "size": 5273
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/clumsy.manifest",
+      "sha256": "1379134e46e470888aeda2de729d6ac5ab2c72df2342e26d5ed921ddc07d3499",
+      "size": 1681
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/clumsy.rc",
+      "sha256": "40fa432a990e55014f3ac90333a6aaaa0ab47bd795c3246b0a54ab654e07dd98",
+      "size": 1083
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/clumsy64.manifest",
+      "sha256": "a03e29ff2caa21e77b84f8e495e03d41b1d4fc1a2ada37113964b64b53b9b3bc",
+      "size": 1685
+    },
+    {
+      "path": "app/firewall/clumsy_src/etc/config.txt",
+      "sha256": "3be24cf0ad7b16b85d3024c3b33f31338313d6a8509ebf47576429da2d74eea2",
+      "size": 1284
+    },
+    {
+      "path": "app/firewall/clumsy_src/genie.lua",
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "size": 6427
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/bandwidth.c",
+      "sha256": "3cfbdbd7652008500d16887d2112fdf2abb7a33a903aa96ea8a34e59dcd6a23c",
+      "size": 15801
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/bandwidth.h",
+      "sha256": "d894d6a62f7aab225688243d3a8740b87375b51f548ec86fb4f7a17a2ba57154",
+      "size": 414
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/common.h",
+      "sha256": "c2c1151f8bee8c17b6a7039120cf1ddf9a161159a1d6009b8eb2a1a66780de29",
+      "size": 5347
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/disconnect.c",
+      "sha256": "be2c1c072ce7cc5627c08eae43663a793b9b8208964457e6edc49ff63a331cf7",
+      "size": 2862
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/disconnect.h",
+      "sha256": "862dbdc78ff268e04bb741b7f1efab491226ee89d90d5332434d7f781c33a5fc",
+      "size": 264
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/divert.c",
+      "sha256": "913cfc6dc3ff19f8d5b23039da568a4757d49f9eee396853806ec89751815213",
+      "size": 15225
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/drop.c",
+      "sha256": "eb15884eed249090a0b646890b0b6eeaeb43cd0bc146c4f57b5165c72173acfa",
+      "size": 2831
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/drop.h",
+      "sha256": "66198a7648276da96f52ba0fa053e39e227d2bb0bb905fc6afc4f376ac7adc83",
+      "size": 279
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/duplicate.c",
+      "sha256": "9b3778bed14a8f140bcd5fdb0645b52c71c6a883246982d66de23f835eca3e1d",
+      "size": 3694
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/duplicate.h",
+      "sha256": "e828b87ff1ca40245505047d0ec97e870758a2e3c42057ae7b13642564c05acc",
+      "size": 362
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/elevate.c",
+      "sha256": "5af25e647a5c67cb0b6bffb6f8c891846830428f7af904a10cc9711a721f643a",
+      "size": 5422
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/ini.c",
+      "sha256": "217fa78f0380669c91a565f3e414d0a8be0f7a7fdfd1e3839f213e86aa574a95",
+      "size": 8370
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/ini.h",
+      "sha256": "b5342061a317f8cedd1103c10e241f74c16b5944d62deb9ab9e3e8a3f1ca4e5d",
+      "size": 5825
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/lag.c",
+      "sha256": "9eb404a90f4211eb69d08a102c1106250d64864cdc8d557a3cdeb7900f95e417",
+      "size": 4408
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/lag.h",
+      "sha256": "117712995b85ca55931865faaf2367f4aae40fb11bfdf00415a5feeab31f88ba",
+      "size": 272
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/main.c",
+      "sha256": "c8ae2e9686cdc3239d8cbfdae00edc751e5c03f155c3ed4399ae2213576d439d",
+      "size": 82923
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/ood.c",
+      "sha256": "f1bdef81bfab4c415b2afddbd1f6295e20c0b49582702a89cdbc4bca8f6873e7",
+      "size": 5520
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/ood.h",
+      "sha256": "36ff6df980bcd0ce3f895d4549bf6b34206a2e1acef965bfdc8ccabe5bc6a9f0",
+      "size": 369
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/packet.c",
+      "sha256": "afbb3c5c67732834276515a19489d425f5e83c9e46b1587265f61d6aff7a65ca",
+      "size": 1876
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/reset.c",
+      "sha256": "7c190a2306f1ea220f594e5ea768f1d7527161ff95e218cbcbb69e9c0086903c",
+      "size": 4039
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/reset.h",
+      "sha256": "d56dffef7d72049e631a5fb07e5cafed688cdd35b4fdff17f565e302c98f85fb",
+      "size": 287
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/tamper.c",
+      "sha256": "eb281d1eba8ff8b0d38e8e206e0ac9345075308323f44adfff3b2fb992df08d5",
+      "size": 4911
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/tamper.h",
+      "sha256": "108c459bcc2a42dbc706a475c543983118fb3cc8e6c2ec2292cb52e2ef63d99e",
+      "size": 347
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/throttle.c",
+      "sha256": "9643e445b34aa9769ca8e628db4ca39073b0b1a19ba9acb8711732b60a9190a1",
+      "size": 6432
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/throttle.h",
+      "sha256": "c39d03f8382a22ead36e19f2f617695311171fbabd6f7aa6498eabc682719f1d",
+      "size": 425
+    },
+    {
+      "path": "app/firewall/clumsy_src/src/utils.c",
+      "sha256": "31725f91d3f787392e05952403069fd033b74a110b569778d2669dd58868ef41",
+      "size": 6312
+    },
+    {
+      "path": "app/firewall/iup.dll",
+      "sha256": "972275ea2e603f60a168d8090f8e15e4acb59512af03a51490d8c394dc6871b3",
+      "size": 2744320
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-1/bandwidth.c.log",
+      "sha256": "cccf02fdbd2c5597532f3e780694fc842cafe10529d5aa835d676823c8680c73",
+      "size": 355
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-1/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-1/receipt.json",
+      "sha256": "804152e9351ef8d878a6a6b07ec12230c6b71c36093d3c472a233a47a33244e1",
+      "size": 12065
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/link.log",
+      "sha256": "0fbe1e99c9a9a2b605e8dd6f1856809dbc8b69ef726796f4b80ac0c0fd1a4c6d",
+      "size": 311
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/receipt.json",
+      "sha256": "c19ff8a6ae1b233d7e27728af27c46b1694585ec0d4487a159712aa70312eab6",
+      "size": 40225
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-2/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/link.log",
+      "sha256": "efc7c2fce31f3f0ab6a9de965bff3c5e64db98b29742f8a0bd299580f4f13765",
+      "size": 3787
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/receipt.json",
+      "sha256": "25dd043784a06b68613751b32f0fdcc904170807f268862e26c15bb95f391eb0",
+      "size": 40338
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/attempt-3/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/build_clumsy.py",
+      "sha256": "21edff259dc1adf738b3e4a4fc7d2f10690f93cebcc983632270150dab2ee26c",
+      "size": 9861
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/collect_compilation.py",
+      "sha256": "58a353e3129c7a0c09fef0d857be995ff19e602217bba6571a2f77a36c72a0c9",
+      "size": 25661
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/clumsy-rebuilt.exe",
+      "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+      "size": 508416
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/link.log",
+      "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+      "size": 106
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/bandwidth.c.o",
+      "sha256": "f3ad755efe0c033194a563581cfa556796605bcab15470d7f7943b60f3acb81e",
+      "size": 10105
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/clumsy.res.o",
+      "sha256": "608f37059f6a2f484e0344363a263bcb32cddfb59071051b3c89ba2594f931de",
+      "size": 372888
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/disconnect.c.o",
+      "sha256": "d0f9c81d3cab911b968d18992c3f2c5b49f787854adf552354991f67fab1e479",
+      "size": 3088
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/divert.c.o",
+      "sha256": "5c37c6763fe1fdcc7d10075d6ff1220fd538e64c2ebc6f500d5a94d28ea4f42c",
+      "size": 6468
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/drop.c.o",
+      "sha256": "b729a1dbc976474f8bcecece2daca78a3de4a5be3014719f2e96c586635bb01d",
+      "size": 3668
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/duplicate.c.o",
+      "sha256": "55e431446105250e3e2d8d74afc1ae8047016bddeee1083396511287dda5a4eb",
+      "size": 4441
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/elevate.c.o",
+      "sha256": "be35c8d0d3d8e1d0667bca2c29f539451672c676fb7483b4f4338932f58c9d29",
+      "size": 3322
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/ini.c.o",
+      "sha256": "8205455563ac1176b25770c9e84a208a2203faf294af306926fbfdbf6e951ae7",
+      "size": 3350
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/lag.c.o",
+      "sha256": "3c2c07941e3eae9090792a13b4475950bc5bc576bfefcc41fbaa45c0f00da2c2",
+      "size": 4767
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/main.c.o",
+      "sha256": "119f8383c184f4a08461ef38d0648940f5e30828af5102f6b8f9e4238d343926",
+      "size": 47378
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/ood.c.o",
+      "sha256": "dc0cd60044a833654d44618bf7f4f4d707e2f4d10a6f0151ca5f1aacc9f9d8fc",
+      "size": 4314
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/packet.c.o",
+      "sha256": "8c4f2de88d86f9ccd8bcde1932a82a43d4194df42bd7835cca7a14dd118edda0",
+      "size": 1927
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/reset.c.o",
+      "sha256": "cce1bfdd163c9c4d6b2bc58a84b562af6c4fe86d576498f18aab1afe5a954c38",
+      "size": 4608
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/tamper.c.o",
+      "sha256": "66ff1d7b52ae80b8112153262b8d396a2199c7cbfdf45ca5d7f1f868e9da3d27",
+      "size": 5330
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/throttle.c.o",
+      "sha256": "6179e6a8a3b2682cd5472d31d0d97bdabd6b2f4751db5842268a7acc1d74c994",
+      "size": 6033
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/objects/utils.c.o",
+      "sha256": "2cebcf668bce5da4197531f112b8cb2081538b274db464c899f725b1c8597d5a",
+      "size": 4923
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/pe-inspection.log",
+      "sha256": "5b118f0a1bd57d07c0534969533e810a573bd31c757268a0beb12bb14f22b58b",
+      "size": 8013
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/receipt.json",
+      "sha256": "37cbce0625e45052d9ba4c76442ee926bfe18dab7a1f58e83f0c17ab18b88985",
+      "size": 49249
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/LICENSE",
+      "sha256": "5c768093df657779572e4def4780bf67f223e4295912e445e9c84b1fe6c6f75e",
+      "size": 1162
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/build.zig",
+      "sha256": "1081a93fb90db82d9760e068aa439ceb75fe25caaa816e0d229817c0db563424",
+      "size": 6418
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/chkstk.s",
+      "sha256": "187588361386e4c0bfb592a32243b3e32155448da0e15aa6d50781cf2e4d8d57",
+      "size": 395
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/clumsy-icon.ico",
+      "sha256": "956d5254c524a2f12c1bfd8979e854a278e4ab890ebad8065aba0173b5ed5ad2",
+      "size": 370070
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/clumsy-icon.png",
+      "sha256": "ec9fbecf651c8f2cc8137a27efdbc6497ae13ab292b24ee035fb023041b78bc0",
+      "size": 5273
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/clumsy.manifest",
+      "sha256": "1379134e46e470888aeda2de729d6ac5ab2c72df2342e26d5ed921ddc07d3499",
+      "size": 1681
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/clumsy.rc",
+      "sha256": "40fa432a990e55014f3ac90333a6aaaa0ab47bd795c3246b0a54ab654e07dd98",
+      "size": 1083
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/clumsy64.manifest",
+      "sha256": "a03e29ff2caa21e77b84f8e495e03d41b1d4fc1a2ada37113964b64b53b9b3bc",
+      "size": 1685
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/etc/config.txt",
+      "sha256": "3be24cf0ad7b16b85d3024c3b33f31338313d6a8509ebf47576429da2d74eea2",
+      "size": 1284
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/genie.lua",
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "size": 6427
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup.h",
+      "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+      "size": 25641
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_config.h",
+      "sha256": "1845dde604883e081db276aa4a770d6d84cc5d1484abd7692643c3e9fd29f87e",
+      "size": 2920
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_export.h",
+      "sha256": "3080f6e024cb07ef987f98155516490eb330624fb283c47e725bc6da9db05642",
+      "size": 2189
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_mglplot.h",
+      "sha256": "404e6034c04a05bcc20b2de93af3fc2e811d1b137e93808790ca8a08a575cf6f",
+      "size": 2820
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_plot.h",
+      "sha256": "9fb0b9a1558170f2462eb12eae86175feeb97dc0cbf15a0bd1ddb36662e890b8",
+      "size": 2792
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_plus.h",
+      "sha256": "b9675bcfaa9701545c208d423dc1b8f011c9d71125dff5e187ffbdc67a1a789c",
+      "size": 58462
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_scintilla.h",
+      "sha256": "3ea512635a98433a17d9f50771eb0719d4f27d4bda68844881d5f4c0327b0c3f",
+      "size": 432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iup_varg.h",
+      "sha256": "5ef859bfbc7cf525f365bf17d1975bc7afdcf52374c0510c3ae7b2bc4f8f7d47",
+      "size": 2097
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupcbs.h",
+      "sha256": "8f8494b33e400b67bc7f8f3683289b70eb4053f1aec08b339dad99bf281b9e85",
+      "size": 4796
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupcontrols.h",
+      "sha256": "330f245f971b3ff40f0d344f8bdc9e4a3932123ccf6c0779233e8ab1c56d5ace",
+      "size": 602
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupdef.h",
+      "sha256": "52195562ac5ae872186c07d695af943c98b0ba130c621d6b472b0374e47d201e",
+      "size": 22254
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupdraw.h",
+      "sha256": "1d9f1de7c126636c4d7dd609ae3f069835016c809cfa86ab04d0b964ad0172f6",
+      "size": 1667
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupdraw_cd.h",
+      "sha256": "3205cfeca6f200da38e4a09e6cf96af4df2db13ca5c8708fe62f187c941bd31d",
+      "size": 303
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupfiledlg.h",
+      "sha256": "723fb29050041338e45cce7113ab98b67babbe0853887a529b861ec974030b98",
+      "size": 333
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupgl.h",
+      "sha256": "96c9d5c65b86fc314e7a70f1ab5f74b77d1f33cf302a4d41dc01abeb8cb25f5d",
+      "size": 2575
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupglcontrols.h",
+      "sha256": "a814c3fa8d45129012a0df361262f16efc1056b7f42fa9bbc85cdc8041dde291",
+      "size": 1131
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupim.h",
+      "sha256": "835e744a72e1c376cd88367f1ab7fd95dc38722a8d2159f64395ee807ffc108d",
+      "size": 724
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupkey.h",
+      "sha256": "39f022465b84fde7114c7912e8c4cdeb5b51d2599fe7977d73b72c7a4c6a0278",
+      "size": 20306
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iuplua.h",
+      "sha256": "fda8201541b27301cc7e002fe8b84ecb52f080193399c4be5addf230f9361782",
+      "size": 1510
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iuplua_mglplot.h",
+      "sha256": "7a9b284a45732b65e82cfd94349a8b184cc830e045416aeee50a97e526855ccb",
+      "size": 266
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iuplua_plot.h",
+      "sha256": "ed24dc697d0f7f357701b050014c4e2cc39d950ec3c1c19df11c422f379c698d",
+      "size": 255
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iuplua_scintilla.h",
+      "sha256": "5f192d4003f958d25060642bf380c4c12ac362ba82090c32be7d7364e61da7c4",
+      "size": 274
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluacontrols.h",
+      "sha256": "e37ea63a2a115d07445ea584a423d1a23f1bf1c2bcae26c0e7193775b8ad61c9",
+      "size": 267
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluafiledlg.h",
+      "sha256": "ec3c006d1ea222b329b4462e7522bec71ab60d7017af5779ba07bf6c528d6c8a",
+      "size": 269
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluagl.h",
+      "sha256": "fda37d35e76be5cc157158474a89cf380799dba59047a8f70503fb8035f33e48",
+      "size": 251
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluaglcontrols.h",
+      "sha256": "412ccd4f481b37335263330acf6f657e8afbf980c09e4e62107465751944636b",
+      "size": 275
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluaim.h",
+      "sha256": "fe1063ffbd11eb5a67c9337080b4356a33b0d164f55d3359396ab15918a69532",
+      "size": 252
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluaole.h",
+      "sha256": "480ac7d5686ad2bdb0a7ef81bb10716115e91a62c855716d110ade4ab8aff06a",
+      "size": 256
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluascripterdlg.h",
+      "sha256": "39992d5ca93ce31f08cd005c5945a37b66221f5d015eb32bd4774cef68ffd97b",
+      "size": 387
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluatuio.h",
+      "sha256": "8396dcbfafb8a22502416d8d92f102c6a65e8cefd86493c995f3b15bb7a51965",
+      "size": 253
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupluaweb.h",
+      "sha256": "8f5645f73da5f690d5d683c0d3e7c0d797c335000774784d69d809e75f29dd1f",
+      "size": 890
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupole.h",
+      "sha256": "1df68db211857d85fc20c9f14cd67fc6eec0b10794fa42ac93d35879cba2fc75",
+      "size": 853
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iuptuio.h",
+      "sha256": "15b65e9c4375aa026584b8349edd9a09c655b83c73568fc98b0eadc061bdea94",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/include/iupweb.h",
+      "sha256": "378cb0c9aaeea61b94d6698d4514cb3ac6cebc45246d35a7e93bd6aa15682740",
+      "size": 867
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/iup/iup.lib",
+      "sha256": "c4425aa6a666faf93ce29d130a9427f4cb27ee60abf2afd9dc653dfb65a576ee",
+      "size": 151490
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/bandwidth.c",
+      "sha256": "3cfbdbd7652008500d16887d2112fdf2abb7a33a903aa96ea8a34e59dcd6a23c",
+      "size": 15801
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/bandwidth.h",
+      "sha256": "d894d6a62f7aab225688243d3a8740b87375b51f548ec86fb4f7a17a2ba57154",
+      "size": 414
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/common.h",
+      "sha256": "c82c6f9d8a435eeeea9783639ab782d26dc986bd759f7776f144f7a86dfe0e03",
+      "size": 5281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/disconnect.c",
+      "sha256": "be2c1c072ce7cc5627c08eae43663a793b9b8208964457e6edc49ff63a331cf7",
+      "size": 2862
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/disconnect.h",
+      "sha256": "862dbdc78ff268e04bb741b7f1efab491226ee89d90d5332434d7f781c33a5fc",
+      "size": 264
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/divert.c",
+      "sha256": "913cfc6dc3ff19f8d5b23039da568a4757d49f9eee396853806ec89751815213",
+      "size": 15225
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/drop.c",
+      "sha256": "eb15884eed249090a0b646890b0b6eeaeb43cd0bc146c4f57b5165c72173acfa",
+      "size": 2831
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/drop.h",
+      "sha256": "66198a7648276da96f52ba0fa053e39e227d2bb0bb905fc6afc4f376ac7adc83",
+      "size": 279
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/duplicate.c",
+      "sha256": "9b3778bed14a8f140bcd5fdb0645b52c71c6a883246982d66de23f835eca3e1d",
+      "size": 3694
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/duplicate.h",
+      "sha256": "e828b87ff1ca40245505047d0ec97e870758a2e3c42057ae7b13642564c05acc",
+      "size": 362
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/elevate.c",
+      "sha256": "572585447e527670b6196a852202166021fe156b3852a4343b30a2a85033af40",
+      "size": 4960
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/ini.c",
+      "sha256": "217fa78f0380669c91a565f3e414d0a8be0f7a7fdfd1e3839f213e86aa574a95",
+      "size": 8370
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/ini.h",
+      "sha256": "b5342061a317f8cedd1103c10e241f74c16b5944d62deb9ab9e3e8a3f1ca4e5d",
+      "size": 5825
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/lag.c",
+      "sha256": "9eb404a90f4211eb69d08a102c1106250d64864cdc8d557a3cdeb7900f95e417",
+      "size": 4408
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/lag.h",
+      "sha256": "117712995b85ca55931865faaf2367f4aae40fb11bfdf00415a5feeab31f88ba",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/main.c",
+      "sha256": "86b2e633eecd40f76f90379c55490c0e4c8c8e0cdb0ad727abb0346c73baccfb",
+      "size": 81227
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/ood.c",
+      "sha256": "f1bdef81bfab4c415b2afddbd1f6295e20c0b49582702a89cdbc4bca8f6873e7",
+      "size": 5520
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/ood.h",
+      "sha256": "36ff6df980bcd0ce3f895d4549bf6b34206a2e1acef965bfdc8ccabe5bc6a9f0",
+      "size": 369
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/packet.c",
+      "sha256": "afbb3c5c67732834276515a19489d425f5e83c9e46b1587265f61d6aff7a65ca",
+      "size": 1876
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/reset.c",
+      "sha256": "7c190a2306f1ea220f594e5ea768f1d7527161ff95e218cbcbb69e9c0086903c",
+      "size": 4039
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/reset.h",
+      "sha256": "d56dffef7d72049e631a5fb07e5cafed688cdd35b4fdff17f565e302c98f85fb",
+      "size": 287
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/tamper.c",
+      "sha256": "eb281d1eba8ff8b0d38e8e206e0ac9345075308323f44adfff3b2fb992df08d5",
+      "size": 4911
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/tamper.h",
+      "sha256": "108c459bcc2a42dbc706a475c543983118fb3cc8e6c2ec2292cb52e2ef63d99e",
+      "size": 347
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/throttle.c",
+      "sha256": "9643e445b34aa9769ca8e628db4ca39073b0b1a19ba9acb8711732b60a9190a1",
+      "size": 6432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/throttle.h",
+      "sha256": "c39d03f8382a22ead36e19f2f617695311171fbabd6f7aa6498eabc682719f1d",
+      "size": 425
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/src/utils.c",
+      "sha256": "31725f91d3f787392e05952403069fd033b74a110b569778d2669dd58868ef41",
+      "size": 6312
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/windivert/LICENSE",
+      "sha256": "14a0cb5214d536e4fdae6aa3f5696f981eeda106cd026e9794bba489ee79d628",
+      "size": 61349
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/windivert/include/windivert.h",
+      "sha256": "5017a1768c1592fd664c0c2d3d2d30f81fad4ab98d322b1914c6f0a33fcacdf9",
+      "size": 20041
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/source/windivert/x64/WinDivert.lib",
+      "sha256": "4c289e96751cdfcca843a8e303f9503e00f0d9941fad45dd0cc83ebe41a68e02",
+      "size": 25422
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-c/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/clumsy-rebuilt.exe",
+      "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+      "size": 508416
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/link.log",
+      "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+      "size": 106
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/bandwidth.c.o",
+      "sha256": "f3ad755efe0c033194a563581cfa556796605bcab15470d7f7943b60f3acb81e",
+      "size": 10105
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/clumsy.res.o",
+      "sha256": "608f37059f6a2f484e0344363a263bcb32cddfb59071051b3c89ba2594f931de",
+      "size": 372888
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/disconnect.c.o",
+      "sha256": "d0f9c81d3cab911b968d18992c3f2c5b49f787854adf552354991f67fab1e479",
+      "size": 3088
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/divert.c.o",
+      "sha256": "5c37c6763fe1fdcc7d10075d6ff1220fd538e64c2ebc6f500d5a94d28ea4f42c",
+      "size": 6468
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/drop.c.o",
+      "sha256": "b729a1dbc976474f8bcecece2daca78a3de4a5be3014719f2e96c586635bb01d",
+      "size": 3668
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/duplicate.c.o",
+      "sha256": "55e431446105250e3e2d8d74afc1ae8047016bddeee1083396511287dda5a4eb",
+      "size": 4441
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/elevate.c.o",
+      "sha256": "be35c8d0d3d8e1d0667bca2c29f539451672c676fb7483b4f4338932f58c9d29",
+      "size": 3322
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/ini.c.o",
+      "sha256": "8205455563ac1176b25770c9e84a208a2203faf294af306926fbfdbf6e951ae7",
+      "size": 3350
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/lag.c.o",
+      "sha256": "3c2c07941e3eae9090792a13b4475950bc5bc576bfefcc41fbaa45c0f00da2c2",
+      "size": 4767
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/main.c.o",
+      "sha256": "119f8383c184f4a08461ef38d0648940f5e30828af5102f6b8f9e4238d343926",
+      "size": 47378
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/ood.c.o",
+      "sha256": "dc0cd60044a833654d44618bf7f4f4d707e2f4d10a6f0151ca5f1aacc9f9d8fc",
+      "size": 4314
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/packet.c.o",
+      "sha256": "8c4f2de88d86f9ccd8bcde1932a82a43d4194df42bd7835cca7a14dd118edda0",
+      "size": 1927
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/reset.c.o",
+      "sha256": "cce1bfdd163c9c4d6b2bc58a84b562af6c4fe86d576498f18aab1afe5a954c38",
+      "size": 4608
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/tamper.c.o",
+      "sha256": "66ff1d7b52ae80b8112153262b8d396a2199c7cbfdf45ca5d7f1f868e9da3d27",
+      "size": 5330
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/throttle.c.o",
+      "sha256": "6179e6a8a3b2682cd5472d31d0d97bdabd6b2f4751db5842268a7acc1d74c994",
+      "size": 6033
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/objects/utils.c.o",
+      "sha256": "2cebcf668bce5da4197531f112b8cb2081538b274db464c899f725b1c8597d5a",
+      "size": 4923
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/pe-inspection.log",
+      "sha256": "0f4b8c025d04cfd04bb7a6395183f236903194a42476132fb4213afed1adddc7",
+      "size": 8013
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/receipt.json",
+      "sha256": "6fc6d2c688a785a6c828c2abdb93a3992b3106bc088b405f109039f85beefaba",
+      "size": 49249
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/LICENSE",
+      "sha256": "5c768093df657779572e4def4780bf67f223e4295912e445e9c84b1fe6c6f75e",
+      "size": 1162
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/build.zig",
+      "sha256": "1081a93fb90db82d9760e068aa439ceb75fe25caaa816e0d229817c0db563424",
+      "size": 6418
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/chkstk.s",
+      "sha256": "187588361386e4c0bfb592a32243b3e32155448da0e15aa6d50781cf2e4d8d57",
+      "size": 395
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/clumsy-icon.ico",
+      "sha256": "956d5254c524a2f12c1bfd8979e854a278e4ab890ebad8065aba0173b5ed5ad2",
+      "size": 370070
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/clumsy-icon.png",
+      "sha256": "ec9fbecf651c8f2cc8137a27efdbc6497ae13ab292b24ee035fb023041b78bc0",
+      "size": 5273
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/clumsy.manifest",
+      "sha256": "1379134e46e470888aeda2de729d6ac5ab2c72df2342e26d5ed921ddc07d3499",
+      "size": 1681
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/clumsy.rc",
+      "sha256": "40fa432a990e55014f3ac90333a6aaaa0ab47bd795c3246b0a54ab654e07dd98",
+      "size": 1083
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/clumsy64.manifest",
+      "sha256": "a03e29ff2caa21e77b84f8e495e03d41b1d4fc1a2ada37113964b64b53b9b3bc",
+      "size": 1685
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/etc/config.txt",
+      "sha256": "3be24cf0ad7b16b85d3024c3b33f31338313d6a8509ebf47576429da2d74eea2",
+      "size": 1284
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/genie.lua",
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "size": 6427
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup.h",
+      "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+      "size": 25641
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_config.h",
+      "sha256": "1845dde604883e081db276aa4a770d6d84cc5d1484abd7692643c3e9fd29f87e",
+      "size": 2920
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_export.h",
+      "sha256": "3080f6e024cb07ef987f98155516490eb330624fb283c47e725bc6da9db05642",
+      "size": 2189
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_mglplot.h",
+      "sha256": "404e6034c04a05bcc20b2de93af3fc2e811d1b137e93808790ca8a08a575cf6f",
+      "size": 2820
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_plot.h",
+      "sha256": "9fb0b9a1558170f2462eb12eae86175feeb97dc0cbf15a0bd1ddb36662e890b8",
+      "size": 2792
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_plus.h",
+      "sha256": "b9675bcfaa9701545c208d423dc1b8f011c9d71125dff5e187ffbdc67a1a789c",
+      "size": 58462
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_scintilla.h",
+      "sha256": "3ea512635a98433a17d9f50771eb0719d4f27d4bda68844881d5f4c0327b0c3f",
+      "size": 432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iup_varg.h",
+      "sha256": "5ef859bfbc7cf525f365bf17d1975bc7afdcf52374c0510c3ae7b2bc4f8f7d47",
+      "size": 2097
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupcbs.h",
+      "sha256": "8f8494b33e400b67bc7f8f3683289b70eb4053f1aec08b339dad99bf281b9e85",
+      "size": 4796
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupcontrols.h",
+      "sha256": "330f245f971b3ff40f0d344f8bdc9e4a3932123ccf6c0779233e8ab1c56d5ace",
+      "size": 602
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupdef.h",
+      "sha256": "52195562ac5ae872186c07d695af943c98b0ba130c621d6b472b0374e47d201e",
+      "size": 22254
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupdraw.h",
+      "sha256": "1d9f1de7c126636c4d7dd609ae3f069835016c809cfa86ab04d0b964ad0172f6",
+      "size": 1667
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupdraw_cd.h",
+      "sha256": "3205cfeca6f200da38e4a09e6cf96af4df2db13ca5c8708fe62f187c941bd31d",
+      "size": 303
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupfiledlg.h",
+      "sha256": "723fb29050041338e45cce7113ab98b67babbe0853887a529b861ec974030b98",
+      "size": 333
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupgl.h",
+      "sha256": "96c9d5c65b86fc314e7a70f1ab5f74b77d1f33cf302a4d41dc01abeb8cb25f5d",
+      "size": 2575
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupglcontrols.h",
+      "sha256": "a814c3fa8d45129012a0df361262f16efc1056b7f42fa9bbc85cdc8041dde291",
+      "size": 1131
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupim.h",
+      "sha256": "835e744a72e1c376cd88367f1ab7fd95dc38722a8d2159f64395ee807ffc108d",
+      "size": 724
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupkey.h",
+      "sha256": "39f022465b84fde7114c7912e8c4cdeb5b51d2599fe7977d73b72c7a4c6a0278",
+      "size": 20306
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iuplua.h",
+      "sha256": "fda8201541b27301cc7e002fe8b84ecb52f080193399c4be5addf230f9361782",
+      "size": 1510
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iuplua_mglplot.h",
+      "sha256": "7a9b284a45732b65e82cfd94349a8b184cc830e045416aeee50a97e526855ccb",
+      "size": 266
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iuplua_plot.h",
+      "sha256": "ed24dc697d0f7f357701b050014c4e2cc39d950ec3c1c19df11c422f379c698d",
+      "size": 255
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iuplua_scintilla.h",
+      "sha256": "5f192d4003f958d25060642bf380c4c12ac362ba82090c32be7d7364e61da7c4",
+      "size": 274
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluacontrols.h",
+      "sha256": "e37ea63a2a115d07445ea584a423d1a23f1bf1c2bcae26c0e7193775b8ad61c9",
+      "size": 267
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluafiledlg.h",
+      "sha256": "ec3c006d1ea222b329b4462e7522bec71ab60d7017af5779ba07bf6c528d6c8a",
+      "size": 269
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluagl.h",
+      "sha256": "fda37d35e76be5cc157158474a89cf380799dba59047a8f70503fb8035f33e48",
+      "size": 251
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluaglcontrols.h",
+      "sha256": "412ccd4f481b37335263330acf6f657e8afbf980c09e4e62107465751944636b",
+      "size": 275
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluaim.h",
+      "sha256": "fe1063ffbd11eb5a67c9337080b4356a33b0d164f55d3359396ab15918a69532",
+      "size": 252
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluaole.h",
+      "sha256": "480ac7d5686ad2bdb0a7ef81bb10716115e91a62c855716d110ade4ab8aff06a",
+      "size": 256
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluascripterdlg.h",
+      "sha256": "39992d5ca93ce31f08cd005c5945a37b66221f5d015eb32bd4774cef68ffd97b",
+      "size": 387
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluatuio.h",
+      "sha256": "8396dcbfafb8a22502416d8d92f102c6a65e8cefd86493c995f3b15bb7a51965",
+      "size": 253
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupluaweb.h",
+      "sha256": "8f5645f73da5f690d5d683c0d3e7c0d797c335000774784d69d809e75f29dd1f",
+      "size": 890
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupole.h",
+      "sha256": "1df68db211857d85fc20c9f14cd67fc6eec0b10794fa42ac93d35879cba2fc75",
+      "size": 853
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iuptuio.h",
+      "sha256": "15b65e9c4375aa026584b8349edd9a09c655b83c73568fc98b0eadc061bdea94",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/include/iupweb.h",
+      "sha256": "378cb0c9aaeea61b94d6698d4514cb3ac6cebc45246d35a7e93bd6aa15682740",
+      "size": 867
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/iup/iup.lib",
+      "sha256": "c4425aa6a666faf93ce29d130a9427f4cb27ee60abf2afd9dc653dfb65a576ee",
+      "size": 151490
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/bandwidth.c",
+      "sha256": "3cfbdbd7652008500d16887d2112fdf2abb7a33a903aa96ea8a34e59dcd6a23c",
+      "size": 15801
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/bandwidth.h",
+      "sha256": "d894d6a62f7aab225688243d3a8740b87375b51f548ec86fb4f7a17a2ba57154",
+      "size": 414
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/common.h",
+      "sha256": "c82c6f9d8a435eeeea9783639ab782d26dc986bd759f7776f144f7a86dfe0e03",
+      "size": 5281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/disconnect.c",
+      "sha256": "be2c1c072ce7cc5627c08eae43663a793b9b8208964457e6edc49ff63a331cf7",
+      "size": 2862
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/disconnect.h",
+      "sha256": "862dbdc78ff268e04bb741b7f1efab491226ee89d90d5332434d7f781c33a5fc",
+      "size": 264
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/divert.c",
+      "sha256": "913cfc6dc3ff19f8d5b23039da568a4757d49f9eee396853806ec89751815213",
+      "size": 15225
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/drop.c",
+      "sha256": "eb15884eed249090a0b646890b0b6eeaeb43cd0bc146c4f57b5165c72173acfa",
+      "size": 2831
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/drop.h",
+      "sha256": "66198a7648276da96f52ba0fa053e39e227d2bb0bb905fc6afc4f376ac7adc83",
+      "size": 279
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/duplicate.c",
+      "sha256": "9b3778bed14a8f140bcd5fdb0645b52c71c6a883246982d66de23f835eca3e1d",
+      "size": 3694
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/duplicate.h",
+      "sha256": "e828b87ff1ca40245505047d0ec97e870758a2e3c42057ae7b13642564c05acc",
+      "size": 362
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/elevate.c",
+      "sha256": "572585447e527670b6196a852202166021fe156b3852a4343b30a2a85033af40",
+      "size": 4960
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/ini.c",
+      "sha256": "217fa78f0380669c91a565f3e414d0a8be0f7a7fdfd1e3839f213e86aa574a95",
+      "size": 8370
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/ini.h",
+      "sha256": "b5342061a317f8cedd1103c10e241f74c16b5944d62deb9ab9e3e8a3f1ca4e5d",
+      "size": 5825
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/lag.c",
+      "sha256": "9eb404a90f4211eb69d08a102c1106250d64864cdc8d557a3cdeb7900f95e417",
+      "size": 4408
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/lag.h",
+      "sha256": "117712995b85ca55931865faaf2367f4aae40fb11bfdf00415a5feeab31f88ba",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/main.c",
+      "sha256": "86b2e633eecd40f76f90379c55490c0e4c8c8e0cdb0ad727abb0346c73baccfb",
+      "size": 81227
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/ood.c",
+      "sha256": "f1bdef81bfab4c415b2afddbd1f6295e20c0b49582702a89cdbc4bca8f6873e7",
+      "size": 5520
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/ood.h",
+      "sha256": "36ff6df980bcd0ce3f895d4549bf6b34206a2e1acef965bfdc8ccabe5bc6a9f0",
+      "size": 369
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/packet.c",
+      "sha256": "afbb3c5c67732834276515a19489d425f5e83c9e46b1587265f61d6aff7a65ca",
+      "size": 1876
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/reset.c",
+      "sha256": "7c190a2306f1ea220f594e5ea768f1d7527161ff95e218cbcbb69e9c0086903c",
+      "size": 4039
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/reset.h",
+      "sha256": "d56dffef7d72049e631a5fb07e5cafed688cdd35b4fdff17f565e302c98f85fb",
+      "size": 287
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/tamper.c",
+      "sha256": "eb281d1eba8ff8b0d38e8e206e0ac9345075308323f44adfff3b2fb992df08d5",
+      "size": 4911
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/tamper.h",
+      "sha256": "108c459bcc2a42dbc706a475c543983118fb3cc8e6c2ec2292cb52e2ef63d99e",
+      "size": 347
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/throttle.c",
+      "sha256": "9643e445b34aa9769ca8e628db4ca39073b0b1a19ba9acb8711732b60a9190a1",
+      "size": 6432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/throttle.h",
+      "sha256": "c39d03f8382a22ead36e19f2f617695311171fbabd6f7aa6498eabc682719f1d",
+      "size": 425
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/src/utils.c",
+      "sha256": "31725f91d3f787392e05952403069fd033b74a110b569778d2669dd58868ef41",
+      "size": 6312
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/windivert/LICENSE",
+      "sha256": "14a0cb5214d536e4fdae6aa3f5696f981eeda106cd026e9794bba489ee79d628",
+      "size": 61349
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/windivert/include/windivert.h",
+      "sha256": "5017a1768c1592fd664c0c2d3d2d30f81fad4ab98d322b1914c6f0a33fcacdf9",
+      "size": 20041
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/source/windivert/x64/WinDivert.lib",
+      "sha256": "4c289e96751cdfcca843a8e303f9503e00f0d9941fad45dd0cc83ebe41a68e02",
+      "size": 25422
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/final-d/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/pre-job-snapshots/verified-a/scripts/native_rebuild/build_clumsy.py",
+      "sha256": "b6ee0cfd99becaf186fde3a7dc44293f3ff497a7d21f6fb5ca98cc66b94f4309",
+      "size": 11580
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/pre-job-snapshots/verified-a/scripts/native_rebuild/common.py",
+      "sha256": "a0ddeec87a67a7e50ae8678f0bd7c72d5e543c6573434a3a1c92634018d07548",
+      "size": 7879
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/pre-job-snapshots/verified-b/scripts/native_rebuild/build_clumsy.py",
+      "sha256": "b6ee0cfd99becaf186fde3a7dc44293f3ff497a7d21f6fb5ca98cc66b94f4309",
+      "size": 11580
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/pre-job-snapshots/verified-b/scripts/native_rebuild/common.py",
+      "sha256": "a0ddeec87a67a7e50ae8678f0bd7c72d5e543c6573434a3a1c92634018d07548",
+      "size": 7879
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/clumsy-rebuilt.exe",
+      "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+      "size": 508416
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/link.log",
+      "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+      "size": 106
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/bandwidth.c.o",
+      "sha256": "f3ad755efe0c033194a563581cfa556796605bcab15470d7f7943b60f3acb81e",
+      "size": 10105
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/clumsy.res.o",
+      "sha256": "608f37059f6a2f484e0344363a263bcb32cddfb59071051b3c89ba2594f931de",
+      "size": 372888
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/disconnect.c.o",
+      "sha256": "d0f9c81d3cab911b968d18992c3f2c5b49f787854adf552354991f67fab1e479",
+      "size": 3088
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/divert.c.o",
+      "sha256": "5c37c6763fe1fdcc7d10075d6ff1220fd538e64c2ebc6f500d5a94d28ea4f42c",
+      "size": 6468
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/drop.c.o",
+      "sha256": "b729a1dbc976474f8bcecece2daca78a3de4a5be3014719f2e96c586635bb01d",
+      "size": 3668
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/duplicate.c.o",
+      "sha256": "55e431446105250e3e2d8d74afc1ae8047016bddeee1083396511287dda5a4eb",
+      "size": 4441
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/elevate.c.o",
+      "sha256": "be35c8d0d3d8e1d0667bca2c29f539451672c676fb7483b4f4338932f58c9d29",
+      "size": 3322
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/ini.c.o",
+      "sha256": "8205455563ac1176b25770c9e84a208a2203faf294af306926fbfdbf6e951ae7",
+      "size": 3350
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/lag.c.o",
+      "sha256": "3c2c07941e3eae9090792a13b4475950bc5bc576bfefcc41fbaa45c0f00da2c2",
+      "size": 4767
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/main.c.o",
+      "sha256": "119f8383c184f4a08461ef38d0648940f5e30828af5102f6b8f9e4238d343926",
+      "size": 47378
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/ood.c.o",
+      "sha256": "dc0cd60044a833654d44618bf7f4f4d707e2f4d10a6f0151ca5f1aacc9f9d8fc",
+      "size": 4314
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/packet.c.o",
+      "sha256": "8c4f2de88d86f9ccd8bcde1932a82a43d4194df42bd7835cca7a14dd118edda0",
+      "size": 1927
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/reset.c.o",
+      "sha256": "cce1bfdd163c9c4d6b2bc58a84b562af6c4fe86d576498f18aab1afe5a954c38",
+      "size": 4608
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/tamper.c.o",
+      "sha256": "66ff1d7b52ae80b8112153262b8d396a2199c7cbfdf45ca5d7f1f868e9da3d27",
+      "size": 5330
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/throttle.c.o",
+      "sha256": "6179e6a8a3b2682cd5472d31d0d97bdabd6b2f4751db5842268a7acc1d74c994",
+      "size": 6033
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/objects/utils.c.o",
+      "sha256": "2cebcf668bce5da4197531f112b8cb2081538b274db464c899f725b1c8597d5a",
+      "size": 4923
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/pe-inspection.log",
+      "sha256": "298c3d16b1a8e38eac65e73665a45bc37e6b4c7186b20fc266bf1a72aa29ac16",
+      "size": 8016
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/receipt.json",
+      "sha256": "086900414b86fd6b67099c6663d7f16e8cd40906077241b8ecae20a26bea93cf",
+      "size": 45570
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/LICENSE",
+      "sha256": "5c768093df657779572e4def4780bf67f223e4295912e445e9c84b1fe6c6f75e",
+      "size": 1162
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/build.zig",
+      "sha256": "1081a93fb90db82d9760e068aa439ceb75fe25caaa816e0d229817c0db563424",
+      "size": 6418
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/chkstk.s",
+      "sha256": "187588361386e4c0bfb592a32243b3e32155448da0e15aa6d50781cf2e4d8d57",
+      "size": 395
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/clumsy-icon.ico",
+      "sha256": "956d5254c524a2f12c1bfd8979e854a278e4ab890ebad8065aba0173b5ed5ad2",
+      "size": 370070
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/clumsy-icon.png",
+      "sha256": "ec9fbecf651c8f2cc8137a27efdbc6497ae13ab292b24ee035fb023041b78bc0",
+      "size": 5273
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/clumsy.manifest",
+      "sha256": "1379134e46e470888aeda2de729d6ac5ab2c72df2342e26d5ed921ddc07d3499",
+      "size": 1681
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/clumsy.rc",
+      "sha256": "40fa432a990e55014f3ac90333a6aaaa0ab47bd795c3246b0a54ab654e07dd98",
+      "size": 1083
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/clumsy64.manifest",
+      "sha256": "a03e29ff2caa21e77b84f8e495e03d41b1d4fc1a2ada37113964b64b53b9b3bc",
+      "size": 1685
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/etc/config.txt",
+      "sha256": "3be24cf0ad7b16b85d3024c3b33f31338313d6a8509ebf47576429da2d74eea2",
+      "size": 1284
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/genie.lua",
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "size": 6427
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup.h",
+      "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+      "size": 25641
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_config.h",
+      "sha256": "1845dde604883e081db276aa4a770d6d84cc5d1484abd7692643c3e9fd29f87e",
+      "size": 2920
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_export.h",
+      "sha256": "3080f6e024cb07ef987f98155516490eb330624fb283c47e725bc6da9db05642",
+      "size": 2189
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_mglplot.h",
+      "sha256": "404e6034c04a05bcc20b2de93af3fc2e811d1b137e93808790ca8a08a575cf6f",
+      "size": 2820
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_plot.h",
+      "sha256": "9fb0b9a1558170f2462eb12eae86175feeb97dc0cbf15a0bd1ddb36662e890b8",
+      "size": 2792
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_plus.h",
+      "sha256": "b9675bcfaa9701545c208d423dc1b8f011c9d71125dff5e187ffbdc67a1a789c",
+      "size": 58462
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_scintilla.h",
+      "sha256": "3ea512635a98433a17d9f50771eb0719d4f27d4bda68844881d5f4c0327b0c3f",
+      "size": 432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iup_varg.h",
+      "sha256": "5ef859bfbc7cf525f365bf17d1975bc7afdcf52374c0510c3ae7b2bc4f8f7d47",
+      "size": 2097
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupcbs.h",
+      "sha256": "8f8494b33e400b67bc7f8f3683289b70eb4053f1aec08b339dad99bf281b9e85",
+      "size": 4796
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupcontrols.h",
+      "sha256": "330f245f971b3ff40f0d344f8bdc9e4a3932123ccf6c0779233e8ab1c56d5ace",
+      "size": 602
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupdef.h",
+      "sha256": "52195562ac5ae872186c07d695af943c98b0ba130c621d6b472b0374e47d201e",
+      "size": 22254
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupdraw.h",
+      "sha256": "1d9f1de7c126636c4d7dd609ae3f069835016c809cfa86ab04d0b964ad0172f6",
+      "size": 1667
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupdraw_cd.h",
+      "sha256": "3205cfeca6f200da38e4a09e6cf96af4df2db13ca5c8708fe62f187c941bd31d",
+      "size": 303
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupfiledlg.h",
+      "sha256": "723fb29050041338e45cce7113ab98b67babbe0853887a529b861ec974030b98",
+      "size": 333
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupgl.h",
+      "sha256": "96c9d5c65b86fc314e7a70f1ab5f74b77d1f33cf302a4d41dc01abeb8cb25f5d",
+      "size": 2575
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupglcontrols.h",
+      "sha256": "a814c3fa8d45129012a0df361262f16efc1056b7f42fa9bbc85cdc8041dde291",
+      "size": 1131
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupim.h",
+      "sha256": "835e744a72e1c376cd88367f1ab7fd95dc38722a8d2159f64395ee807ffc108d",
+      "size": 724
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupkey.h",
+      "sha256": "39f022465b84fde7114c7912e8c4cdeb5b51d2599fe7977d73b72c7a4c6a0278",
+      "size": 20306
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iuplua.h",
+      "sha256": "fda8201541b27301cc7e002fe8b84ecb52f080193399c4be5addf230f9361782",
+      "size": 1510
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iuplua_mglplot.h",
+      "sha256": "7a9b284a45732b65e82cfd94349a8b184cc830e045416aeee50a97e526855ccb",
+      "size": 266
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iuplua_plot.h",
+      "sha256": "ed24dc697d0f7f357701b050014c4e2cc39d950ec3c1c19df11c422f379c698d",
+      "size": 255
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iuplua_scintilla.h",
+      "sha256": "5f192d4003f958d25060642bf380c4c12ac362ba82090c32be7d7364e61da7c4",
+      "size": 274
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluacontrols.h",
+      "sha256": "e37ea63a2a115d07445ea584a423d1a23f1bf1c2bcae26c0e7193775b8ad61c9",
+      "size": 267
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluafiledlg.h",
+      "sha256": "ec3c006d1ea222b329b4462e7522bec71ab60d7017af5779ba07bf6c528d6c8a",
+      "size": 269
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluagl.h",
+      "sha256": "fda37d35e76be5cc157158474a89cf380799dba59047a8f70503fb8035f33e48",
+      "size": 251
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluaglcontrols.h",
+      "sha256": "412ccd4f481b37335263330acf6f657e8afbf980c09e4e62107465751944636b",
+      "size": 275
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluaim.h",
+      "sha256": "fe1063ffbd11eb5a67c9337080b4356a33b0d164f55d3359396ab15918a69532",
+      "size": 252
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluaole.h",
+      "sha256": "480ac7d5686ad2bdb0a7ef81bb10716115e91a62c855716d110ade4ab8aff06a",
+      "size": 256
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluascripterdlg.h",
+      "sha256": "39992d5ca93ce31f08cd005c5945a37b66221f5d015eb32bd4774cef68ffd97b",
+      "size": 387
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluatuio.h",
+      "sha256": "8396dcbfafb8a22502416d8d92f102c6a65e8cefd86493c995f3b15bb7a51965",
+      "size": 253
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupluaweb.h",
+      "sha256": "8f5645f73da5f690d5d683c0d3e7c0d797c335000774784d69d809e75f29dd1f",
+      "size": 890
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupole.h",
+      "sha256": "1df68db211857d85fc20c9f14cd67fc6eec0b10794fa42ac93d35879cba2fc75",
+      "size": 853
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iuptuio.h",
+      "sha256": "15b65e9c4375aa026584b8349edd9a09c655b83c73568fc98b0eadc061bdea94",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/include/iupweb.h",
+      "sha256": "378cb0c9aaeea61b94d6698d4514cb3ac6cebc45246d35a7e93bd6aa15682740",
+      "size": 867
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/iup/iup.lib",
+      "sha256": "c4425aa6a666faf93ce29d130a9427f4cb27ee60abf2afd9dc653dfb65a576ee",
+      "size": 151490
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/bandwidth.c",
+      "sha256": "3cfbdbd7652008500d16887d2112fdf2abb7a33a903aa96ea8a34e59dcd6a23c",
+      "size": 15801
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/bandwidth.h",
+      "sha256": "d894d6a62f7aab225688243d3a8740b87375b51f548ec86fb4f7a17a2ba57154",
+      "size": 414
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/common.h",
+      "sha256": "c82c6f9d8a435eeeea9783639ab782d26dc986bd759f7776f144f7a86dfe0e03",
+      "size": 5281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/disconnect.c",
+      "sha256": "be2c1c072ce7cc5627c08eae43663a793b9b8208964457e6edc49ff63a331cf7",
+      "size": 2862
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/disconnect.h",
+      "sha256": "862dbdc78ff268e04bb741b7f1efab491226ee89d90d5332434d7f781c33a5fc",
+      "size": 264
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/divert.c",
+      "sha256": "913cfc6dc3ff19f8d5b23039da568a4757d49f9eee396853806ec89751815213",
+      "size": 15225
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/drop.c",
+      "sha256": "eb15884eed249090a0b646890b0b6eeaeb43cd0bc146c4f57b5165c72173acfa",
+      "size": 2831
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/drop.h",
+      "sha256": "66198a7648276da96f52ba0fa053e39e227d2bb0bb905fc6afc4f376ac7adc83",
+      "size": 279
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/duplicate.c",
+      "sha256": "9b3778bed14a8f140bcd5fdb0645b52c71c6a883246982d66de23f835eca3e1d",
+      "size": 3694
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/duplicate.h",
+      "sha256": "e828b87ff1ca40245505047d0ec97e870758a2e3c42057ae7b13642564c05acc",
+      "size": 362
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/elevate.c",
+      "sha256": "572585447e527670b6196a852202166021fe156b3852a4343b30a2a85033af40",
+      "size": 4960
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/ini.c",
+      "sha256": "217fa78f0380669c91a565f3e414d0a8be0f7a7fdfd1e3839f213e86aa574a95",
+      "size": 8370
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/ini.h",
+      "sha256": "b5342061a317f8cedd1103c10e241f74c16b5944d62deb9ab9e3e8a3f1ca4e5d",
+      "size": 5825
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/lag.c",
+      "sha256": "9eb404a90f4211eb69d08a102c1106250d64864cdc8d557a3cdeb7900f95e417",
+      "size": 4408
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/lag.h",
+      "sha256": "117712995b85ca55931865faaf2367f4aae40fb11bfdf00415a5feeab31f88ba",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/main.c",
+      "sha256": "86b2e633eecd40f76f90379c55490c0e4c8c8e0cdb0ad727abb0346c73baccfb",
+      "size": 81227
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/ood.c",
+      "sha256": "f1bdef81bfab4c415b2afddbd1f6295e20c0b49582702a89cdbc4bca8f6873e7",
+      "size": 5520
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/ood.h",
+      "sha256": "36ff6df980bcd0ce3f895d4549bf6b34206a2e1acef965bfdc8ccabe5bc6a9f0",
+      "size": 369
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/packet.c",
+      "sha256": "afbb3c5c67732834276515a19489d425f5e83c9e46b1587265f61d6aff7a65ca",
+      "size": 1876
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/reset.c",
+      "sha256": "7c190a2306f1ea220f594e5ea768f1d7527161ff95e218cbcbb69e9c0086903c",
+      "size": 4039
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/reset.h",
+      "sha256": "d56dffef7d72049e631a5fb07e5cafed688cdd35b4fdff17f565e302c98f85fb",
+      "size": 287
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/tamper.c",
+      "sha256": "eb281d1eba8ff8b0d38e8e206e0ac9345075308323f44adfff3b2fb992df08d5",
+      "size": 4911
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/tamper.h",
+      "sha256": "108c459bcc2a42dbc706a475c543983118fb3cc8e6c2ec2292cb52e2ef63d99e",
+      "size": 347
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/throttle.c",
+      "sha256": "9643e445b34aa9769ca8e628db4ca39073b0b1a19ba9acb8711732b60a9190a1",
+      "size": 6432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/throttle.h",
+      "sha256": "c39d03f8382a22ead36e19f2f617695311171fbabd6f7aa6498eabc682719f1d",
+      "size": 425
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/src/utils.c",
+      "sha256": "31725f91d3f787392e05952403069fd033b74a110b569778d2669dd58868ef41",
+      "size": 6312
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/windivert/LICENSE",
+      "sha256": "14a0cb5214d536e4fdae6aa3f5696f981eeda106cd026e9794bba489ee79d628",
+      "size": 61349
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/windivert/include/windivert.h",
+      "sha256": "5017a1768c1592fd664c0c2d3d2d30f81fad4ab98d322b1914c6f0a33fcacdf9",
+      "size": 20041
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/source/windivert/x64/WinDivert.lib",
+      "sha256": "4c289e96751cdfcca843a8e303f9503e00f0d9941fad45dd0cc83ebe41a68e02",
+      "size": 25422
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-a/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/bandwidth.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/clumsy-rebuilt.exe",
+      "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+      "size": 508416
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/compiler-version.log",
+      "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+      "size": 281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/disconnect.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/divert.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/drop.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/duplicate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/elevate.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/ini.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/lag.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/link.log",
+      "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+      "size": 106
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/main.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/bandwidth.c.o",
+      "sha256": "f3ad755efe0c033194a563581cfa556796605bcab15470d7f7943b60f3acb81e",
+      "size": 10105
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/clumsy.res.o",
+      "sha256": "608f37059f6a2f484e0344363a263bcb32cddfb59071051b3c89ba2594f931de",
+      "size": 372888
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/disconnect.c.o",
+      "sha256": "d0f9c81d3cab911b968d18992c3f2c5b49f787854adf552354991f67fab1e479",
+      "size": 3088
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/divert.c.o",
+      "sha256": "5c37c6763fe1fdcc7d10075d6ff1220fd538e64c2ebc6f500d5a94d28ea4f42c",
+      "size": 6468
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/drop.c.o",
+      "sha256": "b729a1dbc976474f8bcecece2daca78a3de4a5be3014719f2e96c586635bb01d",
+      "size": 3668
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/duplicate.c.o",
+      "sha256": "55e431446105250e3e2d8d74afc1ae8047016bddeee1083396511287dda5a4eb",
+      "size": 4441
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/elevate.c.o",
+      "sha256": "be35c8d0d3d8e1d0667bca2c29f539451672c676fb7483b4f4338932f58c9d29",
+      "size": 3322
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/ini.c.o",
+      "sha256": "8205455563ac1176b25770c9e84a208a2203faf294af306926fbfdbf6e951ae7",
+      "size": 3350
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/lag.c.o",
+      "sha256": "3c2c07941e3eae9090792a13b4475950bc5bc576bfefcc41fbaa45c0f00da2c2",
+      "size": 4767
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/main.c.o",
+      "sha256": "119f8383c184f4a08461ef38d0648940f5e30828af5102f6b8f9e4238d343926",
+      "size": 47378
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/ood.c.o",
+      "sha256": "dc0cd60044a833654d44618bf7f4f4d707e2f4d10a6f0151ca5f1aacc9f9d8fc",
+      "size": 4314
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/packet.c.o",
+      "sha256": "8c4f2de88d86f9ccd8bcde1932a82a43d4194df42bd7835cca7a14dd118edda0",
+      "size": 1927
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/reset.c.o",
+      "sha256": "cce1bfdd163c9c4d6b2bc58a84b562af6c4fe86d576498f18aab1afe5a954c38",
+      "size": 4608
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/tamper.c.o",
+      "sha256": "66ff1d7b52ae80b8112153262b8d396a2199c7cbfdf45ca5d7f1f868e9da3d27",
+      "size": 5330
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/throttle.c.o",
+      "sha256": "6179e6a8a3b2682cd5472d31d0d97bdabd6b2f4751db5842268a7acc1d74c994",
+      "size": 6033
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/objects/utils.c.o",
+      "sha256": "2cebcf668bce5da4197531f112b8cb2081538b274db464c899f725b1c8597d5a",
+      "size": 4923
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/ood.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/packet.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/pe-inspection.log",
+      "sha256": "55d6f1262980f65728a59509f83f30bef827a198645befd5671c2613f4452387",
+      "size": 8016
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/receipt.json",
+      "sha256": "0ca102642e2048b72945fabde4016bedd2d30377d85a66558d604c27d48dfffa",
+      "size": 45570
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/reset.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/resource.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/LICENSE",
+      "sha256": "5c768093df657779572e4def4780bf67f223e4295912e445e9c84b1fe6c6f75e",
+      "size": 1162
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/build.zig",
+      "sha256": "1081a93fb90db82d9760e068aa439ceb75fe25caaa816e0d229817c0db563424",
+      "size": 6418
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/chkstk.s",
+      "sha256": "187588361386e4c0bfb592a32243b3e32155448da0e15aa6d50781cf2e4d8d57",
+      "size": 395
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/clumsy-icon.ico",
+      "sha256": "956d5254c524a2f12c1bfd8979e854a278e4ab890ebad8065aba0173b5ed5ad2",
+      "size": 370070
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/clumsy-icon.png",
+      "sha256": "ec9fbecf651c8f2cc8137a27efdbc6497ae13ab292b24ee035fb023041b78bc0",
+      "size": 5273
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/clumsy.manifest",
+      "sha256": "1379134e46e470888aeda2de729d6ac5ab2c72df2342e26d5ed921ddc07d3499",
+      "size": 1681
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/clumsy.rc",
+      "sha256": "40fa432a990e55014f3ac90333a6aaaa0ab47bd795c3246b0a54ab654e07dd98",
+      "size": 1083
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/clumsy64.manifest",
+      "sha256": "a03e29ff2caa21e77b84f8e495e03d41b1d4fc1a2ada37113964b64b53b9b3bc",
+      "size": 1685
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/etc/config.txt",
+      "sha256": "3be24cf0ad7b16b85d3024c3b33f31338313d6a8509ebf47576429da2d74eea2",
+      "size": 1284
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/genie.lua",
+      "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+      "size": 6427
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup.h",
+      "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+      "size": 25641
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_config.h",
+      "sha256": "1845dde604883e081db276aa4a770d6d84cc5d1484abd7692643c3e9fd29f87e",
+      "size": 2920
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_export.h",
+      "sha256": "3080f6e024cb07ef987f98155516490eb330624fb283c47e725bc6da9db05642",
+      "size": 2189
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_mglplot.h",
+      "sha256": "404e6034c04a05bcc20b2de93af3fc2e811d1b137e93808790ca8a08a575cf6f",
+      "size": 2820
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_plot.h",
+      "sha256": "9fb0b9a1558170f2462eb12eae86175feeb97dc0cbf15a0bd1ddb36662e890b8",
+      "size": 2792
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_plus.h",
+      "sha256": "b9675bcfaa9701545c208d423dc1b8f011c9d71125dff5e187ffbdc67a1a789c",
+      "size": 58462
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_scintilla.h",
+      "sha256": "3ea512635a98433a17d9f50771eb0719d4f27d4bda68844881d5f4c0327b0c3f",
+      "size": 432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iup_varg.h",
+      "sha256": "5ef859bfbc7cf525f365bf17d1975bc7afdcf52374c0510c3ae7b2bc4f8f7d47",
+      "size": 2097
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupcbs.h",
+      "sha256": "8f8494b33e400b67bc7f8f3683289b70eb4053f1aec08b339dad99bf281b9e85",
+      "size": 4796
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupcontrols.h",
+      "sha256": "330f245f971b3ff40f0d344f8bdc9e4a3932123ccf6c0779233e8ab1c56d5ace",
+      "size": 602
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupdef.h",
+      "sha256": "52195562ac5ae872186c07d695af943c98b0ba130c621d6b472b0374e47d201e",
+      "size": 22254
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupdraw.h",
+      "sha256": "1d9f1de7c126636c4d7dd609ae3f069835016c809cfa86ab04d0b964ad0172f6",
+      "size": 1667
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupdraw_cd.h",
+      "sha256": "3205cfeca6f200da38e4a09e6cf96af4df2db13ca5c8708fe62f187c941bd31d",
+      "size": 303
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupfiledlg.h",
+      "sha256": "723fb29050041338e45cce7113ab98b67babbe0853887a529b861ec974030b98",
+      "size": 333
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupgl.h",
+      "sha256": "96c9d5c65b86fc314e7a70f1ab5f74b77d1f33cf302a4d41dc01abeb8cb25f5d",
+      "size": 2575
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupglcontrols.h",
+      "sha256": "a814c3fa8d45129012a0df361262f16efc1056b7f42fa9bbc85cdc8041dde291",
+      "size": 1131
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupim.h",
+      "sha256": "835e744a72e1c376cd88367f1ab7fd95dc38722a8d2159f64395ee807ffc108d",
+      "size": 724
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupkey.h",
+      "sha256": "39f022465b84fde7114c7912e8c4cdeb5b51d2599fe7977d73b72c7a4c6a0278",
+      "size": 20306
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iuplua.h",
+      "sha256": "fda8201541b27301cc7e002fe8b84ecb52f080193399c4be5addf230f9361782",
+      "size": 1510
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iuplua_mglplot.h",
+      "sha256": "7a9b284a45732b65e82cfd94349a8b184cc830e045416aeee50a97e526855ccb",
+      "size": 266
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iuplua_plot.h",
+      "sha256": "ed24dc697d0f7f357701b050014c4e2cc39d950ec3c1c19df11c422f379c698d",
+      "size": 255
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iuplua_scintilla.h",
+      "sha256": "5f192d4003f958d25060642bf380c4c12ac362ba82090c32be7d7364e61da7c4",
+      "size": 274
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluacontrols.h",
+      "sha256": "e37ea63a2a115d07445ea584a423d1a23f1bf1c2bcae26c0e7193775b8ad61c9",
+      "size": 267
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluafiledlg.h",
+      "sha256": "ec3c006d1ea222b329b4462e7522bec71ab60d7017af5779ba07bf6c528d6c8a",
+      "size": 269
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluagl.h",
+      "sha256": "fda37d35e76be5cc157158474a89cf380799dba59047a8f70503fb8035f33e48",
+      "size": 251
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluaglcontrols.h",
+      "sha256": "412ccd4f481b37335263330acf6f657e8afbf980c09e4e62107465751944636b",
+      "size": 275
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluaim.h",
+      "sha256": "fe1063ffbd11eb5a67c9337080b4356a33b0d164f55d3359396ab15918a69532",
+      "size": 252
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluaole.h",
+      "sha256": "480ac7d5686ad2bdb0a7ef81bb10716115e91a62c855716d110ade4ab8aff06a",
+      "size": 256
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluascripterdlg.h",
+      "sha256": "39992d5ca93ce31f08cd005c5945a37b66221f5d015eb32bd4774cef68ffd97b",
+      "size": 387
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluatuio.h",
+      "sha256": "8396dcbfafb8a22502416d8d92f102c6a65e8cefd86493c995f3b15bb7a51965",
+      "size": 253
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupluaweb.h",
+      "sha256": "8f5645f73da5f690d5d683c0d3e7c0d797c335000774784d69d809e75f29dd1f",
+      "size": 890
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupole.h",
+      "sha256": "1df68db211857d85fc20c9f14cd67fc6eec0b10794fa42ac93d35879cba2fc75",
+      "size": 853
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iuptuio.h",
+      "sha256": "15b65e9c4375aa026584b8349edd9a09c655b83c73568fc98b0eadc061bdea94",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/include/iupweb.h",
+      "sha256": "378cb0c9aaeea61b94d6698d4514cb3ac6cebc45246d35a7e93bd6aa15682740",
+      "size": 867
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/iup/iup.lib",
+      "sha256": "c4425aa6a666faf93ce29d130a9427f4cb27ee60abf2afd9dc653dfb65a576ee",
+      "size": 151490
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/bandwidth.c",
+      "sha256": "3cfbdbd7652008500d16887d2112fdf2abb7a33a903aa96ea8a34e59dcd6a23c",
+      "size": 15801
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/bandwidth.h",
+      "sha256": "d894d6a62f7aab225688243d3a8740b87375b51f548ec86fb4f7a17a2ba57154",
+      "size": 414
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/common.h",
+      "sha256": "c82c6f9d8a435eeeea9783639ab782d26dc986bd759f7776f144f7a86dfe0e03",
+      "size": 5281
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/disconnect.c",
+      "sha256": "be2c1c072ce7cc5627c08eae43663a793b9b8208964457e6edc49ff63a331cf7",
+      "size": 2862
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/disconnect.h",
+      "sha256": "862dbdc78ff268e04bb741b7f1efab491226ee89d90d5332434d7f781c33a5fc",
+      "size": 264
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/divert.c",
+      "sha256": "913cfc6dc3ff19f8d5b23039da568a4757d49f9eee396853806ec89751815213",
+      "size": 15225
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/drop.c",
+      "sha256": "eb15884eed249090a0b646890b0b6eeaeb43cd0bc146c4f57b5165c72173acfa",
+      "size": 2831
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/drop.h",
+      "sha256": "66198a7648276da96f52ba0fa053e39e227d2bb0bb905fc6afc4f376ac7adc83",
+      "size": 279
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/duplicate.c",
+      "sha256": "9b3778bed14a8f140bcd5fdb0645b52c71c6a883246982d66de23f835eca3e1d",
+      "size": 3694
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/duplicate.h",
+      "sha256": "e828b87ff1ca40245505047d0ec97e870758a2e3c42057ae7b13642564c05acc",
+      "size": 362
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/elevate.c",
+      "sha256": "572585447e527670b6196a852202166021fe156b3852a4343b30a2a85033af40",
+      "size": 4960
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/ini.c",
+      "sha256": "217fa78f0380669c91a565f3e414d0a8be0f7a7fdfd1e3839f213e86aa574a95",
+      "size": 8370
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/ini.h",
+      "sha256": "b5342061a317f8cedd1103c10e241f74c16b5944d62deb9ab9e3e8a3f1ca4e5d",
+      "size": 5825
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/lag.c",
+      "sha256": "9eb404a90f4211eb69d08a102c1106250d64864cdc8d557a3cdeb7900f95e417",
+      "size": 4408
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/lag.h",
+      "sha256": "117712995b85ca55931865faaf2367f4aae40fb11bfdf00415a5feeab31f88ba",
+      "size": 272
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/main.c",
+      "sha256": "86b2e633eecd40f76f90379c55490c0e4c8c8e0cdb0ad727abb0346c73baccfb",
+      "size": 81227
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/ood.c",
+      "sha256": "f1bdef81bfab4c415b2afddbd1f6295e20c0b49582702a89cdbc4bca8f6873e7",
+      "size": 5520
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/ood.h",
+      "sha256": "36ff6df980bcd0ce3f895d4549bf6b34206a2e1acef965bfdc8ccabe5bc6a9f0",
+      "size": 369
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/packet.c",
+      "sha256": "afbb3c5c67732834276515a19489d425f5e83c9e46b1587265f61d6aff7a65ca",
+      "size": 1876
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/reset.c",
+      "sha256": "7c190a2306f1ea220f594e5ea768f1d7527161ff95e218cbcbb69e9c0086903c",
+      "size": 4039
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/reset.h",
+      "sha256": "d56dffef7d72049e631a5fb07e5cafed688cdd35b4fdff17f565e302c98f85fb",
+      "size": 287
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/tamper.c",
+      "sha256": "eb281d1eba8ff8b0d38e8e206e0ac9345075308323f44adfff3b2fb992df08d5",
+      "size": 4911
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/tamper.h",
+      "sha256": "108c459bcc2a42dbc706a475c543983118fb3cc8e6c2ec2292cb52e2ef63d99e",
+      "size": 347
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/throttle.c",
+      "sha256": "9643e445b34aa9769ca8e628db4ca39073b0b1a19ba9acb8711732b60a9190a1",
+      "size": 6432
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/throttle.h",
+      "sha256": "c39d03f8382a22ead36e19f2f617695311171fbabd6f7aa6498eabc682719f1d",
+      "size": 425
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/src/utils.c",
+      "sha256": "31725f91d3f787392e05952403069fd033b74a110b569778d2669dd58868ef41",
+      "size": 6312
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/windivert/LICENSE",
+      "sha256": "14a0cb5214d536e4fdae6aa3f5696f981eeda106cd026e9794bba489ee79d628",
+      "size": 61349
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/windivert/include/windivert.h",
+      "sha256": "5017a1768c1592fd664c0c2d3d2d30f81fad4ab98d322b1914c6f0a33fcacdf9",
+      "size": 20041
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/source/windivert/x64/WinDivert.lib",
+      "sha256": "4c289e96751cdfcca843a8e303f9503e00f0d9941fad45dd0cc83ebe41a68e02",
+      "size": 25422
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/tamper.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/throttle.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/clumsy-native-rebuild-20261124/verified-b/utils.c.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "build/native-compilation-20261124/inputs/llvm-mingw-20261117-ucrt-x86_64.zip",
+      "sha256": "4d002e330a0f703625aa5ccbc37e96f8f824413e163bfc7336774aabd2c3a412",
+      "size": 191082415
+    },
+    {
+      "path": "build/native-compilation-20261124/toolchain-acquisition.json",
+      "sha256": "f73cd4acf2280e3cf5aaddfc56bf47bb31f78845e1fbada2a0affa04b6294b50",
+      "size": 1236
+    },
+    {
+      "path": "build/native-compilation-20261124/toolchain-inventory.json",
+      "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e",
+      "size": 2125303
+    },
+    {
+      "path": "build/native-source-mapping-20261025/archives/WinDivert-2.2.0-A.zip",
+      "sha256": "2a7630aac0914746fbc565ac862fa096e3e54233883ac52d17c83107496b7a7f",
+      "size": 394610
+    },
+    {
+      "path": "build/native-source-mapping-20261025/archives/iup-3.30_Win64_dll16_lib.zip",
+      "sha256": "10b7ea192c3fb6ca7493472ddbbffcbb4888b41053964e45802e171aa6f2e37c",
+      "size": 4323648
+    },
+    {
+      "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+      "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+      "size": 74766
+    },
+    {
+      "path": "build/source-delivery-20261024/archives/clumsy-0.3.4-bc87e73066168520d76122c9165e99ea703b166c.zip",
+      "sha256": "b641300d1f9c6b3be1699ea9f9222052f212b116f2c72ad18ad8f687f63337bb",
+      "size": 18533657
+    },
+    {
+      "path": "packaging/requirements-build-locked.txt",
+      "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+      "size": 2733
+    },
+    {
+      "path": "scripts/native_rebuild/build_clumsy.py",
+      "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+      "size": 12006
+    },
+    {
+      "path": "scripts/native_rebuild/common.py",
+      "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+      "size": 8217
+    },
+    {
+      "path": "scripts/native_rebuild/process.py",
+      "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15",
+      "size": 11526
+    }
+  ],
+  "iup_runtime_replacement_tested": false,
+  "limitations": [
+    "Same-host repeated output equality is not independent recipient or cross-host reproducibility.",
+    "PE import/export name coverage does not establish calling conventions, semantics or runtime compatibility.",
+    "Existing vendored source modifications are not the upstream source compiled here.",
+    "Original compiler identity, complete original flags and native transitive source correspondence remain unresolved.",
+    "Failed attempts 1 and 2 retain logs and receipts; exact overwritten driver versions are unavailable.",
+    "Earlier successful verified-a/b runs predate the process-tree job guard and remain diagnostic history.",
+    "Public binary distribution, owner licensing determinations and Compat execution remain pending."
+  ],
+  "native_application_executed": false,
+  "native_security_cleared": false,
+  "observed_on": "2026-11-24",
+  "original_binaries": {
+    "clumsy": {
+      "binary": {
+        "path": "app/firewall/clumsy.exe",
+        "sha256": "a9ea677795e6c92d1ca945d8b7b2ef1d264eeb7dc956feae368c7cf8b99ef37d",
+        "size": 439808
+      },
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 33120,
+        "dynamic_base": true,
+        "entry_point_rva": 47652,
+        "export_count": 0,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 3,
+          "api-ms-win-crt-convert-l1-1-0.dll": 3,
+          "api-ms-win-crt-heap-l1-1-0.dll": 3,
+          "api-ms-win-crt-locale-l1-1-0.dll": 1,
+          "api-ms-win-crt-math-l1-1-0.dll": 1,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 19,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 9,
+          "api-ms-win-crt-string-l1-1-0.dll": 3,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 2,
+          "iup.dll": 32,
+          "kernel32.dll": 30,
+          "shell32.dll": 1,
+          "user32.dll": 5,
+          "vcruntime140.dll": 7,
+          "windivert.dll": 7,
+          "winmm.dll": 3
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Byte 0xff makes up 50.4113% of the file's contents. This may indicate truncation / malformation.",
+          "Byte 0x01 makes up 15.5741% of the file's contents. This may indicate truncation / malformation.",
+          "Failed parsing FunctionEntry of UNWIND_INFO at fd08: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at fd14: 'Chained function entry cannot be changed'"
+        ],
+        "subsystem": 2,
+        "timestamp": 1724488460
+      }
+    },
+    "iup": {
+      "binary": {
+        "path": "app/firewall/iup.dll",
+        "sha256": "972275ea2e603f60a168d8090f8e15e4acb59512af03a51490d8c394dc6871b3",
+        "size": 2744320
+      },
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 352,
+        "dynamic_base": true,
+        "entry_point_rva": 2435888,
+        "export_count": 728,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 4,
+          "api-ms-win-crt-convert-l1-1-0.dll": 1,
+          "api-ms-win-crt-environment-l1-1-0.dll": 1,
+          "api-ms-win-crt-heap-l1-1-0.dll": 4,
+          "api-ms-win-crt-locale-l1-1-0.dll": 2,
+          "api-ms-win-crt-math-l1-1-0.dll": 9,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 8,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 14,
+          "api-ms-win-crt-string-l1-1-0.dll": 10,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 1,
+          "comctl32.dll": 16,
+          "comdlg32.dll": 3,
+          "gdi32.dll": 47,
+          "kernel32.dll": 70,
+          "ole32.dll": 10,
+          "shell32.dll": 11,
+          "user32.dll": 145,
+          "vcruntime140.dll": 9
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Failed parsing FunctionEntry of UNWIND_INFO at 286b58: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 286c18: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 286c24: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 286fcc: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 287038: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 287098: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 2871c4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 2871d0: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28759c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 287884: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 287a10: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 287c98: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288a0c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288b38: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288cf4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288db4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288e74: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288f1c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 288f28: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 289a38: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 289e04: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 289e10: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 289e7c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28a380: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28a3c8: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28a3d4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28b0ac: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28bb8c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28bd0c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28be44: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28bf10: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28bf1c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28c318: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28c324: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28c588: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28cf18: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28cf24: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28cf30: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28daa0: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28e4a8: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28e4b4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28e4c0: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28e8b0: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 28f8ac: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 290308: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 290d64: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 290dac: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 291004: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 292d20: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 292d68: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 2936f8: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 293818: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 29422c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 29449c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 294640: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295540: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295594: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295750: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295a38: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295b7c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 295d98: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 296a4c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 296e54: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 296e60: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 296f74: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 2970e8: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 2970f4: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 297be0: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 298258: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 298270: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 29827c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 298288: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 29896c: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 298b04: 'Chained function entry cannot be changed'",
+          "Failed parsing FunctionEntry of UNWIND_INFO at 298bd0: 'Chained function entry cannot be changed'"
+        ],
+        "subsystem": 2,
+        "timestamp": 1596212969
+      }
+    },
+    "windivert": {
+      "binary": {
+        "path": "app/firewall/WinDivert.dll",
+        "sha256": "6110bfa44667405179c3e15e12af1b62037e447ed59b054b19042032995e6c7e",
+        "size": 47104
+      },
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 0,
+        "dynamic_base": false,
+        "entry_point_rva": 31106,
+        "export_count": 30,
+        "high_entropy_va": false,
+        "import_counts_by_dll": {
+          "advapi32.dll": 10,
+          "kernel32.dll": 18
+        },
+        "machine": 34404,
+        "nx_compatible": false,
+        "optional_header_magic": 523,
+        "parser_warnings": [],
+        "subsystem": 3,
+        "timestamp": 2947592096
+      }
+    }
+  },
+  "original_binary_reconstruction_proven": false,
+  "original_binary_sha256_equal_to_rebuild": false,
+  "packet_or_driver_effects_activated": false,
+  "parser_wheel": {
+    "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+    "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+    "size": 74766
+  },
+  "preliminary_successful_runs_without_job_guard": [
+    {
+      "all_command_exit_codes_zero": true,
+      "binary": {
+        "path": "build/clumsy-native-rebuild-20261124/verified-a/clumsy-rebuilt.exe",
+        "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+        "size": 508416
+      },
+      "child_environment_policy": {
+        "direct_clang_default_configs_disabled": true,
+        "inherited_credentials": false,
+        "pure_c_note": "Clang ignores the libc++ selection for pure C; inspect PE imports for actual DLL dependencies.",
+        "requested_link_runtime_flags": [
+          "compiler-rt",
+          "libunwind",
+          "libc++",
+          "lld"
+        ],
+        "system_and_private_toolchain_path_only": true
+      },
+      "command_count_verified": 19,
+      "command_log_pins": [
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/compiler-version.log",
+          "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+          "size": 281
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/bandwidth.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/disconnect.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/divert.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/drop.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/duplicate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/elevate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/ini.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/lag.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/main.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/ood.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/packet.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/reset.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/tamper.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/throttle.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/utils.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/resource.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/link.log",
+          "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+          "size": 106
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-a/pe-inspection.log",
+          "sha256": "298c3d16b1a8e38eac65e73665a45bc37e6b4c7186b20fc266bf1a72aa29ac16",
+          "size": 8016
+        }
+      ],
+      "compilation_success": true,
+      "held_input_count": 9146,
+      "legacy_c_compatibility": "-fcommon coalesces upstream common.h NetworkType tentative definitions; no source patch.",
+      "linked_object_count_verified": 16,
+      "native_guard_dependencies": [],
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 33120,
+        "dynamic_base": true,
+        "entry_point_rva": 4096,
+        "export_count": 0,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 5,
+          "api-ms-win-crt-convert-l1-1-0.dll": 3,
+          "api-ms-win-crt-environment-l1-1-0.dll": 1,
+          "api-ms-win-crt-heap-l1-1-0.dll": 3,
+          "api-ms-win-crt-locale-l1-1-0.dll": 1,
+          "api-ms-win-crt-math-l1-1-0.dll": 1,
+          "api-ms-win-crt-private-l1-1-0.dll": 3,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 16,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 14,
+          "api-ms-win-crt-string-l1-1-0.dll": 5,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 3,
+          "iup.dll": 32,
+          "kernel32.dll": 21,
+          "shell32.dll": 1,
+          "user32.dll": 5,
+          "windivert.dll": 7,
+          "winmm.dll": 3
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Byte 0xff makes up 43.4996% of the file's contents. This may indicate truncation / malformation."
+        ],
+        "subsystem": 2,
+        "timestamp": 0
+      },
+      "process_tree_job_guard_applied": false,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/verified-a/receipt.json",
+        "sha256": "086900414b86fd6b67099c6663d7f16e8cd40906077241b8ecae20a26bea93cf",
+        "size": 45570
+      },
+      "recipe_pins": [
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "b6ee0cfd99becaf186fde3a7dc44293f3ff497a7d21f6fb5ca98cc66b94f4309",
+          "size": 11580
+        },
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "a0ddeec87a67a7e50ae8678f0bd7c72d5e543c6573434a3a1c92634018d07548",
+          "size": 7879
+        }
+      ],
+      "run": "verified-a",
+      "source_and_recipe_input_count_verified": 76,
+      "source_files_attempted": 15,
+      "source_files_compiled": 15,
+      "toolchain_inventory": {
+        "path": "build/native-compilation-20261124/toolchain-inventory.json",
+        "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e",
+        "size": 2125303
+      }
+    },
+    {
+      "all_command_exit_codes_zero": true,
+      "binary": {
+        "path": "build/clumsy-native-rebuild-20261124/verified-b/clumsy-rebuilt.exe",
+        "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+        "size": 508416
+      },
+      "child_environment_policy": {
+        "direct_clang_default_configs_disabled": true,
+        "inherited_credentials": false,
+        "pure_c_note": "Clang ignores the libc++ selection for pure C; inspect PE imports for actual DLL dependencies.",
+        "requested_link_runtime_flags": [
+          "compiler-rt",
+          "libunwind",
+          "libc++",
+          "lld"
+        ],
+        "system_and_private_toolchain_path_only": true
+      },
+      "command_count_verified": 19,
+      "command_log_pins": [
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/compiler-version.log",
+          "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+          "size": 281
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/bandwidth.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/disconnect.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/divert.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/drop.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/duplicate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/elevate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/ini.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/lag.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/main.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/ood.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/packet.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/reset.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/tamper.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/throttle.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/utils.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/resource.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/link.log",
+          "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+          "size": 106
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/verified-b/pe-inspection.log",
+          "sha256": "55d6f1262980f65728a59509f83f30bef827a198645befd5671c2613f4452387",
+          "size": 8016
+        }
+      ],
+      "compilation_success": true,
+      "held_input_count": 9146,
+      "legacy_c_compatibility": "-fcommon coalesces upstream common.h NetworkType tentative definitions; no source patch.",
+      "linked_object_count_verified": 16,
+      "native_guard_dependencies": [],
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 33120,
+        "dynamic_base": true,
+        "entry_point_rva": 4096,
+        "export_count": 0,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 5,
+          "api-ms-win-crt-convert-l1-1-0.dll": 3,
+          "api-ms-win-crt-environment-l1-1-0.dll": 1,
+          "api-ms-win-crt-heap-l1-1-0.dll": 3,
+          "api-ms-win-crt-locale-l1-1-0.dll": 1,
+          "api-ms-win-crt-math-l1-1-0.dll": 1,
+          "api-ms-win-crt-private-l1-1-0.dll": 3,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 16,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 14,
+          "api-ms-win-crt-string-l1-1-0.dll": 5,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 3,
+          "iup.dll": 32,
+          "kernel32.dll": 21,
+          "shell32.dll": 1,
+          "user32.dll": 5,
+          "windivert.dll": 7,
+          "winmm.dll": 3
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Byte 0xff makes up 43.4996% of the file's contents. This may indicate truncation / malformation."
+        ],
+        "subsystem": 2,
+        "timestamp": 0
+      },
+      "process_tree_job_guard_applied": false,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/verified-b/receipt.json",
+        "sha256": "0ca102642e2048b72945fabde4016bedd2d30377d85a66558d604c27d48dfffa",
+        "size": 45570
+      },
+      "recipe_pins": [
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "b6ee0cfd99becaf186fde3a7dc44293f3ff497a7d21f6fb5ca98cc66b94f4309",
+          "size": 11580
+        },
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "a0ddeec87a67a7e50ae8678f0bd7c72d5e543c6573434a3a1c92634018d07548",
+          "size": 7879
+        }
+      ],
+      "run": "verified-b",
+      "source_and_recipe_input_count_verified": 76,
+      "source_files_attempted": 15,
+      "source_files_compiled": 15,
+      "toolchain_inventory": {
+        "path": "build/native-compilation-20261124/toolchain-inventory.json",
+        "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e",
+        "size": 2125303
+      }
+    }
+  ],
+  "release_approved": false,
+  "repeat_build_bytes_identical": true,
+  "runtime_compatibility_proven": false,
+  "schema": "dupez.clumsy-native-compilation-review.v1",
+  "shipped_binaries_changed": false,
+  "snapshot_directory": "build/clumsy-native-rebuild-20261124/evidence-final-1/snapshots",
+  "snapshots_scope": "Raw successful/failed receipts, current final recipes, retained attempt-3 recipe, source headers and selected vendored files, parser wheel and toolchain inventory. Logs are referenced by their verified hashes only.",
+  "successful_runs": [
+    {
+      "all_command_exit_codes_zero": true,
+      "binary": {
+        "path": "build/clumsy-native-rebuild-20261124/final-c/clumsy-rebuilt.exe",
+        "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+        "size": 508416
+      },
+      "child_environment_policy": {
+        "direct_clang_default_configs_disabled": true,
+        "inherited_credentials": false,
+        "pure_c_note": "Clang ignores the libc++ selection for pure C; inspect PE imports for actual DLL dependencies.",
+        "requested_link_runtime_flags": [
+          "compiler-rt",
+          "libunwind",
+          "libc++",
+          "lld"
+        ],
+        "system_and_private_toolchain_path_only": true
+      },
+      "command_count_verified": 19,
+      "command_log_pins": [
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/compiler-version.log",
+          "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+          "size": 281
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/bandwidth.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/disconnect.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/divert.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/drop.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/duplicate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/elevate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/ini.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/lag.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/main.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/ood.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/packet.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/reset.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/tamper.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/throttle.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/utils.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/resource.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/link.log",
+          "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+          "size": 106
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-c/pe-inspection.log",
+          "sha256": "5b118f0a1bd57d07c0534969533e810a573bd31c757268a0beb12bb14f22b58b",
+          "size": 8013
+        }
+      ],
+      "compilation_success": true,
+      "held_input_count": 9147,
+      "legacy_c_compatibility": "-fcommon coalesces upstream common.h NetworkType tentative definitions; no source patch.",
+      "linked_object_count_verified": 16,
+      "native_guard_dependencies": [
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+          "size": 8217
+        },
+        {
+          "path": "scripts/native_rebuild/process.py",
+          "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15",
+          "size": 11526
+        },
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+          "size": 12006
+        }
+      ],
+      "original_dependency_export_coverage": {
+        "iup.dll": {
+          "all_symbols_present": true,
+          "import_count": 32,
+          "missing": [],
+          "scope": "Name/ordinal table coverage only; does not establish ABI signatures or runtime compatibility."
+        },
+        "windivert.dll": {
+          "all_symbols_present": true,
+          "import_count": 7,
+          "missing": [],
+          "scope": "Name/ordinal table coverage only; does not establish ABI signatures or runtime compatibility."
+        }
+      },
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 33120,
+        "dynamic_base": true,
+        "entry_point_rva": 4096,
+        "export_count": 0,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 5,
+          "api-ms-win-crt-convert-l1-1-0.dll": 3,
+          "api-ms-win-crt-environment-l1-1-0.dll": 1,
+          "api-ms-win-crt-heap-l1-1-0.dll": 3,
+          "api-ms-win-crt-locale-l1-1-0.dll": 1,
+          "api-ms-win-crt-math-l1-1-0.dll": 1,
+          "api-ms-win-crt-private-l1-1-0.dll": 3,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 16,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 14,
+          "api-ms-win-crt-string-l1-1-0.dll": 5,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 3,
+          "iup.dll": 32,
+          "kernel32.dll": 21,
+          "shell32.dll": 1,
+          "user32.dll": 5,
+          "windivert.dll": 7,
+          "winmm.dll": 3
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Byte 0xff makes up 43.4996% of the file's contents. This may indicate truncation / malformation."
+        ],
+        "subsystem": 2,
+        "timestamp": 0
+      },
+      "process_tree_job_guard_applied": true,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/final-c/receipt.json",
+        "sha256": "37cbce0625e45052d9ba4c76442ee926bfe18dab7a1f58e83f0c17ab18b88985",
+        "size": 49249
+      },
+      "recipe_pins": [
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+          "size": 12006
+        },
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+          "size": 8217
+        }
+      ],
+      "run": "final-c",
+      "source_and_recipe_input_count_verified": 76,
+      "source_files_attempted": 15,
+      "source_files_compiled": 15,
+      "toolchain_inventory": {
+        "path": "build/native-compilation-20261124/toolchain-inventory.json",
+        "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e",
+        "size": 2125303
+      }
+    },
+    {
+      "all_command_exit_codes_zero": true,
+      "binary": {
+        "path": "build/clumsy-native-rebuild-20261124/final-d/clumsy-rebuilt.exe",
+        "sha256": "67b0ae85aa8b3ed2020a6c0df4f393a11ad1df8c4765756736e40e4dd54e3bad",
+        "size": 508416
+      },
+      "child_environment_policy": {
+        "direct_clang_default_configs_disabled": true,
+        "inherited_credentials": false,
+        "pure_c_note": "Clang ignores the libc++ selection for pure C; inspect PE imports for actual DLL dependencies.",
+        "requested_link_runtime_flags": [
+          "compiler-rt",
+          "libunwind",
+          "libc++",
+          "lld"
+        ],
+        "system_and_private_toolchain_path_only": true
+      },
+      "command_count_verified": 19,
+      "command_log_pins": [
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/compiler-version.log",
+          "sha256": "a1ea534fe7cd7bc8b985a4c4edaf3007a0b6c0a24fdbb9f4bb837b77bf74b552",
+          "size": 281
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/bandwidth.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/disconnect.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/divert.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/drop.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/duplicate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/elevate.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/ini.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/lag.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/main.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/ood.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/packet.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/reset.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/tamper.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/throttle.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/utils.c.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/resource.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/link.log",
+          "sha256": "158b2c1d88bae460697943bfc3fa7d651e3190d19415cda7c53e5864c7ae3b0a",
+          "size": 106
+        },
+        {
+          "path": "build/clumsy-native-rebuild-20261124/final-d/pe-inspection.log",
+          "sha256": "0f4b8c025d04cfd04bb7a6395183f236903194a42476132fb4213afed1adddc7",
+          "size": 8013
+        }
+      ],
+      "compilation_success": true,
+      "held_input_count": 9147,
+      "legacy_c_compatibility": "-fcommon coalesces upstream common.h NetworkType tentative definitions; no source patch.",
+      "linked_object_count_verified": 16,
+      "native_guard_dependencies": [
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+          "size": 8217
+        },
+        {
+          "path": "scripts/native_rebuild/process.py",
+          "sha256": "40603e3142e02cd8d174a9ce32676a60ff3c499ce0812f5f7d9c7a1dac246e15",
+          "size": 11526
+        },
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+          "size": 12006
+        }
+      ],
+      "original_dependency_export_coverage": {
+        "iup.dll": {
+          "all_symbols_present": true,
+          "import_count": 32,
+          "missing": [],
+          "scope": "Name/ordinal table coverage only; does not establish ABI signatures or runtime compatibility."
+        },
+        "windivert.dll": {
+          "all_symbols_present": true,
+          "import_count": 7,
+          "missing": [],
+          "scope": "Name/ordinal table coverage only; does not establish ABI signatures or runtime compatibility."
+        }
+      },
+      "pe": {
+        "delay_import_dlls": [],
+        "dll_characteristics": 33120,
+        "dynamic_base": true,
+        "entry_point_rva": 4096,
+        "export_count": 0,
+        "high_entropy_va": true,
+        "import_counts_by_dll": {
+          "advapi32.dll": 5,
+          "api-ms-win-crt-convert-l1-1-0.dll": 3,
+          "api-ms-win-crt-environment-l1-1-0.dll": 1,
+          "api-ms-win-crt-heap-l1-1-0.dll": 3,
+          "api-ms-win-crt-locale-l1-1-0.dll": 1,
+          "api-ms-win-crt-math-l1-1-0.dll": 1,
+          "api-ms-win-crt-private-l1-1-0.dll": 3,
+          "api-ms-win-crt-runtime-l1-1-0.dll": 16,
+          "api-ms-win-crt-stdio-l1-1-0.dll": 14,
+          "api-ms-win-crt-string-l1-1-0.dll": 5,
+          "api-ms-win-crt-time-l1-1-0.dll": 1,
+          "api-ms-win-crt-utility-l1-1-0.dll": 3,
+          "iup.dll": 32,
+          "kernel32.dll": 21,
+          "shell32.dll": 1,
+          "user32.dll": 5,
+          "windivert.dll": 7,
+          "winmm.dll": 3
+        },
+        "machine": 34404,
+        "nx_compatible": true,
+        "optional_header_magic": 523,
+        "parser_warnings": [
+          "Byte 0xff makes up 43.4996% of the file's contents. This may indicate truncation / malformation."
+        ],
+        "subsystem": 2,
+        "timestamp": 0
+      },
+      "process_tree_job_guard_applied": true,
+      "raw_receipt": {
+        "path": "build/clumsy-native-rebuild-20261124/final-d/receipt.json",
+        "sha256": "6fc6d2c688a785a6c828c2abdb93a3992b3106bc088b405f109039f85beefaba",
+        "size": 49249
+      },
+      "recipe_pins": [
+        {
+          "path": "scripts/native_rebuild/build_clumsy.py",
+          "sha256": "12861637e1841b54e9d5c2e32c8368155de9d457d08cc34d16a14eeeda4629af",
+          "size": 12006
+        },
+        {
+          "path": "scripts/native_rebuild/common.py",
+          "sha256": "95c7c4534a635e77e160aee7a3de009296685bef04cad0a35ce54255604d12be",
+          "size": 8217
+        }
+      ],
+      "run": "final-d",
+      "source_and_recipe_input_count_verified": 76,
+      "source_files_attempted": 15,
+      "source_files_compiled": 15,
+      "toolchain_inventory": {
+        "path": "build/native-compilation-20261124/toolchain-inventory.json",
+        "sha256": "b1fe9bc2406e7467aa6de0d0e9428663a296801cc916e26db6278ccffc945d9e",
+        "size": 2125303
+      }
+    }
+  ],
+  "toolchain_acquisition": {
+    "path": "build/native-compilation-20261124/toolchain-acquisition.json",
+    "sha256": "f73cd4acf2280e3cf5aaddfc56bf47bb31f78845e1fbada2a0affa04b6294b50",
+    "size": 1236
+  },
+  "upstream_commit": "bc87e73066168520d76122c9165e99ea703b166c",
+  "upstream_genie_recipe": {
+    "archive_member": "clumsy-bc87e73066168520d76122c9165e99ea703b166c/genie.lua",
+    "sha256": "6f8ba730bcf1e42eeddea05397f6720464c095a8372685527f6c863642e44fd5",
+    "size": 6427
+  },
+  "upstream_vendored_comparison": {
+    "change_summary": {
+      "LICENSE": "Line-ending differences only; normalized license body is unchanged.",
+      "src/common.h": "Adds the existing vendored silentMode declaration.",
+      "src/elevate.c": "Existing vendored elevation and silent-mode relaunch differences.",
+      "src/main.c": "Existing vendored --silent handling, hidden-window presentation and automatic module/filter startup."
+    },
+    "changed_file_pins": [
+      {
+        "diff_utf8": {
+          "sha256": "8960e3c19cca3aa2489028d4a6a5625057d438b35417a3e2f4cf622ac9d232a8",
+          "size": 2438
+        },
+        "equal_after_crlf_normalization": true,
+        "exact": false,
+        "path": "LICENSE",
+        "upstream": {
+          "sha256": "5c768093df657779572e4def4780bf67f223e4295912e445e9c84b1fe6c6f75e",
+          "size": 1162
+        },
+        "vendored": {
+          "path": "app/firewall/clumsy_src/LICENSE",
+          "sha256": "4ffad0f10a3f6f4f8b2272777d164638745714a373e4ac3cade009e677708f0f",
+          "size": 1184
+        }
+      },
+      {
+        "diff_utf8": {
+          "sha256": "06aa371015e68b56bacffecd34bca34f00bddf672c029b356f525e4633b2fa1a",
+          "size": 303
+        },
+        "equal_after_crlf_normalization": false,
+        "exact": false,
+        "path": "src/common.h",
+        "upstream": {
+          "sha256": "c82c6f9d8a435eeeea9783639ab782d26dc986bd759f7776f144f7a86dfe0e03",
+          "size": 5281
+        },
+        "vendored": {
+          "path": "app/firewall/clumsy_src/src/common.h",
+          "sha256": "c2c1151f8bee8c17b6a7039120cf1ddf9a161159a1d6009b8eb2a1a66780de29",
+          "size": 5347
+        }
+      },
+      {
+        "diff_utf8": {
+          "sha256": "6a91976eb12e36db96ac99f3b59339a43230e922d810bd401fb0def56587f6ec",
+          "size": 2553
+        },
+        "equal_after_crlf_normalization": false,
+        "exact": false,
+        "path": "src/elevate.c",
+        "upstream": {
+          "sha256": "572585447e527670b6196a852202166021fe156b3852a4343b30a2a85033af40",
+          "size": 4960
+        },
+        "vendored": {
+          "path": "app/firewall/clumsy_src/src/elevate.c",
+          "sha256": "5af25e647a5c67cb0b6bffb6f8c891846830428f7af904a10cc9711a721f643a",
+          "size": 5422
+        }
+      },
+      {
+        "diff_utf8": {
+          "sha256": "814b609455738aef1701775e7e0f6dbe2553e5d4af1fbc43e033d9026263fdef",
+          "size": 3346
+        },
+        "equal_after_crlf_normalization": false,
+        "exact": false,
+        "path": "src/main.c",
+        "upstream": {
+          "sha256": "86b2e633eecd40f76f90379c55490c0e4c8c8e0cdb0ad727abb0346c73baccfb",
+          "size": 81227
+        },
+        "vendored": {
+          "path": "app/firewall/clumsy_src/src/main.c",
+          "sha256": "c8ae2e9686cdc3239d8cbfdae00edc751e5c03f155c3ed4399ae2213576d439d",
+          "size": 82923
+        }
+      }
+    ],
+    "changed_paths": [
+      "LICENSE",
+      "src/common.h",
+      "src/elevate.c",
+      "src/main.c"
+    ],
+    "files_compared": 36,
+    "meaning": "The compiled upstream snapshot differs from existing vendored silent-mode/elevation changes. No claim those changes are represented in the rebuilt or shipped executable.",
+    "unchanged_file_count": 32
+  }
+}

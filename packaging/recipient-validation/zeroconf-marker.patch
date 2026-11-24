@@ -1,0 +1,13 @@
+diff --git a/zeroconf/__init__.py b/zeroconf/__init__.py
+--- a/zeroconf/__init__.py
++++ b/zeroconf/__init__.py
+@@ -24,3 +24,9 @@
+ from __future__ import annotations
+
++
++# Local recipient modification of the LGPL-covered Python layer.
++def recipient_rebuild_marker() -> str:
++    return "dupez-recipient-validation-20261024"
++
++
+ from ._cache import DNSCache  # noqa # import needed for backwards compat

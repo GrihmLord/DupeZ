@@ -26,11 +26,13 @@ is Windows-only.
 
 from __future__ import annotations
 
+import ctypes
 import logging
 import os
 import sys
 import threading
 import time
+from ctypes import wintypes
 from typing import Callable, Optional
 
 from app.firewall_helper.auth import (
@@ -118,6 +120,54 @@ def _build_cross_il_pipe_sa():
         return None
 
 
+def _named_pipe_client_pid(pipe_handle, *, kernel32=None) -> int:
+    """Return the process ID connected to the server end of a named pipe."""
+    if kernel32 is None:
+        if sys.platform != "win32":
+            raise RuntimeError("named-pipe client identity requires Windows")
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    try:
+        getter = kernel32.GetNamedPipeClientProcessId
+    except AttributeError as exc:
+        raise RuntimeError("named-pipe client identity API is unavailable") from exc
+    try:
+        getter.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.ULONG)]
+        getter.restype = wintypes.BOOL
+    except (AttributeError, TypeError):
+        pass
+    client_pid = wintypes.ULONG(0)
+    try:
+        raw_handle = int(pipe_handle)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("named-pipe handle identity is unavailable") from exc
+    if not getter(wintypes.HANDLE(raw_handle), ctypes.byref(client_pid)):
+        error_code = ctypes.get_last_error()
+        raise RuntimeError(
+            f"named-pipe client identity query failed ({error_code})"
+        )
+    if client_pid.value <= 0:
+        raise RuntimeError("named-pipe client returned no process identity")
+    return int(client_pid.value)
+
+
+def _client_matches_expected_parent(
+    pipe_handle,
+    expected_client_pid: int,
+    *,
+    kernel32=None,
+) -> bool:
+    """Bind a pipe connection to the exact GUI process that launched us."""
+    if not isinstance(expected_client_pid, int) or expected_client_pid <= 0:
+        return False
+    try:
+        return _named_pipe_client_pid(
+            pipe_handle,
+            kernel32=kernel32,
+        ) == expected_client_pid
+    except RuntimeError:
+        return False
+
+
 # ── Frame helpers ───────────────────────────────────────────────────────
 
 def _read_frame(pipe_handle, win32file, pywintypes) -> Optional[bytes]:
@@ -163,9 +213,9 @@ def _write_frame(pipe_handle, win32file, data: bytes) -> None:
 class PipeServer:
     """Named-pipe server for the firewall helper.
 
-    Accepts one client at a time (the main DupeZ GUI process). On
-    disconnect, loops back to accept the next connection — so the user
-    can restart the GUI without restarting the helper.
+    Accepts one client at a time from the exact DupeZ GUI process that
+    launched it. On disconnect, loops back so that same process can reconnect;
+    a restarted GUI has a different PID and must launch its own helper.
 
     Security: the pipe is created with a SECURITY_DESCRIPTOR that allows
     the interactive user to connect but denies network access. Because
@@ -177,6 +227,7 @@ class PipeServer:
         self,
         handler: Callable[[Request], Response],
         shared_secret: bytes,
+        expected_client_pid: int,
         pipe_name: str = DEFAULT_PIPE_NAME,
     ) -> None:
         if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) != 32:
@@ -184,8 +235,11 @@ class PipeServer:
                 "PipeServer.shared_secret must be 32 bytes (see "
                 "app.firewall_helper.auth.generate_token)"
             )
+        if not isinstance(expected_client_pid, int) or expected_client_pid <= 0:
+            raise ValueError("PipeServer.expected_client_pid must be positive")
         self.handler = handler
         self.shared_secret = bytes(shared_secret)
+        self.expected_client_pid = expected_client_pid
         self.pipe_name = pipe_name
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
@@ -258,6 +312,20 @@ class PipeServer:
                 )
                 win32pipe.ConnectNamedPipe(pipe_handle, None)
                 log.info("PipeServer client connected")
+                # The auth sentinel is stored in the interactive user's
+                # profile so a sibling same-user process could read or replace
+                # it during the UAC delay.  HMAC proves possession, while this
+                # OS-reported PID check proves that the peer is the exact GUI
+                # process named on the elevated helper command line.
+                if not _client_matches_expected_parent(
+                    pipe_handle,
+                    self.expected_client_pid,
+                ):
+                    log.warning(
+                        "PipeServer: rejected a client not bound to the "
+                        "launching GUI process"
+                    )
+                    continue
                 # ── Mutual auth BEFORE any dispatch (H2 / ADR-0001 §6) ──
                 # Any process on the same session can open the pipe
                 # (SDDL grants WD+AU), so every connection MUST prove

@@ -54,13 +54,39 @@ def test_helper_forces_inproc_when_frozen_default_is_split(monkeypatch) -> None:
     assert feature_flag.is_split_mode() is False
 
 
-def test_helper_log_path_survives_frozen_temp_directory(
+def test_frozen_gpu_arch_cannot_be_downgraded_by_environment(monkeypatch) -> None:
+    monkeypatch.setattr(feature_flag.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(feature_flag.sys, "argv", ["DupeZ-GPU.exe"])
+    monkeypatch.setattr(feature_flag, "_DEFAULT_ARCH", "split")
+    monkeypatch.setenv("DUPEZ_ARCH", "inproc")
+
+    assert feature_flag.get_arch() == "split"
+
+
+def test_frozen_helper_role_uses_inproc_without_environment_trust(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(feature_flag.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(
+        feature_flag.sys,
+        "argv",
+        ["DupeZ-GPU.exe", "--role", "helper"],
+    )
+    monkeypatch.setattr(feature_flag, "_DEFAULT_ARCH", "split")
+    monkeypatch.delenv("DUPEZ_ARCH", raising=False)
+
+    assert feature_flag.get_arch() == "inproc"
+
+
+def test_helper_log_path_ignores_inherited_temp_directory(
     monkeypatch,
     tmp_path,
 ) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
     path = Path(dupez_helper._helper_log_path())
+    trusted_root = Path(dupez_helper._windows_local_appdata())
 
-    assert path == tmp_path / "DupeZ" / "logs" / "firewall_helper.log"
+    assert path == trusted_root / "DupeZ" / "logs" / "firewall_helper.log"
+    assert tmp_path not in path.parents
     assert "_MEI" not in str(path)

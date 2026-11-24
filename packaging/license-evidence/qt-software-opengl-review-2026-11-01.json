@@ -1,0 +1,237 @@
+{
+  "schema": "dupez.qt-software-opengl-source-review.v1",
+  "reviewed_on": "2026-11-01",
+  "repository_checkpoint": "af461cbc899cf146d3d9808496a5806d75cb2528",
+  "scope": "non-executed native byte correspondence and bounded upstream version-source review",
+  "release_approval": false,
+  "native_rebuild_performed": false,
+  "native_code_executed": false,
+  "source_delivery_ready": false,
+  "binary": {
+    "archive_member": "opengl32sw.dll",
+    "bytes": 20639888,
+    "sha256": "b04de4541863bc7d8879040a78889c4849c1b1da2784c4630f734c146c2998ce",
+    "candidate_exact_bytes_match": true,
+    "pe_machine": "0x8664",
+    "pe_timestamp": 1465899728,
+    "imports": [
+      "ADVAPI32.dll",
+      "GDI32.dll",
+      "KERNEL32.dll",
+      "SHELL32.dll",
+      "USER32.dll",
+      "imagehlp.dll"
+    ],
+    "embedded_version_strings": [
+      "llvm-mc (based on LLVM 3.6.2)",
+      "Mesa 11.2.2",
+      "%s%u.%u%s Mesa 11.2.2"
+    ],
+    "installer_archive_verified": {
+      "bytes": 5474526,
+      "sha256": "f9a6f0229f63d04b3ec1cc455078171f4d0c32e4fd79bc3e6a6dca54e79f7eae",
+      "member_exact_bytes_match": true
+    },
+    "baseline_pypi_native_bytes_match": true,
+    "baseline_sha256": "b04de4541863bc7d8879040a78889c4849c1b1da2784c4630f734c146c2998ce",
+    "pe_timestamp_utc": "2016-06-14T10:22:08+00:00",
+    "authenticode_observation": {
+      "status": "Valid",
+      "status_message": "Signature verified.",
+      "signer_subject": "CN=The Qt Company Oy, SERIALNUMBER=2637805-2, OID.2.5.4.15=Private Organization, O=The Qt Company Oy, OID.1.3.6.1.4.1.311.60.2.1.3=FI, L=Espoo, C=FI",
+      "signer_sha1_thumbprint": "1013009051124ca0ede0a0363cf650146a272c0f"
+    },
+    "observed_local_files": [
+      "build/qt-native-review-20261025/6.11.3/msvc2022_64/bin/opengl32sw.dll",
+      "build/recipient-evidence-20261025/build-venv/Lib/site-packages/PyQt6/Qt6/bin/opengl32sw.dll"
+    ]
+  },
+  "independent_qt_prebuilt_archive": {
+    "url": "https://qt.mirror.constant.com/development_releases/prebuilt/llvmpipe/windows/opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+    "bytes": 5023568,
+    "sha256": "c61f801c1760aa24b02c7a8354323cddf368b86f8f5c34b50b3b224f7d728afd",
+    "published_sha256_verified": true,
+    "redirect_followed": false,
+    "native_code_executed": false
+  },
+  "source_archives": [
+    {
+      "filename": "mesa-11.2.2.tar.xz",
+      "bytes": 7860932,
+      "sha256": "40e148812388ec7c6d7b6657d5a16e2e8dabba8b97ddfceea5197947647bdfb4",
+      "members": 5055,
+      "expanded_bytes": 75105294,
+      "links": 0,
+      "special": 0,
+      "selected_members": [
+        {
+          "member": "mesa-11.2.2/VERSION",
+          "bytes": 7,
+          "sha256": "6ee4bf75063c8390f4c0ec761b3b3d3a3239a7c21ad7dbcf90f9f93293d1a777",
+          "text": "11.2.2"
+        },
+        {
+          "member": "mesa-11.2.2/docs/license.html",
+          "bytes": 3763,
+          "sha256": "288ddfae338be168ef2492c21de42ee2f5c8ebc5a734b4e58b37007141bc2d6d"
+        },
+        {
+          "member": "mesa-11.2.2/SConstruct",
+          "bytes": 3500,
+          "sha256": "f032f9583fe7e1ec347b2c032ed364f7906d94bf50343c423eeb2dfeeef42e4c"
+        },
+        {
+          "member": "mesa-11.2.2/src/gallium/targets/libgl-gdi/SConscript",
+          "bytes": 1309,
+          "sha256": "52b7a989e39db136219835a5e022820480054475b91bd62679d508641e24e587"
+        },
+        {
+          "member": "mesa-11.2.2/scons/llvm.py",
+          "bytes": 10132,
+          "sha256": "29bfcbbda62a7b29ffd5ca5a4a8459c52a46d2c2cae611a5e80247ed729448dd"
+        }
+      ],
+      "extracted_to_filesystem": false,
+      "native_code_executed": false
+    },
+    {
+      "filename": "llvm-3.6.2.src.tar.xz",
+      "bytes": 12802380,
+      "sha256": "f60dc158bfda6822de167e87275848969f0558b3134892ff54fced87e4667b94",
+      "members": 16463,
+      "expanded_bytes": 98023473,
+      "links": 0,
+      "special": 0,
+      "selected_members": [
+        {
+          "member": "llvm-3.6.2.src/LICENSE.TXT",
+          "bytes": 3281,
+          "sha256": "e3bc36440fc927c62d5cc24efeefe225a14d4e34ffeb0c92e430625cce9ee444"
+        },
+        {
+          "member": "llvm-3.6.2.src/CMakeLists.txt",
+          "bytes": 22703,
+          "sha256": "f5470ae016770d6748cd358d9542c6d8d5f964ec5650cc1be8bccc7cf73c065c",
+          "version_declarations": [
+            "set(LLVM_VERSION_MAJOR 3)",
+            "set(LLVM_VERSION_MINOR 6)",
+            "set(LLVM_VERSION_PATCH 2)"
+          ]
+        }
+      ],
+      "extracted_to_filesystem": false,
+      "native_code_executed": false
+    }
+  ],
+  "metadata_and_source_acquisition": [
+    {
+      "filename": "qt-software-opengl.mirrorlist.html",
+      "url": "https://download.qt.io/development_releases/prebuilt/llvmpipe/windows/opengl32sw-64-mesa_11_2_2-signed_sha256.7z.mirrorlist",
+      "bytes": 8811,
+      "sha256": "71358b0485b9829514446086a2d511db640e8c45dd6fb62fe4ad3df05a6757ec",
+      "published_sha256_verified": false
+    },
+    {
+      "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "url": "https://download.qt.io/development_releases/prebuilt/llvmpipe/windows/opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "error": "Redirect rejected: HTTP 302"
+    },
+    {
+      "filename": "mesa-release-notes.html",
+      "url": "https://docs.mesa3d.org/relnotes/11.2.2.html",
+      "bytes": 63892,
+      "sha256": "893c5963684bce5778a9ff3d787cfca9d4489dc6d99f17f00a145bd4f51df0ab",
+      "published_sha256_verified": false
+    },
+    {
+      "filename": "mesa-11.2.2.tar.xz",
+      "url": "https://archive.mesa3d.org/older-versions/11.x/11.2.2/mesa-11.2.2.tar.xz",
+      "bytes": 7860932,
+      "sha256": "40e148812388ec7c6d7b6657d5a16e2e8dabba8b97ddfceea5197947647bdfb4",
+      "published_sha256_verified": true
+    },
+    {
+      "filename": "llvm-3.6.2.src.tar.xz",
+      "url": "https://releases.llvm.org/3.6.2/llvm-3.6.2.src.tar.xz",
+      "bytes": 12802380,
+      "sha256": "f60dc158bfda6822de167e87275848969f0558b3134892ff54fced87e4667b94",
+      "published_sha256_verified": false
+    },
+    {
+      "filename": "llvm-3.6.2.src.tar.xz.sig",
+      "url": "https://releases.llvm.org/3.6.2/llvm-3.6.2.src.tar.xz.sig",
+      "bytes": 287,
+      "sha256": "b2e96fc46b7b13e5655b9bf9c97b812235f3c7ad61e5b10cb186b135ef8928b9",
+      "published_sha256_verified": false
+    },
+    {
+      "filename": "qt-mesa-build-guide.html",
+      "url": "https://wiki.qt.io/MesaLlvmpipe",
+      "bytes": 32583,
+      "sha256": "02f3f0073318a3188e0277600af2011b1bde17ff2cdfa7ca30e178a04bcd3c13",
+      "published_sha256_verified": false
+    },
+    {
+      "filename": "qt-windows-graphics.html",
+      "url": "https://doc.qt.io/qt-6.11/windows-graphics.html",
+      "bytes": 30958,
+      "sha256": "3513beef6ddfb7f6ead907b9405397965ed1211b1ca10b37699b2331c9e4d86c",
+      "published_sha256_verified": false
+    }
+  ],
+  "llvm_source_authentication": {
+    "transport": "direct HTTPS releases.llvm.org, no ambient proxy and no redirects",
+    "official_index_size_verified": true,
+    "published_sha256_verified": false,
+    "detached_signature_retained": true,
+    "detached_signature_verified": false,
+    "status": "observed source bytes; release-key authentication remains required before promotion to trusted build input"
+  },
+  "source_correspondence_limits": [
+    "Mesa 11.2.2 and LLVM 3.6.2 are embedded binary version declarations; matching version-source archives do not prove the exact compiled revisions or Qt patch set.",
+    "The current Qt build guide describes additional patches and now targets Mesa 17.2.2/LLVM 5.0; it is not a pinned recipe for the observed 2016 binary.",
+    "No exact compiler servicing version, SDK, SCons/CMake/Python2 dependency lock, flags, complete source patch set or original build log has been established.",
+    "Qt's valid code signature and the 2022 archive timestamp authenticate distribution observations; they do not establish a newer Mesa security patch level.",
+    "The existing 33-component source bundle is unchanged and does not include these two separately retained transitive source archives.",
+    "No CVE reachability verdict, software OpenGL compatibility test, independent rebuild or source delivery approval is asserted."
+  ],
+  "runtime_integration_observations": {
+    "current_frozen_renderer_policy": "app/gui/map_host/renderer_tier.py explicitly sets QT_OPENGL=software for frozen launches",
+    "fallback_policy": "dupez.py sets QT_OPENGL=software if renderer-tier policy raises",
+    "application_opengl_widget_usage": "repository text search found no QOpenGLWidget or QOpenGLWindow construction in app/ or dupez.py; this is static search evidence, not proof that no dependency requests OpenGL",
+    "removal_decision": "not changed; a raster-only runtime policy requires isolated full-application and Compat normal/low-resource lifecycle validation before removing the helper"
+  },
+  "qt_6113_sources": {
+    "prior_evidence": "packaging/license-evidence/qt-native-review-2026-10-25.json",
+    "change": "none",
+    "scope_limit": "Qtbase/Svg source-to-SPDX correlation does not include this separately shipped Mesa/LLVM helper; earlier .tag discrepancies and independent native rebuild gaps remain open"
+  },
+  "primary_sources": [
+    "https://download.qt.io/development_releases/prebuilt/llvmpipe/windows/opengl32sw-64-mesa_11_2_2-signed_sha256.7z.mirrorlist",
+    "https://docs.mesa3d.org/relnotes/11.2.2.html",
+    "https://archive.mesa3d.org/older-versions/11.x/11.2.2/",
+    "https://releases.llvm.org/3.6.2/",
+    "https://releases.llvm.org/download.html",
+    "https://wiki.qt.io/index.php?title=MesaLlvmpipe&oldid=33647",
+    "https://doc.qt.io/qt-6.11/windows-graphics.html"
+  ],
+  "local_checks": {
+    "isolated_inspection_exit_code": 0,
+    "archive_member_equality": "independent signed Qt prebuilt, pinned Qt 6.11.3 installer input, candidate DLL and prior PyPI baseline DLL all equal",
+    "source_archive_inspection": "bounded streaming reads; no filesystem extraction, no links, no special files, safe relative paths",
+    "review_scripts": [
+      {
+        "path": "build/qt-software-opengl-review-20261101/collect_inputs.py",
+        "sha256": "a569b4a3c9f18f0c6749822eac708982c9450a1ccde84b5391d01b347604f997"
+      },
+      {
+        "path": "build/qt-software-opengl-review-20261101/fetch_qt_mirror.py",
+        "sha256": "8c274739fd098c14316c0efdee667b95a0a6adb76e5ef2a782df0ea9e43f830c"
+      },
+      {
+        "path": "build/qt-software-opengl-review-20261101/inspect_inputs.py",
+        "sha256": "7f8d1d57743c12e7002bd6066353a3bf63480eb5b1dd1240405330d9233ee9ca"
+      }
+    ]
+  }
+}

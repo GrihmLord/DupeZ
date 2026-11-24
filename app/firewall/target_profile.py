@@ -396,21 +396,21 @@ def resolve_target_profile(
         platform = _match_platform_by_mac(normalized_mac)
         if platform:
             reasons.append(
-                f"MAC OUI {_oui_prefix(normalized_mac)} → {platform}"
+                f"MAC OUI category matched → platform={platform}"
             )
 
     if platform is None and hostname:
         platform = _match_platform_by_hostname(hostname)
         if platform:
             reasons.append(
-                f"hostname {hostname!r} matched {platform} pattern"
+                f"hostname pattern matched → platform={platform}"
             )
 
     if platform is None and device_type:
         platform = _match_platform_by_device_type(device_type)
         if platform:
             reasons.append(
-                f"device_type {device_type!r} → {platform}"
+                f"device_type category matched → platform={platform}"
             )
 
     if platform is None:

@@ -1,0 +1,262 @@
+{
+  "schema": "dupez.qt-network-source-fix-presence.v1",
+  "reviewed_on": "2026-11-24",
+  "cve": "CVE-2026-116337",
+  "status": "vendor-production-patch-postimages-present-in-pinned-qtbase-6.12.1-source",
+  "scope": "Static source and patch comparison only; isolated source copies, no patch application and no native HTTP execution.",
+  "source_input": {
+    "id": "qtbase-source",
+    "role": "source",
+    "filename": "qtbase-everywhere-src-6.12.1.tar.xz",
+    "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz",
+    "size": 51329912,
+    "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
+  },
+  "source_archive": {
+    "path": "build/qt6121-inputs-20261124/cache/qtbase-everywhere-src-6.12.1.tar.xz",
+    "size": 51329912,
+    "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
+  },
+  "source_members": [
+    {
+      "archive_member": "src/network/access/qhttpheaderparser_p.h",
+      "path": "build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpheaderparser_p.h",
+      "size": 4339,
+      "sha256": "33f43b11477fd8c8626a0df9b4ee79afd4ccf8a691bdbdf32f8a1ba822f7cb6d"
+    },
+    {
+      "archive_member": "src/network/access/qhttpnetworkreply.cpp",
+      "path": "build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp",
+      "size": 23454,
+      "sha256": "393b4c235e6f4323fe643524a384236c3deb66b7c343bf5e6acc20a0bc4013e0"
+    },
+    {
+      "archive_member": "tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp",
+      "path": "build/native-rebuild-followup-20261124/qt-network-source/subset/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp",
+      "size": 13789,
+      "sha256": "4b78e997f8392af98c0e817f58534a5c1d2e634a0559165fd42c6ed388e243d3"
+    }
+  ],
+  "patches": [
+    {
+      "id": "0001",
+      "vendor_patch": {
+        "path": "build/qt-source-tag-review-20261109/CVE-2026-116337-qtbase-6.11-0001.diff",
+        "size": 5278,
+        "sha256": "2a5cc5a016bd41b8487555d68ccbbd808a9a418bc457486e9c779d217cb7e31a"
+      },
+      "vendor_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-116337-qtbase-6.11-0001.diff",
+      "production_hunks": {
+        "path": "build/native-rebuild-followup-20261124/qt-network-source/0001-production.diff",
+        "size": 1399,
+        "sha256": "0239ecb972e3c607abe69c6db5171e3967dee37a5175306435c6a4e2d6aedc9b"
+      }
+    },
+    {
+      "id": "0002",
+      "vendor_patch": {
+        "path": "build/qt-source-tag-review-20261109/CVE-2026-116337-qtbase-6.11-0002.diff",
+        "size": 3354,
+        "sha256": "ea58081d0999d6e3ea0e40277631fec26589c3e436922bfcfef7f771c626a4f3"
+      },
+      "vendor_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-116337-qtbase-6.11-0002.diff",
+      "production_hunks": {
+        "path": "build/native-rebuild-followup-20261124/qt-network-source/0002-production.diff",
+        "size": 717,
+        "sha256": "90aaa0260bde641bb674c28a5f156adc4576b09c53bde46805b7aa357a593d8d"
+      }
+    }
+  ],
+  "exact_postimage_matches": [
+    {
+      "patch": "0001",
+      "target": "src/network/access/qhttpheaderparser_p.h",
+      "hunk": 1,
+      "postimage_sha256": "b660313fdbbac1f3f65a729d750e1b4d5628025e45db376bf9560ad42891b3dd",
+      "postimage_size": 457,
+      "postimage_start_line": 89,
+      "postimage_exact_occurrences": 1,
+      "added_line_count": 8
+    },
+    {
+      "patch": "0001",
+      "target": "src/network/access/qhttpnetworkreply.cpp",
+      "hunk": 1,
+      "postimage_sha256": "cb8f32383cd5b6916523c3e2d4bcf01f30f789a04b56eaa12374310472007ca7",
+      "postimage_size": 434,
+      "postimage_start_line": 466,
+      "postimage_exact_occurrences": 1,
+      "added_line_count": 6
+    },
+    {
+      "patch": "0002",
+      "target": "src/network/access/qhttpnetworkreply.cpp",
+      "hunk": 1,
+      "postimage_sha256": "4097142c62e34d3fb17b4d68dfda673568673752ffa63ad80ea306f64da71217",
+      "postimage_size": 461,
+      "postimage_start_line": 423,
+      "postimage_exact_occurrences": 1,
+      "added_line_count": 8
+    }
+  ],
+  "git_checks": [
+    {
+      "patch": "0001",
+      "direction": "forward",
+      "exit_code": 1,
+      "command": [
+        "git",
+        "-c",
+        "core.autocrlf=false",
+        "apply",
+        "--check",
+        "--verbose",
+        "--directory=build/native-rebuild-followup-20261124/qt-network-source/subset",
+        "build/native-rebuild-followup-20261124/qt-network-source/0001-production.diff"
+      ],
+      "stdout": "",
+      "stderr": "Checking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpheaderparser_p.h...\nerror: while searching for:\n    }\n    qsizetype maxTotalHeaderSize() const { return maxTotalSize; }\n\n    void setMaxHeaderFields(qsizetype size) {\n        Q_ASSERT(size > 0);\n        maxFieldCount = size;\n\nerror: patch failed: build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpheaderparser_p.h:89\nerror: build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpheaderparser_p.h: patch does not apply\nChecking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp...\nerror: while searching for:\n            fragment.append(c);\n            bytes++;\n\n            if (c == '\\n') {\n                // check for possible header endings. As per HTTP rfc,\n                // the header endings will be marked by CRLFCRLF. But\n\nerror: patch failed: build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp:458\nerror: build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp: patch does not apply\n"
+    },
+    {
+      "patch": "0001",
+      "direction": "reverse",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "-c",
+        "core.autocrlf=false",
+        "apply",
+        "--check",
+        "--verbose",
+        "--directory=build/native-rebuild-followup-20261124/qt-network-source/subset",
+        "--reverse",
+        "build/native-rebuild-followup-20261124/qt-network-source/0001-production.diff"
+      ],
+      "stdout": "",
+      "stderr": "Checking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp...\nHunk #1 succeeded at 466 (offset -8 lines).\nChecking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpheaderparser_p.h...\n"
+    },
+    {
+      "patch": "0002",
+      "direction": "forward",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "-c",
+        "core.autocrlf=false",
+        "apply",
+        "--check",
+        "--verbose",
+        "--directory=build/native-rebuild-followup-20261124/qt-network-source/subset",
+        "build/native-rebuild-followup-20261124/qt-network-source/0002-production.diff"
+      ],
+      "stdout": "",
+      "stderr": "Checking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp...\nHunk #1 succeeded at 431 (offset 8 lines).\n"
+    },
+    {
+      "patch": "0002",
+      "direction": "reverse",
+      "exit_code": 0,
+      "command": [
+        "git",
+        "-c",
+        "core.autocrlf=false",
+        "apply",
+        "--check",
+        "--verbose",
+        "--directory=build/native-rebuild-followup-20261124/qt-network-source/subset",
+        "--reverse",
+        "build/native-rebuild-followup-20261124/qt-network-source/0002-production.diff"
+      ],
+      "stdout": "",
+      "stderr": "Checking patch build/native-rebuild-followup-20261124/qt-network-source/subset/src/network/access/qhttpnetworkreply.cpp...\n"
+    }
+  ],
+  "git_version": "git version 2.52.0.windows.1",
+  "check_interpretation": "Both production patches pass reverse --check. Patch 0002 also passes forward --check because its insertion-only trailing context repeats at the existing guard; forward success does not establish absence. Three unique exact postimage matches and source inspection establish presence.",
+  "semantic_observations": [
+    {
+      "member": "src/network/access/qhttpheaderparser_p.h",
+      "line": 92,
+      "observation": "The raw header bound includes four trailing line-ending bytes and saturates on qsizetype addition overflow."
+    },
+    {
+      "member": "src/network/access/qhttpnetworkreply.cpp",
+      "line": 470,
+      "observation": "The header accumulation loop rejects and clears a fragment as soon as the raw header bound is exceeded."
+    },
+    {
+      "member": "src/network/access/qhttpnetworkreply.cpp",
+      "line": 430,
+      "observation": "The status-line loop rejects and clears a fragment beyond MAX_REASON_PHRASE_SIZE plus 64."
+    }
+  ],
+  "vendor_test_source": {
+    "member": "tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp",
+    "functions_present": [
+      "headerSizeLimit_data",
+      "headerSizeLimit",
+      "statusLineSizeLimit"
+    ],
+    "tests_executed": false
+  },
+  "primary_advisory": {
+    "url": "https://www.qt.io/blog/security-issue-cve-2026-116337",
+    "response": {
+      "path": "build/qt-security-refresh-20261124/responses/cve-116337.body",
+      "size": 184162,
+      "sha256": "99b94bb80c5b36cdc36eefa2e98eae6c4c6d33cbd1fb4e23f9b6235654323544"
+    },
+    "response_receipt": {
+      "path": "packaging/license-evidence/qt-primary-metadata-2026-11-24.json",
+      "size": 18952,
+      "sha256": "93a884cc4825986132149d3d3414991800016e3d1969789b6fb4471f7504d679"
+    },
+    "vendor_fixed_version": "6.12.1",
+    "web_reader_retry": "Web reader could not open the page; the pinned successful HTTPS GET collected earlier on 2026-11-24 supplies the advisory statement."
+  },
+  "recipe_inputs": [
+    {
+      "path": "build/native-rebuild-followup-20261124/review_qt_network.py",
+      "size": 8209,
+      "sha256": "7bd4c008b3e2395129b6e8bc75b7facae8d185e921e340b981419485c6d88a95"
+    },
+    {
+      "path": "build/native-rebuild-followup-20261124/inspect_qt_network.py",
+      "size": 1067,
+      "sha256": "b2d670cbe9e69b4f9b6ff1a3344a05b5e4dc5ae7d70a95e17a12336c03028697"
+    }
+  ],
+  "preserved_diagnostics": [
+    {
+      "log": {
+        "path": "build/native-rebuild-followup-20261124/qt-network-inspection.log",
+        "size": 519,
+        "sha256": "f5c6b3503e4dfce4ceefacd2bbfd14efafe26810ed322f636549c84b3df922f7"
+      },
+      "reason": "Initial source prefix assumption differed from the pinned installer tarball; corrected to its exact rootless member names before extraction."
+    },
+    {
+      "log": {
+        "path": "build/native-rebuild-followup-20261124/qt-network-patch-checks.log",
+        "size": 352,
+        "sha256": "9d3cbc046d809c5b4b244ccb9cfd499049efd2ab885764c095eaa3a78bafea29"
+      },
+      "reason": "Initial expected forward-check failure was overstrict for an insertion-only patch; reviewed exact postimages and repeated read-only checks. No patch was applied."
+    }
+  ],
+  "canonical_6_11_2_modified": false,
+  "candidate_profile": "Qt Network remains excluded from the engineering raster profile; this source check does not change that profile.",
+  "patches_applied": false,
+  "native_binaries_changed": false,
+  "native_rebuild_performed": false,
+  "native_http_test_executed": false,
+  "compat_runtime_tested": false,
+  "binary_source_correspondence_proven": false,
+  "complete_corresponding_source": false,
+  "release_approval": false,
+  "limitations": [
+    "Presence in pinned source does not prove any native Qt Network DLL was compiled from those inputs.",
+    "No runtime CVE reproduction or vendor test suite execution was performed.",
+    "Canonical Qt 6.11.2 remains unmodified and affected; release readiness and other vulnerabilities are separate assessments."
+  ]
+}

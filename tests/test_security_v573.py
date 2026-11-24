@@ -133,8 +133,8 @@ class TestWebhookURLValidation:
 
     def test_https_url_accepted(self) -> None:
         from app.core.audit_webhook import GenericWebhookSink
-        s = GenericWebhookSink("https://example.com/hook")
-        assert s.url == "https://example.com/hook"
+        s = GenericWebhookSink("https://discord.com/hook")
+        assert s.url == "https://discord.com/hook"
 
     def test_http_localhost_accepted(self) -> None:
         from app.core.audit_webhook import GenericWebhookSink

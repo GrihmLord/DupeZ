@@ -1,0 +1,443 @@
+{
+  "schema": "dupez.qt-export-metadata.v1",
+  "reviewed_on": "2026-11-09",
+  "modules": {
+    "qtbase": {
+      "export_substitution_verified": true,
+      "exported_revision": "138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+      "source_tag_sha256": "6c726bf9a5db2d225f22bf9d58e23586f2f3b9089ac041ee48783f1bdd77a827",
+      "git_tag_sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d",
+      "attributes_sha256": "edbe0427047f873216d84ab3335a2c78047510c07993f00963d7f2f23d5918b0",
+      "spdx_checksums": {
+        ".gitattributes": "53f6787d4ea2099b16faa773101265f17b6d7d0e",
+        ".tag": "8eb01c346a92a2321c358ae8327d3b48c163b1b0"
+      },
+      "root_git_metadata_exclusion_declared": true,
+      "binary_source_revision_identity_proven": false,
+      "input_pins": {
+        "revision": "138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+        "binary_revision": "b21f6a785516e898388cda2fe5d3e7dacd6d4b7d",
+        "source_size": 50542228,
+        "source_sha256": "bd60222ad79b3d88e7e45c6dd1cd738d34db0ceb159b6221316da7f884525f0b",
+        "spdx_size": 10462208,
+        "spdx_sha256": "7b5f29f47f11c529bfd3a6904de178fbab7b9a4ab3904ca7699ad45ed8e60cfe",
+        "git_tag_file": "qtbase-source-git-tag.txt",
+        "attributes_file": "qtbase-source-gitattributes.txt",
+        "attributes_size": 227,
+        "attributes_sha256": "edbe0427047f873216d84ab3335a2c78047510c07993f00963d7f2f23d5918b0"
+      },
+      "official_git_metadata_url": "https://code.qt.io/cgit/qt/qtbase.git/plain/.gitattributes?id=138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3"
+    },
+    "qtsvg": {
+      "export_substitution_verified": true,
+      "exported_revision": "f5d99721911e4a1989965a087813cf1277519bc6",
+      "source_tag_sha256": "8544312033925a01c7539edd9e7b28a30f83c3e48f94751ddebbf94d215b6a5e",
+      "git_tag_sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d",
+      "attributes_sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff",
+      "spdx_checksums": {
+        ".gitattributes": "d7f4162b0bba7d81de39a5a6017e5c7ad7c99ef4",
+        ".tag": "8eb01c346a92a2321c358ae8327d3b48c163b1b0"
+      },
+      "root_git_metadata_exclusion_declared": true,
+      "binary_source_revision_identity_proven": false,
+      "input_pins": {
+        "revision": "f5d99721911e4a1989965a087813cf1277519bc6",
+        "binary_revision": "f5d99721911e4a1989965a087813cf1277519bc6",
+        "source_size": 2338300,
+        "source_sha256": "b712a27d4bc6ba510bc5c082f6eaac2ce38588d8a2d2eb771d08307735f9d44c",
+        "spdx_size": 289834,
+        "spdx_sha256": "118619a76c57ffe9023f3631d82145410e9187f52f922ee24b98a7582c02f118",
+        "git_tag_file": "qtsvg-git-tag.txt",
+        "attributes_file": "qtsvg-gitattributes.txt",
+        "attributes_size": 89,
+        "attributes_sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff"
+      },
+      "official_git_metadata_url": "https://code.qt.io/cgit/qt/qtsvg.git/plain/.gitattributes?id=f5d99721911e4a1989965a087813cf1277519bc6"
+    },
+    "qttools": {
+      "export_substitution_verified": true,
+      "exported_revision": "b0b5b911411ffb0da4f29643ab295b90c52dc26d",
+      "source_tag_sha256": "c660a6dcdc0c3960e25a4dd1437269bfd4cc9fb21034304e375f3f865bbafd24",
+      "git_tag_sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d",
+      "attributes_sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff",
+      "spdx_checksums": {
+        ".gitattributes": "d7f4162b0bba7d81de39a5a6017e5c7ad7c99ef4",
+        ".tag": "8eb01c346a92a2321c358ae8327d3b48c163b1b0"
+      },
+      "root_git_metadata_exclusion_declared": true,
+      "binary_source_revision_identity_proven": false,
+      "input_pins": {
+        "revision": "b0b5b911411ffb0da4f29643ab295b90c52dc26d",
+        "source_size": 10273528,
+        "source_sha256": "0a2da018a67ae081ab93d686fefce47e95eb8d82389151c476202ee8c4b375e4",
+        "spdx_size": 2106689,
+        "spdx_sha256": "11bb9d4cb0cd29d5ba9e03e7edb94e48fc4ee87e1560c4aad095024d3270d4c1",
+        "git_tag_file": "qttools-git-tag.txt",
+        "attributes_file": "qttools-gitattributes.txt",
+        "attributes_size": 89,
+        "attributes_sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff"
+      },
+      "official_git_metadata_url": "https://code.qt.io/cgit/qt/qttools.git/plain/.gitattributes?id=b0b5b911411ffb0da4f29643ab295b90c52dc26d"
+    }
+  },
+  "all_export_substitutions_verified": true,
+  "qtbase_binary_revision_discrepancy_resolved": false,
+  "native_rebuild_proven": false,
+  "release_approved": false,
+  "baseline_commit": "85ef3b8505c5eeaf8bcaa688629b770c2dc574aa",
+  "scope": "Git export metadata correspondence, official Nov9 advisory triage, and source-only patch applicability; no native remediation or release approval",
+  "download_receipts": [
+    {
+      "file": "qtbase-binary-revision-commit.html",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/commit/?id=b21f6a785516e898388cda2fe5d3e7dacd6d4b7d",
+      "error": "HTTP Error 404: Not found"
+    },
+    {
+      "file": "qtbase-source-revision-commit.html",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/commit/?id=138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+      "final_url": "https://code.qt.io/cgit/qt/qtbase.git/commit/?id=138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+      "size": 40848,
+      "sha256": "48f15f4568f09d05eda6197bf537bc899677e1fcf5e186c9faf4721ca66fe835"
+    },
+    {
+      "file": "qtbase-git-tag.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/.tag?id=b21f6a785516e898388cda2fe5d3e7dacd6d4b7d",
+      "error": "HTTP Error 404: Not found"
+    },
+    {
+      "file": "qtsvg-git-tag.txt",
+      "url": "https://code.qt.io/cgit/qt/qtsvg.git/plain/.tag?id=f5d99721911e4a1989965a087813cf1277519bc6",
+      "final_url": "https://code.qt.io/cgit/qt/qtsvg.git/plain/.tag?id=f5d99721911e4a1989965a087813cf1277519bc6",
+      "size": 12,
+      "sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d"
+    },
+    {
+      "file": "CVE-2026-116337-qtbase-6.11-0001.diff",
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-116337-qtbase-6.11-0001.diff",
+      "final_url": "https://qt.mirror.constant.com/archive/qt/6.11/CVE-2026-116337-qtbase-6.11-0001.diff",
+      "size": 5278,
+      "sha256": "2a5cc5a016bd41b8487555d68ccbbd808a9a418bc457486e9c779d217cb7e31a"
+    },
+    {
+      "file": "CVE-2026-116337-qtbase-6.11-0002.diff",
+      "url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-116337-qtbase-6.11-0002.diff",
+      "final_url": "https://download.qt.io/official_releases/qt/6.11/CVE-2026-116337-qtbase-6.11-0002.diff",
+      "size": 3354,
+      "sha256": "ea58081d0999d6e3ea0e40277631fec26589c3e436922bfcfef7f771c626a4f3"
+    },
+    {
+      "file": "qtbase-source-git-tag.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/.tag?id=138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+      "size": 12,
+      "sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d",
+      "sha1_lf": "bb1b46f67f6410e8b1831a542385071b8b5d7a8d",
+      "sha1_crlf": "8eb01c346a92a2321c358ae8327d3b48c163b1b0"
+    },
+    {
+      "file": "qtbase-source-gitattributes.txt",
+      "url": "https://code.qt.io/cgit/qt/qtbase.git/plain/.gitattributes?id=138f955f0b5e50e4a6c2ee1e78a2279db52ae9e3",
+      "size": 227,
+      "sha256": "edbe0427047f873216d84ab3335a2c78047510c07993f00963d7f2f23d5918b0",
+      "sha1_lf": "65b220381869f2b8614eb2812ec7cb8ed5e12f07",
+      "sha1_crlf": "53f6787d4ea2099b16faa773101265f17b6d7d0e"
+    },
+    {
+      "file": "qtsvg-gitattributes.txt",
+      "url": "https://code.qt.io/cgit/qt/qtsvg.git/plain/.gitattributes?id=f5d99721911e4a1989965a087813cf1277519bc6",
+      "size": 89,
+      "sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff",
+      "sha1_lf": "a74f20b22168960dd54c4a4d62bc2150c785b06b",
+      "sha1_crlf": "d7f4162b0bba7d81de39a5a6017e5c7ad7c99ef4"
+    },
+    {
+      "file": "qttools-git-tag.txt",
+      "url": "https://code.qt.io/cgit/qt/qttools.git/plain/.tag?id=b0b5b911411ffb0da4f29643ab295b90c52dc26d",
+      "size": 12,
+      "sha256": "2070743a71dbdccd323f1848e8f9f1fd893081c4e779f9f5a3cebcee6b2e467d",
+      "sha1_lf": "bb1b46f67f6410e8b1831a542385071b8b5d7a8d",
+      "sha1_crlf": "8eb01c346a92a2321c358ae8327d3b48c163b1b0"
+    },
+    {
+      "file": "qttools-gitattributes.txt",
+      "url": "https://code.qt.io/cgit/qt/qttools.git/plain/.gitattributes?id=b0b5b911411ffb0da4f29643ab295b90c52dc26d",
+      "size": 89,
+      "sha256": "0a9ab7cbb2935a5086f30fe7bc12bcbe4a9c8019d9f7c7570b046cd9417fa8ff",
+      "sha1_lf": "a74f20b22168960dd54c4a4d62bc2150c785b06b",
+      "sha1_crlf": "d7f4162b0bba7d81de39a5a6017e5c7ad7c99ef4"
+    }
+  ],
+  "official_git_metadata_contents": {
+    "qtbase-source-git-tag.txt": "$Format:%H$\n",
+    "qtbase-source-gitattributes.txt": ".tag                    export-subst\n.gitignore              export-ignore\n.gitattributes          export-ignore\n.commit-template        export-ignore\n*.bat                   text eol=crlf\n*.bat.in                text eol=crlf\n",
+    "qtsvg-git-tag.txt": "$Format:%H$\n",
+    "qtsvg-gitattributes.txt": ".tag            export-subst\n.gitignore      export-ignore\n.gitattributes  export-ignore\n",
+    "qttools-git-tag.txt": "$Format:%H$\n",
+    "qttools-gitattributes.txt": ".tag            export-subst\n.gitignore      export-ignore\n.gitattributes  export-ignore\n"
+  },
+  "qtbase_binary_revision_lookup": {
+    "revision": "b21f6a785516e898388cda2fe5d3e7dacd6d4b7d",
+    "official_commit_http_status": 404,
+    "resolved": false,
+    "observation_date": "2026-11-09",
+    "source_revision_public": true
+  },
+  "new_advisory": {
+    "id": "CVE-2026-116337",
+    "published_on": "2026-11-09",
+    "url": "https://www.qt.io/blog/security-issue-cve-2026-116337",
+    "component": "Qt Network HTTP response parsing",
+    "qt_network_retained": true,
+    "candidate_6113_source_contains_new_guards": false,
+    "official_solution_versions": [
+      "6.8.10",
+      "6.12.1"
+    ],
+    "official_611_source_patches_available": true,
+    "patch_checks": [
+      {
+        "patch": "CVE-2026-116337-qtbase-6.11-0001.diff",
+        "direction": "forward",
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpheaderparser_p.h...\nChecking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\nChecking patch build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp...\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0001.diff"
+        ]
+      },
+      {
+        "patch": "CVE-2026-116337-qtbase-6.11-0001.diff",
+        "direction": "reverse",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp...\nerror: while searching for:\n\n    void parseEndOfHeader_data();\n    void parseEndOfHeader();\n\n    void headerSizeLimit_data();\n    void headerSizeLimit();\n};\n\nvoid tst_QHttpNetworkReply::parseHeader_data()\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp:21\nerror: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp: patch does not apply\nChecking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\nerror: while searching for:\n            fragment.append(c);\n            bytes++;\n\n            // Enforce the total header size limit while accumulating.\n            if (fragment.size() > parser.maxRawHeaderSize()) {\n                fragment.clear();\n                return -1;\n            }\n\n            if (c == '\\n') {\n                // check for possible header endings. As per HTTP rfc,\n                // the header endings will be marked by CRLFCRLF. But\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp:458\nerror: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp: patch does not apply\nChecking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpheaderparser_p.h...\nerror: while searching for:\n    }\n    qsizetype maxTotalHeaderSize() const { return maxTotalSize; }\n\n    qsizetype maxRawHeaderSize() const {\n        constexpr qsizetype TrailingLineEndings = 4;\n        qsizetype result;\n        if (qAddOverflow(maxTotalSize, TrailingLineEndings, &result))\n            return (std::numeric_limits<qsizetype>::max)();\n        return result;\n    }\n\n    void setMaxHeaderFields(qsizetype size) {\n        Q_ASSERT(size > 0);\n        maxFieldCount = size;\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpheaderparser_p.h:89\nerror: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpheaderparser_p.h: patch does not apply\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "--reverse",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0001.diff"
+        ]
+      },
+      {
+        "patch": "CVE-2026-116337-qtbase-6.11-0002.diff",
+        "direction": "forward",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\nChecking patch build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp...\nerror: while searching for:\n\n    void headerSizeLimit_data();\n    void headerSizeLimit();\n};\n\nvoid tst_QHttpNetworkReply::parseHeader_data()\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp:24\nerror: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp: patch does not apply\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0002.diff"
+        ]
+      },
+      {
+        "patch": "CVE-2026-116337-qtbase-6.11-0002.diff",
+        "direction": "reverse",
+        "exit_code": 1,
+        "stdout": "",
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp...\nerror: while searching for:\n\n    void headerSizeLimit_data();\n    void headerSizeLimit();\n\n    void statusLineSizeLimit();\n};\n\nvoid tst_QHttpNetworkReply::parseHeader_data()\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp:24\nerror: build/qt-source-tag-review-20261109/patch-check/tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp: patch does not apply\nChecking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\nerror: while searching for:\n            fragment.clear();\n            return -1;\n        }\n\n        // parseStatus() rejects reason phrases longer than MAX_REASON_PHRASE_SIZE anyway,\n        // so anything beyond that plus a generous allowance for the rest of the line\n        // can never be valid.\n        if (fragment.size() > HeaderConstants::MAX_REASON_PHRASE_SIZE + 64) {\n            fragment.clear();\n            return -1;\n        }\n    } while (haveRead == 1);\n\n    return bytes;\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp:423\nerror: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp: patch does not apply\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "--reverse",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0002.diff"
+        ]
+      }
+    ],
+    "second_patch_production_checks": [
+      {
+        "direction": "forward",
+        "exit_code": 0,
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0002-production.diff"
+        ]
+      },
+      {
+        "direction": "reverse",
+        "exit_code": 1,
+        "stderr": "Checking patch build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp...\nerror: while searching for:\n            fragment.clear();\n            return -1;\n        }\n\n        // parseStatus() rejects reason phrases longer than MAX_REASON_PHRASE_SIZE anyway,\n        // so anything beyond that plus a generous allowance for the rest of the line\n        // can never be valid.\n        if (fragment.size() > HeaderConstants::MAX_REASON_PHRASE_SIZE + 64) {\n            fragment.clear();\n            return -1;\n        }\n    } while (haveRead == 1);\n\n    return bytes;\n\nerror: patch failed: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp:423\nerror: build/qt-source-tag-review-20261109/patch-check/src/network/access/qhttpnetworkreply.cpp: patch does not apply\n",
+        "command": [
+          "git",
+          "apply",
+          "--check",
+          "--verbose",
+          "--directory=build/qt-source-tag-review-20261109/patch-check",
+          "--reverse",
+          "build\\qt-source-tag-review-20261109\\CVE-2026-116337-qtbase-6.11-0002-production.diff"
+        ]
+      }
+    ],
+    "patches_applied": false,
+    "native_binaries_changed": false,
+    "unreachability_proven": false,
+    "source_members": [
+      {
+        "path": "src/network/access/qhttpheaderparser_p.h",
+        "size": 4059,
+        "sha256": "b4b5b9ab97115b1ca7ad1e5ed8837924b68962638a8cf9e6ab6e9e4e67fb45b0"
+      },
+      {
+        "path": "src/network/access/qhttpnetworkreply.cpp",
+        "size": 22894,
+        "sha256": "3119e4bb303f913599c0a781b4d0624843ca6e4a96e3e070687f9ecfc1a622f3"
+      },
+      {
+        "path": "tests/auto/network/access/qhttpnetworkreply/tst_qhttpnetworkreply.cpp",
+        "size": 10830,
+        "sha256": "687673f36e3de633a64785f71333c7270055b6ef40a3abde2475784db9c65292"
+      }
+    ]
+  },
+  "first_party_usage_review": {
+    "search_scope": [
+      "app/**/*.py",
+      "scripts/**/*.py"
+    ],
+    "observed_qt_network_uses": [
+      {
+        "path": "app/gui/map_host/launcher.py",
+        "symbols": [
+          "QHostAddress",
+          "QTcpServer",
+          "QTcpSocket"
+        ],
+        "purpose": "map-host IPC"
+      },
+      {
+        "path": "app/gui/map_host/host.py",
+        "symbols": [
+          "QTcpSocket"
+        ],
+        "purpose": "map-host IPC"
+      },
+      {
+        "path": "scripts/probe_qt_tls.py",
+        "symbols": [
+          "QSslSocket",
+          "QSslCertificate",
+          "QSslConfiguration"
+        ],
+        "purpose": "maintenance TLS probe"
+      }
+    ],
+    "direct_QNetworkAccessManager_or_QNetworkRequest_references_found": false,
+    "limit": "Text/import search of first-party Python is not a whole-program or native reachability proof."
+  },
+  "release_metadata": {
+    "qt_6113_announcement": "https://www.qt.io/blog/qt-6.11.3-released",
+    "announcement_date": "2026-10-26",
+    "announced_last_611_release": true,
+    "official_611_index": "https://download.qt.io/official_releases/qt/6.11/",
+    "latest_listed_611_version_on_review": "6.11.3",
+    "newer_module_advisories": [
+      {
+        "id": "CVE-2026-114366",
+        "module": "QtWebSockets",
+        "upstream_fixed_in": "6.11.3",
+        "url": "https://www.qt.io/blog/security-issue-cve-2026-114366",
+        "candidate_module_excluded": true
+      },
+      {
+        "id": "CVE-2026-107479",
+        "module": "Qt5Compat",
+        "upstream_fixed_in": "6.11.3",
+        "url": "https://www.qt.io/blog/security-advisory-cve-2026-107479-integer-truncation-vulnerability-in-qtextcodec-conversion-functions-impacts-qt-framework",
+        "candidate_module_excluded": true
+      }
+    ]
+  },
+  "build_recipe": {
+    "binary_metadata": {
+      "config_qtbase.opt": {
+        "sha256": "9e4af7506a3e75f2e60ca5f860b3c56191b3678a2780c5f729152a9c2f7244b8",
+        "size": 1092
+      },
+      "config_qtbase.summary": {
+        "sha256": "99d40060d0afec14c48e95ee9e93cb2cbba65fdff2525396d6f1a30293008ce6",
+        "size": 10124
+      }
+    },
+    "upstream_configuration_reference": "https://wiki.qt.io/Qt_6.11_Tools_and_Versions",
+    "upstream_windows_11_24H2_tools": {
+      "CMake": "4.3.2",
+      "Ninja_amd64": "1.10.2",
+      "sccache": "v0.15.0",
+      "OpenSSL_x64": "3.5.4"
+    },
+    "archive_compiler": "MSVC 19.44.35227.0",
+    "archive_cmake": "4.3.2",
+    "archive_build_mode": "shared debug/release with debug information",
+    "native_toolchain_pinned": false,
+    "native_rebuild_started": false,
+    "technical_gaps": [
+      "Qtbase binary revision b21f6a785516e898388cda2fe5d3e7dacd6d4b7d correspondence remains unresolved.",
+      "Exact compiler, linker, Windows SDK, runtime libraries, CMake, Ninja, sccache, and all external input artifacts need provenance and hashes.",
+      "Upstream version tables and configure options are useful recipes but do not establish a complete reproducible toolchain.",
+      "A patched 6.11.3 build must include both new HTTP-response guards and produce tested new binary/source/SBOM evidence."
+    ],
+    "configure_options": [
+      "-debug-and-release",
+      "-force-debug-info",
+      "-headersclean",
+      "-nomake",
+      "examples",
+      "-qt-zlib",
+      "--",
+      "-DFEATURE_msvc_obj_debug_info=ON",
+      "-DOPENSSL_ROOT_DIR=C:\\openssl_x64\\..",
+      "-DPostgreSQL_ROOT=C:\\Utils\\postgresql\\pgsql\\lib\\..",
+      "-DCMAKE_C_COMPILER=cl.exe",
+      "-DCMAKE_CXX_COMPILER=cl.exe",
+      "-DCMAKE_MAKE_PROGRAM=C:\\Utils\\Ninja\\ninja.exe",
+      "-DQT_INSTALL_CONFIG_INFO_FILES=ON",
+      "-DQT_GENERATE_SBOM=ON",
+      "-DQT_GENERATE_SOURCE_SBOM=ON",
+      "-DQT_SBOM_VERIFY_SPDX_V2=ON",
+      "-DQT_SBOM_REQUIRE_GENERATE_SPDX_V2_JSON=ON",
+      "-DQT_SBOM_REQUIRE_VERIFY_SPDX_V2=ON",
+      "-DQT_SBOM_VERIFY_CYDX_V1_6=ON",
+      "-DQT_SBOM_REQUIRE_GENERATE_CYDX_V1_6=ON",
+      "-DQT_SBOM_REQUIRE_VERIFY_CYDX_V1_6=ON",
+      "-DQT_SBOM_PYTHON_INTERP=C:\\Python310_64\\python.exe",
+      "-DQT_SBOM_PYTHON_APPS_PATH=C:\\Python310_64\\Scripts",
+      "-DQT_LINT_SOURCE_SBOM=ON",
+      "-DQT_INTERNAL_SBOM_DEFAULT_CHECKS=ON",
+      "-DQT_INTERNAL_SBOM_AUDIT=ON",
+      "-DQT_INTERNAL_SBOM_AUDIT_NO_ERROR=ON",
+      "-DQT_BUILD_TESTS=OFF",
+      "-DCMAKE_AUTOGEN_VERBOSE=ON",
+      "-DCMAKE_MESSAGE_LOG_LEVEL=STATUS",
+      "-DCMAKE_C_COMPILER_LAUNCHER=sccache",
+      "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache",
+      "-DBUILD_WITH_PCH=OFF",
+      "-DCMAKE_INSTALL_PREFIX:PATH=/Users/qt/work/install"
+    ]
+  },
+  "validation": {
+    "script": "scripts/verify_qt_export_metadata.py",
+    "script_sha256": "685b6d376df003fb4aeac5096e41b9dc56a974795af80740bc8d269b1e44af76",
+    "metadata_verifier_all_three_modules_passed": true,
+    "unit_tests_passed": 13,
+    "ruff_passed": true,
+    "source_archive_parsing": "Exact SHA256-verified byte snapshot; no source-path reopen between verification and .tag parsing."
+  }
+}

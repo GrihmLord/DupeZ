@@ -46,7 +46,9 @@ print("DASHBOARD_SMOKE_OK")
         env=env,
         capture_output=True,
         text=True,
-        timeout=30,
+        # Whole-application coverage instrumentation can materially slow Qt
+        # teardown on shared CI runners; retain a finite, diagnostic bound.
+        timeout=60,
         check=False,
     )
 

@@ -35,9 +35,9 @@ or disruption of devices outside the authorized lab.
 5. **CI consumed the loose requirements file.** Hosted and hardware test jobs
    now install the hashed lock with `--require-hashes`.
 6. **Mutable GitHub Action references.** Workflow actions are pinned to reviewed
-   full commit SHAs. Hosted jobs use current Node 24-capable action releases;
-   the self-hosted hardware job remains on a pinned Node 20-compatible
-   `setup-python` until its runner is certified at version 2.327.1 or newer.
+   full commit SHAs. Hosted and self-hosted jobs use current Node 24-capable
+   action releases; the hardware runner must therefore be version 2.327.1 or
+   newer.
 7. **No dependency-change gate.** A pinned dependency-review workflow now fails
    on newly introduced moderate-or-higher runtime vulnerabilities.
 8. **No automated update cadence.** Dependabot now reviews Python and GitHub

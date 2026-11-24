@@ -9,6 +9,7 @@ import pytest
 from app.core.cut_chain import (
     ChainConfig,
     ChainEvent,
+    ChainValidationError,
     CutChainRunner,
     Gate,
     Stage,
@@ -51,9 +52,10 @@ class FakeController:
         }
         return True
 
-    def stop_disruption(self, ip: str) -> None:
+    def stop_disruption(self, ip: str, **_kwargs) -> bool:
         self.calls.append(("stop", ip))
         self.disrupted_devices.pop(ip, None)
+        return True
 
 
 # ── Stage walk ────────────────────────────────────────────────────────
@@ -192,22 +194,15 @@ class TestGates:
         kinds = [e.kind for e in events]
         assert "stage_end" in kinds
 
-    def test_unknown_gate_falls_back_to_short_sleep(self) -> None:
-        events: list = []
-        cfg = ChainConfig(
-            target_ip="10.0.0.5",
-            stages=[Stage(
-                preset="Lag",
-                gate=Gate(kind="bogus_gate_kind"),
-            )],
-        )
-        runner = CutChainRunner(cfg, FakeController(), on_event=events.append)
-        runner.start()
-        time.sleep(1.5)  # default fallback sleep is 1s
-        runner.stop()
-        # Should still complete despite unknown gate kind.
-        kinds = [e.kind for e in events]
-        assert "complete" in kinds or "halt" in kinds
+    def test_unknown_gate_is_rejected_before_execution(self) -> None:
+        with pytest.raises(ChainValidationError, match="gate kind"):
+            ChainConfig(
+                target_ip="10.0.0.5",
+                stages=[Stage(
+                    preset="Lag",
+                    gate=Gate(kind="bogus_gate_kind"),
+                )],
+            )
 
 
 class TestTimeGateTiming:

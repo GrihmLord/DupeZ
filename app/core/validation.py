@@ -489,10 +489,17 @@ def validate_safe_path(path: str, base_dir: str,
 # ── URL Validation ───────────────────────────────────────────────────
 
 _ALLOWED_URL_SCHEMES: FrozenSet[str] = frozenset({"https", "http"})
-_BLOCKED_HOSTS: FrozenSet[str] = frozenset({
-    "localhost", "127.0.0.1", "0.0.0.0", "::1",
-    "metadata.google.internal", "169.254.169.254",
-})
+_BLOCKED_HOSTS: FrozenSet[str] = frozenset(
+    {
+        "localhost",
+        "127.0.0.1",
+        # Explicitly blocked endpoint sentinel; never a bind target.
+        "0.0.0.0",  # nosec B104
+        "::1",
+        "metadata.google.internal",
+        "169.254.169.254",
+    }
+)
 
 
 def validate_url(url: str, require_https: bool = False,

@@ -5,7 +5,8 @@ Run the architecture-correct frozen lifecycle validator.
 GPU must run from a standard desktop PowerShell session. Compat must run from
 Administrator PowerShell. The Python implementation follows PyInstaller's
 one-file process tree, exercises the real dashboard shortcuts, verifies map
-startup and clean shutdown, and writes private hash-bound evidence to dist/.
+manual URL readiness without an embedded renderer, clean shutdown, and writes
+private hash-bound evidence to dist/.
 #>
 
 [CmdletBinding()]

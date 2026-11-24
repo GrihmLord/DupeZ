@@ -6,6 +6,7 @@ import threading
 import time
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from app.core.controller import AppController
 from app.core.cut_chain import (
@@ -73,6 +74,23 @@ def test_factory_builds_bounded_pure_stages_and_copies_inputs() -> None:
     assert "_auto_tune_duration" not in config.common_params
     assert "_network_local" not in config.common_params
     assert config.disrupt_kwargs["target_mac"] == "AA:BB:CC:DD:EE:FF"
+
+
+def test_factory_accepts_absent_optional_device_metadata() -> None:
+    config = build_automatic_connection_test(
+        "192.168.1.25",
+        disrupt_kwargs={
+            "target_mac": None,
+            "target_hostname": None,
+            "target_device_type": None,
+        },
+    )
+
+    assert config.disrupt_kwargs == {
+        "target_mac": None,
+        "target_hostname": None,
+        "target_device_type": None,
+    }
 
 
 class _RecordingController:
@@ -521,6 +539,204 @@ def test_controller_rejects_release_from_stale_runner(monkeypatch) -> None:
     ) is False
     assert len([call for call in manager.calls if call[0] == "stop"]) == stop_count
     controller.stop_automatic_workflow()
+
+
+def test_controller_starts_owned_configured_chain_and_caps_deadline(
+    monkeypatch,
+) -> None:
+    manager = _Manager()
+    controller = _make_controller(manager)
+    captured = {}
+
+    class _Runner:
+        def __init__(self, config, owner, on_event=None) -> None:
+            captured["config"] = config
+            captured["owner"] = owner
+            captured["callback"] = on_event
+            self.running = False
+
+        def start(self) -> None:
+            self.running = True
+
+        def stop(self) -> bool:
+            self.running = False
+            return True
+
+        @property
+        def release_confirmed(self) -> bool:
+            return not self.running
+
+        def confirm_external_release(self) -> bool:
+            self.running = False
+            return True
+
+    monkeypatch.setattr("app.core.controller.CutChainRunner", _Runner)
+    config = ChainConfig(
+        target_ip="192.168.1.25",
+        stages=[Stage("Lag", gate=Gate("time", seconds=1.0))],
+        global_timeout_s=60.0,
+    )
+
+    generation = controller.start_cut_chain(config)
+
+    assert generation > 0
+    assert captured["owner"] is controller
+    assert captured["config"] is not config
+    assert captured["config"].target_ip == "192.168.1.25"
+    assert captured["config"].global_timeout_s == 30.0
+    assert config.global_timeout_s == 60.0
+    assert controller.is_automatic_workflow_running()
+    assert controller.stop_automatic_workflow()
+
+
+def test_controller_refuses_configured_chain_outside_narrow_scope() -> None:
+    manager = _Manager()
+    controller = _make_controller(manager)
+    controller.safety_policy = SafetyPolicy(
+        allowed_cidrs=("192.168.1.0/24",),
+        max_operation_seconds=30,
+    )
+    config = ChainConfig(
+        target_ip="192.168.2.25",
+        stages=[Stage("Lag", gate=Gate("time", seconds=0.01))],
+        global_timeout_s=1.0,
+    )
+
+    assert controller.start_cut_chain(config) == 0
+    assert manager.calls == []
+    assert not controller.is_automatic_workflow_running()
+
+
+def test_controller_refuses_mutated_chain_before_runner_ownership() -> None:
+    manager = _Manager()
+    controller = _make_controller(manager)
+    config = ChainConfig(
+        target_ip="192.168.1.25",
+        stages=[Stage("Lag", gate=Gate("time", seconds=0.01))],
+        global_timeout_s=1.0,
+    )
+    config.stages[0].action = "execute_program"
+
+    assert controller.start_cut_chain(config) == 0
+    assert manager.calls == []
+    assert not controller.is_automatic_workflow_running()
+
+
+def test_controller_blocks_replacement_until_global_restore_confirms_release(
+    monkeypatch,
+) -> None:
+    manager = _Manager()
+    controller = _make_controller(manager)
+    runners = []
+
+    class _UnconfirmedRunner:
+        def __init__(self, _config, _owner, on_event=None) -> None:
+            self.running = False
+            self.release_confirmed = False
+            self.on_event = on_event
+            self.stop_calls = 0
+            runners.append(self)
+
+        def start(self) -> None:
+            self.running = True
+
+        def stop(self) -> bool:
+            self.stop_calls += 1
+            self.running = False
+            return False
+
+        def confirm_external_release(self) -> bool:
+            if self.running:
+                return False
+            self.release_confirmed = True
+            return True
+
+    monkeypatch.setattr(
+        "app.core.controller.CutChainRunner",
+        _UnconfirmedRunner,
+    )
+    first = ChainConfig(
+        target_ip="192.168.1.25",
+        stages=[Stage("Lag", gate=Gate("time", seconds=1))],
+        global_timeout_s=5,
+    )
+    second = ChainConfig(
+        target_ip="192.168.1.26",
+        stages=[Stage("Red Disconnect", gate=Gate("time", seconds=1))],
+        global_timeout_s=5,
+    )
+
+    assert controller.start_cut_chain(first) > 0
+    assert controller.start_cut_chain(second) == 0
+    assert len(runners) == 1
+    assert controller.is_automatic_workflow_running()
+    assert controller.disrupt_device(
+        "192.168.1.30",
+        ["lag"],
+        {"lag_delay": 10},
+    ) is False
+    assert not [call for call in manager.calls if call[0] == "disrupt"]
+
+    assert controller.stop_all_disruptions() is True
+    assert runners[0].release_confirmed
+    assert controller.start_cut_chain(second) > 0
+    assert len(runners) == 2
+
+
+def test_external_stop_fails_closed_when_automatic_release_is_unconfirmed() -> None:
+    manager = _Manager()
+    controller = _make_controller(manager)
+    target = "192.168.1.25"
+    runner = SimpleNamespace(
+        running=False,
+        release_confirmed=False,
+        stop=MagicMock(return_value=False),
+    )
+    controller._automatic_runner = runner
+    controller._arm_operation_deadline(target, 30.0)
+    owned_deadline = controller._deadline_timers[target]
+
+    try:
+        assert controller.stop_disruption(target) is False
+        runner.stop.assert_called_once_with()
+        assert manager.calls == []
+        assert controller._automatic_runner is runner
+        assert controller._deadline_timers[target] is owned_deadline
+    finally:
+        controller._cancel_all_operation_deadlines()
+
+
+def test_macro_stop_retains_automatic_target_when_cleanup_is_unconfirmed() -> None:
+    from app.gui.clumsy_control import ClumsyControlView
+
+    stop_automatic = MagicMock(return_value=False)
+    stop_macro = MagicMock(return_value=True)
+    status = SimpleNamespace(
+        setText=MagicMock(),
+        setStyleSheet=MagicMock(),
+    )
+    view = SimpleNamespace(
+        controller=SimpleNamespace(
+            stop_automatic_workflow=stop_automatic,
+            scheduler=SimpleNamespace(stop_macro=stop_macro),
+        ),
+        _automatic_target_ip="192.168.1.25",
+        _automatic_ui_generation=4,
+        sched_status=status,
+        _MUTED_QSS="muted",
+        _WARNING_QSS="warning",
+    )
+
+    ClumsyControlView._on_stop_macro(view)
+
+    stop_automatic.assert_called_once_with()
+    stop_macro.assert_called_once_with()
+    assert view._automatic_target_ip == "192.168.1.25"
+    assert view._automatic_ui_generation == 5
+    status.setText.assert_called_once_with(
+        "Automatic cleanup not confirmed — retry Stop"
+    )
+    status.setStyleSheet.assert_called_once_with("warning")
 
 
 def test_gui_source_has_automatic_guard_and_no_engine_or_layer_widgets() -> None:

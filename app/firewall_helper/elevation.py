@@ -4,26 +4,19 @@
 Helper-process elevation and lifecycle management (ADR-0001 Day 4).
 
 This module spawns `dupez_helper.py` at High IL while the GUI process
-itself runs at Medium IL. It supports two elevation strategies:
+itself runs at Medium IL. It supports one elevation strategy:
 
     B2a  runas            — ShellExecuteW("runas", ...) consent prompt.
                             One UAC dialog per launch. Works on every
                             Windows host without install-time setup.
 
-    B2b  scheduled_task   — ITaskService COM API registers a Task
-                            Scheduler entry with "Run with highest
-                            privileges". Subsequent launches call
-                            IRegisteredTask::Run() which spawns the
-                            helper at High IL WITHOUT prompting UAC.
-                            Registration itself requires one UAC prompt
-                            (to create the task); every launch after
-                            that is silent.
-
 Strategy selection is controlled by `DUPEZ_ELEVATION`:
-    auto            → prefer scheduled_task if already registered,
-                      otherwise runas. Default.
+    auto            → runas. Default.
     runas           → always use B2a.
-    scheduled_task  → always use B2b; registers the task on first run.
+    scheduled_task  → refused. Older releases exposed a persistent
+                      highest-privilege task whose static action could not
+                      bind a launch to the requesting GUI process. Keeping
+                      that path would create a same-user UAC bypass.
 
 Critical invariants:
     * This module MUST be importable from the GUI process at Medium IL.
@@ -45,11 +38,16 @@ from __future__ import annotations
 import ctypes
 import logging
 import os
+import subprocess
 import sys
-import time
-from typing import Optional
+from typing import Callable, Optional
 
 log = logging.getLogger(__name__)
+
+_SECOND_FACTOR_SECRET_KINDS = (
+    "secondfactor.totp.seed",
+    "secondfactor.fido2.creds",
+)
 
 # Public API
 __all__ = [
@@ -59,20 +57,119 @@ __all__ = [
     "launch_helper_runas",
     "launch_helper_via_task",
     "ElevationError",
+    "enforce_second_factor",
+    "probe_second_factor_boundary",
     "resolve_elevation_mode",
 ]
 
-# Task Scheduler registered path — matches folder + task name convention.
-TASK_FOLDER = r"\DupeZ"
-TASK_NAME = "FirewallHelper"
-TASK_PATH = TASK_FOLDER + "\\" + TASK_NAME
-
-# How long to wait for the helper's named pipe to become available after spawn.
-HELPER_READY_TIMEOUT_SEC = 15.0
-
-
 class ElevationError(RuntimeError):
     """Raised when the helper process cannot be elevated or spawned."""
+
+
+def _audit_second_factor_refusal(failure: str, *, boundary: str) -> None:
+    """Record a fixed, non-secret reason for refusing elevation."""
+    try:
+        from app.logs.audit import audit_event
+
+        audit_event(
+            "second_factor_boundary_refused",
+            {"boundary": boundary, "failure": failure},
+        )
+    except Exception:
+        # Audit availability must not change the fail-closed decision.
+        pass
+
+
+def _refuse_second_factor(failure: str, *, boundary: str) -> None:
+    """Refuse elevation without copying provider errors into logs."""
+    log.warning(
+        "elevation refused because second-factor authorization failed (%s)",
+        failure,
+    )
+    _audit_second_factor_refusal(failure, boundary=boundary)
+    raise ElevationError(
+        "second-factor authorization could not be established; elevation refused"
+    ) from None
+
+
+def _second_factor_state(*, boundary: str):
+    """Return ``(gate, enrolled)`` or fail closed on indeterminate state."""
+    try:
+        from app.core.second_factor import get_gate
+        from app.core.secret_store import check_store_health, get_secret
+    except Exception:
+        _refuse_second_factor("dependency_unavailable", boundary=boundary)
+
+    try:
+        store_health = check_store_health()
+    except Exception:
+        _refuse_second_factor("store_probe_failed", boundary=boundary)
+    if getattr(store_health, "healthy", None) is not True:
+        _refuse_second_factor("store_unavailable", boundary=boundary)
+
+    try:
+        gate = get_gate()
+    except Exception:
+        _refuse_second_factor("gate_unavailable", boundary=boundary)
+
+    try:
+        enrolled = gate.is_enrolled()
+    except Exception:
+        _refuse_second_factor("enrollment_query_failed", boundary=boundary)
+    if enrolled is False:
+        try:
+            stored_enrollment = any(
+                get_secret(kind) is not None
+                for kind in _SECOND_FACTOR_SECRET_KINDS
+            )
+        except Exception:
+            _refuse_second_factor("store_read_failed", boundary=boundary)
+        if stored_enrollment:
+            _refuse_second_factor(
+                "enrollment_state_inconsistent",
+                boundary=boundary,
+            )
+        return gate, False
+    if enrolled is not True:
+        _refuse_second_factor("invalid_enrollment_state", boundary=boundary)
+    return gate, True
+
+
+def probe_second_factor_boundary(*, boundary: str = "elevation") -> bool:
+    """Validate store/enrollment state without granting privileged access.
+
+    The Medium-IL GUI uses this before it writes the helper sentinel or shows a
+    UAC prompt.  This is only a readiness probe: the High-IL helper performs
+    the actual verification so direct ``--role helper`` invocation cannot
+    bypass an enrolled factor.
+    """
+    _gate, enrolled = _second_factor_state(boundary=boundary)
+    return enrolled
+
+
+def enforce_second_factor(
+    *,
+    boundary: str = "elevation",
+    prompter: Optional[Callable[[str], str]] = None,
+) -> None:
+    """Verify an enrolled factor at the privileged boundary or fail closed."""
+    gate, enrolled = _second_factor_state(boundary=boundary)
+    if not enrolled:
+        return
+
+    try:
+        require_kwargs = {
+            "reason": "authorize privileged firewall engine startup",
+            "cache_ttl_sec": 0,
+            "bypass_cache": True,
+        }
+        if prompter is not None:
+            require_kwargs["prompter"] = prompter
+        verified = gate.require("elevation", **require_kwargs)
+    except Exception:
+        _refuse_second_factor("verification_failed", boundary=boundary)
+    if verified is not True:
+        _refuse_second_factor("invalid_verification_result", boundary=boundary)
 
 
 # ── Environment / argv helpers ────────────────────────────────────────
@@ -84,6 +181,26 @@ def resolve_elevation_mode() -> str:
         log.warning("unknown DUPEZ_ELEVATION=%r, defaulting to auto", mode)
         return "auto"
     return mode
+
+
+def _parent_create_time(parent_pid: int) -> float:
+    """Return the live caller's creation time for PID-reuse protection."""
+    if not isinstance(parent_pid, int) or parent_pid <= 0:
+        raise ElevationError("invalid helper parent process")
+    if parent_pid != os.getpid():
+        raise ElevationError("helper must be bound to the calling process")
+    try:
+        import psutil
+
+        process = psutil.Process(parent_pid)
+        created = float(process.create_time())
+        if not process.is_running() or created <= 0:
+            raise ElevationError("helper parent process is not live")
+        return created
+    except ElevationError:
+        raise
+    except Exception as exc:
+        raise ElevationError("helper parent identity is unavailable") from exc
 
 
 def _helper_script_path() -> str:
@@ -116,11 +233,19 @@ def _python_exe() -> str:
 
 
 def _build_helper_argv(parent_pid: int, pipe_name: Optional[str]) -> list[str]:
+    if pipe_name is not None:
+        raise ElevationError("custom helper pipe names are not supported")
     script = _helper_script_path()
-    argv = [script, "--role", "helper", "--parent-pid", str(parent_pid)]
-    if pipe_name:
-        argv += ["--pipe", pipe_name]
-    return argv
+    created = _parent_create_time(parent_pid)
+    return [
+        script,
+        "--role",
+        "helper",
+        "--parent-pid",
+        str(parent_pid),
+        "--parent-created",
+        repr(created),
+    ]
 
 
 # ── B2a: runas (ShellExecuteW) ────────────────────────────────────────
@@ -129,7 +254,7 @@ def _build_helper_argv(parent_pid: int, pipe_name: Optional[str]) -> list[str]:
 _SEE_MASK_NOCLOSEPROCESS = 0x00000040
 _SEE_MASK_FLAG_NO_UI = 0x00000400
 _SW_HIDE = 0
-_SW_SHOWMINNOACTIVE = 7
+_SW_SHOWNORMAL = 1
 
 
 class _SHELLEXECUTEINFOW(ctypes.Structure):
@@ -162,32 +287,43 @@ def launch_helper_runas(parent_pid: int, pipe_name: Optional[str] = None) -> int
         raise ElevationError("runas elevation only available on Windows")
 
     argv = _build_helper_argv(parent_pid, pipe_name)
-    script_or_exe = argv[0]
+    script_or_exe = os.path.abspath(argv[0])
     rest = argv[1:]
+    if not os.path.isfile(script_or_exe):
+        raise ElevationError("helper launch target is unavailable")
 
     # If the helper is a .py file, we need to invoke it through the python
     # interpreter. If it's already a frozen .exe, call it directly.
     if script_or_exe.lower().endswith(".py"):
-        lp_file = _python_exe()
-        # Quote the script path to survive spaces.
-        lp_params = '"' + script_or_exe + '" ' + " ".join(_q(a) for a in rest)
+        lp_file = os.path.abspath(_python_exe())
+        params_argv = [script_or_exe, *rest]
     else:
         lp_file = script_or_exe
-        lp_params = " ".join(_q(a) for a in rest)
+        params_argv = rest
+    if not os.path.isfile(lp_file):
+        raise ElevationError("helper interpreter is unavailable")
+    lp_params = subprocess.list2cmdline(params_argv)
 
     sei = _SHELLEXECUTEINFOW()
     sei.cbSize = ctypes.sizeof(_SHELLEXECUTEINFOW)
-    sei.fMask = _SEE_MASK_NOCLOSEPROCESS
+    sei.fMask = _SEE_MASK_NOCLOSEPROCESS | _SEE_MASK_FLAG_NO_UI
     sei.hwnd = None
     sei.lpVerb = "runas"
     sei.lpFile = lp_file
     sei.lpParameters = lp_params
     sei.lpDirectory = os.path.dirname(script_or_exe) or None
-    sei.nShow = _SW_SHOWMINNOACTIVE
+    # The helper normally has no window, but an enrolled second factor opens
+    # a bounded authorization dialog. Do not inherit a minimized/no-activate
+    # startup state that can hide that privileged prompt behind the GUI.
+    sei.nShow = _SW_SHOWNORMAL
     sei.hInstApp = None
 
     shell32 = ctypes.windll.shell32
-    shell32.ShellExecuteExW.restype = ctypes.c_int
+    try:
+        shell32.ShellExecuteExW.argtypes = [ctypes.POINTER(_SHELLEXECUTEINFOW)]
+        shell32.ShellExecuteExW.restype = ctypes.c_int
+    except (AttributeError, TypeError):
+        pass
     ok = shell32.ShellExecuteExW(ctypes.byref(sei))
     if not ok or not sei.hProcess:
         err = ctypes.GetLastError()
@@ -198,248 +334,46 @@ def launch_helper_runas(parent_pid: int, pipe_name: Optional[str] = None) -> int
 
     # Extract PID from the returned process handle, then close the handle.
     kernel32 = ctypes.windll.kernel32
-    kernel32.GetProcessId.restype = ctypes.c_ulong
+    try:
+        kernel32.GetProcessId.argtypes = [ctypes.c_void_p]
+        kernel32.GetProcessId.restype = ctypes.c_ulong
+        kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
+        kernel32.CloseHandle.restype = ctypes.c_int
+    except (AttributeError, TypeError):
+        pass
     pid = int(kernel32.GetProcessId(ctypes.c_void_p(sei.hProcess)))
     try:
         kernel32.CloseHandle(ctypes.c_void_p(sei.hProcess))
     except Exception:
         pass
-    log.info("launch_helper_runas: spawned helper pid=%d via runas", pid)
+    if pid <= 0:
+        raise ElevationError("elevated helper returned no process identity")
+    log.info("launch_helper_runas: helper dispatched via runas")
     return pid
-
-
-def _q(s: str) -> str:
-    """Quote a single argv element for CreateProcess-style command lines."""
-    if not s:
-        return '""'
-    if any(c in s for c in (' ', '\t', '"')):
-        return '"' + s.replace('"', '\\"') + '"'
-    return s
 
 
 # ── B2b: scheduled_task (ITaskService COM) ────────────────────────────
 
 def is_helper_task_registered() -> bool:
-    """Return True if the `\\DupeZ\\FirewallHelper` task exists."""
-    if sys.platform != "win32":
-        return False
-    try:
-        import win32com.client  # type: ignore
-    except Exception as e:
-        log.debug("win32com unavailable, cannot check task: %s", e)
-        return False
-    try:
-        scheduler = win32com.client.Dispatch("Schedule.Service")
-        scheduler.Connect()
-        try:
-            folder = scheduler.GetFolder(TASK_FOLDER)
-        except Exception:
-            return False
-        try:
-            folder.GetTask(TASK_NAME)
-            return True
-        except Exception:
-            return False
-    except Exception as e:
-        log.debug("task lookup failed: %s", e)
-        return False
-
-
-# Task XML template — "Run with highest privileges", on-demand trigger,
-# interactive logon session (S4U would lose desktop access). {argv} is the
-# command line that will launch the helper.
-_TASK_XML_TEMPLATE = """<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Author>DupeZ</Author>
-    <Description>Elevated firewall helper for DupeZ (ADR-0001 split architecture). Launches dupez_helper.py at High IL without UAC prompts.</Description>
-    <URI>{uri}</URI>
-  </RegistrationInfo>
-  <Triggers />
-  <Principals>
-    <Principal id="Author">
-      <UserId>{user_sid}</UserId>
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>HighestAvailable</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>true</AllowHardTerminate>
-    <StartWhenAvailable>false</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
-    <IdleSettings>
-      <StopOnIdleEnd>false</StopOnIdleEnd>
-      <RestartOnIdle>false</RestartOnIdle>
-    </IdleSettings>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <RunOnlyIfIdle>false</RunOnlyIfIdle>
-    <WakeToRun>false</WakeToRun>
-    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-    <Priority>4</Priority>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>{command}</Command>
-      <Arguments>{arguments}</Arguments>
-      <WorkingDirectory>{working_dir}</WorkingDirectory>
-    </Exec>
-  </Actions>
-</Task>
-"""
-
-# ITaskFolder::RegisterTaskDefinition flags
-_TASK_CREATE_OR_UPDATE = 6
-_TASK_LOGON_INTERACTIVE_TOKEN = 3
-
-
-def _current_user_sid() -> str:
-    """Return the caller's SID as a string (S-1-5-21-...)."""
-    import ctypes.wintypes as wt
-    advapi32 = ctypes.windll.advapi32
-    kernel32 = ctypes.windll.kernel32
-
-    TOKEN_QUERY = 0x0008
-    TokenUser = 1
-
-    hproc = kernel32.GetCurrentProcess()
-    htok = wt.HANDLE()
-    if not advapi32.OpenProcessToken(hproc, TOKEN_QUERY, ctypes.byref(htok)):
-        raise ElevationError("OpenProcessToken failed")
-    try:
-        length = wt.DWORD(0)
-        advapi32.GetTokenInformation(htok, TokenUser, None, 0, ctypes.byref(length))
-        buf = (ctypes.c_byte * length.value)()
-        if not advapi32.GetTokenInformation(
-            htok, TokenUser, buf, length.value, ctypes.byref(length)
-        ):
-            raise ElevationError("GetTokenInformation failed")
-        # TOKEN_USER { SID_AND_ATTRIBUTES { PSID Sid; DWORD Attributes; } User; }
-        psid = ctypes.cast(buf, ctypes.POINTER(ctypes.c_void_p))[0]
-        str_sid = ctypes.c_wchar_p()
-        if not advapi32.ConvertSidToStringSidW(psid, ctypes.byref(str_sid)):
-            raise ElevationError("ConvertSidToStringSidW failed")
-        result = str_sid.value or ""
-        kernel32.LocalFree(str_sid)
-        return result
-    finally:
-        kernel32.CloseHandle(htok)
+    """Never discover or invoke legacy persistent helper tasks."""
+    return False
 
 
 def register_helper_task() -> None:
-    """Register the `\\DupeZ\\FirewallHelper` scheduled task.
-
-    This call triggers a UAC prompt (one time) because creating a task
-    with HighestAvailable requires admin. After registration, subsequent
-    launches via `launch_helper_via_task()` will run at High IL with no
-    further UAC prompts.
-    """
-    if sys.platform != "win32":
-        raise ElevationError("scheduled_task elevation requires Windows")
-    try:
-        import win32com.client  # type: ignore
-    except Exception as e:
-        raise ElevationError(f"win32com not available: {e}") from e
-
-    script = _helper_script_path()
-    if script.lower().endswith(".py"):
-        command = _python_exe()
-        arguments = '"' + script + '" --role helper'
-    else:
-        command = script
-        arguments = "--role helper"
-
-    working_dir = os.path.dirname(script) or os.getcwd()
-
-    try:
-        user_sid = _current_user_sid()
-    except Exception as e:
-        log.warning("falling back to empty SID for task registration: %s", e)
-        user_sid = ""
-
-    xml = _TASK_XML_TEMPLATE.format(
-        uri=TASK_PATH,
-        user_sid=user_sid,
-        command=_xml_escape(command),
-        arguments=_xml_escape(arguments),
-        working_dir=_xml_escape(working_dir),
+    """Refuse creation of a reusable highest-privilege helper task."""
+    raise ElevationError(
+        "scheduled-task elevation is disabled because a persistent "
+        "highest-privilege task cannot bind a launch to its requesting GUI"
     )
-
-    scheduler = win32com.client.Dispatch("Schedule.Service")
-    scheduler.Connect()
-    # Get or create the \DupeZ folder.
-    root = scheduler.GetFolder("\\")
-    try:
-        folder = scheduler.GetFolder(TASK_FOLDER)
-    except Exception:
-        folder = root.CreateFolder(TASK_FOLDER)
-
-    folder.RegisterTask(
-        TASK_NAME,
-        xml,
-        _TASK_CREATE_OR_UPDATE,
-        None,  # user
-        None,  # password
-        _TASK_LOGON_INTERACTIVE_TOKEN,
-        None,  # sddl
-    )
-    log.info("registered scheduled task %s", TASK_PATH)
-
-
-def _xml_escape(s: str) -> str:
-    return (s.replace("&", "&amp;")
-             .replace("<", "&lt;")
-             .replace(">", "&gt;")
-             .replace('"', "&quot;"))
 
 
 def launch_helper_via_task(parent_pid: int) -> int:
-    """Run the registered scheduled task. Returns the helper PID.
-
-    NOTE: Task Scheduler doesn't accept arbitrary run-time arguments for
-    pre-registered tasks on older Windows versions, so `--parent-pid` is
-    written into an environment variable the helper reads at startup.
-    We set DUPEZ_HELPER_PARENT_PID in this process's environment block
-    — but the task runs in its own session, so we instead use a tiny
-    sentinel file that the helper polls on startup.
-    """
-    if sys.platform != "win32":
-        raise ElevationError("scheduled_task elevation requires Windows")
-    try:
-        import win32com.client  # type: ignore
-    except Exception as e:
-        raise ElevationError(f"win32com not available: {e}") from e
-
-    # Write parent pid to a sentinel file the helper reads at startup.
-    sentinel_path = _parent_pid_sentinel_path()
-    try:
-        os.makedirs(os.path.dirname(sentinel_path), exist_ok=True)
-        with open(sentinel_path, "w", encoding="utf-8") as f:
-            f.write(str(parent_pid))
-    except Exception as e:
-        log.warning("failed to write parent-pid sentinel: %s", e)
-
-    scheduler = win32com.client.Dispatch("Schedule.Service")
-    scheduler.Connect()
-    folder = scheduler.GetFolder(TASK_FOLDER)
-    task = folder.GetTask(TASK_NAME)
-    running = task.Run(None)
-    # IRunningTask::EnginePID is the High-IL helper PID.
-    try:
-        pid = int(running.EnginePID)
-    except Exception:
-        pid = 0
-    log.info("launched helper via scheduled task, pid=%d", pid)
-    return pid
-
-
-def _parent_pid_sentinel_path() -> str:
-    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-    return os.path.join(base, "DupeZ", "helper_parent_pid.txt")
+    """Refuse invocation of the legacy reusable scheduled task."""
+    del parent_pid
+    raise ElevationError(
+        "scheduled-task elevation is disabled because a persistent "
+        "highest-privilege task cannot bind a launch to its requesting GUI"
+    )
 
 
 # ── Top-level orchestration ───────────────────────────────────────────
@@ -454,86 +388,74 @@ def ensure_helper_running(
     Returns the helper PID. Raises ElevationError on failure.
 
     Auth:
-        If ``shared_secret`` is provided, the 32-byte token is written
-        to the user-private sentinel (auth.write_token_sentinel) BEFORE
-        the helper is spawned. The helper reads-and-consumes the
-        sentinel at startup. If not provided, the caller is responsible
-        for writing the sentinel beforehand — usually via
-        DisruptionManagerProxy which owns the token lifecycle.
+        ``shared_secret`` must be exactly 32 bytes. It is written to the
+        user-private sentinel (auth.write_token_sentinel) BEFORE the helper
+        is spawned, then read and consumed by the helper at startup.
 
     The caller must then connect the PipeClient (with the same secret)
     and wait for the handshake — see `DisruptionManagerProxy._ensure_helper()`.
 
-    Second-factor gate (§9.2): if a second-factor provider is enrolled
-    on this install, elevation is gated behind it. Set the environment
-    variable ``DUPEZ_SECOND_FACTOR_DISABLED=1`` to bypass only in
-    controlled CI — production installs MUST leave the gate active.
+    Second-factor gate (§9.2): a healthy store and an affirmative gate
+    decision are required. Explicitly unenrolled first-run installs may
+    proceed; unavailable or indeterminate gate state is refused.
     """
-    # §9.2: require second factor for elevation if enrolled. We do NOT
-    # force enrollment here (that would break first-boot UX) — if no
-    # provider is enrolled the gate short-circuits silently. Enrolled
-    # installs get a mandatory check.
-    try:
-        if os.environ.get("DUPEZ_SECOND_FACTOR_DISABLED") != "1":
-            from app.core.second_factor import SecondFactorRequired, get_gate
-            gate = get_gate()
-            if gate.is_enrolled():
-                try:
-                    gate.require("elevation",
-                                 reason="spawn elevated firewall helper")
-                except SecondFactorRequired as e:
-                    raise ElevationError(
-                        f"second-factor verification refused elevation: {e}"
-                    ) from e
-    except ElevationError:
-        raise
-    except Exception as e:
-        # Never let a second-factor import error bring down elevation
-        # on installs that haven't enrolled. Log & continue.
-        log.debug("second-factor gate not available: %s", e)
+    effective_mode = (mode or resolve_elevation_mode()).lower()
+    if effective_mode == "auto":
+        effective_mode = "runas"
+        log.info("auto-resolved elevation mode -> runas")
+    if effective_mode == "scheduled_task":
+        raise ElevationError(
+            "scheduled-task elevation is disabled because a persistent "
+            "highest-privilege task cannot bind a launch to its requesting GUI"
+        )
+    if effective_mode != "runas":
+        raise ElevationError(f"unknown elevation mode: {effective_mode}")
+
+    # §9.2: fail early on an unavailable or contradictory factor store.
+    # This probe does not grant access.  The elevated helper verifies the
+    # factor again inside High IL before importing or initializing its engine.
+    probe_second_factor_boundary()
 
     # Write the auth sentinel BEFORE launching so the helper can read it
     # the instant it starts. Without this, run_helper_server refuses to
     # start on the helper side (by design).
-    if shared_secret is not None:
-        try:
-            from app.firewall_helper.auth import write_token_sentinel
-            path = write_token_sentinel(shared_secret)
-            log.debug("wrote auth sentinel: %s", path)
-        except Exception as e:
-            raise ElevationError(f"failed to write auth sentinel: {e}") from e
+    if not isinstance(shared_secret, (bytes, bytearray)) or len(shared_secret) != 32:
+        raise ElevationError("helper elevation requires a 32-byte session secret")
+    sentinel_written = False
+    try:
+        from app.firewall_helper.auth import write_token_sentinel
 
-    effective_mode = (mode or resolve_elevation_mode()).lower()
+        write_token_sentinel(bytes(shared_secret))
+        sentinel_written = True
+        log.debug("wrote helper authentication sentinel")
+    except Exception as e:
+        raise ElevationError("failed to write helper auth sentinel") from e
+
     parent_pid = os.getpid()
-
-    if effective_mode == "auto":
-        if is_helper_task_registered():
-            effective_mode = "scheduled_task"
-        else:
-            effective_mode = "runas"
-        log.info("auto-resolved elevation mode -> %s", effective_mode)
-
-    if effective_mode == "scheduled_task":
-        if not is_helper_task_registered():
-            log.info("scheduled task not registered yet, registering now")
-            register_helper_task()
-        pid = launch_helper_via_task(parent_pid)
-    elif effective_mode == "runas":
+    try:
         pid = launch_helper_runas(parent_pid, pipe_name=pipe_name)
-    else:
-        raise ElevationError(f"unknown elevation mode: {effective_mode}")
+    except Exception as exc:
+        if sentinel_written:
+            try:
+                from app.firewall_helper.auth import discard_token_sentinel
+
+                discard_token_sentinel()
+            except Exception:
+                pass
+        if isinstance(exc, ElevationError):
+            raise
+        raise ElevationError("helper launch failed") from None
 
     try:
         from app.firewall_helper.job_guard import (
             bind_helper_to_parent_lifetime,
         )
         if bind_helper_to_parent_lifetime(pid):
-            log.info("helper pid=%d bound to kill-on-close Job object", pid)
+            log.info("helper bound to kill-on-close Job object")
         else:
             log.warning(
-                "helper pid=%d could not be assigned to Job object; "
-                "creation-time parent watcher remains active",
-                pid,
+                "helper could not be assigned to Job object; "
+                "creation-time parent watcher remains active"
             )
     except Exception as exc:
         log.warning("helper Job object binding failed: %s", exc)

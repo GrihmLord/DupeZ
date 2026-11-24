@@ -8,12 +8,16 @@ local IPs. The artifact is safe to attach to a bug report after review.
 
 from __future__ import annotations
 
+import os
 import platform
+import re
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
+from urllib.parse import urlsplit
 
 from app.core.diagnostics import CheckStatus, run_all_checks
 from app.core.privacy import build_retention_plan, scan_privacy_items
@@ -24,6 +28,7 @@ from app.utils.helpers import mask_ips_in_text, mask_macs_in_text
 __all__ = [
     "SupportBundleResult",
     "build_support_bundle",
+    "default_support_bundle_path",
     "sanitize_support_value",
     "write_support_bundle",
 ]
@@ -42,28 +47,167 @@ def _default_data_dir() -> Path:
     return Path(_resolve_data_directory())
 
 
+def _utc_stamp(now: datetime | None = None) -> str:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def default_support_bundle_path(
+    *,
+    output_dir: Path | str | None = None,
+    now: datetime | None = None,
+) -> Path:
+    """Return a safe per-user default destination for a support bundle."""
+    root = Path(output_dir) if output_dir is not None else _default_data_dir()
+    return root / f"support-bundle-{_utc_stamp(now)}.json"
+
+
+_LOCAL_PATH_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?i)([A-Z]:[\\/]+Users[\\/]+)[^\\/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+    (re.compile(r"(/Users/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+    (re.compile(r"(/home/)[^/\"'<>|\r\n]+"), r"\1<REDACTED>"),
+)
+_BEARER_SECRET_RE = re.compile(
+    r"(?i)\b(?P<scheme>bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}"
+)
+_LABELED_SECRET_RE = re.compile(
+    r"(?ix)"
+    r"(?P<label>\b(?:api[_-]?key|password|passwd|secret|token|credential|"
+    r"private[_-]?key|auth|authorization)\b\s*[:=]\s*)"
+    r"(?:"
+    r"(?P<quote>[\"'])(?P<quoted>[^\r\n]*?)(?P=quote)"
+    r"|(?P<plain>[^\s,;}\]\r\n]+)"
+    r")"
+)
+_STANDALONE_SECRET_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+    re.compile(
+        r"\b[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\."
+        r"[A-Za-z0-9_-]{10,}\b"
+    ),
+)
+_SENSITIVE_FIELD_RE = re.compile(
+    r"(?i)(?:^|[_-])(?:api[_-]?key|password|passwd|secret|token|bearer|"
+    r"credential|private[_-]?key|auth|authorization)(?:$|[_-])"
+)
+
+
+def _builtin_redact_local_paths(text: str) -> str:
+    """Redact common user roots without relying on another app module."""
+    redacted = text
+    replacements: list[tuple[str, str]] = []
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        replacements.append((local_appdata, "%LOCALAPPDATA%"))
+    try:
+        replacements.append((str(Path.home()), "~"))
+    except Exception:
+        pass
+    for raw, marker in replacements:
+        if not raw:
+            continue
+        redacted = redacted.replace(raw, marker)
+        redacted = redacted.replace(raw.replace("\\", "\\\\"), marker)
+        redacted = redacted.replace(raw.replace("\\", "/"), marker)
+    for pattern, replacement in _LOCAL_PATH_PATTERNS:
+        redacted = pattern.sub(replacement, redacted)
+    return redacted
+
+
 def _redact_local_paths(text: str) -> str:
     """Redact user-specific filesystem roots from support payload strings."""
     try:
         from app.core.secret_store import _redact_local_paths as redact
-        return redact(text)
+
+        redacted = redact(text)
+        if not isinstance(redacted, str):
+            raise TypeError("local-path redactor returned a non-string value")
     except Exception:
-        return text
+        redacted = text
+    return _builtin_redact_local_paths(redacted)
 
 
-def _sanitize(value: Any) -> Any:
+def _redact_url(value: str) -> str:
+    """Remove path/query bearer material from a URL-shaped value."""
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return "[REDACTED URL]"
+        port = f":{parsed.port}" if parsed.port is not None else ""
+    except ValueError:
+        return "[REDACTED URL]"
+    return f"{parsed.scheme}://{parsed.hostname}{port}/[REDACTED]"
+
+
+_URL_IN_TEXT_RE = re.compile(r"https?://[^\s\"'<>]+", re.IGNORECASE)
+
+
+def _redact_urls_in_text(value: str) -> str:
+    """Redact path/query material from URLs embedded in diagnostics text."""
+    return _URL_IN_TEXT_RE.sub(lambda match: _redact_url(match.group(0)), value)
+
+
+def _redact_labeled_secret(match: re.Match[str]) -> str:
+    quote = match.group("quote") or ""
+    return f"{match.group('label')}{quote}[REDACTED]{quote}"
+
+
+def _builtin_scrub_secrets(text: str) -> str:
+    """Apply dependency-free redaction for common credential shapes."""
+    scrubbed = _BEARER_SECRET_RE.sub(
+        lambda match: f"{match.group('scheme')} [REDACTED]",
+        text,
+    )
+    scrubbed = _LABELED_SECRET_RE.sub(_redact_labeled_secret, scrubbed)
+    for pattern in _STANDALONE_SECRET_RES:
+        scrubbed = pattern.sub("[REDACTED]", scrubbed)
+    return scrubbed
+
+
+def _scrub_secrets(text: str) -> str:
+    """Scrub known secrets, failing closed if that registry is unavailable."""
+    try:
+        from app.core.secrets_manager import scrub_message
+
+        scrubbed = scrub_message(text)
+        if not isinstance(scrubbed, str):
+            raise TypeError("secret scrubber returned a non-string value")
+    except Exception:
+        # The external scrubber is the only component that knows arbitrary
+        # registered values. No regex fallback can prove such a string safe,
+        # so discard the whole field when that registry cannot be consulted.
+        return "[REDACTED: secret scrubber unavailable]"
+    return _builtin_scrub_secrets(scrubbed)
+
+
+def _sanitize(value: Any, *, field_name: str = "") -> Any:
     """Recursively scrub strings before they enter the bundle."""
     if isinstance(value, str):
+        lowered = field_name.lower()
+        if _SENSITIVE_FIELD_RE.search(lowered):
+            return "[REDACTED]"
+        value = _scrub_secrets(value)
+        if lowered in {"url", "webhook_url", "endpoint_url"}:
+            value = _redact_url(value)
+        else:
+            value = _redact_urls_in_text(value)
         value = _redact_local_paths(value)
         value = mask_ips_in_text(value)
         value = mask_macs_in_text(value)
         return value
     if isinstance(value, dict):
-        return {str(k): _sanitize(v) for k, v in value.items()}
+        return {
+            str(k): _sanitize(v, field_name=str(k))
+            for k, v in value.items()
+        }
     if isinstance(value, list):
-        return [_sanitize(v) for v in value]
+        return [_sanitize(v, field_name=field_name) for v in value]
     if isinstance(value, tuple):
-        return [_sanitize(v) for v in value]
+        return [_sanitize(v, field_name=field_name) for v in value]
     return value
 
 
@@ -87,9 +231,14 @@ def build_support_bundle(
     include_account_data: bool = False,
     include_file_list: bool = False,
     data_dir: Path | str | None = None,
+    diagnostic_results: Iterable[Any] | None = None,
 ) -> Dict[str, Any]:
     """Build a redacted support bundle payload."""
-    diagnostics = run_all_checks()
+    diagnostics = (
+        list(diagnostic_results)
+        if diagnostic_results is not None
+        else run_all_checks()
+    )
     privacy_items = scan_privacy_items(
         data_dir=data_dir,
         include_account_data=include_account_data,
@@ -161,21 +310,77 @@ def write_support_bundle(
     include_account_data: bool = False,
     include_file_list: bool = False,
     data_dir: Path | str | None = None,
+    diagnostic_results: Iterable[Any] | None = None,
+    output_path: Path | str | None = None,
 ) -> SupportBundleResult:
-    """Write a redacted support bundle JSON file and return its path."""
+    """Publish complete, flushed JSON without overwriting existing files."""
+    if output_dir is not None and output_path is not None:
+        raise ValueError("choose either output_dir or output_path, not both")
     payload = build_support_bundle(
         include_account_data=include_account_data,
         include_file_list=include_file_list,
         data_dir=data_dir,
+        diagnostic_results=diagnostic_results,
     )
-    root = Path(output_dir) if output_dir is not None else _default_data_dir()
+    explicit_path = output_path is not None
+    path = (
+        Path(output_path)
+        if explicit_path
+        else default_support_bundle_path(output_dir=output_dir)
+    )
+    if not path.name or path.name in {".", ".."}:
+        raise ValueError("support bundle destination must name a file")
+    if path.suffix.lower() != ".json":
+        path = path.with_name(path.name + ".json")
+    root = path.parent
     root.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    path = root / f"support-bundle-{stamp}.json"
     safe_payload = sanitize_support_value(payload)
     import json
-    path.write_text(
-        json.dumps(safe_payload, indent=2, sort_keys=True, default=str),
-        encoding="utf-8",
+    rendered = json.dumps(
+        safe_payload,
+        indent=2,
+        sort_keys=True,
     )
-    return SupportBundleResult(payload=safe_payload, path=path)
+
+    candidates = [path]
+    if not explicit_path:
+        candidates.extend(
+            path.with_name(f"{path.stem}-{index:02d}{path.suffix}")
+            for index in range(1, 100)
+        )
+    temporary_path = None
+    try:
+        # A crash during serialization or flushing must not leave a final
+        # support-bundle filename containing an incomplete document.
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n", dir=root,
+            prefix=".support-bundle-", suffix=".tmp", delete=False,
+        ) as handle:
+            temporary_path = Path(handle.name)
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+
+        for candidate in candidates:
+            try:
+                if os.name == "nt":
+                    # Windows rename refuses an existing destination, and
+                    # works on filesystems without hard-link support.
+                    os.rename(temporary_path, candidate)
+                else:
+                    # POSIX rename overwrites; linking a completed file keeps
+                    # publication exclusive even when another writer races.
+                    os.link(temporary_path, candidate)
+                return SupportBundleResult(payload=safe_payload, path=candidate)
+            except FileExistsError:
+                if explicit_path:
+                    raise
+        raise FileExistsError("no unused support bundle filename is available")
+    finally:
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                # Cleanup cannot invalidate a completed publication or hide
+                # the original failure. An orphan remains a .tmp, not JSON.
+                pass

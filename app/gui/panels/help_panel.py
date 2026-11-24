@@ -198,7 +198,7 @@ via an elevated helper; for the Compat build, right-click →
 so PS5 / Xbox / Switch / Apple devices auto-label.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
-<b style='color:{_CYAN};'>3.</b> Select a <b>Preset</b> from the dropdown on
+<b style='color:{_CYAN};'>3.</b> Choose a <b>Preset</b> using the dropdown on
 the right panel. Available presets:</p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li><b style='color:{_CYAN};'>Automatic Connection Test</b> — The default
@@ -358,23 +358,24 @@ plan routes without switching windows.</p>
 Deer Isle, Esseker, Takistan — with pan/zoom</li>
 <li>Satellite and Topographic layer toggle</li>
 <li>GPU-accelerated rendering when a capable GPU is detected</li>
-<li>Automatic renderer tier detection — GPU (ANGLE/D3D11), SwiftShader, or CPU
-raster based on your hardware</li>
+<li>Automatic renderer selection — ANGLE/D3D11 hardware rendering after a
+successful DXGI probe, or fail-closed CPU rendering with
+<code>--disable-gpu</code></li>
 </ul>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:8px;'>
 <b style='color:{_CYAN};'>Map Renderer Override:</b> Go to <b>Settings →
-Interface → Map Renderer</b> to force a specific renderer (GPU, SwiftShader,
-or Software). The status bar shows the active tier: <b style='color:{_GREEN};'>
-GPU</b>, <b style='color:{_AMBER};'>SW-GL</b>, or <b style='color:#ff4444;'>
-CPU</b>. Changing the renderer requires an app restart (DupeZ will prompt
-you automatically).</p>
+Interface → Map Renderer</b> to choose Auto, GPU, or Software. The status bar
+shows the active path: <b style='color:{_GREEN};'>GPU</b> or
+<b style='color:#ff4444;'>CPU</b>. Changing the renderer requires an app
+restart (DupeZ will prompt you automatically).</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
 <b style='color:{_AMBER};'>Map slow or software-rendered?</b> The GPU build
-(DupeZ-GPU.exe) runs at Medium IL and can use hardware raster. The Compat
-build runs elevated, which forces CPU raster. Try setting the renderer to
-<b>gpu</b> in Settings if auto-detection picked a lower tier.</p>
+(DupeZ-GPU.exe) runs at Medium IL and can use ANGLE/D3D11 after a successful
+DXGI probe. The Compat build runs elevated, which forces CPU rendering. If
+Auto selects CPU, update the display driver and retry; use the GPU override
+only for a known-good adapter, or keep Software for the stable fallback.</p>
 """, False),
 
     ("👤 ACCOUNT TRACKER TAB", f"""
@@ -385,13 +386,13 @@ Manage multiple DayZ characters and alt accounts in one place.</p>
 <b style='color:{_CYAN};'>Features:</b></p>
 <ul style='color:{_TEXT_MUTED}; font-size:12px; margin-left:16px;'>
 <li><b>Add / Edit / Duplicate / Delete</b> — Full CRUD with a notes field,
-custom status and station values, and multi-select support</li>
+custom status and station values, and multi-row selection</li>
 <li><b>Status tracking</b> — Ready, Dead, Storage, Blood Infection, or
 Offline with colour-coded rows. Type custom statuses if needed</li>
 <li><b>Quick-filter chips</b> — One-click status chips above the table
 to instantly show only Ready, Dead, Storage, etc.</li>
 <li><b>Right-click context menu</b> — Edit, duplicate, change status, or
-delete directly from the table. Works on multi-selected rows</li>
+delete directly in the table. Works on multi-selected rows</li>
 <li><b>Row numbering</b> — Each row has a # column so you can reference
 accounts by number</li>
 <li><b>Notes field</b> — Private per-account notes for reminders, coords,
@@ -524,9 +525,9 @@ can't hit this target class.</p>
 
 <p style='color:{_TEXT_MUTED}; font-size:12px; margin-top:8px;'>
 <b style='color:{_AMBER};'>Tip:</b> If the Device Table vendor column shows
-<b>Unknown</b> for a device with a real MAC, scapy's MANUFDB isn't loading —
-check logs for a scapy import error. v5.6 chains the full ~35k-entry IEEE
-OUI database as a fallback to the 60-entry curated gaming table.</p>
+<b>Unknown</b> for a device with a real MAC, its prefix is not in DupeZ's
+reviewed gaming/device OUI table. Target selection still uses the MAC and IP;
+the vendor label is informational only.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_GREEN};'>✓ WiFi disruption (v5.7.2):</b> Pick a device from
@@ -630,11 +631,11 @@ sidebar buttons stay fixed at 40×40 regardless of theme.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
 <b style='color:{_CYAN};'>Map Renderer</b> — Under the <b>Interface</b> tab,
-choose the map rendering backend: <b>Auto</b> (recommended — detects your GPU
-automatically), <b>GPU</b> (force hardware raster via ANGLE/D3D11),
-<b>SwiftShader</b> (software OpenGL), or <b>Software</b> (pure CPU, no GPU
-processes). Changing this restarts DupeZ so the new renderer takes effect at
-Qt boot.</p>
+choose the map rendering backend: <b>Auto</b> (recommended — enables
+ANGLE/D3D11 only after a successful DXGI probe), <b>GPU</b> (a diagnostic
+override for a known-good adapter), or <b>Software</b> (passes
+<code>--disable-gpu</code> for CPU rendering). Changing this restarts DupeZ so
+the new renderer takes effect at Qt boot.</p>
 
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:6px;'>
@@ -694,11 +695,11 @@ helper process should auto-elevate — accept the UAC prompt. If you're on the
 Compat build, right-click → Run as administrator.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
-<b style='color:{_RED};'>Map is slow / software-rendered</b></p>
+<b style='color:{_RED};'>Embedded map unavailable</b></p>
 <p style='color:{_TEXT_MUTED}; font-size:12px;'>
-→ You're likely running the Compat build (elevated), which forces QWebEngine
-into software rasterization. Switch to the GPU build (DupeZ-GPU.exe) — it
-runs the GUI at normal privileges so your GPU handles rendering.</p>
+→ Both packaged builds omit the embedded browser runtime. Open the approved
+HTTPS address shown on the Map tab manually in your normal, non-administrator
+browser. Changing renderer settings does not enable embedded browsing.</p>
 
 <p style='color:{_TEXT}; font-size:12px; margin-top:10px;'>
 <b style='color:{_RED};'>"WinDivert.dll missing"</b></p>
@@ -739,7 +740,7 @@ anomalies.</p>
 
     ("⌨ KEYBOARD SHORTCUTS", f"""
 <p style='color:{_TEXT}; font-size:12px;'>
-Quick reference:</p>
+Window-shortcut defaults (the tray toggle is a separately registered global hook):</p>
 
 <table style='color:{_TEXT_MUTED}; font-size:12px; margin-top:6px;' cellpadding='4'>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+S</td>
@@ -756,6 +757,8 @@ Quick reference:</p>
     <td>Open Settings</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+P</td>
     <td>Custom Preset Editor</td></tr>
+<tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+Shift+C</td>
+    <td>Cut-Chain Configurator</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>F2</td>
     <td>Diagnostics</td></tr>
 <tr><td style='color:{_CYAN}; font-family:monospace; padding-right:16px;'>Ctrl+F2</td>
@@ -781,8 +784,16 @@ Quick reference:</p>
 </table>
 
 <p style='color:{_TEXT_MUTED}; font-size:11px; margin-top:8px;'>
-The same list is available in-app at any time via <b>Help → Hotkeys</b>
-(F1), generated live from the menu so it always matches.</p>
+<b>Settings → Hotkeys</b> offers opt-in global Stop All/Panic Stop and separately
+opt-in Start. Default global chords are Ctrl+Alt+F8 (Start), Ctrl+Alt+F9 (Stop All)
+and Ctrl+Alt+X (Panic). Global actions fire on key release. Start requires both
+emergency hooks and uses normal selected-target checks. A matching global Panic
+binding temporarily replaces its local shortcut to avoid double firing.</p>
+<p style='color:{_TEXT_MUTED}; font-size:11px; margin-top:8px;'>
+<b>Help → Hotkeys</b> (F1) shows live window shortcuts and actual global binding
+status, including failed registrations or retained old chords. Other applications
+may consume keys even after registration; verify emergency delivery in a controlled
+test environment. Stop/Panic cancel pending Start work.</p>
 """, False),
 
 ]

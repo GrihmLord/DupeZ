@@ -17,13 +17,18 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field, fields
 from typing import Dict, List, Optional
 
 from app.logs.logger import log_error, log_info
 
-__all__ = ["DisruptionProfile", "ProfileManager"]
+__all__ = ["DisruptionProfile", "ProfileManager", "ProfilePersistenceError"]
+
+
+class ProfilePersistenceError(RuntimeError):
+    """Raised when a profile cannot be durably written."""
 
 
 # ── Data model ────────────────────────────────────────────────────────
@@ -85,8 +90,21 @@ class ProfileManager:
 
     def _profile_path(self, name: str) -> str:
         """Return the filesystem path for a profile name."""
-        safe = "".join(c if c.isalnum() or c in "-_ " else "" for c in name)
-        safe = safe.strip().replace(" ", "_")
+        if not isinstance(name, str):
+            raise ValueError("profile name must be text")
+        trimmed = name.strip()
+        if not trimmed or len(trimmed) > 80:
+            raise ValueError("profile name must contain 1 to 80 characters")
+        if any(not (char.isalnum() or char in "-_ ") for char in trimmed):
+            raise ValueError(
+                "profile name may contain only letters, numbers, spaces, '-' and '_'"
+            )
+        safe = trimmed.replace(" ", "_")
+        reserved = {"con", "prn", "aux", "nul"}
+        reserved.update(f"com{index}" for index in range(1, 10))
+        reserved.update(f"lpt{index}" for index in range(1, 10))
+        if safe.casefold() in reserved:
+            raise ValueError("profile name is reserved by Windows")
         return os.path.join(self.profiles_dir, f"{safe}.json")
 
     # ── CRUD ──────────────────────────────────────────────────────
@@ -105,6 +123,8 @@ class ProfileManager:
         """Save or update a profile.  Returns the persisted profile."""
         path = self._profile_path(name)
         existing = self._load_file(path)
+        if existing is not None and existing.name != name:
+            raise ValueError("profile name collides with an existing profile")
         now = time.time()
 
         profile = DisruptionProfile(
@@ -130,9 +150,16 @@ class ProfileManager:
         path = self._profile_path(name)
         profile = self._load_file(path)
         if profile:
+            previous_use_count = profile.use_count
             profile.use_count += 1
-            self._save_file(path, profile)
-            log_info(f"ProfileManager: loaded profile '{name}' (uses: {profile.use_count})")
+            try:
+                self._save_file(path, profile)
+            except ProfilePersistenceError:
+                # Loading is still useful on read-only media. Do not claim the
+                # usage counter advanced when its durable update failed.
+                profile.use_count = previous_use_count
+                log_error("ProfileManager: loaded profile but usage update failed")
+            log_info(f"ProfileManager: loaded profile '{name}'")
         return profile
 
     def delete(self, name: str) -> bool:
@@ -197,20 +224,31 @@ class ProfileManager:
     # ── File I/O (atomic write) ───────────────────────────────────
 
     def _save_file(self, path: str, profile: DisruptionProfile) -> None:
-        """Atomic write: tmp -> fsync -> replace."""
-        tmp_path = path + ".tmp"
+        """Durably write one profile through an exclusive temporary file."""
+        tmp_path = ""
         try:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(profile.to_dict(), f, indent=2)
+            fd, tmp_path = tempfile.mkstemp(
+                prefix=".profile-",
+                suffix=".tmp",
+                dir=self.profiles_dir,
+                text=True,
+            )
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(profile.to_dict(), f, indent=2, allow_nan=False)
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(tmp_path, path)
-        except Exception as e:
-            log_error(f"ProfileManager: save failed: {e}")
+            tmp_path = ""
+        except Exception as exc:
+            log_error("ProfileManager: save failed")
             try:
-                os.unlink(tmp_path)
+                if tmp_path:
+                    os.unlink(tmp_path)
             except OSError:
                 pass
+            raise ProfilePersistenceError(
+                "profile could not be saved"
+            ) from exc
 
     def _load_file(self, path: str) -> Optional[DisruptionProfile]:
         """Load a profile from disk.  Returns None on any failure."""

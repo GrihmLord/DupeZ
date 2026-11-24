@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from typing import Optional, Tuple
 
@@ -27,10 +26,10 @@ def probe_gpu_usable() -> Tuple[bool, str]:
         log.debug("DXGI ctypes probe failed: %s", exc)
 
     try:
-        sysroot = os.environ.get("SystemRoot") or r"C:\Windows"
-        wmic_path = os.path.join(sysroot, "System32", "wbem", "wmic.exe")
-        if not os.path.isfile(wmic_path):
-            return (False, "wmic-not-found")
+        wmic_path = safe_subprocess.resolve_system_binary(
+            "wmic",
+            subdirectory=("wbem",),
+        )
         result = safe_subprocess.run(
             [
                 wmic_path,
@@ -65,16 +64,37 @@ def probe_gpu_usable() -> Tuple[bool, str]:
 def _probe_dxgi_ctypes() -> Optional[Tuple[bool, str]]:
     """Enumerate Windows DXGI adapters using ctypes."""
     import ctypes
+    from ctypes import wintypes
 
     try:
         dxgi = ctypes.windll.dxgi  # type: ignore[attr-defined]
     except (OSError, AttributeError):
         return None
 
-    iid_factory1 = (ctypes.c_byte * 16)(
+    iid_factory1 = (ctypes.c_ubyte * 16)(
         0x78, 0xAE, 0x0A, 0x77, 0x6F, 0xF2, 0xBA, 0x4D,
         0xA8, 0x29, 0x25, 0x3C, 0x83, 0xD1, 0xB3, 0x87,
     )
+
+    class _Luid(ctypes.Structure):
+        _fields_ = [
+            ("LowPart", wintypes.DWORD),
+            ("HighPart", wintypes.LONG),
+        ]
+
+    class _DxgiAdapterDesc1(ctypes.Structure):
+        _fields_ = [
+            ("Description", wintypes.WCHAR * 128),
+            ("VendorId", wintypes.UINT),
+            ("DeviceId", wintypes.UINT),
+            ("SubSysId", wintypes.UINT),
+            ("Revision", wintypes.UINT),
+            ("DedicatedVideoMemory", ctypes.c_size_t),
+            ("DedicatedSystemMemory", ctypes.c_size_t),
+            ("SharedSystemMemory", ctypes.c_size_t),
+            ("AdapterLuid", _Luid),
+            ("Flags", wintypes.UINT),
+        ]
     factory_ptr = ctypes.c_void_p()
     hr = dxgi.CreateDXGIFactory1(
         ctypes.byref(iid_factory1),
@@ -87,7 +107,6 @@ def _probe_dxgi_ctypes() -> Optional[Tuple[bool, str]]:
         factory_ptr,
         ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)),
     )[0]
-    desc_size = 320
     best_name = ""
     best_ram = 0
     adapter_count = 0
@@ -106,7 +125,7 @@ def _probe_dxgi_ctypes() -> Optional[Tuple[bool, str]]:
                 break
             adapter_count += 1
 
-            desc_buf = (ctypes.c_byte * desc_size)()
+            desc = _DxgiAdapterDesc1()
             adapter_vtable = ctypes.cast(
                 adapter_ptr,
                 ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p)),
@@ -115,9 +134,9 @@ def _probe_dxgi_ctypes() -> Optional[Tuple[bool, str]]:
                 get_desc = ctypes.WINFUNCTYPE(
                     ctypes.c_long,
                     ctypes.c_void_p,
-                    ctypes.POINTER(ctypes.c_byte * desc_size),
+                    ctypes.POINTER(_DxgiAdapterDesc1),
                 )(adapter_vtable[10])
-                hr_desc = get_desc(adapter_ptr, ctypes.byref(desc_buf))
+                hr_desc = get_desc(adapter_ptr, ctypes.byref(desc))
             finally:
                 release_adapter = ctypes.WINFUNCTYPE(
                     ctypes.c_ulong,
@@ -127,20 +146,9 @@ def _probe_dxgi_ctypes() -> Optional[Tuple[bool, str]]:
 
             if hr_desc != 0:
                 continue
-            try:
-                name = bytes(desc_buf[:256]).decode("utf-16-le").rstrip("\x00")
-            except Exception:
-                name = ""
-            ram = int.from_bytes(
-                bytes(desc_buf[272:280]),
-                byteorder="little",
-                signed=False,
-            )
-            flags = int.from_bytes(
-                bytes(desc_buf[304:308]),
-                byteorder="little",
-                signed=False,
-            )
+            name = str(desc.Description).rstrip("\x00")
+            ram = int(desc.DedicatedVideoMemory)
+            flags = int(desc.Flags)
             if flags & 2:
                 continue
             lowered = name.lower()

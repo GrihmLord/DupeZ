@@ -139,6 +139,7 @@ class PresetEditorDialog(QDialog):
         form.addRow("Ports (v5.6.9 #3):", self.ports_edit)
 
         self.params_edit = QTextEdit()
+        self.params_edit.setAcceptRichText(False)
         self.params_edit.setPlaceholderText(
             "Extra params as JSON (optional). Merged with the fields "
             "above on save. Use this for module-specific tuning that "

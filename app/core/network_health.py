@@ -45,8 +45,12 @@ def _sanitize(value: Any) -> Any:
 def _pktmon_available() -> bool:
     if not sys.platform.startswith("win"):
         return False
-    system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-    return (system_root / "System32" / "pktmon.exe").is_file()
+    try:
+        from app.core.safe_subprocess import resolve_system_binary
+
+        return Path(resolve_system_binary("pktmon")).is_file()
+    except Exception:
+        return False
 
 
 def _collect_adapter_summary() -> Dict[str, Any]:

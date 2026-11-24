@@ -1,18 +1,12 @@
 """
-Second-Factor Authentication Gate for DupeZ (§9.2 closure).
+Second-Factor Authentication Gate for DupeZ.
 
-This module closes the §9.2 nation-state-grade certification blocker:
-*"administrative or sensitive operations must be guarded by a second
-authentication factor independent of the user's logon session."*
-
-The threat model is straightforward.  An attacker who has already
-captured the user's interactive Windows session (malware running as
-the same user, RDP hijack, physical takeover of an unlocked
-workstation) inherits DPAPI access automatically — every secret in
-``app/core/secret_store`` is, by design, decryptable from any process
-inside that session.  A second factor breaks that inheritance: even
-with full session access the attacker still has to defeat a second,
-session-independent credential before the gated operation runs.
+This module adds a deliberate operator-verification boundary around
+sensitive actions.  Its built-in TOTP seed is DPAPI-protected at rest,
+but DPAPI is available to code already executing as the logged-in user.
+Accordingly, this gate mitigates stolen primary credentials and
+unattended-operation mistakes; it does not claim independence from
+same-user malware or a fully captured interactive session.
 
 Three sensitive surfaces are gated by this module:
 
@@ -20,18 +14,12 @@ Three sensitive surfaces are gated by this module:
     2. Plugin install / load                   (plugins.loader)
     3. Offensive engagement bootstrap          (offsec.runner / operator)
 
-Two providers ship in-tree:
+One provider ships in-tree:
 
     TOTPProvider   — RFC 6238 (HMAC-SHA256, 6-digit, ±1 step skew).
                      Always available. Seed is CSPRNG, sealed with
                      DPAPI via secret_store, and never written
                      plaintext to disk.
-
-    FIDO2Provider  — WebAuthn / U2F via the optional ``fido2`` PyPI
-                     package.  Falls back loudly (NOT silently) if the
-                     library is absent — ``available()`` returns False
-                     and the gate refuses to use it; it does not
-                     pretend to verify.
 
 Verification results are *audit-logged* via the existing HMAC-chained
 audit trail (``app.logs.audit.audit_event``) and rate-limited
@@ -77,19 +65,15 @@ default prompter calls ``app.gui`` only if a Qt application is
 running, otherwise it falls back to ``getpass.getpass`` for headless
 operation (useful for the offsec CLI path).
 
-CNSA 2.0 / SP 800-63B alignment
--------------------------------
+Security properties
+-------------------
 
-* TOTP HMAC-SHA256 is approved under SP 800-63B §5.1.4.2 for
-  Multi-Factor OTP.  We do NOT use HMAC-SHA1 (the original RFC 6238
-  default), and we generate ≥160-bit seeds (default 32 bytes = 256
-  bits, which exceeds the SP 800-63B minimum).
-* WebAuthn (FIDO2) authenticators meet SP 800-63B AAL3 when used as
-  the second factor on top of password-equivalent first factor; here
-  the first factor is the user's Windows logon, which by this point
-  in the boot path is already verified by the OS.
-* Constant-time comparison via ``hmac.compare_digest`` for all
-  secret-bearing equality checks.
+* TOTP uses HMAC-SHA256, a 256-bit random seed, and constant-time code
+  comparison.  The seed is protected at rest through ``secret_store``.
+* Verification is rate-limited and scope-bound in memory.
+* FIDO2 remains disabled until assertions can be bound to a fresh,
+  one-time challenge, an expected origin and relying-party ID, required
+  authenticator flags, and a monotonic signature counter.
 """
 
 from __future__ import annotations
@@ -122,10 +106,8 @@ __all__ = [
     "SecondFactorRateLimited",
     "SecondFactorProvider",
     "TOTPProvider",
-    "FIDO2Provider",
     "SecondFactorGate",
     "enroll_totp",
-    "enroll_fido2",
     "is_enrolled",
     "revoke_all",
     "get_gate",
@@ -165,7 +147,8 @@ REGISTERED_SCOPES: frozenset = frozenset({
 # ── Secret-store key namespaces ───────────────────────────────────────
 
 _TOTP_SEED_KIND = "secondfactor.totp.seed"
-_FIDO2_CRED_KIND = "secondfactor.fido2.creds"
+_TOTP_LAST_COUNTER_KIND = "secondfactor.totp.lastcounter"
+_LEGACY_FIDO2_CRED_KIND = "secondfactor.fido2.creds"
 
 # RFC 6238 defaults (we use SHA-256 not SHA-1 — see module docstring).
 _TOTP_DIGITS = 6
@@ -251,6 +234,10 @@ class TOTPProvider:
 
     # Cached seed for in-process reuse — wiped by ``revoke``.
     _seed: Optional[bytearray] = field(default=None, repr=False)
+    _verify_lock: threading.Lock = field(
+        default_factory=threading.Lock,
+        repr=False,
+    )
 
     def available(self) -> bool:
         # TOTP needs nothing beyond the standard library + secret_store.
@@ -278,6 +265,13 @@ class TOTPProvider:
         """Generate + persist a fresh seed. Returns provisioning info."""
         if not isinstance(account_label, str) or not account_label.strip():
             raise ValueError("account_label must be a non-empty string")
+        previous_counter = get_secret(_TOTP_LAST_COUNTER_KIND)
+        if previous_counter is not None and not delete_secret(
+            _TOTP_LAST_COUNTER_KIND
+        ):
+            raise SecondFactorError(
+                "could not reset the TOTP replay counter; enrollment refused"
+            )
         seed = secrets.token_bytes(_TOTP_SEED_BYTES)
         put_secret(_TOTP_SEED_KIND, seed)
         self._seed = bytearray(seed)
@@ -311,15 +305,43 @@ class TOTPProvider:
             seed = self._load_seed()
         except SecondFactorRequired:
             return False
-        # Walk the skew window. Use compare_digest each iteration so
-        # we don't leak which step matched via timing.
-        ok = False
-        for offset in range(-_TOTP_SKEW_STEPS, _TOTP_SKEW_STEPS + 1):
-            candidate = _totp(seed, t_offset=offset)
-            if hmac.compare_digest(candidate, cleaned):
-                ok = True
-                # Don't break early — preserve constant-time across window.
-        return ok
+        with self._verify_lock:
+            # Walk the skew window. Use compare_digest each iteration so we
+            # don't leak which step matched via timing. A verifier must accept
+            # a TOTP counter only once; persist the highest accepted counter so
+            # bypass-cache calls and process restarts cannot replay a code.
+            now = time.time()
+            current_counter = int(now // _TOTP_PERIOD_SEC)
+            matched_counter: Optional[int] = None
+            for offset in range(-_TOTP_SKEW_STEPS, _TOTP_SKEW_STEPS + 1):
+                candidate = _totp(seed, when=now, t_offset=offset)
+                if hmac.compare_digest(candidate, cleaned):
+                    counter = current_counter + offset
+                    matched_counter = (
+                        counter
+                        if matched_counter is None
+                        else max(matched_counter, counter)
+                    )
+            if matched_counter is None:
+                return False
+
+            try:
+                previous_raw = get_secret(_TOTP_LAST_COUNTER_KIND)
+                previous = int(previous_raw.decode("ascii")) if previous_raw else -1
+                if previous < -1:
+                    return False
+            except (AttributeError, UnicodeDecodeError, ValueError, SecretStoreError):
+                return False
+            if matched_counter <= previous:
+                return False
+            try:
+                put_secret(
+                    _TOTP_LAST_COUNTER_KIND,
+                    str(matched_counter).encode("ascii"),
+                )
+            except (OSError, SecretStoreError, ValueError):
+                return False
+            return True
 
     def revoke(self) -> bool:
         """Wipe the seed from disk + memory."""
@@ -328,155 +350,9 @@ class TOTPProvider:
                 self._seed[i] = 0
             self._seed = None
         try:
-            return delete_secret(_TOTP_SEED_KIND)
-        except SecretStoreError:
-            return False
-
-
-# ── FIDO2 provider (graceful degradation) ─────────────────────────────
-
-@dataclass
-class FIDO2Provider:
-    """WebAuthn / FIDO2 second factor.
-
-    The real implementation requires the ``fido2`` PyPI package and a
-    plugged-in authenticator (YubiKey, Windows Hello, etc.).  Absence
-    of either is reported HONESTLY via ``available()`` — this
-    provider never silently passes verification.
-
-    The on-disk credential record is a JSON envelope sealed with DPAPI
-    and stored under ``secondfactor.fido2.creds``.  Each entry holds
-    the credential ID + public key so we can perform an offline
-    server-side assertion verification against challenges raised at
-    gate-time.
-    """
-
-    name: str = "fido2"
-
-    def _import_fido2(self):
-        try:
-            import fido2  # noqa: F401  — presence check
-            return True
-        except Exception:
-            return False
-
-    def available(self) -> bool:
-        return self._import_fido2()
-
-    def is_enrolled(self) -> bool:
-        if not self.available():
-            return False
-        try:
-            raw = get_secret(_FIDO2_CRED_KIND)
-        except SecretStoreError:
-            return False
-        if not raw:
-            return False
-        try:
-            doc = json.loads(raw.decode("utf-8"))
-        except Exception:
-            return False
-        return bool(doc.get("credentials"))
-
-    def enroll(self, *, credential_id_b64: str,
-               public_key_b64: str,
-               label: str = "primary") -> Dict[str, str]:
-        """Persist a WebAuthn credential record.
-
-        The credential registration ceremony itself runs in the GUI
-        (the Qt panel collects the assertion from the platform
-        authenticator).  This method is the persistence boundary:
-        once the GUI has the credential ID + public key, it calls
-        here to seal them.
-        """
-        if not self.available():
-            raise SecondFactorError(
-                "fido2 library not installed — "
-                "FIDO2 enrollment unavailable in this build"
-            )
-        if not credential_id_b64 or not public_key_b64:
-            raise ValueError("credential_id and public_key required")
-        try:
-            existing_raw = get_secret(_FIDO2_CRED_KIND)
-            doc = json.loads(existing_raw.decode("utf-8")) if existing_raw else {}
-        except Exception:
-            doc = {}
-        creds: List[Dict[str, str]] = doc.get("credentials", [])
-        # Reject duplicate credential IDs.
-        if any(c.get("credential_id") == credential_id_b64 for c in creds):
-            raise SecondFactorError("credential already enrolled")
-        creds.append({
-            "credential_id": credential_id_b64,
-            "public_key": public_key_b64,
-            "label": label,
-            "enrolled_at": int(time.time()),
-        })
-        doc["credentials"] = creds
-        put_secret(_FIDO2_CRED_KIND, json.dumps(doc).encode("utf-8"))
-        _audit("second_factor_enroll", {"provider": "fido2", "label": label})
-        return {"label": label, "count": str(len(creds))}
-
-    def verify(self, presented: str) -> bool:
-        """Verify an assertion produced by the platform authenticator.
-
-        ``presented`` here is the JSON-encoded assertion envelope that
-        the GUI collected from the authenticator (clientDataJSON,
-        authenticatorData, signature, credentialId).  We perform the
-        offline COSE-public-key verification ourselves rather than
-        running a relying-party server in-process.
-
-        If the fido2 library is not installed, this method returns
-        False (the gate will then either fall back to TOTP or refuse,
-        depending on policy).  It NEVER returns True without a
-        cryptographically valid assertion.
-        """
-        if not self.available():
-            return False
-        if not isinstance(presented, str) or not presented.strip():
-            return False
-        try:
-            envelope = json.loads(presented)
-        except Exception:
-            return False
-        cred_id = envelope.get("credentialId")
-        client_data_b64 = envelope.get("clientDataJSON")
-        auth_data_b64 = envelope.get("authenticatorData")
-        signature_b64 = envelope.get("signature")
-        if not all((cred_id, client_data_b64, auth_data_b64, signature_b64)):
-            return False
-        try:
-            existing_raw = get_secret(_FIDO2_CRED_KIND)
-            if not existing_raw:
-                return False
-            doc = json.loads(existing_raw.decode("utf-8"))
-        except Exception:
-            return False
-        cred = next(
-            (c for c in doc.get("credentials", [])
-             if hmac.compare_digest(str(c.get("credential_id", "")), str(cred_id))),
-            None,
-        )
-        if not cred:
-            return False
-        try:
-            from fido2.cose import CoseKey  # type: ignore
-            from fido2.utils import websafe_decode  # type: ignore
-        except Exception:
-            return False
-        try:
-            public_key = CoseKey.parse(websafe_decode(cred["public_key"]))
-            client_data = websafe_decode(client_data_b64)
-            auth_data = websafe_decode(auth_data_b64)
-            signature = websafe_decode(signature_b64)
-            client_hash = hashlib.sha256(client_data).digest()
-            public_key.verify(auth_data + client_hash, signature)
-            return True
-        except Exception:
-            return False
-
-    def revoke(self) -> bool:
-        try:
-            return delete_secret(_FIDO2_CRED_KIND)
+            removed_seed = delete_secret(_TOTP_SEED_KIND)
+            removed_counter = delete_secret(_TOTP_LAST_COUNTER_KIND)
+            return removed_seed or removed_counter
         except SecretStoreError:
             return False
 
@@ -495,11 +371,18 @@ def _default_prompter(scope: str) -> str:
     # must not spin one up here: a fresh QApplication from a non-GUI
     # context can crash the host process.
     try:
-        from PyQt6.QtWidgets import QApplication, QInputDialog  # type: ignore
+        from PyQt6.QtWidgets import (  # type: ignore
+            QApplication,
+            QInputDialog,
+            QLineEdit,
+        )
         app = QApplication.instance()
         if app is not None:
             text, ok = QInputDialog.getText(
-                None, "DupeZ second factor", msg,
+                None,
+                "DupeZ second factor",
+                msg,
+                QLineEdit.EchoMode.Password,
             )
             if ok and isinstance(text, str):
                 return text
@@ -593,9 +476,8 @@ class _VerificationCache:
 class SecondFactorGate:
     """Orchestrator for second-factor verification.
 
-    Provider order: FIDO2 first if available + enrolled, else TOTP.
-    A failed FIDO2 attempt does NOT silently fall back to TOTP — the
-    operator chose FIDO2 by enrolling it, so we honor that choice.
+    The production provider is TOTP.  Incomplete authentication providers
+    are not exposed as public APIs or included in the default gate.
     """
 
     providers: List[SecondFactorProvider] = field(default_factory=list)
@@ -608,7 +490,7 @@ class SecondFactorGate:
     @classmethod
     def default(cls) -> "SecondFactorGate":
         gate = cls()
-        gate.providers = [FIDO2Provider(), TOTPProvider()]
+        gate.providers = [TOTPProvider()]
         return gate
 
     def _select_provider(self) -> Optional[SecondFactorProvider]:
@@ -724,10 +606,38 @@ def get_gate() -> SecondFactorGate:
 
 # ── Convenience top-level functions ───────────────────────────────────
 
-def enroll_totp(account_label: str = "DupeZ",
-                issuer: str = "DupeZ") -> Dict[str, str]:
-    """Enroll TOTP on the singleton gate. Returns provisioning info."""
+def _authorize_enrollment_change(
+    gate: SecondFactorGate,
+    *,
+    prompter: Optional[Callable[[str], str]],
+    reason: str,
+) -> None:
+    """Require the existing factor before replacing or deleting it."""
+    if not gate.is_enrolled():
+        return
+    gate.require(
+        "secret_rotation",
+        reason=reason,
+        prompter=prompter,
+        cache_ttl_sec=0,
+        bypass_cache=True,
+    )
+    gate.cache.revoke("secret_rotation")
+
+
+def enroll_totp(
+    account_label: str = "DupeZ",
+    issuer: str = "DupeZ",
+    *,
+    prompter: Optional[Callable[[str], str]] = None,
+) -> Dict[str, str]:
+    """Enroll TOTP, re-authenticating before replacing an existing seed."""
     gate = get_gate()
+    _authorize_enrollment_change(
+        gate,
+        prompter=prompter,
+        reason="replace second-factor enrollment",
+    )
     for p in gate.providers:
         if isinstance(p, TOTPProvider):
             return p.enroll(account_label=account_label, issuer=issuer)
@@ -737,30 +647,22 @@ def enroll_totp(account_label: str = "DupeZ",
     return p.enroll(account_label=account_label, issuer=issuer)
 
 
-def enroll_fido2(*, credential_id_b64: str, public_key_b64: str,
-                 label: str = "primary") -> Dict[str, str]:
-    """Persist a previously-collected FIDO2 credential record."""
-    gate = get_gate()
-    for p in gate.providers:
-        if isinstance(p, FIDO2Provider):
-            return p.enroll(credential_id_b64=credential_id_b64,
-                            public_key_b64=public_key_b64,
-                            label=label)
-    p = FIDO2Provider()
-    gate.providers.append(p)
-    return p.enroll(credential_id_b64=credential_id_b64,
-                    public_key_b64=public_key_b64,
-                    label=label)
-
-
 def is_enrolled(scope: Optional[str] = None) -> bool:
     """True iff a usable second-factor provider exists. Scope is advisory."""
     return get_gate().is_enrolled()
 
 
-def revoke_all() -> int:
-    """Wipe all enrollments + verification cache. Returns # revoked."""
+def revoke_all(
+    *,
+    prompter: Optional[Callable[[str], str]] = None,
+) -> int:
+    """Authenticate, then wipe all enrollments and verification grants."""
     gate = get_gate()
+    _authorize_enrollment_change(
+        gate,
+        prompter=prompter,
+        reason="revoke all second-factor enrollments",
+    )
     n = gate.cache.revoke()
     for p in gate.providers:
         try:
@@ -769,6 +671,14 @@ def revoke_all() -> int:
                     n += 1
         except Exception:
             pass
+    # Older development builds could persist an incomplete FIDO2 record.
+    # It is never consumed, but revocation still removes it so stale secret
+    # material does not survive the removal of that unsupported API.
+    try:
+        if delete_secret(_LEGACY_FIDO2_CRED_KIND):
+            n += 1
+    except SecretStoreError:
+        pass
     gate.rate_limiter.reset()
     _audit("second_factor_revoke_all", {"count": n})
     return n

@@ -24,5 +24,11 @@
     "app/themes/hacker.qss",
     "app/themes/light.qss",
     "app/themes/rainbow.qss"
+  ],
+  "binaries": [
+    "app/firewall/WinDivert.dll",
+    "app/firewall/WinDivert64.sys",
+    "app/firewall/clumsy.exe",
+    "app/firewall/iup.dll"
   ]
 }

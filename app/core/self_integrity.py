@@ -11,11 +11,12 @@ Two independent primitives live here:
    malicious ``version.dll`` into the user's Downloads folder next to
    ``DupeZ_Setup.exe`` is enough to hijack the process. We opt out of
    the legacy search order by calling :c:func:`SetDefaultDllDirectories`
-   with ``LOAD_LIBRARY_SEARCH_SYSTEM32`` plus the application
-   directory registered via :c:func:`AddDllDirectory`. Must be called
-   as early as possible — ideally inside ``sys.path``-setup at startup,
-   before any ``import`` pulls in a .pyd that in turn LoadLibrary's
-   something.
+   with ``LOAD_LIBRARY_SEARCH_SYSTEM32`` plus only directories explicitly
+   registered through the Windows user-directory APIs. The executable's
+   directory is deliberately not implicit: a portable executable may live in
+   a user-writable folder. Must be called as early as possible — ideally
+   inside ``sys.path``-setup at startup, before any ``import`` pulls in a .pyd
+   that in turn LoadLibrary's something.
 
 2. :func:`verify_self_authenticode` — validates the *currently-running
    executable's* Authenticode signature via :c:func:`WinVerifyTrust`.
@@ -44,6 +45,7 @@ __all__ = [
     "TrustState",
     "TrustReport",
     "harden_dll_search_path",
+    "enforce_startup_hardening",
     "verify_self_authenticode",
 ]
 
@@ -57,9 +59,15 @@ class DllHardeningResult(enum.Enum):
     FAILED = "failed"
 
 
-# Flags for SetDefaultDllDirectories.
+_STARTUP_HARDENING_FAILURE_MESSAGE = (
+    "Required Windows DLL search hardening could not be applied; "
+    "refusing startup."
+)
+
+
+# Flags for SetDefaultDllDirectories. APPLICATION_DIR is intentionally absent:
+# for a portable executable it can be a user-writable Downloads directory.
 # https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-setdefaultdlldirectories
-_LOAD_LIBRARY_SEARCH_APPLICATION_DIR = 0x00000200
 _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
 _LOAD_LIBRARY_SEARCH_USER_DIRS = 0x00000400
 
@@ -69,15 +77,16 @@ def harden_dll_search_path(extra_app_dirs: Optional[list] = None) -> DllHardenin
 
     After this call, ``LoadLibrary("foo.dll")`` will search only:
 
-        * the directory of the running exe,
         * System32,
         * any directories previously registered via
-          :c:func:`AddDllDirectory` (we call it for each item in
-          *extra_app_dirs*).
+          :c:func:`SetDllDirectory` or :c:func:`AddDllDirectory` (we call the
+          latter for each explicitly supplied item in *extra_app_dirs*).
 
-    CWD is NOT searched, which is the whole point: a ``version.dll``
-    dropped next to the EXE in a user-writable Downloads folder no
-    longer wins the LoadLibrary race.
+    Neither CWD nor the executable's directory is implicitly searched. A
+    ``version.dll`` dropped next to a portable EXE in a user-writable folder
+    therefore cannot win a later bare-name LoadLibrary search. Callers that
+    provide *extra_app_dirs* are responsible for supplying only trusted
+    application-owned directories.
 
     Safe to call multiple times. Returns a result enum so callers can
     surface the outcome in diagnostics / about-box.
@@ -108,8 +117,7 @@ def harden_dll_search_path(extra_app_dirs: Optional[list] = None) -> DllHardenin
     add_dir.argtypes = [ctypes.c_wchar_p]
     add_dir.restype = ctypes.c_void_p
 
-    flags = (_LOAD_LIBRARY_SEARCH_APPLICATION_DIR
-             | _LOAD_LIBRARY_SEARCH_SYSTEM32
+    flags = (_LOAD_LIBRARY_SEARCH_SYSTEM32
              | _LOAD_LIBRARY_SEARCH_USER_DIRS)
     if set_default(flags) == 0:
         # Non-zero on success. Rare failure path.
@@ -296,14 +304,25 @@ def verify_self_authenticode() -> TrustReport:
 
 # ── Startup convenience ──────────────────────────────────────────
 
-def apply_startup_hardening(extra_app_dirs: Optional[list] = None) -> dict:
+def apply_startup_hardening(
+    extra_app_dirs: Optional[list] = None,
+    *,
+    require_dll_hardening: bool = False,
+) -> dict:
     """One-shot helper for app startup: harden DLL path + check trust.
 
     Returns a diagnostic dict the main() can log to the audit trail.
-    Never raises — startup code should tolerate a broken hardening
-    layer and degrade loudly rather than refuse to boot.
+    Diagnostic callers may leave *require_dll_hardening* false. Frozen
+    Windows entry points set it true so a failed DLL boundary aborts before
+    Authenticode verification or any later native-library import.
     """
     dll_result = harden_dll_search_path(extra_app_dirs=extra_app_dirs)
+    if (
+        require_dll_hardening
+        and dll_result is not DllHardeningResult.APPLIED
+    ):
+        raise RuntimeError(_STARTUP_HARDENING_FAILURE_MESSAGE)
+
     trust = verify_self_authenticode()
     out = {
         "dll_hardening": dll_result.value,
@@ -317,3 +336,35 @@ def apply_startup_hardening(extra_app_dirs: Optional[list] = None) -> dict:
     except Exception:
         pass
     return out
+
+
+def _is_frozen_windows_release() -> bool:
+    return (
+        os.name == "nt"
+        and sys.platform == "win32"
+        and bool(getattr(sys, "frozen", False))
+    )
+
+
+def enforce_startup_hardening(
+    extra_app_dirs: Optional[list] = None,
+) -> dict:
+    """Apply startup hardening, failing closed only for frozen Windows.
+
+    Source checkouts and non-Windows development remain best-effort so an
+    unavailable Windows API cannot prevent local diagnostics. Release entry
+    points receive a fixed, path-free error and never continue after a failed
+    or unavailable DLL-search boundary. ``harden_dll_search_path`` is itself
+    safe to call repeatedly, allowing both the root launcher and ``app.main``
+    to enforce the same boundary independently.
+    """
+    required = _is_frozen_windows_release()
+    try:
+        return apply_startup_hardening(
+            extra_app_dirs=extra_app_dirs,
+            require_dll_hardening=required,
+        )
+    except Exception:
+        if required:
+            raise RuntimeError(_STARTUP_HARDENING_FAILURE_MESSAGE) from None
+        return {}

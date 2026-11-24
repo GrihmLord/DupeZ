@@ -2,7 +2,13 @@
 
 import json
 import os
-from app.core.profiles import ProfileManager, DisruptionProfile
+import pytest
+
+from app.core.profiles import (
+    DisruptionProfile,
+    ProfileManager,
+    ProfilePersistenceError,
+)
 
 
 class TestProfileManager:
@@ -72,6 +78,32 @@ class TestProfileManager:
         loaded = pm.load("update_me")
         assert loaded.methods == ["drop"]
         assert loaded.params["drop_chance"] == 100
+
+    @pytest.mark.parametrize("name", ("", "???", "CON", "a/b", "x" * 81))
+    def test_rejects_unsafe_or_ambiguous_names(self, profiles_dir, name):
+        pm = ProfileManager(profiles_dir=profiles_dir)
+
+        with pytest.raises(ValueError):
+            pm.save(name, methods=["lag"], params={})
+
+        assert list(os.scandir(profiles_dir)) == []
+
+    def test_save_failure_is_raised_and_temporary_file_is_removed(
+        self,
+        profiles_dir,
+        monkeypatch,
+    ):
+        pm = ProfileManager(profiles_dir=profiles_dir)
+
+        def fail_replace(_source, _destination):
+            raise PermissionError("private host path should not escape")
+
+        monkeypatch.setattr(os, "replace", fail_replace)
+
+        with pytest.raises(ProfilePersistenceError, match="could not be saved"):
+            pm.save("blocked", methods=["lag"], params={})
+
+        assert list(os.scandir(profiles_dir)) == []
 
 
 class TestDisruptionProfile:

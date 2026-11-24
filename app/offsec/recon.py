@@ -100,13 +100,21 @@ def _expected_module_roots() -> List[Path]:
     """Trust anchors for loaded-module paths."""
     roots: List[Path] = []
     if os.name == "nt":
-        sysroot = os.environ.get("SystemRoot") or r"C:\Windows"
-        roots.extend([
-            Path(sysroot),
-            Path(sysroot) / "System32",
-            Path(sysroot) / "SysWOW64",
-            Path(sysroot) / "WinSxS",
-        ])
+        try:
+            from app.core.safe_subprocess import _windows_system_directory
+
+            system32 = Path(_windows_system_directory())
+            windows_root = system32.parent
+            roots.extend([
+                windows_root,
+                system32,
+                windows_root / "SysWOW64",
+                windows_root / "WinSxS",
+            ])
+        except Exception:
+            # Do not turn an inherited environment variable into a trust
+            # anchor when the authoritative Win32 lookup fails.
+            pass
         program_files = os.environ.get("ProgramFiles")
         if program_files:
             roots.append(Path(program_files))
@@ -331,7 +339,8 @@ def _check_writable_path_dirs(reg: FindingRegistry) -> None:
             remediation=(
                 "Audit PATH entries outside of $HOME. Remove any that are "
                 "writable by the user. DupeZ itself resolves system binaries "
-                "to %SystemRoot%\\System32 via safe_subprocess.resolve_system_binary, "
+                "to the OS-reported System32 directory via "
+                "safe_subprocess.resolve_system_binary, "
                 "so DupeZ's own calls are safe — but third-party tools the user "
                 "runs may not be."
             ),

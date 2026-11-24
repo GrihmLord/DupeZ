@@ -300,6 +300,7 @@ def run_helper_server(
     disruption_manager: Any,
     blocker_module: Any = None,
     shared_secret: Optional[bytes] = None,
+    expected_client_pid: Optional[int] = None,
 ) -> HelperDispatcher:
     """Start the pipe server and return the dispatcher.
 
@@ -324,8 +325,17 @@ def run_helper_server(
             "Running without auth would expose every ALLOWED_OPS opcode "
             "to every Medium-IL process on the session."
         )
+    if not isinstance(expected_client_pid, int) or expected_client_pid <= 0:
+        raise RuntimeError(
+            "run_helper_server refuses to start without a positive expected "
+            "GUI process identity"
+        )
     dispatcher = HelperDispatcher(disruption_manager, blocker_module=blocker_module)
-    server = PipeServer(handler=dispatcher.dispatch, shared_secret=shared_secret)
+    server = PipeServer(
+        handler=dispatcher.dispatch,
+        shared_secret=shared_secret,
+        expected_client_pid=expected_client_pid,
+    )
     server.start()
     log.info("run_helper_server: PipeServer started, dispatcher ready")
     return dispatcher

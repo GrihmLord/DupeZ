@@ -13,7 +13,7 @@ v5.7.5 closed the actionable findings of the WiFi-disrupt audit and shipped a de
 | Property                            | Status (entering v5.7.6) | Mechanism |
 |-------------------------------------|--------------------------|-----------|
 | Update channel integrity            | Strong | Ed25519 signed manifest, pinned pubkey, fail-closed |
-| Plugin trust                        | Strong | Signed bundles + capability sandbox + first-install consent |
+| Plugin trust                        | Strong publisher authentication | Complete signed bundles; capability checks are diagnostic until plugins are process-isolated |
 | Crypto primitives                   | Strong | CNSA 2.0, AES-256-GCM, HMAC-SHA384, PBKDF2-SHA-512 600k |
 | Audit integrity                     | Strong | Hash-chained JSONL under per-install HMAC key |
 | PatchMonitor settings integrity     | Strong | HMAC sidecar, binary-mode write |
@@ -73,7 +73,7 @@ A post-v5.7.5 review identified **seven residual gaps** where a specific attacke
 
 **Gap:** v5.7.3's scheme check kept `file://`/`ftp://` out, but allowed `https://attacker.example.com/x`. A hijacked-config or imported-bundle path could exfil cut/killswitch metadata to an attacker server. PII is already scrubbed but the metadata itself (frequency, timing) is operator-behavior signal.
 
-**Decision:** `_validate_webhook_url` now requires the host to match (a) the default Discord canonical hosts, (b) an operator-extended entry in `app/config/audit_webhook_hosts.json` (HMAC-sidecar protected via Decision 2), or (c) be a loopback address. Off-allowlist hosts raise `WebhookURLError` at sink construction time. Tests use `DUPEZ_TEST_WEBHOOK_HOSTS` env var to add `example.invalid` etc. without touching production policy.
+**Decision:** `_validate_webhook_url` now requires the host to match (a) the default Discord canonical hosts, (b) an operator-extended entry in `app/config/audit_webhook_hosts.json` (HMAC-sidecar protected via Decision 2), or (c) be a loopback address. Off-allowlist hosts raise `WebhookURLError` at sink construction time. Tests monkeypatch the application-owned operator-allowlist loader; no environment variable can extend production policy.
 
 **Rejected alternatives:**
 
@@ -110,7 +110,15 @@ These are real gaps but need design proposals, not mechanical hardening. v5.8.x 
 
 ### Deferred 1 — Real Windows AppContainer / Job Object for plugins
 
-Today the plugin sandbox is declarative: the loader checks the manifest's claimed capabilities but the OS doesn't enforce them. v5.8.x: spawn plugins inside a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` + `BREAKAWAY_OK = FALSE` + AppContainer SID restricting filesystem to the plugin sandbox dir. Plugin tries to touch `C:\Windows` → OS denies, not just the loader. Needs prototype work to understand WinDivert + plugin interaction under AppContainer.
+Today a pinned publisher key authenticates the complete plugin bundle, but the
+plugin still runs arbitrary in-process Python with the host user's authority.
+Audit-hook capability checks are best-effort diagnostics, not a security
+boundary. A future release must spawn plugins behind an allowlisted RPC broker
+inside a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` +
+`BREAKAWAY_OK = FALSE` and an AppContainer SID restricting filesystem access.
+Only then can a plugin attempt to touch `C:\Windows` be treated as an
+OS-enforced denial rather than a publisher-trust violation. Prototype work is
+still required for WinDivert and UI-plugin interactions under AppContainer.
 
 ### Deferred 2 — DPAPI scope audit
 
@@ -138,7 +146,7 @@ These were considered and rejected for v5.7.6 (and likely for v5.8.x too):
 
 `tests/test_security_v576.py` adds seven test classes (one per item + helpers) with 23 test cases total. The cert-pinning tests run without network access by stubbing `chain_spki_hashes`. The downgrade-replay and settings-HMAC tests monkeypatch the data directory to a `tmp_path` so they don't touch the operator's real state. The audit-seal tests build a small `AuditLogger` instance in a temp directory and exercise the full seal → drop-writes → reset flow.
 
-`tests/conftest.py` sets `DUPEZ_TEST_WEBHOOK_HOSTS` at session start so existing `test_audit_webhook.py` tests continue to pass without modification.
+Webhook tests monkeypatch `_load_operator_allowlist` locally with reserved test domains. Production code has no test-host environment escape hatch.
 
 ## Lockstep version bump
 

@@ -89,8 +89,10 @@ from app.core.update_verify import (  # noqa: E402
     MANIFEST_SCHEMA,
     SIGNATURE_SIZE,
     SIG_ENVELOPE_SIZE,
+    authenticode_signer_sha256,
     pubkey_fingerprint,
     verify_manifest,
+    verify_installer_authenticode,
     verify_installer_sha256,
 )
 
@@ -162,6 +164,8 @@ def sign_release(
     version: str,
     out_manifest: Path,
     out_sig: Path,
+    *,
+    allow_unsigned: bool = False,
 ) -> None:
     """Build, serialize, and sign an update manifest for *installer_path*."""
     from cryptography.hazmat.primitives import serialization
@@ -188,6 +192,11 @@ def sign_release(
     pub_pem = pub_pem_bytes.decode("utf-8")
 
     sha256_hex, size_bytes = _hash_file(installer_path)
+    signer_sha256 = (
+        None
+        if allow_unsigned
+        else authenticode_signer_sha256(str(installer_path))
+    )
 
     manifest_obj = {
         "schema": MANIFEST_SCHEMA,
@@ -199,6 +208,10 @@ def sign_release(
             "size": size_bytes,
         },
     }
+    if signer_sha256 is not None:
+        manifest_obj["installer"]["authenticode_signer_sha256"] = (
+            signer_sha256
+        )
     # Canonical JSON: sorted keys, no trailing newline, UTF-8.
     # The client verifies the signature over these EXACT bytes, so we
     # write them once and never re-serialize.
@@ -227,8 +240,18 @@ def sign_release(
 
     # Round-trip self-check — if the client library can't verify our
     # own output, something is wrong with the signer.
-    parsed = verify_manifest(manifest_bytes, envelope, trusted_pubkeys_pem=[pub_pem])
+    parsed = verify_manifest(
+        manifest_bytes,
+        envelope,
+        trusted_pubkeys_pem=[pub_pem],
+        allow_unsigned=allow_unsigned,
+    )
     verify_installer_sha256(str(installer_path), parsed)
+    verify_installer_authenticode(
+        str(installer_path),
+        parsed,
+        allow_unsigned=allow_unsigned,
+    )
 
     print(f"Signed manifest written: {out_manifest}")
     print(f"Signature written:       {out_sig}")
@@ -236,6 +259,10 @@ def sign_release(
     print(f"  installer:   {parsed.installer_filename}")
     print(f"  sha256:      {parsed.installer_sha256}")
     print(f"  size:        {parsed.installer_size}")
+    print(
+        "  signer:      "
+        + (parsed.authenticode_signer_sha256 or "unsigned (explicit mode)")
+    )
     print(f"  fingerprint: {fingerprint.hex()}")
     print()
     print("Self-verify: OK. Ready to upload to the release alongside the installer.")
@@ -243,7 +270,12 @@ def sign_release(
 
 # ── Verify (dry-run of the client path) ──────────────────────────
 
-def verify_release(installer_path: Path, pub_path: Path) -> None:
+def verify_release(
+    installer_path: Path,
+    pub_path: Path,
+    *,
+    allow_unsigned: bool = False,
+) -> None:
     """Run the full client verification path against on-disk artifacts."""
     manifest_path = installer_path.with_name(installer_path.name + ".manifest.json")
     sig_path = installer_path.with_name(installer_path.name + ".manifest.sig")
@@ -255,8 +287,18 @@ def verify_release(installer_path: Path, pub_path: Path) -> None:
     manifest_bytes = manifest_path.read_bytes()
     sig_bytes = sig_path.read_bytes()
 
-    parsed = verify_manifest(manifest_bytes, sig_bytes, trusted_pubkeys_pem=[pub_pem])
+    parsed = verify_manifest(
+        manifest_bytes,
+        sig_bytes,
+        trusted_pubkeys_pem=[pub_pem],
+        allow_unsigned=allow_unsigned,
+    )
     verify_installer_sha256(str(installer_path), parsed)
+    verify_installer_authenticode(
+        str(installer_path),
+        parsed,
+        allow_unsigned=allow_unsigned,
+    )
 
     print("Release verified OK:")
     print(f"  installer:  {installer_path}")
@@ -289,6 +331,11 @@ def main() -> int:
     ap.add_argument("--verify", action="store_true",
                     help="re-verify an already-signed installer using a pubkey PEM")
     ap.add_argument("--pub", type=Path, help="pubkey PEM (for --verify)")
+    ap.add_argument(
+        "--allow-unsigned",
+        action="store_true",
+        help="explicit development artifact mode; never use for standard releases",
+    )
 
     args = ap.parse_args()
 
@@ -307,13 +354,24 @@ def main() -> int:
         out_sig = args.out_sig or args.installer.with_name(
             args.installer.name + ".manifest.sig"
         )
-        sign_release(args.priv, args.installer, args.version, out_manifest, out_sig)
+        sign_release(
+            args.priv,
+            args.installer,
+            args.version,
+            out_manifest,
+            out_sig,
+            allow_unsigned=args.allow_unsigned,
+        )
         return 0
 
     if args.verify:
         if not (args.installer and args.pub):
             ap.error("--verify requires --installer and --pub")
-        verify_release(args.installer, args.pub)
+        verify_release(
+            args.installer,
+            args.pub,
+            allow_unsigned=args.allow_unsigned,
+        )
         return 0
 
     ap.print_help()

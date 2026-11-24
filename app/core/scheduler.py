@@ -35,6 +35,7 @@ MAX_RULE_DURATION_SECONDS = 3600
 MAX_REPEAT_INTERVAL_SECONDS = 24 * 60 * 60
 MAX_MACRO_STEPS = 100
 MAX_MACRO_REPEATS = 100
+MACRO_STOP_TIMEOUT_SECONDS = 3.0
 
 
 # ── Data models ───────────────────────────────────────────────────────
@@ -137,6 +138,26 @@ class DisruptionMacro:
         return obj
 
 
+@dataclass
+class _MacroRun:
+    """Private ownership record for one macro execution.
+
+    A cancellation event belongs to exactly one worker.  Keeping the record
+    after a failed release is intentional: a later ``stop_macro`` call can
+    retry the release, and a replacement macro cannot take over a target that
+    may still be disrupted.
+    """
+
+    macro_id: str
+    macro_name: str
+    ip: str
+    generation: int
+    cancel_event: threading.Event = field(default_factory=threading.Event)
+    thread: Optional[threading.Thread] = None
+    owns_disruption: bool = False
+    last_step_info: Dict = field(default_factory=dict)
+
+
 # ── Scheduler ─────────────────────────────────────────────────────────
 
 class DisruptionScheduler:
@@ -146,7 +167,8 @@ class DisruptionScheduler:
 
         scheduler = DisruptionScheduler(disrupt_fn, stop_fn)
         scheduler.add_rule(ScheduledRule(...))
-        scheduler.run_macro(DisruptionMacro(...))
+        macro_id = scheduler.add_macro(DisruptionMacro(...))
+        scheduler.run_macro(macro_id)
         scheduler.start()
         ...
         scheduler.stop()
@@ -164,7 +186,8 @@ class DisruptionScheduler:
             disrupt_fn: ``(ip, methods, params) -> bool``
             stop_fn: ``(ip) -> bool``
             on_macro_step: optional ``(event, ip, step_info)`` callback
-                           where *event* is ``'start'``, ``'stop'``, or ``'done'``
+                           where *event* is ``'start'``, ``'stop'``, ``'done'``,
+                           ``'cancelled'``, or ``'failed'``
         """
         if not data_dir:
             from app.core.data_persistence import _resolve_data_directory
@@ -181,6 +204,10 @@ class DisruptionScheduler:
         self._active_rules: Dict[str, float] = {}   # rule_id -> stop_at epoch
         self._active_macro: Optional[str] = None
         self._macro_thread: Optional[threading.Thread] = None
+        self._macro_run: Optional[_MacroRun] = None
+        self._macro_generation = 0
+        # Compatibility alias for code that inspected the old field.  Each
+        # new run replaces the alias, but workers retain their private event.
         self._stop_macro_flag = threading.Event()
 
         self._running = False
@@ -202,12 +229,24 @@ class DisruptionScheduler:
         log_info(f"Scheduler: added rule '{rule.name}' ({rule.rule_id})")
         return rule.rule_id
 
-    def remove_rule(self, rule_id: str) -> None:
-        """Remove a scheduled rule by ID."""
+    def remove_rule(self, rule_id: str) -> bool:
+        """Remove a scheduled rule by ID.
+
+        An active rule is released first.  Failed releases retain the rule and
+        its ownership record so callers can retry instead of silently losing
+        control of a live disruption.
+        """
         with self._lock:
+            rule = self._rules.get(rule_id)
+            if rule is None:
+                return False
+            if rule_id in self._active_rules:
+                if not self._invoke_stop(rule.target_ip, f"rule '{rule.name}'"):
+                    return False
+                self._active_rules.pop(rule_id, None)
             self._rules.pop(rule_id, None)
-            self._active_rules.pop(rule_id, None)
         self._save()
+        return True
 
     def get_rules(self) -> List[ScheduledRule]:
         """Return a snapshot of all rules."""
@@ -250,45 +289,130 @@ class DisruptionScheduler:
         with self._lock:
             return list(self._macros.values())
 
-    def run_macro(self, macro_id: str, target_ip: str = "") -> None:
-        """Start executing a macro in a background thread."""
+    def run_macro(self, macro_id: str, target_ip: str = "") -> bool:
+        """Start executing a macro in a background thread.
+
+        Only one macro may own the scheduler at a time.  Callers must stop and
+        fully release the current run before starting a replacement.
+        """
         with self._lock:
             macro = self._macros.get(macro_id)
             if not macro:
                 log_error(f"Scheduler: macro {macro_id} not found")
-                return
+                return False
             ip = target_ip or macro.target_ip
             if not ip:
                 log_error("Scheduler: no target IP for macro")
-                return
+                return False
+            if self._macro_run is not None:
+                log_error(
+                    "Scheduler: cannot start a macro while another macro "
+                    "still owns a disruption"
+                )
+                return False
 
-            self._stop_macro_flag.clear()
-            self._active_macro = macro_id
-            self._macro_thread = threading.Thread(
-                target=self._run_macro_loop, args=(macro, ip), daemon=True,
+            # Execute an immutable snapshot.  Editing/removing a registered
+            # macro while it runs must not mutate the live execution plan.
+            macro_snapshot = DisruptionMacro.from_dict(macro.to_dict())
+            self._macro_generation += 1
+            run = _MacroRun(
+                macro_id=macro_id,
+                macro_name=macro_snapshot.name,
+                ip=ip,
+                generation=self._macro_generation,
             )
-            self._macro_thread.start()
+            thread = threading.Thread(
+                target=self._run_macro_loop,
+                args=(run, macro_snapshot),
+                daemon=True,
+            )
+            run.thread = thread
+            self._macro_run = run
+            self._active_macro = macro_id
+            self._macro_thread = thread
+            self._stop_macro_flag = run.cancel_event
+            try:
+                thread.start()
+            except Exception as exc:
+                self._clear_macro_run_locked(run)
+                log_error(f"Scheduler: could not start macro worker: {exc}")
+                return False
+            return True
 
-    def stop_macro(self) -> None:
-        """Stop the currently running macro."""
-        self._stop_macro_flag.set()
-        self._active_macro = None
+    def stop_macro(self, timeout: float = MACRO_STOP_TIMEOUT_SECONDS) -> bool:
+        """Cancel and release the active macro, returning confirmed success.
+
+        If the worker cannot finish within *timeout*, or the disruption's
+        ``stop_fn`` returns false, ownership is retained and replacement runs
+        remain blocked.  Calling this method again retries a failed release.
+        """
+        with self._lock:
+            run = self._macro_run
+            if run is None:
+                return True
+            run.cancel_event.set()
+            thread = run.thread
+            worker_was_alive = bool(thread and thread.is_alive())
+
+        if worker_was_alive:
+            if thread is threading.current_thread():
+                # The worker will observe its private event immediately after
+                # the callback returns; it cannot synchronously join itself.
+                return False
+            thread.join(timeout=max(0.0, float(timeout)))
+            if thread.is_alive():
+                log_error("Scheduler: macro cancellation timed out")
+                return False
+
+            # A completed worker clears its record after a confirmed release.
+            # If the record remains, its own stop attempt failed; do not issue
+            # a second concurrent/ambiguous stop in the same call.
+            with self._lock:
+                return self._macro_run is not run
+
+        # A dead worker with retained ownership represents a prior failed
+        # release.  This explicit subsequent call is the safe retry path.
+        with self._lock:
+            if self._macro_run is not run:
+                return True
+            if not run.owns_disruption:
+                self._clear_macro_run_locked(run)
+                return True
+            step_info = dict(run.last_step_info)
+
+        if not self._invoke_stop(run.ip, f"macro '{run.macro_name}' retry"):
+            return False
+
+        with self._lock:
+            if self._macro_run is run:
+                run.owns_disruption = False
+                self._clear_macro_run_locked(run)
+        if step_info:
+            self._fire_macro_callback("stop", run.ip, step_info)
+        return True
 
     def is_macro_running(self) -> bool:
-        """Return whether a macro is currently executing."""
-        return self._active_macro is not None
+        """Return whether a macro is executing or retains target ownership."""
+        with self._lock:
+            return self._macro_run is not None
 
     # ── Macro execution loop ──────────────────────────────────────
 
-    def _run_macro_loop(self, macro: DisruptionMacro, ip: str) -> None:
-        """Execute macro steps sequentially with wall-clock timing."""
+    def _run_macro_loop(self, run: _MacroRun, macro: DisruptionMacro) -> None:
+        """Execute one macro snapshot with per-run cancellation state."""
+        ip = run.ip
         repeats = macro.repeat_count
+        outcome = "done"
+        terminal_info: Dict = {"macro": macro.name}
+        release_failed = False
         try:
             for cycle in range(repeats):
-                if self._stop_macro_flag.is_set():
+                if run.cancel_event.is_set():
+                    outcome = "cancelled"
                     break
                 for i, step in enumerate(macro.steps):
-                    if self._stop_macro_flag.is_set():
+                    if run.cancel_event.is_set():
+                        outcome = "cancelled"
                         break
 
                     step_info = {
@@ -304,30 +428,143 @@ class DisruptionScheduler:
                         f"(cycle {cycle + 1}): {step.methods} for {step.duration_seconds}s"
                     )
 
-                    self._disrupt_fn(ip, step.methods, step.params)
+                    if not self._invoke_disrupt(
+                        ip,
+                        step.methods,
+                        step.params,
+                        f"macro '{macro.name}' step {i + 1}",
+                    ):
+                        outcome = "failed"
+                        terminal_info = {
+                            **step_info,
+                            "outcome": "failed",
+                            "reason": "start_failed",
+                        }
+                        break
+                    with self._lock:
+                        if self._macro_run is run:
+                            run.owns_disruption = True
+                            run.last_step_info = dict(step_info)
                     self._fire_macro_callback("start", ip, step_info)
 
-                    # Wall-clock wait to avoid drift
-                    deadline = time.monotonic() + step.duration_seconds
-                    while time.monotonic() < deadline:
-                        if self._stop_macro_flag.is_set():
-                            break
-                        remaining = deadline - time.monotonic()
-                        time.sleep(min(0.5, max(0.0, remaining)))
-
-                    self._stop_fn(ip)
+                    cancelled = run.cancel_event.wait(step.duration_seconds)
+                    if not self._invoke_stop(
+                        ip,
+                        f"macro '{macro.name}' step {i + 1}",
+                    ):
+                        outcome = "failed"
+                        release_failed = True
+                        terminal_info = {
+                            **step_info,
+                            "outcome": "failed",
+                            "reason": "stop_failed",
+                        }
+                        break
+                    with self._lock:
+                        if self._macro_run is run:
+                            run.owns_disruption = False
                     self._fire_macro_callback("stop", ip, step_info)
 
-                    if not self._stop_macro_flag.is_set():
-                        time.sleep(0.3)
+                    if cancelled:
+                        outcome = "cancelled"
+                        break
+                    if run.cancel_event.wait(0.3):
+                        outcome = "cancelled"
+                        break
+
+                if outcome != "done":
+                    break
 
         except Exception as e:
             log_error(f"Macro execution error: {e}")
+            outcome = "failed"
+            terminal_info = {
+                **terminal_info,
+                "outcome": "failed",
+                "reason": "execution_error",
+            }
         finally:
-            self._stop_fn(ip)
-            self._active_macro = None
-            self._fire_macro_callback("done", ip, {"macro": macro.name})
-            log_info(f"Macro '{macro.name}' finished")
+            # Unexpected failures after a successful start still require a
+            # release attempt.  A known failed release is not retried here;
+            # ownership remains explicit for stop_macro().
+            with self._lock:
+                owns_disruption = (
+                    self._macro_run is run and run.owns_disruption
+                )
+                step_info = dict(run.last_step_info)
+            if owns_disruption and not release_failed:
+                if self._invoke_stop(ip, f"macro '{macro.name}' cleanup"):
+                    with self._lock:
+                        if self._macro_run is run:
+                            run.owns_disruption = False
+                    if step_info:
+                        self._fire_macro_callback("stop", ip, step_info)
+                else:
+                    release_failed = True
+                    outcome = "failed"
+                    terminal_info = {
+                        **(step_info or terminal_info),
+                        "outcome": "failed",
+                        "reason": "stop_failed",
+                    }
+
+            with self._lock:
+                retained = self._macro_run is run and run.owns_disruption
+                if self._macro_run is run and not retained:
+                    self._clear_macro_run_locked(run)
+
+            if outcome == "cancelled":
+                terminal_info = {
+                    **terminal_info,
+                    "outcome": "cancelled",
+                    "reason": "cancelled",
+                }
+            elif outcome == "done":
+                terminal_info = {**terminal_info, "outcome": "done"}
+            self._fire_macro_callback(outcome, ip, terminal_info)
+            if retained:
+                log_error(
+                    f"Macro '{macro.name}' failed and retained disruption ownership"
+                )
+            else:
+                log_info(f"Macro '{macro.name}' {outcome}")
+
+    def _clear_macro_run_locked(self, run: _MacroRun) -> None:
+        """Clear *run* only when it is still the current ownership record."""
+        if self._macro_run is not run:
+            return
+        self._macro_run = None
+        self._active_macro = None
+        self._macro_thread = None
+        self._stop_macro_flag = threading.Event()
+
+    def _invoke_disrupt(
+        self,
+        ip: str,
+        methods: List[str],
+        params: Dict,
+        context: str,
+    ) -> bool:
+        """Invoke ``disrupt_fn`` and normalize exceptions/false results."""
+        try:
+            success = bool(self._disrupt_fn(ip, methods, params))
+        except Exception as exc:
+            log_error(f"Scheduler: {context} start raised: {exc}")
+            return False
+        if not success:
+            log_error(f"Scheduler: {context} start was not confirmed")
+        return success
+
+    def _invoke_stop(self, ip: str, context: str) -> bool:
+        """Invoke ``stop_fn`` and normalize exceptions/false results."""
+        try:
+            success = bool(self._stop_fn(ip))
+        except Exception as exc:
+            log_error(f"Scheduler: {context} stop raised: {exc}")
+            return False
+        if not success:
+            log_error(f"Scheduler: {context} stop was not confirmed")
+        return success
 
     def _fire_macro_callback(self, event: str, ip: str, step_info: dict) -> None:
         """Safely invoke the optional macro-step callback."""
@@ -339,32 +576,62 @@ class DisruptionScheduler:
 
     # ── Scheduler loop ────────────────────────────────────────────
 
-    def start(self) -> None:
-        """Start the background scheduler thread."""
-        if self._running:
-            return
-        self._running = True
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._scheduler_loop, daemon=True)
-        self._thread.start()
+    def start(self) -> bool:
+        """Start the background scheduler thread and report acceptance."""
+        with self._lock:
+            if self._running:
+                return True
+            self._running = True
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._scheduler_loop,
+                daemon=True,
+            )
+            try:
+                self._thread.start()
+            except Exception as exc:
+                self._thread = None
+                self._running = False
+                self._stop_event.set()
+                log_error(f"Disruption scheduler failed to start: {exc}")
+                return False
         log_info("Disruption scheduler started")
+        return True
 
-    def stop(self) -> None:
-        """Stop the scheduler and any active disruptions."""
+    def stop(self) -> bool:
+        """Stop the scheduler and return whether every release succeeded."""
         self._running = False
         self._stop_event.set()
-        self.stop_macro()
+        macro_stopped = self.stop_macro()
 
+        thread_stopped = True
+        if self._thread and self._thread.is_alive():
+            if self._thread is threading.current_thread():
+                thread_stopped = False
+            else:
+                self._thread.join(timeout=3)
+                thread_stopped = not self._thread.is_alive()
+
+        rules_stopped = True
         with self._lock:
             for rule_id in list(self._active_rules):
                 rule = self._rules.get(rule_id)
-                if rule:
-                    self._stop_fn(rule.target_ip)
-            self._active_rules.clear()
+                if rule and self._invoke_stop(
+                    rule.target_ip,
+                    f"rule '{rule.name}' shutdown",
+                ):
+                    self._active_rules.pop(rule_id, None)
+                else:
+                    rules_stopped = False
 
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=3)
-        log_info("Disruption scheduler stopped")
+        stopped = macro_stopped and rules_stopped and thread_stopped
+        if stopped:
+            log_info("Disruption scheduler stopped")
+        else:
+            log_error(
+                "Disruption scheduler stopped with one or more retained owners"
+            )
+        return stopped
 
     def _scheduler_loop(self) -> None:
         """Main tick loop — checks rules every second."""
@@ -372,61 +639,76 @@ class DisruptionScheduler:
             try:
                 now = time.time()
                 current_hhmm = datetime.now().strftime("%H:%M")
-
-                with self._lock:
-                    # Expire finished rules
-                    expired = [
-                        rid for rid, stop_at in self._active_rules.items()
-                        if now >= stop_at
-                    ]
-                    for rid in expired:
-                        rule = self._rules.get(rid)
-                        if rule:
-                            self._stop_fn(rule.target_ip)
-                            log_info(f"Scheduler: rule '{rule.name}' expired, stopping")
-                        del self._active_rules[rid]
-
-                    # Check triggers
-                    for rule_id, rule in self._rules.items():
-                        if not rule.enabled or rule_id in self._active_rules:
-                            continue
-
-                        should_trigger = False
-
-                        # Time-based trigger (HH:MM match)
-                        if rule.start_time and ":" in rule.start_time:
-                            if current_hhmm == rule.start_time and now - rule.last_run > 65:
-                                should_trigger = True
-
-                        # Epoch-based delayed start
-                        if rule.start_time and ":" not in rule.start_time:
-                            try:
-                                start_epoch = float(rule.start_time)
-                                if now >= start_epoch and rule.last_run == 0.0:
-                                    should_trigger = True
-                            except (ValueError, TypeError):
-                                pass
-
-                        # Repeat interval
-                        if rule.repeat_interval > 0:
-                            if rule.last_run == 0.0:
-                                should_trigger = True
-                            elif now - rule.last_run >= rule.repeat_interval:
-                                should_trigger = True
-
-                        if should_trigger:
-                            self._disrupt_fn(rule.target_ip, rule.methods, rule.params)
-                            self._active_rules[rule_id] = now + rule.duration_seconds
-                            rule.last_run = now
-                            log_info(
-                                f"Scheduler: triggered rule '{rule.name}' "
-                                f"on {mask_ip(rule.target_ip)} for {rule.duration_seconds}s"
-                            )
+                self._scheduler_tick(now, current_hhmm)
 
             except Exception as e:
                 log_error(f"Scheduler loop error: {e}")
 
             self._stop_event.wait(1)
+
+    def _scheduler_tick(self, now: float, current_hhmm: str) -> None:
+        """Process one deterministic rule tick.
+
+        The helper is separate from the sleeping loop so callback-result
+        ownership behavior can be regression tested without timing races.
+        """
+        with self._lock:
+            expired = [
+                rid for rid, stop_at in self._active_rules.items()
+                if now >= stop_at
+            ]
+            for rid in expired:
+                rule = self._rules.get(rid)
+                if rule is None:
+                    # Never discard an owner merely because its configuration
+                    # disappeared unexpectedly; retain it for shutdown review.
+                    log_error(
+                        f"Scheduler: active rule {rid} has no release metadata"
+                    )
+                    continue
+                if self._invoke_stop(rule.target_ip, f"rule '{rule.name}'"):
+                    self._active_rules.pop(rid, None)
+                    log_info(f"Scheduler: rule '{rule.name}' expired, stopped")
+
+            for rule_id, rule in self._rules.items():
+                if not rule.enabled or rule_id in self._active_rules:
+                    continue
+
+                should_trigger = False
+
+                if rule.start_time and ":" in rule.start_time:
+                    if current_hhmm == rule.start_time and now - rule.last_run > 65:
+                        should_trigger = True
+
+                if rule.start_time and ":" not in rule.start_time:
+                    try:
+                        start_epoch = float(rule.start_time)
+                        if now >= start_epoch and rule.last_run == 0.0:
+                            should_trigger = True
+                    except (ValueError, TypeError):
+                        pass
+
+                if rule.repeat_interval > 0:
+                    if rule.last_run == 0.0:
+                        should_trigger = True
+                    elif now - rule.last_run >= rule.repeat_interval:
+                        should_trigger = True
+
+                if not should_trigger:
+                    continue
+                if not self._invoke_disrupt(
+                    rule.target_ip,
+                    rule.methods,
+                    rule.params,
+                    f"rule '{rule.name}'",
+                ):
+                    continue
+                self._active_rules[rule_id] = now + rule.duration_seconds
+                rule.last_run = now
+                log_info(
+                    f"Scheduler: triggered rule '{rule.name}' "
+                    f"on {mask_ip(rule.target_ip)} for {rule.duration_seconds}s"
+                )
 
     # ── Persistence ───────────────────────────────────────────────
 

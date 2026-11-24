@@ -39,6 +39,7 @@
 *.zig text eol=lf
 *.rc text eol=lf
 *.manifest text eol=lf
+*.patch text eol=lf
 
 # HTML / Docs
 *.html text eol=lf

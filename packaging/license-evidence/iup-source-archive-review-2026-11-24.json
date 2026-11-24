@@ -1,0 +1,1020 @@
+{
+  "schema": "dupez.iup-complete-archive-source-review.v1",
+  "reviewed_on": "2026-11-24",
+  "status": "all-retained-source-files-compared-exact-and-eol-classes-separated",
+  "baseline_source_commit": "6de2023f65eca81f43d44bbffbf17fb2dcf1b858",
+  "observation": {
+    "acquisition": {
+      "sha256": "05946fd01c3dc7e6dc1e42e4d592a984e684c4506bf953c3c099827d0809f5ad",
+      "size": 15048
+    },
+    "all_archive_files_correspond_after_explicit_crlf_lf_conversion": true,
+    "all_archive_files_exact": false,
+    "archive_file_count": 2745,
+    "comparison_inventory": {
+      "name": "iup-file-comparisons.json",
+      "sha256": "db43ad76376debe4ec9b2949b84767b230600ce11f1a79db0e7e12ef47210046",
+      "size": 1027754
+    },
+    "complete_corresponding_source": false,
+    "counts": {
+      "content-differs": 0,
+      "crlf-lf-only": 705,
+      "exact": 2040,
+      "missing-from-svn": 0
+    },
+    "counts_by_archive_root": {
+      "COPYRIGHT": {
+        "exact": 1
+      },
+      "LINSTALL": {
+        "exact": 1
+      },
+      "Makefile": {
+        "exact": 1
+      },
+      "README": {
+        "exact": 1
+      },
+      "VERSION": {
+        "exact": 1
+      },
+      "config_lua_module": {
+        "exact": 1
+      },
+      "dox": {
+        "exact": 3
+      },
+      "etc": {
+        "exact": 163
+      },
+      "fix_permission": {
+        "exact": 1
+      },
+      "include": {
+        "exact": 35
+      },
+      "install": {
+        "exact": 1
+      },
+      "install_dev": {
+        "exact": 1
+      },
+      "mak.Android": {
+        "crlf-lf-only": 1,
+        "exact": 100
+      },
+      "mak.XcodeMac": {
+        "exact": 35
+      },
+      "mak.XcodeiOS": {
+        "exact": 12
+      },
+      "mak.vc12": {
+        "crlf-lf-only": 42,
+        "exact": 46
+      },
+      "mak.vc15": {
+        "exact": 90
+      },
+      "make_uname": {
+        "exact": 1
+      },
+      "make_uname.bat": {
+        "exact": 1
+      },
+      "make_uname_lib.bat": {
+        "exact": 1
+      },
+      "make_uname_tools": {
+        "exact": 1
+      },
+      "make_uname_tools.bat": {
+        "exact": 1
+      },
+      "src": {
+        "exact": 542
+      },
+      "srccd": {
+        "exact": 9
+      },
+      "srccontrols": {
+        "exact": 51
+      },
+      "srcfiledlg": {
+        "exact": 5
+      },
+      "srcgl": {
+        "exact": 9
+      },
+      "srcglcontrols": {
+        "exact": 32
+      },
+      "srcim": {
+        "exact": 6
+      },
+      "srcimglib": {
+        "exact": 32
+      },
+      "srcledc": {
+        "exact": 9
+      },
+      "srclua5": {
+        "crlf-lf-only": 178,
+        "exact": 184
+      },
+      "srcluaconsole": {
+        "crlf-lf-only": 1,
+        "exact": 13
+      },
+      "srcluascripter": {
+        "exact": 7
+      },
+      "srcmglplot": {
+        "crlf-lf-only": 58,
+        "exact": 29
+      },
+      "srcole": {
+        "exact": 21
+      },
+      "srcplot": {
+        "exact": 20
+      },
+      "srcscintilla": {
+        "crlf-lf-only": 425,
+        "exact": 469
+      },
+      "srctuio": {
+        "exact": 71
+      },
+      "srcview": {
+        "exact": 5
+      },
+      "srcvled": {
+        "exact": 7
+      },
+      "srcweb": {
+        "exact": 17
+      },
+      "tec_uname": {
+        "exact": 1
+      },
+      "tecmake.mak": {
+        "exact": 1
+      },
+      "tecmakewin.mak": {
+        "exact": 1
+      },
+      "uninstall": {
+        "exact": 1
+      }
+    },
+    "dll_build_source_identity_proven": false,
+    "historical_file_count_within_requested_scopes": 2747,
+    "limits": [
+      "Exact byte matches and CRLF/LF-only matches are distinct; original ZIP and SVN bytes are never rewritten.",
+      "Reports cover the retained ZIP's top-level directories plus root files, not all upstream documentation or the entire repository.",
+      "Revision 5892 is selected by previously reviewed date metadata, not a discovered release tag or DLL build attestation.",
+      "A complete source-file comparison does not establish compiler/SDK inputs, DLL reproduction, redistribution entitlement or public delivery."
+    ],
+    "native_execution_performed": false,
+    "native_rebuild_performed": false,
+    "release_approval": false,
+    "report_count": 29,
+    "report_inputs": [
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "",
+        "request": {
+          "path": "root-request.xml",
+          "sha256": "f79ca29a8b1578384b63aacdc84e9af705249775119fdcf90fab33ea19c37d48",
+          "size": 256
+        },
+        "response": {
+          "path": "root.xml",
+          "sha256": "e68034be0df2ac3f06a1b515bf0012ff14e47c7d95a32c0de0f477d2daa6c12e",
+          "size": 254594
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "dox",
+        "request": {
+          "path": "dox-request.xml",
+          "sha256": "637b99a5b925ed4b5b2daf2e95e254b38ba01ec38882c9422f77f142d118496b",
+          "size": 266
+        },
+        "response": {
+          "path": "dox.xml",
+          "sha256": "70eb1e159548168095975ce36b64e76680660e24163dee9d9983d41e8f0339cd",
+          "size": 109924
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "etc",
+        "request": {
+          "path": "etc-request.xml",
+          "sha256": "c7266ad26a20b561b54494218643dd4214a1a3aeea32b4a7c35113f0f251744a",
+          "size": 266
+        },
+        "response": {
+          "path": "etc.xml",
+          "sha256": "8e0026705b387ec1b1340fd1cf0bd6fbc98a771e3934719a83cd143cd1269d47",
+          "size": 40096382
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "include",
+        "request": {
+          "path": "include-request.xml",
+          "sha256": "088a2890cf37bce79c1521b94ef4ed0e91a5c2c1352cac24a86703b38deeca5d",
+          "size": 270
+        },
+        "response": {
+          "path": "include.xml",
+          "sha256": "245f1ad9c5f39fbb3c218169fda31dbc4b5190386961f0f31ba85d1d8fa61d8a",
+          "size": 272176
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "mak.Android",
+        "request": {
+          "path": "mak.Android-request.xml",
+          "sha256": "e575b170c8fb478d605fc5b52434a7a5d42e33d5edcac251074ac83061d50f2d",
+          "size": 274
+        },
+        "response": {
+          "path": "mak.Android.xml",
+          "sha256": "cefdddae2bdd54184aa2c0f13d5ed372376a25d88dec88df47d4df0444e1a061",
+          "size": 664078
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "mak.XcodeMac",
+        "request": {
+          "path": "mak.XcodeMac-request.xml",
+          "sha256": "04b18cf6cab0cd6f9e425c715944533b808a5d26a79fef15028e9fa4addc0eb7",
+          "size": 275
+        },
+        "response": {
+          "path": "mak.XcodeMac.xml",
+          "sha256": "5d50e198305b4ba1a875fde0e4a46ca96dcf82baf99c324709f258fc67732649",
+          "size": 513763
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "mak.XcodeiOS",
+        "request": {
+          "path": "mak.XcodeiOS-request.xml",
+          "sha256": "2aa3c7475b533acb1276cd937bb0496667bac5ae1ff14ab6dfcda28051da361f",
+          "size": 275
+        },
+        "response": {
+          "path": "mak.XcodeiOS.xml",
+          "sha256": "6f5463d1227d369df02d3b93cc42ea8550413613410447cba83fd464b8790252",
+          "size": 241749
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "mak.vc12",
+        "request": {
+          "path": "mak.vc12-request.xml",
+          "sha256": "cfde3c3e2f1f036e38b89ff7949f9d422bb4ac9806a334d4957b0e7f91a16df4",
+          "size": 271
+        },
+        "response": {
+          "path": "mak.vc12.xml",
+          "sha256": "aa2bfb3b0a588e23834b2e4287ee26f4794f88f8aa909ae4fceec3b9669c11bf",
+          "size": 1089322
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "mak.vc15",
+        "request": {
+          "path": "mak.vc15-request.xml",
+          "sha256": "ed4b67256acc92a945f61a0e1d67abd6b2663a5c8ce7ce95bfd3fd0340b0106e",
+          "size": 271
+        },
+        "response": {
+          "path": "mak.vc15.xml",
+          "sha256": "236705821cf603a2d49fac2f8ab374e225b6f10c584e57fc7bf17a1b01eee018",
+          "size": 1126083
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "src",
+        "request": {
+          "path": "src-request.xml",
+          "sha256": "26baecd8fed4da2240a05524d0c57eae3e0c71b59bda3ec445b197019d87eb20",
+          "size": 266
+        },
+        "response": {
+          "path": "src.xml",
+          "sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+          "size": 8628139
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srccd",
+        "request": {
+          "path": "srccd-request.xml",
+          "sha256": "a22b211d4701b6b5be4dd94afa3ee0d736ff2f93b174ccaa53cb4a4e6a1e44aa",
+          "size": 268
+        },
+        "response": {
+          "path": "srccd.xml",
+          "sha256": "5fa2e6e7bf2553329e39565f67edd04e6dfad3b85d4074f99afd82ca682f28f0",
+          "size": 48024
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srccontrols",
+        "request": {
+          "path": "srccontrols-request.xml",
+          "sha256": "1a5ecc84afb7849d9c70cdf36f70189bb3017618c9c1df240399846705a74e63",
+          "size": 274
+        },
+        "response": {
+          "path": "srccontrols.xml",
+          "sha256": "0df69142ee3ba7f300953f9a05d94896fb9d60357c090ea7a1041568cda13029",
+          "size": 803935
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcfiledlg",
+        "request": {
+          "path": "srcfiledlg-request.xml",
+          "sha256": "2df6485dc6b283b5b766eec822f15975e9220c275b970f452d2bb079eeffc51a",
+          "size": 273
+        },
+        "response": {
+          "path": "srcfiledlg.xml",
+          "sha256": "26f07f026ea981dee28c45601dde2d6504de0a8041470c3057bcdfbafc1b2a7d",
+          "size": 38497
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcgl",
+        "request": {
+          "path": "srcgl-request.xml",
+          "sha256": "4c92b43fc2a4096ee48ed0ddc18b62dd46293dfc6b4cf1e28846c4234d820dad",
+          "size": 268
+        },
+        "response": {
+          "path": "srcgl.xml",
+          "sha256": "1a3d5b1d42def1a3624488c18cd7658901e6377ae614f0b47229a76f95bf0245",
+          "size": 75133
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcglcontrols",
+        "request": {
+          "path": "srcglcontrols-request.xml",
+          "sha256": "b37f2f6860acd2e8da25b4c1ff31a9b6a79f92b9128e3e82ea48126231c1e171",
+          "size": 276
+        },
+        "response": {
+          "path": "srcglcontrols.xml",
+          "sha256": "afe944d74e4d4faa0889922a9e1a2372ba66cd65b8a842cb4d76d9e1ddd694e7",
+          "size": 317034
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcim",
+        "request": {
+          "path": "srcim-request.xml",
+          "sha256": "3a88389500683f5beb9c4d09a6225c2db33649a88065f846b7c4df533c54d821",
+          "size": 268
+        },
+        "response": {
+          "path": "srcim.xml",
+          "sha256": "e56df7a1a632774431cad305d0e06a79382eeb973f33a3f39b46143dadac622f",
+          "size": 27597
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcimglib",
+        "request": {
+          "path": "srcimglib-request.xml",
+          "sha256": "a39c5c667f94639b447f1688348dc11c881d30858071b3f606dbff9fa4e40dee",
+          "size": 272
+        },
+        "response": {
+          "path": "srcimglib.xml",
+          "sha256": "4aadd422de457b8e3429a57c579ffccbdee806ff34f29ce7e426ace93f5fcf8a",
+          "size": 5789795
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcledc",
+        "request": {
+          "path": "srcledc-request.xml",
+          "sha256": "225af0b45633d84d2a83de7ff1b6340400958beb0cf076961f1951fd7f91c95f",
+          "size": 270
+        },
+        "response": {
+          "path": "srcledc.xml",
+          "sha256": "286da52aedb964f6c1a1d8e7fcadbb9761f0f10bdb544db5a6daafedf3c0bfd9",
+          "size": 113016
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srclua5",
+        "request": {
+          "path": "srclua5-request.xml",
+          "sha256": "ef7bb35ac3ca918c33153bfe214e100fd7583b460ea70062d5bf84a87d53d59d",
+          "size": 270
+        },
+        "response": {
+          "path": "srclua5.xml",
+          "sha256": "cb81b2e78c346f3f9d4c9be3f060c3fb06c629ad65b2a591aa1ba1f7d377f967",
+          "size": 1895566
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcluaconsole",
+        "request": {
+          "path": "srcluaconsole-request.xml",
+          "sha256": "9d8fd65b8dc440ebc8c51f9a8ee22bb3ff545429cd3d4cd544069f5df5211073",
+          "size": 276
+        },
+        "response": {
+          "path": "srcluaconsole.xml",
+          "sha256": "2677fbf822d9e5870fcdbcd6cb9d8583749d3ee4cdad8755df15f21f775b022c",
+          "size": 343024
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcluascripter",
+        "request": {
+          "path": "srcluascripter-request.xml",
+          "sha256": "c8e696c19422a41352596bcd567b3745a02c02c5e134096a27a1df7ae46058c6",
+          "size": 277
+        },
+        "response": {
+          "path": "srcluascripter.xml",
+          "sha256": "0e19c22b594a5ac6593c25c77746178f5e7264e44db0fdfcaaf2021cf0441c41",
+          "size": 50236
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcmglplot",
+        "request": {
+          "path": "srcmglplot-request.xml",
+          "sha256": "9692e380a021e8ea21bc1253d7e95c39eac384f6f14729fca87e58d23ca12e4c",
+          "size": 273
+        },
+        "response": {
+          "path": "srcmglplot.xml",
+          "sha256": "c0501944fa59cc390b82002004ceb2bde9a32ddf0e1693512bef3a01cd01ff97",
+          "size": 4612907
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcole",
+        "request": {
+          "path": "srcole-request.xml",
+          "sha256": "94e55dc91ddbbf5674aeba564b433021a2ddaea1086ccca77818bc80869a0c68",
+          "size": 269
+        },
+        "response": {
+          "path": "srcole.xml",
+          "sha256": "0e6005b2dd3e23a7fe7cd010dac6fd7bdc17d76365747e4d91d06e5250dc55b7",
+          "size": 159557
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcplot",
+        "request": {
+          "path": "srcplot-request.xml",
+          "sha256": "908ad3e4f9f3bab737001cbfa13a7a2d23970ebfba9a77437d87d8ede5309d6b",
+          "size": 270
+        },
+        "response": {
+          "path": "srcplot.xml",
+          "sha256": "6c006dcbbb968bc54d9d8f19d2f4ace6ec8c572aec07d57ff63cf3015bda8a27",
+          "size": 546512
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcscintilla",
+        "request": {
+          "path": "srcscintilla-request.xml",
+          "sha256": "565df15324568ccf10fe4c45193e4bcd2f038d107265438a6696cea4c7a6d0cb",
+          "size": 275
+        },
+        "response": {
+          "path": "srcscintilla.xml",
+          "sha256": "66706f327b1de04bb09f1f9d8ecb2cfaa390b994be60d46c4748a67cb521c0b0",
+          "size": 17748083
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srctuio",
+        "request": {
+          "path": "srctuio-request.xml",
+          "sha256": "0290587c804e8659ee005599d220e117110cde72f28244692cd69ee5c21ba9aa",
+          "size": 270
+        },
+        "response": {
+          "path": "srctuio.xml",
+          "sha256": "fe31534fc9830631ee4b01df9a44c4912d836d5c102a5baf999728a367b44108",
+          "size": 648740
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcview",
+        "request": {
+          "path": "srcview-request.xml",
+          "sha256": "a3068b37cc26ee83e640125096543e4b30b16f161838ac999962855997c254ee",
+          "size": 270
+        },
+        "response": {
+          "path": "srcview.xml",
+          "sha256": "8d2eaa61339b594171a04f02d74e61582e419d6f79d16a2d243b4d3c7d518e6b",
+          "size": 44966
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcvled",
+        "request": {
+          "path": "srcvled-request.xml",
+          "sha256": "9ab4c0e37b1d41b616206ef33924c5d8cd4dcb0eb85599f288321a170dd4e3bc",
+          "size": 270
+        },
+        "response": {
+          "path": "srcvled.xml",
+          "sha256": "f988e72469afdafa8f51a3aeb9a8cbfc56dbab8c2faa61ae8c2c950d94724158",
+          "size": 1086290
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      },
+      {
+        "http_status": 200,
+        "method": "REPORT",
+        "prefix": "srcweb",
+        "request": {
+          "path": "srcweb-request.xml",
+          "sha256": "8d19290689701507188010b7d280d1b1ba591bb7654af53f68b432bd271c98ac",
+          "size": 269
+        },
+        "response": {
+          "path": "srcweb.xml",
+          "sha256": "40672bf932da9417d2bac825d68a0bbf3705a54bd06d76f8c7f7bbd695953da1",
+          "size": 261027
+        },
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/vcc/default"
+      }
+    ],
+    "revision": 5892,
+    "schema": "dupez.iup-source-archive-comparison.v1",
+    "source_archive": {
+      "name": "iup-3.30_Sources.zip",
+      "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6",
+      "size": 14226631
+    },
+    "status": "all-archive-files-compared",
+    "svn_extra_files_within_requested_scopes": [
+      {
+        "path": ".gitignore",
+        "sha256": "dbf2d3c44f35f93315ce6ef547260a270e345801c287ed700e8d4488d2146ed0",
+        "size": 250
+      },
+      {
+        "path": "CMakeLists.txt",
+        "sha256": "764962b9de65c27e0ce45dff53f5d49b322f068c03eaf3f45ba8eb53e1d8d07b",
+        "size": 74264
+      }
+    ],
+    "whole_svn_repository_exported": false
+  },
+  "observation_file": {
+    "path": "build/native-rebuild-followup-20261124/verified/iup-archive-observation.json",
+    "size": 18862,
+    "sha256": "db41845b2bf65a5723a81151fdc20f5fe8ef731f4fb4e483401dfc2b46044315"
+  },
+  "comparison_inventory": {
+    "path": "build/native-rebuild-followup-20261124/verified/iup-file-comparisons.json",
+    "size": 1027754,
+    "sha256": "db43ad76376debe4ec9b2949b84767b230600ce11f1a79db0e7e12ef47210046"
+  },
+  "source_archive": {
+    "path": "build/source-delivery-20261024/archives/iup-3.30_Sources.zip",
+    "size": 14226631,
+    "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+  },
+  "acquisition_receipt": {
+    "path": "build/native-rebuild-followup-20261124/reports/acquisition.json",
+    "size": 15048,
+    "sha256": "05946fd01c3dc7e6dc1e42e4d592a984e684c4506bf953c3c099827d0809f5ad"
+  },
+  "prior_revision_date_review": {
+    "path": "packaging/license-evidence/iup-source-review-2026-11-24.json",
+    "size": 11151,
+    "sha256": "f5b7f1c2db958a9d0a8359c04e9b1b6196aee55bb0c981070a53e43512248f14"
+  },
+  "independent_raw_get_controls": {
+    "count": 7,
+    "all_exact": true,
+    "members": [
+      {
+        "archive_member": "iup/include/iup.h",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/include/iup.h",
+          "size": 25641,
+          "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d"
+        },
+        "report_response_sha256": "245f1ad9c5f39fbb3c218169fda31dbc4b5190386961f0f31ba85d1d8fa61d8a",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/config.mak",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/config.mak",
+          "size": 8911,
+          "sha256": "635876c04c9cdbcff866fe2d0a80f5a92aaba6b6f79461eb4941aeac08e34cd2"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/iup.c",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/iup.c",
+          "size": 6425,
+          "sha256": "7829eeef7649a630d0d1e68afcc5f67dd1ef04aae5636d303b143182bcf0a138"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/iup.def",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/iup.def",
+          "size": 13059,
+          "sha256": "7b71f50f640bcf65adaa16b89774d4584444da6a53c857176f937455ec1d0717"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_loop.c",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/win/iupwin_loop.c",
+          "size": 6147,
+          "sha256": "19f55d72547ed2e3e162d6c1755a061e6a38a12172e564d7d98105f506613a5d"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_dialog.c",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/win/iupwin_dialog.c",
+          "size": 64859,
+          "sha256": "de831b52f8ea5f1b2ea8e4b8f582d5f81e81f987be4e3a89fe9fa113cc1c627d"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_text.c",
+        "raw_https_get_input": {
+          "path": "build/native-source-refresh-20261124/iup-r5892/files/src/win/iupwin_text.c",
+          "size": 65264,
+          "sha256": "7675fed4cfc14f1bb9cc7aed5686837ef4d09d70b273025ddd944ec7da195865"
+        },
+        "report_response_sha256": "883bd8dc7b33a9db67269fafcd355111305b90d8f07929174d6d1528bb7d765d",
+        "exact_match": true
+      }
+    ]
+  },
+  "native_rebuild_input_review": {
+    "schema": "dupez.iup-native-rebuild-input-review.v1",
+    "observed_on": "2026-11-24",
+    "source_recipe_inputs": [
+      {
+        "archive_member": "iup/src/config.mak",
+        "size": 8911,
+        "sha256": "635876c04c9cdbcff866fe2d0a80f5a92aaba6b6f79461eb4941aeac08e34cd2"
+      },
+      {
+        "archive_member": "iup/src/Makefile",
+        "size": 567,
+        "sha256": "fde8d83aaaebdf426dd55225778ad8cd42f8b878a78bebd037603fc7edfc3ecf"
+      },
+      {
+        "archive_member": "iup/src/make_uname.bat",
+        "size": 4698,
+        "sha256": "67f6b0b5f4af08a9144ff57122577a8dc8a1d711da5a1bd87c8d30b1757f9feb"
+      },
+      {
+        "archive_member": "iup/tecmakewin.mak",
+        "size": 41855,
+        "sha256": "b2803a4d5f143c460e953e2ec72af4276b290dd9854ea83345ece68820867756"
+      },
+      {
+        "archive_member": "iup/make_uname_lib.bat",
+        "size": 95,
+        "sha256": "11382ff79b2d2b9f06f64a430c08e8e737618a84f39f36efd69ee5b7d44cef94"
+      },
+      {
+        "archive_member": "iup/COPYRIGHT",
+        "size": 1461,
+        "sha256": "c6e0e15398f997e6352f74db42a9b0dc8972fd8f5fca2513103d9c5887f58948"
+      },
+      {
+        "archive_member": "iup/VERSION",
+        "size": 4,
+        "sha256": "e75e31b50547986b7cb1f8c49a05ec7af9db461531dd38c029fc8f06a7f17eb3"
+      }
+    ],
+    "recipe_observations": [
+      {
+        "source": "iup/src/config.mak",
+        "line": 3,
+        "observation": "The retained main-library configuration enables OPT=YES."
+      },
+      {
+        "source": "iup/src/config.mak",
+        "line": 38,
+        "observation": "The default WIN32VER is 0x0601."
+      },
+      {
+        "source": "iup/src/config.mak",
+        "line": 199,
+        "observation": "DLL targets define IUP_DLL and select the export definition file."
+      },
+      {
+        "source": "iup/tecmakewin.mak",
+        "line": 30,
+        "observation": "The retained make implementation recognizes the dll16_64 target."
+      },
+      {
+        "source": "iup/src/make_uname.bat",
+        "observation": "Its additional stub-copy branches stop at dll15_64; exact original binary invocation must still be established."
+      }
+    ],
+    "official_build_guide": "https://www.tecgraf.puc-rio.br/iup/en/guide.html",
+    "narrow_rebuild_scope": "The core IUP library is src/; building all optional Lua/CD/IM/Scintilla libraries is unnecessary to reconstruct only iup.dll.",
+    "gaps": [
+      "The locally installed Visual Studio Build Tools instance lacks the VC.Tools.x86.x64 compiler component and toolset directory.",
+      "Exact historical compiler/linker/SDK and any invocation overrides for the official dll16_64 binary remain unpinned.",
+      "GNU make/Tecmake execution and native compilation were not performed; installed SDK file presence is not provenance or entitlement.",
+      "All 542 src files, 35 include files and the selected build recipes compare exactly; this does not prove the shipped DLL was built from those inputs."
+    ],
+    "independent_decoder_control": {
+      "selected_file_count": 7,
+      "compared_to": "Prior independently downloaded raw HTTPS GET responses with fixed SHA-256 pins",
+      "all_exact": true
+    },
+    "native_rebuild_performed": false,
+    "native_library_executed": false,
+    "release_approval": false
+  },
+  "native_rebuild_input_review_file": {
+    "path": "build/native-rebuild-followup-20261124/rebuild-input-review.json",
+    "size": 3149,
+    "sha256": "a14e2dfaef2ef0df760ba374906e68c377e9e52f9911d599921119b2bc5966be"
+  },
+  "toolchain_observation": {
+    "schema": "dupez.native-toolchain-observation.v2",
+    "observed_on": "2026-11-24",
+    "scope": "Read-only tool and component inventory; no installation, compilation, native library execution or entitlement inference",
+    "query": [
+      "-all",
+      "-prerelease",
+      "-products",
+      "*",
+      "-requires",
+      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+      "-format",
+      "json"
+    ],
+    "visual_studio": [
+      {
+        "product": "Microsoft.VisualStudio.Product.BuildTools",
+        "version": "17.14.37012.4",
+        "display_version": "17.14.27 (February 2026)",
+        "is_complete": true
+      }
+    ],
+    "vc_compiler_component_installations": 0,
+    "vc_toolset_directory_present": false,
+    "vcvarsall_present": false,
+    "path_commands": [
+      {
+        "name": "cl.exe",
+        "available": false
+      },
+      {
+        "name": "clang.exe",
+        "available": false
+      },
+      {
+        "name": "gcc.exe",
+        "available": false
+      },
+      {
+        "name": "cmake.exe",
+        "available": false
+      },
+      {
+        "name": "ninja.exe",
+        "available": false
+      },
+      {
+        "name": "svn.exe",
+        "available": false
+      }
+    ],
+    "windows_sdk": {
+      "version": "10.0.19041.0",
+      "windows_header_present": true,
+      "x64_kernel32_library_present": true,
+      "package_provenance_pinned": false
+    },
+    "inventory_tool": {
+      "name": "vswhere.exe",
+      "size": 469456,
+      "sha256": "c54f3b7c9164ea9a0db8641e81ecdda80c2664ef5a47c4191406f848cc07c662",
+      "version": "3.1.7.39155",
+      "signature_status": "Valid",
+      "signer": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US"
+    },
+    "native_rebuild_performed": false,
+    "native_library_executed": false,
+    "toolchain_installed": false,
+    "release_approval": false
+  },
+  "toolchain_observation_file": {
+    "path": "build/native-rebuild-followup-20261124/toolchain-observation.json",
+    "size": 1824,
+    "sha256": "f2129b54b401a1407527ebfb38048d78e4f362913282f1a873d6ad17c23c2788"
+  },
+  "tests": {
+    "passed": 47,
+    "skipped": 0,
+    "failures": 0,
+    "errors": 0,
+    "junit": {
+      "path": "build/native-rebuild-followup-20261124/tests-reviewed.xml",
+      "size": 7392,
+      "sha256": "e364de7d67b30bbb4cd98e28bc300cd238d7e1d1161ff130f44634c2f7c0a8e6"
+    },
+    "log": {
+      "path": "build/native-rebuild-followup-20261124/tests-reviewed.log",
+      "size": 260,
+      "sha256": "f30527a2cbd2eb0cc7f8157cbae14684f24bc00c96e3d6a0e59a9623b741ee0d"
+    },
+    "ruff": {
+      "passed": true,
+      "log": {
+        "path": "build/native-rebuild-followup-20261124/lint-reviewed.log",
+        "size": 20,
+        "sha256": "a4443afdcfb6d7363adb285762515ccf7cf50473b1a05c20c1a50f6bed4d26b0"
+      }
+    }
+  },
+  "verification_log": {
+    "path": "build/native-rebuild-followup-20261124/verification-reviewed.log",
+    "size": 170,
+    "sha256": "200069eb35cf54f84f77b4799c84ec5d3b29a4f008bf55585962c913f2f6bbb8"
+  },
+  "recipe_inputs": [
+    {
+      "path": "scripts/verify_iup_source_archive.py",
+      "size": 18589,
+      "sha256": "d5f68769f0dc080e6a73f950b158b8e94706a76c3eaa15b8cb00912d3f118a46"
+    },
+    {
+      "path": "tests/test_verify_iup_source_archive.py",
+      "size": 10862,
+      "sha256": "6ea85e44bbd839f4f03cc35b9bef295be95330a931b9e840da660594f04ba227"
+    },
+    {
+      "path": "build/native-rebuild-followup-20261124/acquire_reports.py",
+      "size": 2906,
+      "sha256": "325bf88acf5911dee76e8e400bdbfb79234527a4e349e94254c07d727e3b2e96"
+    },
+    {
+      "path": "build/native-rebuild-followup-20261124/build_review.py",
+      "size": 6703,
+      "sha256": "075a991f6ab35699b9cf4b8b36dd2e239fbbb32496f22ceda9fd2b5dc815cde6"
+    }
+  ],
+  "preserved_diagnostics": [
+    {
+      "reason": "Sandbox default TEMP denied pytest fixture setup before collection; workspace-local TEMP used subsequently.",
+      "log": {
+        "path": "build/native-rebuild-followup-20261124/tests.log",
+        "size": 2356,
+        "sha256": "d0bf1b05a7d3e9e8b8032422314b4d852d90883077a3b01611507662ff207bab"
+      }
+    },
+    {
+      "reason": "One oversized autogenerated test ID exceeded Windows environment-variable limits; explicit short IDs fixed it. The sandbox also skipped hardlink creation; the final normal-token run exercises that case.",
+      "log": {
+        "path": "build/native-rebuild-followup-20261124/tests-workspace.log",
+        "size": 327532,
+        "sha256": "2f317d146a6a82fef6cea237e10cffcb66f5cf7eee0f8d0b47d2985488545688"
+      }
+    }
+  ],
+  "review_correction": "Independent source review found UTF-16 could bypass a raw ASCII XML declaration scan. The verifier now decodes strict UTF-8, rejects NUL/DOCTYPE/ENTITY before parsing, and tests UTF-8/16/32 variants. Current acquisition pins were always enforced.",
+  "primary_references": [
+    "https://www.tecgraf.puc-rio.br/iup/en/svn.html",
+    "https://www.tecgraf.puc-rio.br/iup/en/guide.html",
+    "https://svn.apache.org/repos/asf/subversion/trunk/notes/http-and-webdav/webdav-protocol"
+  ],
+  "remaining_work": [
+    "Pin the original dll16_64 compiler, linker, SDK, make executable and invocation overrides; package naming and source correspondence do not identify all original build inputs.",
+    "Rebuild the retained IUP DLL from reviewed inputs, compare imports/exports and test replacement compatibility before claiming native reproduction.",
+    "Provide and test complete public corresponding-source/relink delivery; pinned local reports and file comparisons are technical evidence, not complete public delivery."
+  ],
+  "compat_runtime_tested": false,
+  "native_rebuild_performed": false,
+  "complete_corresponding_source": false,
+  "release_approval": false
+}

@@ -20,7 +20,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Set
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
@@ -38,19 +38,18 @@ from app.gui.map_host.launcher import (
     reparent_hwnd_into_container,
     resize_child_hwnd,
 )
+from app.gui.map_host.security_policy import assess_webengine_security
 from app.logs.logger import log_error, log_info
 
-#: Embed mode — "inproc" keeps the software-rastered QWebEngineView
-#: in the main process (the only mode that works reliably today).
+#: Embed mode — "inproc" keeps the QWebEngineView in the main process and
+#: uses the renderer selected before PyQt imports.
 #:
-#: The "child-experimental" mode spawns an unelevated WebEngine host
-#: process via Explorer COM and tries to reparent its HWND into our
-#: layout for real GPU rasterization. It is currently broken: Win32
-#: SetParent fails with ERROR_INVALID_WINDOW_HANDLE across the
-#: admin/medium integrity boundary, and the child's top-level
-#: frameless window flashes briefly before the reparent attempt.
-#: Keeping the code path in-tree for future fixing, but gating it
-#: behind a different env value than plain "child" so existing
+#: The "child-experimental" mode is a source/development diagnostic. It
+#: creates an unelevated WebEngine host with the interactive shell token,
+#: authenticates the spawned PID, TCP peer, and HWND owner, then reparents
+#: that HWND for real GPU rasterization. Frozen builds fail closed to this
+#: module-launch path until a dedicated asInvoker host artifact exists.
+#: Keep it gated behind a different env value than plain "child" so existing
 #: ``$env:DUPEZ_MAP_EMBED = "child"`` shell settings silently fall
 #: through to the working inproc path.
 _EMBED_MODE: str = os.environ.get("DUPEZ_MAP_EMBED", "inproc").lower()
@@ -69,9 +68,9 @@ try:
     from PyQt6.QtWebEngineCore import (
         QWebEngineProfile,
         QWebEngineSettings,
-        QWebEngineUrlRequestInterceptor,
     )
     from PyQt6.QtWebEngineWidgets import QWebEngineView
+    from app.gui.map_host.request_policy import install_reviewed_page, is_reviewed_map_url
 
     _WEBENGINE_AVAILABLE: bool = True
 except Exception as _webengine_exc:  # noqa: BLE001 — we really do want everything
@@ -94,8 +93,9 @@ if os.environ.get("DUPEZ_DISABLE_WEBENGINE", "").strip().lower() in {
     log_info("QtWebEngine disabled; DayZ map will show a safe placeholder")
 
 # ── Perf mode constants ─────────────────────────────────────────────
-# Software raster (forced by admin-token elevation) makes GPU flags
-# unusable, so map lag has to be attacked at the browser/DOM layer.
+# Reviewed non-elevated sessions can select CPU raster when hardware probing
+# cannot establish a supported GPU path. Elevated sessions never embed remote
+# content, regardless of the renderer tier.
 #
 # Primary targets for software-raster perf:
 #   1. Composited layers: Leaflet uses will-change/translate3d to force
@@ -241,51 +241,6 @@ _DAYZ_MAPS: Dict[str, str] = {
 
 MAP_OPTIONS: Dict[str, str] = dict(_DAYZ_MAPS)
 
-# ── Ad-blocking data ────────────────────────────────────────────────
-
-#: Domains to block at the network request level.
-AD_DOMAINS: frozenset[str] = frozenset({
-    "googlesyndication.com",
-    "doubleclick.net",
-    "googleadservices.com",
-    "google-analytics.com",
-    "googletagmanager.com",
-    "googletagservices.com",
-    "adservice.google.com",
-    "pagead2.googlesyndication.com",
-    "tpc.googlesyndication.com",
-    "securepubads.g.doubleclick.net",
-    "ad.doubleclick.net",
-    "ads.google.com",
-    "fundingchoicesmessages.google.com",
-    "amazon-adsystem.com",
-    "adskeeper.co.uk",
-    "adnxs.com",
-    "adsrvr.org",
-    "adform.net",
-    "criteo.com",
-    "criteo.net",
-    "outbrain.com",
-    "taboola.com",
-    "moatads.com",
-    "serving-sys.com",
-    "analytics.twitter.com",
-    "ads-twitter.com",
-})
-
-#: URL path fragments that indicate ad content.
-AD_PATH_FRAGMENTS: List[str] = [
-    "/pagead/",
-    "/adview",
-    "/ads/",
-    "/adsense/",
-    "/adx/",
-    "/gpt/",
-    "/gampad/",
-    "/pcs/view",
-    "show_ads",
-]
-
 #: CSS selectors that target known ad containers (for DOM cleanup).
 AD_SELECTORS: List[str] = [
     ".ad-container", ".adsbygoogle", "#google_image_div",
@@ -352,66 +307,6 @@ _PLACEHOLDER_QSS: str = (
 )
 
 
-def _is_izurvive_host(host: str) -> bool:
-    """Return whether *host* is iZurvive or one of its subdomains."""
-    normalized = host.lower().rstrip(".")
-    return normalized == "izurvive.com" or normalized.endswith(".izurvive.com")
-
-
-# ── AdBlockInterceptor ──────────────────────────────────────────────
-
-if _WEBENGINE_AVAILABLE:
-
-    class AdBlockInterceptor(QWebEngineUrlRequestInterceptor):
-        """Network-level ad blocker — blocks requests before they load."""
-
-        def __init__(self, parent: Optional[QWidget] = None) -> None:
-            super().__init__(parent)
-            self._blocked: int = 0
-
-        def interceptRequest(self, info: Any) -> None:  # noqa: N802
-            """Check each outgoing request against the block lists.
-
-            PERF: iZurvive fires hundreds of tile requests per pan/zoom.
-            Host matching uses suffix check against a pre-built set
-            (O(depth) per request, not O(n_domains)). Path fragment
-            matching stays linear — the list is tiny (<10 entries) and
-            most tile URLs don't even trigger the second loop because
-            the host is the iZurvive CDN.
-            """
-            url_obj = info.requestUrl()
-            host: str = url_obj.host().lower()
-
-            # Fast path: skip both loops for obvious map tile requests
-            # (iZurvive serves from izurvive.com / its CDN subdomains).
-            if _is_izurvive_host(host):
-                return
-
-            # Suffix match: walk up the host label by label, hit a set.
-            # "pagead2.googlesyndication.com" → check "googlesyndication.com",
-            # then "syndication.com", then "com" — O(labels), not O(n_domains).
-            labels = host.split(".")
-            for i in range(len(labels) - 1):
-                candidate = ".".join(labels[i:])
-                if candidate in AD_DOMAINS:
-                    info.block(True)
-                    self._blocked += 1
-                    return
-
-            # Path fragment check only if host didn't match
-            url: str = url_obj.toString().lower()
-            for frag in AD_PATH_FRAGMENTS:
-                if frag in url:
-                    info.block(True)
-                    self._blocked += 1
-                    return
-
-        @property
-        def blocked_count(self) -> int:
-            """Total number of requests blocked this session."""
-            return self._blocked
-
-
 # ── HWND container ──────────────────────────────────────────────────
 
 
@@ -458,11 +353,24 @@ class DayZMapGUI(QWidget):
     unavailable (e.g. headless CI, missing system package).
     """
 
+    webengineReadyChanged = pyqtSignal(bool)
+    webengineStatusChanged = pyqtSignal(str)
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.current_map: str = "Chernarus+ (Satellite)"
         self._interceptor: Any = None
+        self._secured_page: Any = None
         self.map_view: Any = None  # QWebEngineView (inproc) or None
+        self._security_blocked_reason = ""
+        self._security_placeholder: Optional[QLabel] = None
+        self._security_cleanup_in_progress = False
+        self._security_stopped_view: Any = None
+        self._security_cleanup_errors: Dict[str, str] = {}
+        self._webengine_ready = False
+        self._webengine_status = (
+            "initializing" if _WEBENGINE_AVAILABLE else "unavailable"
+        )
 
         # Child-host mode state (only used when _EMBED_MODE == "child")
         self._host_client: Optional[MapHostClient] = None
@@ -507,20 +415,14 @@ class DayZMapGUI(QWidget):
         bar_layout.addStretch()
 
         # Escape-valve — opens the current map in the system browser.
-        # Under ADR-0001 split mode we now pick the best Chromium raster
-        # tier automatically (hardware / SwiftShader / CPU); the browser
+        # Under ADR-0001 split mode we pick the reviewed Chromium raster
+        # path automatically (probed hardware or CPU); the browser
         # button stays as a final fallback for users on very old GPUs.
         _tier = os.environ.get("DUPEZ_MAP_RENDERER_TIER", "tier3_cpu")
         if _tier == "tier1_hw":
             _btn_tip = (
                 "Open the current map in your system browser.\n"
                 "The embedded view is GPU-accelerated (hardware raster)."
-            )
-        elif _tier == "tier2_swiftshader":
-            _btn_tip = (
-                "Open the current map in your system browser for full\n"
-                "hardware performance. The embedded view is running in\n"
-                "compatibility mode (SwiftShader GL) on this machine."
             )
         else:
             _btn_tip = (
@@ -537,70 +439,327 @@ class DayZMapGUI(QWidget):
         layout.addWidget(selector_bar)
         self._host_layout = layout
 
+        if not self._enforce_webengine_security():
+            return
+
         # Embed mode selection:
         #   * child  — spawn an unelevated WebEngine host process and
         #              reparent its HWND into our layout. Real GPU
         #              rasterization, no admin-token deadlock.
-        #   * inproc — current in-process QWebEngineView (software
-        #              raster under elevation).
+        #   * inproc — in-process QWebEngineView in an admitted,
+        #              non-elevated session only.
         if _EMBED_MODE == "child-experimental" and _WEBENGINE_AVAILABLE:
             log_info("Map: embed mode = child (unelevated WebEngine host)")
             self._build_child_embed(layout)
         elif _WEBENGINE_AVAILABLE:
-            log_info("Map: embed mode = inproc (software raster)")
-            self.map_view = QWebEngineView()
-            self._install_ad_blocker()
-            self._apply_perf_settings()
-            self.map_view.loadFinished.connect(self._inject_dom_adblocker)
-            self.map_view.loadFinished.connect(self._inject_perf_tweaks)
-            self.map_view.loadFinished.connect(self._boost_renderer_priority)
-            layout.addWidget(self.map_view)
+            log_info("Map: embed mode = inproc")
+            self._build_inproc_webengine(layout)
         else:
+            self._set_webengine_status("unavailable")
             reason = _WEBENGINE_IMPORT_ERROR or "PyQt6-WebEngine not installed"
             placeholder = QLabel(
                 "Map unavailable — QtWebEngine failed to load.\n\n"
                 f"Reason: {reason}\n\n"
-                "Fix: pip install --upgrade PyQt6 PyQt6-WebEngine"
+                "Install a reviewed DupeZ runtime before retrying the embedded map."
             )
             placeholder.setStyleSheet(_PLACEHOLDER_QSS)
             placeholder.setWordWrap(True)
             layout.addWidget(placeholder)
 
+    def _manual_map_url(self) -> str:
+        """Use only the fixed HTTPS catalogue for the manual browser fallback."""
+        return _DAYZ_MAPS.get(self.current_map, _DAYZ_MAPS["Chernarus+ (Satellite)"])
+
+    @property
+    def manual_url_ready(self) -> bool:
+        """The approved URL is mounted as plain text with no retained browser."""
+        label = self._security_placeholder
+        return bool(
+            self._security_blocked_reason
+            and label is not None
+            and self._host_layout is not None
+            and self._host_layout.indexOf(label) >= 0
+            and label.isVisibleTo(self)
+            and label.textFormat() == Qt.TextFormat.PlainText
+            and self._manual_map_url() in label.text().splitlines()
+            and self.map_view is None
+            and self._secured_page is None
+            and self._host_client is None
+            and not self._security_cleanup_errors
+        )
+
+    def _show_security_fallback(self) -> None:
+        """Expose a copyable URL without invoking an elevated browser handler."""
+        if self._host_layout is None:
+            return
+        if self._security_placeholder is None:
+            self._security_placeholder = QLabel(self)
+            self._security_placeholder.setTextFormat(Qt.TextFormat.PlainText)
+            self._security_placeholder.setTextInteractionFlags(
+                Qt.TextInteractionFlag.TextSelectableByMouse
+                | Qt.TextInteractionFlag.TextSelectableByKeyboard
+            )
+            self._security_placeholder.setStyleSheet(_PLACEHOLDER_QSS)
+            self._security_placeholder.setWordWrap(True)
+            self._host_layout.addWidget(self._security_placeholder, stretch=1)
+        cleanup_note = ""
+        if self._security_cleanup_errors:
+            cleanup_note = (
+                "\n\nCleanup is not confirmed: "
+                + "; ".join(self._security_cleanup_errors.values())
+                + " Click Manual browser URL to retry cleanup, or close DupeZ."
+            )
+        self._security_placeholder.setText(
+            "Embedded map disabled for security.\n\n"
+            f"{self._security_blocked_reason}\n\n"
+            "Open this approved HTTPS address manually in your normal, "
+            "non-administrator browser:\n"
+            f"{self._manual_map_url()}\n\n"
+            "DupeZ provides this address for manual use and will not launch a browser. "
+            "Renderer settings do not enable embedded browsing in packaged builds."
+            + cleanup_note
+        )
+        self.browser_btn.setText("Manual browser URL")
+        self.browser_btn.setToolTip(
+            "The approved address is shown below. DupeZ will not launch a browser "
+            "from this blocked security context."
+        )
+
+    def _enforce_webengine_security(self) -> bool:
+        """Fail closed before construction/navigation, including child fallback."""
+        if not self._security_blocked_reason:
+            try:
+                decision = assess_webengine_security()
+                if decision.allowed:
+                    return True
+                self._security_blocked_reason = decision.reason
+            except Exception as exc:
+                self._security_blocked_reason = "The browser security policy could not be verified."
+                log_error(f"Map: browser security verification failed ({type(exc).__name__})")
+            if not self._security_blocked_reason:
+                self._security_blocked_reason = "The browser security requirements were not met."
+        self._set_webengine_status("unavailable")
+        # Once denied, do not let delayed signals or a later environment edit
+        # resume this widget. Cleanup is independent and retains a failed child
+        # owner for close/retry; no new browser is created as a fallback.
+        if not self._security_cleanup_in_progress:
+            self._security_cleanup_in_progress = True
+            try:
+                if self.map_view is not None:
+                    view = self.map_view
+                    if view is not self._security_stopped_view:
+                        try:
+                            view.stop()
+                            self._security_stopped_view = view
+                        except Exception as exc:
+                            log_error(f"Map: blocked view stop failed ({type(exc).__name__})")
+                    try:
+                        view.hide()
+                    except Exception as exc:
+                        log_error(f"Map: blocked view hide failed ({type(exc).__name__})")
+                    if self._host_layout is not None:
+                        try:
+                            self._host_layout.removeWidget(view)
+                        except Exception as exc:
+                            log_error(f"Map: blocked view detach failed ({type(exc).__name__})")
+                    # stop() only cancels navigation; it does not terminate
+                    # already-loaded JavaScript. Dispose the page-owning view
+                    # at Qt's next deferred-delete boundary. Keep ownership on
+                    # scheduling failure so a later denied action can retry.
+                    try:
+                        view.deleteLater()
+                    except Exception as exc:
+                        self._security_cleanup_errors["view"] = (
+                            f"Embedded browser teardown could not be scheduled ({type(exc).__name__})."
+                        )
+                        log_error(f"Map: blocked view disposal failed ({type(exc).__name__})")
+                    else:
+                        self.map_view = None
+                        self._secured_page = None
+                        self._interceptor = None
+                        self._security_stopped_view = None
+                        self._security_cleanup_errors.pop("view", None)
+                if self._host_client is not None:
+                    client = self._host_client
+                    try:
+                        client.stop()
+                    except Exception as exc:
+                        self._security_cleanup_errors["child"] = (
+                            f"Map child teardown failed ({type(exc).__name__})."
+                        )
+                        log_error(f"Map: blocked child cleanup failed ({type(exc).__name__})")
+                    else:
+                        if self._host_client is client:
+                            self._host_client = None
+                        self._security_cleanup_errors.pop("child", None)
+                if self._host_container is not None:
+                    self._host_container.hide()
+                if self._host_placeholder is not None:
+                    self._host_placeholder.hide()
+            finally:
+                self._security_cleanup_in_progress = False
+        self._show_security_fallback()
+        return False
+
+    @property
+    def webengine_ready(self) -> bool:
+        """Whether the current map navigation completed successfully."""
+
+        return bool(self._webengine_ready)
+
+    @property
+    def webengine_status(self) -> str:
+        """Operational browser state used by lazy/dashboard consumers."""
+
+        return self._webengine_status
+
+    def _set_webengine_status(self, status: str) -> None:
+        if self._security_blocked_reason:
+            status = "unavailable"
+        if status not in {
+            "unavailable",
+            "initializing",
+            "loading",
+            "ready",
+            "failed",
+            "crashed",
+        }:
+            raise ValueError("invalid WebEngine status")
+        previous_status = self._webengine_status
+        previous_ready = self._webengine_ready
+        self._webengine_status = status
+        self._webengine_ready = status == "ready"
+        if previous_status != status:
+            self.webengineStatusChanged.emit(status)
+        if previous_ready != self._webengine_ready:
+            self.webengineReadyChanged.emit(self._webengine_ready)
+
+    def _build_inproc_webengine(
+        self,
+        layout: QVBoxLayout,
+        *,
+        stretch: int = 0,
+    ) -> None:
+        """Construct and secure one in-process WebEngine view."""
+
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("initializing")
+        view: Any = None
+        try:
+            view = QWebEngineView()
+            self.map_view = view
+            self._secured_page = install_reviewed_page(view)
+            self._install_ad_blocker()
+            self._apply_perf_settings()
+            view.loadStarted.connect(self._on_inproc_load_started)
+            view.loadFinished.connect(self._on_inproc_load_finished)
+            view.loadFinished.connect(self._inject_dom_adblocker)
+            if self._uses_software_renderer():
+                view.loadFinished.connect(self._inject_perf_tweaks)
+                view.loadFinished.connect(self._boost_renderer_priority)
+            view.page().renderProcessTerminated.connect(
+                self._on_render_process_terminated
+            )
+            layout.addWidget(view, stretch=stretch)
+            log_info("Map: WebEngine boundary initialized; awaiting navigation")
+        except Exception as exc:
+            self._set_webengine_status("failed")
+            self.map_view = None
+            self._secured_page = None
+            if view is not None:
+                view.deleteLater()
+            log_error(
+                "Map: WebEngine initialization failed "
+                f"({type(exc).__name__})"
+            )
+            raise RuntimeError("map WebEngine initialization failed") from None
+
+    @staticmethod
+    def _uses_software_renderer() -> bool:
+        return os.environ.get(
+            "DUPEZ_MAP_RENDERER_TIER", "tier3_cpu"
+        ) == "tier3_cpu"
+
+    def _on_inproc_load_started(self) -> None:
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("loading")
+
+    def _on_inproc_load_finished(self, success: bool) -> None:
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("ready" if success else "failed")
+        if success:
+            log_info("Map: WebEngine navigation ready")
+        else:
+            log_error("Map: WebEngine navigation failed")
+
+    def _on_render_process_terminated(
+        self,
+        termination_status: Any,
+        exit_code: int,
+    ) -> None:
+        """Invalidate readiness when Chromium reports renderer termination."""
+
+        self._set_webengine_status("crashed")
+        status_name = getattr(termination_status, "name", "unknown")
+        log_error(
+            "Map: WebEngine renderer terminated "
+            f"(status={status_name}, exit_code={int(exit_code)})"
+        )
+
     # ── Ad blocker setup ────────────────────────────────────────────
 
     def _install_ad_blocker(self) -> None:
-        """Attach the network-level request interceptor to the default profile.
+        """Retain the reviewed page's network interceptor and memory-only cache.
 
-        Also opportunistically enlarges the HTTP disk cache so iZurvive
-        tile requests don't re-hit the network on every pan. Failures
-        are non-fatal — the interceptor is the critical path.
+        ``install_reviewed_page`` owns the dedicated off-record profile and
+        policy. Do not replace that interceptor or enable persistent storage.
+        Cache sizing is optional; a missing network boundary is a hard failure.
         """
         try:
-            self._interceptor = AdBlockInterceptor(self)
-            profile = QWebEngineProfile.defaultProfile()
-            profile.setUrlRequestInterceptor(self._interceptor)
-            # Aggressive disk cache for tile reuse on pan/zoom
+            page = self.map_view.page()
+            self._interceptor = page._dupez_interceptor
+            if self._interceptor is None:
+                raise RuntimeError("reviewed map interceptor is missing")
+            profile = page.profile()
             try:
-                profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
-                profile.setHttpCacheMaximumSize(512 * 1024 * 1024)  # 512 MiB
-                profile.setPersistentCookiesPolicy(
-                    QWebEngineProfile.PersistentCookiesPolicy.AllowPersistentCookies
-                )
+                profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.MemoryHttpCache)
+                profile.setHttpCacheMaximumSize(64 * 1024 * 1024)
             except Exception as cache_exc:
-                log_error(f"Map: cache tuning failed (non-fatal): {cache_exc}")
+                log_error(
+                    "Map: cache tuning failed (non-fatal) "
+                    f"({type(cache_exc).__name__})"
+                )
             log_info("Map: Network-level ad blocker installed")
         except Exception as exc:
-            log_error(f"Map: Failed to install network ad blocker: {exc}")
+            self._interceptor = None
+            log_error(
+                "Map: failed to install network policy "
+                f"({type(exc).__name__})"
+            )
+            raise RuntimeError("map network policy initialization failed") from None
+
+    def _reviewed_script_page(self) -> Any:
+        """Never inject application scripts into an unreviewed navigation."""
+        if not self._enforce_webengine_security() or self.map_view is None:
+            return None
+        try:
+            page = self.map_view.page()
+            if is_reviewed_map_url(page.url().toString()):
+                return page
+        except Exception as exc:
+            log_error(f"Map: script origin verification failed ({type(exc).__name__})")
+        return None
 
     # ── Software-raster perf tuning ─────────────────────────────────
 
     def _apply_perf_settings(self) -> None:
-        """Tune QWebEngineSettings + zoom factor for software raster.
+        """Apply common hardening and CPU-only raster tuning.
 
-        Under the admin-token elevation DupeZ needs for WinDivert, the
-        Chromium GPU process refuses to start, so all rendering falls
-        back to the software rasterizer. The cheapest wins on that
-        pipeline are:
+        When an admitted, non-elevated session uses CPU raster, the
+        cheapest performance improvements on that pipeline are:
           1. Drop devicePixelRatio-equivalent work via setZoomFactor.
           2. Disable scroll/cursor animations the compositor has to
              redraw.
@@ -612,41 +771,41 @@ class DayZMapGUI(QWidget):
         if self.map_view is None:
             return
         try:
-            # ~27% pixel reduction at the cost of slightly softer text
-            self.map_view.setZoomFactor(_MAP_ZOOM_FACTOR)
-
             settings = self.map_view.settings()
             A = QWebEngineSettings.WebAttribute
-            # Disable animations / effects that burn CPU on software raster
-            for attr, value in (
-                (A.ScrollAnimatorEnabled, False),
+            common_settings = (
                 (A.PluginsEnabled, False),
-                (A.WebGLEnabled, False),
-                (A.Accelerated2dCanvasEnabled, False),
                 (A.HyperlinkAuditingEnabled, False),
                 (A.AutoLoadIconsForPage, False),
                 (A.ShowScrollBars, True),
                 (A.LocalStorageEnabled, True),   # iZurvive preferences
                 (A.JavascriptEnabled, True),
                 (A.ErrorPageEnabled, False),
-            ):
+            )
+            for attr, value in common_settings:
                 try:
                     settings.setAttribute(attr, value)
                 except Exception:
                     pass  # some attrs vary by Qt version
 
-            # Stop animated GIF/APNG ads from repainting forever
-            try:
-                from PyQt6.QtWebEngineCore import QWebEngineSettings as _QWES
-                if hasattr(_QWES, "UnknownUrlSchemePolicy"):
-                    pass  # noqa — placeholder; keeps import local
-            except Exception:
-                pass
-
-            log_info(
-                f"Map: perf settings applied (zoom={_MAP_ZOOM_FACTOR}, "
-                "WebGL/2DCanvas off, scroll animator off)"
-            )
+            if self._uses_software_renderer():
+                # ~51% pixel-area reduction at the cost of softer text.
+                self.map_view.setZoomFactor(_MAP_ZOOM_FACTOR)
+                for attr in (
+                    A.ScrollAnimatorEnabled,
+                    A.WebGLEnabled,
+                    A.Accelerated2dCanvasEnabled,
+                ):
+                    try:
+                        settings.setAttribute(attr, False)
+                    except Exception:
+                        pass
+                log_info(
+                    f"Map: CPU perf settings applied (zoom={_MAP_ZOOM_FACTOR}, "
+                    "WebGL/2DCanvas off, scroll animator off)"
+                )
+            else:
+                log_info("Map: hardware renderer settings retained")
         except Exception as exc:
             log_error(f"Map: failed to apply perf settings: {exc}")
 
@@ -661,9 +820,11 @@ class DayZMapGUI(QWidget):
         place — you can't retroactively change constructor options, but
         most Leaflet animation flags are read on each frame.
         """
-        if not success or self.map_view is None:
+        if not success or not self._uses_software_renderer():
             return
-        page = self.map_view.page()
+        page = self._reviewed_script_page()
+        if page is None:
+            return
 
         # Phase 1: CSS — synchronous, kills compositing work immediately
         css_js = (
@@ -905,7 +1066,12 @@ class DayZMapGUI(QWidget):
         current process and bumps them to ``HIGH_PRIORITY_CLASS``.
         Failure is non-fatal (requires psutil + Windows ctypes).
         """
-        if not success or os.name != "nt":
+        if (
+            not success
+            or not self._enforce_webengine_security()
+            or not self._uses_software_renderer()
+            or os.name != "nt"
+        ):
             return
         try:
             import psutil  # noqa: PLC0415 — optional dep
@@ -964,8 +1130,12 @@ class DayZMapGUI(QWidget):
 
         On any spawn / connect / reparent failure, ``_on_host_failed``
         tears down the child-mode state and falls back to the
-        in-process ``QWebEngineView`` so the map always renders.
+        in-process ``QWebEngineView`` only if the security gate still admits it.
         """
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("initializing")
+
         # Placeholder shown while the child is booting. It will be
         # removed (and the native container revealed) on hwndReceived.
         self._host_placeholder = QLabel(
@@ -991,9 +1161,7 @@ class DayZMapGUI(QWidget):
             log_info("Map: adopting prewarmed map host client")
             self._host_client = prewarmed
             prewarmed.setParent(self)
-            prewarmed.hwndReceived.connect(self._on_host_hwnd_received)
-            prewarmed.connectionFailed.connect(self._on_host_failed)
-            prewarmed.disconnected.connect(self._on_host_disconnected)
+            self._wire_host_client(prewarmed)
             # If the child already reported its HWND before we got
             # here, fire the handler synchronously now.
             if prewarmed.hwnd is not None:
@@ -1001,13 +1169,47 @@ class DayZMapGUI(QWidget):
             return
 
         # Cold start path — spawn a fresh child.
-        self._host_client = MapHostClient(self)
-        self._host_client.hwndReceived.connect(self._on_host_hwnd_received)
-        self._host_client.connectionFailed.connect(self._on_host_failed)
-        self._host_client.disconnected.connect(self._on_host_disconnected)
+        client = MapHostClient(self)
+        self._host_client = client
+        self._wire_host_client(client)
 
-        if not self._host_client.start():
+        if not client.start() and self._host_client is client:
             self._on_host_failed("spawn failed")
+
+    def _wire_host_client(self, client: MapHostClient) -> None:
+        client.hwndReceived.connect(self._on_host_hwnd_received)
+        client.connectionFailed.connect(self._on_host_failed)
+        client.disconnected.connect(self._on_host_disconnected)
+        client.loadStarted.connect(self._on_host_load_started)
+        client.loadFinished.connect(self._on_host_load_finished)
+        client.renderProcessTerminated.connect(
+            self._on_host_render_process_terminated
+        )
+
+    def _on_host_load_started(self) -> None:
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("loading")
+
+    def _on_host_load_finished(self, success: bool) -> None:
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("ready" if success else "failed")
+        if success:
+            log_info("Map: child WebEngine navigation ready")
+        else:
+            log_error("Map: child WebEngine navigation failed")
+
+    def _on_host_render_process_terminated(
+        self,
+        status: str,
+        exit_code: int,
+    ) -> None:
+        self._set_webengine_status("crashed")
+        log_error(
+            "Map: child WebEngine renderer terminated "
+            f"(status={status}, exit_code={exit_code})"
+        )
 
     def _on_host_hwnd_received(self, hwnd: int) -> None:
         """Reparent the child's HWND into our native container.
@@ -1018,6 +1220,8 @@ class DayZMapGUI(QWidget):
         boundaries — on our first test the child's frameless window
         escaped the reparent and ended up covering the screen.
         """
+        if not self._enforce_webengine_security():
+            return
         if self._host_layout is None or self._host_container is None:
             return
         try:
@@ -1030,6 +1234,9 @@ class DayZMapGUI(QWidget):
             # Flush pending events so the container's native HWND
             # is fully realized before SetParent touches it.
             QApplication.processEvents()
+
+            if not self._enforce_webengine_security():
+                return
 
             parent_hwnd = int(container.winId())
             if not parent_hwnd:
@@ -1059,11 +1266,13 @@ class DayZMapGUI(QWidget):
                 self.current_map, MAP_OPTIONS["Chernarus+ (Satellite)"]
             )
             if self._host_client is not None:
+                self._set_webengine_status("loading")
                 self._host_client.load(url)
             log_info(
                 f"Map: reparented child hwnd=0x{hwnd:x} into container, "
                 f"loaded {self.current_map}"
             )
+            log_info("Map: child WebEngine boundary initialized")
         except Exception as exc:
             log_error(
                 f"Map: HWND reparent failed ({exc!r}) — falling back to inproc"
@@ -1076,6 +1285,9 @@ class DayZMapGUI(QWidget):
         Keeps the map path alive even when the child architecture
         trips on COM, missing pywin32, HWND reparent glitches, etc.
         """
+        if not self._enforce_webengine_security():
+            return
+        self._set_webengine_status("failed")
         log_error(f"Map: child host failed ({reason}) — falling back to inproc")
         # Tear down any host state.
         if self._host_client is not None:
@@ -1095,17 +1307,21 @@ class DayZMapGUI(QWidget):
 
         # Build the in-proc view if we don't already have one.
         if self.map_view is None and _WEBENGINE_AVAILABLE and self._host_layout is not None:
-            self.map_view = QWebEngineView()
-            self._install_ad_blocker()
-            self._apply_perf_settings()
-            self.map_view.loadFinished.connect(self._inject_dom_adblocker)
-            self.map_view.loadFinished.connect(self._inject_perf_tweaks)
-            self.map_view.loadFinished.connect(self._boost_renderer_priority)
-            self._host_layout.addWidget(self.map_view, stretch=1)
-            self.load_map(self.current_map)
+            try:
+                self._build_inproc_webengine(self._host_layout, stretch=1)
+                self.load_map(self.current_map)
+            except RuntimeError:
+                placeholder = QLabel(
+                    "Map unavailable — the secured browser could not initialize.\n\n"
+                    "Restart DupeZ or open the map in your system browser."
+                )
+                placeholder.setStyleSheet(_PLACEHOLDER_QSS)
+                placeholder.setWordWrap(True)
+                self._host_layout.addWidget(placeholder, stretch=1)
 
     def _on_host_disconnected(self) -> None:
         """Child exited unexpectedly — fall back so the user keeps a map."""
+        self._set_webengine_status("crashed")
         # Only treat this as a failure if we hadn't already replaced
         # the client (e.g. during shutdown self._host_client is None).
         if self._host_client is not None:
@@ -1137,23 +1353,35 @@ class DayZMapGUI(QWidget):
                 "https://izurvive.com/chernarusplussatmap",
             )
 
+        if not self._enforce_webengine_security():
+            self.current_map = map_name
+            self._show_security_fallback()
+            return
+
         # De-duplicate rapid calls (both currentTextChanged and
         # activated fire on the same user click).
         _last = getattr(self, "_last_loaded_url", None)
-        if url == _last and map_name == self.current_map:
+        if (
+            url == _last
+            and map_name == self.current_map
+            and self.webengine_status in {"loading", "ready"}
+        ):
             return
         self.current_map = map_name
         self._last_loaded_url = url  # type: ignore[attr-defined]
-        log_info(f"Map: load_map — name={map_name!r}, url={url}")
+        log_info(f"Map: load_map — name={map_name!r}")
 
         # Child-host path: push the URL over IPC. If the child isn't
         # connected yet, _on_host_hwnd_received will push the current
         # URL once it's up, so we can safely no-op here.
         if self._host_client is not None and self._host_container is not None:
             try:
+                if self._host_client.hwnd is not None:
+                    self._set_webengine_status("loading")
                 self._host_client.load(url)
-                log_info(f"Map: navigating (child): {map_name} -> {url}")
+                log_info(f"Map: navigating (child): {map_name}")
             except Exception as exc:
+                self._set_webengine_status("failed")
                 log_error(f"Map: child host load failed: {exc}")
             return
 
@@ -1164,10 +1392,13 @@ class DayZMapGUI(QWidget):
             # Cancel any in-flight navigation first — without this,
             # calling load() while the previous page is still fetching
             # tiles/ads can be silently dropped by some Qt versions.
-            self.map_view.stop()
+            if _last is not None:
+                self.map_view.stop()
+            self._set_webengine_status("loading")
             self.map_view.load(QUrl(url))
-            log_info(f"Map: navigating (inproc): {map_name} -> {url}")
+            log_info(f"Map: navigating (inproc): {map_name}")
         except Exception as exc:
+            self._set_webengine_status("failed")
             log_error(f"Map: inproc load failed: {exc}")
 
     # ── Cleanup ─────────────────────────────────────────────────────
@@ -1185,18 +1416,17 @@ class DayZMapGUI(QWidget):
     def _open_in_browser(self) -> None:
         """Open the current map in the system's default browser.
 
-        Escape valve for users who need full hardware-accelerated
-        Leaflet performance — the embedded QWebEngineView is stuck on
-        Chromium's software rasterizer because DupeZ runs elevated
-        (required by WinDivert) and the Chromium GPU process refuses
-        to initialize under an admin token.
+        Escape valve for users whose embedded renderer or graphics driver
+        cannot provide acceptable Leaflet performance.
         """
-        url = MAP_OPTIONS.get(self.current_map, MAP_OPTIONS["Chernarus+ (Satellite)"])
+        if not self._enforce_webengine_security():
+            return
+        url = self._manual_map_url()
         try:
             if QDesktopServices.openUrl(QUrl(url)):
-                log_info(f"Opened map in system browser: {url}")
+                log_info(f"Opened map in system browser: {self.current_map}")
             else:
-                log_error(f"QDesktopServices refused URL: {url}")
+                log_error("System browser refused the reviewed map URL")
         except Exception as exc:
             log_error(f"Failed to open map in browser: {exc}")
 
@@ -1204,10 +1434,11 @@ class DayZMapGUI(QWidget):
 
     def _inject_dom_adblocker(self, success: bool) -> None:
         """Inject CSS + JS ad-blocker as backup after page load completes."""
-        if not success or self.map_view is None:
+        if not success:
             return
-
-        page = self.map_view.page()
+        page = self._reviewed_script_page()
+        if page is None:
+            return
 
         # Phase 1: CSS — hide ad containers immediately
         css_js = (

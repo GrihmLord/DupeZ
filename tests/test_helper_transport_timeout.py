@@ -7,7 +7,8 @@ import time
 
 import pytest
 
-from app.firewall_helper import transport
+import dupez_helper
+from app.firewall_helper import auth, elevation, ipc_client, transport
 from app.firewall_helper.ipc_client import DisruptionManagerProxy
 from app.firewall_helper.protocol import (
     OP_DISRUPT_DEVICE,
@@ -15,6 +16,44 @@ from app.firewall_helper.protocol import (
     Request,
     Response,
 )
+
+
+def test_factor_prompt_deadline_precedes_helper_readiness_deadline() -> None:
+    assert dupez_helper._HELPER_FACTOR_PROMPT_TIMEOUT_MS > 0
+    assert (
+        dupez_helper._HELPER_FACTOR_PROMPT_TIMEOUT_MS / 1000.0
+        < ipc_client._HELPER_READY_TIMEOUT_SEC
+    )
+
+
+def test_early_helper_exit_discards_pending_sentinel(
+    monkeypatch,
+) -> None:
+    class _UnavailableClient:
+        def __init__(self, **_kwargs) -> None:
+            pass
+
+        def connect(self, **_kwargs) -> None:
+            raise ConnectionError("unavailable")
+
+    discarded: list[bool] = []
+    monkeypatch.setattr(ipc_client, "PipeClient", _UnavailableClient)
+    monkeypatch.setattr(
+        elevation,
+        "ensure_helper_running",
+        lambda **_kwargs: 2_147_483_000,
+    )
+    monkeypatch.setattr(
+        auth,
+        "discard_token_sentinel",
+        lambda: discarded.append(True) or True,
+    )
+    proxy = DisruptionManagerProxy()
+
+    with pytest.raises(RuntimeError, match="exited before becoming ready"):
+        proxy._ensure_helper()
+
+    assert discarded == [True]
 
 
 class _Win32File:

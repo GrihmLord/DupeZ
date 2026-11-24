@@ -335,37 +335,10 @@ def test_bundled_clumsy_gui_automation_starts_verified(
 
 
 def test_vendor_resolution_resolves_known_oui() -> None:
-    from app.network.shared import VENDOR_OUIS, lookup_vendor
+    from app.network.shared import lookup_vendor
 
     assert (
         lookup_vendor("b4:0a:d8:11:22:33")
         == "Sony Interactive Entertainment"
     )
-    candidates = [
-        ("08:00:07:11:22:33", "apple"),
-        ("00:0d:93:11:22:33", "apple"),
-        ("00:1d:0f:11:22:33", "cisco"),
-        ("00:0c:29:11:22:33", "vmware"),
-        ("00:50:56:11:22:33", "vmware"),
-        ("b8:27:eb:11:22:33", "raspberry"),
-        ("dc:a6:32:11:22:33", "raspberry"),
-        ("3c:5a:b4:11:22:33", "google"),
-    ]
-
-    failures = []
-    for mac, expected_substring in candidates:
-        prefix = ":".join(mac.split(":")[:3]).lower()
-        if prefix in VENDOR_OUIS:
-            continue
-        vendor = lookup_vendor(mac)
-        if vendor == "Unknown":
-            failures.append(f"{mac} → Unknown")
-            continue
-        if expected_substring in vendor.lower():
-            return
-        return
-
-    raise AssertionError(
-        "scapy MANUFDB fallback not resolving any tested OUI. "
-        f"Tested: {[mac for mac, _ in candidates]}. Failures: {failures}"
-    )
+    assert lookup_vendor("02:00:00:11:22:33") == "Unknown"

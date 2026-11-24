@@ -1,0 +1,766 @@
+{
+  "schema": "dupez.qt6121-input-review.v1",
+  "reviewed_on": "2026-11-24",
+  "baseline_commit": "6de2023f65eca81f43d44bbffbf17fb2dcf1b858",
+  "scope": "Pinned Qt 6.12.1 / PyQt6 6.12.1 / SIP 13.13.1 engineering inputs and complete installer/public source-export content comparison; no native payload executed",
+  "manifest": {
+    "path": "packaging/qt-raster-no-network-inputs.json",
+    "size": 10732,
+    "sha256": "5371b077d07336086513a7563a074d0fc505df027bd1f7699f764cca2ca41ff1"
+  },
+  "manifest_schema": "dupez.qt-candidate-inputs.v5",
+  "profile": "frozen-raster-no-qtnetwork",
+  "input_count": 18,
+  "candidate_input_bytes": 126492056,
+  "acquisition": {
+    "path": "build/qt6121-inputs-20261124/acquisition-receipt-v3.json",
+    "size": 25574,
+    "sha256": "0ed84303192505de0c1f5839049e3f6e7d969d6cc9133a8decab2836a49b9883"
+  },
+  "acquisition_recipe": {
+    "path": "build/qt6121-inputs-20261124/acquire_inputs_v3.py",
+    "size": 7248,
+    "sha256": "c14aa0cfb595f74bd5b5b360eb2885915d63b7a4915811f6ba43bf467057782e"
+  },
+  "metadata": [
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/baseline-manifest.json",
+      "size": 9895,
+      "sha256": "5e248e866836780babc68451e12b9d05086c558d81ec3ac60577f2d28f349c18"
+    },
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/qt-windows.body",
+      "size": 114200,
+      "sha256": "353db09fbe4221d818ccb82a105d3a44d7c32dc4e175380d747548786aa1947a"
+    },
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/qt-source.body",
+      "size": 70051,
+      "sha256": "99ee8d2e301bc93f7f027698debfda3bc38f6c5979e5d1209ee825c7bd90b202"
+    },
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/pyqt6.json",
+      "size": 7739,
+      "sha256": "76fcf53ca6d117756747b8d5eeeee38c46dd0436701b66c1edb0b2cd392c9550"
+    },
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/pyqt6-sip.body",
+      "size": 27188,
+      "sha256": "c9a7292463dab9c8772b4fd26202f56582acd1a39c011860d19c54624b177a42"
+    },
+    {
+      "path": "build/qt6121-inputs-20261124/metadata/PyQt6-METADATA.txt",
+      "size": 2179,
+      "sha256": "f3d2b70d48035352ba0496fbbfdf408d99c0881dbf9f35d19f792aed5f520570"
+    }
+  ],
+  "binding_metadata": {
+    "name": "PyQt6",
+    "version": "6.12.1",
+    "requires_python": ">=3.10",
+    "requires_dist": [
+      "PyQt6-sip (>=13.13, <14)",
+      "PyQt6-Qt6 (>=6.12.0, <6.13.0)"
+    ],
+    "added_excluded_binding": "QtQuickControls2"
+  },
+  "inputs": [
+    {
+      "id": "qtimageformats-binary",
+      "role": "qt-prefix",
+      "filename": "qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64/6.12.1-0-202611180427qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 1055282,
+      "sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612",
+      "members": 66,
+      "member_listing_sha256": "7311994ca301158c5c2222977b605445f7e5e8888870fa6b791894943732a457"
+    },
+    {
+      "id": "qtimageformats-source",
+      "role": "source",
+      "filename": "qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "size": 1846256,
+      "sha256": "f7b57c913d53c7ff1bc7f75a06773bf01802bce0b70e1de6399a3d96ea44fce1"
+    },
+    {
+      "id": "qttranslations-binary",
+      "role": "qt-prefix",
+      "filename": "qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 2033078,
+      "sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e",
+      "members": 322,
+      "member_listing_sha256": "01daf51a1e567cb097b223838a4fb9dd82c4855ea4a93bef6364cc782fc0ff03"
+    },
+    {
+      "id": "qttranslations-source",
+      "role": "source",
+      "filename": "qttranslations-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttranslations-everywhere-src-6.12.1.tar.xz",
+      "size": 1768500,
+      "sha256": "8e716946e5eec4fa0202ce20494ee4152f3e92ebdc282fe7ff7904e50e1f181e"
+    },
+    {
+      "id": "qtbase-binary",
+      "role": "qt-prefix",
+      "filename": "qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 40457937,
+      "sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e",
+      "members": 4793,
+      "member_listing_sha256": "888d663fd02da932b71b2f79c0a94ae395862b171af6d8fc232c739e1a207a40"
+    },
+    {
+      "id": "qtsvg-binary",
+      "role": "qt-prefix",
+      "filename": "qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 690396,
+      "sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739",
+      "members": 144,
+      "member_listing_sha256": "afaf93d16fdf6af55eea895fe57c2c75077f4959773a3e1b6d5f43ee04a26154"
+    },
+    {
+      "id": "qtbase-source",
+      "role": "source",
+      "filename": "qtbase-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz",
+      "size": 51329912,
+      "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
+    },
+    {
+      "id": "qtsvg-source",
+      "role": "source",
+      "filename": "qtsvg-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtsvg-everywhere-src-6.12.1.tar.xz",
+      "size": 2338900,
+      "sha256": "d4b9618c2d268a8769f05aabe1e22bf121038c63b52e5c7ad7bf18b2574318b7"
+    },
+    {
+      "id": "d3dcompiler_47",
+      "role": "qt-helper",
+      "filename": "d3dcompiler_47-x64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312d3dcompiler_47-x64.7z",
+      "size": 1380117,
+      "sha256": "be4292719fe0930c988236972bca7f5926db1342e1c85b247e1cef87b903fc9a",
+      "member_listing_sha256": "a48080769dcfbaedee7911453ea82f1bb062d4ac82b6040888c859561f07c244",
+      "members": 1
+    },
+    {
+      "id": "opengl32sw",
+      "role": "qt-helper",
+      "filename": "opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "size": 5474526,
+      "sha256": "0a3913ba2b7472043a5eb7cbb5d081cf8753ae76fea92856545e9b54c8a8b9ea",
+      "members": 1,
+      "member_listing_sha256": "9d14f8b2ede6a8da18136b38c8bb2fea66138e121f583535f8421bf3d5b93892"
+    },
+    {
+      "filename": "pyqt_builder-1.20.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/f5/51/235f77c2f373f4209523c219c46881ea1dfbf646c416f16681d20ead2a98/pyqt_builder-1.20.1-py3-none-any.whl",
+      "size": 5295878,
+      "sha256": "5780743c9e546c29c9540014d57a3da5c2ad8d08435be5c89cf9003e0f65eeb6",
+      "id": "pyqt-builder",
+      "role": "builder-wheel",
+      "package": "PyQt-builder",
+      "version": "1.20.1"
+    },
+    {
+      "filename": "pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/22/a2/9b45fd134614f76ea9ba37dded8e57360a6a8d73407bff6a93bc214aed01/pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+      "size": 7092507,
+      "sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff",
+      "id": "pyqt6",
+      "role": "binding-wheel",
+      "package": "PyQt6",
+      "version": "6.12.1"
+    },
+    {
+      "filename": "sip-6.17.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/4c/bd/6e0747e13fde880417e8f9836e8edc82a02f5926aaa568798b1bd26d6925/sip-6.17.1-py3-none-any.whl",
+      "size": 3465148,
+      "sha256": "7a9d391e2561f2debba1dcc12ea3a2fadd7f2870b63870f4ae4e1507c5cd175c",
+      "id": "sip",
+      "role": "builder-wheel",
+      "package": "sip",
+      "version": "6.17.1"
+    },
+    {
+      "filename": "packaging-26.3-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "size": 129956,
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c",
+      "id": "packaging",
+      "role": "builder-wheel",
+      "package": "packaging",
+      "version": "26.3"
+    },
+    {
+      "filename": "setuptools-84.2.1-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+      "size": 876263,
+      "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2",
+      "id": "setuptools",
+      "role": "builder-wheel",
+      "package": "setuptools",
+      "version": "84.2.1"
+    },
+    {
+      "filename": "pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "size": 53787,
+      "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8",
+      "id": "pyqt6-sip",
+      "role": "runtime-wheel",
+      "package": "PyQt6-sip",
+      "version": "13.13.1"
+    },
+    {
+      "id": "binding-source",
+      "role": "source",
+      "filename": "pyqt6-6.12.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+      "size": 1108330,
+      "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58"
+    },
+    {
+      "id": "sip-source",
+      "role": "source",
+      "filename": "pyqt6_sip-13.13.1.tar.gz",
+      "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+      "size": 95283,
+      "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe"
+    },
+    {
+      "id": "qttools-binary",
+      "role": "qt-prefix",
+      "filename": "qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "size": 27361239,
+      "sha256": "38870d9905d612d6801d2b2e0d2a1e48dc84a641f0674ee7106df3a80f820215",
+      "members": 641,
+      "member_listing_sha256": "e500de9d900247dd9c36c4eed35586f2fb3ee167f929c0c5907020214e0ff09c"
+    },
+    {
+      "id": "qttools-source",
+      "role": "source",
+      "filename": "qttools-everywhere-src-6.12.1.tar.xz",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttools-everywhere-src-6.12.1.tar.xz",
+      "size": 10974184,
+      "sha256": "d8e677228c9dd0b14801330c273bd0d4b41980a0b2e1fb498ca0bad266018a56"
+    }
+  ],
+  "upstream_checksum_observations": [
+    {
+      "input_id": "qtimageformats-binary",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64/6.12.1-0-202611180427qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 1055282,
+        "sha256": "5f757033000aba6f7e60b0886333c2baf8fd81b94be0f4d7bd48e4732b094612"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "069dcf21b424a4c3d21e79c77d7c21f3bcf71ec3",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.addons.qtimageformats.win64_msvc2022_64/6.12.1-0-202611180427qtimageformats-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "e469c1136307f06905d8fd4ef6043799871ea71ecb91adb5421bf5bcdb6c3791"
+        }
+      }
+    },
+    {
+      "input_id": "qtimageformats-source",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 1846256,
+        "sha256": "f7b57c913d53c7ff1bc7f75a06773bf01802bce0b70e1de6399a3d96ea44fce1"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "ba68d3648a44e8a0a5ceaeea47f359deb59be655",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtimageformats-everywhere-src-6.12.1.tar.xz.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "13fae6c6d847810bf576de8bb6b70c7e95e7266bf1599ea0a40a80ff93a687e0"
+        }
+      }
+    },
+    {
+      "input_id": "qttranslations-binary",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 2033078,
+        "sha256": "716a4c98a0a9db9f1ef043be44eac7a711e165f19e7b882625ba311617298a3e"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "037423c303198ac657bc7792eed60f9b857bfab9",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttranslations-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "866279f41c839886eed15f1c91f20b50cb03365f46d9aadb533eb3f35a7e6f23"
+        }
+      }
+    },
+    {
+      "input_id": "qttranslations-source",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttranslations-everywhere-src-6.12.1.tar.xz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 1768500,
+        "sha256": "8e716946e5eec4fa0202ce20494ee4152f3e92ebdc282fe7ff7904e50e1f181e"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "a42dce17b1be1d9a70ced8f02a8e81cd24c32e82",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttranslations-everywhere-src-6.12.1.tar.xz.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "7620dce34ec318be16300abb00549cbc5f42732c4281f17730e502434fcecce6"
+        }
+      }
+    },
+    {
+      "input_id": "qtbase-binary",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 40457937,
+        "sha256": "7e96dac9569f350c4e328be9f4a53ed18175ebfeec3e997cdd16832582ceb71e"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "45309adb3dc34a62dba891b620e4076233bb7f0c",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtbase-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "b4d554102466a3021d03c420b16d2956287781d13370a6244dba99b69961860a"
+        }
+      }
+    },
+    {
+      "input_id": "qtsvg-binary",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 690396,
+        "sha256": "a45551f4e5876ad1b2cd8d969967f78f5040f3c31cf9991892a3da130b8ee739"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "20e1dfde74c5b4dd0e72052ede6df94ae640621d",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qtsvg-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "17a8d3f4ebda393696f3652d6f7f6c90669390e4dc3bc01cf57443031a270559"
+        }
+      }
+    },
+    {
+      "input_id": "qtbase-source",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 51329912,
+        "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "dfd276035a773e0cc798a46e2f78c70829e541a6",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtbase-everywhere-src-6.12.1.tar.xz.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "4cb845b9827f7fc5decbfe6ccd00e01c0524612ffb67bb424129c86708b585fa"
+        }
+      }
+    },
+    {
+      "input_id": "qtsvg-source",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtsvg-everywhere-src-6.12.1.tar.xz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 2338900,
+        "sha256": "d4b9618c2d268a8769f05aabe1e22bf121038c63b52e5c7ad7bf18b2574318b7"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "c460c7c4138ccb18b76581cb344d9ff01bc71b14",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qtsvg-everywhere-src-6.12.1.tar.xz.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "0b1728605e2b41061fa56a0848bfc07a48c3c31ae8f23ccae75d542433cb6429"
+        }
+      }
+    },
+    {
+      "input_id": "d3dcompiler_47",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6113/qt6_6113_msvc2022_64/qt.qt6.6113.win64_msvc2022_64/6.11.3-0-202610220312d3dcompiler_47-x64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 1380117,
+        "sha256": "be4292719fe0930c988236972bca7f5926db1342e1c85b247e1cef87b903fc9a"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "opengl32sw",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427opengl32sw-64-mesa_11_2_2-signed_sha256.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 5474526,
+        "sha256": "0a3913ba2b7472043a5eb7cbb5d081cf8753ae76fea92856545e9b54c8a8b9ea"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "a86cf04b34335fc5362b958fc86ebc2db499e734",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427opengl32sw-64-mesa_11_2_2-signed_sha256.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "0bd37c6057936d7f5cf6c995028aeb716996b87ddb738eca59a3d4fc594970e5"
+        }
+      }
+    },
+    {
+      "input_id": "pyqt-builder",
+      "url": "https://files.pythonhosted.org/packages/f5/51/235f77c2f373f4209523c219c46881ea1dfbf646c416f16681d20ead2a98/pyqt_builder-1.20.1-py3-none-any.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 5295878,
+        "sha256": "5780743c9e546c29c9540014d57a3da5c2ad8d08435be5c89cf9003e0f65eeb6"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "pyqt6",
+      "url": "https://files.pythonhosted.org/packages/22/a2/9b45fd134614f76ea9ba37dded8e57360a6a8d73407bff6a93bc214aed01/pyqt6-6.12.1-cp310-abi3-win_amd64.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 7092507,
+        "sha256": "91c3a6a520f3e35e022bb7e05a6bf7d47d5b25eb0f0d6ca9c734c18d12d470ff"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "sip",
+      "url": "https://files.pythonhosted.org/packages/4c/bd/6e0747e13fde880417e8f9836e8edc82a02f5926aaa568798b1bd26d6925/sip-6.17.1-py3-none-any.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 3465148,
+        "sha256": "7a9d391e2561f2debba1dcc12ea3a2fadd7f2870b63870f4ae4e1507c5cd175c"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "packaging",
+      "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 129956,
+        "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "setuptools",
+      "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 876263,
+        "sha256": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "pyqt6-sip",
+      "url": "https://files.pythonhosted.org/packages/e8/c1/1b029a92a7da8b84fedf3a0d4949389dc247da9cfd97ed07ca2bb75b08b5/pyqt6_sip-13.13.1-cp313-cp313-win_amd64.whl",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 53787,
+        "sha256": "f3c7709d928b40aec5aad21edfed16996d180d4471e386dd2356dec76a4b1bd8"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "binding-source",
+      "url": "https://files.pythonhosted.org/packages/61/5f/39d2cf3eabc36006a5c87df6e1ed34928025b4a1768d752859bf404ec341/pyqt6-6.12.1.tar.gz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 1108330,
+        "sha256": "17bb18b3ae953ab54b23026291ecea2579b028597b56c281a752c8ed66dd1a58"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "sip-source",
+      "url": "https://files.pythonhosted.org/packages/03/da/164fe6759acbd04c4523a9471c4d11f4b3c744182cb7bbd87faf249ce172/pyqt6_sip-13.13.1.tar.gz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 95283,
+        "sha256": "83c3c9cb93b6c631af7048084fb0f234b610a01edbf9b2b44c4ee4bda4197efe"
+      },
+      "independent_upstream_checksum": null
+    },
+    {
+      "input_id": "qttools-binary",
+      "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 27361239,
+        "sha256": "38870d9905d612d6801d2b2e0d2a1e48dc84a641f0674ee7106df3a80f820215"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "c33fda0a7005ffae3a6b725fac1cc19a13df2dd0",
+        "url": "https://download.qt.io/online/qtsdkrepository/windows_x86/desktop/qt6_6121/qt6_6121_msvc2022_64/qt.qt6.6121.win64_msvc2022_64/6.12.1-0-202611180427qttools-Windows-Windows_11_24H2-MSVC2022-Windows-Windows_11_24H2-X86_64.7z.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "b0500f14c0b8c3dd80b29f247b7ae4cbdb50df7688ce6e936affbcd7775ca9cb"
+        }
+      }
+    },
+    {
+      "input_id": "qttools-source",
+      "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttools-everywhere-src-6.12.1.tar.xz",
+      "resolved_url": null,
+      "acquisition_method": "verified-local-cache",
+      "observed": {
+        "size": 10974184,
+        "sha256": "d8e677228c9dd0b14801330c273bd0d4b41980a0b2e1fb498ca0bad266018a56"
+      },
+      "independent_upstream_checksum": {
+        "algorithm": "SHA1",
+        "value": "9b3adc3d4879487dc4b40c68308d2e4a9d0d8594",
+        "url": "https://download.qt.io/online/qtsdkrepository/all_os/qt/qt6_6121_unix_line_endings_src/qt.qt6.6121.src/6.12.1-0-202611180426qttools-everywhere-src-6.12.1.tar.xz.sha1",
+        "response": {
+          "size": 40,
+          "sha256": "70538a7192bd19749c2cde79f8ae39fc9c821919229805d0380eec4bf38c614e"
+        }
+      }
+    }
+  ],
+  "source_export_comparison": {
+    "path": "build/qt6121-inputs-20261124/source-export-comparison.json",
+    "size": 2694217,
+    "sha256": "4a97d76407049cf3cce934ec16abafc0ad2cb9a22f417868c8f15abee487458d"
+  },
+  "source_export_recipe": {
+    "path": "build/qt6121-inputs-20261124/compare_exports.py",
+    "size": 5145,
+    "sha256": "488b16d47092dd72ed5b9fbb1f2b2da288b320d459f2666d26ab173bfd994390"
+  },
+  "source_export_summary": [
+    {
+      "input_id": "qtimageformats-source",
+      "installer_archive": {
+        "path": "build/qt6121-inputs-20261124/cache/qtimageformats-everywhere-src-6.12.1.tar.xz",
+        "size": 1846256,
+        "sha256": "f7b57c913d53c7ff1bc7f75a06773bf01802bce0b70e1de6399a3d96ea44fce1"
+      },
+      "public_archive": {
+        "path": "build/qt6121-inputs-20261124/public-source/qtimageformats-everywhere-src-6.12.1.tar.xz",
+        "size": 1847108,
+        "sha256": "20a40732228cf0734c5b2335d4a816c1cab97dcdcc6d13073c0b1065e1c6c608"
+      },
+      "public_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtimageformats-everywhere-src-6.12.1.tar.xz",
+      "public_sha256_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtimageformats-everywhere-src-6.12.1.tar.xz.sha256",
+      "public_checksum_response": {
+        "size": 110,
+        "sha256": "af8bfa206d8d40ba81c9cd29a6def15b2cd393c340bb42eceba37fdf0f0ae454"
+      },
+      "installer_root_prefix": "",
+      "public_root_prefix_removed": "qtimageformats-everywhere-src-6.12.1",
+      "installer_entries": 576,
+      "public_entries": 576,
+      "regular_files": 518,
+      "content_differences": [],
+      "mode_or_mtime_difference_count": 576,
+      "installer_content_inventory": {
+        "path": "build/qt6121-inputs-20261124/metadata/qtimageformats-source-content-inventory.json",
+        "size": 78261,
+        "sha256": "085d533f6e567598fc45283fd48e2dbe5a4cd1e77ee4f862ee142f62096e3784"
+      },
+      "content_match": true
+    },
+    {
+      "input_id": "qttranslations-source",
+      "installer_archive": {
+        "path": "build/qt6121-inputs-20261124/cache/qttranslations-everywhere-src-6.12.1.tar.xz",
+        "size": 1768500,
+        "sha256": "8e716946e5eec4fa0202ce20494ee4152f3e92ebdc282fe7ff7904e50e1f181e"
+      },
+      "public_archive": {
+        "path": "build/qt6121-inputs-20261124/public-source/qttranslations-everywhere-src-6.12.1.tar.xz",
+        "size": 1770004,
+        "sha256": "5d537a0b849df9a0586fb20435ce232bc3e21e95025134f6ea8f5cc19622158a"
+      },
+      "public_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttranslations-everywhere-src-6.12.1.tar.xz",
+      "public_sha256_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttranslations-everywhere-src-6.12.1.tar.xz.sha256",
+      "public_checksum_response": {
+        "size": 110,
+        "sha256": "b0ab615c49148fb2cb9ebedd71a374f388522f3c3abcae2acc616d679520ab80"
+      },
+      "installer_root_prefix": "",
+      "public_root_prefix_removed": "qttranslations-everywhere-src-6.12.1",
+      "installer_entries": 324,
+      "public_entries": 324,
+      "regular_files": 320,
+      "content_differences": [],
+      "mode_or_mtime_difference_count": 324,
+      "installer_content_inventory": {
+        "path": "build/qt6121-inputs-20261124/metadata/qttranslations-source-content-inventory.json",
+        "size": 43537,
+        "sha256": "c0666b5d4032542af5cbeabb9610c463b7d6d43a87e4416e68fc92773d1e50b9"
+      },
+      "content_match": true
+    },
+    {
+      "input_id": "qtbase-source",
+      "installer_archive": {
+        "path": "build/qt6121-inputs-20261124/cache/qtbase-everywhere-src-6.12.1.tar.xz",
+        "size": 51329912,
+        "sha256": "0f7beb918a8a38e3c0abae625e4865156b778e001c4717ac43df25d0e3a99813"
+      },
+      "public_archive": {
+        "path": "build/qt6121-inputs-20261124/public-source/qtbase-everywhere-src-6.12.1.tar.xz",
+        "size": 51507200,
+        "sha256": "cd837bb9fd631e20439a04eaa0c2f252f19ad92fdf5adf10229d0fbc2fab2d53"
+      },
+      "public_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtbase-everywhere-src-6.12.1.tar.xz",
+      "public_sha256_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtbase-everywhere-src-6.12.1.tar.xz.sha256",
+      "public_checksum_response": {
+        "size": 102,
+        "sha256": "25d738228161c66855218b57dd962389aaf5e304ba800d5b4faceb5c295757a7"
+      },
+      "installer_root_prefix": "",
+      "public_root_prefix_removed": "qtbase-everywhere-src-6.12.1",
+      "installer_entries": 27786,
+      "public_entries": 27786,
+      "regular_files": 23625,
+      "content_differences": [],
+      "mode_or_mtime_difference_count": 27786,
+      "installer_content_inventory": {
+        "path": "build/qt6121-inputs-20261124/metadata/qtbase-source-content-inventory.json",
+        "size": 4177306,
+        "sha256": "716e8cd1e4ad97d5ec021326a083a12f479c670f8c86a6478666ec6e7f717cb5"
+      },
+      "content_match": true
+    },
+    {
+      "input_id": "qtsvg-source",
+      "installer_archive": {
+        "path": "build/qt6121-inputs-20261124/cache/qtsvg-everywhere-src-6.12.1.tar.xz",
+        "size": 2338900,
+        "sha256": "d4b9618c2d268a8769f05aabe1e22bf121038c63b52e5c7ad7bf18b2574318b7"
+      },
+      "public_archive": {
+        "path": "build/qt6121-inputs-20261124/public-source/qtsvg-everywhere-src-6.12.1.tar.xz",
+        "size": 2342960,
+        "sha256": "6a7157a9a0556a129ae6582c7fbe57a0d6c0b83083cfcbd38d5d4a93b30c46e1"
+      },
+      "public_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtsvg-everywhere-src-6.12.1.tar.xz",
+      "public_sha256_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qtsvg-everywhere-src-6.12.1.tar.xz.sha256",
+      "public_checksum_response": {
+        "size": 101,
+        "sha256": "256de0cbfcf5d816a45bd256c42f321fbad27a8492d9bcb537a273e439bce123"
+      },
+      "installer_root_prefix": "",
+      "public_root_prefix_removed": "qtsvg-everywhere-src-6.12.1",
+      "installer_entries": 732,
+      "public_entries": 732,
+      "regular_files": 646,
+      "content_differences": [],
+      "mode_or_mtime_difference_count": 732,
+      "installer_content_inventory": {
+        "path": "build/qt6121-inputs-20261124/metadata/qtsvg-source-content-inventory.json",
+        "size": 104579,
+        "sha256": "3a75f5e5864ab5bd646081f88355dc4182b2451b3383d11ba9bef3a779d5319f"
+      },
+      "content_match": true
+    },
+    {
+      "input_id": "qttools-source",
+      "installer_archive": {
+        "path": "build/qt6121-inputs-20261124/cache/qttools-everywhere-src-6.12.1.tar.xz",
+        "size": 10974184,
+        "sha256": "d8e677228c9dd0b14801330c273bd0d4b41980a0b2e1fb498ca0bad266018a56"
+      },
+      "public_archive": {
+        "path": "build/qt6121-inputs-20261124/public-source/qttools-everywhere-src-6.12.1.tar.xz",
+        "size": 10937792,
+        "sha256": "0d3d1a7eba32d1477f36211fb527c2c75f60cb10f3ddc41fdb804fd94147b640"
+      },
+      "public_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttools-everywhere-src-6.12.1.tar.xz",
+      "public_sha256_url": "https://download.qt.io/official_releases/qt/6.12/6.12.1/submodules/qttools-everywhere-src-6.12.1.tar.xz.sha256",
+      "public_checksum_response": {
+        "size": 103,
+        "sha256": "38729e8475df66e24a7790a0a942394225207a3df738b12fa4d957c2f7d442b1"
+      },
+      "installer_root_prefix": "",
+      "public_root_prefix_removed": "qttools-everywhere-src-6.12.1",
+      "installer_entries": 7477,
+      "public_entries": 7477,
+      "regular_files": 6028,
+      "content_differences": [],
+      "mode_or_mtime_difference_count": 7477,
+      "installer_content_inventory": {
+        "path": "build/qt6121-inputs-20261124/metadata/qttools-source-content-inventory.json",
+        "size": 1257809,
+        "sha256": "d00a26bb387ce32b5fa535dd73483bc94bc72139c57c6226dfa22a04325b28df"
+      },
+      "content_match": true
+    }
+  ],
+  "initial_cross_channel_diagnostic": {
+    "log": {
+      "path": "build/qt6121-inputs-20261124/acquisition.log",
+      "size": 2214,
+      "sha256": "57aac5093f4629a725585cf41f1084de0e7776ab8d92b898d3d6b68506060746"
+    },
+    "recipe": {
+      "path": "build/qt6121-inputs-20261124/acquire_inputs.py",
+      "size": 7139,
+      "sha256": "5d262c39c4eceeadac8b73535e3cd1f850f75db883bae25e16c6df90d5c14460"
+    },
+    "disposition": "Installer and public tar container bytes differ; initial cross-channel hash assertion correctly failed. Each was then verified against its own route checksum, followed by complete normalized member-content comparison."
+  },
+  "preparation_only_helpers": {
+    "d3dcompiler_47": "Retained the exact 6.11.3-route archive because the pinned bundler requires it; final raster wheel excludes the DLL. This is not a 6.12.1-native payload claim.",
+    "opengl32sw": "Exact 6.12.1-route archive is a preparation input; final raster wheel excludes the DLL."
+  },
+  "limitations": [
+    "Qt installer sidecars publish SHA1; their values were compared and local SHA256 identities recorded. PyPI and public source routes publish SHA256.",
+    "Source archive comparison removes only the one declared public versioned root and excludes mode/mtime from content identity. Path/type/regular-file byte and link-target differences would be reported; none were found.",
+    "This proves export content correspondence, not native compiler or linker reproduction, complete binary-source attribution, source redistribution entitlement or public source delivery.",
+    "QtTools binary/source inputs are optional rebuild investigation inputs outside the 18-input candidate manifest.",
+    "Candidate preparation and GPU runtime validation are separate work; Compat runtime testing remains pending."
+  ],
+  "downloaded_payload_executed": false,
+  "native_rebuild_performed": false,
+  "compat_runtime_tested": false,
+  "release_approved": false,
+  "distribution_approved": false
+}

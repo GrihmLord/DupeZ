@@ -11,30 +11,32 @@ import pytest
 
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_REPO_BASETEMP = _REPO_ROOT / ".pytest-tmp"
+_REPO_BASETEMP_ROOT = _REPO_ROOT / ".pytest-tmp"
 
 
 def pytest_configure(config):
     """Session-start setup: basetemp pin + v5.7.6 test isolation."""
     if not getattr(config.option, "basetemp", None):
-        _REPO_BASETEMP.mkdir(parents=True, exist_ok=True)
-        config.option.basetemp = str(_REPO_BASETEMP)
+        # Pytest recursively clears its basetemp at startup.  A single shared
+        # path therefore races when two supported-version or audit jobs use
+        # the same checkout.  Keep every process under the ignored repository
+        # root, but give it an independently clearable directory.
+        _REPO_BASETEMP_ROOT.mkdir(parents=True, exist_ok=True)
+        config.option.basetemp = str(
+            _REPO_BASETEMP_ROOT / f"session-{os.getpid()}"
+        )
 
     # Never let config persistence mutate tracked source files. Patch only
     # app.config's persistence targets so data/backup path tests retain their
     # normal source-checkout semantics.
     runtime_root = Path(tempfile.mkdtemp(prefix="dupez-pytest-config-"))
+    local_appdata = runtime_root / "localappdata"
+    local_appdata.mkdir(parents=True, exist_ok=True)
+    os.environ["LOCALAPPDATA"] = str(local_appdata)
     from app import config as config_module
 
     config_module.CONFIG_PATH = str(runtime_root / "settings.json")
     config_module.HMAC_PATH = str(runtime_root / "settings.json.hmac")
-
-    # v5.7.6 -- webhook host allowlist escape hatch for tests using
-    # https://example.invalid/*. Shipped product never sets this var.
-    os.environ.setdefault(
-        "DUPEZ_TEST_WEBHOOK_HOSTS",
-        "example.invalid,example.com,test.localhost,attacker.example.com",
-    )
 
     # v5.7.6 -- redirect the global audit singleton to a per-session
     # tempdir BEFORE any test imports trigger get_audit_logger().
@@ -51,7 +53,9 @@ def pytest_configure(config):
             f"{_audit_mod._audit_logger.sealed}\n"
         )
     except Exception as exc:
-        sys.stderr.write(f"[conftest] audit isolation skipped: {exc}\n")
+        raise pytest.UsageError(
+            "could not establish isolated audit logging for the test session"
+        ) from exc
 
 
 @pytest.fixture

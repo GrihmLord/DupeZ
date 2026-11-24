@@ -159,12 +159,74 @@ class TestClear:
         self, isolated_storage, fake_tracker,
     ) -> None:
         aqs.set_active_account("Alice")
-        aqs.clear_active_account()
+        assert aqs.clear_active_account() is True
         assert aqs.get_active_account() is None
 
     def test_clear_when_none_is_safe(
         self, isolated_storage, fake_tracker,
     ) -> None:
         # Idempotent: clear from None doesn't raise.
-        aqs.clear_active_account()
+        assert aqs.clear_active_account() is True
         assert aqs.get_active_account() is None
+
+
+@pytest.mark.parametrize("operation", ["set", "cycle", "clear"])
+@pytest.mark.parametrize("outcome", [False, OSError("disk full")])
+def test_failed_persistence_never_changes_or_announces_active_selection(
+    isolated_storage, fake_tracker, monkeypatch, operation, outcome,
+) -> None:
+    from app.core import data_persistence
+
+    assert aqs.set_active_account("Alice")
+    messages = []
+    monkeypatch.setattr(aqs, "log_info", messages.append)
+
+    def fail_save(*args, **kwargs):
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    with monkeypatch.context() as failure:
+        failure.setattr(data_persistence.persistence_manager, "save_data", fail_save)
+        if operation == "set":
+            assert aqs.set_active_account("Bob") is False
+        elif operation == "cycle":
+            assert aqs.cycle_active_account() is None
+        else:
+            assert aqs.clear_active_account() is False
+        assert aqs.get_active_account() == "Alice"
+        assert messages == []
+
+    # The previously persisted value survives a cache reload as well.
+    aqs._cache_loaded = False
+    assert aqs.get_active_account() == "Alice"
+
+
+def test_transient_load_failure_is_retried(isolated_storage, monkeypatch) -> None:
+    from app.core import data_persistence
+    from unittest.mock import Mock
+
+    load = Mock(side_effect=[OSError("busy"), {"name": "Alice"}])
+    monkeypatch.setattr(data_persistence.persistence_manager, "load_data", load)
+
+    assert aqs.get_active_account() is None
+    assert aqs.get_active_account() == "Alice"
+    assert load.call_count == 2
+
+
+def test_account_names_skip_malformed_and_duplicate_records(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    manager = SimpleNamespace(accounts=[
+        {"account": " Alice "}, None, "not a record", {"account": None},
+        {"account": 42}, {"account": ""}, {"account": "Alice"}, {"account": "Bob"},
+    ])
+    monkeypatch.setattr("app.core.data_persistence.account_manager", manager)
+
+    assert aqs.active_account_names() == ["Alice", "Bob"]
+
+
+@pytest.mark.parametrize("name", [None, 42, [], {}])
+def test_set_rejects_non_string_names(isolated_storage, fake_tracker, name) -> None:
+    assert aqs.set_active_account(name) is False
+    assert aqs.get_active_account() is None

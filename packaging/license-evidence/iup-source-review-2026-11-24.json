@@ -1,0 +1,262 @@
+{
+  "schema": "dupez.iup-source-revision-review.v1",
+  "reviewed_on": "2026-11-24",
+  "status": "seven-selected-historical-source-members-matched",
+  "observation": {
+    "schema": "dupez.iup-selected-source-revision.v1",
+    "status": "selected-historical-source-bytes-match",
+    "source_archive": {
+      "name": "iup-3.30_Sources.zip",
+      "size": 14226631,
+      "sha256": "92e1b56a6c78eeaca7cce3897536d333787e27e3ec25f94487dd0ab1d8d053e6"
+    },
+    "revision_metadata": {
+      "revision": 5892,
+      "revision_date": "2020-08-02T15:32:49.346111Z",
+      "dated_query": "2020-08-02T23:59:59.000000Z",
+      "latest_revision_at_query_date": true,
+      "revision_changed_paths": [
+        "/trunk/iup/html/en/history3.html"
+      ]
+    },
+    "selected_member_count": 7,
+    "members": [
+      {
+        "archive_member": "iup/include/iup.h",
+        "size": 25641,
+        "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/include/iup.h",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/config.mak",
+        "size": 8911,
+        "sha256": "635876c04c9cdbcff866fe2d0a80f5a92aaba6b6f79461eb4941aeac08e34cd2",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/config.mak",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/iup.c",
+        "size": 6425,
+        "sha256": "7829eeef7649a630d0d1e68afcc5f67dd1ef04aae5636d303b143182bcf0a138",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/iup.c",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/iup.def",
+        "size": 13059,
+        "sha256": "7b71f50f640bcf65adaa16b89774d4584444da6a53c857176f937455ec1d0717",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/iup.def",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_dialog.c",
+        "size": 64859,
+        "sha256": "de831b52f8ea5f1b2ea8e4b8f582d5f81e81f987be4e3a89fe9fa113cc1c627d",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_dialog.c",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_loop.c",
+        "size": 6147,
+        "sha256": "19f55d72547ed2e3e162d6c1755a061e6a38a12172e564d7d98105f506613a5d",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_loop.c",
+        "normalization": "none",
+        "exact_match": true
+      },
+      {
+        "archive_member": "iup/src/win/iupwin_text.c",
+        "size": 65264,
+        "sha256": "7675fed4cfc14f1bb9cc7aed5686837ef4d09d70b273025ddd944ec7da195865",
+        "svn_url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_text.c",
+        "normalization": "none",
+        "exact_match": true
+      }
+    ],
+    "metadata_inputs": [
+      {
+        "name": "dated-revision.xml",
+        "size": 148,
+        "sha256": "0a6aff3d35aa43e83927a4dac53e994bb43ea96cecc332e0f3f5fa9056be737f"
+      },
+      {
+        "name": "revision-log.xml",
+        "size": 3147,
+        "sha256": "7a59adddadd9933ceb946cedc21a91d05020f47b52bac72c72fde8f077cf7fa4"
+      }
+    ],
+    "official_repository_reference": "https://www.tecgraf.puc-rio.br/iup/en/svn.html",
+    "whole_archive_revision_identity_proven": false,
+    "dll_build_source_identity_proven": false,
+    "native_rebuild_performed": false,
+    "native_execution_performed": false,
+    "release_approval": false,
+    "limits": [
+      "Only the seven listed source members were compared; all other archive members remain outside this match claim.",
+      "Revision 5892 is the latest repository revision at the queried date, not a discovered release tag or a binary build attestation.",
+      "The source ZIP re-upload date does not alter these seven exact matches, but full source/patch and compiler/SDK provenance remain unresolved.",
+      "No complete corresponding-source, native DLL reproduction, distribution entitlement or public delivery is established."
+    ]
+  },
+  "observation_file": {
+    "path": "build/native-source-refresh-20261124/iup-source-observation.json",
+    "size": 3984,
+    "sha256": "9354fac36bef6e5a684635f27c5e29d424247470cf7e93fe9f069f60f5e956e2"
+  },
+  "acquisition": {
+    "schema": "dupez.iup-svn-acquisition.v1",
+    "observed_on": "2026-11-24",
+    "revision": 5892,
+    "official_repository_reference": "https://www.tecgraf.puc-rio.br/iup/en/svn.html",
+    "scope": "Seven selected historical source files and read-only SVN metadata; not a complete source snapshot or native rebuild",
+    "inputs": [
+      {
+        "path": "files/include/iup.h",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/include/iup.h",
+        "method": "GET",
+        "http_status": 200,
+        "size": 25641,
+        "sha256": "d8759727c248b27f3d0ff2093265d1540b0129b532b57a37aaab6b3758dae24d"
+      },
+      {
+        "path": "files/src/config.mak",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/config.mak",
+        "method": "GET",
+        "http_status": 200,
+        "size": 8911,
+        "sha256": "635876c04c9cdbcff866fe2d0a80f5a92aaba6b6f79461eb4941aeac08e34cd2"
+      },
+      {
+        "path": "files/src/iup.c",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/iup.c",
+        "method": "GET",
+        "http_status": 200,
+        "size": 6425,
+        "sha256": "7829eeef7649a630d0d1e68afcc5f67dd1ef04aae5636d303b143182bcf0a138"
+      },
+      {
+        "path": "files/src/iup.def",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/iup.def",
+        "method": "GET",
+        "http_status": 200,
+        "size": 13059,
+        "sha256": "7b71f50f640bcf65adaa16b89774d4584444da6a53c857176f937455ec1d0717"
+      },
+      {
+        "path": "files/src/win/iupwin_loop.c",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_loop.c",
+        "method": "GET",
+        "http_status": 200,
+        "size": 6147,
+        "sha256": "19f55d72547ed2e3e162d6c1755a061e6a38a12172e564d7d98105f506613a5d"
+      },
+      {
+        "path": "files/src/win/iupwin_dialog.c",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_dialog.c",
+        "method": "GET",
+        "http_status": 200,
+        "size": 64859,
+        "sha256": "de831b52f8ea5f1b2ea8e4b8f582d5f81e81f987be4e3a89fe9fa113cc1c627d"
+      },
+      {
+        "path": "files/src/win/iupwin_text.c",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/rvr/5892/trunk/iup/src/win/iupwin_text.c",
+        "method": "GET",
+        "http_status": 200,
+        "size": 65264,
+        "sha256": "7675fed4cfc14f1bb9cc7aed5686837ef4d09d70b273025ddd944ec7da195865"
+      },
+      {
+        "path": "dated-revision.xml",
+        "url": "https://svn.code.sf.net/p/iup/iup/!svn/me",
+        "method": "REPORT",
+        "http_status": 200,
+        "size": 148,
+        "sha256": "0a6aff3d35aa43e83927a4dac53e994bb43ea96cecc332e0f3f5fa9056be737f",
+        "request_body": "<S:dated-rev-report xmlns:S=\"svn:\" xmlns:D=\"DAV:\"><D:creationdate>2020-08-02T23:59:59.000000Z</D:creationdate></S:dated-rev-report>"
+      },
+      {
+        "path": "revision-log.xml",
+        "url": "https://svn.code.sf.net/p/iup/iup/",
+        "method": "REPORT",
+        "http_status": 200,
+        "size": 3147,
+        "sha256": "7a59adddadd9933ceb946cedc21a91d05020f47b52bac72c72fde8f077cf7fa4",
+        "request_body": "<S:log-report xmlns:S=\"svn:\"><S:start-revision>5892</S:start-revision><S:end-revision>5889</S:end-revision><S:limit>4</S:limit><S:discover-changed-paths/><S:revprop>svn:author</S:revprop><S:revprop>svn:date</S:revprop><S:revprop>svn:log</S:revprop><S:path>trunk/iup</S:path></S:log-report>"
+      }
+    ],
+    "native_execution": false,
+    "release_approval": false
+  },
+  "acquisition_receipt": {
+    "path": "build/native-source-refresh-20261124/iup-r5892/acquisition.json",
+    "size": 3457,
+    "sha256": "6bddac7e1a0487619fcd5e23e6f84ef0656d7207abe866256289e3a33c78458c"
+  },
+  "recipe_inputs": [
+    {
+      "path": "scripts/verify_iup_source_revision.py",
+      "size": 9202,
+      "sha256": "7c861f108007d68949c4b92048db7da196938a49a3ca2144d332849045372aab"
+    },
+    {
+      "path": "tests/test_verify_iup_source_revision.py",
+      "size": 6686,
+      "sha256": "4265ffbb54d9bc4e365b02cabb7b66f54823894d985b05d1c3c109342f2e187b"
+    },
+    {
+      "path": "scripts/prepare_qt_candidate.py",
+      "size": 36411,
+      "sha256": "fb4c4785e4afafd1a755255d125260d5667895fc608bb04fb11a52e399e7ffbd"
+    },
+    {
+      "path": "build/native-source-refresh-20261124/acquire_iup_revision.py",
+      "size": 2444,
+      "sha256": "9165253b2314507d5ad0792e768bba6521a2bbc06a62cdbb931a8922765534fd"
+    }
+  ],
+  "tests": {
+    "passed": 23,
+    "skipped": 0,
+    "failed": 0,
+    "junit": {
+      "path": "build/native-source-refresh-20261124/iup-source-tests.xml",
+      "size": 3466,
+      "sha256": "295da880fdcdf24af2583c7b50479a7363939b7c4f5eb086c770da98cdf3e1f0"
+    },
+    "log": {
+      "path": "build/native-source-refresh-20261124/iup-source-tests.log",
+      "size": 239,
+      "sha256": "69d9b3dd79bdc35d2bd19850979275a6203b258ba3811c9da74cb61c68e9d455"
+    },
+    "ruff": {
+      "passed": true,
+      "log": {
+        "path": "build/native-source-refresh-20261124/iup-source-lint.log",
+        "size": 20,
+        "sha256": "a4443afdcfb6d7363adb285762515ccf7cf50473b1a05c20c1a50f6bed4d26b0"
+      }
+    }
+  },
+  "research_limits": [
+    "The official SVN tags directory contains no IUP 3.30 tag; revision 5892 was selected using repository date metadata.",
+    "SVN Depth: infinity PROPFIND returned HTTP 403; no complete snapshot was fetched.",
+    "A guessed WDL LICENSE pathname returned HTTP 404 and is not part of the seven-file scope.",
+    "Guessed SourceForge REST revision endpoints returned HTTP 404; the verified revision, date and changed-path record comes from official SVN REPORT metadata.",
+    "The source ZIP re-upload date remains 2023-10-13. Seven exact historical matches narrow source uncertainty without proving all 2,983 archive entries or the original DLL compiler inputs."
+  ],
+  "remaining_work": [
+    "Compare the complete retained source archive and build inputs against a pinned historical SVN export or another authenticated historical snapshot.",
+    "Determine exact compiler, linker, SDK and build flags, then rebuild IUP and verify replacement compatibility before claiming DLL build-source identity.",
+    "Retain existing release, source and licensing gates; this record is additional technical correspondence evidence."
+  ],
+  "release_approval": false,
+  "complete_corresponding_source": false,
+  "native_rebuild_performed": false,
+  "compat_runtime_tested": false
+}
