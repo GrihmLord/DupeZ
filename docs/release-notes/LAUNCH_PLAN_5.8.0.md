@@ -1,6 +1,6 @@
 # DupeZ v5.8.0 release and launch plan
 
-Local validation checked: 2026-11-09. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
+Local validation checked: 2026-11-24. Disposition: **SOURCE CANDIDATE / PUBLIC RELEASE BLOCKED**.
 
 This is an execution plan, not a release approval. No public launch date is
 committed. Do not promote the old files in `dist`, the prior private engineering
@@ -10,19 +10,19 @@ snapshot, or a passing source-only preflight into a release candidate.
 
 | Gate | Verified state | Owner / next action |
 | --- | --- | --- |
-| Source changes | Clean checkpoint `22cddda` adds the explicit `frozen-raster-no-qtnetwork` engineering profile and exact Microsoft runtime package pins | PR head and its checks govern source publication; a branch push does not authorize release |
-| Hosted CI | Last inspected pushed head `3f15a41` has all 14 checks blocked before execution by the account billing lock | Owner resolves the account restriction privately; obtain all checks on the newest exact head without bypass |
+| Source changes | Clean checkpoint `a017ee2` supplies three pinned MSVC DLLs privately to the no-QtNetwork engineering profile | PR head and its checks govern source publication; a branch push does not authorize release |
+| Hosted CI | Last inspected pushed head `078067c` had all 14 checks blocked before execution by the account billing lock on November 9 | Refresh checks on the new push; owner resolves any continuing account restriction privately |
 | Main governance | Active `main-release-integrity` ruleset, no bypass actors, PR and resolved threads required, 14 strict checks | Preserve controls; reverify before merge/publication |
 | Production environment | `production-release` permits only branch `main`; readiness variable is set | Preserve controls; no independent reviewer is claimed for this solo-maintainer setup |
 | Distribution terms | GPL-3.0-only and corresponding source already selected; contribution rights and six evidence-backed determinations remain unresolved | Owner supplies rights and use-context evidence; validate actual delivery before recording determinations |
 | Signing route | Owner selected the explicitly disclosed unsigned/manual-install route on October 7 | Preserve `-AllowUnsigned` through all phases and verify protected updater signing separately |
 | Dependency advisories | The October 24 canonical runtime scan reported zero active PyPI advisory records across 27 packages; the engineering profile has a different effective inventory | Rescan the exact eventual release inventory; a Python package scan does not cover native libraries or the interpreter |
 | Native runtime security | New profile removes Qt Network and its dependent plugins from the Qt 6.11.3 engineering payload; outer/PYZ and PE checks enforce absence | This removes the affected component rather than patching it; older profiles and canonical Qt 6.11.2 locks are unchanged. Retained native review and the tiny-WebP limitation remain open |
-| Microsoft runtime provenance | Three runtime DLLs match the exact signed 14.51.36247 upstream package and are enforced by new-profile build/native checks and mapped in its engineering SBOM | Establish the owner's applicable redistribution basis and complete notice/delivery review; signatures and installed software do not establish entitlement |
-| Source/rebuild evidence | New wheel preparation repeats byte-for-byte; clean profile verifies 376 notice documents. Existing source archive and translation evidence remains scoped to its recorded inputs | Resolve retained QtBase revision metadata, native toolchain/rebuild, IUP correspondence, complete public source/replacement delivery and owner determinations |
+| Microsoft runtime provenance | Both new builds collect exactly three signed-package-pinned DLLs from the closed private stage; no System32 origin is accepted | Preserve exact-stage validation; applicable redistribution basis and complete notice/delivery review remain separate |
+| Source/rebuild evidence | Seven selected IUP files exactly match historical SVN revision 5892; profile preparation verifies 376 notices and the pinned Qt wheel | Complete historical IUP archive/native reproduction, retained QtBase source identity, compiler inputs and public corresponding-source delivery |
 | Full Clumsy integration | Standard-module wiring exists, but full observable behavior parity is not established | Complete the scoped control/lifecycle/effect matrix on both frozen variants |
 | Disruption hotkeys | Opt-in configuration, Qt dispatch, owned lifecycle and F1 reporting have mocked regression coverage | Exact-build background/tray, elevated-window and key-release checks remain required |
-| Exact artifacts | Both `22cddda` engineering builds pass exact-source/archive/native inspection with 114 native entries each; GPU maintenance, two dashboard lifecycle profiles and the hash-bound PowerShell 5.1 consumer pass | Compat runtime remains pending per owner instruction; no new UAC attempt was made. Hardware/hotkey and protected-main release validation remain required |
+| Exact artifacts | Both `a017ee2` builds pass exact-source/archive/native inspection with 114 native entries each; GPU maintenance, two safety dry-run lifecycle profiles and hash-bound PS5.1 consumer pass | Compat runtime remains pending per owner instruction; hardware/hotkey and protected-main release validation remain required |
 | Launch operations | Copy and rollback checklist prepared below | Publish only after verified draft; then verify public downloads and communicate |
 
 Live evidence was read from [PR 84](https://github.com/GrihmLord/DupeZ/pull/84),
@@ -34,6 +34,24 @@ refresh verified successful October 6–7 hosted runs, including
 [CodeQL on current main](https://github.com/GrihmLord/DupeZ/actions/runs/37662373073).
 Those runs do not validate this PR 84 source refresh. No payment,
 downgrade or account change was made by this work.
+
+## November 24 private runtime inputs and source follow-up
+
+Clean checkpoint `a017ee201d2eff57aae3e3abbfc6284af89f3f36` records **3,901 passed, 10 expected skips** and
+Ruff/AST checks for all **469 tracked Python files**. Both artifacts use three
+exact private-stage Microsoft DLLs and contain no System32-origin files.
+GPU maintenance and both dashboard safety dry-run modes pass; Compat execution
+remains pending. The failed initial test launcher and corrected complete rerun
+are both preserved. No installer, global runtime install or new UAC was used.
+
+Seven selected IUP source files exactly match official historical SVN revision
+5892; this does not establish the full archive or shipped DLL's compiler inputs.
+Qt 6.12.1 is now an upstream candidate requiring coordinated binding/SIP/native
+pins and renewed source correspondence. It has not been adopted. The retained
+QtBase revision discrepancy and complete native source delivery remain open.
+
+See the [private runtime build audit](../audits/MSVC_PRIVATE_STAGE_2026-11-24.md)
+for exact artifact hashes, the updated recipient recipe and the full evidence.
 
 ## November 9 Qt Network exclusion and Microsoft provenance
 

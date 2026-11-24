@@ -1,5 +1,7 @@
 # Qt Network exclusion and native provenance — 2026-11-09
 
+For new builds at `a017ee2` and later, use the [November 24 recipient recipe](MSVC_PRIVATE_STAGE_2026-11-24.md#reproduce-the-explicit-engineering-profile), which requires the verified private MSVC stage. The recipe below records the historical November 9 checkpoint.
+
 The new explicit `frozen-raster-no-qtnetwork` engineering profile removes the
 Qt Network payload affected by CVE-2026-116337. Both clean executables pass
 archive and native-byte validation. GPU maintenance and dashboard validation

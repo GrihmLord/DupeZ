@@ -1,0 +1,1038 @@
+{
+  "build": {
+    "artifacts": [
+      {
+        "path": "DupeZ-v5.8.0-source.zip",
+        "sha256": "50dfdbbc549a70ea00c115a5dd518d47f7ce50783a559a34314aedc0bdf0e989",
+        "size": 25230960
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+        "size": 56753376
+      },
+      {
+        "path": "runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "sha256": "cc26fe33ebeaa257266e86156b8e905786576114e0f40b004b36a01df3d8f3b8",
+        "size": 56753213
+      }
+    ],
+    "build_environment": "runtime-checkout/build/qt-profile/build-venv",
+    "checkpoint": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+    "qt_build_profile": "frozen-raster-no-qtnetwork"
+  },
+  "build_receipt": {
+    "path": "build/msvc-private-stage-20261124/build-receipt.json",
+    "sha256": "2b989ad25f8d3ddb5304df7e5fac3960297d4e0f706e939fb9a4f67b3ec44660",
+    "size": 757
+  },
+  "canonical_production_locks_changed": false,
+  "checkpoint": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+  "collector": {
+    "path": "build/msvc-private-stage-20261124/collect_evidence.py",
+    "sha256": "3cd5205d2931be587c478be41d90ab74660875952f72eb963d9ecb80580552fc",
+    "size": 34356
+  },
+  "compat_runtime": {
+    "absent_reports": [
+      "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/compat-maintenance/maintenance-observation.json",
+      "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/frozen-runtime-evidence-compat.json",
+      "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/compat-runner-result.json",
+      "build/msvc-private-stage-20261124/compat-consumer-hash-bound.log"
+    ],
+    "fresh_uac_attempt": false,
+    "prior_runtime_evidence_reused": false,
+    "runtime_tested": false,
+    "status": "pending-by-owner-instruction"
+  },
+  "complete_corresponding_source": false,
+  "distribution_approved": false,
+  "exact_git_archive_match": true,
+  "frozen_artifacts": {
+    "compat": {
+      "archive_preflight": {
+        "path": "build/msvc-private-stage-20261124/compat-archive.log",
+        "sha256": "6e8ea1a1daac11b790a0690da43237d8a3a3e9ed37619c173ff9a1e8919796fe",
+        "size": 37
+      },
+      "artifact": {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/DupeZ-Compat.exe",
+        "sha256": "cc26fe33ebeaa257266e86156b8e905786576114e0f40b004b36a01df3d8f3b8",
+        "size": 56753213
+      },
+      "manifest": {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/clean-compat/dupez_compat/native-binaries.json",
+        "sha256": "eafbb3e0e50e1c2d04efc132f210a60a6be1bb959e57f8468d6c0418b4ab8aba",
+        "size": 47006
+      },
+      "observation": {
+        "artifact": {
+          "name": "DupeZ-Compat.exe",
+          "sha256": "cc26fe33ebeaa257266e86156b8e905786576114e0f40b004b36a01df3d8f3b8",
+          "size": 56753213
+        },
+        "collection_manifest": {
+          "sha256": "eafbb3e0e50e1c2d04efc132f210a60a6be1bb959e57f8468d6c0418b4ab8aba",
+          "size": 47006
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "msvc_redist_manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+        "msvc_redist_package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+        "msvc_runtime_origin_policy": "private-pinned-stage",
+        "msvc_stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "msvc_upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "native_entry_count": 114,
+        "native_inventory_sha256": "8958fa7f8b6b2fc3748b7790f8dbed7f16903461049cdee49ba4090dfc3d621c",
+        "origin_counts": {
+          "locked-build-venv": 83,
+          "managed-native": 4,
+          "pinned-msvc-redist": 3,
+          "verified-base-python": 24
+        },
+        "qt_build_profile": "frozen-raster-no-qtnetwork",
+        "qt_tls_policy": "qt-network-excluded",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "report": {
+        "path": "build/msvc-private-stage-20261124/compat-native.json",
+        "sha256": "f468d95fb593a420091d3fab2a83a826ddf8c070414c251d126faaa66fd3f02c",
+        "size": 1932
+      }
+    },
+    "gpu": {
+      "archive_preflight": {
+        "path": "build/msvc-private-stage-20261124/gpu-archive.log",
+        "sha256": "6e8ea1a1daac11b790a0690da43237d8a3a3e9ed37619c173ff9a1e8919796fe",
+        "size": 37
+      },
+      "artifact": {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/DupeZ-GPU.exe",
+        "sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+        "size": 56753376
+      },
+      "manifest": {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/clean-gpu/dupez_gpu/native-binaries.json",
+        "sha256": "6bc326d57d65a2ce51a0ed15610b666c2170f1d2cf25af5de780f97184d73ef4",
+        "size": 47006
+      },
+      "observation": {
+        "artifact": {
+          "name": "DupeZ-GPU.exe",
+          "sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+          "size": 56753376
+        },
+        "collection_manifest": {
+          "sha256": "6bc326d57d65a2ce51a0ed15610b666c2170f1d2cf25af5de780f97184d73ef4",
+          "size": 47006
+        },
+        "disposition": "offline-local-byte-observation-not-release-approval",
+        "limitations": [
+          "No executable, renderer, socket, or packet engine was launched.",
+          "Caller-supplied local build/source inputs are not independently authenticated.",
+          "The PyInstaller reader is intended for these local builds, not bounded hostile-archive parsing.",
+          "Managed snapshot bytes are checked against source pins; deleted snapshot origins cannot be revisited.",
+          "No arbitrary DLL ABI, vulnerability freedom, complete source, license, or release approval is asserted."
+        ],
+        "managed_source_provenance_sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+        "msvc_redist_manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+        "msvc_redist_package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+        "msvc_runtime_origin_policy": "private-pinned-stage",
+        "msvc_stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "msvc_upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "native_entry_count": 114,
+        "native_inventory_sha256": "8958fa7f8b6b2fc3748b7790f8dbed7f16903461049cdee49ba4090dfc3d621c",
+        "origin_counts": {
+          "locked-build-venv": 83,
+          "managed-native": 4,
+          "pinned-msvc-redist": 3,
+          "verified-base-python": 24
+        },
+        "qt_build_profile": "frozen-raster-no-qtnetwork",
+        "qt_tls_policy": "qt-network-excluded",
+        "release_data_sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+        "schema": "dupez.native-build-observation.v1"
+      },
+      "report": {
+        "path": "build/msvc-private-stage-20261124/gpu-native.json",
+        "sha256": "a3bec22dd31585f64cdb572aab55674d708edc123850fbe6d34a99152422dcf8",
+        "size": 1929
+      }
+    }
+  },
+  "full_source_tests": {
+    "checkpoint": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+    "child_environment_names_removed": [
+      "GIT_CONFIG_COUNT",
+      "GIT_CONFIG_KEY_0",
+      "GIT_CONFIG_KEY_1",
+      "GIT_CONFIG_KEY_2",
+      "GIT_CONFIG_KEY_3",
+      "GIT_CONFIG_KEY_4",
+      "GIT_CONFIG_KEY_5",
+      "GIT_CONFIG_KEY_6",
+      "GIT_CONFIG_KEY_7",
+      "GIT_CONFIG_KEY_8",
+      "GIT_CONFIG_KEY_9",
+      "GIT_CONFIG_VALUE_0",
+      "GIT_CONFIG_VALUE_1",
+      "GIT_CONFIG_VALUE_2",
+      "GIT_CONFIG_VALUE_3",
+      "GIT_CONFIG_VALUE_4",
+      "GIT_CONFIG_VALUE_5",
+      "GIT_CONFIG_VALUE_6",
+      "GIT_CONFIG_VALUE_7",
+      "GIT_CONFIG_VALUE_8",
+      "GIT_CONFIG_VALUE_9"
+    ],
+    "counts": {
+      "errors": 0,
+      "failures": 0,
+      "passed": 3901,
+      "skipped": 10,
+      "tests": 3911
+    },
+    "input_pins": [
+      {
+        "path": "build/msvc-private-stage-20261124/run_full_tests_clean.py",
+        "sha256": "a1fd3e87b99ab2d6673faaa0f32c8398fe6f5dad38a5178475abbea2980fc058",
+        "size": 6751
+      },
+      {
+        "path": "packaging/requirements-build-locked.txt",
+        "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+        "size": 2733
+      },
+      {
+        "path": "requirements-test-locked.txt",
+        "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+        "size": 13127
+      },
+      {
+        "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+        "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+        "size": 74766
+      }
+    ],
+    "junit": {
+      "path": "build/msvc-private-stage-20261124/full-source-tests-clean/junit.xml",
+      "sha256": "68b88d9a47e558ae230b36a720bf4e1f96257f9cdacddd07cbd0e98b192c3425",
+      "size": 558009
+    },
+    "log": {
+      "path": "build/msvc-private-stage-20261124/full-source-tests-clean/pytest.log",
+      "sha256": "4e2cc7b709c5f0c2d87e6ab6d1bebf34ad4ddedebe68a8345804ebc30be757f1",
+      "size": 6796
+    },
+    "preserved_initial_attempt": {
+      "checkpoint": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+      "counts": {
+        "errors": 0,
+        "failures": 2,
+        "passed": 3899,
+        "skipped": 10,
+        "tests": 3911
+      },
+      "exit_code": 1,
+      "failed_tests": [
+        "test_dirty_source_identity_is_explicit_and_release_gate_is_clean_only",
+        "test_git_source_identity_rejects_hidden_index_state"
+      ],
+      "input_pins": [
+        {
+          "path": "build/msvc-private-stage-20261124/run_full_tests.py",
+          "sha256": "3a01a36c60269608bb70a4a931934b53d719ca8fc9c6f7ea427b671fbf3dd03e",
+          "size": 6244
+        },
+        {
+          "path": "packaging/requirements-build-locked.txt",
+          "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+          "size": 2733
+        },
+        {
+          "path": "requirements-test-locked.txt",
+          "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+          "size": 13127
+        },
+        {
+          "path": "build/qt-nonetwork-tests-20261109/wheelhouse/pefile-2024.8.26-py3-none-any.whl",
+          "sha256": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f",
+          "size": 74766
+        }
+      ],
+      "junit": {
+        "path": "build/msvc-private-stage-20261124/full-source-tests/junit.xml",
+        "sha256": "3d3ce9115d6a173d8692b55536557fdfff850bf9194983181a4dd60cdde2b63f",
+        "size": 568271
+      },
+      "log": {
+        "path": "build/msvc-private-stage-20261124/full-source-tests/pytest.log",
+        "sha256": "41567af71c377d11162af99a68df83c7faf63c3b42e35461d5e08114219aaad8",
+        "size": 16199
+      },
+      "reason": "Inherited Git transport configuration caused the provenance guard to reject GIT_CONFIG_* overrides before two mocked dirty/index-state assertions. The retry removes only independently validated credential/HTTP transport overrides from its child environment; application code and source checkpoint are unchanged.",
+      "receipt": {
+        "path": "build/msvc-private-stage-20261124/full-source-tests/receipt.json",
+        "sha256": "1a91a26b4ca66842e92a3705ddedb5ab56cf32e8969957bd7f39f0777752297d",
+        "size": 2542
+      },
+      "skipped_test_ids": [
+        "tests.test_clumsy_full_controls_hardware::test_every_clumsy_control_runs_on_one_owned_private_target",
+        "tests.test_clumsy_hidden_window_hardware::test_owned_clumsy_is_hidden_until_authenticated_diagnostic_restore",
+        "tests.test_direct_clumsy_event_hardware::test_explicit_direct_clumsy_event_runs_and_releases_cleanly",
+        "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlink_root",
+        "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[False]",
+        "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[True]",
+        "tests.test_hardware_smoketest::test_bundled_clumsy_gui_automation_starts_verified",
+        "tests.test_hardware_smoketest::test_each_advertised_module_receives_hardware_traffic",
+        "tests.test_hardware_smoketest::test_scan_then_lag_then_stop_pipeline",
+        "tests.test_release_data::test_prepare_rejects_real_symlink_escape_when_supported"
+      ],
+      "tracked_source_unchanged": true
+    },
+    "python_version": "3.13.17",
+    "receipt": {
+      "path": "build/msvc-private-stage-20261124/full-source-tests-clean/receipt.json",
+      "sha256": "e77f9244c5bcd37ba5b59e88e88f17ebcd3b20b46332fa4f4edcedce2a523505",
+      "size": 3085
+    },
+    "runner_is_admin": false,
+    "skipped_test_ids": [
+      "tests.test_clumsy_full_controls_hardware::test_every_clumsy_control_runs_on_one_owned_private_target",
+      "tests.test_clumsy_hidden_window_hardware::test_owned_clumsy_is_hidden_until_authenticated_diagnostic_restore",
+      "tests.test_direct_clumsy_event_hardware::test_explicit_direct_clumsy_event_runs_and_releases_cleanly",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlink_root",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[False]",
+      "tests.test_hardware_diagnostics_redaction::test_redact_diagnostics_rejects_symlinks_in_source_tree[True]",
+      "tests.test_hardware_smoketest::test_bundled_clumsy_gui_automation_starts_verified",
+      "tests.test_hardware_smoketest::test_each_advertised_module_receives_hardware_traffic",
+      "tests.test_hardware_smoketest::test_scan_then_lag_then_stop_pipeline",
+      "tests.test_release_data::test_prepare_rejects_real_symlink_escape_when_supported"
+    ],
+    "tracked_source_unchanged": true
+  },
+  "gpu_runtime": {
+    "consumer_log": {
+      "path": "build/msvc-private-stage-20261124/gpu-consumer-hash-bound.log",
+      "sha256": "28d51aeaf6998245979b748069b9725f7cea289cc3fc4fbdcc097fe4f26d1444",
+      "size": 158
+    },
+    "consumer_validated_evidence_sha256": "98d77660aa9252e8cb66ebe37cfdfcfec0817f418e47e8197530616d71a0d565",
+    "lifecycle": {
+      "commit": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+      "cycles_per_profile": 1,
+      "executable": "DupeZ-GPU.exe",
+      "executable_sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+      "generated_at_utc": "2026-11-24T19:54:14Z",
+      "network_validation_mode": "production-safety-dry-run",
+      "runs": [
+        {
+          "architecture_observed": "Architecture: split | Admin: False",
+          "clean_exit": true,
+          "commit": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-GPU.exe",
+          "executable_sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+          "exit_code": 0,
+          "launched_from_admin": false,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-GPU.exe"
+          ],
+          "profile": "normal",
+          "source_fingerprint": "6895b94e4b53dbeb3c38cc8cb006986d2ae563f3717aee09a441546774097bf4",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-24T19:53:25Z",
+          "startup_duration_ms": 9436,
+          "validation_session_id": "ced80957-1571-4f1d-ae5e-edfcc4e1ef90",
+          "variant": "GPU",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 139575296
+        },
+        {
+          "architecture_observed": "Architecture: split | Admin: False",
+          "clean_exit": true,
+          "commit": "a017ee201d2eff57aae3e3abbfc6284af89f3f36",
+          "crash_files": [],
+          "cycle": 1,
+          "executable": "DupeZ-GPU.exe",
+          "executable_sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+          "exit_code": 0,
+          "launched_from_admin": false,
+          "map_result": "Map: dashboard view active with manual approved URL",
+          "network_validation_mode": "production-safety-dry-run",
+          "process_names_observed": [
+            "DupeZ-GPU.exe"
+          ],
+          "profile": "forced-low-resource",
+          "source_fingerprint": "6895b94e4b53dbeb3c38cc8cb006986d2ae563f3717aee09a441546774097bf4",
+          "source_state": "clean",
+          "started_at_utc": "2026-11-24T19:53:57Z",
+          "startup_duration_ms": 8287,
+          "validation_session_id": "ced80957-1571-4f1d-ae5e-edfcc4e1ef90",
+          "variant": "GPU",
+          "webengine_helper_observed": false,
+          "working_set_bytes": 172122112
+        }
+      ],
+      "schema": "dupez.frozen-runtime-validation.v4",
+      "source_fingerprint": "6895b94e4b53dbeb3c38cc8cb006986d2ae563f3717aee09a441546774097bf4",
+      "source_state": "clean",
+      "validation_host": {
+        "administrator": false,
+        "python": "3.13.17"
+      },
+      "validation_session_id": "ced80957-1571-4f1d-ae5e-edfcc4e1ef90",
+      "variant": "GPU"
+    },
+    "lifecycle_report": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/frozen-runtime-evidence-gpu.json",
+      "sha256": "98d77660aa9252e8cb66ebe37cfdfcfec0817f418e47e8197530616d71a0d565",
+      "size": 2711
+    },
+    "maintenance": {
+      "artifact": {
+        "name": "DupeZ-GPU.exe",
+        "sha256": "f1f7c0444dcc80325fcf6bfea2ad0670036d17b884e52f0c015675aa254f5973",
+        "size": 56753376
+      },
+      "checks": [
+        {
+          "check": "runtime-imports",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "check": "runtime-imports",
+            "ok": true
+          },
+          "report_sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179"
+        },
+        {
+          "check": "native-tls",
+          "exit_code": 0,
+          "observed_processes": 2,
+          "observed_processes_exited": true,
+          "report": {
+            "backend": "python-ssl",
+            "check": "native-tls",
+            "check_hostname": true,
+            "ok": true,
+            "qt_network": "excluded",
+            "verify_mode": "CERT_REQUIRED"
+          },
+          "report_sha256": "6581b72cfc1cd84f88d3c0b7bc20327a10f115372d8bccdfd53056ca9efedd4d"
+        }
+      ],
+      "dashboard_tested": false,
+      "network_tested": false,
+      "qt_build_profile": "frozen-raster-no-qtnetwork",
+      "release_approval": false,
+      "runner_is_admin": false,
+      "schema": "dupez.local-frozen-maintenance.v1",
+      "scope": "maintenance imports and local TLS backend only",
+      "variant": "GPU"
+    },
+    "maintenance_report": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/gpu-maintenance/maintenance-observation.json",
+      "sha256": "27fb44741911cc3d7d1001b3c5a9a64610e850c90f0cf675303ab9c5988f5203",
+      "size": 1267
+    },
+    "raw_reports": [
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/gpu-maintenance/runtime-imports.json",
+        "sha256": "5c76cb9b688a6a008bda6c1ef2196e7cbd81f651d7563567802f516b78a88179",
+        "size": 41
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/runtime/gpu-maintenance/native-tls.json",
+        "sha256": "6581b72cfc1cd84f88d3c0b7bc20327a10f115372d8bccdfd53056ca9efedd4d",
+        "size": 143
+      }
+    ],
+    "source_preflight": {
+      "path": "build/msvc-private-stage-20261124/source-preflight.log",
+      "sha256": "7bcbd4819eb2cf08659d6280442b36af83fd714b5a4a1183b6e028b3d89b6187",
+      "size": 488
+    },
+    "source_preflight_warning_count": 6
+  },
+  "installed_engineering_profile": {
+    "installation": {
+      "build_venv": "build-venv",
+      "installed_wheel_payload": "verified",
+      "log_sha256": "1ec03d2e3995ce570230f7ff79ec7fd27913a0602de9848485828802b0ab8d5d",
+      "notice_payload": "verified",
+      "pip_check": "passed"
+    },
+    "installation_receipt": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/installation-receipt.json",
+      "sha256": "f3b244b438395a02f82ad60fad935281d771d79669b7ba50a084ca4a847c2fe1",
+      "size": 215
+    },
+    "notice_payload": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/notices/license-payload.json",
+      "sha256": "de45fe5933b37ac29df9cd98eb91b579ad925cc6e53207f52cc95a4e003bc4f3",
+      "size": 256469
+    },
+    "profile": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/engineering-profile.json",
+      "sha256": "64b4bb70f3e371878c76d9dd3767a5bfb10b6dc79d5462a995133297fa6508dc",
+      "size": 103898
+    },
+    "runtime_distributions": 24,
+    "sbom": {
+      "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/engineering.sbom.json",
+      "sha256": "7bb24757aadf08fcf304abe1cb894119946e6d52083f25412fa87c6505045ec9",
+      "size": 106269
+    },
+    "source_notice_count": 304,
+    "wheelhouse_count": 31
+  },
+  "limitations": [
+    "Private stage bytes close ambient System32 collection for these two builds; signatures do not establish redistribution entitlement.",
+    "QtBase/Core correspondence, complete IUP correspondence and native toolchain/rebuild/source-delivery gaps remain open.",
+    "Qt Network is excluded from these frozen profiles, not patched upstream; targeted advisory research is not comprehensive native security clearance.",
+    "GPU validation used safety dry-runs; Compat runtime testing remains pending and no fresh UAC prompt was requested.",
+    "Hosted CI/billing and public release gates remain separate; no public binary release or license approval is asserted."
+  ],
+  "msvc_package_and_stage": {
+    "binaries": [
+      {
+        "cabinet_member": "msvcp140.dll_amd64",
+        "name": "MSVCP140.dll",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "cabinet_member": "msvcp140_1.dll_amd64",
+        "name": "MSVCP140_1.dll",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "cabinet_member": "msvcp140_2.dll_amd64",
+        "name": "MSVCP140_2.dll",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      }
+    ],
+    "consumed_artifacts": [
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux.cab",
+        "sha256": "25eec5c5812800d93950b5fa6768072d978127b42254a13f702be081f975805e",
+        "size": 140070
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/attached.cab",
+        "sha256": "8b1595b5d0001e0747371ecfc2dccb604dc836fba0a778566e97a6bdb0816bb8",
+        "size": 18091661
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux/0",
+        "sha256": "e82e62b82a1b09568e74a224c454bdcd41240b9f24cfc42fb2c5e0783345af7f",
+        "size": 9259
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/ux/u17",
+        "sha256": "0af0673e1f3ca87701e3c00d5ff004fccb00e2a983df1d72671c429cfef7f3c5",
+        "size": 7694
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/minimum-runtime/a1",
+        "sha256": "bab5d0257e6a18a4a008e683442e3077b38172dd61af3cb1c588b46724a714e2",
+        "size": 212992
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/minimum-runtime/a4",
+        "sha256": "6e8ee73933678c55973e83366e48e948b394c7a36743a36b7224c95de979b13f",
+        "size": 1065893
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140.dll_amd64",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140_1.dll_amd64",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/verified-package/dlls/msvcp140_2.dll_amd64",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      }
+    ],
+    "distribution_approved": false,
+    "elevation_requested": false,
+    "extraction_tool_observation": {
+      "name": "expand.exe",
+      "sha256": "e5cd2d9536b0729ce90368dce9d923dccfa6f75f2996e31bb349e6a75a2aa897",
+      "size": 73728
+    },
+    "global_installation_performed": false,
+    "installer_executed": false,
+    "license_document": {
+      "path": "build/msvc-redist-provenance-20261109/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "size": 39553
+    },
+    "license_reference": {
+      "document_sha256": "08651651a7602fc7c0e2763de0fde1ff9f868df2780597cd1775ee9d6441c783",
+      "document_size": 39553,
+      "document_title": "Microsoft Visual C++ V14 Redistributable and Runtime",
+      "document_updated": "2025-10-01",
+      "document_url": "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx",
+      "eula_id": "Cpp_v14_ENU.1033",
+      "package_license_url": "https://aka.ms/VCRedistLicense",
+      "redistribution_list": "https://learn.microsoft.com/en-us/visualstudio/releases/2026/redistribution",
+      "resolved_page": "https://visualstudio.microsoft.com/license-terms/vs2026-ga-visualcpp-v14-redist-runtime/",
+      "scope": "The package-linked runtime terms govern installation/use and restrict redistribution. The separate Visual Studio redistribution list is conditional on a valid Visual Studio license and its terms; no owner entitlement or redistribution determination is asserted."
+    },
+    "log": {
+      "path": "build/msvc-private-stage-20261124/package-verification.log",
+      "sha256": "034d7523dd464574302c8f7e1b6a28c25e180b24a0e8a566f75cdebb5a6bf8f3",
+      "size": 100
+    },
+    "package": {
+      "filename": "VC_redist.x64.exe",
+      "sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "signer_thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1",
+      "size": 18731856,
+      "url": "https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe",
+      "version": "14.51.36247.0",
+      "versioned_url": "https://aka.ms/vs/18/release/14.51.36247/VC_redist.x64.exe"
+    },
+    "receipt": {
+      "path": "build/msvc-private-stage-20261124/verified-package/receipt.json",
+      "sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+      "size": 10049
+    },
+    "signature_observations": [
+      {
+        "file_version": "14.51.36247.0",
+        "name": "package",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": "5.00 (WinBuild.160101.0800)",
+        "name": "expand.exe",
+        "product_version": "5.00",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "DC91E564D5BC1E3A8E02D6A8508682ABEA8A2443"
+      },
+      {
+        "file_version": null,
+        "name": "minimum-runtime.msi",
+        "product_version": null,
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": null,
+        "name": "minimum-runtime.cab",
+        "product_version": null,
+        "status": "Valid",
+        "subject": "CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "1D77A9B9E8FE2075D9AD15123257FB90DB0DA4A1"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "667BBA1E1F478221AA65DE4F75187A751B03A453"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140_1.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+      },
+      {
+        "file_version": "14.51.36247.0",
+        "name": "MSVCP140_2.dll",
+        "product_version": "14.51.36247.0",
+        "status": "Valid",
+        "subject": "CN=Microsoft Windows Software Compatibility Publisher, O=Microsoft Corporation, L=Redmond, S=Washington, C=US",
+        "thumbprint": "2650247AC56048BC7928663C02733D25898A1D6E"
+      }
+    ],
+    "stage": {
+      "manifest_sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+      "package_sha256": "843068991daaa1f73ad9f6239bce4d0f6a07a51f18c37ea2a867e9beca71295c",
+      "stage_receipt_sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+      "upstream_receipt_sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584"
+    },
+    "stage_files": [
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140.dll",
+        "sha256": "7c26614e1d733892c2deac7e245ce115504b1d80592dd0a01b08e3e5a55f89ca",
+        "size": 643512
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140_1.dll",
+        "sha256": "206c931bf90fdad8816de3b5e2ef80b2bcaa9406c89ecc05fe6fddffe251e982",
+        "size": 35768
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/msvc-runtime/MSVCP140_2.dll",
+        "sha256": "d50d7883f20d1dc6191768d3746f52dd9cac89c346ffaed5be1f110c2f34a838",
+        "size": 274872
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/msvc-runtime/stage-receipt.json",
+        "sha256": "16b99fabc31042036b04deb3f3e9347e15dfd446417756a7e6f51a7f1ff22c42",
+        "size": 1614
+      },
+      {
+        "path": "build/msvc-private-stage-20261124/runtime-checkout/build/qt-profile/msvc-runtime/upstream-receipt.json",
+        "sha256": "30217a7920995ff47e78edcc67972a15c07323892aba771874541de5717ec584",
+        "size": 10049
+      }
+    ],
+    "system_observation_compared": false
+  },
+  "native_source_rebuild_proven": false,
+  "observed_on": "2026-11-24",
+  "recipe_inputs": [
+    {
+      "path": "packaging/qt-candidate-inputs.json",
+      "sha256": "1b4b7c0c772293ef35d46abaa0bcfe9eb0eb6b17b06a1b8329aadb95c9ce3a23",
+      "size": 9760
+    },
+    {
+      "path": "packaging/qt-raster-inputs.json",
+      "sha256": "af97a4de1b3dd2f630687c8594c8c27f763fca7c0e33d1103bcca69f18bfdc2f",
+      "size": 9959
+    },
+    {
+      "path": "packaging/qt-raster-no-network-inputs.json",
+      "sha256": "5e248e866836780babc68451e12b9d05086c558d81ec3ac60577f2d28f349c18",
+      "size": 9895
+    },
+    {
+      "path": "packaging/msvc-redist-inputs.json",
+      "sha256": "7fd79dd1151616fa0fa27c16da0cddda6b7a158d41807438fabcb22cfba6888d",
+      "size": 3466
+    },
+    {
+      "path": "packaging/native_runtime_policy.py",
+      "sha256": "1c7c6ad26b6580f5b1c7f1f8436838dd313dcd54a28d5d25d5aca0af55fe2608",
+      "size": 22171
+    },
+    {
+      "path": "packaging/build_common.py",
+      "sha256": "6894ad4736b84a1744d0cdf7b1c6ec53c494b1ec966a8c4a48f6984e652165aa",
+      "size": 17502
+    },
+    {
+      "path": "packaging/release_data.py",
+      "sha256": "33e0665aea033fcf3a0a0937c663f26de8efcf1ed366b6b3feb408919d97ceae",
+      "size": 52808
+    },
+    {
+      "path": "packaging/binary-provenance.json",
+      "sha256": "5dcd2c3fe9e64565127d7a9780846150b26564331f03a7c5b5bd71df5391efa2",
+      "size": 1658
+    },
+    {
+      "path": "packaging/release-data.json",
+      "sha256": "f4ea4b72ad43484b94a7a005bcb61abfcaffd693f0292dc188e02293c67d9271",
+      "size": 1010
+    },
+    {
+      "path": "packaging/dupez_gpu.spec",
+      "sha256": "f1e6a03213ad4f57fed35082581f5b58ec25e860f61b5873f6cc030ba13d36fd",
+      "size": 812
+    },
+    {
+      "path": "packaging/dupez_compat.spec",
+      "sha256": "a97e769164b53c36e4a5d9f84c7291fa26af628561a42c759786f641b65f6ab9",
+      "size": 1014
+    },
+    {
+      "path": "packaging/hooks/hook-PyQt6.QtNetwork.py",
+      "sha256": "cc5f1aaa60c20ba9d9e03bba57c5c219dd26394fea6d89472758afefce4340c1",
+      "size": 482
+    },
+    {
+      "path": "requirements-locked.txt",
+      "sha256": "65306f4fed33ea9b01f640d7dd0420db54d4f7705561f730ee1cd1cd423ad4f2",
+      "size": 59844
+    },
+    {
+      "path": "requirements-test-locked.txt",
+      "sha256": "e034946067c34621e1199336de87c071ea3c1bc04d381cf9b5aec677d51dd740",
+      "size": 13127
+    },
+    {
+      "path": "packaging/requirements-build-locked.txt",
+      "sha256": "de37464d63d1b058d57cf3445452a2f7d9519c6305d7a7164165cdb6cc782ebc",
+      "size": 2733
+    },
+    {
+      "path": "packaging/third-party-components.json",
+      "sha256": "b4af6a502f08fbb7685c25121684a2a69f173f2f8d8392f4e579e4797327a71d",
+      "size": 9874
+    },
+    {
+      "path": "LICENSE.txt",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "size": 35149
+    },
+    {
+      "path": "scripts/prepare_qt_candidate.py",
+      "sha256": "fb4c4785e4afafd1a755255d125260d5667895fc608bb04fb11a52e399e7ffbd",
+      "size": 36411
+    },
+    {
+      "path": "scripts/prepare_qt_adoption.py",
+      "sha256": "4d3be3fc242183eae6962afafdfe57900c4cdaa3a8a650442b75b0607c5ad7fd",
+      "size": 26873
+    },
+    {
+      "path": "scripts/license_payload.py",
+      "sha256": "a54a088a5475811e9369bd78f4c705bc2d15fdfe9a3471eacd1d827cf2cf792d",
+      "size": 32828
+    },
+    {
+      "path": "scripts/sbom.py",
+      "sha256": "40397a56c7c12f50d783c3d13208fb17047723faf1a93ee3035b0661a94b49c8",
+      "size": 7266
+    },
+    {
+      "path": "scripts/verify_requirements_lock.py",
+      "sha256": "c71e7d9518269388c16e62276f88e4a6506b686c1586757bfcc01743b01fdc4e",
+      "size": 14264
+    },
+    {
+      "path": "scripts/native_build_evidence.py",
+      "sha256": "bfb532794003c67ff4aa8be48d5441b87cdc2c255ae843f725ef67b1010c4164",
+      "size": 19208
+    },
+    {
+      "path": "scripts/release_preflight.py",
+      "sha256": "506bf5458c64f43b128adc751e06332fb8b1fee4027a9454aa40cdd9f216012b",
+      "size": 121964
+    },
+    {
+      "path": "scripts/verify_msvc_redist.py",
+      "sha256": "142e6fde9e273368a5a094629741159d4a190637f14bdf9ad66c747969c601a4",
+      "size": 24150
+    },
+    {
+      "path": "scripts/msvc_runtime_stage.py",
+      "sha256": "f30e92e936cc08fcfe3ad27be1a99a5238006d9cb73d8561c9577773aef99540",
+      "size": 10997
+    },
+    {
+      "path": "scripts/verify_iup_source_revision.py",
+      "sha256": "7c861f108007d68949c4b92048db7da196938a49a3ca2144d332849045372aab",
+      "size": 9202
+    },
+    {
+      "path": "scripts/verify_frozen_maintenance.py",
+      "sha256": "9c0fa9267f24b62c99ef941071d36c3af36513cfd29aa22ad510e4f819c119c6",
+      "size": 8552
+    },
+    {
+      "path": "scripts/probe_python_tls.py",
+      "sha256": "c37f7a354d5cecb1eb7d63d601772d5ad9240e54602811d46a784cba5f032e0c",
+      "size": 11848
+    },
+    {
+      "path": "scripts/validate_frozen_runtime.py",
+      "sha256": "44d1d4aaead0d01e3b4e16cb71c9bab1cfde96a3853e1e1543a0e11456d3c471",
+      "size": 85139
+    },
+    {
+      "path": "scripts/validate_frozen_runtime.ps1",
+      "sha256": "92f25bb40db2adad6d7f89899a550c0c1563543a170233d2cfab9f211c0b65b0",
+      "size": 2216
+    },
+    {
+      "path": "scripts/frozen_runtime_evidence_contract.ps1",
+      "sha256": "184d9c95ce40d06b06b528c306c17e21008d065b994e5d1c1ba149f0bff744a3",
+      "size": 10264
+    },
+    {
+      "path": "app/core/qt_startup.py",
+      "sha256": "945697b482624ccb3a33d4fabaccd6114d6231d0beaa1df9d1720681ab44cd2a",
+      "size": 4190
+    },
+    {
+      "path": "app/gui/map_host/launcher.py",
+      "sha256": "9cca103e284ae070508eea9722dd0157a4d01a69c8be0e5043895d23e5f5e5b4",
+      "size": 69522
+    },
+    {
+      "path": "app/gui/map_host/renderer_tier.py",
+      "sha256": "5e20584edfa6b2247045182d0efe22c38b3fb99c645651dbf2870193b98de093",
+      "size": 6396
+    },
+    {
+      "path": "dupez.py",
+      "sha256": "7ce5d03436f65a417f6726f4e2fee1d69608025158638d876db21f21d9bfcee4",
+      "size": 19713
+    },
+    {
+      "path": "app/main.py",
+      "sha256": "64cdbb93c31cd8c0ee9fe9d99b3cffffa8ff12ae70645eee3ae25476f482d90a",
+      "size": 29841
+    },
+    {
+      "path": "tests/test_no_qtnetwork_build_policy.py",
+      "sha256": "b6abf44a2e7479c1fe23aef6c7e1b234637529cfae5224bec0b9dfdf376a58fa",
+      "size": 14627
+    },
+    {
+      "path": "tests/test_no_qtnetwork_runtime.py",
+      "sha256": "a12187a4fb8df6abfcbdc6a7cdebd54b72639e974f7476678ac26aa833eb56ea",
+      "size": 2743
+    },
+    {
+      "path": "tests/test_native_build_evidence.py",
+      "sha256": "732c7c16e2cb9f68a64cf4520e503e86a44c722692df0e886ce2b1aa54c560d3",
+      "size": 18346
+    },
+    {
+      "path": "tests/test_prepare_qt_candidate.py",
+      "sha256": "619a21b14c42499f80b213d95b0fd81f23dd2a96475066f64484f20b2631dbff",
+      "size": 32767
+    },
+    {
+      "path": "tests/test_prepare_qt_adoption.py",
+      "sha256": "5680f93e4d2e4798d19cfe2b6738892934a86abf6382c9be14c2aa398c3d43e3",
+      "size": 22453
+    },
+    {
+      "path": "tests/test_msvc_runtime_stage.py",
+      "sha256": "7469c49133717865bb9fa606a0f1a0b37ec0768c6be52daea01d892e9429ddff",
+      "size": 9746
+    },
+    {
+      "path": "tests/test_verify_msvc_redist.py",
+      "sha256": "4868989b20a4f74be52c8e8c4e08099e41b496cad62381bb385445788242ed05",
+      "size": 12860
+    },
+    {
+      "path": "tests/test_verify_iup_source_revision.py",
+      "sha256": "4265ffbb54d9bc4e365b02cabb7b66f54823894d985b05d1c3c109342f2e187b",
+      "size": 6686
+    }
+  ],
+  "release_approved": false,
+  "research_records": [
+    {
+      "path": "packaging/license-evidence/iup-source-review-2026-11-24.json",
+      "sha256": "f5b7f1c2db958a9d0a8359c04e9b1b6196aee55bb0c981070a53e43512248f14",
+      "size": 11151
+    },
+    {
+      "path": "packaging/license-evidence/qt-security-refresh-2026-11-24.json",
+      "sha256": "ff5892eb664e5a8371b25811c790a76b1159c4dcab9cf79f91424a204e35d230",
+      "size": 17805
+    },
+    {
+      "path": "packaging/license-evidence/qt-primary-metadata-2026-11-24.json",
+      "sha256": "93a884cc4825986132149d3d3414991800016e3d1969789b6fb4471f7504d679",
+      "size": 18952
+    }
+  ],
+  "runner_recipes": [
+    {
+      "path": "build/msvc-private-stage-20261124/build_checkpoint.py",
+      "sha256": "10acc295fa4cd5368981b6b02c965682a2a06c762d5623a9b078e2ce48771453",
+      "size": 3645
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/verify_archives.py",
+      "sha256": "17e4da4a91806ac997c8cdf799d3a129d27ae6242b869ba770b42802c86b65ba",
+      "size": 2161
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/verify_gpu_runtime.py",
+      "sha256": "e38e08f520fa9fd6b7d03c71782536542ce973bcc3dced271f1c222ba66e38e2",
+      "size": 2592
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/run_full_tests.py",
+      "sha256": "3a01a36c60269608bb70a4a931934b53d719ca8fc9c6f7ea427b671fbf3dd03e",
+      "size": 6244
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/run_full_tests_clean.py",
+      "sha256": "a1fd3e87b99ab2d6673faaa0f32c8398fe6f5dad38a5178475abbea2980fc058",
+      "size": 6751
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/run_lint_ast.py",
+      "sha256": "5ab69e6b1cedab12ae5048596026a96d1d39c48954bf6d1bf148604e2a6638a7",
+      "size": 6800
+    },
+    {
+      "path": "build/msvc-private-stage-20261124/check-gpu-evidence.ps1",
+      "sha256": "bcf14973b645581be8602d85977d7aeb7f9c3cf47d3fbaf2d02f786dae6977b0",
+      "size": 939
+    }
+  ],
+  "schema": "dupez.private-msvc-build-verification.v1",
+  "source_archive": {
+    "path": "build/msvc-private-stage-20261124/DupeZ-v5.8.0-source.zip",
+    "sha256": "50dfdbbc549a70ea00c115a5dd518d47f7ce50783a559a34314aedc0bdf0e989",
+    "size": 25230960
+  },
+  "source_checkout_clean": true,
+  "source_lint_and_ast": {
+    "ast_failures": [],
+    "log": {
+      "path": "build/msvc-private-stage-20261124/lint-ast.log",
+      "sha256": "2d5186b3649a598bf45e5bf11d346c3ff0b6d67127aafc5eb727d3d0cd9c3d3f",
+      "size": 363
+    },
+    "receipt": {
+      "path": "build/msvc-private-stage-20261124/lint-ast-receipt.json",
+      "sha256": "87a45b38edce09c6256be51369c481e9a588926a6740f7a89ae4b55cc9dba438",
+      "size": 79215
+    },
+    "recipe": {
+      "path": "build/msvc-private-stage-20261124/run_lint_ast.py",
+      "sha256": "5ab69e6b1cedab12ae5048596026a96d1d39c48954bf6d1bf148604e2a6638a7",
+      "size": 6800
+    },
+    "ruff_passed": true,
+    "ruff_version": "0.7.4",
+    "source_unchanged": true,
+    "tracked_python_files": 469
+  },
+  "status": "verified-private-msvc-engineering-builds-compat-runtime-pending",
+  "unchanged_qt_candidate": {
+    "prior_verified_record": {
+      "path": "packaging/license-evidence/qt-network-exclusion-2026-11-09.json",
+      "sha256": "4d8dfdfba9879a30db760204681fcd07c558f0eecbb528ff7c0d4cc15c167908",
+      "size": 111904
+    },
+    "scope": "Unchanged derived Qt wheel; prior recipient/preparation evidence remains historical. No fresh native Qt compilation is claimed.",
+    "wheel_sha256": "27e8195852d1305cfad3ac88d47f19e32679229e3461fa6a4ac0e42fa09fef8a"
+  }
+}

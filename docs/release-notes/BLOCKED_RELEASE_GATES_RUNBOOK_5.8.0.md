@@ -4,27 +4,28 @@ This runbook completes the protected v5.8.0 artifact gates in strict order.
 Source tests and a clean merge are prerequisites, not substitutes for testing
 the exact frozen files that will be published.
 
-## Current status — November 9
+## Current status — November 24
 
-The owner has already selected GPL-3.0-only with corresponding source and the
-explicitly disclosed unsigned/manual-install route. Those choices remain in
-force; no new license-route or signing-route selection is needed.
+GPL-3.0-only with corresponding source and the disclosed unsigned/manual-install
+route remain selected. No new license-route or signing-route choice is needed.
 
-Clean engineering checkpoint `22cddda` introduces
-`frozen-raster-no-qtnetwork`. Both frozen builds pass exact-source/archive and
-native-byte checks. The full source suite passes 3,825 tests with ten expected
-skips; GPU maintenance, both dashboard safety dry-run lifecycle profiles and
-the actual PowerShell 5.1 evidence consumer pass. **Compat runtime testing
-remains pending per owner instruction; no new UAC or Compat launch was
-attempted.** Prior Compat passes and the older raster UAC cancellation remain
-valid only for their recorded artifacts. See the
-[new exclusion audit](../audits/QT_NETWORK_EXCLUSION_2026-11-09.md).
+Clean engineering checkpoint `a017ee2` supplies pinned Microsoft runtime DLLs
+from a private stage. Both builds pass source/archive/native inspection with
+114 entries each and no System32-origin files. The full source suite records
+**3,901 passed, 10 expected skips**; Ruff/AST pass all 469 tracked Python files. GPU
+import/TLS maintenance, both safety dry-run lifecycle profiles and the actual
+hash-bound PowerShell 5.1 consumer pass. **Compat runtime remains pending per
+owner instruction; no new UAC or Compat launch was attempted.** See the
+[private runtime audit](../audits/MSVC_PRIVATE_STAGE_2026-11-24.md).
 
-The last verified pushed head, `3f15a41`, had all 14 required hosted checks
-blocked before execution by GitHub's account billing lock. Refresh that dated
-observation on the newest pushed head. No billing, spending or subscription
-change was made. The existing private owner billing steps below remain the
-next action; local tests do not replace protected hosted checks.
+The last inspected pushed head `078067c` had all 14 hosted checks blocked before
+execution by GitHub's billing lock on November 9. Refresh checks on the newest
+push. No billing, spending or subscription change was made; the private owner
+steps below remain applicable if that restriction continues.
+
+Next engineering work is the coordinated Qt 6.12.1 candidate and retained native
+source/rebuild mapping. The seven exact IUP source matches are partial evidence;
+full corresponding-source and public recipient delivery remain unfinished.
 
 ## Preconditions
 
